@@ -12,13 +12,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import WalkInContractorForm from "@/components/WalkInContractorForm";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
 import HSAcceptanceModal from "@/components/HSAcceptanceModal";
-import { 
-  HardHat, 
-  QrCode, 
-  UserCheck, 
-  Clock, 
-  Building2, 
-  Mail, 
+import {
+  HardHat,
+  QrCode,
+  Clock,
+  Building2,
+  Mail,
   Phone,
   CheckCircle,
   AlertTriangle,
@@ -28,27 +27,25 @@ import {
   UserPlus,
   CalendarPlus,
   Scan,
-  History,
   ArrowLeft,
-  Video
+  Video,
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker, CompanySettings } from "@shared/schema";
 
 export default function ContractorKiosk() {
   const { toast } = useToast();
-  const [activeSection, setActiveSection] = useState<"main" | "scan" | "walkin" | "prebook" | "checkin" | "history">("main");
+  const [activeSection, setActiveSection] = useState<"main" | "scan" | "walkin" | "prebook" | "checkin">("main");
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedWorker, setSelectedWorker] = useState<ContractorWorker | null>(null);
-  const [showPassModal, setShowPassModal] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<string>("");
   const [companySearchTerm, setCompanySearchTerm] = useState("");
   const [scannedCode, setScannedCode] = useState("");
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [checkedInWorker, setCheckedInWorker] = useState<ContractorWorker | null>(null);
   const [checkedInCompanyName, setCheckedInCompanyName] = useState<string>("");
-  
-  // Host selection state for contractor check-in (same as visitor workflow)
+  const [isQrLookupLoading, setIsQrLookupLoading] = useState(false);
+
+  // Host selection state
   const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<ContractorWorker | null>(null);
   const [showHostSelection, setShowHostSelection] = useState(false);
   const [selectedHostForWorker, setSelectedHostForWorker] = useState("");
@@ -70,7 +67,6 @@ export default function ContractorKiosk() {
     enabled: !!selectedCompany,
   });
 
-  // Staff query for host selection (same as visitor workflow)
   const { data: staff = [] } = useQuery<any[]>({
     queryKey: ["/api/staff"],
   });
@@ -85,11 +81,12 @@ export default function ContractorKiosk() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedCompany}/workers`] });
-      
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+
       setShowHostSelection(false);
       setSelectedWorkerForCheckIn(null);
       setSelectedHostForWorker("");
-      
+
       if (data.ePassSent) {
         toast({
           title: "Digital Pass Sent",
@@ -99,37 +96,27 @@ export default function ContractorKiosk() {
       } else {
         const worker = data.worker;
         const company = companies.find(c => c.id === worker.companyId);
-        
         setCheckedInWorker(worker);
         setCheckedInCompanyName(company?.name || "Unknown Company");
         setShowPassPreview(true);
-        
         toast({
-          title: "Success",
-          description: "Worker checked in successfully! Pass preview will open for printing.",
+          title: "Checked In",
+          description: `${worker.firstName} ${worker.lastName} checked in successfully!`,
         });
       }
     },
     onError: (error) => {
-      let errorMessage = "Failed to check in worker";
       let errorDetails = "";
-      
       try {
-        // Try to parse the error response for detailed information
         const errorText = error.message;
         if (errorText.includes("details")) {
           const match = errorText.match(/details":"([^"]+)"/);
-          if (match) {
-            errorDetails = match[1];
-          }
+          if (match) errorDetails = match[1];
         }
-      } catch (e) {
-        // If parsing fails, use default message
-      }
-      
+      } catch (e) {}
       toast({
         title: "Cannot Check In",
-        description: errorDetails || errorMessage,
+        description: errorDetails || "Failed to check in worker",
         variant: "destructive",
       });
     },
@@ -140,10 +127,11 @@ export default function ContractorKiosk() {
       const response = await apiRequest("POST", `/api/contractors/workers/${workerId}/checkout`);
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (_, workerId) => {
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedCompany}/workers`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
       toast({
-        title: "Success",
+        title: "Checked Out",
         description: "Worker checked out successfully!",
       });
     },
@@ -156,29 +144,74 @@ export default function ContractorKiosk() {
     },
   });
 
-  // Handler for starting contractor check-in (same pattern as visitors)
+  // QR scan handler — looks up worker by their ID (encoded in the QR code)
+  const handleQrScan = async () => {
+    const code = scannedCode.trim();
+    if (!code) {
+      toast({ title: "No code entered", description: "Please scan or type a QR code", variant: "destructive" });
+      return;
+    }
+
+    setIsQrLookupLoading(true);
+    try {
+      const response = await fetch(`/api/contractors/workers/by-qr/${encodeURIComponent(code)}`, {
+        credentials: "include",
+      });
+
+      if (response.status === 404) {
+        toast({
+          title: "QR Code Not Recognised",
+          description: "This pass was not found. Please see reception for assistance.",
+          variant: "destructive",
+        });
+        setScannedCode("");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error("Lookup failed");
+      }
+
+      const { worker, companyName } = await response.json();
+      setScannedCode("");
+
+      if (worker.isCheckedIn) {
+        // Immediately check out
+        checkOutMutation.mutate(worker.id);
+        toast({
+          title: "Checking Out…",
+          description: `Processing checkout for ${worker.firstName} ${worker.lastName}`,
+        });
+      } else {
+        // Trigger host selection → H&S → check-in
+        setSelectedWorkerForCheckIn(worker);
+        setCheckedInCompanyName(companyName);
+        setShowHostSelection(true);
+      }
+    } catch (err) {
+      toast({
+        title: "Scan Error",
+        description: "Could not process the QR code. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsQrLookupLoading(false);
+    }
+  };
+
   const handleWorkerCheckIn = (worker: ContractorWorker) => {
     setSelectedWorkerForCheckIn(worker);
     setShowHostSelection(true);
   };
 
-  // Handler for confirming host selection and proceeding with check-in
   const handleHostSelectionConfirm = () => {
     if (!selectedHostForWorker) {
-      toast({
-        title: "Error",
-        description: "Please select a host",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Please select a host", variant: "destructive" });
       return;
     }
 
     if (selectedWorkerForCheckIn) {
-      const checkinData = {
-        workerId: selectedWorkerForCheckIn.id,
-        hostId: selectedHostForWorker
-      };
-
+      const checkinData = { workerId: selectedWorkerForCheckIn.id, hostId: selectedHostForWorker };
       const settingsAny = settings as any;
       if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
         setShowHostSelection(false);
@@ -186,7 +219,6 @@ export default function ContractorKiosk() {
         setShowHSModal(true);
         return;
       }
-
       checkInMutation.mutate(checkinData);
     }
   };
@@ -204,8 +236,7 @@ export default function ContractorKiosk() {
     setPendingCheckin(null);
   };
 
-  // Show ALL contractors, not just approved ones
-  const filteredCompanies = companies.filter(company => 
+  const filteredCompanies = companies.filter(company =>
     company.name.toLowerCase().includes(companySearchTerm.toLowerCase())
   );
 
@@ -215,14 +246,7 @@ export default function ContractorKiosk() {
     worker.email?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const calculateComplianceScore = (documentsStatus: any) => {
-    if (!documentsStatus) return 0;
-    const total = Object.keys(documentsStatus).length;
-    const approved = Object.values(documentsStatus).filter(status => status === 'approved').length;
-    return Math.round((approved / total) * 100);
-  };
-
-  // Handle different sections
+  // ─── Walk-in sub-section ───────────────────────────────────────────────────
   if (activeSection === "walkin") {
     return (
       <div className="min-h-screen bg-background">
@@ -231,94 +255,148 @@ export default function ContractorKiosk() {
     );
   }
 
+  // ─── QR Scan sub-section ───────────────────────────────────────────────────
   if (activeSection === "scan") {
     return (
-      <div className="min-h-screen bg-background p-4 md:p-6">
-        <div className="max-w-4xl mx-auto space-y-6">
-          <GlassCard className="text-center">
-            <h2 className="text-3xl font-bold text-fixed mb-4">QR Code Scanner</h2>
-            <p className="text-variable">Scan contractor worker pass or pre-booking QR code</p>
-          </GlassCard>
-          
-          <GlassCard className="p-8">
-            <div className="text-center space-y-6">
-              <div className="w-32 h-32 mx-auto border-4 border-dashed border-blue-400 rounded-xl flex items-center justify-center bg-blue-50">
-                <QrCode className="text-blue-600" size={40} />
+      <div className="min-h-screen max-h-screen overflow-auto bg-background p-2 sm:p-3 flex flex-col">
+        {settings?.bannerUrl && (
+          <div className="w-full max-w-3xl mx-auto mb-2 sm:mb-3 rounded-xl sm:rounded-2xl overflow-hidden flex-shrink-0">
+            <img
+              src={`/objects${settings.bannerUrl}`}
+              alt={settings.companyName || ''}
+              className="w-full h-auto object-contain max-h-28 sm:max-h-36 lg:max-h-40"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const container = e.currentTarget.parentElement;
+                if (container) container.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+
+        <div className="max-w-3xl mx-auto space-y-4 sm:space-y-6 flex-1 flex flex-col justify-center">
+          <div className="text-center flex-shrink-0">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-fixed mb-2 sm:mb-4">
+              QR Code Scanner
+            </h2>
+            <p className="text-variable text-base sm:text-lg lg:text-xl">
+              Scan your contractor pass to check in or check out
+            </p>
+          </div>
+
+          <GlassCard className="p-4 sm:p-6 lg:p-8 flex-1 flex flex-col justify-center max-h-96">
+            <div className="text-center space-y-4 sm:space-y-6">
+              <div className="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 mx-auto border-4 border-dashed border-purple-400 rounded-xl flex items-center justify-center bg-purple-50">
+                <QrCode className="text-purple-600" size={40} />
               </div>
-              
-              <div className="space-y-4">
+
+              <div className="space-y-3 sm:space-y-4">
                 <Input
                   type="text"
-                  placeholder="Scan QR code or enter code manually..."
+                  placeholder="Scan QR code or enter ID manually…"
                   value={scannedCode}
                   onChange={(e) => setScannedCode(e.target.value)}
-                  className="w-full px-6 py-6 rounded-xl text-center font-mono text-xl"
+                  onKeyDown={(e) => e.key === "Enter" && handleQrScan()}
+                  className="w-full px-4 sm:px-6 py-4 sm:py-6 rounded-xl text-center font-mono text-lg sm:text-xl lg:text-2xl"
                   data-testid="input-contractor-qr-code"
                   autoFocus
                 />
-                
-                <div className="flex gap-4">
+
+                <div className="flex gap-3 sm:gap-4">
                   <Button
-                    onClick={() => {/* Handle scan */}}
-                    className="flex-1 bg-blue-600 hover:bg-blue-700 h-14 text-lg"
+                    onClick={handleQrScan}
+                    disabled={isQrLookupLoading || checkOutMutation.isPending}
+                    className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white h-12 sm:h-14 lg:h-16 text-base sm:text-lg lg:text-xl font-semibold"
                     data-testid="button-scan-contractor-qr"
                   >
-                    <Scan className="mr-3" size={20} />
-                    Scan
+                    <Scan className="mr-2 sm:mr-3" size={20} />
+                    {isQrLookupLoading || checkOutMutation.isPending ? "Processing…" : "Scan"}
                   </Button>
-                  
+
                   <Button
                     variant="outline"
-                    onClick={() => setActiveSection("main")}
-                    className="px-8 h-14 text-lg"
+                    onClick={() => { setActiveSection("main"); setScannedCode(""); }}
+                    className="px-6 sm:px-8 h-12 sm:h-14 lg:h-16 text-base sm:text-lg"
                   >
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back
                   </Button>
                 </div>
               </div>
+
+              <div className="text-sm sm:text-base space-y-1 text-variable">
+                <p>✓ Scan your contractor pass QR code to check in</p>
+                <p>✓ If already checked in, scanning checks you out</p>
+              </div>
             </div>
           </GlassCard>
         </div>
-      </div>
-    );
-  }
 
-  if (activeSection === "history") {
-    return (
-      <div className="min-h-screen bg-background p-4 md:p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <GlassCard className="text-center">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <History className="h-10 w-10 text-variable" />
-              <h1 className="text-3xl font-bold text-fixed">Previous Contractor Visits</h1>
+        {/* Modals rendered at scan level so host selection works from QR flow */}
+        <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>
+                Select Host for {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-variable">
+                Who is {selectedWorkerForCheckIn?.firstName} visiting today?
+              </p>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Host Staff Member *</Label>
+                <Select value={selectedHostForWorker} onValueChange={setSelectedHostForWorker}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select host staff member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {staff?.map((member: any) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.firstName} {member.lastName} — {member.department}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <p className="text-variable">View history and analytics of contractor activity</p>
-          </GlassCard>
-
-          <GlassCard className="p-8">
-            <div className="text-center space-y-4">
-              <p className="text-variable">Contractor visit history and analytics coming soon...</p>
-              <Button
-                variant="outline"
-                onClick={() => setActiveSection("main")}
-                className="text-variable"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Menu
+            <DialogFooter className="mt-6">
+              <Button variant="outline" onClick={() => { setShowHostSelection(false); setSelectedWorkerForCheckIn(null); setSelectedHostForWorker(""); }}>
+                Cancel
               </Button>
-            </div>
-          </GlassCard>
-        </div>
+              <Button onClick={handleHostSelectionConfirm} disabled={!selectedHostForWorker || checkInMutation.isPending}>
+                {checkInMutation.isPending ? "Checking In…" : "Confirm Check-In"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <HSAcceptanceModal
+          isOpen={showHSModal}
+          companyName={(settings as any)?.companyName}
+          workerName={selectedWorkerForCheckIn ? `${selectedWorkerForCheckIn.firstName} ${selectedWorkerForCheckIn.lastName}` : undefined}
+          hsRulesContent={(settings as any)?.hsRulesContent || ""}
+          onAccept={handleHSAccepted}
+          onDecline={handleHSDeclined}
+        />
+
+        {checkedInWorker && (
+          <ContractorPassPreviewModal
+            isOpen={showPassPreview}
+            onClose={() => { setShowPassPreview(false); setCheckedInWorker(null); setCheckedInCompanyName(""); }}
+            worker={checkedInWorker}
+            companyName={checkedInCompanyName}
+          />
+        )}
       </div>
     );
   }
 
+  // ─── Manual Check-In sub-section (kept for admin/reception use) ────────────
   if (activeSection === "checkin") {
     return (
       <div className="min-h-screen bg-background p-4 md:p-6">
         <div className="max-w-6xl mx-auto space-y-6">
-          {/* Header */}
           <GlassCard className="text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
               <HardHat className="h-10 w-10 text-orange-600" />
@@ -327,38 +405,31 @@ export default function ContractorKiosk() {
             <p className="text-variable">Select registered contractor workers for check-in/out</p>
           </GlassCard>
 
-          {/* Company Selection with Search */}
           <GlassCard>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="company-select" className="text-lg font-semibold text-slate-700">
+                <Label className="text-lg font-semibold text-slate-700">
                   Select Contractor Company ({companies.length} total)
                 </Label>
-                <Button
-                  variant="outline"
-                  onClick={() => setActiveSection("main")}
-                  className="text-variable"
-                >
+                <Button variant="outline" onClick={() => setActiveSection("main")} className="text-variable">
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Back to Menu
                 </Button>
               </div>
-              
-              {/* Company Search */}
+
               <div className="relative">
                 <Search className="absolute left-3 top-3 h-5 w-5 text-variable" />
                 <Input
                   value={companySearchTerm}
                   onChange={(e) => setCompanySearchTerm(e.target.value)}
-                  placeholder="Search contractors by name..."
+                  placeholder="Search contractors by name…"
                   className="pl-10"
-                  data-testid="input-company-search"
                 />
               </div>
-              
+
               <Select value={selectedCompany} onValueChange={setSelectedCompany}>
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Choose a contractor company..." />
+                  <SelectValue placeholder="Choose a contractor company…" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px] overflow-y-auto">
                   {filteredCompanies.map((company) => {
@@ -367,13 +438,11 @@ export default function ContractorKiosk() {
                       if (rating.startsWith('B')) return 'bg-yellow-100 text-yellow-800';
                       if (rating.startsWith('C')) return 'bg-orange-100 text-orange-800';
                       if (rating.startsWith('D')) return 'bg-red-100 text-red-800';
-                      if (rating === 'F') return 'bg-red-200 text-red-900';
                       return 'bg-gray-100 text-gray-800';
                     };
-                    
                     return (
                       <SelectItem key={company.id} value={company.id}>
-                        <div className="flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-2">
                           <Building2 className="h-4 w-4 flex-shrink-0" />
                           <span className="truncate">{company.name}</span>
                           <Badge className={getSafetyRatingColor(company.complianceScore || 'N/A')}>
@@ -386,39 +455,28 @@ export default function ContractorKiosk() {
                       </SelectItem>
                     );
                   })}
-                  {filteredCompanies.length === 0 && companySearchTerm && (
-                    <div className="p-2 text-center text-variable">
-                      No contractors found matching "{companySearchTerm}"
-                    </div>
-                  )}
                 </SelectContent>
               </Select>
             </div>
           </GlassCard>
 
-          {/* Worker Search */}
           {selectedCompany && (
             <GlassCard>
               <div className="space-y-4">
-                <Label htmlFor="worker-search" className="text-lg font-semibold text-slate-700">
-                  Search Workers
-                </Label>
+                <Label className="text-lg font-semibold text-slate-700">Search Workers</Label>
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-5 w-5 text-variable" />
                   <Input
-                    id="worker-search"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Search by name or email..."
+                    placeholder="Search by name or email…"
                     className="pl-10"
-                    data-testid="input-worker-search"
                   />
                 </div>
               </div>
             </GlassCard>
           )}
 
-          {/* Workers List */}
           {selectedCompany && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {filteredWorkers.map((worker) => (
@@ -445,36 +503,29 @@ export default function ContractorKiosk() {
                       <div className="flex gap-2">
                         {worker.rightToWork === 'valid' ? (
                           <Badge className="bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            Right to Work
+                            <CheckCircle className="h-3 w-3 mr-1" />Right to Work
                           </Badge>
                         ) : (
                           <Badge variant="destructive">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            Right to Work
+                            <AlertTriangle className="h-3 w-3 mr-1" />Right to Work
                           </Badge>
                         )}
-                        
                         {worker.cscsStatus === 'valid' ? (
                           <Badge className="bg-green-100 text-green-800">
-                            <CheckCircle className="h-3 w-3 mr-1" />
-                            CSCS
+                            <CheckCircle className="h-3 w-3 mr-1" />CSCS
                           </Badge>
                         ) : (
                           <Badge variant="destructive">
-                            <AlertTriangle className="h-3 w-3 mr-1" />
-                            CSCS
+                            <AlertTriangle className="h-3 w-3 mr-1" />CSCS
                           </Badge>
                         )}
                       </div>
-                      
-                      {/* Check-In/Out or Induction Button */}
+
                       {worker.isCheckedIn ? (
                         <Button
                           onClick={() => checkOutMutation.mutate(worker.id)}
                           disabled={checkOutMutation.isPending}
                           className="bg-red-600 hover:bg-red-700 text-white"
-                          data-testid={`button-checkout-${worker.id}`}
                         >
                           <LogOut className="mr-2 h-4 w-4" />
                           Check Out
@@ -486,13 +537,9 @@ export default function ContractorKiosk() {
                             <p className="text-red-600 text-xs">Induction not completed</p>
                           </div>
                           <Button
-                            onClick={() => {
-                              const previewUrl = `/induction/preview?role=contractor&workerId=${worker.id}`;
-                              window.open(previewUrl, '_blank', 'width=1200,height=800');
-                            }}
+                            onClick={() => window.open(`/induction/preview?role=contractor&workerId=${worker.id}`, '_blank', 'width=1200,height=800')}
                             variant="outline"
                             className="border-blue-500 text-blue-600 hover:bg-blue-50"
-                            data-testid={`button-start-induction-${worker.id}`}
                           >
                             <Video className="mr-2 h-4 w-4" />
                             Start Induction
@@ -503,7 +550,6 @@ export default function ContractorKiosk() {
                           onClick={() => handleWorkerCheckIn(worker)}
                           disabled={checkInMutation.isPending}
                           className="bg-green-600 hover:bg-green-700 text-white"
-                          data-testid={`button-checkin-${worker.id}`}
                         >
                           <LogIn className="mr-2 h-4 w-4" />
                           Check In
@@ -527,113 +573,116 @@ export default function ContractorKiosk() {
     );
   }
 
-  // Main kiosk menu
+  // ─── Main kiosk menu ───────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
-      <div className="max-w-4xl mx-auto space-y-6">
-        {/* Header */}
-        <GlassCard className="text-center">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <HardHat className="h-12 w-12 text-orange-600" />
-            <h1 className="text-4xl font-bold text-fixed">Contractor Management</h1>
-          </div>
-          <p className="text-variable text-lg">Complete contractor check-in, registration, and booking system</p>
-        </GlassCard>
+    <div className="h-screen bg-background flex flex-col px-4 sm:px-6 lg:px-8 py-3 sm:py-4 overflow-hidden">
+      {/* Company banner */}
+      {settings?.bannerUrl && (
+        <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden flex-shrink-0" style={{ maxHeight: '18vh' }}>
+          <img
+            src={`/objects${settings.bannerUrl}`}
+            alt={settings.companyName || ''}
+            className="w-full h-full object-contain"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              const container = e.currentTarget.parentElement;
+              if (container) container.style.display = 'none';
+            }}
+          />
+        </div>
+      )}
 
-        {/* Main Menu Options */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* QR Code Scanner */}
-          <GlassCard 
-            className="hover:scale-105 transition-transform cursor-pointer" 
+      {/* Heading */}
+      <div className="text-center flex-shrink-0 py-2 sm:py-3">
+        <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-foreground mb-0.5">
+          {settings?.companyName ? `Welcome to ${settings.companyName}` : 'Contractor Check-In'}
+        </h2>
+        <p className="text-muted-foreground text-sm sm:text-base">Please select an option below</p>
+      </div>
+
+      {/* 3-column option grid */}
+      <div className="flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full min-h-0">
+        <div className="grid grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6">
+          {/* Scan QR Code */}
+          <div
+            className="cursor-pointer"
             onClick={() => setActiveSection("scan")}
             data-testid="card-qr-scanner"
           >
-            <div className="text-center p-8">
-              <div className="w-20 h-20 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
-                <QrCode className="h-10 w-10 text-blue-600" />
+            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+                <QrCode className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-xl font-bold text-fixed mb-2">Scan QR Code</h3>
-              <p className="text-variable">Check out workers or check in pre-booked contractors</p>
-            </div>
-          </GlassCard>
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Scan QR Code</h3>
+              <p className="text-muted-foreground text-xs sm:text-sm">Check in or check out with your pass</p>
+            </GlassCard>
+          </div>
 
           {/* Walk-in Registration */}
-          <GlassCard 
-            className="hover:scale-105 transition-transform cursor-pointer" 
+          <div
+            className="cursor-pointer"
             onClick={() => setActiveSection("walkin")}
             data-testid="card-walkin-registration"
           >
-            <div className="text-center p-8">
-              <div className="w-20 h-20 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-                <UserPlus className="h-10 w-10 text-green-600" />
+            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+                <UserPlus className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-xl font-bold text-fixed mb-2">Walk-in Contractor</h3>
-              <p className="text-variable">Register new contractor with document upload for clearance</p>
-            </div>
-          </GlassCard>
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Walk-in Contractor</h3>
+              <p className="text-muted-foreground text-xs sm:text-sm">Register and get your site pass</p>
+            </GlassCard>
+          </div>
 
-          {/* Contractor Check-In */}
-          <GlassCard 
-            className="hover:scale-105 transition-transform cursor-pointer" 
-            onClick={() => setActiveSection("checkin")}
-            data-testid="card-contractor-checkin"
-          >
-            <div className="text-center p-8">
-              <div className="w-20 h-20 mx-auto mb-4 bg-orange-100 rounded-full flex items-center justify-center">
-                <UserCheck className="h-10 w-10 text-orange-600" />
-              </div>
-              <h3 className="text-xl font-bold text-fixed mb-2">Contractor Check-In</h3>
-              <p className="text-variable">Check in/out registered contractor workers</p>
-            </div>
-          </GlassCard>
-
-          {/* Pre-booking */}
-          <GlassCard 
-            className="hover:scale-105 transition-transform cursor-pointer" 
+          {/* Pre-Book */}
+          <div
+            className="cursor-pointer"
             onClick={() => setActiveSection("prebook")}
             data-testid="card-prebook-contractor"
           >
-            <div className="text-center p-8">
-              <div className="w-20 h-20 mx-auto mb-4 bg-purple-100 rounded-full flex items-center justify-center">
-                <CalendarPlus className="h-10 w-10 text-purple-600" />
+            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+                <CalendarPlus className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-xl font-bold text-fixed mb-2">Pre-Book Contractor</h3>
-              <p className="text-variable">Schedule future contractor visits</p>
-            </div>
-          </GlassCard>
-
-          {/* Previous Visits */}
-          <GlassCard 
-            className="hover:scale-105 transition-transform cursor-pointer col-span-full" 
-            onClick={() => setActiveSection("history")}
-            data-testid="card-contractor-history"
-          >
-            <div className="text-center p-8">
-              <div className="w-20 h-20 mx-auto mb-4 bg-[var(--background)] rounded-full flex items-center justify-center">
-                <History className="h-10 w-10 text-variable" />
-              </div>
-              <h3 className="text-xl font-bold text-fixed mb-2">Previous Contractor Visits</h3>
-              <p className="text-variable">View history and analytics of contractor activity</p>
-            </div>
-          </GlassCard>
+              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Pre-Book Visit</h3>
+              <p className="text-muted-foreground text-xs sm:text-sm">Schedule a future contractor visit</p>
+            </GlassCard>
+          </div>
         </div>
+
+        {/* Instructions bar */}
+        <GlassCard className="p-4 sm:p-5 flex-shrink-0">
+          <h3 className="text-base sm:text-lg font-semibold text-fixed mb-3 text-center">Instructions</h3>
+          <div className="grid grid-cols-3 gap-4 sm:gap-6 text-variable">
+            <div className="text-center">
+              <QrCode className="mx-auto mb-1.5 text-purple-500" size={22} />
+              <p className="font-medium mb-0.5 text-sm text-foreground">Returning contractors</p>
+              <p className="text-xs text-muted-foreground">Scan your QR pass to check in or out</p>
+            </div>
+            <div className="text-center">
+              <UserPlus className="mx-auto mb-1.5 text-green-500" size={22} />
+              <p className="font-medium mb-0.5 text-sm text-foreground">New contractors</p>
+              <p className="text-xs text-muted-foreground">Register here to get your site pass</p>
+            </div>
+            <div className="text-center">
+              <CalendarPlus className="mx-auto mb-1.5 text-blue-500" size={22} />
+              <p className="font-medium mb-0.5 text-sm text-foreground">Pre-book a visit</p>
+              <p className="text-xs text-muted-foreground">Schedule future contractor visits</p>
+            </div>
+          </div>
+        </GlassCard>
       </div>
 
-      {/* Contractor Pass Preview Modal */}
+      {/* Pass preview modal */}
       {checkedInWorker && (
         <ContractorPassPreviewModal
           isOpen={showPassPreview}
-          onClose={() => {
-            setShowPassPreview(false);
-            setCheckedInWorker(null);
-            setCheckedInCompanyName("");
-          }}
+          onClose={() => { setShowPassPreview(false); setCheckedInWorker(null); setCheckedInCompanyName(""); }}
           worker={checkedInWorker}
           companyName={checkedInCompanyName}
         />
       )}
 
-      {/* Host Selection Dialog (same as visitor workflow) */}
+      {/* Host selection dialog */}
       <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -643,12 +692,10 @@ export default function ContractorKiosk() {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-variable">
-              Who is {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName} visiting today?
+              Who is {selectedWorkerForCheckIn?.firstName} visiting today?
             </p>
             <div className="space-y-2">
-              <Label htmlFor="host-select" className="text-sm font-medium">
-                Host Staff Member *
-              </Label>
+              <Label className="text-sm font-medium">Host Staff Member *</Label>
               <Select value={selectedHostForWorker} onValueChange={setSelectedHostForWorker}>
                 <SelectTrigger data-testid="select-contractor-host">
                   <SelectValue placeholder="Select host staff member" />
@@ -656,7 +703,7 @@ export default function ContractorKiosk() {
                 <SelectContent>
                   {staff?.map((member: any) => (
                     <SelectItem key={member.id} value={member.id}>
-                      {member.firstName} {member.lastName} - {member.department}
+                      {member.firstName} {member.lastName} — {member.department}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -666,7 +713,7 @@ export default function ContractorKiosk() {
           <DialogFooter className="mt-6">
             <Button
               variant="outline"
-              onClick={() => setShowHostSelection(false)}
+              onClick={() => { setShowHostSelection(false); setSelectedWorkerForCheckIn(null); setSelectedHostForWorker(""); }}
               data-testid="button-cancel-host-selection"
             >
               Cancel
@@ -676,15 +723,17 @@ export default function ContractorKiosk() {
               disabled={!selectedHostForWorker || checkInMutation.isPending}
               data-testid="button-confirm-host-selection"
             >
-              {checkInMutation.isPending ? "Checking In..." : "Confirm Check-In"}
+              {checkInMutation.isPending ? "Checking In…" : "Confirm Check-In"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
+      {/* H&S acceptance modal */}
       <HSAcceptanceModal
         isOpen={showHSModal}
         companyName={(settings as any)?.companyName}
+        workerName={selectedWorkerForCheckIn ? `${selectedWorkerForCheckIn.firstName} ${selectedWorkerForCheckIn.lastName}` : undefined}
         hsRulesContent={(settings as any)?.hsRulesContent || ""}
         onAccept={handleHSAccepted}
         onDecline={handleHSDeclined}

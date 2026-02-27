@@ -9753,6 +9753,40 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // Look up contractor worker by QR code (worker ID encoded in pass QR code)
+  app.get('/api/contractors/workers/by-qr/:qrCode', requireAuth, async (req, res) => {
+    try {
+      const { qrCode } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const customerDb = await databaseService.getCustomerDatabase(context);
+
+      // Worker QR codes encode the worker ID as the payload
+      const [worker] = await customerDb
+        .select()
+        .from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.id, qrCode))
+        .limit(1);
+
+      if (!worker) {
+        return res.status(404).json({ error: 'Worker not found for this QR code' });
+      }
+
+      // Fetch company name
+      const [company] = await customerDb
+        .select({ name: isolatedSchema.contractorCompanies.name })
+        .from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, worker.companyId))
+        .limit(1);
+
+      console.log(`🔍 QR lookup found worker: ${worker.firstName} ${worker.lastName} (${worker.isCheckedIn ? 'checked in' : 'checked out'})`);
+      res.json({ worker, companyName: company?.name || 'Unknown Company' });
+    } catch (error) {
+      console.error('Error looking up worker by QR:', error);
+      res.status(500).json({ error: 'Failed to look up worker' });
+    }
+  });
+
   // Get individual contractor worker by ID endpoint - CRITICAL MISSING ENDPOINT ADDED
   app.get('/api/contractors/workers/:id', requireAuth, async (req, res) => {
     try {
