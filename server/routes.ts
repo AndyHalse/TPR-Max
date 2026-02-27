@@ -12339,12 +12339,11 @@ This is an automated notification from your visitor management system.`;
         });
       }
       
-      // Check company approval status
-      if (company.status !== 'approved') {
+      // Check company status — only block suspended companies
+      if (company.status === 'suspended') {
         return res.status(400).json({ 
-          error: "Contractor company not approved",
-          details: `Cannot check in: Company ${company.companyName} is not approved (status: ${company.status || 'pending'})`,
-          issues: [`Contractor company is not approved (status: ${company.status || 'pending'})`]
+          error: `Cannot check in: Contractor company "${company.companyName}" is suspended`,
+          issues: [`Contractor company is suspended`]
         });
       }
       
@@ -16324,34 +16323,32 @@ This is an automated notification from your visitor management system.`;
       
       // Validation fields now correctly read from database
       
-      // Check company approval status first
-      if (company.status !== 'approved') {
-        issues.push(`Contractor company is not approved (status: ${company.status || 'pending'})`);
+      // Check company status — only block suspended companies (pending/active are fine)
+      if (company.status === 'suspended') {
+        issues.push(`Contractor company is suspended`);
       }
-      
-      // Note: isActive field doesn't exist in contractorWorkers schema - skip this check
-      // Workers are assumed active if they exist in the system
       
       // Handle inductionCompleted with proper default (schema defaults to false)
       const inductionCompleted = worker.inductionCompleted ?? false;
       if (!inductionCompleted) {
-        issues.push("Induction not completed");
+        issues.push("Site induction not completed");
       }
       
       // Handle rightToWork with proper default (schema defaults to 'pending')
       const rightToWorkStatus = worker.rightToWork ?? 'pending';
-      if (rightToWorkStatus !== 'valid') {
-        issues.push(`Right to work status: ${rightToWorkStatus}`);
+      if (rightToWorkStatus === 'expired') {
+        issues.push("Right to work has expired");
+      } else if (rightToWorkStatus !== 'valid') {
+        issues.push("Right to work not verified (status: pending)");
       }
       // Check for Red Card (site ban) - Yellow Cards are warnings only, not blockages
       if (worker.currentCardStatus === 'red') {
-        issues.push("Worker has active Red Card (site ban)");
+        issues.push("Worker has an active Red Card (site ban)");
       }
       
       if (issues.length > 0) {
         return res.status(400).json({ 
-          error: "Worker not cleared for check-in",
-          details: `Cannot check in: ${issues.join(', ')}`,
+          error: `Cannot check in: ${issues.join(' · ')}`,
           issues: issues
         });
       }

@@ -548,26 +548,10 @@ export default function ContractorManagement() {
         });
       }
     },
-    onError: (error) => {
-      let errorMessage = "Failed to check in contractor";
-      let errorDetails = "";
-      
-      try {
-        // Try to parse the error response for detailed information
-        const errorText = error.message;
-        if (errorText.includes("details")) {
-          const match = errorText.match(/details":"([^"]+)"/);
-          if (match) {
-            errorDetails = match[1];
-          }
-        }
-      } catch (e) {
-        // If parsing fails, use default message
-      }
-      
+    onError: (error: any) => {
       toast({
         title: "Cannot Check In",
-        description: errorDetails || errorMessage,
+        description: error?.message || "Failed to check in contractor",
         variant: "destructive",
       });
     },
@@ -907,6 +891,12 @@ export default function ContractorManagement() {
                         Work Auth
                       </span>
                     )}
+                    {!contractor.inductionCompleted && (
+                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800">
+                        <AlertTriangle className="h-3 w-3 mr-0.5" />
+                        No Induction
+                      </span>
+                    )}
                     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getSafetyRatingColor(contractor.safetyRating)}`}>
                       {contractor.safetyRating}
                     </span>
@@ -1006,24 +996,34 @@ export default function ContractorManagement() {
                         ) : null;
                       })()}
                     </div>
-                    {!contractor.isCheckedIn ? (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setWorkerForCheckIn(contractor);
-                          setCompanyForCheckIn(contractor.companyName);
-                          setShowHSModal(true);
-                        }}
-                        disabled={checkInMutation.isPending}
-                        className="h-9 px-3 text-sm font-medium text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                        data-testid={`button-checkin-${contractor.id}`}
-                      >
-                        <LogIn className="mr-1.5 h-4 w-4" />
-                        Check In
-                      </Button>
-                    ) : (
+                    {!contractor.isCheckedIn ? (() => {
+                      const redBanned = contractor.currentCardStatus === 'red';
+                      const notCleared = redBanned || contractor.rightToWork !== 'valid' || !contractor.inductionCompleted;
+                      const blockReason = redBanned ? 'Active site ban (Red Card)' : contractor.rightToWork !== 'valid' ? 'Right to work not verified' : !contractor.inductionCompleted ? 'Site induction not completed' : '';
+                      return (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (notCleared) {
+                              toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" });
+                              return;
+                            }
+                            setWorkerForCheckIn(contractor);
+                            setCompanyForCheckIn(contractor.companyName);
+                            setShowHSModal(true);
+                          }}
+                          disabled={checkInMutation.isPending}
+                          title={notCleared ? blockReason : 'Check in contractor'}
+                          className={`h-9 px-3 text-sm font-medium border ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50'}`}
+                          data-testid={`button-checkin-${contractor.id}`}
+                        >
+                          <LogIn className="mr-1.5 h-4 w-4" />
+                          Check In
+                        </Button>
+                      );
+                    })() : (
                       <Button
                         size="sm"
                         variant="outline"
@@ -1061,6 +1061,9 @@ export default function ContractorManagement() {
                             <Badge className="text-xs bg-green-100 text-green-800">Work Auth</Badge>
                           ) : (
                             <Badge className="text-xs bg-red-100 text-red-800">Work Auth</Badge>
+                          )}
+                          {!contractor.inductionCompleted && (
+                            <Badge className="text-xs bg-amber-100 text-amber-800">No Induction</Badge>
                           )}
                           <Badge className={`text-xs ${getSafetyRatingColor(contractor.safetyRating)}`}>
                             {contractor.safetyRating}
@@ -1148,22 +1151,32 @@ export default function ContractorManagement() {
                           </Button>
                         ) : null;
                       })()}
-                      {!contractor.isCheckedIn ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setWorkerForCheckIn(contractor);
-                            setCompanyForCheckIn(contractor.companyName);
-                            setShowHSModal(true);
-                          }}
-                          disabled={checkInMutation.isPending}
-                          className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                        >
-                          <LogIn className="mr-1 h-4 w-4" />
-                          Check In
-                        </Button>
-                      ) : (
+                      {!contractor.isCheckedIn ? (() => {
+                        const redBanned = contractor.currentCardStatus === 'red';
+                        const notCleared = redBanned || contractor.rightToWork !== 'valid' || !contractor.inductionCompleted;
+                        const blockReason = redBanned ? 'Active site ban (Red Card)' : contractor.rightToWork !== 'valid' ? 'Right to work not verified' : !contractor.inductionCompleted ? 'Site induction not completed' : '';
+                        return (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (notCleared) {
+                                toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" });
+                                return;
+                              }
+                              setWorkerForCheckIn(contractor);
+                              setCompanyForCheckIn(contractor.companyName);
+                              setShowHSModal(true);
+                            }}
+                            disabled={checkInMutation.isPending}
+                            title={notCleared ? blockReason : 'Check in contractor'}
+                            className={`${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50'}`}
+                          >
+                            <LogIn className="mr-1 h-4 w-4" />
+                            Check In
+                          </Button>
+                        );
+                      })() : (
                         <Button
                           size="sm"
                           variant="outline"
