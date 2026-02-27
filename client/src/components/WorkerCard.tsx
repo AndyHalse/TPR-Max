@@ -182,9 +182,14 @@ export function WorkerCard({
         </div>
 
         <div className="flex flex-wrap gap-1.5">
-          <Badge variant={worker.inductionCompleted ? "default" : "destructive"} className="text-xs">
-            {worker.inductionCompleted ? "Inducted" : "No Induction"}
-          </Badge>
+          {(() => {
+            const isInducted = worker.inductionCompleted || (worker as any).siteInductionCompleted;
+            return (
+              <Badge variant={isInducted ? "default" : "destructive"} className="text-xs">
+                {isInducted ? "Inducted" : "No Induction"}
+              </Badge>
+            );
+          })()}
         </div>
 
         <div className="space-y-2">

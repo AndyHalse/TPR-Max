@@ -10018,6 +10018,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const changes: string[] = [];
       const db = await customerDbService.getCustomerDatabase(context.customerId);
       
+      // Training boolean fields that get human-friendly confirmation notes
+      const trainingConfirmFields = new Set([
+        'inductionCompleted', 'asbestosAwareness', 'manualHandling', 'workingAtHeight', 'hsRulesAccepted'
+      ]);
+
       for (const [field, label] of Object.entries(auditFieldLabels)) {
         if (validatedData[field] !== undefined) {
           const oldVal = (currentWorker as any)[field];
@@ -10029,6 +10034,22 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           
           if (oldStr !== newStr) {
             changes.push(`${label}: "${oldStr}" → "${newStr}"`);
+
+            // Build a user-friendly note message
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+
+            let noteText: string;
+            if (trainingConfirmFields.has(field) && (newStr === 'true' || newStr === 'false')) {
+              if (newStr === 'true') {
+                noteText = `✅ ${label} confirmed by ${username} on ${dateStr} at ${timeStr}`;
+              } else {
+                noteText = `❌ ${label} record removed by ${username} on ${dateStr} at ${timeStr}`;
+              }
+            } else {
+              noteText = `${label} changed from "${oldStr}" to "${newStr}"`;
+            }
             
             // Create individual audit note for each change
             try {
@@ -10037,7 +10058,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
                 changeType: 'profile_update',
                 oldValue: oldStr,
                 newValue: newStr,
-                notes: `${label} changed from "${oldStr}" to "${newStr}"`,
+                notes: noteText,
                 changedBy: username,
               });
             } catch (noteErr) {
