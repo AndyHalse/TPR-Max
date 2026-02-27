@@ -251,9 +251,9 @@ export default function Layout({ children }: LayoutProps) {
                   </div>
                 )}
               </div>
-              <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold truncate" style={navInvert ? bannerTextStyle : {}}>{settings?.companyName || "VisiGate Pro"}</h1>
-                <p className="text-xs hidden sm:block" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}}>TPR Max</p>
+              <div className="hidden sm:block min-w-0 max-w-[200px] lg:max-w-xs">
+                <h1 className="text-base sm:text-lg lg:text-xl font-bold truncate" style={navInvert ? bannerTextStyle : {}}>{settings?.companyName || "VisiGate Pro"}</h1>
+                <p className="text-xs" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}}>TPR Max</p>
               </div>
             </div>
           </Link>
@@ -297,10 +297,10 @@ export default function Layout({ children }: LayoutProps) {
             </button>
             
             {user && (
-              <div className="flex items-center space-x-2">
-                <div className="glass-effect px-2 sm:px-3 py-1 rounded-full flex items-center space-x-1 sm:space-x-2">
-                  <User size={14} style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}} />
-                  <span className="text-xs sm:text-sm font-medium" style={bannerTextStyle}>{user.username}</span>
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <div className="glass-effect px-2 sm:px-3 py-1 rounded-full flex items-center space-x-1 sm:space-x-2 max-w-[80px] sm:max-w-[140px]">
+                  <User size={14} className="flex-shrink-0" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}} />
+                  <span className="text-xs sm:text-sm font-medium truncate" style={bannerTextStyle}>{user.username}</span>
                 </div>
                 <LogoutButton bannerInvert={navInvert} />
               </div>
