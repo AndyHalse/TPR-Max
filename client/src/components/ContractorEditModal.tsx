@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
-import { Save, X, Clock, CheckCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye } from 'lucide-react';
+import { Save, X, Clock, CheckCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -588,153 +588,181 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   </div>
                 </div>
 
-                {/* Work Details */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-fixed">Work Details</h3>
-                </div>
+                {/* Right to Work & Competence Cards */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-fixed flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-blue-600" />
+                    Right to Work &amp; Competence Cards
+                  </h3>
 
-                {/* Certifications & Compliance */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-fixed">Certifications & Compliance</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="cscsCard">CSCS Card Number</Label>
-                      <Input
-                        id="cscsCard"
-                        value={formData.cscsCard}
-                        onChange={(e) => handleInputChange('cscsCard', e.target.value)}
-                        data-testid="input-contractor-cscs"
-                      />
+                  {/* Right to Work */}
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Lock className="w-3.5 h-3.5 text-red-600" />
+                        </div>
+                        <span className="font-medium text-sm text-fixed">Right to Work</span>
+                      </div>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-700 px-2 py-0.5 rounded">
+                        Legally Required
+                      </span>
                     </div>
-                    <div>
-                      <Label htmlFor="cscsStatus">CSCS Status</Label>
+                    <p className="text-xs text-gray-500 -mt-1 ml-8">UK Immigration Act 2014 — must be verified before work commences</p>
+                    <div className="ml-8">
                       <select
-                        id="cscsStatus"
-                        value={formData.cscsStatus}
-                        onChange={(e) => handleInputChange('cscsStatus', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                        data-testid="select-cscs-status"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="valid">Valid</option>
-                        <option value="expired">Expired</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="rightToWork">Right to Work Status</Label>
-                      <select
-                        id="rightToWork"
                         value={formData.rightToWork}
                         onChange={(e) => handleInputChange('rightToWork', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         data-testid="select-right-to-work"
                       >
                         <option value="pending">Pending</option>
                         <option value="valid">Valid</option>
                         <option value="expired">Expired</option>
+                        <option value="missing">Missing</option>
                       </select>
                     </div>
-                    <div>
-                      <Label htmlFor="ipafStatus">IPAF Status</Label>
+                  </div>
+
+                  {/* CSCS Card */}
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Shield className="w-3.5 h-3.5 text-amber-600" />
+                        </div>
+                        <span className="font-medium text-sm text-fixed">CSCS Card</span>
+                      </div>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                        Site Required
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 -mt-1 ml-8">CDM 2015 / site policy — required on most construction sites</p>
+                    <div className="ml-8 grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs mb-1 block">Card Number</Label>
+                        <Input
+                          value={formData.cscsCard}
+                          onChange={(e) => handleInputChange('cscsCard', e.target.value)}
+                          placeholder="e.g. 12345678"
+                          className="text-sm"
+                          data-testid="input-contractor-cscs"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs mb-1 block">Status</Label>
+                        <select
+                          value={formData.cscsStatus}
+                          onChange={(e) => handleInputChange('cscsStatus', e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          data-testid="select-cscs-status"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="valid">Valid</option>
+                          <option value="expired">Expired</option>
+                          <option value="none">None</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* IPAF */}
+                  <div className="border rounded-lg p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                          <Shield className="w-3.5 h-3.5 text-amber-600" />
+                        </div>
+                        <span className="font-medium text-sm text-fixed">IPAF Card</span>
+                      </div>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
+                        Site Required
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 -mt-1 ml-8">PUWER / WAHR 2005 — required for MEWP operation at height</p>
+                    <div className="ml-8">
                       <select
-                        id="ipafStatus"
                         value={formData.ipafStatus}
                         onChange={(e) => handleInputChange('ipafStatus', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                         data-testid="select-ipaf-status"
                       >
-                        <option value="none">None</option>
-                        <option value="3a">3a</option>
-                        <option value="3b">3b</option>
-                        <option value="1+">1+</option>
+                        <option value="none">Not Applicable</option>
+                        <option value="3a">3a — Scissor Lifts</option>
+                        <option value="3b">3b — Boom Lifts</option>
+                        <option value="1+">1+ — All MEWPs</option>
                         <option value="expired">Expired</option>
                       </select>
                     </div>
                   </div>
                 </div>
 
-                {/* Safety Training */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-fixed">Safety Training</h3>
-                  
-                  <div className="space-y-2">
-                    <label className="flex items-center space-x-2">
+                {/* Training Certificates */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-fixed flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    Training Certificates
+                  </h3>
+
+                  {[
+                    { field: 'asbestosAwareness', label: 'Asbestos Awareness', desc: 'CAR 2012 — required for most construction and refurbishment work' },
+                    { field: 'manualHandling', label: 'Manual Handling', desc: 'MHOR 1992 — required for all roles involving lifting or carrying' },
+                    { field: 'inductionCompleted', label: 'Site Induction Completed', desc: 'Site-specific H&S briefing completed' },
+                  ].map(({ field, label, desc }) => (
+                    <label
+                      key={field}
+                      className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
+                        (formData as any)[field]
+                          ? 'border-blue-300 bg-blue-50/60'
+                          : 'border-gray-200 bg-white/50 hover:bg-white/80'
+                      }`}
+                    >
                       <input
                         type="checkbox"
-                        checked={formData.asbestosAwareness}
-                        onChange={(e) => handleInputChange('asbestosAwareness', e.target.checked)}
-                        className="rounded"
+                        checked={(formData as any)[field]}
+                        onChange={(e) => handleInputChange(field, e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-blue-600 flex-shrink-0"
                       />
-                      <span>Asbestos Awareness</span>
+                      <div>
+                        <div className={`text-sm font-medium ${(formData as any)[field] ? 'text-blue-700' : 'text-fixed'}`}>{label}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
+                      </div>
                     </label>
-                    
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.manualHandling}
-                        onChange={(e) => handleInputChange('manualHandling', e.target.checked)}
-                        className="rounded"
-                      />
-                      <span>Manual Handling</span>
-                    </label>
-                    
-                    
-                    <label className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        checked={formData.inductionCompleted}
-                        onChange={(e) => handleInputChange('inductionCompleted', e.target.checked)}
-                        className="rounded"
-                      />
-                      <span>Site Induction Completed</span>
-                    </label>
-                  </div>
+                  ))}
                 </div>
 
-                {/* Compliance & Safety */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-fixed">Compliance & Safety</h3>
-                  
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* H&S Rules Status */}
-                    <div className="bg-white/50 rounded-lg p-4 flex items-start gap-3">
-                      {worker.hsRulesAccepted ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                      ) : (
-                        <div className="h-5 w-5 rounded-full border-2 border-slate-300 mt-0.5" />
-                      )}
-                      <div className="flex-1">
-                        <div className="font-medium text-fixed">H&S Rules</div>
-                        <div className="text-sm text-variable">
-                          {worker.hsRulesAccepted && worker.hsRulesAcceptedAt 
-                            ? `Accepted on ${format(new Date(worker.hsRulesAcceptedAt), 'dd/MM/yyyy HH:mm')}`
-                            : 'Not accepted'
-                          }
+                {/* Compliance Summary */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-fixed flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-blue-600" />
+                    Compliance Summary
+                  </h3>
+                  <div className="border rounded-lg divide-y divide-gray-100 overflow-hidden">
+                    {[
+                      { label: 'Right to Work', value: formData.rightToWork },
+                      { label: 'CSCS Card', value: formData.cscsStatus },
+                      { label: 'IPAF', value: formData.ipafStatus === 'none' ? 'not_applicable' : formData.ipafStatus },
+                      { label: 'Asbestos Awareness', value: formData.asbestosAwareness ? 'held' : 'not_recorded' },
+                      { label: 'Manual Handling', value: formData.manualHandling ? 'held' : 'not_recorded' },
+                      { label: 'Site Induction', value: formData.inductionCompleted ? 'completed' : 'not_completed' },
+                      { label: 'H&S Rules', value: worker.hsRulesAccepted ? 'accepted' : 'not_accepted' },
+                    ].map(({ label, value }) => {
+                      const badge = (() => {
+                        if (value === 'valid' || value === 'held' || value === 'completed' || value === 'accepted') return { text: value === 'accepted' ? 'Accepted' : value === 'completed' ? 'Completed' : value === 'held' ? 'Held' : 'Valid', cls: 'bg-green-100 text-green-800', icon: '✅' };
+                        if (value === 'pending') return { text: 'Pending', cls: 'bg-blue-100 text-blue-700', icon: '⏳' };
+                        if (value === 'expired') return { text: 'Expired', cls: 'bg-red-100 text-red-700', icon: '❌' };
+                        if (value === 'not_applicable') return { text: 'Not applicable', cls: 'bg-gray-100 text-gray-500', icon: '—' };
+                        return { text: value === 'not_recorded' ? 'Not recorded' : value === 'not_completed' ? 'Not completed' : value === 'not_accepted' ? 'Not accepted' : value === 'missing' ? 'Missing' : 'None', cls: 'bg-gray-100 text-gray-500', icon: '—' };
+                      })();
+                      return (
+                        <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                          <span className="text-fixed">{label}</span>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium ${badge.cls}`}>
+                            {badge.icon} {badge.text}
+                          </span>
                         </div>
-                      </div>
-                    </div>
-
-                    {/* Induction Status */}
-                    <div className="bg-white/50 rounded-lg p-4 flex items-start gap-3">
-                      {worker.inductionCompleted ? (
-                        <CheckCircle className="h-5 w-5 text-green-500 mt-0.5" />
-                      ) : (
-                        <div className="h-5 w-5 rounded-full border-2 border-slate-300 mt-0.5" />
-                      )}
-                      <div className="flex-1">
-                        <div className="font-medium text-fixed">Induction</div>
-                        <div className="text-sm text-variable">
-                          {worker.inductionCompleted 
-                            ? 'Completed'
-                            : 'Not completed'
-                          }
-                        </div>
-                      </div>
-                    </div>
+                      );
+                    })}
                   </div>
                 </div>
 
