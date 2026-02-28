@@ -82,6 +82,14 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.email.trim()) {
+      toast({ title: 'Email required', description: 'Please enter an email address.', variant: 'destructive' });
+      return;
+    }
+    if (!formData.mobileNumber.trim()) {
+      toast({ title: 'Mobile number required', description: 'Please enter a mobile number.', variant: 'destructive' });
+      return;
+    }
     updateVisitorMutation.mutate(formData);
   };
 
@@ -161,12 +169,13 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
                 />
               </div>
               <div>
-                <Label htmlFor="email">Email Address</Label>
+                <Label htmlFor="email">Email Address *</Label>
                 <Input
                   id="email"
                   type="email"
                   value={formData.email}
                   onChange={(e) => handleInputChange('email', e.target.value)}
+                  required
                   data-testid="input-edit-email"
                 />
               </div>
@@ -180,11 +189,12 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
                 />
               </div>
               <div>
-                <Label htmlFor="mobileNumber">Mobile Number</Label>
+                <Label htmlFor="mobileNumber">Mobile Number *</Label>
                 <Input
                   id="mobileNumber"
                   value={formData.mobileNumber}
                   onChange={(e) => handleInputChange('mobileNumber', e.target.value)}
+                  required
                   data-testid="input-edit-mobile"
                 />
               </div>
