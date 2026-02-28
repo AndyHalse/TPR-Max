@@ -10083,6 +10083,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         validatedData.transportMethod = mappedData.transportMethod;
         console.log(`🔧 MANUAL FIX: Preserved transportMethod: ${validatedData.transportMethod}`);
       }
+
+      // MANUAL FIX: Preserve phone/phoneNumber — Zod strips 'phoneNumber' because shared schema uses 'phone'
+      if (mappedData.phoneNumber !== undefined) {
+        (validatedData as any).phoneNumber = mappedData.phoneNumber;
+        console.log(`🔧 MANUAL FIX: Preserved phoneNumber: ${mappedData.phoneNumber}`);
+      }
+      if (mappedData.phone !== undefined && mappedData.phoneNumber === undefined) {
+        (validatedData as any).phone = mappedData.phone;
+        console.log(`🔧 MANUAL FIX: Preserved phone: ${mappedData.phone}`);
+      }
       
       console.log('🔍 ROUTE - Zod validation completed. Result:');
       console.log('🔍 ROUTE - Validated data keys:', Object.keys(validatedData));
