@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,12 +84,15 @@ export default function SiteInduction() {
   const [videoFullscreen, setVideoFullscreen] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  const fetchedTokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (match && params?.token) {
-      loadInductionData(params.token);
+    const token = params?.token;
+    if (match && token && fetchedTokenRef.current !== token) {
+      fetchedTokenRef.current = token;
+      loadInductionData(token);
     }
-  }, [match, params]);
+  }, [match, params?.token]);
 
   const loadInductionData = async (token: string) => {
     try {
