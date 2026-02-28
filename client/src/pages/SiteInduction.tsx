@@ -252,6 +252,7 @@ export default function SiteInduction() {
           duration: 5000
         });
       } else {
+        setTokenData(prev => prev ? { ...prev, quizAttempts: (prev.quizAttempts || 0) + 1 } : null);
         toast({
           title: "Quiz Not Passed",
           description: `You scored ${response.results.score}%. You need ${threshold}% to pass. Review the questions and retry.`,
