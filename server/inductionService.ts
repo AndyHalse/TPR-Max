@@ -5,9 +5,6 @@ import {
   inductionTokens, 
   inductionQuestions, 
   inductionAnswers, 
-  contractorWorkers,
-  staff,
-  visitors,
   type InductionToken,
   type InductionQuestion,
   type InsertInductionToken,
@@ -91,29 +88,15 @@ export class InductionService {
   // Send induction email to worker
   async sendInductionEmail(workerId: string, customerId?: string, workerName?: string, workerEmail?: string): Promise<boolean> {
     try {
-      let resolvedName = workerName;
-      let resolvedEmail = workerEmail;
-
-      // Only query the shared DB if name/email were not passed in (workers live in isolated schemas)
-      if (!resolvedName || !resolvedEmail) {
-        const [worker] = await db
-          .select()
-          .from(contractorWorkers)
-          .where(eq(contractorWorkers.id, workerId));
-
-        if (!worker || !worker.email) {
-          throw new Error('Worker not found or no email address');
-        }
-        resolvedName = worker.firstName + ' ' + worker.lastName;
-        resolvedEmail = worker.email;
+      // Workers live in isolated customer schemas — always pass name/email from the route
+      if (!workerEmail) {
+        throw new Error('Worker has no email address on file');
       }
-
-      if (!resolvedEmail) {
-        throw new Error('No email address available for worker');
-      }
+      const resolvedName = workerName || 'Contractor Worker';
+      const resolvedEmail = workerEmail;
 
       // Create induction token (pass customerId so quiz completion can write notes to the right isolated schema)
-      const token = await this.createInductionToken(workerId, resolvedName!, resolvedEmail, customerId);
+      const token = await this.createInductionToken(workerId, resolvedName, resolvedEmail, customerId);
       
       // Get token details including expiration date
       const [tokenRecord] = await db
@@ -203,7 +186,7 @@ export class InductionService {
       `;
 
       const emailText = `
-Site Induction Required - ${worker.firstName} ${worker.lastName}
+Site Induction Required - ${resolvedName}
 
 You must complete a site-specific health and safety induction before accessing the work site.
 
@@ -223,7 +206,7 @@ VisiGate Pro - Contractor Management System
 
       const emailSvc = new EmailService(customerId);
       await emailSvc.sendEmail({
-        to: worker.email,
+        to: resolvedEmail,
         subject: emailSubject,
         html: emailHtml,
         text: emailText
