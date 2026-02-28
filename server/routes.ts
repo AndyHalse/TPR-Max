@@ -9795,7 +9795,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(404).json({ error: 'Contractor not found' });
       }
 
-      const success = await inductionService.sendInductionEmail(contractorId, req.customerId);
+      const workerName = `${contractor.firstName} ${contractor.lastName}`;
+      const success = await inductionService.sendInductionEmail(contractorId, req.customerId, workerName, contractor.email ?? undefined);
       
       if (success) {
         res.json({ message: 'Induction email sent successfully' });

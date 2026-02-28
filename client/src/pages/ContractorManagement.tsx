@@ -712,7 +712,7 @@ export default function ContractorManagement() {
           data-testid="tab-previous-contractors"
         >
           <History className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-          <span className="truncate">Previous Contractors</span>
+          <span className="truncate">Previous Contractor Workers</span>
         </Button>
         <Button
           variant={activeTab === "contractors" ? "default" : "outline"}
@@ -770,7 +770,7 @@ export default function ContractorManagement() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <History className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                <h2 className="text-xl font-semibold text-fixed">Previous Contractors</h2>
+                <h2 className="text-xl font-semibold text-fixed">Previous Contractor Workers</h2>
                 <span className="text-sm text-variable">
                   Select a contractor who has been onsite before
                 </span>

@@ -89,20 +89,31 @@ export class InductionService {
   }
 
   // Send induction email to worker
-  async sendInductionEmail(workerId: string, customerId?: string): Promise<boolean> {
+  async sendInductionEmail(workerId: string, customerId?: string, workerName?: string, workerEmail?: string): Promise<boolean> {
     try {
-      // Get worker details
-      const [worker] = await db
-        .select()
-        .from(contractorWorkers)
-        .where(eq(contractorWorkers.id, workerId));
+      let resolvedName = workerName;
+      let resolvedEmail = workerEmail;
 
-      if (!worker || !worker.email) {
-        throw new Error('Worker not found or no email address');
+      // Only query the shared DB if name/email were not passed in (workers live in isolated schemas)
+      if (!resolvedName || !resolvedEmail) {
+        const [worker] = await db
+          .select()
+          .from(contractorWorkers)
+          .where(eq(contractorWorkers.id, workerId));
+
+        if (!worker || !worker.email) {
+          throw new Error('Worker not found or no email address');
+        }
+        resolvedName = worker.firstName + ' ' + worker.lastName;
+        resolvedEmail = worker.email;
+      }
+
+      if (!resolvedEmail) {
+        throw new Error('No email address available for worker');
       }
 
       // Create induction token (pass customerId so quiz completion can write notes to the right isolated schema)
-      const token = await this.createInductionToken(workerId, worker.firstName + ' ' + worker.lastName, worker.email, customerId);
+      const token = await this.createInductionToken(workerId, resolvedName!, resolvedEmail, customerId);
       
       // Get token details including expiration date
       const [tokenRecord] = await db
@@ -151,7 +162,7 @@ export class InductionService {
               <p>Health & Safety Compliance</p>
             </div>
             <div class="content">
-              <h2>Hello ${worker.firstName} ${worker.lastName},</h2>
+              <h2>Hello ${resolvedName},</h2>
               
               <p>You are required to complete a site-specific health and safety induction before you can access the work site.</p>
               

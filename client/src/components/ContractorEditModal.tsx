@@ -436,6 +436,14 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.email?.trim()) {
+      toast({ title: 'Email required', description: 'Please enter an email address.', variant: 'destructive' });
+      return;
+    }
+    if (!formData.phone?.trim()) {
+      toast({ title: 'Phone number required', description: 'Please enter a phone number.', variant: 'destructive' });
+      return;
+    }
     console.log('🔍 ContractorEditModal - Submitting form with data:', formData);
     console.log('🔍 ContractorEditModal - transportMethod value:', formData.transportMethod);
     updateWorkerMutation.mutate(formData);
@@ -467,7 +475,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-fixed">
               <HardHat className="h-5 w-5" />
-              Edit Contractor Profile
+              Edit Contractor Worker Profile
             </DialogTitle>
             <DialogDescription>
               Update contractor worker details, certifications, safety training, and compliance status.
@@ -551,21 +559,23 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="email">Email Address</Label>
+                      <Label htmlFor="email">Email Address *</Label>
                       <Input
                         id="email"
                         type="email"
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
+                        required
                         data-testid="input-contractor-email"
                       />
                     </div>
                     <div>
-                      <Label htmlFor="phone">Phone Number</Label>
+                      <Label htmlFor="phone">Phone Number *</Label>
                       <Input
                         id="phone"
                         value={formData.phone}
                         onChange={(e) => handleInputChange('phone', e.target.value)}
+                        required
                         data-testid="input-contractor-phone"
                       />
                     </div>
