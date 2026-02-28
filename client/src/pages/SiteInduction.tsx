@@ -348,9 +348,22 @@ export default function SiteInduction() {
     );
   }
 
+  const toEmbedUrl = (url: string): string => {
+    if (!url) return url;
+    const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+    if (ytMatch) return `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=0&rel=0`;
+    const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
+    if (vimeoMatch) return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+    return url;
+  };
+
   const renderVideoStep = () => {
     const hasGeneratedVideo = videoContent?.hasGeneratedContent;
-    
+    const rawUrl = videoContent?.videoUrl ?? '';
+    const hasExternalVideo = !hasGeneratedVideo && rawUrl.startsWith('http');
+    const embedUrl = hasExternalVideo ? toEmbedUrl(rawUrl) : '';
+    const hasAnyVideo = hasGeneratedVideo || hasExternalVideo;
+
     return (
       <div className="space-y-6">
         <Card>
@@ -388,7 +401,7 @@ export default function SiteInduction() {
                       </Button>
                     </div>
                     <iframe
-                      src={videoBlobUrl || undefined}
+                      src={videoBlobUrl}
                       className={`w-full ${videoFullscreen ? 'h-[calc(100vh-50px)]' : 'h-[calc(100%-40px)]'} bg-white`}
                       title="Induction Video"
                       data-testid="iframe-induction-video"
@@ -399,41 +412,55 @@ export default function SiteInduction() {
                   Please navigate through all slides to complete the induction video.
                 </p>
               </>
+            ) : hasExternalVideo ? (
+              <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden mb-6">
+                <iframe
+                  src={embedUrl}
+                  className="w-full h-full"
+                  allow="autoplay; fullscreen; picture-in-picture"
+                  allowFullScreen
+                  title="Induction Video"
+                  data-testid="iframe-induction-video"
+                />
+              </div>
             ) : (
-              <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-6 border-2 border-dashed border-gray-300">
-                <div className="text-center">
-                  <Play className="w-16 h-16 text-variable mx-auto mb-2" />
-                  <p className="text-variable font-medium">Site Safety Induction Video</p>
-                  <p className="text-sm text-variable mt-1">Duration: {videoContent?.durationMinutes || 15} minutes</p>
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-medium text-blue-900 mb-2">Video covers:</h4>
-                    <ul className="text-sm text-blue-800 space-y-1 text-left">
-                      <li>• Site-specific hazards and controls</li>
-                      <li>• PPE requirements and usage</li>
-                      <li>• Emergency procedures and assembly points</li>
-                      <li>• Reporting procedures for incidents</li>
-                      <li>• Environmental and welfare facilities</li>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Shield className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-blue-900 mb-1">Safety Briefing</h3>
+                    <p className="text-sm text-blue-700 mb-3">
+                      Your site safety induction will be delivered by site management. This may be an in-person briefing, video, or written handout. Ensure you have received and understood all the following:
+                    </p>
+                    <ul className="text-sm text-blue-800 space-y-1">
+                      <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-500 flex-shrink-0" /> Site-specific hazards and controls</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-500 flex-shrink-0" /> PPE requirements and usage</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-500 flex-shrink-0" /> Emergency procedures and assembly points</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-500 flex-shrink-0" /> Reporting procedures for incidents</li>
+                      <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-blue-500 flex-shrink-0" /> Environmental and welfare facilities</li>
                     </ul>
                   </div>
                 </div>
               </div>
             )}
-            
+
             <Alert className="mb-4">
               <Shield className="w-4 h-4" />
               <AlertDescription>
-                <strong>Important:</strong> Watch the full video, then answer the H&S questionnaire. You need at least <strong>{tokenData?.passThreshold ?? 80}%</strong> to pass — this is a UK Health & Safety legal requirement.
+                <strong>Important:</strong> {hasAnyVideo ? 'Watch the full video, then answer' : 'Once you have received your safety briefing, answer'} the H&S questionnaire. You need at least <strong>{tokenData?.passThreshold ?? 80}%</strong> to pass — this is a UK Health & Safety legal requirement.
               </AlertDescription>
             </Alert>
 
-            <Button 
+            <Button
               onClick={markVideoWatched}
               className="w-full"
               size="lg"
               data-testid="button-complete-video"
             >
               <CheckCircle className="w-4 h-4 mr-2" />
-              I have completed the induction video
+              {hasAnyVideo ? 'I have watched the induction video — Continue to Quiz' : 'I have received my safety briefing — Continue to Quiz →'}
             </Button>
           </CardContent>
         </Card>
