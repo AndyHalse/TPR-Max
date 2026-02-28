@@ -12,6 +12,15 @@ import {
 } from "@shared/schema";
 import { EmailService } from "./emailService";
 
+// Shared helper — determines the public base URL for induction links.
+// Priority: FRONTEND_URL (user override) → REPLIT_DOMAINS (auto-detected) → localhost fallback
+function getAppBaseUrl(): string {
+  if (process.env.FRONTEND_URL) return process.env.FRONTEND_URL;
+  const replitDomains = process.env.REPLIT_DOMAINS?.split(',').map(d => d.trim()).filter(Boolean) || [];
+  if (replitDomains.length > 0) return `https://${replitDomains[0]}`;
+  return 'http://localhost:5000';
+}
+
 export class InductionService {
   // Generate secure token for induction link
   generateToken(): string {
@@ -119,7 +128,7 @@ export class InductionService {
         })
         .where(eq(inductionTokens.token, token));
 
-      const inductionUrl = `${process.env.FRONTEND_URL || 'http://localhost:5000'}/induction/${token}`;
+      const inductionUrl = `${getAppBaseUrl()}/induction/${token}`;
       
       const emailSubject = "🎯 Site Induction Required - VisiGate Pro";
       const emailHtml = `
@@ -267,12 +276,7 @@ VisiGate Pro - Contractor Management System
         })
         .where(eq(inductionTokens.token, token));
 
-      // Get production URL from REPLIT_DOMAINS or fallback
-      const replitDomains = process.env.REPLIT_DOMAINS?.split(',') || [];
-      const productionUrl = replitDomains.length > 0 
-        ? `https://${replitDomains[0]}`
-        : (process.env.FRONTEND_URL || 'http://localhost:5000');
-      const inductionUrl = `${productionUrl}/induction/${token}`;
+      const inductionUrl = `${getAppBaseUrl()}/induction/${token}`;
 
       const personTypeLabel = params.personType === 'visitor' ? 'Visitor' : 
                               params.personType === 'staff' ? 'Staff Member' : 
@@ -401,14 +405,18 @@ VisiGate Pro - Visitor Management System
   }
 
   // Submit quiz answers and calculate score
-  async submitQuizAnswers(tokenId: string, answers: { questionId: string; selectedAnswer: string }[]): Promise<{ score: number; passed: boolean; total: number }> {
-    const questions = await this.getInductionQuestions();
+  async submitQuizAnswers(tokenId: string, answers: { questionId: string; selectedAnswer: string }[]): Promise<{ score: number; passed: boolean; total: number; correct: number }> {
+    const allQuestions = await this.getInductionQuestions();
+    // Build a lookup map for fast answer checking
+    const questionMap = new Map(allQuestions.map(q => [q.id, q]));
+    
     let correctAnswers = 0;
     const attemptNumber = await this.getNextAttemptNumber(tokenId);
+    const totalAnswered = answers.length;
 
     // Save all answers
     for (const answer of answers) {
-      const question = questions.find(q => q.id === answer.questionId);
+      const question = questionMap.get(answer.questionId);
       const isCorrect = question?.correctAnswer === answer.selectedAnswer;
       
       if (isCorrect) {
@@ -426,8 +434,13 @@ VisiGate Pro - Visitor Management System
       await db.insert(inductionAnswers).values(insertAnswer);
     }
 
-    const score = Math.round((correctAnswers / questions.length) * 100);
-    const passed = score >= 80; // UK H&S requirement: 80% pass rate
+    // Score based on the actual number of questions answered — not all questions in DB
+    const score = totalAnswered > 0 ? Math.round((correctAnswers / totalAnswered) * 100) : 0;
+    
+    // Read pass threshold from the token (default 80% — UK H&S requirement)
+    const [tokenRecord] = await db.select({ passThreshold: inductionTokens.passThreshold }).from(inductionTokens).where(eq(inductionTokens.id, tokenId));
+    const threshold = tokenRecord?.passThreshold ?? 80;
+    const passed = score >= threshold;
 
     // Update token with quiz results
     await db
@@ -450,7 +463,7 @@ VisiGate Pro - Visitor Management System
     return {
       score,
       passed,
-      total: questions.length,
+      total: totalAnswered,
       correct: correctAnswers
     };
   }

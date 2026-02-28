@@ -422,7 +422,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       return response.json();
     },
     onSuccess: () => {
-      setInductionLinkSentEmail(worker?.email || '');
+      setInductionLinkSentEmail(activeWorker?.email || formData.email || '');
       setTimeout(() => setInductionLinkSentEmail(null), 4000);
     },
     onError: (error: any) => {
@@ -785,9 +785,9 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         size="sm"
                         variant={formData.inductionCompleted ? 'outline' : 'default'}
                         className="text-xs whitespace-nowrap"
-                        disabled={!worker?.email || sendInductionMutation.isPending}
+                        disabled={!activeWorker?.email || sendInductionMutation.isPending}
                         onClick={() => sendInductionMutation.mutate()}
-                        title={!worker?.email ? 'No email address on file' : undefined}
+                        title={!activeWorker?.email ? 'No email address on file' : undefined}
                       >
                         {sendInductionMutation.isPending ? (
                           <span className="flex items-center gap-1"><span className="animate-spin inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full" /> Sending…</span>

@@ -9603,15 +9603,38 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
-  app.get('/api/induction/questions', requireAuth, async (req, res) => {
+  // Public when called with a ?token= param (external induction links).
+  // Auth-gated when called without token (admin/settings use).
+  app.get('/api/induction/questions', async (req, res) => {
     try {
       const roleType = (req.query.roleType as string) || 'contractor';
-      const customerId = req.customerId || 'default';
+      const tokenParam = req.query.token as string | undefined;
+
+      let customerId: string | undefined;
+
+      if (tokenParam) {
+        // Public path — resolve customerId from the induction token
+        const [tokenRecord] = await db
+          .select()
+          .from(inductionTokens)
+          .where(eq(inductionTokens.token, tokenParam));
+        if (!tokenRecord) {
+          return res.status(404).json({ error: 'Invalid induction token' });
+        }
+        customerId = tokenRecord.customerId ?? undefined;
+      } else if (req.customerId) {
+        // Admin/settings path — requires active session
+        customerId = req.customerId;
+      } else {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      if (!customerId) {
+        return res.json({ questions: [] });
+      }
+
       const customerVideoId = `${customerId}-${roleType}`;
 
-      // Customer-specific questions only (customerId-roleType format)
-      // Legacy fallback removed — it caused "2112 questions" stale data accumulation.
-      // All questions are now stored under customerId-roleType videoId via DELETE-then-INSERT.
       const allQuestions = await db
         .select()
         .from(inductionQuestions)
@@ -9622,7 +9645,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           )
         )
         .orderBy(inductionQuestions.orderIndex);
-      
+
       res.json({ questions: allQuestions });
     } catch (error) {
       console.error('Error getting induction questions:', error);
@@ -13893,12 +13916,15 @@ This is an automated notification from your visitor management system.`;
 
   // ============= INDUCTION SYSTEM ROUTES =============
   
-  // Send induction email to worker
-  app.post("/api/contractors/workers/:workerId/send-induction", async (req, res) => {
+  // Send induction email to worker (legacy path — resolve name/email from isolated DB)
+  app.post("/api/contractors/workers/:workerId/send-induction", requireAuth, async (req, res) => {
     try {
       const { workerId } = req.params;
-      const success = await inductionService.sendInductionEmail(workerId, req.customerId);
-      
+      const siCtx = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const siWorker = await databaseService.getContractorWorkerById(siCtx, workerId);
+      if (!siWorker) return res.status(404).json({ error: 'Worker not found' });
+      const workerName = `${siWorker.firstName} ${siWorker.lastName}`;
+      const success = await inductionService.sendInductionEmail(workerId, req.customerId, workerName, siWorker.email ?? undefined);
       if (success) {
         res.json({ success: true, message: "Induction email sent successfully" });
       } else {

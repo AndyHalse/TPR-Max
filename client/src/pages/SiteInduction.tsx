@@ -145,8 +145,8 @@ export default function SiteInduction() {
         setCurrentStep("video");
       }
 
-      // Fetch questions for the specific role type
-      const questionsRes = await fetch(`/api/induction/questions?roleType=${derivedPersonType}`, { credentials: "include" });
+      // Fetch questions — pass token so the route can resolve customer questions without auth
+      const questionsRes = await fetch(`/api/induction/questions?roleType=${derivedPersonType}&token=${token}`, { credentials: "include" });
       if (questionsRes.ok) {
         const questionsResponse = await questionsRes.json();
         setQuestions(questionsResponse.questions || []);
@@ -440,6 +440,24 @@ export default function SiteInduction() {
 
   const renderQuizStep = () => {
     const currentQuestion = questions[currentQuestionIndex];
+
+    if (questions.length === 0) {
+      return (
+        <div className="space-y-6">
+          <Card className="border-amber-200">
+            <CardContent className="p-8 text-center">
+              <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+              <h2 className="text-xl font-bold text-gray-900 mb-2">Questions Not Yet Available</h2>
+              <p className="text-gray-600 mb-4">
+                The H&S questionnaire for this induction has not been set up yet. Please contact your site manager — they need to generate the quiz questions before you can complete the induction.
+              </p>
+              <p className="text-sm text-gray-500">No action is required on your part at this time.</p>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
     if (!currentQuestion) return null;
 
     const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
