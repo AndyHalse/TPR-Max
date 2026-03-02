@@ -15905,75 +15905,88 @@ This is an automated notification from your visitor management system.`;
       const tokenSchema = z.string().uuid('Invalid token format');
       const token = tokenSchema.parse(req.params.token);
       
-      // Find assignment by acceptance token with customer scoping validation
-      const [assignment] = await db
+      // Step 1: Find assignment + template from shared DB only (no cross-schema join).
+      // contractorWorkers and contractorCompanies live in the isolated customer schema —
+      // they cannot be joined here. We fetch them separately below.
+      const [row] = await db
         .select({
           assignment: workerDocumentAssignments,
           template: ukHSDocumentTemplates,
-          worker: contractorWorkers,
-          company: contractorCompanies
         })
         .from(workerDocumentAssignments)
         .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
-        .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
-        .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
         .where(and(
           eq(workerDocumentAssignments.acceptanceToken, token),
-          eq(workerDocumentAssignments.isActive, true),
-          // CRITICAL: Ensure all related entities belong to the same customer for customer isolation
-          eq(workerDocumentAssignments.customerId, ukHSDocumentTemplates.customerId)
+          eq(workerDocumentAssignments.isActive, true)
         ));
       
-      if (!assignment) {
+      if (!row) {
         return res.status(404).json({ error: 'Document assignment not found or invalid token' });
       }
-      
-      // Additional customer scoping validation - verify all entities belong to the same customer
-      if (assignment.assignment.customerId !== assignment.template.customerId) {
-        console.error('Customer ID mismatch in document acceptance:', {
-          assignmentCustomerId: assignment.assignment.customerId,
-          templateCustomerId: assignment.template.customerId,
-          token
-        });
-        return res.status(404).json({ error: 'Document assignment not found or invalid token' });
+
+      const { assignment, template } = row;
+      const customerId = assignment.customerId;
+
+      if (!customerId) {
+        return res.status(404).json({ error: 'Document assignment has no customer context' });
       }
       
       // Check if assignment is expired
-      if (assignment.assignment.dueDate && new Date() > new Date(assignment.assignment.dueDate)) {
+      if (assignment.dueDate && new Date() > new Date(assignment.dueDate)) {
         return res.status(410).json({ 
           error: 'Document assignment has expired',
-          dueDate: assignment.assignment.dueDate
+          dueDate: assignment.dueDate
         });
       }
+
+      // Step 2: Fetch worker + company from the isolated customer DB
+      const isolatedDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+
+      const [workerRow] = assignment.workerId
+        ? await isolatedDb
+            .select()
+            .from(isolatedSchema.contractorWorkers)
+            .where(eq(isolatedSchema.contractorWorkers.id, assignment.workerId))
+        : [undefined];
+
+      const [companyRow] = assignment.companyId
+        ? await isolatedDb
+            .select()
+            .from(isolatedSchema.contractorCompanies)
+            .where(eq(isolatedSchema.contractorCompanies.id, assignment.companyId))
+        : [undefined];
+
+      const worker = workerRow ?? null;
+      const company = companyRow ?? null;
       
       // Check if already accepted
-      if (assignment.assignment.status === 'accepted') {
+      if (assignment.status === 'accepted') {
         return res.json({
           success: true,
           alreadyAccepted: true,
           message: 'Document already accepted',
-          acceptedAt: assignment.assignment.acceptedAt,
-          assignment: assignment.assignment,
-          template: assignment.template,
-          worker: assignment.worker,
-          company: assignment.company
+          acceptedAt: assignment.acceptedAt,
+          assignment,
+          template,
+          worker,
+          company
         });
       }
       
       // Update viewed timestamp if first view
-      if (!assignment.assignment.viewedAt) {
+      if (!assignment.viewedAt) {
         await db
           .update(workerDocumentAssignments)
           .set({ viewedAt: new Date() })
-          .where(eq(workerDocumentAssignments.id, assignment.assignment.id));
+          .where(eq(workerDocumentAssignments.id, assignment.id));
       }
       
       res.json({
         success: true,
-        assignment: assignment.assignment,
-        template: assignment.template,
-        worker: assignment.worker,
-        company: assignment.company
+        assignment,
+        template,
+        worker,
+        company
       });
       
     } catch (error) {
