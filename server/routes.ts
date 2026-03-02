@@ -15559,10 +15559,10 @@ This is an automated notification from your visitor management system.`;
     try {
       // Validate request body using Zod schema
       const assignmentRequestSchema = z.object({
-        workerIds: z.array(z.string().uuid()).min(1, 'At least one worker ID required'),
-        documentTemplateIds: z.array(z.string().uuid()).min(1, 'At least one document template ID required'),
+        workerIds: z.array(z.string().min(1)).min(1, 'At least one worker ID required'),
+        documentTemplateIds: z.array(z.string().min(1)).min(1, 'At least one document template ID required'),
         dueDate: z.string().datetime().optional(),
-        assignedBy: z.string().uuid().optional()
+        assignedBy: z.string().optional()
       });
       
       const validatedData = assignmentRequestSchema.parse(req.body);

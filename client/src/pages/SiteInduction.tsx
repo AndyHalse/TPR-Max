@@ -102,12 +102,14 @@ export default function SiteInduction() {
       const tokenRes = await fetch(`/api/induction/token/${token}`, { credentials: "include" });
       
       if (!tokenRes.ok) {
-        const errorData = await tokenRes.json().catch(() => ({ error: 'Invalid or expired link' }));
-        toast({
-          title: "Invalid or Expired Link",
-          description: errorData.error || 'This induction link is invalid or has expired.',
-          variant: "destructive"
-        });
+        // 410 = expired token — show the dedicated expired screen
+        if (tokenRes.status === 410) {
+          setTokenExpired(true);
+          setLoading(false);
+          return;
+        }
+        // 404 or other errors — show invalid link state (don't toast so the screen shows)
+        setLoading(false);
         return;
       }
 

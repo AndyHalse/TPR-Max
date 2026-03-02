@@ -2467,15 +2467,18 @@ export const ukHSDocumentTemplates = pgTable("uk_hs_document_templates", {
 export const workerDocumentAssignments = pgTable("worker_document_assignments", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   // CUSTOMER ISOLATION: Each assignment belongs to a specific customer
-  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  // No FK on customerId because isolated-schema IDs can't reference shared DB
+  customerId: varchar("customer_id").notNull(),
   
   // Assignment details
-  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
-  companyId: varchar("company_id").notNull().references(() => contractorCompanies.id),
+  // No FK on workerId/companyId — these IDs live in isolated customer schemas, not shared DB
+  workerId: varchar("worker_id").notNull(),
+  companyId: varchar("company_id").notNull(),
   documentTemplateId: varchar("document_template_id").notNull().references(() => ukHSDocumentTemplates.id),
   
   // Assignment metadata
-  assignedBy: varchar("assigned_by").notNull().references(() => users.id),
+  // No FK on assignedBy — user IDs come from isolated customer schema
+  assignedBy: varchar("assigned_by").notNull(),
   assignedAt: timestamp("assigned_at").defaultNow().notNull(),
   dueDate: timestamp("due_date"), // Optional deadline for acceptance
   
@@ -2507,11 +2510,13 @@ export const workerDocumentAssignments = pgTable("worker_document_assignments", 
 export const workerDocumentAcceptances = pgTable("worker_document_acceptances", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   // CUSTOMER ISOLATION: Each acceptance belongs to a specific customer
-  customerId: varchar("customer_id").notNull().references(() => customers.id),
+  // No FK — isolated-schema customer IDs can't reference shared DB customers table
+  customerId: varchar("customer_id").notNull(),
   
   // Reference to assignment
   assignmentId: varchar("assignment_id").notNull().references(() => workerDocumentAssignments.id),
-  workerId: varchar("worker_id").notNull().references(() => contractorWorkers.id),
+  // No FK on workerId — workers live in isolated customer schemas, not shared DB
+  workerId: varchar("worker_id").notNull(),
   documentTemplateId: varchar("document_template_id").notNull().references(() => ukHSDocumentTemplates.id),
   
   // Acceptance details
