@@ -23,7 +23,9 @@ import {
   Clock,
   AlertCircle,
   CheckCircle2,
-  XCircle
+  XCircle,
+  Mail,
+  MailCheck
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { ContractorCompany, ContractorWorker, UkHSDocumentTemplate, WorkerDocumentAssignment } from "@shared/schema";
@@ -128,6 +130,27 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
       toast({
         title: "Assignment Failed",
         description: error.message || "Failed to assign documents",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Send email mutation
+  const sendEmailMutation = useMutation<{ sent: number; message: string }, Error, { assignmentIds: string[] }>({
+    mutationFn: async (data) => {
+      return await apiRequest("POST", "/api/uk-hs-documents/send-email", data) as unknown as { sent: number; message: string };
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Email Sent",
+        description: data.message || `Sent ${data.sent} document request email(s)`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/assignments/all", customerId] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Email Failed",
+        description: error.message || "Failed to send document request email",
         variant: "destructive",
       });
     },
@@ -395,21 +418,36 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
       {/* Total Assignments Detail Panel */}
       {activeSection === 'assignments' && (
         <GlassCard>
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <h3 className="text-lg font-semibold text-fixed flex items-center gap-2">
               <Send className="w-5 h-5 text-orange-600" />
               Document Assignments
             </h3>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {(() => {
                 const accepted = allAssignments.filter(a => a.status === 'accepted').length;
                 const pending = allAssignments.filter(a => a.status === 'pending').length;
                 const rejected = allAssignments.filter(a => a.status === 'rejected').length;
+                const unsentPendingIds = allAssignments
+                  .filter(a => a.status === 'pending' && !a.emailSent)
+                  .map(a => a.id);
                 return (
                   <>
                     <Badge className="bg-green-100 text-green-700">{accepted} accepted</Badge>
                     <Badge className="bg-amber-100 text-amber-700">{pending} pending</Badge>
                     {rejected > 0 && <Badge className="bg-red-100 text-red-700">{rejected} rejected</Badge>}
+                    {unsentPendingIds.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-blue-300 text-blue-700 hover:bg-blue-50"
+                        disabled={sendEmailMutation.isPending}
+                        onClick={() => sendEmailMutation.mutate({ assignmentIds: unsentPendingIds })}
+                      >
+                        <Mail className="w-4 h-4 mr-1.5" />
+                        {sendEmailMutation.isPending ? "Sending..." : `Send All Pending (${unsentPendingIds.length})`}
+                      </Button>
+                    )}
                   </>
                 );
               })()}
@@ -454,21 +492,34 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      <Badge className={status.bg}>
-                        {(assignment.status || 'pending').charAt(0).toUpperCase() + (assignment.status || 'pending').slice(1)}
-                      </Badge>
-                      {assignment.emailSent && (
-                        <Badge variant="outline" className="border-blue-300 text-blue-600 text-[10px]">
-                          Email sent
-                        </Badge>
-                      )}
+                    <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
                       {assignment.dueDate && (
                         <span className="text-xs text-variable flex items-center gap-1">
                           <Calendar size={12} />
                           Due {new Date(assignment.dueDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       )}
+                      <Badge className={status.bg}>
+                        {(assignment.status || 'pending').charAt(0).toUpperCase() + (assignment.status || 'pending').slice(1)}
+                      </Badge>
+                      {assignment.emailSent ? (
+                        <Badge variant="outline" className="border-blue-300 text-blue-600 text-[10px] flex items-center gap-1">
+                          <MailCheck size={10} />
+                          Email sent
+                        </Badge>
+                      ) : assignment.status !== 'accepted' && assignment.status !== 'rejected' ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 border-blue-300 text-blue-700 hover:bg-blue-50 text-xs"
+                          disabled={sendEmailMutation.isPending}
+                          onClick={() => sendEmailMutation.mutate({ assignmentIds: [assignment.id] })}
+                          title="Send document request email to worker"
+                        >
+                          <Mail className="w-3 h-3 mr-1" />
+                          Send Email
+                        </Button>
+                      ) : null}
                     </div>
                   </div>
                 );

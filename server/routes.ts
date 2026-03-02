@@ -16430,6 +16430,7 @@ This is an automated notification from your visitor management system.`;
             .update(workerDocumentAssignments)
             .set({ 
               status: 'sent',
+              emailSent: true,
               emailSentAt: new Date(),
               updatedAt: new Date()
             })
