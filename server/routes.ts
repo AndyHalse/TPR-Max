@@ -15769,121 +15769,145 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // Send UK H&S documents via email to workers
+  // Send H&S document emails to workers (queries isolated customer DB for worker/company data)
   app.post("/api/uk-hs-documents/send-email", requireAuth, async (req, res) => {
     try {
-      // Validate request body using Zod schema
-      const sendEmailRequestSchema = z.object({
-        assignmentIds: z.array(z.string().uuid()).min(1, 'At least one assignment ID required')
-      });
+      const { assignmentIds } = req.body;
       
-      const validatedData = sendEmailRequestSchema.parse(req.body);
-      const { assignmentIds } = validatedData;
+      if (!Array.isArray(assignmentIds) || assignmentIds.length === 0) {
+        return res.status(400).json({ error: 'Assignment IDs are required' });
+      }
       
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
+      // Get assignments from shared DB — no JOIN to isolated worker/company tables
+      const assignments = await db
+        .select({
+          assignment: workerDocumentAssignments,
+          template: ukHSDocumentTemplates,
+        })
+        .from(workerDocumentAssignments)
+        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
+        .where(and(
+          inArray(workerDocumentAssignments.id, assignmentIds),
+          eq(workerDocumentAssignments.customerId, context.customerId),
+          eq(workerDocumentAssignments.isActive, true)
+        ));
+
+      if (assignments.length === 0) {
+        return res.status(404).json({ error: 'No matching assignments found for this customer' });
+      }
+
+      // Get isolated customer DB and company settings for branded email
+      const customerDb = await databaseService.getCustomerDatabase(context);
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
-      if (!companySettings) {
-        return res.status(400).json({ error: 'Company settings not found' });
-      }
       
-      const customEmailService = new EmailService(req.customerId);
       let emailsSent = 0;
-      const errors = [];
+      const errors: string[] = [];
+      const sentAt = new Date();
       
-      // Process each assignment with transaction boundaries
-      const results = await db.transaction(async (tx) => {
-        let emailsSent = 0;
-        const errors = [];
-        
-        for (const assignmentId of assignmentIds) {
-          try {
-            // Get assignment with worker and template details (with customer scoping)
-            const [assignmentData] = await tx
-              .select({
-                assignment: workerDocumentAssignments,
-                template: ukHSDocumentTemplates,
-                worker: contractorWorkers,
-                company: contractorCompanies
-              })
-              .from(workerDocumentAssignments)
-              .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
-              .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
-              .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
-              .where(and(
-                eq(workerDocumentAssignments.id, assignmentId),
-                eq(workerDocumentAssignments.customerId, context.customerId),
-                eq(workerDocumentAssignments.isActive, true),
-                // Only send emails for pending assignments
-                sql`${workerDocumentAssignments.status} IN ('pending')`
-              ));
-              
-            if (!assignmentData || !assignmentData.worker.email) {
-              errors.push(`Assignment ${assignmentId}: Worker or email not found`);
-              continue;
-            }
-            
-            const { assignment, template, worker, company } = assignmentData;
-            
-            // Check if email already sent
-            if (assignment.emailSent) {
-              errors.push(`Assignment ${assignmentId}: Email already sent`);
-              continue;
-            }
-            
-            // Send professional H&S document assignment email
-            const emailSent = await emailService.forCustomer(req.customerId).sendHSDocumentAssignment({
-              workerEmail: worker.email,
-              workerName: `${worker.firstName} ${worker.lastName}`,
-              documentName: template.documentName,
-              complianceCategory: template.complianceCategory,
-              companyName: company.name,
-              acceptanceToken: assignment.acceptanceToken,
-              dueDate: assignment.dueDate,
-              companySettings: companySettings
-            });
-            
-            if (emailSent) {
-              // Update assignment status atomically within transaction
-              await tx
-                .update(workerDocumentAssignments)
-                .set({
-                  emailSent: true,
-                  emailSentAt: new Date(),
-                  status: 'sent',
-                  updatedAt: new Date()
-                })
-                .where(eq(workerDocumentAssignments.id, assignmentId));
-                
-              emailsSent++;
-            } else {
-              errors.push(`Assignment ${assignmentId}: Email failed to send`);
-            }
-            
-          } catch (assignmentError) {
-            console.error(`Error processing assignment ${assignmentId}:`, assignmentError);
-            errors.push(`Assignment ${assignmentId}: ${assignmentError.message}`);
+      for (const { assignment, template } of assignments) {
+        try {
+          // Look up worker from isolated customer DB (avoids shared-DB schema drift)
+          const [worker] = await customerDb
+            .select()
+            .from(isolatedSchema.contractorWorkers)
+            .where(eq(isolatedSchema.contractorWorkers.id, assignment.workerId))
+            .limit(1);
+
+          if (!worker) {
+            errors.push(`Assignment ${assignment.id}: Worker ${assignment.workerId} not found`);
+            continue;
           }
+
+          if (!worker.email) {
+            errors.push(`Assignment ${assignment.id}: Worker ${worker.firstName} ${worker.lastName} has no email`);
+            continue;
+          }
+
+          // Look up company from isolated customer DB
+          const [company] = await customerDb
+            .select()
+            .from(isolatedSchema.contractorCompanies)
+            .where(eq(isolatedSchema.contractorCompanies.id, assignment.companyId))
+            .limit(1);
+
+          // Send branded H&S document assignment email (auto-logs to outbox via EmailService)
+          const sent = await emailService.forCustomer(req.customerId).sendHSDocumentAssignment({
+            workerEmail: worker.email,
+            workerName: `${worker.firstName} ${worker.lastName}`,
+            documentName: template.documentName,
+            complianceCategory: template.complianceCategory || 'Health & Safety',
+            companyName: company?.name || 'Your Company',
+            acceptanceToken: assignment.acceptanceToken || '',
+            dueDate: assignment.dueDate || undefined,
+            companySettings,
+          });
+
+          if (!sent) {
+            errors.push(`Assignment ${assignment.id}: Email delivery failed`);
+            continue;
+          }
+
+          // Update assignment status in shared DB
+          await db
+            .update(workerDocumentAssignments)
+            .set({ 
+              status: 'sent',
+              emailSent: true,
+              emailSentAt: sentAt,
+              updatedAt: sentAt,
+            })
+            .where(eq(workerDocumentAssignments.id, assignment.id));
+
+          // Write worker audit note (non-fatal)
+          try {
+            await customerDb.insert(isolatedSchema.workerNotes).values({
+              workerId: worker.id,
+              changeType: 'hs_document_sent',
+              notes: `H&S document email sent: "${template.documentName}" — sent by ${username} on ${sentAt.toLocaleString('en-GB')}`,
+              changedBy: username,
+              changedAt: sentAt,
+            });
+          } catch (noteErr) {
+            console.warn(`[H&S Email] Could not write worker note for ${worker.id}:`, noteErr);
+          }
+
+          // Write company audit note (non-fatal)
+          if (company) {
+            try {
+              await customerDb.insert(isolatedSchema.companyNotes).values({
+                companyId: company.id,
+                changeType: 'hs_document_sent',
+                notes: `H&S document email sent to ${worker.firstName} ${worker.lastName}: "${template.documentName}" — sent by ${username} on ${sentAt.toLocaleString('en-GB')}`,
+                changedBy: username,
+                changedAt: sentAt,
+              });
+            } catch (noteErr) {
+              console.warn(`[H&S Email] Could not write company note for ${company.id}:`, noteErr);
+            }
+          }
+
+          emailsSent++;
+          console.log(`✅ H&S email sent to ${worker.email} for document "${template.documentName}"`);
+          
+        } catch (assignmentError: any) {
+          console.error(`Failed to process assignment ${assignment.id}:`, assignmentError);
+          errors.push(`Assignment ${assignment.id}: ${assignmentError.message}`);
         }
-        
-        return { emailsSent, errors };
-      });
-      
-      res.json({
-        success: true,
-        emailsSent: results.emailsSent,
-        totalAssignments: assignmentIds.length,
-        errors: results.errors.length > 0 ? results.errors : undefined
-      });
-      
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          error: 'Validation failed', 
-          details: error.errors 
-        });
       }
+      
+      console.log(`✅ Sent ${emailsSent}/${assignments.length} H&S document emails for customer ${context.customerId}`);
+      res.json({ 
+        emailsSent,
+        errors,
+        message: emailsSent > 0
+          ? `Successfully sent ${emailsSent} H&S document email${emailsSent !== 1 ? 's' : ''}`
+          : `No emails sent${errors.length > 0 ? ': ' + errors[0] : ''}`,
+      });
+      
+    } catch (error: any) {
       console.error('Error sending UK H&S document emails:', error);
       res.status(500).json({ error: 'Failed to send UK H&S document emails' });
     }
@@ -16355,150 +16379,6 @@ This is an automated notification from your visitor management system.`;
       console.error('🔥 ERROR in assignments/all:', error);
       console.log('🔍 DEBUG: Sending error response');
       res.status(500).json({ error: 'Failed to fetch document assignments' });
-    }
-  });
-
-  // Send reminder emails for document assignments
-  app.post("/api/uk-hs-documents/send-email", requireAuth, async (req, res) => {
-    try {
-      const { assignmentIds } = req.body;
-      
-      if (!Array.isArray(assignmentIds) || assignmentIds.length === 0) {
-        return res.status(400).json({ error: 'Assignment IDs are required' });
-      }
-      
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Get assignments from shared DB (no JOIN — workers/companies are in isolated customer DB)
-      const assignments = await db
-        .select({
-          assignment: workerDocumentAssignments,
-          template: ukHSDocumentTemplates,
-        })
-        .from(workerDocumentAssignments)
-        .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
-        .where(and(
-          inArray(workerDocumentAssignments.id, assignmentIds),
-          eq(workerDocumentAssignments.customerId, context.customerId),
-          eq(workerDocumentAssignments.isActive, true)
-        ));
-
-      if (assignments.length === 0) {
-        return res.status(404).json({ error: 'No matching assignments found for this customer' });
-      }
-
-      // Get isolated customer DB and company settings for branded email
-      const customerDb = await databaseService.getCustomerDatabase(context);
-      const companySettings = await simpleDatabaseService.getCompanySettings(context);
-      
-      let emailsSent = 0;
-      const errors: string[] = [];
-      const sentAt = new Date();
-      
-      for (const { assignment, template } of assignments) {
-        try {
-          // Look up worker from isolated customer DB
-          const [worker] = await customerDb
-            .select()
-            .from(isolatedSchema.contractorWorkers)
-            .where(eq(isolatedSchema.contractorWorkers.id, assignment.workerId))
-            .limit(1);
-
-          if (!worker) {
-            errors.push(`Assignment ${assignment.id}: Worker ${assignment.workerId} not found in customer DB`);
-            continue;
-          }
-
-          if (!worker.email) {
-            errors.push(`Assignment ${assignment.id}: Worker ${worker.firstName} ${worker.lastName} has no email address`);
-            continue;
-          }
-
-          // Look up company from isolated customer DB
-          const [company] = await customerDb
-            .select()
-            .from(isolatedSchema.contractorCompanies)
-            .where(eq(isolatedSchema.contractorCompanies.id, assignment.companyId))
-            .limit(1);
-
-          // Send branded H&S document assignment email (auto-logs to outbox)
-          const sent = await emailService.forCustomer(req.customerId).sendHSDocumentAssignment({
-            workerEmail: worker.email,
-            workerName: `${worker.firstName} ${worker.lastName}`,
-            documentName: template.documentName,
-            complianceCategory: template.complianceCategory || 'Health & Safety',
-            companyName: company?.name || 'Your Company',
-            acceptanceToken: assignment.acceptanceToken || '',
-            dueDate: assignment.dueDate || undefined,
-            companySettings,
-          });
-
-          if (!sent) {
-            errors.push(`Assignment ${assignment.id}: Email delivery failed`);
-            continue;
-          }
-
-          // Update assignment status in shared DB
-          await db
-            .update(workerDocumentAssignments)
-            .set({ 
-              status: 'sent',
-              emailSent: true,
-              emailSentAt: sentAt,
-              updatedAt: sentAt,
-            })
-            .where(eq(workerDocumentAssignments.id, assignment.id));
-
-          // Write worker audit note
-          try {
-            await customerDb.insert(isolatedSchema.workerNotes).values({
-              workerId: worker.id,
-              changeType: 'hs_document_sent',
-              notes: `H&S document email sent: "${template.documentName}" — sent by ${username} on ${sentAt.toLocaleString('en-GB')}`,
-              changedBy: username,
-              changedAt: sentAt,
-            });
-          } catch (noteErr) {
-            console.warn(`[H&S Email] Could not write worker note for ${worker.id}:`, noteErr);
-          }
-
-          // Write company audit note
-          if (company) {
-            try {
-              await customerDb.insert(isolatedSchema.companyNotes).values({
-                companyId: company.id,
-                changeType: 'hs_document_sent',
-                notes: `H&S document email sent to ${worker.firstName} ${worker.lastName}: "${template.documentName}" — sent by ${username} on ${sentAt.toLocaleString('en-GB')}`,
-                changedBy: username,
-                changedAt: sentAt,
-              });
-            } catch (noteErr) {
-              console.warn(`[H&S Email] Could not write company note for ${company.id}:`, noteErr);
-            }
-          }
-
-          emailsSent++;
-          console.log(`✅ H&S email sent to ${worker.email} for document "${template.documentName}"`);
-          
-        } catch (assignmentError: any) {
-          console.error(`Failed to process assignment ${assignment.id}:`, assignmentError);
-          errors.push(`Assignment ${assignment.id}: ${assignmentError.message}`);
-        }
-      }
-      
-      console.log(`✅ Sent ${emailsSent}/${assignments.length} H&S document emails for customer ${context.customerId}`);
-      res.json({ 
-        emailsSent,
-        errors,
-        message: emailsSent > 0
-          ? `Successfully sent ${emailsSent} H&S document email${emailsSent !== 1 ? 's' : ''}`
-          : `No emails sent${errors.length > 0 ? ': ' + errors[0] : ''}`,
-      });
-      
-    } catch (error) {
-      console.error('Error sending document reminder emails:', error);
-      res.status(500).json({ error: 'Failed to send reminder emails' });
     }
   });
 
