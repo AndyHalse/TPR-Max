@@ -40,6 +40,7 @@ import {
   insertWorkerDocumentAssignmentSchema,
   insertWorkerDocumentAcceptanceSchema,
   workerDocumentAssignments,
+  workerDocumentAcceptances,
   ukHSDocumentTemplates,
   contractorWorkers,
   contractorCompanies,
@@ -15967,6 +15968,7 @@ This is an automated notification from your visitor management system.`;
           address: isolatedSchema.companySettings.address,
           phone: isolatedSchema.companySettings.phone,
           email: isolatedSchema.companySettings.email,
+          smtpFromName: isolatedSchema.companySettings.smtpFromName,
         })
         .from(isolatedSchema.companySettings)
         .limit(1);
@@ -15977,9 +15979,17 @@ This is an automated notification from your visitor management system.`;
         const contractorCompanyName = company ? (company as any).companyName || '' : '';
         const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
         const shortWorkerId = worker ? worker.id.slice(0, 8).toUpperCase() : '';
+        const companyContactName = settingsRow?.smtpFromName || settingsRow?.companyName || '';
 
-        const logoHtml = settingsRow?.logoUrl
-          ? `<img src="${settingsRow.logoUrl}" alt="${settingsRow?.companyName ?? ''} logo" style="max-height:60px;max-width:200px;" />`
+        // Fix logo URL: stored as /uploads/UUID but must be served via /objects/uploads/UUID
+        let logoSrc = settingsRow?.logoUrl ?? '';
+        if (logoSrc.startsWith('/uploads/')) {
+          logoSrc = `/objects${logoSrc}`;
+        } else if (logoSrc && !logoSrc.startsWith('/objects') && !logoSrc.startsWith('http')) {
+          logoSrc = `/objects/uploads/${logoSrc}`;
+        }
+        const logoHtml = logoSrc
+          ? `<img src="${logoSrc}" alt="${settingsRow?.companyName ?? ''} logo" style="max-height:60px;max-width:200px;display:block;" />`
           : '';
 
         return content
@@ -15988,6 +15998,7 @@ This is an automated notification from your visitor management system.`;
           .replace(/\{\{company_address\}\}/gi, settingsRow?.address ?? '')
           .replace(/\{\{company_phone\}\}/gi, settingsRow?.phone ?? '')
           .replace(/\{\{company_email\}\}/gi, settingsRow?.email ?? '')
+          .replace(/\{\{company_contact_name\}\}/gi, companyContactName)
           .replace(/\{\{current_date\}\}/gi, today)
           .replace(/\{\{worker_full_name\}\}/gi, workerFullName)
           .replace(/\{\{worker_name\}\}/gi, workerFullName)
