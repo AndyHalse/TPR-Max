@@ -21417,16 +21417,41 @@ This is an automated notification from your visitor management system.`;
       const customerDbService = CustomerDatabaseService.getInstance();
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
 
-      // Build update object
+      // Step 1: Find the customer's primary admin user (role = admin, ordered by created_at)
+      const adminUsers = await customerDb
+        .select({ id: isolatedSchema.users.id, username: isolatedSchema.users.username })
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.role, 'admin'))
+        .orderBy(isolatedSchema.users.createdAt)
+        .limit(1);
+
+      // Fallback: if no admin role found, take the first user ever created
+      const [adminUser] = adminUsers.length > 0 ? adminUsers : await customerDb
+        .select({ id: isolatedSchema.users.id, username: isolatedSchema.users.username })
+        .from(isolatedSchema.users)
+        .orderBy(isolatedSchema.users.createdAt)
+        .limit(1);
+
+      if (!adminUser) {
+        return res.status(404).json({ success: false, error: 'No admin user found for this customer' });
+      }
+
+      // Step 2: If the requested username matches what they already have, skip username change
+      // to avoid a redundant UPDATE that could still trigger the constraint in some DB setups
       const updateData: any = {};
-      if (username) updateData.username = username;
+      if (username && username !== adminUser.username) updateData.username = username;
       if (password) updateData.password = await bcrypt.hash(password, 10);
 
-      // Update the customer admin user (first user is always the admin)
+      if (Object.keys(updateData).length === 0) {
+        // Nothing actually changed
+        return res.json({ success: true, message: 'No changes to apply' });
+      }
+
+      // Step 3: Update by explicit ID (avoids any subquery / search_path ambiguity)
       await customerDb
         .update(isolatedSchema.users)
         .set(updateData)
-        .where(sql`id = (SELECT id FROM users ORDER BY created_at ASC LIMIT 1)`);
+        .where(eq(isolatedSchema.users.id, adminUser.id));
 
       console.log(`✅ Customer admin credentials updated for ${customer.companyName}`);
 
@@ -21434,8 +21459,15 @@ This is an automated notification from your visitor management system.`;
         success: true,
         message: 'Credentials updated successfully'
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error updating customer credentials:', error);
+      // Give a clear message if the username is already taken by another user
+      if (error?.code === '23505' && error?.constraint?.includes('username')) {
+        return res.status(409).json({
+          success: false,
+          error: 'That username is already in use. Please choose a different username.'
+        });
+      }
       res.status(500).json({
         success: false,
         error: 'Failed to update credentials'
