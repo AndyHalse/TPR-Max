@@ -15958,6 +15958,69 @@ This is an automated notification from your visitor management system.`;
 
       const worker = workerRow ?? null;
       const company = companyRow ?? null;
+
+      // Step 3: Fetch the customer's own company settings (for branding / issuing company details)
+      const [settingsRow] = await isolatedDb
+        .select({
+          companyName: isolatedSchema.companySettings.companyName,
+          logoUrl: isolatedSchema.companySettings.logoUrl,
+          address: isolatedSchema.companySettings.address,
+          phone: isolatedSchema.companySettings.phone,
+          email: isolatedSchema.companySettings.email,
+        })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+
+      // Step 4: Fill template variables with real data
+      const fillTemplateVars = (content: string): string => {
+        const workerFullName = worker ? `${worker.firstName} ${worker.lastName}` : '';
+        const contractorCompanyName = company ? (company as any).companyName || '' : '';
+        const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        const shortWorkerId = worker ? worker.id.slice(0, 8).toUpperCase() : '';
+
+        const logoHtml = settingsRow?.logoUrl
+          ? `<img src="${settingsRow.logoUrl}" alt="${settingsRow?.companyName ?? ''} logo" style="max-height:60px;max-width:200px;" />`
+          : '';
+
+        return content
+          .replace(/\{\{company_logo\}\}/gi, logoHtml)
+          .replace(/\{\{company_name\}\}/gi, settingsRow?.companyName ?? '')
+          .replace(/\{\{company_address\}\}/gi, settingsRow?.address ?? '')
+          .replace(/\{\{company_phone\}\}/gi, settingsRow?.phone ?? '')
+          .replace(/\{\{company_email\}\}/gi, settingsRow?.email ?? '')
+          .replace(/\{\{current_date\}\}/gi, today)
+          .replace(/\{\{worker_full_name\}\}/gi, workerFullName)
+          .replace(/\{\{worker_name\}\}/gi, workerFullName)
+          .replace(/\{\{worker_id\}\}/gi, shortWorkerId)
+          .replace(/\{\{contractor_company_name\}\}/gi, contractorCompanyName)
+          .replace(/\{\{worker_email\}\}/gi, worker?.email ?? '')
+          .replace(/\{\{worker_phone\}\}/gi, (worker as any)?.phoneNumber ?? '');
+      };
+
+      // Build normalized response objects for the frontend
+      const workerNormalized = worker ? {
+        id: worker.id,
+        firstName: worker.firstName,
+        lastName: worker.lastName,
+        email: worker.email ?? '',
+        companyId: (worker as any).companyId ?? '',
+      } : null;
+
+      const companyNormalized = company ? {
+        id: company.id,
+        name: (company as any).companyName ?? '',
+        contactEmail: (company as any).contactEmail ?? undefined,
+        phone: (company as any).contactPhone ?? undefined,
+        address: (company as any).address ?? undefined,
+      } : null;
+
+      const templateFilled = {
+        ...template,
+        templateContent: fillTemplateVars(template.templateContent ?? ''),
+        documentDescription: template.documentDescription
+          ? fillTemplateVars(template.documentDescription)
+          : template.documentDescription,
+      };
       
       // Check if already accepted
       if (assignment.status === 'accepted') {
@@ -15967,9 +16030,9 @@ This is an automated notification from your visitor management system.`;
           message: 'Document already accepted',
           acceptedAt: assignment.acceptedAt,
           assignment,
-          template,
-          worker,
-          company
+          template: templateFilled,
+          worker: workerNormalized,
+          company: companyNormalized
         });
       }
       
@@ -15984,9 +16047,9 @@ This is an automated notification from your visitor management system.`;
       res.json({
         success: true,
         assignment,
-        template,
-        worker,
-        company
+        template: templateFilled,
+        worker: workerNormalized,
+        company: companyNormalized
       });
       
     } catch (error) {
