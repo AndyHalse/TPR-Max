@@ -9490,7 +9490,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       if (tokenData.customerId) {
         try {
           const tokCtx = simpleDatabaseService.createCustomerContext('system', tokenData.customerId);
-          const tokDb = await databaseService.getCustomerDatabase(tokCtx);
+          const tokDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(tokCtx.customerId);
           const [custVidRow] = await tokDb
             .select({
               videoTitle: isolatedSchema.inductionSettings.videoTitle,
@@ -9566,7 +9566,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       if (tokenData.customerId) {
         try {
           const custCtx = simpleDatabaseService.createCustomerContext('system', tokenData.customerId);
-          const custDb = await databaseService.getCustomerDatabase(custCtx);
+          const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(custCtx.customerId);
           const [custRow] = await custDb
             .select()
             .from(isolatedSchema.inductionSettings)
@@ -9757,7 +9757,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           if (!token?.customerId) return;
 
           const noteCtx = simpleDatabaseService.createCustomerContext('system', token.customerId);
-          const noteDb = await databaseService.getCustomerDatabase(noteCtx);
+          const noteDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(noteCtx.customerId);
           const now = new Date();
           const dateStr = now.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
           const attemptNum = token.quizAttempts || 1;
@@ -9896,7 +9896,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const { qrCode } = req.params;
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      const customerDb = await databaseService.getCustomerDatabase(context);
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
 
       // Worker QR codes encode the worker ID as the payload
       const [worker] = await customerDb
@@ -14080,13 +14080,9 @@ This is an automated notification from your visitor management system.`;
       };
       
       // DEBUG: Log the request body to see what's actually being sent
-      console.log("🔍 DEBUG: Request body received:", JSON.stringify(req.body, null, 2));
-      console.log("🔍 DEBUG: Data with customerId:", JSON.stringify(requestDataWithCustomerId, null, 2));
       
       // Parse and validate contractor data
       const contractorData = insertContractorCompanySchema.parse(requestDataWithCustomerId);
-      
-      console.log("🔍 DEBUG: Validated contractor data:", JSON.stringify(contractorData, null, 2));
       
       // Map shared schema format to isolated schema format
       const mappedContractorData = {
@@ -14099,8 +14095,6 @@ This is an automated notification from your visitor management system.`;
       delete mappedContractorData.name;
       delete mappedContractorData.email;
       delete mappedContractorData.phone;
-      
-      console.log("🔍 DEBUG: Mapped contractor data for isolated schema:", JSON.stringify(mappedContractorData, null, 2));
       
       // Use customer-isolated database service
       const contractor = await databaseService.createContractorCompany(context, mappedContractorData);
@@ -14135,14 +14129,9 @@ This is an automated notification from your visitor management system.`;
       const { id } = req.params;
       const updates = req.body;
       
-      console.log("🔍 DEBUG: Updating contractor with ID:", id);
-      console.log("🔍 DEBUG: Update data received:", JSON.stringify(updates, null, 2));
-      
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      console.log("🔍 DEBUG: Customer context:", JSON.stringify(context, null, 2));
       
       // Map form field names to isolated schema field names
       const mappedUpdates = {
@@ -14169,10 +14158,6 @@ This is an automated notification from your visitor management system.`;
           }
         }
       });
-      
-      console.log("🔍 DEBUG: Original updates:", JSON.stringify(updates, null, 2));
-      console.log("🔍 DEBUG: Mapped updates:", JSON.stringify(mappedUpdates, null, 2));
-      console.log("🔍 DEBUG: Clean updates:", JSON.stringify(cleanUpdates, null, 2));
       
       // Use customer-isolated database service 
       const contractor = await databaseService.updateContractorCompany(context, id, cleanUpdates);
@@ -15800,7 +15785,7 @@ This is an automated notification from your visitor management system.`;
       }
 
       // Get isolated customer DB and company settings for branded email
-      const customerDb = await databaseService.getCustomerDatabase(context);
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       
       let emailsSent = 0;
@@ -16335,24 +16320,12 @@ This is an automated notification from your visitor management system.`;
 
   // Get all document assignments across all workers (for H&S management dashboard)
   app.get("/api/uk-hs-documents/assignments/all", requireAuth, async (req, res) => {
-    console.log('🔍 DEBUG: assignments/all endpoint called');
-    console.log('🔍 DEBUG: req.user:', req.user);
-    console.log('🔍 DEBUG: req.session:', req.session);
-    
     try {
-      // Ensure user is authenticated (requireAuth should prevent this, but double-check)
       if (!req.user?.username) {
-        console.log('🔍 DEBUG: No authenticated user, returning 401');
         return res.status(401).json({ error: 'User authentication required' });
       }
-      
       const username = req.user.username;
-      console.log('🔍 DEBUG: Authenticated user:', username);
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Get all assignments for this customer - simplified query
-      console.log('🔍 DEBUG: Customer context:', context);
-      
       let assignments: any[] = [];
       try {
         assignments = await db
@@ -16364,20 +16337,14 @@ This is an automated notification from your visitor management system.`;
           ))
           .orderBy(desc(workerDocumentAssignments.assignedAt))
           .limit(500);
-          
-        console.log(`🔍 DEBUG: Found ${assignments.length} assignments in database`);
       } catch (dbError) {
-        console.error('🔥 Database query failed:', dbError);
+        console.error('Database query failed for H&S assignments:', dbError);
         assignments = [];
       }
-      
       console.log(`✅ Retrieved ${assignments.length} H&S document assignments for customer ${context.customerId}`);
-      console.log('🔍 DEBUG: About to send JSON response');
       res.status(200).json(assignments);
-      console.log('🔍 DEBUG: JSON response sent successfully');
     } catch (error) {
-      console.error('🔥 ERROR in assignments/all:', error);
-      console.log('🔍 DEBUG: Sending error response');
+      console.error('Error fetching H&S document assignments:', error);
       res.status(500).json({ error: 'Failed to fetch document assignments' });
     }
   });

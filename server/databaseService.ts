@@ -1370,7 +1370,6 @@ export class DatabaseService {
         .where(eq(isolatedSchema.contractorCompanies.id, companyId));
       
       if (company.length === 0) {
-        console.log(`🔍 WORKERS BY COMPANY ID: Company ${companyId} not found`);
         return []; // Company doesn't exist or doesn't belong to this customer
       }
       
@@ -1381,12 +1380,9 @@ export class DatabaseService {
         .where(eq(isolatedSchema.contractorWorkers.companyId, companyId))
         .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
       
-      console.log(`🔍 WORKERS BY COMPANY ID: Found ${workers.length} workers for company ${companyId}`);
       
       // Map each worker using the same logic as getContractorWorkerById
       const mappedWorkers = workers.map(worker => {
-        console.log(`🔍 MAPPING WORKER: ${worker.id} - ${worker.firstName} ${worker.lastName}`);
-        console.log(`🔍 KEY FIELDS: currentCardStatus=${worker.currentCardStatus}, rightToWork=${worker.rightToWork}, siteInductionCompleted=${worker.siteInductionCompleted}`);
         
         // FIXED: Properly map database fields to frontend format with correct field names
         const mappedWorker = {
@@ -1463,12 +1459,10 @@ export class DatabaseService {
           phone: worker.phoneNumber,
         } as ContractorWorker;
         
-        console.log(`✅ MAPPED WORKER: ${mappedWorker.id} - currentCardStatus=${mappedWorker.currentCardStatus}, inductionCompleted=${mappedWorker.inductionCompleted}`);
         
         return mappedWorker;
       });
       
-      console.log(`✅ WORKERS BY COMPANY ID: Successfully mapped ${mappedWorkers.length} workers with currentCardStatus`);
       return mappedWorkers;
     } catch (error) {
       console.error('Error getting workers by company ID:', error);
@@ -2290,12 +2284,9 @@ export class DatabaseService {
         .where(eq(isolatedSchema.contractorWorkers.companyId, companyId))
         .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
       
-      console.log(`🔍 WORKERS BY COMPANY: Found ${workers.length} workers for company ${companyId}`);
       
       // Map each worker using the same logic as getContractorWorkerById
       const mappedWorkers = workers.map(worker => {
-        console.log(`🔍 MAPPING WORKER: ${worker.id} - ${worker.firstName} ${worker.lastName}`);
-        console.log(`🔍 KEY FIELDS: currentCardStatus=${worker.currentCardStatus}, rightToWork=${worker.rightToWork}, siteInductionCompleted=${worker.siteInductionCompleted}`);
         
         // FIXED: Properly map database fields to frontend format with correct field names
         const mappedWorker = {
@@ -2372,12 +2363,10 @@ export class DatabaseService {
           phone: worker.phoneNumber,
         } as ContractorWorker;
         
-        console.log(`✅ MAPPED WORKER: ${mappedWorker.id} - currentCardStatus=${mappedWorker.currentCardStatus}, inductionCompleted=${mappedWorker.inductionCompleted}`);
         
         return mappedWorker;
       });
       
-      console.log(`✅ WORKERS BY COMPANY: Successfully mapped ${mappedWorkers.length} workers`);
       return mappedWorkers;
     } catch (error) {
       console.error('Error getting workers by company:', error);

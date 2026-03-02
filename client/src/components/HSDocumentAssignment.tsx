@@ -136,14 +136,16 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
   });
 
   // Send email mutation
-  const sendEmailMutation = useMutation<{ sent: number; message: string }, Error, { assignmentIds: string[] }>({
+  const sendEmailMutation = useMutation<{ emailsSent: number; message: string; errors?: string[] }, Error, { assignmentIds: string[] }>({
     mutationFn: async (data) => {
-      return await apiRequest("POST", "/api/uk-hs-documents/send-email", data) as unknown as { sent: number; message: string };
+      const response = await apiRequest("POST", "/api/uk-hs-documents/send-email", data);
+      return response.json();
     },
     onSuccess: (data) => {
       toast({
-        title: "Email Sent",
-        description: data.message || `Sent ${data.sent} document request email(s)`,
+        title: data.emailsSent > 0 ? "Email Sent" : "Email Not Sent",
+        description: data.message || `Sent ${data.emailsSent} document request email(s)`,
+        variant: data.emailsSent > 0 ? "default" : "destructive",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/uk-hs-documents/assignments/all", customerId] });
     },
