@@ -22,6 +22,7 @@ class EmailService {
     if (s.includes('fire marshal')) return 'Fire Marshal Alert';
     if (s.includes('evacuat')) return 'Evacuation Alert';
     if (s.includes('induction')) return 'Induction Link';
+    if (s.includes('h&s') || s.includes('health & safety') || s.includes('health and safety') || s.includes('compliance required') || s.includes('compliance:') || s.includes('h&s compliance')) return 'H&S Document';
     if (s.includes('booking') || s.includes('room')) return 'Room Booking';
     if (s.includes('invitation') || s.includes('invited')) return 'Visitor Invitation';
     if (s.includes('e-pass') || s.includes('epass') || s.includes('digital pass')) return 'E-Pass';

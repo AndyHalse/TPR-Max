@@ -35,6 +35,7 @@ const EMAIL_TYPE_COLORS: Record<string, string> = {
   "Room Booking": "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300",
   "Meeting Reminder": "bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-300",
   "Induction Link": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300",
+  "H&S Document": "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300",
   "Checkout Reminder": "bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300",
   "Report": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/40 dark:text-indigo-300",
   "Welcome / Onboarding": "bg-pink-100 text-pink-800 dark:bg-pink-900/40 dark:text-pink-300",

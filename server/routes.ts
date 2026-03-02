@@ -16370,83 +16370,130 @@ This is an automated notification from your visitor management system.`;
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
-      // Get assignment details for emails
+      // Get assignments from shared DB (no JOIN — workers/companies are in isolated customer DB)
       const assignments = await db
         .select({
           assignment: workerDocumentAssignments,
-          worker: contractorWorkers,
           template: ukHSDocumentTemplates,
-          company: contractorCompanies
         })
         .from(workerDocumentAssignments)
-        .innerJoin(contractorWorkers, eq(workerDocumentAssignments.workerId, contractorWorkers.id))
         .innerJoin(ukHSDocumentTemplates, eq(workerDocumentAssignments.documentTemplateId, ukHSDocumentTemplates.id))
-        .innerJoin(contractorCompanies, eq(workerDocumentAssignments.companyId, contractorCompanies.id))
         .where(and(
           inArray(workerDocumentAssignments.id, assignmentIds),
           eq(workerDocumentAssignments.customerId, context.customerId),
           eq(workerDocumentAssignments.isActive, true)
         ));
+
+      if (assignments.length === 0) {
+        return res.status(404).json({ error: 'No matching assignments found for this customer' });
+      }
+
+      // Get isolated customer DB and company settings for branded email
+      const customerDb = await databaseService.getCustomerDatabase(context);
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
       
       let emailsSent = 0;
+      const errors: string[] = [];
+      const sentAt = new Date();
       
-      for (const { assignment, worker, template, company } of assignments) {
+      for (const { assignment, template } of assignments) {
         try {
-          // Create acceptance URL with token
-          const acceptanceUrl = `${process.env.BASE_URL || 'http://localhost:5000'}/uk-hs-documents/accept/${assignment.acceptanceToken}`;
-          
-          // Send reminder email using EmailService
-          await emailService.forCustomer(req.customerId).sendEmail({
-            to: worker.email,
-            subject: `H&S Document Required: ${template.documentName}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                <h2 style="color: #2563eb;">Health & Safety Document Required</h2>
-                <p>Dear ${worker.firstName} ${worker.lastName},</p>
-                <p>You have a Health & Safety document that requires your acknowledgment:</p>
-                <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                  <h3 style="margin: 0 0 10px 0; color: #1e40af;">${template.documentName}</h3>
-                  <p style="margin: 0 0 5px 0;"><strong>Company:</strong> ${company.name}</p>
-                  <p style="margin: 0 0 5px 0;"><strong>Category:</strong> ${template.complianceCategory}</p>
-                  <p style="margin: 0;"><strong>Assigned:</strong> ${assignment.assignedAt.toLocaleDateString()}</p>
-                </div>
-                <p>Please click the button below to review and acknowledge this document:</p>
-                <div style="text-align: center; margin: 30px 0;">
-                  <a href="${acceptanceUrl}" 
-                     style="background: #059669; color: white; padding: 12px 24px; 
-                            text-decoration: none; border-radius: 6px; font-weight: bold;">
-                    Review Document
-                  </a>
-                </div>
-                <p style="font-size: 14px; color: #6b7280;">
-                  If you have any questions, please contact your site supervisor.
-                </p>
-              </div>
-            `
+          // Look up worker from isolated customer DB
+          const [worker] = await customerDb
+            .select()
+            .from(isolatedSchema.contractorWorkers)
+            .where(eq(isolatedSchema.contractorWorkers.id, assignment.workerId))
+            .limit(1);
+
+          if (!worker) {
+            errors.push(`Assignment ${assignment.id}: Worker ${assignment.workerId} not found in customer DB`);
+            continue;
+          }
+
+          if (!worker.email) {
+            errors.push(`Assignment ${assignment.id}: Worker ${worker.firstName} ${worker.lastName} has no email address`);
+            continue;
+          }
+
+          // Look up company from isolated customer DB
+          const [company] = await customerDb
+            .select()
+            .from(isolatedSchema.contractorCompanies)
+            .where(eq(isolatedSchema.contractorCompanies.id, assignment.companyId))
+            .limit(1);
+
+          // Send branded H&S document assignment email (auto-logs to outbox)
+          const sent = await emailService.forCustomer(req.customerId).sendHSDocumentAssignment({
+            workerEmail: worker.email,
+            workerName: `${worker.firstName} ${worker.lastName}`,
+            documentName: template.documentName,
+            complianceCategory: template.complianceCategory || 'Health & Safety',
+            companyName: company?.name || 'Your Company',
+            acceptanceToken: assignment.acceptanceToken || '',
+            dueDate: assignment.dueDate || undefined,
+            companySettings,
           });
-          
-          // Update assignment status to 'sent'
+
+          if (!sent) {
+            errors.push(`Assignment ${assignment.id}: Email delivery failed`);
+            continue;
+          }
+
+          // Update assignment status in shared DB
           await db
             .update(workerDocumentAssignments)
             .set({ 
               status: 'sent',
               emailSent: true,
-              emailSentAt: new Date(),
-              updatedAt: new Date()
+              emailSentAt: sentAt,
+              updatedAt: sentAt,
             })
             .where(eq(workerDocumentAssignments.id, assignment.id));
-          
+
+          // Write worker audit note
+          try {
+            await customerDb.insert(isolatedSchema.workerNotes).values({
+              workerId: worker.id,
+              changeType: 'hs_document_sent',
+              notes: `H&S document email sent: "${template.documentName}" — sent by ${username} on ${sentAt.toLocaleString('en-GB')}`,
+              changedBy: username,
+              changedAt: sentAt,
+            });
+          } catch (noteErr) {
+            console.warn(`[H&S Email] Could not write worker note for ${worker.id}:`, noteErr);
+          }
+
+          // Write company audit note
+          if (company) {
+            try {
+              await customerDb.insert(isolatedSchema.companyNotes).values({
+                companyId: company.id,
+                changeType: 'hs_document_sent',
+                notes: `H&S document email sent to ${worker.firstName} ${worker.lastName}: "${template.documentName}" — sent by ${username} on ${sentAt.toLocaleString('en-GB')}`,
+                changedBy: username,
+                changedAt: sentAt,
+              });
+            } catch (noteErr) {
+              console.warn(`[H&S Email] Could not write company note for ${company.id}:`, noteErr);
+            }
+          }
+
           emailsSent++;
+          console.log(`✅ H&S email sent to ${worker.email} for document "${template.documentName}"`);
           
-        } catch (emailError) {
-          console.error(`Failed to send email for assignment ${assignment.id}:`, emailError);
+        } catch (assignmentError: any) {
+          console.error(`Failed to process assignment ${assignment.id}:`, assignmentError);
+          errors.push(`Assignment ${assignment.id}: ${assignmentError.message}`);
         }
       }
       
-      console.log(`✅ Sent ${emailsSent} H&S document reminder emails for customer ${context.customerId}`);
+      console.log(`✅ Sent ${emailsSent}/${assignments.length} H&S document emails for customer ${context.customerId}`);
       res.json({ 
-        emailsSent, 
-        message: `Successfully sent ${emailsSent} reminder emails` 
+        emailsSent,
+        errors,
+        message: emailsSent > 0
+          ? `Successfully sent ${emailsSent} H&S document email${emailsSent !== 1 ? 's' : ''}`
+          : `No emails sent${errors.length > 0 ? ': ' + errors[0] : ''}`,
       });
       
     } catch (error) {
