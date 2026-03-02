@@ -25,7 +25,8 @@ import {
   CheckCircle2,
   XCircle,
   Mail,
-  MailCheck
+  MailCheck,
+  Eye
 } from "lucide-react";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { ContractorCompany, ContractorWorker, UkHSDocumentTemplate, WorkerDocumentAssignment } from "@shared/schema";
@@ -504,6 +505,18 @@ export default function HSDocumentAssignment({ onNavigateToTab }: HSDocumentAssi
                       <Badge className={status.bg}>
                         {(assignment.status || 'pending').charAt(0).toUpperCase() + (assignment.status || 'pending').slice(1)}
                       </Badge>
+                      {assignment.acceptanceToken && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 border-slate-300 text-slate-600 hover:bg-slate-50 text-xs"
+                          onClick={() => window.open(`/hs-document/${assignment.acceptanceToken}`, '_blank')}
+                          title="View document acceptance page"
+                        >
+                          <Eye className="w-3 h-3 mr-1" />
+                          View
+                        </Button>
+                      )}
                       {assignment.emailSent ? (
                         <Badge variant="outline" className="border-blue-300 text-blue-600 text-[10px] flex items-center gap-1">
                           <MailCheck size={10} />
