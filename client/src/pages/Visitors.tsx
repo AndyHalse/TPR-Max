@@ -1064,7 +1064,8 @@ export default function Visitors() {
                       className="cursor-pointer"
                     >
                       <div className="flex items-start space-x-3 mb-3">
-                        <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
+                          visitor.photoUrl ? '' :
                           ['bg-gradient-to-r from-blue-500 to-purple-500',
                            'bg-gradient-to-r from-green-500 to-teal-500',
                            'bg-gradient-to-r from-purple-500 to-pink-500',
@@ -1072,9 +1073,17 @@ export default function Visitors() {
                            'bg-gradient-to-r from-indigo-500 to-purple-500',
                            'bg-gradient-to-r from-teal-500 to-cyan-500'][filteredVisitors.indexOf(visitor) % 6]
                         }`}>
-                          <span className="text-white font-bold text-sm">
-                            {(visitor.firstName?.[0] || '').toUpperCase()}{(visitor.lastName?.[0] || '').toUpperCase()}
-                          </span>
+                          {visitor.photoUrl ? (
+                            <img
+                              src={visitor.photoUrl.startsWith('/objects/') ? visitor.photoUrl : `/objects${visitor.photoUrl}`}
+                              alt={`${visitor.firstName} ${visitor.lastName}`}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-white font-bold text-sm">
+                              {(visitor.firstName?.[0] || '').toUpperCase()}{(visitor.lastName?.[0] || '').toUpperCase()}
+                            </span>
+                          )}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
@@ -1168,7 +1177,14 @@ export default function Visitors() {
                       data-testid={`card-visitor-${visitor.id}`}
                       onClick={() => setViewingVisitor(visitor)}
                     >
-                      <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden ${visitor.photoUrl ? '' : 'bg-gradient-to-br from-green-500 to-teal-600'}`}>
+                          {visitor.photoUrl ? (
+                            <img src={visitor.photoUrl.startsWith('/objects/') ? visitor.photoUrl : `/objects${visitor.photoUrl}`} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-white font-bold text-xs">{(visitor.firstName?.[0] || '').toUpperCase()}{(visitor.lastName?.[0] || '').toUpperCase()}</span>
+                          )}
+                        </div>
                         <span className="font-semibold text-fixed text-sm truncate">{visitor.firstName} {visitor.lastName}</span>
                         {visitor.company && <span className="text-sm text-variable truncate hidden sm:inline">{visitor.company}</span>}
                         <span className="text-xs text-variable hidden md:inline">Last: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
@@ -1860,8 +1876,8 @@ export default function Visitors() {
           {viewingVisitor && (() => {
             const vv = viewingVisitor;
             const hostStaff = staff?.find(s => s.id === vv.hostStaffId);
-            const photoSrc = (vv as any).photoUrl
-              ? ((vv as any).photoUrl.startsWith('/objects/') ? (vv as any).photoUrl : `/objects${(vv as any).photoUrl}`)
+            const photoSrc = vv.photoUrl
+              ? (vv.photoUrl.startsWith('/objects/') ? vv.photoUrl : `/objects${vv.photoUrl}`)
               : null;
             return (
               <>
