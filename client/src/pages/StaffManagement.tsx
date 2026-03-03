@@ -5,7 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import AddStaffModal from "@/components/AddStaffModal";
-import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -20,6 +20,8 @@ export default function StaffManagement() {
   const [qrPassData, setQrPassData] = useState<{ qrCode: string; staffName: string } | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchTerm, setSearchTerm] = useState("");
+  const [isUploadingStaffPhoto, setIsUploadingStaffPhoto] = useState(false);
+  const staffPhotoInputId = "staff-photo-upload-input";
   const { toast } = useToast();
   const { slug } = useParams<{ slug: string }>();
   const [location] = useLocation();
@@ -131,6 +133,49 @@ export default function StaffManagement() {
       });
     },
   });
+
+  const updateStaffPhotoMutation = useMutation({
+    mutationFn: async ({ staffId, photoUrl }: { staffId: string; photoUrl: string }) => {
+      const response = await apiRequest("PUT", `/api/staff/${staffId}`, { photoUrl });
+      return response.json();
+    },
+    onSuccess: (updated) => {
+      setViewingStaff((prev: any) => prev ? { ...prev, photoUrl: updated.photoUrl } : prev);
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      toast({ title: "Photo updated", description: "Staff photo saved successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save staff photo.", variant: "destructive" });
+    },
+  });
+
+  const handleStaffPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !viewingStaff) return;
+    let base64: string;
+    try {
+      base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve((ev.target?.result as string).split(',')[1]);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+    } catch {
+      toast({ title: "Error", description: "Could not read the file. Please try again.", variant: "destructive" });
+      return;
+    }
+    setIsUploadingStaffPhoto(true);
+    try {
+      const uploadRes = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
+      const { objectPath } = await uploadRes.json();
+      updateStaffPhotoMutation.mutate({ staffId: viewingStaff.id, photoUrl: objectPath });
+    } catch {
+      toast({ title: "Error", description: "Failed to upload photo.", variant: "destructive" });
+    } finally {
+      setIsUploadingStaffPhoto(false);
+      e.target.value = "";
+    }
+  };
 
   const { data: zones = [] } = useQuery<any[]>({ queryKey: ["/api/zones"] });
 
@@ -628,17 +673,36 @@ export default function StaffManagement() {
 
                 {/* Photo + details — no overlap, clean layout */}
                 <div className="flex flex-col items-center px-6 pt-5 pb-6">
-                  {vs.photoUrl ? (
-                    <img
-                      src={vs.photoUrl}
-                      alt={getFullName(vs)}
-                      className="w-36 h-36 rounded-full object-cover border-4 border-blue-100 shadow-xl"
-                    />
-                  ) : (
-                    <div className="w-36 h-36 rounded-full border-4 border-blue-100 shadow-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                      <span className="text-white font-bold text-4xl">{getInitials(vs)}</span>
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id={staffPhotoInputId}
+                    className="hidden"
+                    onChange={handleStaffPhotoUpload}
+                  />
+
+                  {/* Avatar with upload overlay */}
+                  <div className="relative group">
+                    <div className="w-36 h-36 rounded-full border-4 border-blue-100 shadow-xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                      {vs.photoUrl ? (
+                        <img src={vs.photoUrl} alt={getFullName(vs)} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-white font-bold text-4xl">{getInitials(vs)}</span>
+                      )}
                     </div>
-                  )}
+                    <label
+                      htmlFor={staffPhotoInputId}
+                      className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                      title="Upload photo"
+                    >
+                      {isUploadingStaffPhoto ? (
+                        <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full" />
+                      ) : (
+                        <Camera size={24} className="text-white" />
+                      )}
+                    </label>
+                  </div>
 
                   <h2 className="mt-3 text-xl font-bold text-gray-900">{getFullName(vs)}</h2>
                   {vs.jobTitle && <p className="text-sm text-gray-500 mt-0.5">{vs.jobTitle}</p>}
