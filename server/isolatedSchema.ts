@@ -18,6 +18,7 @@ export const staff = pgTable("staff", {
   lastName: text("last_name").notNull(),
   email: text("email").notNull().unique(),
   department: text("department").notNull(),
+  jobTitle: text("job_title"),
   employeeId: text("employee_id").notNull().unique(),
   photoUrl: text("photo_url"),
   accessLevel: text("access_level").notNull().default("staff"), // admin, supervisor, manager, staff, security, visitor, fire_marshal
