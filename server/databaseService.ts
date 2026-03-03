@@ -1998,6 +1998,7 @@ export class DatabaseService {
       if (updates.phoneNumber !== undefined) updateData.phoneNumber = updates.phoneNumber;
       if ((updates as any).phone !== undefined && updates.phoneNumber === undefined) updateData.phoneNumber = (updates as any).phone;
       if (updates.postcode !== undefined) updateData.postcode = updates.postcode;
+      if ((updates as any).photoUrl !== undefined) updateData.photoUrl = (updates as any).photoUrl;
       if (updates.companyId !== undefined) {
         updateData.companyId = updates.companyId;
         console.log(`🔧 FIELD MAP: companyId = ${updates.companyId}`);
