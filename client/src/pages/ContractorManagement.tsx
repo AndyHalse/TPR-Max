@@ -887,7 +887,8 @@ export default function ContractorManagement() {
                   onClick={() => setViewingWorker(contractor)}
                 >
                   <div className="flex items-start space-x-3 mb-3">
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
+                      contractor.photoUrl ? '' :
                       ['bg-gradient-to-r from-orange-500 to-red-500',
                        'bg-gradient-to-r from-blue-500 to-purple-500',
                        'bg-gradient-to-r from-green-500 to-teal-500',
@@ -895,9 +896,17 @@ export default function ContractorManagement() {
                        'bg-gradient-to-r from-indigo-500 to-purple-500',
                        'bg-gradient-to-r from-teal-500 to-cyan-500'][previousContractors.indexOf(contractor) % 6]
                     }`}>
-                      <span className="text-white font-bold text-sm">
-                        {(contractor.firstName?.[0] || '').toUpperCase()}{(contractor.lastName?.[0] || '').toUpperCase()}
-                      </span>
+                      {contractor.photoUrl ? (
+                        <img
+                          src={contractor.photoUrl.startsWith('/objects/') ? contractor.photoUrl : `/objects${contractor.photoUrl}`}
+                          alt={`${contractor.firstName} ${contractor.lastName}`}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-white font-bold text-sm">
+                          {(contractor.firstName?.[0] || '').toUpperCase()}{(contractor.lastName?.[0] || '').toUpperCase()}
+                        </span>
+                      )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
