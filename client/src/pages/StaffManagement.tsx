@@ -5,7 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import AddStaffModal from "@/components/AddStaffModal";
-import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Shield, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -15,6 +15,7 @@ import type { Staff } from "@shared/schema";
 export default function StaffManagement() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [viewingStaff, setViewingStaff] = useState<Staff | null>(null);
   const [qrPassStaff, setQrPassStaff] = useState<Staff | null>(null);
   const [qrPassData, setQrPassData] = useState<{ qrCode: string; staffName: string } | null>(null);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -423,21 +424,21 @@ export default function StaffManagement() {
           filteredStaff.map((member, index) => (
             viewMode === 'grid' ? (
               <GlassCard key={member.id} hover>
-                <div className="flex items-start space-x-3 mb-3">
+                <div className="flex items-start space-x-3 mb-3 cursor-pointer group" onClick={() => setViewingStaff(member)} title="View profile">
                   {member.photoUrl ? (
                     <img 
                       src={member.photoUrl} 
                       alt={getFullName(member)}
-                      className="w-12 h-12 rounded-full object-cover flex-shrink-0"
+                      className="w-12 h-12 rounded-full object-cover flex-shrink-0 ring-2 ring-transparent group-hover:ring-blue-400 transition-all"
                     />
                   ) : (
-                    <div className={`w-12 h-12 ${getGradientClass(index)} rounded-full flex items-center justify-center flex-shrink-0`}>
+                    <div className={`w-12 h-12 ${getGradientClass(index)} rounded-full flex items-center justify-center flex-shrink-0 ring-2 ring-transparent group-hover:ring-blue-400 transition-all`}>
                       <span className="text-white font-bold text-sm">{getInitials(member)}</span>
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-fixed text-sm truncate" data-testid={`staff-name-${member.id}`}>
+                      <h3 className="font-semibold text-fixed text-sm truncate group-hover:text-blue-600 transition-colors" data-testid={`staff-name-${member.id}`}>
                         {getFullName(member)}
                       </h3>
                       <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${
@@ -610,6 +611,135 @@ export default function StaffManagement() {
         }}
         staffToEdit={editingStaff}
       />
+
+      {/* Staff Profile Card Dialog */}
+      <Dialog open={!!viewingStaff} onOpenChange={(open) => { if (!open) setViewingStaff(null); }}>
+        <DialogContent className="sm:max-w-sm p-0 overflow-hidden rounded-2xl" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">Staff Profile</DialogTitle>
+          {viewingStaff && (() => {
+            const vs = viewingStaff as any;
+            const zone = zones.find((z: any) => z.id === vs.zoneId);
+            return (
+              <>
+                {/* Header band */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 pt-6 pb-14 relative">
+                  <button
+                    onClick={() => setViewingStaff(null)}
+                    className="absolute top-3 right-3 text-white/70 hover:text-white transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                  <p className="text-blue-100 text-xs font-medium uppercase tracking-widest">Staff Profile</p>
+                  <p className="text-white/80 text-xs mt-0.5">{vs.employeeId}</p>
+                </div>
+
+                {/* Avatar — overlaps header */}
+                <div className="flex flex-col items-center -mt-12 px-6 pb-6">
+                  {vs.photoUrl ? (
+                    <img
+                      src={vs.photoUrl}
+                      alt={getFullName(vs)}
+                      className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                    />
+                  ) : (
+                    <div className="w-24 h-24 rounded-full border-4 border-white shadow-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                      <span className="text-white font-bold text-2xl">{getInitials(vs)}</span>
+                    </div>
+                  )}
+
+                  <h2 className="mt-3 text-xl font-bold text-gray-900">{getFullName(vs)}</h2>
+                  {vs.jobTitle && <p className="text-sm text-gray-500 mt-0.5">{vs.jobTitle}</p>}
+
+                  {/* Status + role badges */}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${vs.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                      {vs.isActive ? '● Active' : '● Inactive'}
+                    </span>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getAccessLevelBadgeColor(vs.accessLevel || 'staff')}`}>
+                      {getAccessLevelIcon(vs.accessLevel || 'staff')} {getAccessLevelLabel(vs.accessLevel || 'staff')}
+                    </span>
+                    {vs.isFireMarshal && (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
+                        🚨 Fire Marshal
+                      </span>
+                    )}
+                    {vs.isCheckedIn && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                        <Clock size={10} /> On Site
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Details grid */}
+                  <div className="mt-5 w-full space-y-3 border-t pt-4">
+                    <div className="flex items-center gap-3 text-sm">
+                      <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                        <Mail size={13} className="text-blue-600" />
+                      </div>
+                      <span className="text-gray-700 break-all">{vs.email || '—'}</span>
+                    </div>
+                    {vs.phoneNumber && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                          <Phone size={13} className="text-blue-600" />
+                        </div>
+                        <span className="text-gray-700">{vs.phoneNumber}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-3 text-sm">
+                      <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                        <Briefcase size={13} className="text-blue-600" />
+                      </div>
+                      <span className="text-gray-700">{vs.department || '—'}</span>
+                    </div>
+                    {zone && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                          <MapPin size={13} className="text-blue-600" />
+                        </div>
+                        <span className="flex items-center gap-1.5 text-gray-700">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
+                          {zone.name}
+                        </span>
+                      </div>
+                    )}
+                    {vs.isCheckedIn && vs.checkedInAt && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                          <Clock size={13} className="text-green-600" />
+                        </div>
+                        <span className="text-gray-700">
+                          Signed in at {new Date(vs.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 mt-5 w-full">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => { setViewingStaff(null); setEditingStaff(viewingStaff); }}
+                    >
+                      <Edit size={13} className="mr-1" /> Edit Profile
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs text-indigo-600 border-indigo-300 hover:bg-indigo-50"
+                      onClick={() => { setViewingStaff(null); setQrPassStaff(viewingStaff); }}
+                    >
+                      <QrCode size={13} className="mr-1" /> QR Pass
+                    </Button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!qrPassStaff} onOpenChange={(open) => { if (!open) { setQrPassStaff(null); setQrPassData(null); } }}>
         <DialogContent className="sm:max-w-md">
