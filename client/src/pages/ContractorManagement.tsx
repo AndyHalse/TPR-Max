@@ -2584,7 +2584,7 @@ export default function ContractorManagement() {
 
       {/* Worker Profile Popup */}
       <Dialog open={!!viewingWorker} onOpenChange={(open) => { if (!open) setViewingWorker(null); }}>
-        <DialogContent className="p-0 overflow-hidden max-w-sm" aria-describedby={undefined}>
+        <DialogContent className="sm:max-w-sm p-0 overflow-hidden rounded-2xl" aria-describedby={undefined}>
           <DialogTitle className="sr-only">Worker Profile</DialogTitle>
           {viewingWorker && (() => {
             const ww = viewingWorker;
@@ -2598,77 +2598,99 @@ export default function ContractorManagement() {
             const blockReason = isBanned ? 'Active site ban (Red Card)' : ww.rightToWork !== 'valid' ? 'Right to work not verified' : !ww.inductionCompleted ? 'Site induction not completed' : '';
             return (
               <>
-                <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 pr-10"></div>
-                <div className="px-5 pb-5">
-                  <div className="flex flex-col items-center -mt-10 mb-4">
-                    <div className="w-20 h-20 rounded-full border-4 border-white shadow-md overflow-hidden bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
-                      {photoSrc ? (
-                        <img src={photoSrc} alt={`${ww.firstName} ${ww.lastName}`} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-white font-bold text-xl">
-                          {(ww.firstName?.[0] || '').toUpperCase()}{(ww.lastName?.[0] || '').toUpperCase()}
-                        </span>
-                      )}
+                {/* Slim top bar */}
+                <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 pr-10">
+                  <p className="text-white/80 text-[10px] font-medium uppercase tracking-widest">Contractor Worker · {ww.companyName}</p>
+                </div>
+
+                {/* Photo + details */}
+                <div className="flex flex-col items-center px-6 pt-5 pb-6">
+                  {photoSrc ? (
+                    <img
+                      src={photoSrc}
+                      alt={`${ww.firstName} ${ww.lastName}`}
+                      className="w-36 h-36 rounded-full object-cover border-4 border-orange-100 shadow-xl"
+                    />
+                  ) : (
+                    <div className="w-36 h-36 rounded-full border-4 border-orange-100 shadow-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+                      <span className="text-white font-bold text-4xl">
+                        {(ww.firstName?.[0] || '').toUpperCase()}{(ww.lastName?.[0] || '').toUpperCase()}
+                      </span>
                     </div>
-                    <h2 className="mt-2 text-lg font-bold text-gray-900">{ww.firstName} {ww.lastName}</h2>
-                    {ww.jobTitle && <p className="text-sm text-gray-500">{ww.jobTitle}</p>}
-                    <p className="text-sm text-orange-600 font-medium flex items-center gap-1 mt-0.5">
-                      <Building2 className="h-3.5 w-3.5" />
-                      {ww.companyName}
-                    </p>
-                    <span className={`mt-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
-                      {isCheckedIn ? 'Checked In' : 'Available'}
-                    </span>
-                  </div>
+                  )}
 
-                  <div className="space-y-2 text-sm mb-4">
-                    {ww.email && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                        <span className="truncate">{ww.email}</span>
-                      </div>
-                    )}
-                    {(ww.phoneNumber || ww.mobileNumber) && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                        <span>{ww.phoneNumber || ww.mobileNumber}</span>
-                      </div>
-                    )}
-                    {ww.lastVisitDate && (
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />
-                        <span>Last visit: {new Date(ww.lastVisitDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
-                      </div>
-                    )}
-                  </div>
+                  <h2 className="mt-3 text-xl font-bold text-gray-900">{ww.firstName} {ww.lastName}</h2>
+                  {ww.jobTitle && <p className="text-sm text-gray-500 mt-0.5">{ww.jobTitle}</p>}
 
-                  <div className="flex flex-wrap gap-1.5 mb-4">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ww.rightToWork === 'valid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                      {ww.rightToWork === 'valid' ? <CheckCircle className="h-3 w-3 mr-1" /> : <AlertTriangle className="h-3 w-3 mr-1" />}
-                      Work Auth
+                  {/* Status + compliance badges */}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                      {isCheckedIn ? '● On Site' : '● Available'}
                     </span>
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ww.inductionCompleted ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
-                      <Shield className="h-3 w-3 mr-1" />
-                      {ww.inductionCompleted ? 'Inducted' : 'No Induction'}
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${ww.rightToWork === 'valid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {ww.rightToWork === 'valid' ? '✓' : '!'} Work Auth
+                    </span>
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${ww.inductionCompleted ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
+                      {ww.inductionCompleted ? '✓ Inducted' : '! No Induction'}
                     </span>
                     {ww.safetyRating && (
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getSafetyRatingColor(ww.safetyRating)}`}>
+                      <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getSafetyRatingColor(ww.safetyRating)}`}>
                         {ww.safetyRating}
                       </span>
                     )}
                     {isBanned && (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-200 text-red-900">
-                        <AlertTriangle className="h-3 w-3 mr-1" />
-                        Site Ban
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-red-200 text-red-900">
+                        🚫 Site Ban
                       </span>
                     )}
                   </div>
 
-                  <div className="flex gap-2 pt-3 border-t border-gray-100">
+                  {/* Details grid with icon bubbles */}
+                  <div className="mt-5 w-full space-y-3 border-t pt-4">
+                    {ww.email && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                          <Mail size={13} className="text-orange-600" />
+                        </div>
+                        <span className="text-gray-700 break-all">{ww.email}</span>
+                      </div>
+                    )}
+                    {(ww.phoneNumber || ww.mobileNumber) && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                          <Phone size={13} className="text-orange-600" />
+                        </div>
+                        <span className="text-gray-700">{ww.phoneNumber || ww.mobileNumber}</span>
+                      </div>
+                    )}
+                    {ww.updatedAt && !isCheckedIn && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                          <History size={13} className="text-orange-600" />
+                        </div>
+                        <span className="text-gray-700">
+                          Last visit: {new Date(ww.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                    )}
+                    {isCheckedIn && ww.checkedInAt && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                          <Clock size={13} className="text-green-600" />
+                        </div>
+                        <span className="text-gray-700">
+                          Signed in at {new Date(ww.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 mt-5 w-full">
                     <Button
-                      size="sm"
                       variant="outline"
-                      className="flex-1"
+                      size="sm"
+                      className="flex-1 text-xs"
                       onClick={() => {
                         setViewingWorker(null);
                         setSelectedWorkerForEdit(ww);
@@ -2676,28 +2698,26 @@ export default function ContractorManagement() {
                         setShowContractorEditModal(true);
                       }}
                     >
-                      <Edit className="h-3.5 w-3.5 mr-1" />
-                      Edit Profile
+                      <Edit size={13} className="mr-1" /> Edit Profile
                     </Button>
                     {isClear && !isCheckedIn && (
                       <Button
-                        size="sm"
                         variant="outline"
-                        className="flex-1 text-indigo-600 border-indigo-300 hover:bg-indigo-50"
+                        size="sm"
+                        className="flex-1 text-xs text-indigo-600 border-indigo-300 hover:bg-indigo-50"
                         onClick={() => {
                           setViewingWorker(null);
                           setPreBookingWorker(ww);
                           setPreBookCompanyName(ww.companyName);
                         }}
                       >
-                        <CalendarPlus className="h-3.5 w-3.5 mr-1" />
-                        Pre-Book
+                        <CalendarPlus size={13} className="mr-1" /> Pre-Book
                       </Button>
                     )}
                     {!isCheckedIn ? (
                       <Button
                         size="sm"
-                        className={`flex-1 ${notCleared ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                        className={`flex-1 text-xs ${notCleared ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
                         disabled={notCleared || checkInMutation.isPending}
                         title={notCleared ? blockReason : 'Check in worker'}
                         onClick={() => {
@@ -2708,18 +2728,16 @@ export default function ContractorManagement() {
                           setShowHSModal(true);
                         }}
                       >
-                        <LogIn className="h-3.5 w-3.5 mr-1" />
-                        Check In
+                        <LogIn size={13} className="mr-1" /> Check In
                       </Button>
                     ) : (
                       <Button
                         size="sm"
-                        className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                        className="flex-1 text-xs bg-red-600 hover:bg-red-700 text-white"
                         disabled={checkOutMutation.isPending}
                         onClick={() => { setViewingWorker(null); checkOutMutation.mutate(ww.id); }}
                       >
-                        <LogOut className="h-3.5 w-3.5 mr-1" />
-                        Check Out
+                        <LogOut size={13} className="mr-1" /> Check Out
                       </Button>
                     )}
                   </div>
