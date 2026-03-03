@@ -5954,7 +5954,7 @@ export default function Settings() {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs">
-                      <p>Loads demo data for presentations and testing — adds 10 sample staff, 10 visitors, 10 contractors, and 10 members, all using info@acsltd.eu as the email address.</p>
+                      <p>Loads demo data for presentations and testing — adds 10 staff, 10 visitors, 5 contractor companies (with 3–5 workers each), and 10 members. Each record gets a unique email address so you can load sample data multiple times without conflicts.</p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

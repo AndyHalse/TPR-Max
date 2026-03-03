@@ -22224,146 +22224,167 @@ This is an automated notification from your visitor management system.`;
     try {
       if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
       const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
-      const demoEmail = 'info@acsltd.eu';
       const now = new Date();
-
-      const firstNames = ['James', 'Emma', 'Oliver', 'Sophia', 'Harry', 'Amelia', 'Jack', 'Isabella', 'George', 'Mia'];
-      const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Wilson', 'Taylor'];
-      const departments = ['Engineering', 'Administration', 'Sales', 'Operations', 'Finance', 'HR', 'IT', 'Marketing', 'Logistics', 'Security'];
-      const companies = ['Acme Corp', 'BuildRight Ltd', 'TechFix Solutions', 'Prime Facilities', 'SafeWork UK', 'Delta Contractors', 'Apex Services', 'Horizon Group', 'Nexus Build', 'Swift Maintenance'];
-      const memberTypes = ['full', 'associate', 'honorary', 'student', 'corporate', 'full', 'associate', 'full', 'honorary', 'full'];
       const batchId = Date.now(); // unique per call so repeated loads always add fresh records
 
-      let staffAdded = 0, visitorsAdded = 0, contractorsAdded = 0, membersAdded = 0;
+      const firstNames = ['James', 'Emma', 'Oliver', 'Sophia', 'Harry', 'Amelia', 'Jack', 'Isabella', 'George', 'Mia', 'Thomas', 'Charlotte', 'William', 'Grace', 'Daniel'];
+      const lastNames  = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Wilson', 'Taylor', 'Anderson', 'Harris', 'Clark', 'Lewis', 'Walker'];
+      const departments = ['Engineering', 'Administration', 'Sales', 'Operations', 'Finance', 'HR', 'IT', 'Marketing', 'Logistics', 'Security'];
+      const visitorCompanies = ['Acme Corp', 'BuildRight Ltd', 'TechFix Solutions', 'Prime Facilities', 'SafeWork UK', 'Delta Contractors', 'Apex Services', 'Horizon Group', 'Nexus Build', 'Swift Maintenance'];
+      const memberTypes  = ['full', 'associate', 'honorary', 'student', 'corporate', 'full', 'associate', 'full', 'honorary', 'full'];
+      const accessLevels = ['staff', 'staff', 'staff', 'staff', 'staff', 'staff', 'manager', 'supervisor', 'staff', 'staff'];
+      const ukPhones = ['07700 900123', '07700 900456', '07700 900789', '07700 900321', '07700 900654',
+                        '07700 900987', '07700 900111', '07700 900222', '07700 900333', '07700 900444',
+                        '07700 900555', '07700 900666', '07700 900777', '07700 900888', '07700 900999'];
 
-      // Insert 10 sample staff — use timestamp-based employeeId so repeated loads add fresh records
+      let staffAdded = 0, visitorsAdded = 0, contractorsAdded = 0, workersAdded = 0, membersAdded = 0;
+
+      // ── 10 sample staff ──────────────────────────────────────────────────────
+      // email must be unique per row, so generate per-person addresses
+      const staffJobTitles = ['Site Manager', 'Administrator', 'Sales Executive', 'Operations Manager',
+                              'Finance Officer', 'HR Manager', 'IT Support', 'Marketing Manager',
+                              'Logistics Coordinator', 'Security Officer'];
       for (let i = 0; i < 10; i++) {
         try {
           await customerDb.insert(isolatedSchema.staff).values({
-            firstName: firstNames[i],
-            lastName: lastNames[i],
-            email: demoEmail,
-            department: departments[i],
-            employeeId: `DEMO-S-${batchId}-${i}`,
-            accessLevel: 'staff',
-            isActive: true
+            firstName:   firstNames[i],
+            lastName:    lastNames[i],
+            email:       `demo.staff.${batchId}.${i}@example.com`,
+            department:  departments[i],
+            jobTitle:    staffJobTitles[i],
+            employeeId:  `EMP-${batchId}-${String(i + 1).padStart(3, '0')}`,
+            accessLevel: accessLevels[i],
+            isActive:    true,
           });
           staffAdded++;
-        } catch (_) {}
+        } catch (e) { console.warn('Sample staff insert failed:', (e as any).message); }
       }
 
-      // Insert 10 sample visitors as pre-booked (not checked in, not on-site)
+      // ── 10 sample visitors (past visits, not currently on-site) ──────────────
       for (let i = 0; i < 10; i++) {
         try {
-          const qrCode = `VISITOR-DEMO-${Date.now()}-${i}`;
-          // Set checkedInAt to a past date and checkedOutAt to same day so they
-          // don't appear as currently on-site (column is NOT NULL so must have a value)
-          const pastDate = new Date(now.getTime() - (7 + i) * 24 * 60 * 60 * 1000); // 7–17 days ago
-          const pastCheckout = new Date(pastDate.getTime() + 2 * 60 * 60 * 1000); // 2 hrs later
+          const pastDate    = new Date(now.getTime() - (7 + i) * 24 * 60 * 60 * 1000);
+          const pastCheckout = new Date(pastDate.getTime() + 2 * 60 * 60 * 1000);
           await customerDb.insert(isolatedSchema.visitors).values({
-            firstName: firstNames[(i + 3) % 10],
-            lastName: lastNames[(i + 5) % 10],
-            email: demoEmail,
-            company: companies[i],
-            jobTitle: 'Representative',
-            purpose: 'Demo Visit',
-            qrCode,
-            isPreBooked: false,
-            isCheckedIn: false,
-            checkedInAt: pastDate,
+            firstName:    firstNames[(i + 3) % firstNames.length],
+            lastName:     lastNames[(i + 5) % lastNames.length],
+            email:        `demo.visitor.${batchId}.${i}@example.com`,
+            company:      visitorCompanies[i % visitorCompanies.length],
+            jobTitle:     'Representative',
+            purpose:      'Demo Visit',
+            qrCode:       `VISITOR-DEMO-${batchId}-${i}`,
+            isPreBooked:  false,
+            isCheckedIn:  false,
+            checkedInAt:  pastDate,
             checkedOutAt: pastCheckout,
-            checkoutType: 'manual-reset'
+            checkoutType: 'manual-reset',
           });
           visitorsAdded++;
-        } catch (_) {}
+        } catch (e) { console.warn('Sample visitor insert failed:', (e as any).message); }
       }
 
-      // Insert 5 contractor companies, each with a random number of workers (1-12)
-      const contractorCompanyNames = [
-        'BuildRight Contractors Ltd',
-        'SafeWork Facilities UK',
-        'Delta Technical Services',
-        'Apex Maintenance Group',
-        'Horizon Build & Civil',
+      // ── 5 contractor companies, each with 3–6 workers ────────────────────────
+      const contractorCompanyData = [
+        { name: 'BuildRight Contractors Ltd',   firstName: 'Bob',   lastName: 'Builder',  phone: '01234 567890' },
+        { name: 'SafeWork Facilities UK',        firstName: 'Sarah', lastName: 'Safe',     phone: '01234 567891' },
+        { name: 'Delta Technical Services',      firstName: 'David', lastName: 'Delta',    phone: '01234 567892' },
+        { name: 'Apex Maintenance Group',        firstName: 'Alice', lastName: 'Apex',     phone: '01234 567893' },
+        { name: 'Horizon Build & Civil',         firstName: 'Henry', lastName: 'Horizon',  phone: '01234 567894' },
       ];
-      const contractorJobTitles = [
+      const workerJobTitles = [
         'Site Engineer', 'Electrician', 'Plumber', 'HVAC Technician', 'Health & Safety Officer',
         'Project Manager', 'Scaffolder', 'Welder', 'Carpenter', 'Painter & Decorator',
         'Structural Engineer', 'Forklift Operator', 'Mechanical Fitter', 'Site Supervisor', 'Labourer',
       ];
-      let workersAdded = 0;
-      for (let c = 0; c < contractorCompanyNames.length; c++) {
+      const rightToWorkStatuses = ['valid', 'valid', 'valid', 'pending', 'valid'];
+      const cscsStatuses        = ['valid', 'valid', 'pending', 'valid', 'none'];
+      let workerSeq = 0;
+
+      for (let c = 0; c < contractorCompanyData.length; c++) {
         try {
-          const companyName = contractorCompanyNames[c];
+          const co = contractorCompanyData[c];
           let companyId: string;
+
           const existing = await customerDb
             .select({ id: isolatedSchema.contractorCompanies.id })
             .from(isolatedSchema.contractorCompanies)
-            .where(eq(isolatedSchema.contractorCompanies.name, companyName))
+            .where(eq(isolatedSchema.contractorCompanies.companyName, co.name))
             .limit(1);
+
           if (existing.length > 0) {
             companyId = existing[0].id;
           } else {
             const newCo = await customerDb
               .insert(isolatedSchema.contractorCompanies)
-              .values({ name: companyName, email: demoEmail })
+              .values({
+                companyName:      co.name,
+                contactEmail:     `demo.company.${batchId}.${c}@example.com`,
+                contactPhone:     co.phone,
+                contactFirstName: co.firstName,
+                contactLastName:  co.lastName,
+              })
               .returning({ id: isolatedSchema.contractorCompanies.id });
             companyId = newCo[0].id;
           }
           contractorsAdded++;
 
-          // Add a random number of workers (1–12) for this company
-          const workerCount = Math.floor(Math.random() * 12) + 1;
+          // Add 3–5 workers per company
+          const workerCount = 3 + (c % 3);
           for (let w = 0; w < workerCount; w++) {
             try {
-              const fnIdx = (c * 3 + w) % firstNames.length;
-              const lnIdx = (c * 5 + w + 2) % lastNames.length;
-              const jobIdx = (c * 4 + w) % contractorJobTitles.length;
-              const deptIdx = (c * 2 + w + 1) % departments.length;
+              const seq   = workerSeq++;
+              const fnIdx = seq % firstNames.length;
+              const lnIdx = (seq + 4) % lastNames.length;
+              const jobIdx = seq % workerJobTitles.length;
               await customerDb.insert(isolatedSchema.contractorWorkers).values({
                 companyId,
-                firstName: firstNames[fnIdx],
-                lastName: lastNames[lnIdx],
-                email: demoEmail,
-                jobTitle: contractorJobTitles[jobIdx],
-                department: departments[deptIdx]
+                firstName:   firstNames[fnIdx],
+                lastName:    lastNames[lnIdx],
+                email:       `demo.worker.${batchId}.${seq}@example.com`,
+                phoneNumber: ukPhones[seq % ukPhones.length],
+                jobTitle:    workerJobTitles[jobIdx],
+                department:  departments[seq % departments.length],
+                rightToWork: rightToWorkStatuses[c],
+                cscsStatus:  cscsStatuses[c],
+                postcode:    `EC${1 + (seq % 4)}V ${seq % 9}BB`,
+                transportMethod: ['car_diesel', 'car_petrol', 'public_transport', 'bicycle', 'walking'][seq % 5],
+                isActive:    true,
               });
               workersAdded++;
-            } catch (_) {}
+            } catch (e) { console.warn('Sample worker insert failed:', (e as any).message); }
           }
-        } catch (_) {}
+        } catch (e) { console.warn('Sample contractor company insert failed:', (e as any).message); }
       }
 
-      // Insert 10 sample members
+      // ── 10 sample members ────────────────────────────────────────────────────
       for (let i = 0; i < 10; i++) {
         try {
-          const qrCode = `MEMBER-DEMO-${Date.now()}-${i}`;
           await customerDb.insert(isolatedSchema.members).values({
-            firstName: firstNames[(i + 2) % 10],
-            lastName: lastNames[(i + 7) % 10],
-            email: demoEmail,
-            membershipType: memberTypes[i],
-            membershipId: `MEM-${batchId}-${i}`,
+            firstName:        firstNames[(i + 2) % firstNames.length],
+            lastName:         lastNames[(i + 7) % lastNames.length],
+            email:            `demo.member.${batchId}.${i}@example.com`,
+            membershipType:   memberTypes[i],
+            membershipId:     `MEM-${batchId}-${i}`,
             membershipNumber: `MBR-${batchId}-${i}`,
-            joinDate: `${now.getFullYear()}-01-01`,
-            expiryDate: `${now.getFullYear()}-12-31`,
+            joinDate:         `${now.getFullYear()}-01-01`,
+            expiryDate:       `${now.getFullYear()}-12-31`,
             membershipStatus: 'active',
-            qrCode,
-            isCheckedIn: false,
-            isActive: true
+            qrCode:           `MEMBER-DEMO-${batchId}-${i}`,
+            isCheckedIn:      false,
+            isActive:         true,
           });
           membersAdded++;
-        } catch (_) {}
+        } catch (e) { console.warn('Sample member insert failed:', (e as any).message); }
       }
 
       res.json({
         success: true,
         message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members`,
-        results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded }
+        results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded },
       });
     } catch (error) {
       console.error('Error loading sample data:', error);
-      res.status(500).json({ error: 'Failed to load sample data', details: error.message });
+      res.status(500).json({ error: 'Failed to load sample data', details: (error as any).message });
     }
   });
 
