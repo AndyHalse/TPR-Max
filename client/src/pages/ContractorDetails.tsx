@@ -974,7 +974,11 @@ export default function ContractorDetails() {
             const goodDocs = UK_DOC_FRAMEWORK.filter(d => d.category === 'good');
 
             const requiredDocs = [...legalDocs, ...siteDocs];
-            const compliantCount = requiredDocs.filter(d => ['approved', 'expiring'].includes(getDocStatus(d.key))).length;
+            // Count any uploaded doc (approved, expiring, or pending review) as satisfying the requirement
+            // Only 'missing' and 'expired' are non-compliant
+            const compliantCount = requiredDocs.filter(d => ['approved', 'expiring', 'pending'].includes(getDocStatus(d.key))).length;
+            const missingCount = requiredDocs.filter(d => getDocStatus(d.key) === 'missing').length;
+            const expiredCount = requiredDocs.filter(d => getDocStatus(d.key) === 'expired').length;
             const pct = Math.round((compliantCount / requiredDocs.length) * 100);
 
             const DocSection = ({ title, icon, badge, items }: { title: string; icon: any; badge: any; items: typeof UK_DOC_FRAMEWORK }) => (
@@ -1046,8 +1050,18 @@ export default function ContractorDetails() {
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div className={`h-2 rounded-full transition-all ${pct === 100 ? 'bg-green-500' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${pct}%` }} />
                     </div>
-                    {pct < 100 && (
-                      <p className="text-xs text-gray-500 mt-1.5">Upload the missing documents below to reach 100% compliance.</p>
+                    {pct < 100 && missingCount > 0 && (
+                      <p className="text-xs text-gray-500 mt-1.5">
+                        {missingCount} document{missingCount > 1 ? 's' : ''} still need{missingCount === 1 ? 's' : ''} uploading to reach 100% compliance.
+                      </p>
+                    )}
+                    {pct < 100 && missingCount === 0 && expiredCount > 0 && (
+                      <p className="text-xs text-amber-600 mt-1.5">
+                        {expiredCount} document{expiredCount > 1 ? 's' : ''} {expiredCount === 1 ? 'has' : 'have'} expired — please renew to maintain compliance.
+                      </p>
+                    )}
+                    {pct === 100 && (
+                      <p className="text-xs text-green-600 mt-1.5">All required documents uploaded. Documents marked pending are awaiting admin review.</p>
                     )}
                   </CardContent>
                 </Card>
