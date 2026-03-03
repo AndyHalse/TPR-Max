@@ -14831,6 +14831,8 @@ This is an automated notification from your visitor management system.`;
       const workerData = insertContractorWorkerSchema.parse({
         ...body,
         companyId,
+        // Map frontend 'phone' field to DB column 'phoneNumber'
+        phoneNumber: body.phoneNumber || body.phone || undefined,
         hsRulesAcceptanceToken: hsToken,
         siteInductionCompleted: body.inductionCompleted !== undefined 
           ? Boolean(body.inductionCompleted) 

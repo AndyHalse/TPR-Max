@@ -149,7 +149,7 @@ export default function ContractorDetails() {
       firstName: z.string().min(1, "First name is required"),
       lastName: z.string().min(1, "Last name is required"),
       email: z.string().email("Valid email is required").optional(),
-      phone: z.string().optional(),
+      phone: z.string().min(1, "Phone number is required"),
       postcode: z.string().min(1, "Postcode is required"),
       transportMethod: z.enum(["car_diesel", "car_petrol", "electric_car", "public_transport", "motorcycle"]),
       rightToWork: z.string().min(1, "Right to work status is required"),
@@ -1745,7 +1745,7 @@ export default function ContractorDetails() {
                       <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} data-testid="input-worker-email" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={workerForm.control} name="phone" render={({ field }) => (
-                      <FormItem><FormLabel>Phone</FormLabel><FormControl><Input {...field} data-testid="input-worker-phone" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Phone *</FormLabel><FormControl><Input {...field} placeholder="e.g. 07700 900000" data-testid="input-worker-phone" /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -1984,7 +1984,7 @@ export default function ContractorDetails() {
                   {workerWizardStep > 1 ? '← Back' : 'Cancel'}
                 </Button>
                 {workerWizardStep < 3 ? (
-                  <Button type="button" onClick={() => setWorkerWizardStep(workerWizardStep + 1)} disabled={workerWizardStep === 1 && (!workerForm.watch('firstName') || !workerForm.watch('lastName'))} className="bg-blue-600 hover:bg-blue-700">
+                  <Button type="button" onClick={() => setWorkerWizardStep(workerWizardStep + 1)} disabled={workerWizardStep === 1 && (!workerForm.watch('firstName') || !workerForm.watch('lastName') || !workerForm.watch('phone'))} className="bg-blue-600 hover:bg-blue-700">
                     Next →
                   </Button>
                 ) : (

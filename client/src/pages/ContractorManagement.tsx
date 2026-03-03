@@ -2097,8 +2097,8 @@ export default function ContractorManagement() {
                   <Input type="email" value={workerForm.email} onChange={(e) => setWorkerForm({ ...workerForm, email: e.target.value })} data-testid="input-worker-email" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Phone Number</label>
-                  <Input type="tel" value={workerForm.phone} onChange={(e) => setWorkerForm({ ...workerForm, phone: e.target.value })} data-testid="input-worker-phone" />
+                  <label className="text-sm font-medium text-slate-700">Phone Number *</label>
+                  <Input type="tel" value={workerForm.phone} onChange={(e) => setWorkerForm({ ...workerForm, phone: e.target.value })} data-testid="input-worker-phone" placeholder="e.g. 07700 900000" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700">Home Postcode</label>
@@ -2321,11 +2321,11 @@ export default function ContractorManagement() {
             </Button>
             <div className="flex items-center gap-2">
               {workerWizardStep < 3 ? (
-                <Button onClick={() => setWorkerWizardStep(workerWizardStep + 1)} disabled={workerWizardStep === 1 && (!workerForm.firstName || !workerForm.lastName)} className="bg-blue-600 hover:bg-blue-700">
+                <Button onClick={() => setWorkerWizardStep(workerWizardStep + 1)} disabled={workerWizardStep === 1 && (!workerForm.firstName || !workerForm.lastName || !workerForm.phone)} className="bg-blue-600 hover:bg-blue-700">
                   Next →
                 </Button>
               ) : (
-                <Button onClick={handleAddWorker} disabled={!workerForm.firstName || !workerForm.lastName || createWorkerMutation.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="button-save-worker">
+                <Button onClick={handleAddWorker} disabled={!workerForm.firstName || !workerForm.lastName || !workerForm.phone || createWorkerMutation.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="button-save-worker">
                   {createWorkerMutation.isPending ? "Saving..." : "Save Worker"}
                 </Button>
               )}
