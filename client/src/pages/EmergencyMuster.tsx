@@ -63,7 +63,6 @@ export default function EmergencyMuster() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'staff' | 'visitor' | 'contractor' | 'member'>('all');
   const [emergencyActive, setEmergencyActive] = useState(false);
   const [emergencyPhase, setEmergencyPhase] = useState<'idle' | 'send_alert' | 'active'>('idle');
-  const [showEmailConfirm, setShowEmailConfirm] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
   const [selectedZones, setSelectedZones] = useState<Set<string>>(new Set());
   const [showZoneSelector, setShowZoneSelector] = useState(false);
@@ -378,22 +377,13 @@ export default function EmergencyMuster() {
         });
         return;
       }
-      setShowEmailConfirm(true);
+      activateFireMarshalMutation.mutate();
     } else if (emergencyPhase === 'active') {
       setEmergencyActive(false);
       setEmergencyPhase('idle');
     }
   };
 
-  const handleConfirmSendAlerts = () => {
-    setShowEmailConfirm(false);
-    activateFireMarshalMutation.mutate();
-  };
-
-  const handleSkipAlerts = () => {
-    setShowEmailConfirm(false);
-    setEmergencyPhase('active');
-  };
 
   const toggleAccountedStatus = (id: string, type: string) => {
     toggleAccountedMutation.mutate({ personId: id, type });
@@ -492,42 +482,6 @@ export default function EmergencyMuster() {
         </div>
       )}
 
-      {showEmailConfirm && (
-        <GlassCard className="border-2 border-blue-500 bg-blue-50 dark:bg-blue-900/20">
-          <div className="p-6 text-center space-y-4">
-            <div className="flex items-center justify-center gap-2">
-              <Mail className="text-blue-600" size={28} />
-              <h3 className="text-lg font-bold text-blue-800 dark:text-blue-200">Send Emergency Email Alerts?</h3>
-            </div>
-            <p className="text-sm text-blue-700 dark:text-blue-300">
-              This will send evacuation emails to <strong>all staff, visitors, contractors & Fire Marshals</strong>
-            </p>
-            <div className="flex justify-center gap-4">
-              <Button
-                onClick={handleConfirmSendAlerts}
-                disabled={activateFireMarshalMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 text-base"
-              >
-                {activateFireMarshalMutation.isPending ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                    Sending...
-                  </div>
-                ) : (
-                  "Yes, Send Alerts"
-                )}
-              </Button>
-              <Button
-                onClick={handleSkipAlerts}
-                variant="outline"
-                className="font-bold px-8 py-3 text-base"
-              >
-                No, Skip
-              </Button>
-            </div>
-          </div>
-        </GlassCard>
-      )}
 
       {showZoneSelector && zones.length > 0 && (
         <GlassCard className="dark:glass-dark">
