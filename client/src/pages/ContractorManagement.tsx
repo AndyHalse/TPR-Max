@@ -50,6 +50,7 @@ import {
   Square,
   ChevronRight,
   Zap,
+  Phone,
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
@@ -123,6 +124,7 @@ export default function ContractorManagement() {
   const [checkInWorkerId, setCheckInWorkerId] = useState<string | null>(null);
   const [checkInWorkerName, setCheckInWorkerName] = useState('');
   const [selectedCheckInHost, setSelectedCheckInHost] = useState('');
+  const [viewingWorker, setViewingWorker] = useState<any | null>(null);
   
   // Form states for adding contractor
   const [contractorForm, setContractorForm] = useState({
@@ -835,16 +837,7 @@ export default function ContractorManagement() {
                   key={contractor.id} 
                   hover
                   className="cursor-pointer"
-                  onClick={() => {
-                    const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
-                    const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
-                    if (isClear) {
-                      setPreBookingWorker(contractor);
-                      setPreBookCompanyName(contractor.companyName);
-                    } else {
-                      toast({ title: "Cannot pre-book", description: "This worker is not currently cleared for work", variant: "destructive" });
-                    }
-                  }}
+                  onClick={() => setViewingWorker(contractor)}
                 >
                   <div className="flex items-start space-x-3 mb-3">
                     <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -1042,7 +1035,7 @@ export default function ContractorManagement() {
                   </div>
                 </GlassCard>
                 ) : (
-                <GlassCard key={contractor.id} className="p-3 hover:shadow-md transition-shadow">
+                <GlassCard key={contractor.id} className="p-3 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setViewingWorker(contractor)}>
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1 min-w-0">
                       <div className="flex-1 min-w-0">
@@ -1097,7 +1090,8 @@ export default function ContractorManagement() {
                         size="sm" 
                         variant="outline" 
                         className="p-2"
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setSelectedWorkerForEdit(contractor);
                           setSelectedWorkerCompanyName(contractor.companyName);
                           setShowContractorEditModal(true);
@@ -1110,7 +1104,7 @@ export default function ContractorManagement() {
                         size="sm" 
                         variant="outline" 
                         className="p-2"
-                        onClick={() => sendInductionMutation.mutate(contractor.id)}
+                        onClick={(e) => { e.stopPropagation(); sendInductionMutation.mutate(contractor.id); }}
                         disabled={sendInductionMutation.isPending}
                         title="Send Site Induction Email"
                       >
@@ -1121,7 +1115,8 @@ export default function ContractorManagement() {
                           size="sm" 
                           variant="outline" 
                           className="p-2"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setSelectedWorker(contractor);
                             setSelectedCompanyName(contractor.companyName);
                             setShowPassPreview(true);
@@ -1141,7 +1136,8 @@ export default function ContractorManagement() {
                             size="sm"
                             variant="outline"
                             className="p-2 text-indigo-600 hover:text-indigo-700 border-indigo-300 hover:border-indigo-400 hover:bg-indigo-50"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               setPreBookingWorker(contractor);
                               setPreBookCompanyName(contractor.companyName);
                             }}
@@ -1159,7 +1155,8 @@ export default function ContractorManagement() {
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => {
+                            onClick={(e) => {
+                              e.stopPropagation();
                               if (notCleared) {
                                 toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" });
                                 return;
@@ -1180,7 +1177,7 @@ export default function ContractorManagement() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => checkOutMutation.mutate(contractor.id)}
+                          onClick={(e) => { e.stopPropagation(); checkOutMutation.mutate(contractor.id); }}
                           disabled={checkOutMutation.isPending}
                           className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
                         >
@@ -2582,6 +2579,154 @@ export default function ContractorManagement() {
               {preBookWorkerMutation.isPending ? "Booking..." : "Confirm Pre-Booking"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Worker Profile Popup */}
+      <Dialog open={!!viewingWorker} onOpenChange={(open) => { if (!open) setViewingWorker(null); }}>
+        <DialogContent className="p-0 overflow-hidden max-w-sm" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">Worker Profile</DialogTitle>
+          {viewingWorker && (() => {
+            const ww = viewingWorker;
+            const photoSrc = ww.photoUrl
+              ? (ww.photoUrl.startsWith('/objects/') ? ww.photoUrl : `/objects${ww.photoUrl}`)
+              : null;
+            const isCheckedIn = ww.isCheckedIn;
+            const isBanned = ww.currentCardStatus === 'red' && ww.redCardBanUntil && new Date(ww.redCardBanUntil) > new Date();
+            const isClear = !isBanned && ww.isActive !== false && (!ww.currentCardStatus || ww.currentCardStatus === 'clear' || ww.currentCardStatus === 'yellow');
+            const notCleared = isBanned || ww.rightToWork !== 'valid' || !ww.inductionCompleted;
+            const blockReason = isBanned ? 'Active site ban (Red Card)' : ww.rightToWork !== 'valid' ? 'Right to work not verified' : !ww.inductionCompleted ? 'Site induction not completed' : '';
+            return (
+              <>
+                <div className="bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 pr-10"></div>
+                <div className="px-5 pb-5">
+                  <div className="flex flex-col items-center -mt-10 mb-4">
+                    <div className="w-20 h-20 rounded-full border-4 border-white shadow-md overflow-hidden bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+                      {photoSrc ? (
+                        <img src={photoSrc} alt={`${ww.firstName} ${ww.lastName}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-white font-bold text-xl">
+                          {(ww.firstName?.[0] || '').toUpperCase()}{(ww.lastName?.[0] || '').toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="mt-2 text-lg font-bold text-gray-900">{ww.firstName} {ww.lastName}</h2>
+                    {ww.jobTitle && <p className="text-sm text-gray-500">{ww.jobTitle}</p>}
+                    <p className="text-sm text-orange-600 font-medium flex items-center gap-1 mt-0.5">
+                      <Building2 className="h-3.5 w-3.5" />
+                      {ww.companyName}
+                    </p>
+                    <span className={`mt-1.5 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>
+                      {isCheckedIn ? 'Checked In' : 'Available'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-sm mb-4">
+                    {ww.email && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Mail className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        <span className="truncate">{ww.email}</span>
+                      </div>
+                    )}
+                    {(ww.phoneNumber || ww.mobileNumber) && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Phone className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        <span>{ww.phoneNumber || ww.mobileNumber}</span>
+                      </div>
+                    )}
+                    {ww.lastVisitDate && (
+                      <div className="flex items-center gap-2 text-gray-600">
+                        <Clock className="h-4 w-4 text-gray-400 flex-shrink-0" />
+                        <span>Last visit: {new Date(ww.lastVisitDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap gap-1.5 mb-4">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ww.rightToWork === 'valid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                      {ww.rightToWork === 'valid' ? <CheckCircle className="h-3 w-3 mr-1" /> : <AlertTriangle className="h-3 w-3 mr-1" />}
+                      Work Auth
+                    </span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${ww.inductionCompleted ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
+                      <Shield className="h-3 w-3 mr-1" />
+                      {ww.inductionCompleted ? 'Inducted' : 'No Induction'}
+                    </span>
+                    {ww.safetyRating && (
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getSafetyRatingColor(ww.safetyRating)}`}>
+                        {ww.safetyRating}
+                      </span>
+                    )}
+                    {isBanned && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-red-200 text-red-900">
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        Site Ban
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex gap-2 pt-3 border-t border-gray-100">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        setViewingWorker(null);
+                        setSelectedWorkerForEdit(ww);
+                        setSelectedWorkerCompanyName(ww.companyName);
+                        setShowContractorEditModal(true);
+                      }}
+                    >
+                      <Edit className="h-3.5 w-3.5 mr-1" />
+                      Edit Profile
+                    </Button>
+                    {isClear && !isCheckedIn && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-indigo-600 border-indigo-300 hover:bg-indigo-50"
+                        onClick={() => {
+                          setViewingWorker(null);
+                          setPreBookingWorker(ww);
+                          setPreBookCompanyName(ww.companyName);
+                        }}
+                      >
+                        <CalendarPlus className="h-3.5 w-3.5 mr-1" />
+                        Pre-Book
+                      </Button>
+                    )}
+                    {!isCheckedIn ? (
+                      <Button
+                        size="sm"
+                        className={`flex-1 ${notCleared ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                        disabled={notCleared || checkInMutation.isPending}
+                        title={notCleared ? blockReason : 'Check in worker'}
+                        onClick={() => {
+                          if (notCleared) { toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" }); return; }
+                          setViewingWorker(null);
+                          setWorkerForCheckIn(ww);
+                          setCompanyForCheckIn(ww.companyName);
+                          setShowHSModal(true);
+                        }}
+                      >
+                        <LogIn className="h-3.5 w-3.5 mr-1" />
+                        Check In
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                        disabled={checkOutMutation.isPending}
+                        onClick={() => { setViewingWorker(null); checkOutMutation.mutate(ww.id); }}
+                      >
+                        <LogOut className="h-3.5 w-3.5 mr-1" />
+                        Check Out
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
