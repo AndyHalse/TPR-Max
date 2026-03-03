@@ -25,6 +25,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
     lastName: "",
     email: "",
     department: "",
+    jobTitle: "",
     employeeId: "",
     biostarUserId: "",
     paxtonUserId: "",
@@ -62,6 +63,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         lastName: staffToEdit.lastName || "",
         email: staffToEdit.email || "",
         department: staffToEdit.department || "",
+        jobTitle: staffToEdit.jobTitle || "",
         employeeId: staffToEdit.employeeId || "",
         biostarUserId: staffToEdit.biostarUserId || "",
         paxtonUserId: staffToEdit.paxtonUserId || "",
@@ -83,6 +85,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         lastName: "",
         email: "",
         department: "",
+        jobTitle: "",
         employeeId: "",
         biostarUserId: "",
         paxtonUserId: "",
@@ -286,6 +289,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       lastName: formData.lastName.trim(),
       email: formData.email.trim(),
       department: formData.department,
+      jobTitle: formData.jobTitle.trim() || null,
       employeeId,
       biostarUserId: formData.biostarUserId.trim() || null,
       paxtonUserId: formData.paxtonUserId.trim() || null,
@@ -399,6 +403,21 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             </Select>
           </div>
           
+          <div className="space-y-2">
+            <Label htmlFor="jobTitle" className="text-sm font-medium text-fixed">
+              Job Title
+            </Label>
+            <Input
+              id="jobTitle"
+              type="text"
+              value={formData.jobTitle}
+              onChange={(e) => handleInputChange("jobTitle", e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+              placeholder="e.g. Site Manager, Engineer"
+              data-testid="input-job-title"
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="employeeId" className="text-sm font-medium text-fixed">
               Employee ID
