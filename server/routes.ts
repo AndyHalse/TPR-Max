@@ -15044,6 +15044,56 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // Approve a company document
+  app.patch("/api/contractors/:companyId/documents/:documentId/approve", requireAuth, async (req, res) => {
+    try {
+      const { companyId, documentId } = req.params;
+      const username = req.user!.username;
+      const displayName = req.user!.firstName && req.user!.lastName
+        ? `${req.user!.firstName} ${req.user!.lastName}`
+        : username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+      const now = new Date();
+
+      const [updated] = await db.update(isolatedSchema.contractorDocuments)
+        .set({
+          status: 'approved',
+          approvedBy: displayName,
+          approvedAt: now,
+          updatedAt: now,
+        })
+        .where(and(
+          eq(isolatedSchema.contractorDocuments.id, documentId),
+          eq(isolatedSchema.contractorDocuments.companyId, companyId)
+        ))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      // Audit trail
+      try {
+        const auditTs = now.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const docLabel = (updated.documentType || updated.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+        await db.insert(isolatedSchema.companyNotes).values({
+          companyId,
+          changeType: 'document_approved',
+          notes: `Document "${docLabel}" approved by ${displayName} on ${auditTs}.`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('⚠️ Failed to create document approval audit note (continuing):', auditErr);
+      }
+
+      res.json({ success: true, document: updated });
+    } catch (error) {
+      console.error("Error approving company document:", error);
+      res.status(500).json({ error: "Failed to approve document" });
+    }
+  });
+
   // Company notes / audit trail
   app.get("/api/contractors/:companyId/notes", requireAuth, async (req, res) => {
     try {

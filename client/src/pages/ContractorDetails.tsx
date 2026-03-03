@@ -330,6 +330,22 @@ export default function ContractorDetails() {
     }
   });
 
+  // Approve company document mutation
+  const approveDocumentMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      const response = await apiRequest('PATCH', `/api/contractors/${id}/documents/${documentId}/approve`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Document approved", description: "Approval recorded with your name and timestamp." });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to approve document", description: error.message, variant: "destructive" });
+    }
+  });
+
   // Reset card to yellow mutation
   const resetCardMutation = useMutation({
     mutationFn: async (workerId: string) => {
@@ -1010,12 +1026,29 @@ export default function ContractorDetails() {
                                 {status === 'expiring' && <span className="text-amber-700 font-medium ml-1">⚠️ Renew soon</span>}
                               </div>
                             )}
+                            {uploaded?.approvedBy && uploaded?.approvedAt && (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-green-700">
+                                <CheckCircle2 className="w-3 h-3 flex-shrink-0" />
+                                Approved by <strong className="ml-0.5">{uploaded.approvedBy}</strong>
+                                <span className="text-green-600 ml-0.5">· {new Date(uploaded.approvedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}</span>
+                              </div>
+                            )}
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
                             {uploaded?.documentUrl && (
                               <a href={uploaded.documentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline px-2 py-1 border border-blue-200 rounded">
                                 <Eye className="w-3 h-3" /> View
                               </a>
+                            )}
+                            {uploaded && uploaded.status === 'pending' && (
+                              <button
+                                className="inline-flex items-center gap-1 text-xs text-green-700 hover:bg-green-50 px-2 py-1 border border-green-300 rounded font-medium disabled:opacity-50"
+                                onClick={() => approveDocumentMutation.mutate(uploaded.id)}
+                                disabled={approveDocumentMutation.isPending}
+                                title="Approve this document"
+                              >
+                                <CheckCircle2 className="w-3 h-3" /> Approve
+                              </button>
                             )}
                             <button
                               className="inline-flex items-center gap-1 text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 border border-blue-200 rounded font-medium"
