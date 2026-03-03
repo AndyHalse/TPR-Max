@@ -621,29 +621,28 @@ export default function StaffManagement() {
             const zone = zones.find((z: any) => z.id === vs.zoneId);
             return (
               <>
-                {/* Header band */}
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-6 pt-6 pb-14 relative">
+                {/* Header band — slim */}
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 pt-3 pb-16 relative">
                   <button
                     onClick={() => setViewingStaff(null)}
-                    className="absolute top-3 right-3 text-white/70 hover:text-white transition-colors"
+                    className="absolute top-2 right-2 text-white/70 hover:text-white transition-colors"
                   >
                     <X size={18} />
                   </button>
-                  <p className="text-blue-100 text-xs font-medium uppercase tracking-widest">Staff Profile</p>
-                  <p className="text-white/80 text-xs mt-0.5">{vs.employeeId}</p>
+                  <p className="text-white/70 text-[10px] font-medium uppercase tracking-widest">Staff Profile · {vs.employeeId}</p>
                 </div>
 
-                {/* Avatar — overlaps header */}
-                <div className="flex flex-col items-center -mt-12 px-6 pb-6">
+                {/* Avatar — overlaps header, larger for smartphone use */}
+                <div className="flex flex-col items-center -mt-16 px-6 pb-6">
                   {vs.photoUrl ? (
                     <img
                       src={vs.photoUrl}
                       alt={getFullName(vs)}
-                      className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                      className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-xl"
                     />
                   ) : (
-                    <div className="w-24 h-24 rounded-full border-4 border-white shadow-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                      <span className="text-white font-bold text-2xl">{getInitials(vs)}</span>
+                    <div className="w-32 h-32 rounded-full border-4 border-white shadow-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                      <span className="text-white font-bold text-3xl">{getInitials(vs)}</span>
                     </div>
                   )}
 
