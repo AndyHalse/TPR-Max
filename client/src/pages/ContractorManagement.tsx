@@ -660,9 +660,10 @@ export default function ContractorManagement() {
       const response = await apiRequest("PUT", `/api/contractors/workers/${workerId}`, { photoUrl });
       return response.json();
     },
-    onSuccess: (updatedWorker) => {
-      setViewingWorker((prev: any) => prev ? { ...prev, photoUrl: updatedWorker.photoUrl } : prev);
-      queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
+    onSuccess: (data) => {
+      const worker = data.worker || data;
+      setViewingWorker((prev: any) => prev ? { ...prev, photoUrl: worker.photoUrl } : prev);
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
       toast({ title: "Photo updated", description: "Worker photo saved successfully." });
     },
     onError: () => {
