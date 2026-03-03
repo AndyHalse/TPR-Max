@@ -51,6 +51,7 @@ import {
   ChevronRight,
   Zap,
   Phone,
+  Camera,
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
@@ -125,6 +126,8 @@ export default function ContractorManagement() {
   const [checkInWorkerName, setCheckInWorkerName] = useState('');
   const [selectedCheckInHost, setSelectedCheckInHost] = useState('');
   const [viewingWorker, setViewingWorker] = useState<any | null>(null);
+  const [isUploadingWorkerPhoto, setIsUploadingWorkerPhoto] = useState(false);
+  const workerPhotoInputId = "worker-photo-upload-input";
   
   // Form states for adding contractor
   const [contractorForm, setContractorForm] = useState({
@@ -651,6 +654,49 @@ export default function ContractorManagement() {
       toast({ title: "Failed to pre-book worker", description: error.message, variant: "destructive" });
     }
   });
+
+  const updateWorkerPhotoMutation = useMutation({
+    mutationFn: async ({ workerId, photoUrl }: { workerId: string; photoUrl: string }) => {
+      const response = await apiRequest("PUT", `/api/contractors/workers/${workerId}`, { photoUrl });
+      return response.json();
+    },
+    onSuccess: (updatedWorker) => {
+      setViewingWorker((prev: any) => prev ? { ...prev, photoUrl: updatedWorker.photoUrl } : prev);
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
+      toast({ title: "Photo updated", description: "Worker photo saved successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save worker photo.", variant: "destructive" });
+    },
+  });
+
+  const handleWorkerPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !viewingWorker) return;
+    let base64: string;
+    try {
+      base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve((ev.target?.result as string).split(',')[1]);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+    } catch {
+      toast({ title: "Error", description: "Could not read the file. Please try again.", variant: "destructive" });
+      return;
+    }
+    setIsUploadingWorkerPhoto(true);
+    try {
+      const uploadRes = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
+      const { objectPath } = await uploadRes.json();
+      updateWorkerPhotoMutation.mutate({ workerId: viewingWorker.id, photoUrl: objectPath });
+    } catch {
+      toast({ title: "Error", description: "Failed to upload photo.", variant: "destructive" });
+    } finally {
+      setIsUploadingWorkerPhoto(false);
+      e.target.value = "";
+    }
+  };
 
   // Get previous contractors (workers with their company info)
   const previousContractors = allWorkers.map(worker => {
@@ -2605,19 +2651,38 @@ export default function ContractorManagement() {
 
                 {/* Photo + details */}
                 <div className="flex flex-col items-center px-6 pt-5 pb-6">
-                  {photoSrc ? (
-                    <img
-                      src={photoSrc}
-                      alt={`${ww.firstName} ${ww.lastName}`}
-                      className="w-36 h-36 rounded-full object-cover border-4 border-orange-100 shadow-xl"
-                    />
-                  ) : (
-                    <div className="w-36 h-36 rounded-full border-4 border-orange-100 shadow-xl bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
-                      <span className="text-white font-bold text-4xl">
-                        {(ww.firstName?.[0] || '').toUpperCase()}{(ww.lastName?.[0] || '').toUpperCase()}
-                      </span>
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id={workerPhotoInputId}
+                    className="hidden"
+                    onChange={handleWorkerPhotoUpload}
+                  />
+
+                  {/* Avatar with upload overlay */}
+                  <div className="relative group">
+                    <div className="w-36 h-36 rounded-full border-4 border-orange-100 shadow-xl overflow-hidden bg-gradient-to-br from-orange-500 to-amber-500 flex items-center justify-center">
+                      {photoSrc ? (
+                        <img src={photoSrc} alt={`${ww.firstName} ${ww.lastName}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-white font-bold text-4xl">
+                          {(ww.firstName?.[0] || '').toUpperCase()}{(ww.lastName?.[0] || '').toUpperCase()}
+                        </span>
+                      )}
                     </div>
-                  )}
+                    <label
+                      htmlFor={workerPhotoInputId}
+                      className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                      title="Upload photo"
+                    >
+                      {isUploadingWorkerPhoto ? (
+                        <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full" />
+                      ) : (
+                        <Camera size={24} className="text-white" />
+                      )}
+                    </label>
+                  </div>
 
                   <h2 className="mt-3 text-xl font-bold text-gray-900">{ww.firstName} {ww.lastName}</h2>
                   {ww.jobTitle && <p className="text-sm text-gray-500 mt-0.5">{ww.jobTitle}</p>}

@@ -10018,7 +10018,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         emergencyContactRelationship: 'emergencyContactRelationship',
         transportMethod: 'transportMethod',
         rightToWork: 'rightToWork', // Maps to right_to_work_status column in isolatedSchema
-        cscsCard: 'cscsCard' // Maps to cscs_card_number in schema
+        cscsCard: 'cscsCard', // Maps to cscs_card_number in schema
+        photoUrl: 'photoUrl' // Profile photo URL
       };
       
       // Apply direct mappings
@@ -10116,6 +10117,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       if (mappedData.phone !== undefined && mappedData.phoneNumber === undefined) {
         (validatedData as any).phone = mappedData.phone;
         console.log(`🔧 MANUAL FIX: Preserved phone: ${mappedData.phone}`);
+      }
+
+      // MANUAL FIX: Preserve photoUrl in case Zod strips it
+      if (mappedData.photoUrl !== undefined) {
+        (validatedData as any).photoUrl = mappedData.photoUrl;
+        console.log(`🔧 MANUAL FIX: Preserved photoUrl: ${mappedData.photoUrl}`);
       }
       
       console.log('🔍 ROUTE - Zod validation completed. Result:');
