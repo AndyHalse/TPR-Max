@@ -150,6 +150,7 @@ export const visitors = pgTable("visitors", {
   hsRulesAcceptanceToken: text("hs_rules_acceptance_token"), // Token for verification
   // Notes field for additional visitor information
   notes: text("notes"),
+  photoUrl: text("photo_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

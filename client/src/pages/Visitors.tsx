@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -35,7 +35,8 @@ import {
   LayoutGrid,
   LayoutList,
   Phone,
-  Briefcase
+  Briefcase,
+  Camera
 } from "lucide-react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -313,6 +314,8 @@ export default function Visitors() {
 
   // Profile card popup state
   const [viewingVisitor, setViewingVisitor] = useState<Visitor | null>(null);
+  const [isUploadingVisitorPhoto, setIsUploadingVisitorPhoto] = useState(false);
+  const visitorPhotoInputId = useId();
   
   // Duplicate check-in dialog state
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
@@ -415,6 +418,49 @@ export default function Visitors() {
       });
     },
   });
+
+  const updateVisitorPhotoMutation = useMutation({
+    mutationFn: async ({ visitorId, photoUrl }: { visitorId: string; photoUrl: string }) => {
+      const response = await apiRequest("PUT", `/api/visitors/${visitorId}`, { photoUrl });
+      return response.json();
+    },
+    onSuccess: (updatedVisitor) => {
+      setViewingVisitor(updatedVisitor);
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      toast({ title: "Photo updated", description: "Visitor photo saved successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save visitor photo.", variant: "destructive" });
+    },
+  });
+
+  const handleVisitorPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !viewingVisitor) return;
+    let base64: string;
+    try {
+      base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve((ev.target?.result as string).split(',')[1]);
+        reader.onerror = () => reject(new Error('Failed to read file'));
+        reader.readAsDataURL(file);
+      });
+    } catch {
+      toast({ title: "Error", description: "Could not read the file. Please try again.", variant: "destructive" });
+      return;
+    }
+    setIsUploadingVisitorPhoto(true);
+    try {
+      const uploadRes = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
+      const { objectPath } = await uploadRes.json();
+      updateVisitorPhotoMutation.mutate({ visitorId: viewingVisitor.id, photoUrl: objectPath });
+    } catch {
+      toast({ title: "Error", description: "Failed to upload photo.", variant: "destructive" });
+    } finally {
+      setIsUploadingVisitorPhoto(false);
+      e.target.value = "";
+    }
+  };
 
   // Mutations
   const createPreBookingMutation = useMutation({
@@ -1814,6 +1860,9 @@ export default function Visitors() {
           {viewingVisitor && (() => {
             const vv = viewingVisitor;
             const hostStaff = staff?.find(s => s.id === vv.hostStaffId);
+            const photoSrc = (vv as any).photoUrl
+              ? ((vv as any).photoUrl.startsWith('/objects/') ? (vv as any).photoUrl : `/objects${(vv as any).photoUrl}`)
+              : null;
             return (
               <>
                 {/* Slim top bar */}
@@ -1822,11 +1871,37 @@ export default function Visitors() {
                 </div>
 
                 <div className="flex flex-col items-center px-6 pt-5 pb-6">
-                  {/* Avatar */}
-                  <div className="w-36 h-36 rounded-full border-4 border-green-100 shadow-xl bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center">
-                    <span className="text-white font-bold text-4xl">
-                      {(vv.firstName?.[0] || '').toUpperCase()}{(vv.lastName?.[0] || '').toUpperCase()}
-                    </span>
+                  {/* Hidden file input for photo upload */}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    id={visitorPhotoInputId}
+                    className="hidden"
+                    onChange={handleVisitorPhotoUpload}
+                  />
+
+                  {/* Avatar with upload overlay */}
+                  <div className="relative group">
+                    <div className="w-36 h-36 rounded-full border-4 border-green-100 shadow-xl overflow-hidden bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center">
+                      {photoSrc ? (
+                        <img src={photoSrc} alt="Visitor photo" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-white font-bold text-4xl">
+                          {(vv.firstName?.[0] || '').toUpperCase()}{(vv.lastName?.[0] || '').toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                    <label
+                      htmlFor={visitorPhotoInputId}
+                      className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
+                      title="Upload photo"
+                    >
+                      {isUploadingVisitorPhoto ? (
+                        <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full" />
+                      ) : (
+                        <Camera size={24} className="text-white" />
+                      )}
+                    </label>
                   </div>
 
                   <h2 className="mt-3 text-xl font-bold text-gray-900">{vv.firstName} {vv.lastName}</h2>

@@ -163,6 +163,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addEmailLogMigration,
     addNavBannerColorMigration,
     fixCardOffencesCustomerIdMigration,
+    addVisitorPhotoUrlMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1441,6 +1442,21 @@ export const rebuildIsolatedReportsMigration: Migration = {
       console.log('✅ [013] Recreated reports table with correct schema');
     } catch (err: any) {
       console.log(`⚠️ [013] Create reports: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+const addVisitorPhotoUrlMigration: Migration = {
+  version: '20260303_017_visitor_photo_url',
+  description: 'Add photo_url column to visitors table for profile photo uploads',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE visitors ADD COLUMN IF NOT EXISTS photo_url TEXT`);
+      console.log('✅ [017] Added photo_url to visitors');
+    } catch (err: any) {
+      if (!err.message?.includes('already exists')) {
+        console.log(`⚠️ [017] visitors photo_url: ${err.message?.substring(0, 100)}`);
+      }
     }
   }
 };
