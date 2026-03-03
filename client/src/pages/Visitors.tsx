@@ -33,7 +33,9 @@ import {
   History,
   Edit,
   LayoutGrid,
-  LayoutList
+  LayoutList,
+  Phone,
+  Briefcase
 } from "lucide-react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -308,6 +310,9 @@ export default function Visitors() {
   // Edit visitor state
   const [editingVisitor, setEditingVisitor] = useState<Visitor | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+
+  // Profile card popup state
+  const [viewingVisitor, setViewingVisitor] = useState<Visitor | null>(null);
   
   // Duplicate check-in dialog state
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
@@ -1009,7 +1014,7 @@ export default function Visitors() {
                       key={visitor.id}
                       hover
                       data-testid={`card-visitor-${visitor.id}`}
-                      onClick={() => handlePreBookVisitor(visitor)}
+                      onClick={() => setViewingVisitor(visitor)}
                       className="cursor-pointer"
                     >
                       <div className="flex items-start space-x-3 mb-3">
@@ -1115,7 +1120,7 @@ export default function Visitors() {
                       key={visitor.id} 
                       className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all cursor-pointer" 
                       data-testid={`card-visitor-${visitor.id}`}
-                      onClick={() => handlePreBookVisitor(visitor)}
+                      onClick={() => setViewingVisitor(visitor)}
                     >
                       <div className="flex items-center gap-4 flex-1 min-w-0">
                         <span className="font-semibold text-fixed text-sm truncate">{visitor.firstName} {visitor.lastName}</span>
@@ -1799,6 +1804,114 @@ export default function Visitors() {
               </Button>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Visitor Profile Card Dialog */}
+      <Dialog open={!!viewingVisitor} onOpenChange={(open) => { if (!open) setViewingVisitor(null); }}>
+        <DialogContent className="sm:max-w-sm p-0 overflow-hidden rounded-2xl" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">Visitor Profile</DialogTitle>
+          {viewingVisitor && (() => {
+            const vv = viewingVisitor;
+            const hostStaff = staff?.find(s => s.id === vv.hostStaffId);
+            return (
+              <>
+                {/* Slim top bar */}
+                <div className="bg-gradient-to-r from-green-600 to-teal-600 px-4 py-2 pr-10">
+                  <p className="text-white/80 text-[10px] font-medium uppercase tracking-widest">Visitor Profile</p>
+                </div>
+
+                <div className="flex flex-col items-center px-6 pt-5 pb-6">
+                  {/* Avatar */}
+                  <div className="w-36 h-36 rounded-full border-4 border-green-100 shadow-xl bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center">
+                    <span className="text-white font-bold text-4xl">
+                      {(vv.firstName?.[0] || '').toUpperCase()}{(vv.lastName?.[0] || '').toUpperCase()}
+                    </span>
+                  </div>
+
+                  <h2 className="mt-3 text-xl font-bold text-gray-900">{vv.firstName} {vv.lastName}</h2>
+                  {vv.jobTitle && <p className="text-sm text-gray-500 mt-0.5">{vv.jobTitle}</p>}
+                  {vv.company && <p className="text-sm text-gray-400 mt-0.5">{vv.company}</p>}
+
+                  {/* Status badges */}
+                  <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${vv.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                      {vv.isCheckedIn ? '● On Site' : '● Off Site'}
+                    </span>
+                    {vv.isCheckedIn && vv.checkedInAt && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-teal-100 text-teal-800">
+                        <Clock size={10} /> {new Date(vv.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Details */}
+                  <div className="mt-5 w-full space-y-3 border-t pt-4">
+                    {vv.email && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                          <Mail size={13} className="text-green-600" />
+                        </div>
+                        <span className="text-gray-700 break-all">{vv.email}</span>
+                      </div>
+                    )}
+                    {vv.phoneNumber && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                          <Phone size={13} className="text-green-600" />
+                        </div>
+                        <span className="text-gray-700">{vv.phoneNumber}</span>
+                      </div>
+                    )}
+                    {vv.company && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                          <Building2 size={13} className="text-green-600" />
+                        </div>
+                        <span className="text-gray-700">{vv.company}</span>
+                      </div>
+                    )}
+                    {vv.purpose && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                          <Briefcase size={13} className="text-green-600" />
+                        </div>
+                        <span className="text-gray-700">{vv.purpose}</span>
+                      </div>
+                    )}
+                    {hostStaff && (
+                      <div className="flex items-center gap-3 text-sm">
+                        <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                          <UserCheck size={13} className="text-green-600" />
+                        </div>
+                        <span className="text-gray-700">Visiting: {hostStaff.firstName} {hostStaff.lastName}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 mt-5 w-full">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs"
+                      onClick={() => { setViewingVisitor(null); handleEditVisitor(vv); }}
+                    >
+                      <Edit size={13} className="mr-1" /> Edit Profile
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 text-xs text-teal-600 border-teal-300 hover:bg-teal-50"
+                      onClick={() => { setViewingVisitor(null); handlePreBookVisitor(vv); }}
+                    >
+                      <CalendarPlus size={13} className="mr-1" /> Pre-Book
+                    </Button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
