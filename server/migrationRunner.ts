@@ -164,6 +164,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addNavBannerColorMigration,
     fixCardOffencesCustomerIdMigration,
     addVisitorPhotoUrlMigration,
+    addStaffMissingColumnsMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1458,5 +1459,42 @@ const addVisitorPhotoUrlMigration: Migration = {
         console.log(`⚠️ [017] visitors photo_url: ${err.message?.substring(0, 100)}`);
       }
     }
+  }
+};
+
+const addStaffMissingColumnsMigration: Migration = {
+  version: '20260303_018_staff_missing_columns',
+  description: 'Add missing columns to staff table (job_title, photo_url, induction, fire marshal, paxton, etc.)',
+  async up(db: any) {
+    const columns: Array<{ name: string; def: string }> = [
+      { name: 'job_title',               def: 'TEXT' },
+      { name: 'photo_url',               def: 'TEXT' },
+      { name: 'password',                def: 'TEXT' },
+      { name: 'last_login_at',           def: 'TIMESTAMP' },
+      { name: 'zone_id',                 def: 'VARCHAR' },
+      { name: 'manual_check_in',         def: 'BOOLEAN DEFAULT false' },
+      { name: 'is_accounted_for',        def: 'BOOLEAN DEFAULT false NOT NULL' },
+      { name: 'fire_marshal_url_id',     def: 'TEXT' },
+      { name: 'emergency_token',         def: 'TEXT' },
+      { name: 'emergency_token_expires', def: 'TIMESTAMP' },
+      { name: 'user_id',                 def: 'VARCHAR' },
+      { name: 'qr_code',                 def: 'TEXT' },
+      { name: 'biostar_user_id',         def: 'TEXT' },
+      { name: 'paxton_user_id',          def: 'TEXT' },
+      { name: 'induction_completed',     def: 'BOOLEAN DEFAULT false NOT NULL' },
+      { name: 'induction_completed_at',  def: 'TIMESTAMP' },
+      { name: 'checkout_type',           def: 'TEXT' },
+    ];
+
+    for (const col of columns) {
+      try {
+        await db.execute(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+      } catch (err: any) {
+        if (!err.message?.includes('already exists')) {
+          console.log(`⚠️ [018] staff.${col.name}: ${err.message?.substring(0, 100)}`);
+        }
+      }
+    }
+    console.log('✅ [018] staff missing columns migration complete');
   }
 };
