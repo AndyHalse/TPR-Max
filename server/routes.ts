@@ -11326,6 +11326,43 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       delete transformedData.customerId;
       
       const preBookingData = insertPreBookingSchema.parse(transformedData);
+
+      // ── Duplicate prevention ──────────────────────────────────────────────
+      // Reject if another active (non-cancelled) pre-booking already exists for
+      // the same visitor (matched by email OR by full name + company) on the
+      // same calendar day at the same time.
+      const visitDayStr = preBookingData.visitDate.toDateString();
+      const existingToday = await customerDb
+        .select()
+        .from(isolatedSchema.preBookings)
+        .where(ne(isolatedSchema.preBookings.status, 'cancelled'));
+
+      const duplicate = existingToday.find((b: any) => {
+        if (new Date(b.visitDate).toDateString() !== visitDayStr) return false;
+        if (b.visitTime && preBookingData.visitTime && b.visitTime !== preBookingData.visitTime) return false;
+        // Match by email (if both present)
+        if (b.visitorEmail && preBookingData.visitorEmail &&
+            b.visitorEmail.toLowerCase() === preBookingData.visitorEmail.toLowerCase()) return true;
+        // Match by full name + company (case-insensitive)
+        const sameName =
+          b.visitorFirstName?.toLowerCase() === preBookingData.visitorFirstName?.toLowerCase() &&
+          b.visitorLastName?.toLowerCase() === preBookingData.visitorLastName?.toLowerCase();
+        const sameCompany = (!b.company && !preBookingData.company) ||
+          b.company?.toLowerCase() === preBookingData.company?.toLowerCase();
+        return sameName && sameCompany;
+      });
+
+      if (duplicate) {
+        const visitorName = `${preBookingData.visitorFirstName} ${preBookingData.visitorLastName}`;
+        const dateLabel = preBookingData.visitDate.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+        const timeLabel = preBookingData.visitTime ? ` at ${preBookingData.visitTime}` : '';
+        return res.status(409).json({
+          error: "Duplicate pre-booking",
+          message: `${visitorName} is already pre-booked for ${dateLabel}${timeLabel}. Cancel the existing booking first if you need to reschedule.`
+        });
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       const [preBooking] = await customerDb.insert(isolatedSchema.preBookings)
         .values({
           ...preBookingData,

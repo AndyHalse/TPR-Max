@@ -494,11 +494,13 @@ export default function Visitors() {
       });
       setSelectedDate(new Date());
     },
-    onError: () => {
+    onError: (error: Error) => {
+      const isDuplicate = error.message?.includes('already pre-booked') || error.message?.includes('Duplicate');
       toast({
-        title: "Error",
-        description: "Failed to create pre-booking",
+        title: isDuplicate ? "Duplicate Pre-booking" : "Error",
+        description: error.message || "Failed to create pre-booking",
         variant: "destructive",
+        duration: isDuplicate ? 8000 : 5000,
       });
     },
   });
