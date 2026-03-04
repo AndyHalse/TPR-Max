@@ -165,6 +165,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     fixCardOffencesCustomerIdMigration,
     addVisitorPhotoUrlMigration,
     addStaffMissingColumnsMigration,
+    addVisitorsMissingColumnsMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1464,9 +1465,10 @@ const addVisitorPhotoUrlMigration: Migration = {
 
 const addStaffMissingColumnsMigration: Migration = {
   version: '20260303_018_staff_missing_columns',
-  description: 'Add missing columns to staff table (job_title, photo_url, induction, fire marshal, paxton, etc.)',
+  description: 'Add missing columns to staff and visitors tables (job_title, phone_number, etc.)',
   async up(db: any) {
-    const columns: Array<{ name: string; def: string }> = [
+    // ── staff table ─────────────────────────────────────────────────────────
+    const staffColumns: Array<{ name: string; def: string }> = [
       { name: 'job_title',               def: 'TEXT' },
       { name: 'photo_url',               def: 'TEXT' },
       { name: 'password',                def: 'TEXT' },
@@ -1486,7 +1488,7 @@ const addStaffMissingColumnsMigration: Migration = {
       { name: 'checkout_type',           def: 'TEXT' },
     ];
 
-    for (const col of columns) {
+    for (const col of staffColumns) {
       try {
         await db.execute(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
       } catch (err: any) {
@@ -1495,6 +1497,37 @@ const addStaffMissingColumnsMigration: Migration = {
         }
       }
     }
-    console.log('✅ [018] staff missing columns migration complete');
+    console.log('✅ [018] staff columns done');
+
+    console.log('✅ [018] migration complete');
+  }
+};
+
+const addVisitorsMissingColumnsMigration: Migration = {
+  version: '20260303_019_visitors_missing_columns',
+  description: 'Add phone_number and other missing columns to visitors table',
+  async up(db: any) {
+    // phone_number was omitted from the earlier comprehensive repair migration
+    // Notes, job_title, address, car_registration also included defensively
+    const columns: Array<{ name: string; def: string }> = [
+      { name: 'phone_number',     def: 'TEXT' },
+      { name: 'mobile_number',    def: 'TEXT' },
+      { name: 'job_title',        def: 'TEXT' },
+      { name: 'address',          def: 'TEXT' },
+      { name: 'car_registration', def: 'TEXT' },
+      { name: 'notes',            def: 'TEXT' },
+      { name: 'photo_url',        def: 'TEXT' },
+    ];
+
+    for (const col of columns) {
+      try {
+        await db.execute(`ALTER TABLE visitors ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+      } catch (err: any) {
+        if (!err.message?.includes('already exists')) {
+          console.log(`⚠️ [019] visitors.${col.name}: ${err.message?.substring(0, 100)}`);
+        }
+      }
+    }
+    console.log('✅ [019] visitors missing columns migration complete');
   }
 };
