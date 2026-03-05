@@ -47,6 +47,15 @@ interface WorkerDetails {
   companyName?: string;
 }
 
+interface InductionBranding {
+  companyName?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  accentColor?: string | null;
+  backgroundColor?: string | null;
+  foregroundColor?: string | null;
+}
+
 interface VideoContent {
   title: string;
   description: string;
@@ -84,7 +93,13 @@ export default function SiteInduction() {
   const [videoFullscreen, setVideoFullscreen] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
+  const [branding, setBranding] = useState<InductionBranding | null>(null);
   const fetchedTokenRef = useRef<string | null>(null);
+
+  // Derive usable brand values with safe fallbacks
+  const brandAccent = branding?.accentColor || '#2460a9';
+  const brandName = branding?.companyName || null;
+  const brandLogo = branding?.logoUrl || branding?.bannerUrl || null;
 
   useEffect(() => {
     const token = params?.token;
@@ -136,6 +151,7 @@ export default function SiteInduction() {
       setTokenData(tkn);
       setWorker(tokenResponse.worker);
       setVideoContent(tokenResponse.videoContent);
+      if (tokenResponse.branding) setBranding(tokenResponse.branding);
       
       // Derive personType from token object - critical for correct quiz and messaging
       const derivedPersonType = tkn?.personType || 'contractor';
@@ -519,12 +535,14 @@ export default function SiteInduction() {
                   const optionText = currentQuestion[`option${option}` as keyof InductionQuestion] as string;
                   if (!optionText) return null;
                   
+                  const isSelected = answers[currentQuestion.id] === option;
                   return (
                     <label 
                       key={option}
-                      className={`flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors hover:bg-gray-50 ${
-                        answers[currentQuestion.id] === option ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
-                      }`}
+                      className="flex items-start gap-3 p-4 border rounded-lg cursor-pointer transition-colors"
+                      style={isSelected
+                        ? { borderColor: brandAccent, backgroundColor: brandAccent + '18' }
+                        : undefined}
                     >
                       <input
                         type="radio"
@@ -650,28 +668,35 @@ export default function SiteInduction() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-orange-50">
+    <div className="min-h-screen" style={{ background: `linear-gradient(135deg, ${brandAccent}18 0%, ${brandAccent}08 100%)` }}>
       {/* Header */}
-      <div className="bg-[var(--card)] shadow-sm border-b">
-        <div className="max-w-4xl mx-auto px-4 py-6">
+      <div className="shadow-sm border-b" style={{ borderBottomColor: brandAccent + '30', backgroundColor: 'white' }}>
+        <div className="max-w-4xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Shield className="w-6 h-6 text-orange-600" />
-                Site Induction
-              </h1>
-              <p className="text-variable mt-1">Health & Safety Compliance</p>
+            {/* Company branding — logo + name */}
+            <div className="flex items-center gap-3">
+              {brandLogo ? (
+                <img
+                  src={`/objects${brandLogo}`}
+                  alt={brandName || 'Company logo'}
+                  className="h-10 w-auto max-w-[140px] object-contain"
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: brandAccent + '20' }}>
+                  <Shield className="w-5 h-5" style={{ color: brandAccent }} />
+                </div>
+              )}
+              <div>
+                {brandName && <p className="font-bold text-gray-900 leading-tight">{brandName}</p>}
+                <p className="text-sm text-gray-500 leading-tight">Site Induction · Health &amp; Safety</p>
+              </div>
             </div>
-            <div className="text-right space-y-1">
-              <p className="font-semibold text-gray-900">{worker.firstName} {worker.lastName}</p>
-              {worker.companyName && <p className="text-sm text-variable">{worker.companyName}</p>}
-              <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
-                personType === 'visitor'
-                  ? 'bg-blue-100 text-blue-700'
-                  : personType === 'staff'
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'bg-orange-100 text-orange-700'
-              }`}>
+            {/* Person info */}
+            <div className="text-right space-y-1 shrink-0">
+              <p className="font-semibold text-gray-900 text-sm">{worker.firstName} {worker.lastName}</p>
+              {worker.companyName && <p className="text-xs text-gray-500">{worker.companyName}</p>}
+              <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: brandAccent }}>
                 {personType === 'visitor' ? 'Visitor' : personType === 'staff' ? 'Staff' : 'Contractor'}
               </span>
             </div>
@@ -684,35 +709,35 @@ export default function SiteInduction() {
         {/* Progress Indicators */}
         <div className="flex items-center justify-center mb-8">
           <div className="flex items-center space-x-4">
-            <div className={`flex items-center ${currentStep === "video" ? "text-blue-600" : tokenData.videoWatched ? "text-green-600" : "text-gray-400"}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                tokenData.videoWatched ? "bg-green-100" : currentStep === "video" ? "bg-blue-100" : "bg-gray-100"
-              }`}>
-                {tokenData.videoWatched ? <CheckCircle className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+            <div className={`flex items-center ${tokenData.videoWatched ? "text-green-600" : "text-gray-700"}`}>
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={currentStep === "video" && !tokenData.videoWatched ? { backgroundColor: brandAccent + '20', color: brandAccent } : undefined}
+              >
+                {tokenData.videoWatched ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Play className="w-4 h-4" style={{ color: currentStep === "video" ? brandAccent : undefined }} />}
               </div>
-              <span className="ml-2 font-medium">Video</span>
+              <span className="ml-2 font-medium text-sm" style={currentStep === "video" && !tokenData.videoWatched ? { color: brandAccent } : undefined}>Video</span>
             </div>
             
             <div className="w-12 h-px bg-gray-300" />
             
-            <div className={`flex items-center ${currentStep === "quiz" ? "text-blue-600" : tokenData.quizCompleted ? "text-green-600" : "text-gray-400"}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                tokenData.quizCompleted ? "bg-green-100" : currentStep === "quiz" ? "bg-blue-100" : "bg-gray-100"
-              }`}>
-                {tokenData.quizCompleted ? <CheckCircle className="w-4 h-4" /> : <HardHat className="w-4 h-4" />}
+            <div className={`flex items-center ${tokenData.quizCompleted ? "text-green-600" : "text-gray-400"}`}>
+              <div
+                className="w-8 h-8 rounded-full flex items-center justify-center"
+                style={currentStep === "quiz" ? { backgroundColor: brandAccent + '20', color: brandAccent } : undefined}
+              >
+                {tokenData.quizCompleted ? <CheckCircle className="w-4 h-4 text-green-600" /> : <HardHat className="w-4 h-4" style={{ color: currentStep === "quiz" ? brandAccent : undefined }} />}
               </div>
-              <span className="ml-2 font-medium">Quiz</span>
+              <span className="ml-2 font-medium text-sm" style={currentStep === "quiz" ? { color: brandAccent } : undefined}>Quiz</span>
             </div>
             
             <div className="w-12 h-px bg-gray-300" />
             
             <div className={`flex items-center ${currentStep === "completed" ? "text-green-600" : "text-gray-400"}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                currentStep === "completed" ? "bg-green-100" : "bg-gray-100"
-              }`}>
-                <CheckCircle className="w-4 h-4" />
+              <div className="w-8 h-8 rounded-full flex items-center justify-center bg-gray-100">
+                <CheckCircle className="w-4 h-4" style={currentStep === "completed" ? { color: brandAccent } : undefined} />
               </div>
-              <span className="ml-2 font-medium">Complete</span>
+              <span className="ml-2 font-medium text-sm" style={currentStep === "completed" ? { color: brandAccent } : undefined}>Complete</span>
             </div>
           </div>
         </div>
@@ -723,9 +748,10 @@ export default function SiteInduction() {
         {currentStep === "completed" && renderCompletedStep()}
 
         {/* Footer */}
-        <div className="mt-12 text-center text-sm text-variable">
+        <div className="mt-12 text-center text-xs text-gray-400 space-y-1">
           <p>This induction link expires on {new Date(tokenData.expiresAt).toLocaleDateString('en-GB')}</p>
-          <p className="mt-1">VisiGate Pro - Contractor Management System</p>
+          {brandName && <p>{brandName} — Site Induction System</p>}
+          <p>Powered by TPR Max Visitor Management</p>
         </div>
       </div>
     </div>

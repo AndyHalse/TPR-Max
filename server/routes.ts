@@ -9515,10 +9515,30 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         if (row) videoSettingsAny = row;
       }
 
+      // Fetch company branding so the public induction page can be personalised
+      let branding: Record<string, string | null> | null = null;
+      if (tokenData.customerId) {
+        try {
+          const brandCtx = simpleDatabaseService.createCustomerContext('system', tokenData.customerId);
+          const companySettings = await simpleDatabaseService.getCompanySettings(brandCtx);
+          if (companySettings) {
+            branding = {
+              companyName:     companySettings.companyName     ?? null,
+              logoUrl:         companySettings.logoUrl         ?? null,
+              bannerUrl:       companySettings.bannerUrl       ?? null,
+              accentColor:     companySettings.accentColor     ?? null,
+              backgroundColor: companySettings.backgroundColor ?? null,
+              foregroundColor: companySettings.foregroundColor ?? null,
+            };
+          }
+        } catch (_brandErr) { /* non-critical — carry on without branding */ }
+      }
+
       res.json({
         token: tokenData,
         worker: personDetails,
         personType,
+        branding,
         videoContent: videoSettingsAny ? {
           title: videoSettingsAny.videoTitle,
           description: videoSettingsAny.videoDescription,

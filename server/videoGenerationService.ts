@@ -1089,6 +1089,21 @@ Respond with valid JSON:
     } else {
       console.log('📄 Creating professional slide presentation with Gemini 3.0 images...');
       // CRITICAL: Now we always embed AI-generated Gemini 3.0 images regardless of format
+      // Use company brand colours if available, otherwise fall back to professional defaults
+      const brandAccent  = this.companySettings?.accentColor     || '#2460a9';
+      const brandBgColor = this.companySettings?.backgroundColor  || '#1a2e4a';
+      // For the slide background: if brandBgColor is a light colour, use the accent instead for contrast
+      const hexToLuminance = (hex: string): number => {
+        const r = parseInt(hex.slice(1, 3), 16) / 255;
+        const g = parseInt(hex.slice(3, 5), 16) / 255;
+        const b = parseInt(hex.slice(5, 7), 16) / 255;
+        const toLinear = (c: number) => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+        return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+      };
+      const isLight = (hex: string) => { try { return hexToLuminance(hex) > 0.4; } catch { return false; } };
+      const slideBg1 = isLight(brandBgColor) ? brandAccent : brandBgColor;
+      const slideBg2 = this.darkenColor(slideBg1, 18);
+
       htmlContent = `
 <!DOCTYPE html>
 <html lang="en">
@@ -1101,7 +1116,7 @@ Respond with valid JSON:
             font-family: 'Arial', sans-serif;
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #f97316, #ea580c);
+            background: linear-gradient(135deg, ${slideBg1}, ${slideBg2});
             color: white;
             overflow: hidden;
         }
@@ -1170,7 +1185,7 @@ Respond with valid JSON:
             bottom: 0;
             left: 0;
             height: 4px;
-            background: #fef3c7;
+            background: ${brandAccent};
             transition: width 0.3s ease;
         }
         .scene-counter {
@@ -1184,20 +1199,31 @@ Respond with valid JSON:
         }
         .logo {
             position: fixed;
-            top: 30px;
-            left: 30px;
-            font-size: 1.5rem;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255,255,255,0.12);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            padding: 8px 14px;
+            font-size: 1rem;
             font-weight: bold;
+            max-width: 280px;
         }
     </style>
 </head>
 <body>
     <div class="logo">
-        ${this.companySettings?.bannerUrl ? 
-            `<img src="${this.companySettings.bannerUrl}" alt="${companyName}" style="height: 50px; max-width: 200px; margin-right: 15px; vertical-align: middle; border-radius: 8px; object-fit: contain;" onerror="this.style.display='none';" />` : 
+        ${this.companySettings?.logoUrl ?
+            `<img src="/objects${this.companySettings.logoUrl}" alt="${companyName}" style="height: 36px; max-width: 130px; object-fit: contain; border-radius: 4px; flex-shrink:0;" onerror="this.style.display='none';" />` :
+          this.companySettings?.bannerUrl ?
+            `<img src="/objects${this.companySettings.bannerUrl}" alt="${companyName}" style="height: 36px; max-width: 130px; object-fit: contain; border-radius: 4px; flex-shrink:0;" onerror="this.style.display='none';" />` :
             '🛡️'
         }
-        <span style="font-weight: bold; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${companyName}</span>
+        <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 1px 1px 3px rgba(0,0,0,0.4);">${companyName}</span>
     </div>
     <div class="scene-counter">
         <span id="current-scene">1</span> / <span id="total-scenes">${scenes.length}</span>
