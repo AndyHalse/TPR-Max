@@ -138,22 +138,108 @@
   color: inherit;
 }
 
+/* ─── High Contrast (Tablet) Touch Optimisation ──────────────────────────────
+   Apple HIG & Google Material both require 44×44 pt minimum touch targets.
+   16px minimum font-size prevents iOS Safari from auto-zooming on input focus.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* All buttons: 44×44 px minimum touch target, thicker border, heavier weight */
 .high-contrast button {
+  min-height: 44px;
+  min-width: 44px;
   border-width: 2px;
   font-weight: 600;
 }
 
-.high-contrast input,
-.high-contrast select,
-.high-contrast textarea {
-  border-width: 2px;
-  border-color: hsl(0, 0%, 50%);
+/* Icon-only buttons (p-0 pattern): explicitly square touch target */
+.high-contrast button[class*="p-0"] {
+  min-height: 44px !important;
+  min-width: 44px !important;
+  padding: 10px !important;
 }
 
+/* Tab triggers — 44 px height, slightly larger text */
+.high-contrast [role="tab"] {
+  min-height: 44px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* Dropdown / context menu items */
+.high-contrast [role="menuitem"],
+.high-contrast [role="option"] {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+}
+
+/* Select option list items */
+.high-contrast [role="listbox"] [role="option"] {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+/* Checkbox and radio — larger visual target with a bigger hit area */
+.high-contrast input[type="checkbox"],
+.high-contrast input[type="radio"] {
+  width: 20px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+}
+
+/* Labels next to checkboxes/radios — extend click area vertically */
+.high-contrast label {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Icons inside buttons — minimum 20 px so they read on a tablet screen */
+.high-contrast button svg,
+.high-contrast [role="tab"] svg,
+.high-contrast [role="menuitem"] svg {
+  min-width: 18px;
+  min-height: 18px;
+}
+
+/* Table rows — taller for easier row-level touch interaction */
+.high-contrast tbody tr {
+  min-height: 52px;
+}
+
+.high-contrast td {
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+/* Table separators — more visible on tablet in bright light */
+.high-contrast thead th,
+.high-contrast tbody td {
+  border-bottom: 1px solid hsl(0, 0%, 75%) !important;
+}
+
+/* Glass cards — solid border so they read in bright ambient light */
 .high-contrast .glass-effect {
   background: rgba(255, 255, 255, 0.98);
   border: 2px solid rgba(0, 0, 0, 0.15);
   backdrop-filter: none;
+}
+
+/* Scrollbars — use native iOS momentum scrolling on touch screens */
+@media (hover: none) and (pointer: coarse) {
+  .high-contrast .overflow-y-auto,
+  .high-contrast .overflow-x-auto,
+  .high-contrast [data-radix-scroll-area-viewport] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* Hide custom thin scrollbars on touch — use the device's native ones */
+  .high-contrast .scrollbar-thin::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
 }
 
 @layer base {
@@ -178,12 +264,18 @@
     border: 1px solid hsl(217.2, 32.6%, 30%) !important;
     background-color: hsl(222.2, 84%, 8%) !important;
   }
+  /* High-contrast inputs: 44 px min-height + 16 px font prevents iOS auto-zoom */
   .high-contrast input:not([type="checkbox"]):not([type="radio"]):not([type="color"]):not([type="range"]):not([type="file"]),
   .high-contrast textarea,
   .high-contrast select,
   .high-contrast [role="combobox"] {
     border: 2px solid hsl(0, 0%, 40%) !important;
     background-color: hsl(0, 0%, 100%) !important;
+    min-height: 44px !important;
+    font-size: 16px !important;
+  }
+  .high-contrast textarea {
+    min-height: 88px !important;
   }
 }
 
