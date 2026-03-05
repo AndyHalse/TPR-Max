@@ -303,7 +303,6 @@ export default function PlatformAdminDashboard() {
   const [editForm, setEditForm] = useState({
     companyName: '',
     contactEmail: '',
-    maxVisitorsPerMonth: 1000,
   });
 
   const [credentialReset, setCredentialReset] = useState({
@@ -316,7 +315,6 @@ export default function PlatformAdminDashboard() {
       setEditForm({
         companyName: editingCustomer.companyName,
         contactEmail: editingCustomer.contactEmail,
-        maxVisitorsPerMonth: editingCustomer.maxVisitorsPerMonth,
       });
       setCredentialReset({ username: '', password: '' });
     }
@@ -498,13 +496,13 @@ export default function PlatformAdminDashboard() {
           </Card>
           <Card>
             <CardHeader className="pb-2">
-              <CardDescription>With Stripe</CardDescription>
-              <CardTitle className="text-3xl">
-                {customers.filter(c => c.stripeCustomerId).length}
+              <CardDescription>Onboarded</CardDescription>
+              <CardTitle className="text-3xl text-blue-600">
+                {customers.filter(c => c.onboardingCompleted).length}
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <Users className="w-4 h-4 text-gray-400" />
+              <CheckCircle2 className="w-4 h-4 text-blue-400" />
             </CardContent>
           </Card>
         </div>
@@ -555,15 +553,15 @@ export default function PlatformAdminDashboard() {
                         ) : (
                           <Badge variant="destructive">Inactive</Badge>
                         )}
-                        {customer.stripeCustomerId && (
-                          <Badge variant="outline">Stripe</Badge>
+                        {customer.onboardingCompleted && (
+                          <Badge variant="outline" className="text-blue-700 border-blue-300">Onboarded</Badge>
                         )}
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         {customer.contactEmail} • {customer.slug}
                       </p>
                       <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                        <span>{customer.maxVisitorsPerMonth} visitors/month</span>
+                        <span>Created {new Date(customer.createdAt).toLocaleDateString('en-GB')}</span>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -894,7 +892,7 @@ export default function PlatformAdminDashboard() {
           <DialogHeader>
             <DialogTitle>Edit Customer</DialogTitle>
             <DialogDescription>
-              Update customer account details and limits
+              Update customer account details
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -917,19 +915,6 @@ export default function PlatformAdminDashboard() {
                 onChange={(e) => setEditForm({ ...editForm, contactEmail: e.target.value })}
                 data-testid="input-edit-contact-email"
               />
-            </div>
-
-            <div className="grid grid-cols-1 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-maxVisitorsPerMonth">Max Visitors/Month</Label>
-                <Input
-                  id="edit-maxVisitorsPerMonth"
-                  type="number"
-                  value={editForm.maxVisitorsPerMonth}
-                  onChange={(e) => setEditForm({ ...editForm, maxVisitorsPerMonth: parseInt(e.target.value) })}
-                  data-testid="input-edit-max-visitors-per-month"
-                />
-              </div>
             </div>
 
             <div className="border-t pt-4 mt-4">

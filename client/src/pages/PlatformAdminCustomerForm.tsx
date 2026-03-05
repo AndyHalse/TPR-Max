@@ -23,11 +23,10 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
     adminPassword: "",
     adminFirstName: "",
     adminLastName: "",
-    planType: "trial" as "trial" | "enterprise",
+    planType: "enterprise" as "trial" | "enterprise",
     trialDays: 14,
     timezone: "Europe/London",
     currency: "GBP",
-    maxVisitorsPerMonth: 1000,
   });
 
   const [createdCustomer, setCreatedCustomer] = useState<any>(null);
@@ -207,25 +206,6 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
               value={formData.adminPassword}
               onChange={(e) => handleChange("adminPassword", e.target.value)}
               placeholder="Minimum 8 characters, include upper, lower, and number"
-              required
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* System Limits */}
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">System Limits</h3>
-        
-        <div className="grid grid-cols-1 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="maxVisitorsPerMonth">Max Visitors/Month</Label>
-            <Input
-              id="maxVisitorsPerMonth"
-              type="number"
-              data-testid="input-max-visitors-per-month"
-              value={formData.maxVisitorsPerMonth}
-              onChange={(e) => handleChange("maxVisitorsPerMonth", parseInt(e.target.value))}
               required
             />
           </div>

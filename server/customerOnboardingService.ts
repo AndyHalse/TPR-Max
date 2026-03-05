@@ -118,9 +118,10 @@ export class CustomerOnboardingService {
         console.warn(`⚠️ Non-critical: Could not seed H&S templates for ${customerId}:`, hsError);
       }
       
-      // Step 6: Create Stripe customer (conditional on Stripe availability)
+      // Step 6: Create Stripe customer (only when billing is explicitly requested)
+      // Platform admin provisioning passes createSubscription: false to skip billing entirely
       let stripeCustomerResult: any = null;
-      if (await this.isStripeAvailable()) {
+      if (request.createSubscription !== false && await this.isStripeAvailable()) {
         stripeCustomerResult = await this.createStripeCustomer(customerId, request);
         if (stripeCustomerResult.success && stripeCustomerResult.stripeCustomer) {
           provisioiningState.stripeCustomerCreated = true;
