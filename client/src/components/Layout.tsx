@@ -8,6 +8,7 @@ import HelpPanel from "@/components/HelpPanel";
 import type { CompanySettings } from "@shared/schema";
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { getQueryFn } from "@/lib/queryClient";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -18,6 +19,7 @@ export default function Layout({ children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const { setTheme } = useTheme();
   
   const { data: user } = useQuery<{ id: string; username: string } | null>({
     queryKey: ["/api/auth/me"],
@@ -115,6 +117,9 @@ export default function Layout({ children }: LayoutProps) {
           const g = parseInt(hex.slice(3, 5), 16);
           const b = parseInt(hex.slice(5, 7), 16);
           const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          // Auto-sync dark/light class from saved background colour so tab bars
+          // and glass cards always match the preset, even on cold page load.
+          setTheme(luminance < 0.5 ? 'dark' : 'light');
           if (luminance < 0.5) {
             const cr = Math.min(r + 25, 255);
             const cg = Math.min(g + 25, 255);
@@ -138,9 +143,9 @@ export default function Layout({ children }: LayoutProps) {
             root.style.setProperty('--muted', `hsl(${cardHsl || hsl})`);
           } else {
             root.style.setProperty('--card', `hsl(${hsl})`);
-            root.style.setProperty('--glass-bg', `rgba(255, 255, 255, 0.25)`);
-            root.style.setProperty('--glass-border', `rgba(255, 255, 255, 0.18)`);
-            root.style.setProperty('--glass-hover', `rgba(255, 255, 255, 0.35)`);
+            root.style.setProperty('--glass-bg', `rgba(255, 255, 255, 0.92)`);
+            root.style.setProperty('--glass-border', `rgba(0, 0, 0, 0.08)`);
+            root.style.setProperty('--glass-hover', `rgba(255, 255, 255, 0.97)`);
             // For light backgrounds, compute a slightly-darker muted tint so tab
             // bars and muted surfaces read clearly instead of inheriting the dark
             // value that may remain from a previously-applied dark theme mode
