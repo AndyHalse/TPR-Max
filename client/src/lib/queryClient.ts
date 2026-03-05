@@ -48,6 +48,14 @@ export async function apiRequest(
     });
 
     console.log(`📥 Response status: ${res.status} for ${url}`);
+
+    // If the server says we're not authenticated, force a re-check of the auth
+    // state. This causes App.tsx to re-run /api/auth/me and show the login page
+    // instead of leaving the user stranded on a page where every save fails.
+    if (res.status === 401) {
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+    }
+
     await throwIfResNotOk(res);
     return res;
   } catch (error) {
@@ -71,9 +79,14 @@ export const getQueryFn: <T>(options: {
         credentials: "include",
       });
 
-      if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-        console.log(`🔐 Unauthorized request to ${url}, returning null`);
-        return null;
+      if (res.status === 401) {
+        if (unauthorizedBehavior === "returnNull") {
+          console.log(`🔐 Unauthorized request to ${url}, returning null`);
+          return null;
+        }
+        // For queries that throw on 401, still invalidate auth so the app
+        // redirects to login rather than showing an error state
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       }
 
       console.log(`📥 Query response status: ${res.status} for ${url}`);
