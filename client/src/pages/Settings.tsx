@@ -533,11 +533,15 @@ export default function Settings() {
         duration: 2000, // Show for 2 seconds
       });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('Mutation error:', error);
+      const msg = error?.message || '';
+      const isAuthError = msg.toLowerCase().includes('authentication') || msg.toLowerCase().includes('unauthorized') || msg.includes('401');
       toast({
-        title: "Auto-save Error",
-        description: "Failed to save settings. Please try again.",
+        title: isAuthError ? "Session Expired" : "Auto-save Error",
+        description: isAuthError
+          ? "Your session has expired. Please refresh the page and log in again."
+          : "Failed to save settings. Please try again.",
         variant: "destructive",
       });
     },
@@ -1077,10 +1081,25 @@ export default function Settings() {
   ];
 
   const applyPresetTheme = (preset: typeof PRESET_THEMES[number]) => {
-    handleInputChange('backgroundColor',   preset.backgroundColor);
-    handleInputChange('foregroundColor',   preset.foregroundColor);
-    handleInputChange('variableTextColor', preset.variableTextColor);
-    handleInputChange('accentColor',       preset.accentColor);
+    // Batch all 4 colour fields into ONE debounced save to avoid race conditions
+    // from multiple sequential triggerAutoSave calls fighting over the same timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+    }
+    const colorUpdates = {
+      backgroundColor:   preset.backgroundColor,
+      foregroundColor:   preset.foregroundColor,
+      variableTextColor: preset.variableTextColor,
+      accentColor:       preset.accentColor,
+    };
+    setFormData(prev => ({ ...prev, ...colorUpdates }));
+    pendingUpdatesRef.current = { ...pendingUpdatesRef.current, ...colorUpdates };
+    setSuggestedTextColors(suggestTextColors(preset.backgroundColor));
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      const updates = { ...pendingUpdatesRef.current };
+      pendingUpdatesRef.current = {};
+      updateSettingsMutation.mutate(updates);
+    }, 800);
   };
 
   const addEmailRecipient = () => {
