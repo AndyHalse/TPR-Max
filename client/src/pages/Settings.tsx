@@ -18,7 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical, HardHat, AlertTriangle } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical, HardHat, AlertTriangle, Wand2 } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment, Report } from "@shared/schema";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -1044,6 +1044,45 @@ export default function Settings() {
     };
   };
 
+  // Auto-pick the best contrasting text colour from a range of safe values
+  const autoFixTextColor = (bgColor: string): string => {
+    const candidates = ['#000000', '#111827', '#1e293b', '#1a2e4a', '#ffffff', '#f8fafc', '#f1f5f9'];
+    let best = candidates[0];
+    let bestRatio = 0;
+    for (const c of candidates) {
+      const ratio = calculateContrastRatio(bgColor, c);
+      if (ratio > bestRatio) { bestRatio = ratio; best = c; }
+    }
+    return best;
+  };
+
+  // WCAG contrast rating badge
+  const getContrastRating = (ratio: number) => {
+    if (ratio >= 7)   return { label: 'AAA', cls: 'bg-emerald-600 text-white', tip: 'Excellent — meets WCAG AAA' };
+    if (ratio >= 4.5) return { label: 'AA',  cls: 'bg-green-500 text-white',   tip: 'Good — meets WCAG AA' };
+    if (ratio >= 3)   return { label: 'AA+', cls: 'bg-amber-500 text-white',   tip: 'OK for large text only — headings may be fine but body text will be hard to read' };
+    return               { label: 'Fail', cls: 'bg-red-500 text-white',        tip: 'Low contrast — text will be difficult to read. Please adjust.' };
+  };
+
+  // Preset colour themes — all verified to have good contrast ratios
+  const PRESET_THEMES = [
+    { name: 'TPR Blue',    emoji: '🔵', backgroundColor: '#d5f3fe', foregroundColor: '#1a2e4a', variableTextColor: '#1e4f8c', accentColor: '#2460a9' },
+    { name: 'Clean White', emoji: '⬜', backgroundColor: '#ffffff', foregroundColor: '#111827', variableTextColor: '#374151', accentColor: '#3b82f6' },
+    { name: 'Navy',        emoji: '🌊', backgroundColor: '#e8f0fe', foregroundColor: '#1e3a5f', variableTextColor: '#1e40af', accentColor: '#1d4ed8' },
+    { name: 'Slate',       emoji: '🩶', backgroundColor: '#f1f5f9', foregroundColor: '#1e293b', variableTextColor: '#475569', accentColor: '#6366f1' },
+    { name: 'Forest',      emoji: '🌿', backgroundColor: '#f0fdf4', foregroundColor: '#14532d', variableTextColor: '#166534', accentColor: '#16a34a' },
+    { name: 'Warm Sand',   emoji: '🏖️', backgroundColor: '#fdf8f0', foregroundColor: '#1c1917', variableTextColor: '#57534e', accentColor: '#d97706' },
+    { name: 'Midnight',    emoji: '🌙', backgroundColor: '#0f172a', foregroundColor: '#f1f5f9', variableTextColor: '#94a3b8', accentColor: '#7c3aed' },
+    { name: 'Rose',        emoji: '🌸', backgroundColor: '#fff1f2', foregroundColor: '#881337', variableTextColor: '#9f1239', accentColor: '#e11d48' },
+  ];
+
+  const applyPresetTheme = (preset: typeof PRESET_THEMES[number]) => {
+    handleInputChange('backgroundColor',   preset.backgroundColor);
+    handleInputChange('foregroundColor',   preset.foregroundColor);
+    handleInputChange('variableTextColor', preset.variableTextColor);
+    handleInputChange('accentColor',       preset.accentColor);
+  };
+
   const addEmailRecipient = () => {
     if (newEmailRecipient) {
       const currentRecipients = formData.reportRecipients || settings?.reportRecipients || [];
@@ -1867,12 +1906,53 @@ export default function Settings() {
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 <GlassCard>
-                  <div className="flex items-center mb-6">
+                  <div className="flex items-center mb-5">
                     <Palette className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
                     <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-200">Color Theme</h3>
                   </div>
-              
-                  <div className="space-y-4">
+
+                  {/* Preset Themes */}
+                  <div className="mb-6">
+                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Quick Presets — balanced colour combinations</p>
+                    <div className="grid grid-cols-4 gap-2">
+                      {PRESET_THEMES.map((preset) => {
+                        const isActive =
+                          currentSettings?.backgroundColor === preset.backgroundColor &&
+                          currentSettings?.foregroundColor === preset.foregroundColor &&
+                          currentSettings?.variableTextColor === preset.variableTextColor &&
+                          currentSettings?.accentColor === preset.accentColor;
+                        return (
+                          <button
+                            key={preset.name}
+                            type="button"
+                            onClick={() => applyPresetTheme(preset)}
+                            title={preset.name}
+                            className={`relative rounded-xl overflow-hidden border-2 transition-all hover:scale-105 focus:outline-none ${isActive ? 'border-blue-500 ring-2 ring-blue-300' : 'border-transparent hover:border-slate-300'}`}
+                            data-testid={`button-preset-${preset.name.toLowerCase().replace(/\s/g, '-')}`}
+                          >
+                            <div className="h-10" style={{ backgroundColor: preset.backgroundColor }}>
+                              <div className="flex items-center justify-between px-2 pt-1.5">
+                                <span className="text-[10px] font-bold truncate" style={{ color: preset.foregroundColor }}>Aa</span>
+                                <span className="text-[10px] font-medium" style={{ color: preset.variableTextColor }}>Bb</span>
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: preset.accentColor }} />
+                              </div>
+                            </div>
+                            <div className="py-1 px-1 bg-white/80 dark:bg-slate-800/80 text-center">
+                              <span className="text-[10px] font-medium text-slate-700 dark:text-slate-300 leading-none">{preset.name}</span>
+                            </div>
+                            {isActive && (
+                              <div className="absolute top-1 right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-[9px] font-bold">✓</span>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-5">
+                    {/* Background Color */}
                     <div className="space-y-2">
                       <Label htmlFor="backgroundColor" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                         Background Color
@@ -1883,7 +1963,7 @@ export default function Settings() {
                           type="color"
                           value={currentSettings?.backgroundColor || "#f8fafc"}
                           onChange={(e) => handleInputChange("backgroundColor", e.target.value)}
-                          className="w-20 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                          className="w-16 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 cursor-pointer"
                           data-testid="input-background-color"
                         />
                         <Input
@@ -1894,35 +1974,30 @@ export default function Settings() {
                           placeholder=""
                         />
                       </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">The main page background colour used throughout the app</p>
                     </div>
-                    
+
+                    {/* Fixed Text Color */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="foregroundColor" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                          Fixed Text Color
-                        </Label>
-                        <div className="flex gap-1">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-xs bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700"
-                            onClick={() => handleInputChange("foregroundColor", suggestedTextColors.light)}
-                            data-testid="button-suggest-light-text"
-                          >
-                            Light
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-xs bg-gray-800 text-white hover:bg-gray-700"
-                            onClick={() => handleInputChange("foregroundColor", suggestedTextColors.dark)}
-                            data-testid="button-suggest-dark-text"
-                          >
-                            Dark
-                          </Button>
+                        <div>
+                          <Label htmlFor="foregroundColor" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Fixed Text Color
+                          </Label>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Page headings, labels, sidebar titles — high-visibility text</p>
                         </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs gap-1 shrink-0"
+                          onClick={() => handleInputChange("foregroundColor", autoFixTextColor(currentSettings?.backgroundColor || "#f8fafc"))}
+                          title="Automatically pick the best contrasting colour"
+                          data-testid="button-autofix-fixed-text"
+                        >
+                          <Wand2 size={11} />
+                          Auto-fix
+                        </Button>
                       </div>
                       <div className="flex gap-3 items-center">
                         <Input
@@ -1930,7 +2005,7 @@ export default function Settings() {
                           type="color"
                           value={currentSettings?.foregroundColor || "#1e293b"}
                           onChange={(e) => handleInputChange("foregroundColor", e.target.value)}
-                          className="w-20 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                          className="w-16 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 cursor-pointer"
                           data-testid="input-foreground-color"
                         />
                         <Input
@@ -1941,44 +2016,39 @@ export default function Settings() {
                           placeholder=""
                         />
                       </div>
-                      {currentSettings?.backgroundColor && (
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          Contrast ratio: {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.foregroundColor || "#1e293b").toFixed(1)}:1
-                          {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.foregroundColor || "#1e293b") < 4.5 && (
-                            <span className="text-amber-600 dark:text-amber-400 ml-2">⚠ Low contrast - may be hard to read</span>
-                          )}
-                        </div>
-                      )}
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Used for labels, headings, and static text elements</p>
+                      {currentSettings?.backgroundColor && (() => {
+                        const ratio = calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.foregroundColor || "#1e293b");
+                        const rating = getContrastRating(ratio);
+                        return (
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${rating.cls}`}>{rating.label}</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">{ratio.toFixed(1)}:1 — {rating.tip}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
-                    
+
+                    {/* Variable Text Color */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label htmlFor="variableTextColor" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                          Variable Text Color
-                        </Label>
-                        <div className="flex gap-1">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-xs bg-white hover:bg-gray-50 dark:bg-slate-800 dark:hover:bg-slate-700"
-                            onClick={() => handleInputChange("variableTextColor", suggestedTextColors.light)}
-                            data-testid="button-suggest-light-variable-text"
-                          >
-                            Light
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 text-xs bg-gray-800 text-white hover:bg-gray-700"
-                            onClick={() => handleInputChange("variableTextColor", suggestedTextColors.dark)}
-                            data-testid="button-suggest-dark-variable-text"
-                          >
-                            Dark
-                          </Button>
+                        <div>
+                          <Label htmlFor="variableTextColor" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Variable Text Color
+                          </Label>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Data values, sub-headings, secondary content — supporting text</p>
                         </div>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="h-7 px-2 text-xs gap-1 shrink-0"
+                          onClick={() => handleInputChange("variableTextColor", autoFixTextColor(currentSettings?.backgroundColor || "#f8fafc"))}
+                          title="Automatically pick the best contrasting colour"
+                          data-testid="button-autofix-variable-text"
+                        >
+                          <Wand2 size={11} />
+                          Auto-fix
+                        </Button>
                       </div>
                       <div className="flex gap-3 items-center">
                         <Input
@@ -1986,7 +2056,7 @@ export default function Settings() {
                           type="color"
                           value={currentSettings?.variableTextColor || "#374151"}
                           onChange={(e) => handleInputChange("variableTextColor", e.target.value)}
-                          className="w-20 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                          className="w-16 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 cursor-pointer"
                           data-testid="input-variable-text-color"
                         />
                         <Input
@@ -1997,17 +2067,19 @@ export default function Settings() {
                           placeholder=""
                         />
                       </div>
-                      {currentSettings?.backgroundColor && (
-                        <div className="text-xs text-slate-500 dark:text-slate-400">
-                          Contrast ratio: {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.variableTextColor || "#374151").toFixed(1)}:1
-                          {calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.variableTextColor || "#374151") < 4.5 && (
-                            <span className="text-amber-600 dark:text-amber-400 ml-2">⚠ Low contrast - may be hard to read</span>
-                          )}
-                        </div>
-                      )}
-                      <p className="text-xs text-slate-500 dark:text-slate-400">Used for data values, content, and variable information</p>
+                      {currentSettings?.backgroundColor && (() => {
+                        const ratio = calculateContrastRatio(currentSettings.backgroundColor, currentSettings?.variableTextColor || "#374151");
+                        const rating = getContrastRating(ratio);
+                        return (
+                          <div className="flex items-center gap-2">
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${rating.cls}`}>{rating.label}</span>
+                            <span className="text-xs text-slate-500 dark:text-slate-400">{ratio.toFixed(1)}:1 — {rating.tip}</span>
+                          </div>
+                        );
+                      })()}
                     </div>
-                    
+
+                    {/* Accent Color */}
                     <div className="space-y-2">
                       <Label htmlFor="accentColor" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                         Accent Color
@@ -2018,7 +2090,7 @@ export default function Settings() {
                           type="color"
                           value={currentSettings?.accentColor || "#3b82f6"}
                           onChange={(e) => handleInputChange("accentColor", e.target.value)}
-                          className="w-20 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                          className="w-16 h-12 p-1 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 cursor-pointer"
                           data-testid="input-accent-color"
                         />
                         <Input
@@ -2028,6 +2100,23 @@ export default function Settings() {
                           className="flex-1 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-200 font-mono"
                           placeholder=""
                         />
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Buttons, links, highlights, and interactive elements</p>
+                    </div>
+
+                    {/* Live Preview */}
+                    <div className="pt-4 border-t border-white/20 dark:border-slate-700/30">
+                      <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">Live Preview</p>
+                      <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm">
+                        <div className="px-5 py-4 space-y-2" style={{ backgroundColor: currentSettings?.backgroundColor || '#f8fafc' }}>
+                          <p className="text-base font-bold" style={{ color: currentSettings?.foregroundColor || '#1e293b' }}>Page Heading — Fixed Text</p>
+                          <p className="text-sm" style={{ color: currentSettings?.foregroundColor || '#1e293b' }}>Staff Management · Visitor Records · Contractor Log</p>
+                          <p className="text-sm mt-1" style={{ color: currentSettings?.variableTextColor || '#374151' }}>Variable text: visitor name, data values, secondary content, descriptions and labels that change per record.</p>
+                          <div className="flex gap-2 mt-3">
+                            <span className="px-3 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ backgroundColor: currentSettings?.accentColor || '#3b82f6' }}>Accent Button</span>
+                            <span className="px-3 py-1.5 rounded-lg text-xs border" style={{ color: currentSettings?.accentColor || '#3b82f6', borderColor: currentSettings?.accentColor || '#3b82f6' }}>Outline Button</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
