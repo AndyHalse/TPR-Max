@@ -752,62 +752,61 @@ export default function ContractorManagement() {
         </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex flex-wrap gap-1.5 sm:gap-4">
+      {/* Tab Navigation — horizontal scroll on mobile, wrap on desktop */}
+      <div className="flex overflow-x-auto gap-1.5 sm:flex-wrap sm:overflow-visible pb-1 sm:pb-0 scrollbar-hide">
         <Button
           variant={activeTab === "previous" ? "default" : "outline"}
           onClick={() => setActiveTab("previous")}
-          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
+          className="flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap flex-shrink-0"
           data-testid="tab-previous-contractors"
         >
-          <History className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-          <span className="truncate">Previous Contractor Workers</span>
+          <History className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Previous Workers</span>
         </Button>
         <Button
           variant={activeTab === "contractors" ? "default" : "outline"}
           onClick={() => setActiveTab("contractors")}
-          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
+          className="flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap flex-shrink-0"
           data-testid="tab-contractors"
         >
-          <Building2 className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-          <span className="truncate">Contractors</span>
+          <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Contractors</span>
         </Button>
         <Button
           variant={activeTab === "walkin" ? "default" : "outline"}
           onClick={() => setActiveTab("walkin")}
-          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
+          className="flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap flex-shrink-0"
           data-testid="tab-walkin-registration"
         >
-          <UserPlus className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-          <span className="truncate">Walk-in</span>
+          <UserPlus className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Walk-in</span>
         </Button>
         <Button
           variant={activeTab === "prebook" ? "default" : "outline"}
           onClick={() => setActiveTab("prebook")}
-          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
+          className="flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap flex-shrink-0"
           data-testid="tab-pre-booking"
         >
-          <CalendarPlus className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-          <span className="truncate">Pre-booking</span>
+          <CalendarPlus className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>Pre-booking</span>
         </Button>
-        
         <Button
           variant={activeTab === "co2" ? "default" : "outline"}
           onClick={() => setActiveTab("co2")}
-          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
+          className="flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap flex-shrink-0"
           data-testid="tab-co2-reports"
         >
-          <Leaf className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-          <span className="truncate">CO2 Reports</span>
+          <Leaf className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>CO2 Reports</span>
         </Button>
         <Button
           variant={activeTab === "assign-hs" ? "default" : "outline"}
           onClick={() => setActiveTab("assign-hs")}
-          className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4"
+          className="flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap flex-shrink-0"
           data-testid="tab-assign-hs"
         >
-          <Shield className="h-3 w-3 sm:h-4 sm:w-4 flex-shrink-0" />
-          <span className="truncate">H&S Document</span>
+          <Shield className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>H&S Document</span>
         </Button>
       </div>
 
@@ -840,7 +839,7 @@ export default function ContractorManagement() {
             </div>
 
             {/* Show All Button & View Toggle */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
               <div className="text-sm text-slate-600">
                 Showing {showAllWorkers ? previousContractors.length : Math.min(6, previousContractors.length)} of {previousContractors.length} contractors
                 {searchTerm && ` matching "${searchTerm}"`}
@@ -868,10 +867,11 @@ export default function ContractorManagement() {
                 </div>
                 <Button 
                   variant="outline" 
-                  className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                  size="sm"
+                  className="text-blue-600 border-blue-600 hover:bg-blue-50 text-xs sm:text-sm whitespace-nowrap"
                   onClick={() => setShowAllWorkers(!showAllWorkers)}
                 >
-                  {showAllWorkers ? 'Show Less' : `Show All ${allWorkers.length} Current Workers`}
+                  {showAllWorkers ? 'Show Less' : `Show All ${allWorkers.length} Workers`}
                 </Button>
               </div>
             </div>
@@ -1318,7 +1318,7 @@ export default function ContractorManagement() {
             </div>
 
             {/* Show All Button & View Toggle */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
               <div className="text-sm text-slate-600">
                 Showing {showAllCompanies ? companies.filter(company => 
                   matchesSearch(company, searchTerm)
@@ -1326,7 +1326,7 @@ export default function ContractorManagement() {
                   matchesSearch(company, searchTerm)
                 ).length)} of {companies.filter(company => 
                   matchesSearch(company, searchTerm)
-                ).length} contractor companies
+                ).length} companies
                 {searchTerm && ` matching "${searchTerm}"`}
               </div>
               <div className="flex items-center gap-2">
@@ -1351,11 +1351,12 @@ export default function ContractorManagement() {
                   </Button>
                 </div>
                 <Button 
-                  variant="outline" 
-                  className="text-purple-600 border-purple-600 hover:bg-purple-50"
+                  variant="outline"
+                  size="sm"
+                  className="text-purple-600 border-purple-600 hover:bg-purple-50 text-xs sm:text-sm whitespace-nowrap"
                   onClick={() => setShowAllCompanies(!showAllCompanies)}
                 >
-                  {showAllCompanies ? 'Show Less' : `Show All ${companies.length} Contractor Companies`}
+                  {showAllCompanies ? 'Show Less' : `Show All ${companies.length} Companies`}
                 </Button>
               </div>
             </div>

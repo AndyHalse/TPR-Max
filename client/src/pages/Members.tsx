@@ -303,21 +303,22 @@ export default function Members() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="h-8 w-8 text-blue-600" />
-          <h1 className="text-2xl font-bold text-fixed">Members</h1>
-          <Badge variant="secondary" className="ml-2">{members.length} total</Badge>
+    <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Users className="h-6 w-6 sm:h-8 sm:w-8 text-blue-600 flex-shrink-0" />
+          <h1 className="text-xl sm:text-2xl font-bold text-fixed">Members</h1>
+          <Badge variant="secondary" className="ml-1 flex-shrink-0">{members.length} total</Badge>
         </div>
-        <Button onClick={openAddDialog} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 gap-2">
+        <Button onClick={openAddDialog} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 gap-1.5 text-sm px-3 sm:px-4 flex-shrink-0">
           <UserPlus className="h-4 w-4" />
-          Add Member
+          <span className="hidden sm:inline">Add Member</span>
+          <span className="sm:hidden">Add</span>
         </Button>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-variable" />
           <Input
             placeholder="Search members..."
@@ -326,7 +327,7 @@ export default function Members() {
             className="pl-10"
           />
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 flex-shrink-0">
           <Button
             variant={viewMode === 'grid' ? 'default' : 'outline'}
             size="sm"

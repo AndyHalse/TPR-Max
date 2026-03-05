@@ -25,6 +25,8 @@ interface InductionToken {
   passThreshold: number;
   quizAttempts: number;
   expiresAt: string;
+  completedAt?: string | null;
+  quizCompletedAt?: string | null;
 }
 
 interface InductionQuestion {
@@ -329,6 +331,7 @@ export default function SiteInduction() {
   }
 
   if (alreadyCompleted && tokenData && worker) {
+    const completionDate = tokenData.completedAt || tokenData.quizCompletedAt;
     return (
       <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center">
         <Card className="w-full max-w-md mx-4 border-green-200">
@@ -338,9 +341,15 @@ export default function SiteInduction() {
             <p className="text-green-700 mb-2">
               {worker.firstName} {worker.lastName} has already successfully completed this site induction.
             </p>
-            {tokenData.expiresAt && (
+            {tokenData.quizScore > 0 && (
+              <div className="mt-3 px-4 py-2 bg-green-100 border border-green-200 rounded-lg inline-block">
+                <p className="text-green-800 font-semibold text-lg">{tokenData.quizScore}% — PASSED</p>
+                <p className="text-green-600 text-xs">Pass mark: {tokenData.passThreshold ?? 80}%</p>
+              </div>
+            )}
+            {completionDate && (
               <p className="text-sm text-gray-500 mt-4">
-                Completed before {new Date(tokenData.expiresAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                Completed on {new Date(completionDate).toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </p>
             )}
             <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg text-left text-sm text-green-800">
@@ -622,12 +631,15 @@ export default function SiteInduction() {
 
   const renderCompletedStep = () => {
     const threshold = tokenData?.passThreshold ?? 80;
-    const completedAt = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    const now = new Date();
+    const completedAtStr = now.toLocaleString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     return (
       <div className="space-y-6">
         <Card className="border-green-200">
           <CardContent className="p-8 text-center">
-            <CheckCircle className="w-24 h-24 text-green-500 mx-auto mb-6" />
+            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CheckCircle className="w-14 h-14 text-green-500" />
+            </div>
             <h2 className="text-2xl font-bold text-green-900 mb-2">Induction Complete!</h2>
             <p className="text-green-700 mb-6">
               Congratulations, {worker?.firstName}! You have successfully completed the site induction.
@@ -635,30 +647,31 @@ export default function SiteInduction() {
 
             {quizResults && (
               <div className="bg-green-50 border border-green-200 p-4 rounded-lg mb-6">
-                <p className="text-2xl font-bold text-green-800 mb-1">{quizResults.score}%</p>
-                <p className="text-sm text-green-700">
+                <p className="text-3xl font-bold text-green-800 mb-1">{quizResults.score}%</p>
+                <p className="text-sm text-green-700 font-medium">
                   {typeof quizResults.correct === 'number' && quizResults.total
                     ? `${quizResults.correct} out of ${quizResults.total} correct`
                     : `Pass mark: ${threshold}%`
-                  } — <strong>PASSED</strong>
+                  } — <strong>PASSED ✓</strong>
                 </p>
-                <p className="text-xs text-green-600 mt-2">Completed {completedAt}</p>
+                <p className="text-xs text-green-600 mt-2 border-t border-green-200 pt-2">Completed on {completedAtStr}</p>
               </div>
             )}
 
             {!quizResults && (
               <div className="bg-green-50 border border-green-200 p-4 rounded-lg mb-6">
                 <p className="text-sm text-green-700">Your induction has been recorded. Pass mark: {threshold}%.</p>
+                <p className="text-xs text-green-600 mt-1">Completed on {completedAtStr}</p>
               </div>
             )}
             
             <div className="bg-blue-50 p-6 rounded-lg text-left">
               <h3 className="font-semibold text-blue-900 mb-3">What happens next:</h3>
               <ul className="text-blue-800 space-y-2">
-                <li>✅ Your induction status has been automatically updated</li>
-                <li>✅ You are now authorized for site access</li>
-                <li>✅ Present yourself to site management for check-in</li>
-                <li>✅ Remember to follow all safety procedures at all times</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /> Your induction status has been automatically updated</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /> You are now authorised for site access</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /> Present yourself to site management for check-in</li>
+                <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /> Remember to follow all safety procedures at all times</li>
               </ul>
             </div>
           </CardContent>

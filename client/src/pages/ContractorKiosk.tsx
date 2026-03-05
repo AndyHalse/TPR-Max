@@ -633,39 +633,45 @@ export default function ContractorKiosk() {
         <p className="text-muted-foreground text-sm sm:text-base">Please select an option below</p>
       </div>
 
-      {/* 3-column option grid */}
+      {/* 3-column option grid — stacks to 1 column on small phones */}
       <div className="flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full min-h-0">
-        <div className="grid grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 lg:gap-8 mb-4 sm:mb-6">
           {/* Scan QR Code */}
           <div className="cursor-pointer" onClick={() => setActiveSection("scan")}>
-            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+            <GlassCard hover className="text-center py-5 sm:py-8 lg:py-10 px-4 group flex flex-col sm:flex-col justify-center sm:items-center h-full sm:h-auto flex-row items-center gap-4 sm:gap-0">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 sm:mx-auto sm:mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                 <QrCode className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Scan QR Code</h3>
-              <p className="text-muted-foreground text-xs sm:text-sm">Check in or check out with your pass</p>
+              <div className="text-left sm:text-center">
+                <h3 className="text-lg sm:text-lg lg:text-xl font-bold text-foreground sm:mb-1">Scan QR Code</h3>
+                <p className="text-muted-foreground text-sm sm:text-sm">Check in or check out with your pass</p>
+              </div>
             </GlassCard>
           </div>
 
           {/* Walk-in Registration */}
           <div className="cursor-pointer" onClick={() => setActiveSection("walkin")}>
-            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+            <GlassCard hover className="text-center py-5 sm:py-8 lg:py-10 px-4 group flex flex-col sm:flex-col justify-center sm:items-center h-full sm:h-auto flex-row items-center gap-4 sm:gap-0">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0 sm:mx-auto sm:mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                 <UserPlus className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Walk-in Contractor</h3>
-              <p className="text-muted-foreground text-xs sm:text-sm">Register and get your site pass</p>
+              <div className="text-left sm:text-center">
+                <h3 className="text-lg sm:text-lg lg:text-xl font-bold text-foreground sm:mb-1">Walk-in Contractor</h3>
+                <p className="text-muted-foreground text-sm sm:text-sm">Register and get your site pass</p>
+              </div>
             </GlassCard>
           </div>
 
           {/* Pre-Booked Contractor */}
           <div className="cursor-pointer" onClick={() => setActiveSection("prebook")}>
-            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+            <GlassCard hover className="text-center py-5 sm:py-8 lg:py-10 px-4 group flex flex-col sm:flex-col justify-center sm:items-center h-full sm:h-auto flex-row items-center gap-4 sm:gap-0">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 sm:mx-auto sm:mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                 <CalendarPlus className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Pre-Booked Contractor</h3>
-              <p className="text-muted-foreground text-xs sm:text-sm">Select your name to check in</p>
+              <div className="text-left sm:text-center">
+                <h3 className="text-lg sm:text-lg lg:text-xl font-bold text-foreground sm:mb-1">Pre-Booked Contractor</h3>
+                <p className="text-muted-foreground text-sm sm:text-sm">Select your name to check in</p>
+              </div>
             </GlassCard>
           </div>
         </div>
@@ -673,21 +679,24 @@ export default function ContractorKiosk() {
         {/* Instructions bar */}
         <GlassCard className="p-4 sm:p-5 flex-shrink-0">
           <h3 className="text-base sm:text-lg font-semibold text-fixed mb-3 text-center">Instructions</h3>
-          <div className="grid grid-cols-3 gap-4 sm:gap-6 text-variable">
+          <div className="grid grid-cols-3 gap-2 sm:gap-6 text-variable">
             <div className="text-center">
-              <QrCode className="mx-auto mb-1.5 text-purple-500" size={22} />
-              <p className="font-medium mb-0.5 text-sm text-foreground">Returning contractors</p>
-              <p className="text-xs text-muted-foreground">Scan your QR pass to check in or out</p>
+              <QrCode className="mx-auto mb-1.5 text-purple-500" size={20} />
+              <p className="font-medium mb-0.5 text-xs sm:text-sm text-foreground">Returning contractors</p>
+              <p className="text-xs text-muted-foreground hidden sm:block">Scan your QR pass to check in or out</p>
+              <p className="text-xs text-muted-foreground sm:hidden">Scan your QR pass to check in</p>
             </div>
             <div className="text-center">
-              <UserPlus className="mx-auto mb-1.5 text-green-500" size={22} />
-              <p className="font-medium mb-0.5 text-sm text-foreground">New contractors</p>
-              <p className="text-xs text-muted-foreground">Register here to get your site pass</p>
+              <UserPlus className="mx-auto mb-1.5 text-green-500" size={20} />
+              <p className="font-medium mb-0.5 text-xs sm:text-sm text-foreground">New contractors</p>
+              <p className="text-xs text-muted-foreground hidden sm:block">Register here to get your site pass</p>
+              <p className="text-xs text-muted-foreground sm:hidden">Register here to get your site pass</p>
             </div>
             <div className="text-center">
-              <CalendarPlus className="mx-auto mb-1.5 text-blue-500" size={22} />
-              <p className="font-medium mb-0.5 text-sm text-foreground">Pre-booked visit</p>
-              <p className="text-xs text-muted-foreground">Tap your name from today's list</p>
+              <CalendarPlus className="mx-auto mb-1.5 text-blue-500" size={20} />
+              <p className="font-medium mb-0.5 text-xs sm:text-sm text-foreground">Pre-booked visit</p>
+              <p className="text-xs text-muted-foreground hidden sm:block">Tap your name from today's list</p>
+              <p className="text-xs text-muted-foreground sm:hidden">Tap your name from today's list</p>
             </div>
           </div>
         </GlassCard>

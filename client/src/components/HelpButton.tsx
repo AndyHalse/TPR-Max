@@ -9,7 +9,7 @@ interface HelpButtonProps {
 
 export default function HelpButton({ onClick, isHelpPanelOpen = false }: HelpButtonProps) {
   return (
-    <div className="fixed bottom-6 right-6 z-40">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-40">
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -17,7 +17,7 @@ export default function HelpButton({ onClick, isHelpPanelOpen = false }: HelpBut
               onClick={onClick}
               size="lg"
               className={`
-                h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105
+                h-10 w-10 sm:h-14 sm:w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105
                 ${isHelpPanelOpen 
                   ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-opacity-50' 
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -26,8 +26,12 @@ export default function HelpButton({ onClick, isHelpPanelOpen = false }: HelpBut
               data-testid="help-button"
             >
               <HelpCircle 
+                size={18}
+                className={`sm:hidden transition-transform duration-200 ${isHelpPanelOpen ? 'rotate-12' : ''}`} 
+              />
+              <HelpCircle 
                 size={24} 
-                className={`transition-transform duration-200 ${isHelpPanelOpen ? 'rotate-12' : ''}`} 
+                className={`hidden sm:block transition-transform duration-200 ${isHelpPanelOpen ? 'rotate-12' : ''}`} 
               />
             </Button>
           </TooltipTrigger>
