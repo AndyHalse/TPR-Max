@@ -1081,6 +1081,15 @@ export default function Settings() {
   ];
 
   const applyPresetTheme = (preset: typeof PRESET_THEMES[number]) => {
+    // Auto-switch dark/light mode to match the preset background, so tab bars
+    // and muted surfaces stay readable instead of staying dark on a light page
+    const hex = preset.backgroundColor;
+    const pr = parseInt(hex.slice(1, 3), 16);
+    const pg = parseInt(hex.slice(3, 5), 16);
+    const pb = parseInt(hex.slice(5, 7), 16);
+    const luminance = (0.299 * pr + 0.587 * pg + 0.114 * pb) / 255;
+    setTheme(luminance < 0.5 ? 'dark' : 'light');
+
     // Batch all 4 colour fields into ONE debounced save to avoid race conditions
     // from multiple sequential triggerAutoSave calls fighting over the same timeout
     if (autoSaveTimeoutRef.current) {

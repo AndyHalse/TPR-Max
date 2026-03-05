@@ -141,6 +141,18 @@ export default function Layout({ children }: LayoutProps) {
             root.style.setProperty('--glass-bg', `rgba(255, 255, 255, 0.25)`);
             root.style.setProperty('--glass-border', `rgba(255, 255, 255, 0.18)`);
             root.style.setProperty('--glass-hover', `rgba(255, 255, 255, 0.35)`);
+            // For light backgrounds, compute a slightly-darker muted tint so tab
+            // bars and muted surfaces read clearly instead of inheriting the dark
+            // value that may remain from a previously-applied dark theme mode
+            const mr = Math.max(r - 14, 0);
+            const mg = Math.max(g - 14, 0);
+            const mb = Math.max(b - 14, 0);
+            const mutedHex = `#${mr.toString(16).padStart(2,'0')}${mg.toString(16).padStart(2,'0')}${mb.toString(16).padStart(2,'0')}`;
+            const mutedHsl = hexToHsl(mutedHex);
+            if (mutedHsl) {
+              root.style.setProperty('--muted', `hsl(${mutedHsl})`);
+              root.style.setProperty('--secondary', `hsl(${mutedHsl})`);
+            }
           }
         }
       }
