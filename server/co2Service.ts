@@ -237,19 +237,91 @@ Keep each section concise (2-3 sentences). Use professional business language.`;
   }
 
   /**
-   * Fallback distance calculation based on postcode patterns
+   * UK postcode area centroids (lat, lon) — used for offline distance estimation
+   * when Gemini AI is unavailable. Covers all major postcode areas in the UK.
    */
-  private getFallbackDistance(postcode1: string, postcode2: string): number {
-    // Simple fallback based on postcode area differences
-    const area1 = postcode1.match(/^[A-Z]{1,2}/)?.[0] || '';
-    const area2 = postcode2.match(/^[A-Z]{1,2}/)?.[0] || '';
-    
-    if (area1 === area2) {
-      return Math.random() * 15 + 5; // 5-20 miles for same area
+  private ukPostcodeAreaCentroids: Record<string, [number, number]> = {
+    'AB': [57.15, -2.11], 'AL': [51.75, -0.24], 'B': [52.48, -1.90], 'BA': [51.38, -2.36],
+    'BB': [53.75, -2.49], 'BD': [53.80, -1.75], 'BH': [50.72, -1.90], 'BL': [53.58, -2.43],
+    'BN': [50.83, -0.14], 'BR': [51.38, 0.02],  'BS': [51.45, -2.60], 'CA': [54.90, -2.94],
+    'CB': [52.20, 0.13],  'CF': [51.48, -3.18], 'CH': [53.20, -2.89], 'CM': [51.74, 0.48],
+    'CO': [51.89, 0.90],  'CR': [51.37, -0.10], 'CT': [51.28, 1.08],  'CV': [52.41, -1.51],
+    'CW': [53.09, -2.44], 'DA': [51.44, 0.22],  'DD': [56.46, -2.97], 'DE': [52.92, -1.48],
+    'DH': [54.78, -1.57], 'DL': [54.52, -1.55], 'DN': [53.52, -1.12], 'DT': [50.71, -2.44],
+    'DY': [52.51, -2.09], 'E': [51.52, -0.06],  'EC': [51.52, -0.09], 'EH': [55.95, -3.20],
+    'EN': [51.65, -0.08], 'EX': [50.72, -3.53], 'FK': [56.00, -3.78], 'FY': [53.80, -3.05],
+    'G': [55.86, -4.25],  'GL': [51.86, -2.24], 'GU': [51.24, -0.57], 'HA': [51.59, -0.34],
+    'HD': [53.65, -1.78], 'HG': [54.00, -1.54], 'HP': [51.76, -0.75], 'HR': [52.06, -2.72],
+    'HU': [53.74, -0.34], 'HX': [53.72, -1.86], 'IG': [51.56, 0.07],  'IP': [52.06, 1.16],
+    'IV': [57.48, -4.23], 'KA': [55.61, -4.50], 'KT': [51.37, -0.30], 'KY': [56.20, -3.15],
+    'L': [53.41, -2.98],  'LA': [54.05, -2.80], 'LD': [52.24, -3.38], 'LE': [52.63, -1.13],
+    'LL': [53.05, -3.80], 'LN': [53.23, -0.54], 'LS': [53.80, -1.55], 'LU': [51.88, -0.42],
+    'M': [53.48, -2.24],  'ME': [51.39, 0.52],  'MK': [52.04, -0.76], 'ML': [55.78, -3.99],
+    'N': [51.55, -0.10],  'NE': [54.97, -1.61], 'NG': [52.95, -1.14], 'NN': [52.24, -0.89],
+    'NP': [51.59, -3.00], 'NR': [52.63, 1.30],  'NW': [51.54, -0.17], 'OL': [53.55, -2.12],
+    'OX': [51.75, -1.26], 'PA': [55.84, -4.43], 'PE': [52.57, 0.24],  'PH': [56.40, -3.47],
+    'PL': [50.38, -4.14], 'PO': [50.80, -1.09], 'PR': [53.76, -2.70], 'RG': [51.46, -1.00],
+    'RH': [51.23, -0.19], 'RM': [51.58, 0.20],  'S': [53.38, -1.47],  'SA': [51.62, -3.94],
+    'SE': [51.48, -0.06], 'SG': [51.90, -0.22], 'SK': [53.40, -2.15], 'SL': [51.52, -0.60],
+    'SM': [51.40, -0.20], 'SN': [51.56, -1.78], 'SO': [50.91, -1.40], 'SP': [51.07, -1.80],
+    'SR': [54.90, -1.38], 'SS': [51.55, 0.71],  'ST': [53.00, -2.18], 'SW': [51.46, -0.17],
+    'SY': [52.71, -2.75], 'TA': [51.02, -3.10], 'TF': [52.71, -2.48], 'TN': [51.07, 0.26],
+    'TQ': [50.47, -3.53], 'TR': [50.26, -5.05], 'TS': [54.57, -1.23], 'TW': [51.45, -0.34],
+    'UB': [51.53, -0.48], 'W': [51.51, -0.21],  'WA': [53.39, -2.60], 'WC': [51.52, -0.12],
+    'WD': [51.66, -0.42], 'WF': [53.68, -1.50], 'WN': [53.54, -2.64], 'WR': [52.19, -2.22],
+    'WS': [52.58, -1.98], 'WV': [52.59, -2.13], 'YO': [53.96, -1.09], 'ZE': [60.15, -1.15],
+  };
+
+  /**
+   * Haversine formula — returns straight-line distance in miles between two lat/lon points
+   */
+  private haversineDistanceMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 3958.8; // Earth radius in miles
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  /**
+   * Extract postcode area code (e.g. "SW" from "SW1A 1AA"), then look up centroid
+   */
+  private getPostcodeCentroid(postcode: string): [number, number] | null {
+    const clean = postcode.trim().toUpperCase().replace(/\s+/g, '');
+    // Try two-letter prefix first, then one-letter
+    const twoLetter = clean.slice(0, 2).replace(/[^A-Z]/g, '');
+    const oneLetter = clean.slice(0, 1);
+    const area = twoLetter.length === 2 && this.ukPostcodeAreaCentroids[twoLetter]
+      ? twoLetter
+      : oneLetter;
+    return this.ukPostcodeAreaCentroids[area] || null;
+  }
+
+  /**
+   * Fallback distance calculation using UK postcode area centroids + Haversine formula.
+   * Road distance ≈ straight-line × 1.25. Falls back to 15 miles (typical urban commute)
+   * if either postcode area is unrecognised.
+   */
+  private getFallbackDistance(postcode1: string, address: string): number {
+    // Extract a UK postcode from the company address string if present
+    const addressPostcodeMatch = address.match(/[A-Z]{1,2}[0-9R][0-9A-Z]?\s?[0-9][A-Z]{2}/i);
+    const postcode2 = addressPostcodeMatch ? addressPostcodeMatch[0] : address;
+
+    const centroid1 = this.getPostcodeCentroid(postcode1);
+    const centroid2 = this.getPostcodeCentroid(postcode2);
+
+    if (!centroid1 || !centroid2) {
+      console.warn(`⚠️ CO2 fallback: could not resolve centroids for "${postcode1}" / "${postcode2}", using 15 miles default`);
+      return 15;
     }
-    
-    // Different areas - estimate based on UK geography
-    return Math.random() * 100 + 20; // 20-120 miles
+
+    const straightLine = this.haversineDistanceMiles(centroid1[0], centroid1[1], centroid2[0], centroid2[1]);
+    // Multiply by 1.25 to account for roads being longer than straight-line distance
+    const roadEstimate = Math.round(straightLine * 1.25 * 10) / 10;
+    console.log(`📍 CO2 fallback distance (centroid-based): ${postcode1} → ${postcode2} ≈ ${roadEstimate} miles`);
+    return Math.max(1, roadEstimate); // minimum 1 mile
   }
 
   /**
@@ -307,7 +379,8 @@ This basic assessment provides a foundation for:
    * Validate UK postcode format
    */
   isValidUKPostcode(postcode: string): boolean {
-    const ukPostcodeRegex = /^[A-Z]{1,2}[0-9R][0-9A-Z]? [0-9][ABD-HJLNP-UW-Z]{2}$/i;
+    // Space between the two parts is optional — postcodes may be stored with or without it
+    const ukPostcodeRegex = /^[A-Z]{1,2}[0-9R][0-9A-Z]?\s?[0-9][ABD-HJLNP-UW-Z]{2}$/i;
     return ukPostcodeRegex.test(postcode.trim());
   }
 

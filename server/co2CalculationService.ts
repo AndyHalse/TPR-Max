@@ -110,6 +110,7 @@ export class CO2CalculationService {
     companyId: string
   ): Promise<{
     totalWorkers: number;
+    workersWithCO2: number;
     totalMonthlyCO2kg: number;
     totalAnnualCO2kg: number;
     averageDistance: number;
@@ -120,6 +121,7 @@ export class CO2CalculationService {
     const emissionsData = await this.databaseService.getCO2EmissionsByCompany(customerId, companyId);
     const context = { customerId }; // Create context for customer isolation
     const workers = await this.databaseService.getWorkersByCompany(context, companyId);
+    const totalCompanyWorkers = workers.length;
 
     const workerSummaries: WorkerCO2Summary[] = emissionsData.map(emission => {
       const worker = workers.find(w => w.id === emission.workerId);
@@ -147,7 +149,8 @@ export class CO2CalculationService {
     }, {} as Record<string, number>);
 
     return {
-      totalWorkers: workerSummaries.length,
+      totalWorkers: totalCompanyWorkers,        // All workers in the company
+      workersWithCO2: workerSummaries.length,   // Workers that have CO2 data calculated
       totalMonthlyCO2kg: totalMonthlyCO2,
       totalAnnualCO2kg: totalAnnualCO2,
       averageDistance: averageDistance,

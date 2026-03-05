@@ -61,6 +61,7 @@ interface CompanyCO2Summary {
   companyId: string;
   companyName: string;
   totalWorkers: number;
+  workersWithCO2: number;
   totalMonthlyCO2kg: number;
   totalAnnualCO2kg: number;
   averageDistance: number;
@@ -113,6 +114,23 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
     queryKey: [`/api/contractors/${selectedCompanyId}/co2/summary`],
     enabled: !!selectedCompanyId
   });
+
+  // Pre-flight: fetch all workers for this company to check postcodes + transport methods
+  const { data: companyWorkersRaw } = useQuery<any[]>({
+    queryKey: [`/api/contractors/${selectedCompanyId}/workers`],
+    enabled: !!selectedCompanyId
+  });
+
+  // Pre-flight: fetch company settings to check if address is configured
+  const { data: companySettingsRaw } = useQuery<any>({
+    queryKey: ['/api/settings'],
+    enabled: !!selectedCompanyId
+  });
+
+  const companyAddress = companySettingsRaw?.address || companySettingsRaw?.companySettings?.address || '';
+  const companyWorkers: any[] = Array.isArray(companyWorkersRaw) ? companyWorkersRaw : [];
+  const workersWithPostcode = companyWorkers.filter(w => w.postcode?.trim());
+  const workersWithoutPostcode = companyWorkers.filter(w => !w.postcode?.trim());
 
   // Fetch sustainability reports
   const { data: reportsData, isLoading: isLoadingReports, refetch: refetchReports } = useQuery<{
@@ -501,6 +519,46 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
         </CardHeader>
 
         <CardContent className="space-y-6">
+          {/* Pre-flight readiness check */}
+          {selectedCompanyId && (() => {
+            if (!companyAddress) {
+              return (
+                <Alert className="border-red-200 bg-red-50">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-800">
+                    <strong>Company address not configured.</strong> CO2 calculations require your site address to measure commute distances. Go to <strong>Settings → Company Details</strong> and add your address.
+                  </AlertDescription>
+                </Alert>
+              );
+            }
+            if (companyWorkers.length > 0 && workersWithoutPostcode.length > 0) {
+              return (
+                <Alert className="border-amber-200 bg-amber-50">
+                  <AlertCircle className="h-4 w-4 text-amber-600" />
+                  <AlertDescription className="text-amber-800">
+                    <strong>{workersWithoutPostcode.length} worker{workersWithoutPostcode.length > 1 ? 's' : ''} missing home postcode</strong> — CO2 calculations need each worker's home postcode.
+                    {workersWithPostcode.length > 0 && <> {workersWithPostcode.length} worker{workersWithPostcode.length > 1 ? 's are' : ' is'} ready to calculate.</>}
+                    {' '}Edit the worker profiles to add postcodes, then click <strong>Calculate CO2</strong>.
+                  </AlertDescription>
+                </Alert>
+              );
+            }
+            if (companyWorkers.length > 0 && workersWithPostcode.length === companyWorkers.length) {
+              const allCalculated = co2Summary?.data?.workersWithCO2 === companyWorkers.length;
+              if (!allCalculated) {
+                return (
+                  <Alert className="border-blue-200 bg-blue-50">
+                    <CheckCircle className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-800">
+                      <strong>All {companyWorkers.length} workers have postcodes set</strong> and are ready for CO2 calculation. Click <strong>Calculate CO2</strong> to generate emissions data.
+                    </AlertDescription>
+                  </Alert>
+                );
+              }
+            }
+            return null;
+          })()}
+
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
@@ -528,6 +586,11 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                         <div className="mt-2">
                           <span className="text-2xl font-bold">{co2Summary.data.totalWorkers}</span>
                         </div>
+                        {co2Summary.data.workersWithCO2 !== undefined && co2Summary.data.workersWithCO2 < co2Summary.data.totalWorkers && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {co2Summary.data.workersWithCO2} of {co2Summary.data.totalWorkers} calculated
+                          </p>
+                        )}
                       </CardContent>
                     </Card>
 
@@ -765,7 +828,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                             </div>
 
                             {/* Potential Savings */}
-                            {worker.transportMethod !== 'electric_car' && (
+                            {worker.transportMethod !== 'electric' && (
                               <div className="mt-3 pt-3 border-t">
                                 <div className="flex items-center justify-between text-sm">
                                   <span className="text-muted-foreground">
@@ -774,7 +837,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                                   <div className="flex items-center gap-2">
                                     <TrendingDown className="w-3 h-3 text-green-600" />
                                     <span className="font-medium text-green-600">
-                                      -{calculateCO2Savings(worker.transportMethod, 'electric_car', worker.monthlyCO2kg || 0)?.toFixed(1) || '0.0'} kg/month
+                                      -{calculateCO2Savings(worker.transportMethod, 'electric', worker.monthlyCO2kg || 0)?.toFixed(1) || '0.0'} kg/month
                                     </span>
                                   </div>
                                 </div>
@@ -1526,14 +1589,14 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {selectedWorker.transportMethod !== 'electric_car' && (
+                      {selectedWorker.transportMethod !== 'electric' && (
                         <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                           <div className="flex items-center gap-2 mb-2">
                             <Zap className="w-4 h-4 text-green-600" />
                             <span className="font-medium text-green-800">Electric Vehicle</span>
                           </div>
                           <p className="text-sm text-green-700">
-                            Switching to electric could save {calculateCO2Savings(selectedWorker.transportMethod, 'electric_car', selectedWorker.monthlyCO2kg || 0).toFixed(1)} kg CO2/month
+                            Switching to electric could save {calculateCO2Savings(selectedWorker.transportMethod, 'electric', selectedWorker.monthlyCO2kg || 0).toFixed(1)} kg CO2/month
                           </p>
                         </div>
                       )}
