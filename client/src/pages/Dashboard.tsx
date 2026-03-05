@@ -1576,10 +1576,10 @@ export default function Dashboard() {
           <div className="space-y-4 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
             {currentVisitors && currentVisitors.length > 0 ? (
               currentVisitors.map((visitor) => (
-                <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30 hover:bg-white/70 transition-colors">
+                <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/70 rounded-xl border border-white/30 dark:border-slate-700/60 hover:bg-white/70 dark:hover:bg-slate-700/70 transition-colors">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-medium text-sm">
+                    <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 dark:text-blue-300 font-medium text-sm">
                         {getInitials(`${visitor.firstName} ${visitor.lastName}`)}
                       </span>
                     </div>
@@ -1640,9 +1640,9 @@ export default function Dashboard() {
           <div className="space-y-4">
             {todayVisitors && todayVisitors.length > 0 ? (
               todayVisitors.map((visitor) => (
-                <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+                <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/70 rounded-xl border border-white/30 dark:border-slate-700/60">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center">
                       <User className="text-green-600" size={20} />
                     </div>
                     <div>
@@ -1695,10 +1695,10 @@ export default function Dashboard() {
           <div className="space-y-4">
             {checkedInStaff && checkedInStaff.length > 0 ? (
               checkedInStaff.map((staffMember) => (
-                <div key={staffMember.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30">
+                <div key={staffMember.id} className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/70 rounded-xl border border-white/30 dark:border-slate-700/60">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                      <span className="text-purple-600 font-semibold text-sm">
+                    <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center">
+                      <span className="text-purple-600 dark:text-purple-300 font-semibold text-sm">
                         {getInitials(`${staffMember.firstName} ${staffMember.lastName}`)}
                       </span>
                     </div>
@@ -1834,8 +1834,8 @@ export default function Dashboard() {
                       departmentDetails.visitors.map((visitor) => (
                         <div key={visitor.id} className="flex items-center justify-between p-4 bg-[var(--card)] border rounded-lg">
                           <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-blue-600 font-medium text-sm">
+                            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                              <span className="text-blue-600 dark:text-blue-300 font-medium text-sm">
                                 {getInitials(`${visitor.firstName} ${visitor.lastName}`)}
                               </span>
                             </div>
@@ -2073,10 +2073,10 @@ export default function Dashboard() {
           <div className="space-y-4 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
             {checkedInContractors && checkedInContractors.length > 0 ? (
               checkedInContractors.map((contractor) => (
-                <div key={contractor.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30 hover:bg-white/70 transition-colors">
+                <div key={contractor.id} className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/70 rounded-xl border border-white/30 dark:border-slate-700/60 hover:bg-white/70 dark:hover:bg-slate-700/70 transition-colors">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-                      <span className="text-orange-600 font-medium text-sm">
+                    <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/50 rounded-full flex items-center justify-center">
+                      <span className="text-orange-600 dark:text-orange-300 font-medium text-sm">
                         {getInitials(`${contractor.firstName} ${contractor.lastName}`)}
                       </span>
                     </div>
@@ -2129,10 +2129,10 @@ export default function Dashboard() {
           <div className="space-y-4 max-h-96 overflow-y-auto pr-1 scrollbar-thin">
             {checkedInMembers && checkedInMembers.length > 0 ? (
               checkedInMembers.map((member) => (
-                <div key={member.id} className="flex items-center justify-between p-4 bg-white/50 rounded-xl border border-white/30 hover:bg-white/70 transition-colors">
+                <div key={member.id} className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/70 rounded-xl border border-white/30 dark:border-slate-700/60 hover:bg-white/70 dark:hover:bg-slate-700/70 transition-colors">
                   <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                      <span className="text-purple-600 font-medium text-sm">
+                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center">
+                      <span className="text-purple-600 dark:text-purple-300 font-medium text-sm">
                         {getInitials(`${member.firstName} ${member.lastName}`)}
                       </span>
                     </div>
@@ -2190,10 +2190,10 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-2">
                   {currentVisitors.map((visitor) => (
-                    <div key={visitor.id} className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200/30">
+                    <div key={visitor.id} className="flex items-center justify-between p-3 bg-blue-50/50 dark:bg-blue-950/40 rounded-lg border border-blue-200/30 dark:border-blue-800/40">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-medium text-sm">
+                        <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/50 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 dark:text-blue-300 font-medium text-sm">
                             {getInitials(`${visitor.firstName} ${visitor.lastName}`)}
                           </span>
                         </div>
@@ -2204,7 +2204,7 @@ export default function Dashboard() {
                           <div className="text-sm text-variable">{visitor.company}</div>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800 border-blue-300">
+                      <Badge variant="secondary" className="bg-blue-100 dark:bg-blue-900/60 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-700">
                         Visitor
                       </Badge>
                     </div>
@@ -2222,10 +2222,10 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-2">
                   {checkedInStaff.map((staff) => (
-                    <div key={staff.id} className="flex items-center justify-between p-3 bg-purple-50/50 rounded-lg border border-purple-200/30">
+                    <div key={staff.id} className="flex items-center justify-between p-3 bg-purple-50/50 dark:bg-purple-950/40 rounded-lg border border-purple-200/30 dark:border-purple-800/40">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                          <span className="text-purple-600 font-medium text-sm">
+                        <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center">
+                          <span className="text-purple-600 dark:text-purple-300 font-medium text-sm">
                             {getInitials(`${staff.firstName} ${staff.lastName}`)}
                           </span>
                         </div>
@@ -2236,7 +2236,7 @@ export default function Dashboard() {
                           <div className="text-sm text-variable">{staff.department}</div>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-300">
+                      <Badge variant="secondary" className="bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700">
                         Staff
                       </Badge>
                     </div>
@@ -2254,10 +2254,10 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-2">
                   {checkedInContractors.map((contractor) => (
-                    <div key={contractor.id} className="flex items-center justify-between p-3 bg-orange-50/50 rounded-lg border border-orange-200/30">
+                    <div key={contractor.id} className="flex items-center justify-between p-3 bg-orange-50/50 dark:bg-orange-950/40 rounded-lg border border-orange-200/30 dark:border-orange-800/40">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                          <span className="text-orange-600 font-medium text-sm">
+                        <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/50 rounded-full flex items-center justify-center">
+                          <span className="text-orange-600 dark:text-orange-300 font-medium text-sm">
                             {getInitials(`${contractor.firstName} ${contractor.lastName}`)}
                           </span>
                         </div>
@@ -2268,7 +2268,7 @@ export default function Dashboard() {
                           <div className="text-sm text-variable">{contractor.company || 'Contractor'}</div>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="bg-orange-100 text-orange-800 border-orange-300">
+                      <Badge variant="secondary" className="bg-orange-100 dark:bg-orange-900/60 text-orange-800 dark:text-orange-300 border-orange-300 dark:border-orange-700">
                         Contractor
                       </Badge>
                     </div>
@@ -2286,10 +2286,10 @@ export default function Dashboard() {
                 </h3>
                 <div className="space-y-2">
                   {checkedInMembers.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-3 bg-purple-50/50 rounded-lg border border-purple-200/30">
+                    <div key={member.id} className="flex items-center justify-between p-3 bg-purple-50/50 dark:bg-purple-950/40 rounded-lg border border-purple-200/30 dark:border-purple-800/40">
                       <div className="flex items-center space-x-3">
-                        <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                          <span className="text-purple-600 font-medium text-sm">
+                        <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center">
+                          <span className="text-purple-600 dark:text-purple-300 font-medium text-sm">
                             {getInitials(`${member.firstName} ${member.lastName}`)}
                           </span>
                         </div>
@@ -2300,7 +2300,7 @@ export default function Dashboard() {
                           <div className="text-sm text-variable">{member.membershipType || 'Member'}</div>
                         </div>
                       </div>
-                      <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-300">
+                      <Badge variant="secondary" className="bg-purple-100 dark:bg-purple-900/60 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-700">
                         Member
                       </Badge>
                     </div>

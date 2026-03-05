@@ -165,13 +165,13 @@ export default function TenantDashboard() {
         <GlassCard>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm font-medium">Staff on Site</p>
-              <p className="text-3xl font-bold text-slate-800 mt-1" data-testid="stat-staff-on-site">
+              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Staff on Site</p>
+              <p className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1" data-testid="stat-staff-on-site">
                 {checkedInStaff.length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <UsersRound className="text-blue-600" size={24} />
+            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/40 rounded-xl flex items-center justify-center">
+              <UsersRound className="text-blue-600 dark:text-blue-400" size={24} />
             </div>
           </div>
         </GlassCard>
@@ -179,13 +179,13 @@ export default function TenantDashboard() {
         <GlassCard>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm font-medium">Current Visitors</p>
-              <p className="text-3xl font-bold text-slate-800 mt-1" data-testid="stat-current-visitors">
+              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Current Visitors</p>
+              <p className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1" data-testid="stat-current-visitors">
                 {currentVisitors.length}
               </p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-              <Eye className="text-green-600" size={24} />
+            <div className="w-12 h-12 bg-green-100 dark:bg-green-900/40 rounded-xl flex items-center justify-center">
+              <Eye className="text-green-600 dark:text-green-400" size={24} />
             </div>
           </div>
         </GlassCard>
@@ -193,13 +193,13 @@ export default function TenantDashboard() {
         <GlassCard>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm font-medium">Total Staff</p>
-              <p className="text-3xl font-bold text-slate-800 mt-1" data-testid="stat-total-staff">
+              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Total Staff</p>
+              <p className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1" data-testid="stat-total-staff">
                 {tenantStaff?.length || 0}
               </p>
             </div>
-            <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
-              <UsersRound className="text-purple-600" size={24} />
+            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center">
+              <UsersRound className="text-purple-600 dark:text-purple-400" size={24} />
             </div>
           </div>
         </GlassCard>
@@ -207,13 +207,13 @@ export default function TenantDashboard() {
         <GlassCard>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-slate-600 text-sm font-medium">Pre-booked</p>
-              <p className="text-3xl font-bold text-slate-800 mt-1" data-testid="stat-pre-booked">
+              <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">Pre-booked</p>
+              <p className="text-3xl font-bold text-slate-800 dark:text-slate-100 mt-1" data-testid="stat-pre-booked">
                 {preBookedVisitors?.length || 0}
               </p>
             </div>
-            <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
-              <Calendar className="text-orange-600" size={24} />
+            <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/40 rounded-xl flex items-center justify-center">
+              <Calendar className="text-orange-600 dark:text-orange-400" size={24} />
             </div>
           </div>
         </GlassCard>
