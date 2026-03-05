@@ -207,18 +207,13 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/settings", icon: Settings, label: "Settings", alwaysVisible: true },
   ];
 
-  // Filter navigation items based on feature toggles
+  // Filter navigation items based on feature toggles.
+  // While settings are loading, only show always-visible items so there is no flash of extra nav items.
   const navItems = allNavItems.filter(item => {
-    // Always show items marked as alwaysVisible
     if (item.alwaysVisible) return true;
-    
-    // For items with feature toggles, check if the feature is enabled
-    if (item.featureKey && settings) {
-      return settings[item.featureKey as keyof CompanySettings] === true;
-    }
-    
-    // If no settings loaded yet, show all items (avoid hiding during loading)
-    return !settings || true;
+    if (!settings) return false; // hide feature-gated items until settings have loaded
+    if (item.featureKey) return settings[item.featureKey as keyof CompanySettings] === true;
+    return true;
   });
 
   const currentLogoSrc = getLogoSrc();
@@ -252,7 +247,7 @@ export default function Layout({ children }: LayoutProps) {
                 )}
               </div>
               <div className="hidden sm:block min-w-0 max-w-[200px] lg:max-w-xs">
-                <h1 className="text-base sm:text-lg lg:text-xl font-bold truncate" style={navInvert ? bannerTextStyle : {}}>{settings?.companyName || "VisiGate Pro"}</h1>
+                <h1 className="text-base sm:text-lg lg:text-xl font-bold truncate" style={navInvert ? bannerTextStyle : {}}>{settings?.companyName || ''}</h1>
                 <p className="text-xs" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}}>TPR Max</p>
               </div>
             </div>
