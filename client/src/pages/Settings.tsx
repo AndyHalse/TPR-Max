@@ -1317,89 +1317,78 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="flex flex-wrap h-auto gap-1 p-2 w-full justify-start">
-          {/* Setup */}
-          <TabsTrigger value="company" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Building2 size={14} />
+        {/* Mobile: single scrollable row — Desktop: wrapping grid */}
+        <TabsList className="flex overflow-x-auto lg:flex-wrap lg:overflow-x-visible h-auto gap-1 p-2 w-full lg:justify-start [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <TabsTrigger value="company" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Building2 size={15} className="flex-shrink-0" />
+            <span className="lg:hidden">Company</span>
             <span className="hidden lg:inline">Company</span>
-            <span className="lg:hidden">Co.</span>
           </TabsTrigger>
-          <TabsTrigger value="branding" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Palette size={14} />
+          <TabsTrigger value="branding" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Palette size={15} className="flex-shrink-0" />
+            <span className="lg:hidden">Branding</span>
             <span className="hidden lg:inline">Branding</span>
-            <span className="lg:hidden">Brand</span>
           </TabsTrigger>
-          {/* People & Structure */}
-          <TabsTrigger value="users" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Users size={14} />
+          <TabsTrigger value="users" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Users size={15} className="flex-shrink-0" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="departments" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Building size={14} />
+          <TabsTrigger value="departments" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Building size={15} className="flex-shrink-0" />
+            <span className="lg:hidden">Departments</span>
             <span className="hidden lg:inline">Departments</span>
-            <span className="lg:hidden">Depts</span>
           </TabsTrigger>
-          <TabsTrigger value="zones" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <MapPin size={14} />
+          <TabsTrigger value="zones" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <MapPin size={15} className="flex-shrink-0" />
             Zones
           </TabsTrigger>
-          {/* Communications */}
-          <TabsTrigger value="email" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Mail size={14} />
+          <TabsTrigger value="email" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Mail size={15} className="flex-shrink-0" />
             Email
           </TabsTrigger>
-          <TabsTrigger value="phone-systems" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Phone size={14} />
-            <span className="hidden lg:inline">Phone Systems</span>
+          <TabsTrigger value="phone-systems" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Phone size={15} className="flex-shrink-0" />
             <span className="lg:hidden">Phone</span>
+            <span className="hidden lg:inline">Phone Systems</span>
           </TabsTrigger>
-          {/* Output */}
-          <TabsTrigger value="reports" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <FileText size={14} />
-            <span className="hidden lg:inline">Reports</span>
-            <span className="lg:hidden">Rpts</span>
+          <TabsTrigger value="reports" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <FileText size={15} className="flex-shrink-0" />
+            Reports
           </TabsTrigger>
-          <TabsTrigger value="printing" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Printer size={14} />
-            <span className="hidden lg:inline">Printing & ID</span>
-            <span className="lg:hidden">Print</span>
+          <TabsTrigger value="printing" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Printer size={15} className="flex-shrink-0" />
+            <span className="lg:hidden">Printing</span>
+            <span className="hidden lg:inline">Printing &amp; ID</span>
           </TabsTrigger>
-          {/* Safety & Compliance */}
-          <TabsTrigger value="hs-documents" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <FileText size={14} />
-            <span className="hidden lg:inline">H&S Docs</span>
-            <span className="lg:hidden">H&S</span>
+          <TabsTrigger value="hs-documents" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <FileText size={15} className="flex-shrink-0" />
+            H&amp;S Docs
           </TabsTrigger>
-          <TabsTrigger value="hsrules" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Shield size={14} />
-            <span className="hidden lg:inline">H&S Rules</span>
-            <span className="lg:hidden">Rules</span>
+          <TabsTrigger value="hsrules" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Shield size={15} className="flex-shrink-0" />
+            H&amp;S Rules
           </TabsTrigger>
-          <TabsTrigger value="contractors" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <HardHat size={14} />
+          <TabsTrigger value="contractors" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <HardHat size={15} className="flex-shrink-0" />
+            <span className="lg:hidden">ID Cards</span>
             <span className="hidden lg:inline">Card Offences</span>
-            <span className="lg:hidden">Cards</span>
           </TabsTrigger>
-          {/* Technology */}
-          <TabsTrigger value="ai" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Brain size={14} />
+          <TabsTrigger value="ai" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Brain size={15} className="flex-shrink-0" />
             AI
           </TabsTrigger>
-          <TabsTrigger value="biostar" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Shield size={14} />
-            <span className="hidden lg:inline">BioStar</span>
-            <span className="lg:hidden">Bio</span>
+          <TabsTrigger value="biostar" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Shield size={15} className="flex-shrink-0" />
+            BioStar
           </TabsTrigger>
-          <TabsTrigger value="integrations" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <Zap size={14} />
+          <TabsTrigger value="integrations" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <Zap size={15} className="flex-shrink-0" />
+            <span className="lg:hidden">Integrations</span>
             <span className="hidden lg:inline">Integrations</span>
-            <span className="lg:hidden">API</span>
           </TabsTrigger>
-          {/* Advanced */}
-          <TabsTrigger value="system" className="flex items-center gap-1.5 px-3 py-2 text-xs">
-            <SettingsIcon size={14} />
-            <span className="hidden lg:inline">System</span>
-            <span className="lg:hidden">Sys</span>
+          <TabsTrigger value="system" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
+            <SettingsIcon size={15} className="flex-shrink-0" />
+            System
           </TabsTrigger>
         </TabsList>
 
