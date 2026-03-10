@@ -11514,15 +11514,17 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       let preBooking;
       
-      // Support lookup by QR code or by pre-booking ID (PBK-{id} format from dashboard)
+      // Support lookup by QR code or by pre-booking ID
+      // PBK-{id} → dashboard format, PRE-{code} → invitation email format, else raw qrCode
       if (qrCode.startsWith('PBK-')) {
         const preBookingId = qrCode.replace('PBK-', '');
         const [found] = await customerDb.select().from(isolatedSchema.preBookings)
           .where(eq(isolatedSchema.preBookings.id, preBookingId)).limit(1);
         preBooking = found;
       } else {
+        const lookupCode = qrCode.startsWith('PRE-') ? qrCode.replace('PRE-', '') : qrCode;
         const [found] = await customerDb.select().from(isolatedSchema.preBookings)
-          .where(eq(isolatedSchema.preBookings.qrCode, qrCode)).limit(1);
+          .where(eq(isolatedSchema.preBookings.qrCode, lookupCode)).limit(1);
         preBooking = found;
       }
       
@@ -11534,6 +11536,17 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(400).json({ error: "Pre-booking already checked in" });
       }
       
+      // Verify hostStaffId exists to avoid FK constraint violations
+      let resolvedHostStaffId: string | null = null;
+      if (preBooking.hostStaffId) {
+        try {
+          const hostStaff = await databaseService.getStaffById(context, preBooking.hostStaffId);
+          resolvedHostStaffId = hostStaff ? preBooking.hostStaffId : null;
+        } catch {
+          resolvedHostStaffId = null;
+        }
+      }
+
       const visitor = await databaseService.createVisitor(context, {
         firstName: preBooking.visitorFirstName,
         lastName: preBooking.visitorLastName,
@@ -11541,12 +11554,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         company: preBooking.company,
         purpose: preBooking.purpose,
         carRegistration: null,
-        hostStaffId: preBooking.hostStaffId,
+        hostStaffId: resolvedHostStaffId,
         isPreBooked: true,
         expectedDateTime: preBooking.visitDate,
         visitPurpose: preBooking.purpose,
         isCheckedIn: true,
-        checkedInAt: new Date(),
         ...(hsRulesAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: new Date() } : {})
       });
       
@@ -20183,7 +20195,11 @@ This is an automated notification from your visitor management system.`;
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
 
-      // 1. Try visitor pre-booking (PBK- prefix or raw QR on preBookings table)
+      // 1. Try visitor pre-booking
+      // Handles three formats:
+      //   PBK-{id}   → look up by ID (legacy dashboard format)
+      //   PRE-{code} → strip prefix, look up by qrCode (invitation email format)
+      //   {code}     → look up by qrCode directly
       let preBooking: any = null;
       if (qrData.startsWith('PBK-')) {
         const pbId = qrData.replace('PBK-', '');
@@ -20191,8 +20207,10 @@ This is an automated notification from your visitor management system.`;
           .where(eq(isolatedSchema.preBookings.id, pbId)).limit(1);
         preBooking = found;
       } else {
+        // Strip optional PRE- prefix added by the invitation email
+        const lookupCode = qrData.startsWith('PRE-') ? qrData.replace('PRE-', '') : qrData;
         const [found] = await customerDb.select().from(isolatedSchema.preBookings)
-          .where(eq(isolatedSchema.preBookings.qrCode, qrData)).limit(1);
+          .where(eq(isolatedSchema.preBookings.qrCode, lookupCode)).limit(1);
         preBooking = found;
       }
 
@@ -20206,6 +20224,18 @@ This is an automated notification from your visitor management system.`;
             message: `${preBooking.visitorFirstName} ${preBooking.visitorLastName} has already been checked in from this pre-booking.`
           });
         }
+
+        // Verify hostStaffId exists to avoid FK constraint violations on the visitors table
+        let resolvedHostStaffId: string | null = null;
+        if (preBooking.hostStaffId) {
+          try {
+            const hostStaff = await databaseService.getStaffById(context, preBooking.hostStaffId);
+            resolvedHostStaffId = hostStaff ? preBooking.hostStaffId : null;
+          } catch {
+            resolvedHostStaffId = null;
+          }
+        }
+
         const visitor = await databaseService.createVisitor(context, {
           firstName: preBooking.visitorFirstName,
           lastName: preBooking.visitorLastName,
@@ -20213,12 +20243,11 @@ This is an automated notification from your visitor management system.`;
           company: preBooking.company,
           purpose: preBooking.purpose,
           carRegistration: null,
-          hostStaffId: preBooking.hostStaffId,
+          hostStaffId: resolvedHostStaffId,
           isPreBooked: true,
           expectedDateTime: preBooking.visitDate,
           visitPurpose: preBooking.purpose,
           isCheckedIn: true,
-          checkedInAt: new Date(),
         });
         await customerDb.update(isolatedSchema.preBookings)
           .set({ isCheckedIn: true, checkedInAt: new Date(), visitorId: visitor.id })

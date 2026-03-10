@@ -524,12 +524,17 @@ export class DatabaseService {
   async createVisitorHistory(context: CustomerContext, historyData: Omit<InsertVisitorHistory, 'customerId'>): Promise<VisitorHistory> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    // Get host name if host ID is provided
+    // Get host name if host ID is provided, and verify the staff member still exists
+    // to avoid FK constraint violations if the staff has been deleted
     let hostName = undefined;
+    let resolvedHostStaffId = historyData.hostStaffId || null;
     if (historyData.hostStaffId) {
       const host = await this.getStaffById(context, historyData.hostStaffId);
       if (host) {
         hostName = `${host.firstName} ${host.lastName}`;
+      } else {
+        // Staff member no longer exists - clear the FK to prevent constraint violation
+        resolvedHostStaffId = null;
       }
     }
     
@@ -537,6 +542,7 @@ export class DatabaseService {
       .insert(isolatedSchema.visitorHistory)
       .values({
         ...historyData,
+        hostStaffId: resolvedHostStaffId,
         hostName,
       })
       .returning();

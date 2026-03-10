@@ -79,8 +79,9 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
         queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
         queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       }
-    } catch {
-      setResult({ success: false, message: "Network error. Please try again." });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Network error. Please try again.";
+      setResult({ success: false, message });
       setScanState("result");
     }
   }, [stopCamera, queryClient]);
