@@ -130,13 +130,9 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        try {
-          await videoRef.current.play();
-        } catch (playErr: any) {
-          // AbortError is normal — happens when stopCamera is called during startup
-          if (playErr?.name !== "AbortError") throw playErr;
-          return; // Camera was stopped before play completed — bail out cleanly
-        }
+        // Don't await play() — the frame loop handles waiting for readyState >= 2.
+        // Suppress AbortError which fires harmlessly when the modal is closed mid-startup.
+        videoRef.current.play().catch(() => {});
       }
       setScanState("scanning");
       rafRef.current = requestAnimationFrame(scanFrame);
