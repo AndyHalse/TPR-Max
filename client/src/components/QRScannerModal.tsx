@@ -130,7 +130,13 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        videoRef.current.play();
+        try {
+          await videoRef.current.play();
+        } catch (playErr: any) {
+          // AbortError is normal — happens when stopCamera is called during startup
+          if (playErr?.name !== "AbortError") throw playErr;
+          return; // Camera was stopped before play completed — bail out cleanly
+        }
       }
       setScanState("scanning");
       rafRef.current = requestAnimationFrame(scanFrame);
