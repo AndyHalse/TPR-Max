@@ -12744,12 +12744,11 @@ This is an automated notification from your visitor management system.`;
         .set({ status: 'completed', updatedAt: new Date() })
         .where(eq(isolatedSchema.contractorPreBookings.id, preBooking.id));
       
-      // Update worker check-in status in customer database
+      // Update worker check-in status in customer database (do NOT overwrite qrCode — CPB- belongs to the visit, not the worker)
       await customerDb.update(isolatedSchema.contractorWorkers)
         .set({
           isCheckedIn: true,
-          checkedInAt: new Date(),
-          qrCode: qrCode
+          checkedInAt: new Date()
         })
         .where(eq(isolatedSchema.contractorWorkers.id, worker.id));
       
