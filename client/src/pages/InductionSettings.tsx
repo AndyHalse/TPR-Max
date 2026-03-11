@@ -79,21 +79,9 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
   const queryClient = useQueryClient();
 
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>({ status: 'idle', step: 0, totalSteps: 5, message: '' });
-  const [showPreview, setShowPreview] = useState(false);
   const [showQuestions, setShowQuestions] = useState(false);
   const [showSendLink, setShowSendLink] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
-  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
-
-  // Convert HTML to blob URL so iOS Safari renders it (srcDoc is unreliable on mobile)
-  useEffect(() => {
-    if (!previewHtml) { setPreviewBlobUrl(null); return; }
-    const blob = new Blob([previewHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    setPreviewBlobUrl(url);
-    return () => URL.revokeObjectURL(url);
-  }, [previewHtml]);
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [isRegeneratingQuestions, setIsRegeneratingQuestions] = useState(false);
   const [isTogglingKiosk, setIsTogglingKiosk] = useState(false);
@@ -162,13 +150,6 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
           queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
           queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
           onQuestionsRefetch();
-          try {
-            const videoRes = await fetch(`/api/induction/video/${roleType}`, { credentials: 'include' });
-            if (videoRes.ok) {
-              const html = await videoRes.text();
-              setPreviewHtml(html);
-            }
-          } catch (_e) {}
         } else if (statusData.status === 'failed') {
           stopPolling();
           toast({ title: "Generation Failed", description: statusData.error || 'Please try again.', variant: 'destructive' });
@@ -176,20 +157,6 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
       } catch (_e) {}
     }, 3000);
   };
-
-  useEffect(() => {
-    if (settings?.generatedAt && !previewHtml && generationStatus.status === 'idle') {
-      fetch(`/api/induction/video/${roleType}`, { credentials: 'include' })
-        .then(res => {
-          if (res.ok && res.headers.get('content-type')?.includes('text/html')) return res.text();
-          return null;
-        })
-        .then(html => {
-          if (html && !html.includes('No video generated yet')) setPreviewHtml(html);
-        })
-        .catch(() => {});
-    }
-  }, [settings?.generatedAt, roleType]);
 
   useEffect(() => {
     return () => stopPolling();
@@ -352,36 +319,15 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
     }
   };
 
-  const handleOpenPreview = async () => {
-    if (previewHtml) {
-      setShowPreview(true);
-      return;
-    }
-    try {
-      const res = await fetch(`/api/induction/video/${roleType}`, { credentials: 'include' });
-      if (res.ok && res.headers.get('content-type')?.includes('text/html')) {
-        const html = await res.text();
-        if (!html.includes('No video generated yet')) {
-          setPreviewHtml(html);
-          setShowPreview(true);
-          return;
-        }
-      }
-    } catch (_e) {}
-    toast({ title: "No video available", description: "Please generate a video first.", variant: 'destructive' });
+  const handleOpenPreview = () => {
+    setLocation(`/induction-preview/${roleType}`);
   };
 
   const handleOpenFullscreen = () => {
-    if (previewHtml) {
-      const newWindow = window.open('', '_blank');
-      if (newWindow) {
-        newWindow.document.write(previewHtml);
-        newWindow.document.close();
-      }
-    }
+    window.open(`/induction-preview/${roleType}`, '_blank');
   };
 
-  const hasVideo = settings?.generatedAt || previewHtml;
+  const hasVideo = settings?.generatedAt != null;
   const questionsByCategory = questions.reduce((acc, q) => {
     const cat = q.category || 'General Safety';
     if (!acc[cat]) acc[cat] = [];
@@ -486,12 +432,10 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
                     <Eye className="h-3 w-3" />
                     Preview
                   </Button>
-                  {previewHtml && (
-                    <Button variant="ghost" size="sm" onClick={handleOpenFullscreen} className="gap-1 text-xs h-7">
-                      <Maximize2 className="h-3 w-3" />
-                      Full Screen
-                    </Button>
-                  )}
+                  <Button variant="ghost" size="sm" onClick={handleOpenFullscreen} className="gap-1 text-xs h-7">
+                    <Maximize2 className="h-3 w-3" />
+                    Full Screen
+                  </Button>
                 </div>
               </div>
             </div>
@@ -856,27 +800,6 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
           <span>Powered by <span className="font-medium text-purple-700">GPT-5</span> via Replit AI — billed to Replit credits</span>
         </div>
 
-        {/* Inline Preview Dialog */}
-        {showPreview && previewBlobUrl && (
-          <Dialog open={showPreview} onOpenChange={setShowPreview}>
-            <DialogContent className="max-w-[96vw] max-h-[96vh] w-full h-full p-0">
-              <DialogHeader className="p-4 pb-0 flex-row items-center justify-between">
-                <DialogTitle>{getRoleDisplayName(roleType)} Induction Preview</DialogTitle>
-                <Button variant="outline" size="sm" onClick={handleOpenFullscreen} className="gap-1 mr-8">
-                  <Maximize2 className="h-4 w-4" />
-                  Full Screen
-                </Button>
-              </DialogHeader>
-              <div className="flex-1 h-[85vh] p-4 pt-2">
-                <iframe
-                  src={previewBlobUrl || undefined}
-                  className="w-full h-full border-0 rounded-lg"
-                  title={`${roleType} Induction Preview`}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
       </CardContent>
     </Card>
   );
