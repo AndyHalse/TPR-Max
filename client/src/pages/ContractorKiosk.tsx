@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -32,7 +32,11 @@ import {
   ClipboardList,
   ChevronRight,
   User,
+  Camera,
+  Loader2,
+  XCircle,
 } from "lucide-react";
+import jsQR from "jsqr";
 
 import type { ContractorCompany, ContractorWorker, CompanySettings } from "@shared/schema";
 
@@ -47,6 +51,18 @@ export default function ContractorKiosk() {
   const [checkedInWorker, setCheckedInWorker] = useState<ContractorWorker | null>(null);
   const [checkedInCompanyName, setCheckedInCompanyName] = useState<string>("");
   const [isQrLookupLoading, setIsQrLookupLoading] = useState(false);
+
+  // Camera scanning state
+  const [cameraState, setCameraState] = useState<"off" | "starting" | "scanning" | "processing" | "error">("off");
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [scanResult, setScanResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [checkinSuccess, setCheckinSuccess] = useState<{ name: string; company?: string } | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastScannedRef = useRef<string | null>(null);
+  const isProcessingRef = useRef<boolean>(false);
 
   // Host selection state
   const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<ContractorWorker | null>(null);
@@ -150,9 +166,9 @@ export default function ContractorKiosk() {
     },
   });
 
-  // QR scan handler
-  const handleQrScan = async () => {
-    const code = scannedCode.trim();
+  // QR scan handler (works for both camera auto-scan and manual entry)
+  const handleQrScan = async (overrideCode?: string) => {
+    const code = (overrideCode || scannedCode).trim();
     if (!code) {
       toast({ title: "No code entered", description: "Please scan or type a QR code", variant: "destructive" });
       return;
@@ -165,7 +181,9 @@ export default function ContractorKiosk() {
       });
 
       if (response.status === 404) {
-        toast({ title: "QR Code Not Recognised", description: "This pass was not found. Please see reception for assistance.", variant: "destructive" });
+        setScanResult({ success: false, message: "QR pass not recognised. Please see reception for assistance." });
+        setCameraState("error");
+        isProcessingRef.current = false;
         setScannedCode("");
         return;
       }
@@ -176,19 +194,119 @@ export default function ContractorKiosk() {
       setScannedCode("");
 
       if (worker.isCheckedIn) {
-        checkOutMutation.mutate(worker.id);
-        toast({ title: "Checking Out…", description: `Processing checkout for ${worker.firstName} ${worker.lastName}` });
+        setCheckinSuccess({ name: `${worker.firstName} ${worker.lastName}`, company: companyName });
+        setCameraState("processing");
+        checkOutMutation.mutate(worker.id, {
+          onSuccess: () => {
+            setTimeout(() => {
+              setCheckinSuccess(null);
+              setScanResult(null);
+              setActiveSection("main");
+              isProcessingRef.current = false;
+            }, 3000);
+          },
+          onError: () => {
+            setCheckinSuccess(null);
+            setScanResult({ success: false, message: "Check-out failed. Please try again." });
+            setCameraState("error");
+            isProcessingRef.current = false;
+          }
+        });
       } else {
+        setIsQrLookupLoading(false);
         setSelectedWorkerForCheckIn(worker);
         setCheckedInCompanyName(companyName);
         setShowHostSelection(true);
+        isProcessingRef.current = false;
       }
     } catch {
-      toast({ title: "Scan Error", description: "Could not process the QR code. Please try again.", variant: "destructive" });
+      setScanResult({ success: false, message: "Could not read QR code. Please try again." });
+      setCameraState("error");
+      isProcessingRef.current = false;
     } finally {
       setIsQrLookupLoading(false);
     }
   };
+
+  // ── Camera scanning ──────────────────────────────────────────
+  const stopCamera = useCallback(() => {
+    if (scanTimerRef.current) { clearTimeout(scanTimerRef.current); scanTimerRef.current = null; }
+    if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
+    if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
+
+  const processDetectedCode = useCallback((code: string) => {
+    if (isProcessingRef.current) return;
+    if (lastScannedRef.current === code) return;
+    isProcessingRef.current = true;
+    lastScannedRef.current = code;
+    setCameraState("processing");
+    stopCamera();
+    handleQrScan(code);
+  }, [stopCamera]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const scanFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas || video.readyState < 2) {
+      scanTimerRef.current = setTimeout(scanFrame, 50);
+      return;
+    }
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) { scanTimerRef.current = setTimeout(scanFrame, 120); return; }
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const qrCode = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+    if (qrCode?.data) {
+      processDetectedCode(qrCode.data);
+    } else {
+      scanTimerRef.current = setTimeout(scanFrame, 120);
+    }
+  }, [processDetectedCode]);
+
+  const startCamera = useCallback(async () => {
+    setCameraState("starting");
+    setCameraError(null);
+    setScanResult(null);
+    lastScannedRef.current = null;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
+      setCameraState("scanning");
+      scanTimerRef.current = setTimeout(scanFrame, 120);
+    } catch (err: any) {
+      const msg = err?.name === "NotAllowedError"
+        ? "Camera access denied. Enter the code manually below."
+        : err?.name === "NotFoundError"
+        ? "No camera found. Enter the code manually below."
+        : "Camera unavailable. Enter the code manually below.";
+      setCameraError(msg);
+      setCameraState("error");
+    }
+  }, [scanFrame]);
+
+  useEffect(() => {
+    if (activeSection === "scan") {
+      isProcessingRef.current = false;
+      lastScannedRef.current = null;
+      setCheckinSuccess(null);
+      setScanResult(null);
+      startCamera();
+    } else {
+      stopCamera();
+      setCameraState("off");
+      setScanResult(null);
+      setCheckinSuccess(null);
+      lastScannedRef.current = null;
+      isProcessingRef.current = false;
+    }
+    return () => stopCamera();
+  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pre-booking check-in: tap name → H&S if needed → checkin
   const handlePrebookingSelect = (prebooking: any) => {
@@ -279,47 +397,126 @@ export default function ContractorKiosk() {
             </p>
           </div>
 
-          <GlassCard className="p-4 sm:p-6 lg:p-8 flex-1 flex flex-col justify-center max-h-96">
-            <div className="text-center space-y-4 sm:space-y-6">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 lg:w-32 lg:h-32 mx-auto border-4 border-dashed border-purple-400 rounded-xl flex items-center justify-center bg-purple-50">
-                <QrCode className="text-purple-600" size={40} />
-              </div>
+          <GlassCard className="overflow-hidden flex-1 flex flex-col justify-center">
+            {/* Camera viewfinder */}
+            <div className="relative bg-black w-full" style={{ aspectRatio: '4/3', maxHeight: '55vh' }}>
+              <video
+                ref={videoRef}
+                className="w-full h-full object-cover"
+                playsInline muted autoPlay
+              />
+              <canvas ref={canvasRef} className="hidden" />
 
-              <div className="space-y-3 sm:space-y-4">
-                <Input
-                  type="text"
-                  placeholder="Scan QR code or enter ID manually…"
-                  value={scannedCode}
-                  onChange={(e) => setScannedCode(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleQrScan()}
-                  className="w-full px-4 sm:px-6 py-4 sm:py-6 rounded-xl text-center font-mono text-lg sm:text-xl lg:text-2xl"
-                  autoFocus
-                />
+              {/* Starting overlay */}
+              {cameraState === "starting" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
+                  <Loader2 className="w-10 h-10 text-white animate-spin" />
+                  <p className="text-white text-base font-medium">Starting camera…</p>
+                </div>
+              )}
 
-                <div className="flex gap-3 sm:gap-4">
-                  <Button
-                    onClick={handleQrScan}
-                    disabled={isQrLookupLoading || checkOutMutation.isPending}
-                    className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white h-12 sm:h-14 lg:h-16 text-base sm:text-lg lg:text-xl font-semibold"
-                  >
-                    <Scan className="mr-2 sm:mr-3" size={20} />
-                    {isQrLookupLoading || checkOutMutation.isPending ? "Processing…" : "Scan"}
-                  </Button>
+              {/* Scanning overlay — viewfinder brackets */}
+              {cameraState === "scanning" && (
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                  <div className="relative w-52 h-52 sm:w-64 sm:h-64">
+                    <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-white rounded-tl-lg" />
+                    <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-white rounded-tr-lg" />
+                    <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-white rounded-bl-lg" />
+                    <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-white rounded-br-lg" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-full h-0.5 bg-purple-400 opacity-80 animate-pulse" />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-4 left-0 right-0 flex justify-center">
+                    <span className="text-white text-sm bg-black/50 px-3 py-1.5 rounded-full font-medium">
+                      Point camera at contractor QR pass — scans automatically
+                    </span>
+                  </div>
+                </div>
+              )}
 
-                  <Button
-                    variant="outline"
-                    onClick={() => { setActiveSection("main"); setScannedCode(""); }}
-                    className="px-6 sm:px-8 h-12 sm:h-14 lg:h-16 text-base sm:text-lg"
-                  >
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back
+              {/* Processing overlay */}
+              {cameraState === "processing" && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
+                  <Loader2 className="w-12 h-12 text-purple-400 animate-spin" />
+                  <p className="text-white text-base font-medium">Processing…</p>
+                </div>
+              )}
+
+              {/* Error / camera not available */}
+              {cameraState === "error" && !checkinSuccess && !scanResult && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/80 px-6 text-center">
+                  <Camera className="w-12 h-12 text-gray-400" />
+                  <p className="text-white text-sm">{cameraError || "Camera unavailable"}</p>
+                  <Button size="sm" onClick={startCamera} className="bg-purple-600 hover:bg-purple-700 text-white">
+                    Try Again
                   </Button>
                 </div>
-              </div>
+              )}
 
-              <div className="text-sm sm:text-base space-y-1 text-variable">
-                <p>✓ Scan your contractor pass QR code to check in</p>
-                <p>✓ If already checked in, scanning checks you out</p>
+              {/* Check-in / check-out success overlay */}
+              {checkinSuccess && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/85">
+                  <div className="mx-4 p-6 rounded-xl border-2 bg-green-50 border-green-400 text-center w-full max-w-xs">
+                    <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-3" />
+                    <h3 className="text-2xl font-bold text-green-700 mb-1">
+                      {checkinSuccess.name && checkOutMutation.isPending ? "Checking Out…" : "Welcome!"}
+                    </h3>
+                    <p className="text-xl font-semibold text-gray-900">{checkinSuccess.name}</p>
+                    {checkinSuccess.company && (
+                      <p className="text-sm text-gray-600 mt-0.5">{checkinSuccess.company}</p>
+                    )}
+                    <p className="text-xs text-gray-500 mt-2">Closing automatically…</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Scan error result */}
+              {scanResult && !checkinSuccess && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                  <div className={`mx-4 p-6 rounded-xl border-2 text-center ${scanResult.success ? 'bg-green-50 border-green-400' : 'bg-red-50 border-red-400'}`}>
+                    {scanResult.success
+                      ? <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-2" />
+                      : <XCircle className="w-12 h-12 text-red-500 mx-auto mb-2" />
+                    }
+                    <p className={`font-semibold text-base ${scanResult.success ? 'text-green-800' : 'text-red-800'}`}>
+                      {scanResult.message}
+                    </p>
+                    {!scanResult.success && (
+                      <Button size="sm" onClick={() => { setScanResult(null); startCamera(); }} className="mt-3 bg-purple-600 hover:bg-purple-700 text-white">
+                        Try Again
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Manual fallback + back button */}
+            <div className="p-4 space-y-3">
+              <p className="text-xs text-center text-muted-foreground">Or enter the code manually if scanning fails</p>
+              <div className="flex gap-3">
+                <Input
+                  type="text"
+                  placeholder="Paste or type QR code…"
+                  value={scannedCode}
+                  onChange={(e) => setScannedCode(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && scannedCode.trim()) handleQrScan(); }}
+                  className="flex-1 font-mono text-sm"
+                />
+                <Button
+                  onClick={() => handleQrScan()}
+                  disabled={!scannedCode.trim() || isQrLookupLoading || checkOutMutation.isPending}
+                  className="bg-gradient-to-r from-purple-500 to-indigo-500 hover:from-purple-600 hover:to-indigo-600 text-white"
+                >
+                  Go
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { setActiveSection("main"); setScannedCode(""); }}
+                >
+                  Back
+                </Button>
               </div>
             </div>
           </GlassCard>
