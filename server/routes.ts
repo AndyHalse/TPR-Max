@@ -12498,7 +12498,8 @@ This is an automated notification from your visitor management system.`;
         b.companyName === preBookingData.companyName &&
         new Date(b.scheduledDate).toDateString() === scheduledDateStr &&
         b.scheduledTime === preBookingData.scheduledTime &&
-        b.status !== 'cancelled'
+        b.status !== 'cancelled' &&
+        b.status !== 'completed'
       );
       
       if (duplicate) {
