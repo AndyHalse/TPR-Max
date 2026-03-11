@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
@@ -23,6 +23,15 @@ export default function StaffManagement() {
   const [isUploadingStaffPhoto, setIsUploadingStaffPhoto] = useState(false);
   const staffPhotoInputId = "staff-photo-upload-input";
   const { toast } = useToast();
+
+  // Auto-show QR code when dialog opens if the staff member already has one
+  useEffect(() => {
+    if (qrPassStaff?.qrCode) {
+      setQrPassData({ qrCode: qrPassStaff.qrCode, staffName: `${qrPassStaff.firstName} ${qrPassStaff.lastName}` });
+    } else if (!qrPassStaff) {
+      setQrPassData(null);
+    }
+  }, [qrPassStaff]);
   const { slug } = useParams<{ slug: string }>();
   const [location] = useLocation();
 
@@ -115,14 +124,16 @@ export default function StaffManagement() {
       return response.json();
     },
     onSuccess: (data) => {
+      // Always show the QR code in the dialog regardless of method
+      if (data.qrCode) {
+        setQrPassData({ qrCode: data.qrCode, staffName: data.staffName || '' });
+      }
       if (data.method === 'email') {
         toast({
           title: "QR Pass Sent",
           description: data.message || "QR check-in pass has been emailed to the staff member",
         });
-        setQrPassStaff(null);
-      } else {
-        setQrPassData({ qrCode: data.qrCode, staffName: data.staffName });
+        // Keep the dialog open so the user can see / scan the QR code directly
       }
     },
     onError: () => {

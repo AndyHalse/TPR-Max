@@ -1,6 +1,8 @@
 import { EventEmitter } from 'events';
 import * as fs from 'fs';
 import * as path from 'path';
+import { databaseService } from './databaseService';
+import { customerDbService } from './customerDatabase';
 
 export interface QRReaderDevice {
   id: string;
@@ -265,16 +267,40 @@ class QRReaderService extends EventEmitter {
     }
   }
 
-  async processStaffScan(qrData: string): Promise<{ success: boolean; message: string; action?: string }> {
+  async processStaffScan(qrData: string): Promise<{ success: boolean; message: string; action?: string; personName?: string }> {
     console.log(`👥 Processing staff QR scan: ${qrData}`);
     
     try {
-      // Process staff member scan
-      return {
-        success: true,
-        message: `Staff scan processed successfully: ${qrData}`,
-        action: 'checkin'
-      };
+      const customers = await customerDbService.getAllCustomers();
+      
+      for (const customer of customers) {
+        if (!customer.isActive) continue;
+        try {
+          const context = { customerId: customer.id, username: 'kiosk' };
+          const staffMember = await databaseService.getStaffByQrCode(context, qrData);
+          if (!staffMember) continue;
+
+          if (staffMember.isCheckedIn) {
+            await databaseService.checkOutStaff(context, staffMember.id);
+            return {
+              success: true,
+              action: 'checkout',
+              personName: `${staffMember.firstName} ${staffMember.lastName}`,
+              message: `${staffMember.firstName} ${staffMember.lastName} checked out successfully`
+            };
+          } else {
+            await databaseService.checkInStaff(context, staffMember.id, false);
+            return {
+              success: true,
+              action: 'checkin',
+              personName: `${staffMember.firstName} ${staffMember.lastName}`,
+              message: `${staffMember.firstName} ${staffMember.lastName} checked in successfully`
+            };
+          }
+        } catch { continue; }
+      }
+
+      return { success: false, message: 'Staff member not found for this QR code' };
     } catch (error) {
       return {
         success: false,
@@ -283,16 +309,40 @@ class QRReaderService extends EventEmitter {
     }
   }
 
-  async processContractorScan(qrData: string): Promise<{ success: boolean; message: string; action?: string }> {
+  async processContractorScan(qrData: string): Promise<{ success: boolean; message: string; action?: string; personName?: string }> {
     console.log(`🔧 Processing contractor QR scan: ${qrData}`);
     
     try {
-      // Process contractor worker scan
-      return {
-        success: true,
-        message: `Contractor scan processed successfully: ${qrData}`,
-        action: 'checkin'
-      };
+      const customers = await customerDbService.getAllCustomers();
+
+      for (const customer of customers) {
+        if (!customer.isActive) continue;
+        try {
+          const context = { customerId: customer.id, username: 'kiosk' };
+          const worker = await databaseService.getContractorWorkerByQrCode(context, qrData);
+          if (!worker) continue;
+
+          if (worker.isCheckedIn) {
+            await databaseService.checkOutContractorWorker(context, worker.id);
+            return {
+              success: true,
+              action: 'checkout',
+              personName: `${worker.firstName} ${worker.lastName}`,
+              message: `${worker.firstName} ${worker.lastName} checked out successfully`
+            };
+          } else {
+            await databaseService.checkInContractorWorker(context, worker.id);
+            return {
+              success: true,
+              action: 'checkin',
+              personName: `${worker.firstName} ${worker.lastName}`,
+              message: `${worker.firstName} ${worker.lastName} checked in successfully`
+            };
+          }
+        } catch { continue; }
+      }
+
+      return { success: false, message: 'Contractor worker not found for this QR code' };
     } catch (error) {
       return {
         success: false,

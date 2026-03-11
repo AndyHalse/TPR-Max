@@ -166,6 +166,8 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addVisitorPhotoUrlMigration,
     addStaffMissingColumnsMigration,
     addVisitorsMissingColumnsMigration,
+    addContractorWorkerQrCodesMigration,
+    generateStaffQrCodesMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1500,6 +1502,47 @@ const addStaffMissingColumnsMigration: Migration = {
     console.log('✅ [018] staff columns done');
 
     console.log('✅ [018] migration complete');
+  }
+};
+
+const addContractorWorkerQrCodesMigration: Migration = {
+  version: '20260311_021_contractor_worker_qr_codes',
+  description: 'Add qr_code column to contractor_workers and generate CTR- codes for existing workers',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS qr_code TEXT`);
+      await db.execute(`
+        CREATE UNIQUE INDEX IF NOT EXISTS contractor_workers_qr_code_unique
+        ON contractor_workers(qr_code) WHERE qr_code IS NOT NULL
+      `);
+      await db.execute(`
+        UPDATE contractor_workers
+        SET qr_code = 'CTR-' || SUBSTR(REPLACE(GEN_RANDOM_UUID()::TEXT, '-', ''), 1, 12)
+        WHERE qr_code IS NULL OR qr_code = ''
+      `);
+      console.log('✅ [021] Contractor worker QR codes column added and populated');
+    } catch (err: any) {
+      console.log(`⚠️ [021] contractor worker qr codes: ${err.message?.substring(0, 120)}`);
+    }
+  }
+};
+
+const generateStaffQrCodesMigration: Migration = {
+  version: '20260311_020_generate_staff_qr_codes',
+  description: 'Generate STF- QR codes for any staff records that are missing one',
+  async up(db: any) {
+    try {
+      // For each staff row without a qr_code, generate a unique STF-{12hex} code
+      // gen_random_uuid() is called per-row so each gets a unique value
+      await db.execute(`
+        UPDATE staff
+        SET qr_code = 'STF-' || SUBSTR(REPLACE(GEN_RANDOM_UUID()::TEXT, '-', ''), 1, 12)
+        WHERE qr_code IS NULL OR qr_code = ''
+      `);
+      console.log('✅ [020] Staff QR codes generated for all NULL records');
+    } catch (err: any) {
+      console.log(`⚠️ [020] generate staff qr codes: ${err.message?.substring(0, 120)}`);
+    }
   }
 };
 

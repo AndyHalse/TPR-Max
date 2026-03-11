@@ -295,6 +295,35 @@ export class DatabaseService {
     return updated[0];
   }
 
+  async checkInContractorWorker(context: CustomerContext, id: string): Promise<any> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const updated = await db
+      .update(isolatedSchema.contractorWorkers)
+      .set({ 
+        isCheckedIn: true,
+        checkedInAt: new Date(),
+        checkedOutAt: null,
+        updatedAt: new Date()
+      })
+      .where(eq(isolatedSchema.contractorWorkers.id, id))
+      .returning();
+    
+    return updated[0];
+  }
+
+  async getContractorWorkerByQrCode(context: CustomerContext, qrCode: string): Promise<any | undefined> {
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+    
+    const result = await db
+      .select()
+      .from(isolatedSchema.contractorWorkers)
+      .where(eq(isolatedSchema.contractorWorkers.qrCode, qrCode))
+      .limit(1);
+    
+    return result[0];
+  }
+
   /**
    * FIRE MARSHAL METHODS - Cross-Customer Search
    * FIXED: Query PUBLIC staff table directly to get correct customer_id
@@ -2025,6 +2054,9 @@ export class DatabaseService {
       }
       if (updates.hsRulesAcceptedAt !== undefined) {
         updateData.hsRulesAcceptedAt = updates.hsRulesAcceptedAt;
+      }
+      if ((updates as any).qrCode !== undefined) {
+        (updateData as any).qrCode = (updates as any).qrCode;
       }
       
       // Handle special update flags

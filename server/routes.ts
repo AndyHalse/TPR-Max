@@ -5699,6 +5699,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       const settings = await databaseService.getCompanySettings(context);
       
+      const passPayload = {
+        success: true,
+        method,
+        qrCode: staffMember.qrCode,
+        staffName: `${staffMember.firstName} ${staffMember.lastName}`,
+        department: staffMember.department,
+        employeeId: staffMember.employeeId,
+        email: staffMember.email,
+      };
+
       if (method === 'email') {
         if (!staffMember.email) {
           return res.status(400).json({ error: "Staff member has no email address" });
@@ -5714,23 +5724,13 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         );
         
         return res.json({ 
-          success: true, 
-          method: 'email', 
+          ...passPayload,
           emailSent,
-          qrCode: staffMember.qrCode,
           message: emailSent ? `QR pass sent to ${staffMember.email}` : 'Failed to send email'
         });
       }
       
-      res.json({ 
-        success: true, 
-        method,
-        qrCode: staffMember.qrCode,
-        staffName: `${staffMember.firstName} ${staffMember.lastName}`,
-        department: staffMember.department,
-        employeeId: staffMember.employeeId,
-        email: staffMember.email
-      });
+      res.json({ ...passPayload, message: 'QR pass ready' });
     } catch (error) {
       console.error("Error sending staff QR pass:", error);
       res.status(500).json({ error: "Failed to send staff QR pass" });

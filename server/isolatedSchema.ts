@@ -732,6 +732,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   // Card status (calculated field for UI)
   currentCardStatus: text("current_card_status").default("pending"), // clear, yellow, red, banned, pending
   isActive: boolean("is_active").default(true).notNull(),
+  qrCode: text("qr_code").unique(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
