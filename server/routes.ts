@@ -9986,7 +9986,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
       // Fetch company name
       const companyRows = await customerDb.execute(
-        sql`SELECT name FROM contractor_companies WHERE id = ${workerRaw.company_id} LIMIT 1`
+        sql`SELECT company_name FROM contractor_companies WHERE id = ${workerRaw.company_id} LIMIT 1`
       );
       const companyRaw = companyRows.rows?.[0] ?? (companyRows as any)[0];
 
@@ -10016,7 +10016,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       };
 
       console.log(`🔍 QR lookup found worker: ${worker.firstName} ${worker.lastName} (${worker.isCheckedIn ? 'checked in' : 'checked out'})`);
-      res.json({ worker, companyName: companyRaw?.name || 'Unknown Company' });
+      res.json({ worker, companyName: companyRaw?.company_name || 'Unknown Company' });
     } catch (error) {
       console.error('Error looking up worker by QR:', error);
       res.status(500).json({ error: 'Failed to look up worker' });

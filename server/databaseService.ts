@@ -1950,6 +1950,7 @@ export class DatabaseService {
         currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker), // Calculate if missing
         inductionCompleted: worker.siteInductionCompleted || false, // Map DB field to frontend field
         phone: worker.phoneNumber, // Add phone alias for compatibility
+        qrCode: worker.qrCode || null, // Include QR code so send-qr-pass doesn't regenerate it every time
       } as ContractorWorker;
       
       console.log(`✅ DEBUG: Successfully mapped worker. Key fields - inductionCompleted: ${mappedWorker.inductionCompleted}, cscsStatus: ${mappedWorker.cscsStatus}, transportMethod: ${mappedWorker.transportMethod}`);
