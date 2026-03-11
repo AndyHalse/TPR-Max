@@ -5748,6 +5748,13 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const worker = await databaseService.getContractorWorkerById(context, id);
       if (!worker) return res.status(404).json({ error: "Contractor worker not found" });
 
+      // Authorisation check — only authorised workers may receive QR passes
+      const isBanned = worker.currentCardStatus === 'red' && worker.redCardBanUntil && new Date(worker.redCardBanUntil) > new Date();
+      const isAuthorised = !isBanned && worker.isActive && (!worker.currentCardStatus || worker.currentCardStatus === 'clear' || worker.currentCardStatus === 'yellow');
+      if (!isAuthorised) {
+        return res.status(403).json({ error: "Worker is not authorised to work on site. QR passes can only be issued to active, cleared workers." });
+      }
+
       if (!worker.qrCode) {
         const qrCode = 'CTR-' + randomUUID().replace(/-/g, '').substring(0, 12);
         await databaseService.updateContractorWorker(context, id, { qrCode } as any);

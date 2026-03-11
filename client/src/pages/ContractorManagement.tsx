@@ -1107,16 +1107,6 @@ export default function ContractorManagement() {
                       >
                         <Mail className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                        onClick={(e) => { e.stopPropagation(); setQrPassWorker(contractor); }}
-                        title="QR Pass"
-                        data-testid={`button-qr-pass-${contractor.id}`}
-                      >
-                        <QrCode className="h-4 w-4" />
-                      </Button>
                       {contractor.isCheckedIn && (
                         <Button 
                           size="sm" 
@@ -1140,20 +1130,32 @@ export default function ContractorManagement() {
                         const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
                         const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
                         return isClear ? (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPreBookingWorker(contractor);
-                              setPreBookCompanyName(contractor.companyName);
-                            }}
-                            title="Pre-Book Worker"
-                            data-testid={`button-prebook-${contractor.id}`}
-                          >
-                            <CalendarPlus className="h-4 w-4" />
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                              onClick={(e) => { e.stopPropagation(); setQrPassWorker(contractor); }}
+                              title="QR Pass"
+                              data-testid={`button-qr-pass-${contractor.id}`}
+                            >
+                              <QrCode className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreBookingWorker(contractor);
+                                setPreBookCompanyName(contractor.companyName);
+                              }}
+                              title="Pre-Book Worker"
+                              data-testid={`button-prebook-${contractor.id}`}
+                            >
+                              <CalendarPlus className="h-4 w-4" />
+                            </Button>
+                          </>
                         ) : null;
                       })()}
                     </div>
@@ -1278,16 +1280,6 @@ export default function ContractorManagement() {
                       >
                         <Mail className="h-3.5 w-3.5" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="p-2 text-indigo-600 hover:text-indigo-700 border-indigo-300 hover:border-indigo-400 hover:bg-indigo-50"
-                        onClick={(e) => { e.stopPropagation(); setQrPassWorker(contractor); }}
-                        title="QR Pass"
-                        data-testid={`button-qr-pass-list-${contractor.id}`}
-                      >
-                        <QrCode className="h-3.5 w-3.5" />
-                      </Button>
                       {contractor.isCheckedIn && (
                         <Button 
                           size="sm" 
@@ -1310,19 +1302,31 @@ export default function ContractorManagement() {
                         const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
                         const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
                         return isClear ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="p-2 text-indigo-600 hover:text-indigo-700 border-indigo-300 hover:border-indigo-400 hover:bg-indigo-50"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPreBookingWorker(contractor);
-                              setPreBookCompanyName(contractor.companyName);
-                            }}
-                            title="Pre-Book Worker"
-                          >
-                            <CalendarPlus className="h-3.5 w-3.5" />
-                          </Button>
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="p-2 text-indigo-600 hover:text-indigo-700 border-indigo-300 hover:border-indigo-400 hover:bg-indigo-50"
+                              onClick={(e) => { e.stopPropagation(); setQrPassWorker(contractor); }}
+                              title="QR Pass"
+                              data-testid={`button-qr-pass-list-${contractor.id}`}
+                            >
+                              <QrCode className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="p-2 text-indigo-600 hover:text-indigo-700 border-indigo-300 hover:border-indigo-400 hover:bg-indigo-50"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPreBookingWorker(contractor);
+                                setPreBookCompanyName(contractor.companyName);
+                              }}
+                              title="Pre-Book Worker"
+                            >
+                              <CalendarPlus className="h-3.5 w-3.5" />
+                            </Button>
+                          </>
                         ) : null;
                       })()}
                       {!contractor.isCheckedIn ? (() => {
@@ -2898,14 +2902,16 @@ export default function ContractorManagement() {
                     >
                       <Edit size={13} className="mr-1" /> Edit Profile
                     </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs text-indigo-600 border-indigo-300 hover:bg-indigo-50"
-                      onClick={() => { setViewingWorker(null); setQrPassWorker(ww); }}
-                    >
-                      <QrCode size={13} className="mr-1" /> QR Pass
-                    </Button>
+                    {isClear && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-xs text-indigo-600 border-indigo-300 hover:bg-indigo-50"
+                        onClick={() => { setViewingWorker(null); setQrPassWorker(ww); }}
+                      >
+                        <QrCode size={13} className="mr-1" /> QR Pass
+                      </Button>
+                    )}
                     {isClear && !isCheckedIn && (
                       <Button
                         variant="outline"

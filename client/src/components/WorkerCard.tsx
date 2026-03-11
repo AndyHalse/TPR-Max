@@ -39,6 +39,8 @@ export function WorkerCard({
   canManageCards = false,
   hsAssignments = []
 }: WorkerCardProps) {
+  const isBanned = worker.currentCardStatus === 'red' && worker.redCardBanUntil && new Date(worker.redCardBanUntil) > new Date();
+  const isAuthorisedToWork = !isBanned && worker.isActive && (!worker.currentCardStatus || worker.currentCardStatus === 'clear' || worker.currentCardStatus === 'yellow');
   const getCardStatusColor = (status: string) => {
     switch (status) {
       case 'red': return 'bg-red-500';
@@ -182,16 +184,18 @@ export function WorkerCard({
           >
             <Printer className="h-3.5 w-3.5" />
           </Button>
-          <Button
-            onClick={(e) => { e.stopPropagation(); onQrPass?.(worker); }}
-            size="icon"
-            variant="ghost"
-            className="shrink-0 h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-            data-testid={`button-qr-pass-${worker.id}`}
-            title="QR Pass"
-          >
-            <QrCode className="h-3.5 w-3.5" />
-          </Button>
+          {isAuthorisedToWork && (
+            <Button
+              onClick={(e) => { e.stopPropagation(); onQrPass?.(worker); }}
+              size="icon"
+              variant="ghost"
+              className="shrink-0 h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+              data-testid={`button-qr-pass-${worker.id}`}
+              title="QR Pass"
+            >
+              <QrCode className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
 
         <div className="flex flex-wrap gap-1.5">
