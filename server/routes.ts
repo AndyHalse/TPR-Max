@@ -12490,9 +12490,14 @@ This is an automated notification from your visitor management system.`;
         scheduledDate: new Date(req.body.scheduledDate)
       };
       
-      // Duplicate prevention: check for existing booking with same worker, company, date, and time
+      // Duplicate prevention: check for existing ACTIVE booking with same worker, company, date, and time
       const existingBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings);
       const scheduledDateStr = preBookingData.scheduledDate.toDateString();
+      console.log(`🔍 Duplicate check: worker="${preBookingData.workerName}", time="${preBookingData.scheduledTime}", date="${scheduledDateStr}", checking ${existingBookings.length} existing bookings`);
+      existingBookings.forEach((b: any) => {
+        const bDateStr = new Date(b.scheduledDate).toDateString();
+        console.log(`  → id=${b.id?.slice(0,8)} worker="${b.workerName}" time="${b.scheduledTime}" date="${bDateStr}" status="${b.status}"`);
+      });
       const duplicate = existingBookings.find((b: any) => 
         b.workerName === preBookingData.workerName &&
         b.companyName === preBookingData.companyName &&
@@ -12501,6 +12506,7 @@ This is an automated notification from your visitor management system.`;
         b.status !== 'cancelled' &&
         b.status !== 'completed'
       );
+      console.log(`🔍 Duplicate found: ${duplicate ? `YES - id=${duplicate.id?.slice(0,8)} status="${duplicate.status}"` : 'NO'}`);
       
       if (duplicate) {
         return res.status(409).json({ 
