@@ -176,6 +176,23 @@ export default function ContractorKiosk() {
       return;
     }
 
+    // Pre-booking QR codes (CPB- prefix) bypass the worker lookup
+    if (code.startsWith('CPB-')) {
+      setCameraState('off');
+      setScannedCode('');
+      const settingsAny = settings as any;
+      const hsRequired = settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent;
+      if (hsRequired) {
+        setPendingWorkerName("Contractor");
+        setPendingCheckin({ qrCode: code, prebookingMode: true });
+        setShowHSModal(true);
+      } else {
+        prebookingCheckinMutation.mutate({ qrCode: code });
+      }
+      isProcessingRef.current = false;
+      return;
+    }
+
     setIsQrLookupLoading(true);
     try {
       const response = await fetch(`/api/contractors/workers/by-qr/${encodeURIComponent(code)}`, {
