@@ -9974,11 +9974,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
 
-      // Worker QR codes encode the worker ID as the payload
+      // Worker QR codes encode the qrCode field (e.g. CTR-xxxxxxxxxxxx)
       const [worker] = await customerDb
         .select()
         .from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.id, qrCode))
+        .where(eq(isolatedSchema.contractorWorkers.qrCode, qrCode))
         .limit(1);
 
       if (!worker) {
