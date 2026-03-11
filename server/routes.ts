@@ -9652,8 +9652,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             if (custRow.videoUrl && tryStreamFromObjectStorage(custRow.videoUrl)) return;
             if (custRow.generatedHtml) {
               res.setHeader('Content-Type', 'text/html; charset=utf-8');
-              res.setHeader('Cache-Control', 'public, max-age=3600');
-              return res.send(custRow.generatedHtml);
+              res.setHeader('Cache-Control', 'no-cache');
+              return res.send(patchInductionHtml(custRow.generatedHtml));
             }
           }
         } catch (_e) {
@@ -9668,8 +9668,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         .where(eq(inductionSettings.roleType, roleType));
       if (row?.generatedHtml) {
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Cache-Control', 'public, max-age=3600');
-        return res.send(row.generatedHtml);
+        res.setHeader('Cache-Control', 'no-cache');
+        return res.send(patchInductionHtml(row.generatedHtml));
       }
 
       return res.status(404).json({ error: 'No video content available for this induction' });
@@ -18266,6 +18266,20 @@ This is an automated notification from your visitor management system.`;
   });
 
   // Serve actual generated video content
+  // CSS patch: replaces display:none slide toggling with visibility-based approach
+  // so all slide images are pre-decoded by the browser → instant transitions
+  const SLIDE_PERF_PATCH = `<style id="tpr-slide-perf-patch">
+.scene{visibility:hidden!important;pointer-events:none!important;position:absolute!important;top:0;left:0;width:100%;opacity:0!important;transition:opacity 0.25s ease!important;}
+.scene.active{visibility:visible!important;pointer-events:auto!important;position:relative!important;opacity:1!important;display:block!important;animation:tprSlideIn 0.3s ease!important;}
+@keyframes tprSlideIn{from{opacity:0;transform:translateX(15px)}to{opacity:1;transform:translateX(0)}}
+</style>`;
+  function patchInductionHtml(html: string): string {
+    if (html.includes('id="tpr-slide-perf-patch"')) return html;
+    const idx = html.indexOf('</head>');
+    if (idx !== -1) return html.slice(0, idx) + SLIDE_PERF_PATCH + html.slice(idx);
+    return html + SLIDE_PERF_PATCH;
+  }
+
   app.get('/api/induction/video/:roleType', async (req, res) => {
     try {
       const { roleType } = req.params;
@@ -18297,8 +18311,8 @@ This is an automated notification from your visitor management system.`;
             if (setting.generatedHtml) {
               console.log(`📄 Serving customer-isolated generatedHtml for ${roleType} (${req.customerId})`);
               res.setHeader('Content-Type', 'text/html; charset=utf-8');
-              res.setHeader('Cache-Control', 'public, max-age=3600');
-              res.send(setting.generatedHtml);
+              res.setHeader('Cache-Control', 'no-cache');
+              res.send(patchInductionHtml(setting.generatedHtml));
               return;
             }
           }
@@ -18321,8 +18335,8 @@ This is an automated notification from your visitor management system.`;
         if ((setting as any).generatedHtml) {
           console.log('📄 Serving global generatedHtml for', roleType);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
-          res.setHeader('Cache-Control', 'public, max-age=3600');
-          res.send((setting as any).generatedHtml);
+          res.setHeader('Cache-Control', 'no-cache');
+          res.send(patchInductionHtml((setting as any).generatedHtml));
           return;
         }
 
@@ -18332,8 +18346,8 @@ This is an automated notification from your visitor management system.`;
           const htmlContent = Buffer.from(base64Content, 'base64').toString('utf-8');
           console.log('📄 Serving base64-decoded HTML for', roleType);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
-          res.setHeader('Cache-Control', 'public, max-age=3600');
-          res.send(htmlContent);
+          res.setHeader('Cache-Control', 'no-cache');
+          res.send(patchInductionHtml(htmlContent));
           return;
         }
       }

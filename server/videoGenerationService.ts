@@ -1132,16 +1132,24 @@ Respond with valid JSON:
             padding: 40px 40px 140px 40px;
         }
         .scene {
-            display: none;
+            visibility: hidden;
+            pointer-events: none;
+            position: absolute;
+            top: 0; left: 0; width: 100%;
             padding: 40px;
             max-width: 800px;
-            animation: fadeIn 1s ease-in;
+            opacity: 0;
+            transition: opacity 0.3s ease;
         }
         .scene.active {
-            display: block;
+            visibility: visible;
+            pointer-events: auto;
+            position: relative;
+            opacity: 1;
+            animation: fadeIn 0.4s ease-in;
         }
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
+            from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
         .scene h1 {
@@ -1712,26 +1720,33 @@ Respond with valid JSON:
             overflow: hidden;
         }
         .scene {
-            display: none;
+            visibility: hidden;
+            pointer-events: none;
+            position: absolute;
+            top: 0; left: 0;
             padding: 15px 15px 60px 15px;
             width: 100%;
             height: calc(100vh - 20px);
-            animation: slideIn 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             background: rgba(255,255,255,0.18);
             backdrop-filter: blur(25px);
             border-radius: 0;
             box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.2);
             border: 1px solid rgba(255,255,255,0.25);
-            position: relative;
             overflow-y: auto;
             box-sizing: border-box;
+            opacity: 0;
+            transition: opacity 0.25s ease;
         }
         .scene.active {
-            display: block;
+            visibility: visible;
+            pointer-events: auto;
+            position: relative;
+            opacity: 1;
+            animation: slideIn 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
         @keyframes slideIn {
-            from { opacity: 0; transform: translateX(50px) scale(0.95); }
-            to { opacity: 1; transform: translateX(0) scale(1); }
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
         }
         .scene-image {
             width: 100%;
