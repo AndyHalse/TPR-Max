@@ -16835,8 +16835,8 @@ This is an automated notification from your visitor management system.`;
 
       console.log(`🔄 Starting contractor check-in for: ${worker.firstName} ${worker.lastName} from ${company.name}`);
       
-      // Generate QR code and pass URL
-      const qrCode = `CONTRACTOR-${workerId}-${Date.now()}`;
+      // Preserve existing QR code; only generate a new one if the worker has none yet
+      const qrCode = worker.qrCode || `CONTRACTOR-${workerId}-${Date.now()}`;
       const passUrl = `${process.env.REPLIT_DOMAINS || process.env.APP_URL || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`}/pass/contractor/${workerId}`;
       
       // Mark worker as checked in using customer-isolated database service
