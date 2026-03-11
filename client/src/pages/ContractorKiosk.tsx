@@ -111,6 +111,8 @@ export default function ContractorKiosk() {
       setShowHostSelection(false);
       setSelectedWorkerForCheckIn(null);
       setSelectedHostForWorker("");
+      setCameraState("off");
+      setActiveSection("main");
 
       if (data.ePassSent) {
         toast({
@@ -201,6 +203,7 @@ export default function ContractorKiosk() {
             setTimeout(() => {
               setCheckinSuccess(null);
               setScanResult(null);
+              setCameraState("off");
               setActiveSection("main");
               isProcessingRef.current = false;
             }, 3000);
@@ -213,6 +216,7 @@ export default function ContractorKiosk() {
           }
         });
       } else {
+        setCameraState("off");
         setIsQrLookupLoading(false);
         setSelectedWorkerForCheckIn(worker);
         setCheckedInCompanyName(companyName);
