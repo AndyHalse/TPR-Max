@@ -9974,26 +9974,49 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
 
-      // Worker QR codes encode the qrCode field (e.g. CTR-xxxxxxxxxxxx)
-      const [worker] = await customerDb
-        .select()
-        .from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.qrCode, qrCode))
-        .limit(1);
+      // Use raw SQL to avoid Drizzle column reference issues with qr_code field
+      const workerRows = await customerDb.execute(
+        sql`SELECT * FROM contractor_workers WHERE qr_code = ${qrCode} LIMIT 1`
+      );
 
-      if (!worker) {
+      const workerRaw = workerRows.rows?.[0] ?? (workerRows as any)[0];
+      if (!workerRaw) {
         return res.status(404).json({ error: 'Worker not found for this QR code' });
       }
 
       // Fetch company name
-      const [company] = await customerDb
-        .select({ name: isolatedSchema.contractorCompanies.name })
-        .from(isolatedSchema.contractorCompanies)
-        .where(eq(isolatedSchema.contractorCompanies.id, worker.companyId))
-        .limit(1);
+      const companyRows = await customerDb.execute(
+        sql`SELECT name FROM contractor_companies WHERE id = ${workerRaw.company_id} LIMIT 1`
+      );
+      const companyRaw = companyRows.rows?.[0] ?? (companyRows as any)[0];
+
+      // Map snake_case DB fields to camelCase for frontend
+      const worker = {
+        id: workerRaw.id,
+        companyId: workerRaw.company_id,
+        firstName: workerRaw.first_name,
+        lastName: workerRaw.last_name,
+        email: workerRaw.email,
+        phoneNumber: workerRaw.phone_number,
+        photoUrl: workerRaw.photo_url,
+        jobTitle: workerRaw.job_title,
+        isCheckedIn: workerRaw.is_checked_in,
+        checkedInAt: workerRaw.checked_in_at,
+        checkedOutAt: workerRaw.checked_out_at,
+        isActive: workerRaw.is_active,
+        currentCardStatus: workerRaw.current_card_status,
+        redCardBanUntil: workerRaw.banned_until,
+        qrCode: workerRaw.qr_code,
+        zoneId: workerRaw.zone_id,
+        rightToWork: workerRaw.right_to_work_status,
+        cscsStatus: workerRaw.cscs_status,
+        siteInductionCompleted: workerRaw.site_induction_completed,
+        inductionCompleted: workerRaw.site_induction_completed,
+        workerStatus: workerRaw.worker_status,
+      };
 
       console.log(`🔍 QR lookup found worker: ${worker.firstName} ${worker.lastName} (${worker.isCheckedIn ? 'checked in' : 'checked out'})`);
-      res.json({ worker, companyName: company?.name || 'Unknown Company' });
+      res.json({ worker, companyName: companyRaw?.name || 'Unknown Company' });
     } catch (error) {
       console.error('Error looking up worker by QR:', error);
       res.status(500).json({ error: 'Failed to look up worker' });
