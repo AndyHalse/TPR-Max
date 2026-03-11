@@ -1260,6 +1260,8 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                 <div className="space-y-4">
                   {hsAssignments.map((item) => {
                     const { assignment, template } = item;
+
+                    if (!assignment || !template) return null;
                     
                     // Helper function to get status badge
                     const getStatusBadge = (status: string) => {
