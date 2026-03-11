@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { 
   Shield, AlertTriangle, XCircle, CheckCircle2, 
   Phone, Mail, Award, Clock,
-  LogIn, LogOut, Edit, Printer, FileText, Send, CalendarPlus
+  LogIn, LogOut, Edit, Printer, FileText, Send, CalendarPlus, QrCode
 } from "lucide-react";
 import type { ContractorWorker } from "@shared/schema";
 
@@ -18,6 +18,7 @@ interface WorkerCardProps {
   onEdit?: (worker: ContractorWorker) => void;
   onPrint?: (worker: ContractorWorker) => void;
   onPreBook?: (worker: ContractorWorker) => void;
+  onQrPass?: (worker: ContractorWorker) => void;
   onResendHSDocument?: (assignmentId: string) => void;
   canManageCards?: boolean;
   hsAssignments?: any[];
@@ -33,6 +34,7 @@ export function WorkerCard({
   onEdit,
   onPrint,
   onPreBook,
+  onQrPass,
   onResendHSDocument,
   canManageCards = false,
   hsAssignments = []
@@ -176,8 +178,19 @@ export function WorkerCard({
             variant="ghost"
             className="shrink-0 h-8 w-8"
             data-testid={`button-print-${worker.id}`}
+            title="Print Pass"
           >
             <Printer className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            onClick={(e) => { e.stopPropagation(); onQrPass?.(worker); }}
+            size="icon"
+            variant="ghost"
+            className="shrink-0 h-8 w-8 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+            data-testid={`button-qr-pass-${worker.id}`}
+            title="QR Pass"
+          >
+            <QrCode className="h-3.5 w-3.5" />
           </Button>
         </div>
 

@@ -3287,6 +3287,107 @@ TPR Max Visitor Management System
     }
   }
 
+  async sendContractorWorkerQrPass(
+    email: string,
+    workerName: string,
+    companyName: string,
+    qrCode: string,
+    companySettings: any
+  ): Promise<boolean> {
+    try {
+      const siteName = companySettings?.companyName || 'VisiGate Pro';
+      const primaryColor = companySettings?.accentColor || '#3b82f6';
+      const backgroundColor = companySettings?.backgroundColor || '#f8fafc';
+      const textColor = companySettings?.foregroundColor || '#1e293b';
+      const variableTextColor = companySettings?.variableTextColor || '#374151';
+      const logoDataUrl = await this.getLogoForEmail(companySettings);
+      const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+
+      const subject = `Your Contractor Check-In QR Pass - ${siteName}`;
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Contractor QR Check-In Pass - ${siteName}</title>
+            <style>
+              @media only screen and (max-width: 600px) {
+                .mobile-padding { padding: 15px !important; }
+                h1 { font-size: 22px !important; }
+                .qr-code { width: 150px !important; height: 150px !important; }
+              }
+            </style>
+          </head>
+          <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; background: ${backgroundColor};">
+            <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td align="center" style="padding: 20px 0;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
+                    <tr>
+                      <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%); padding: 30px 20px; text-align: center;">
+                        ${logoDataUrl ? `<img src="${logoDataUrl}" alt="${siteName}" style="width: 70px; height: 70px; margin: 0 auto 12px; display: block; border-radius: 12px; background: white; padding: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">` : `<div style="width:70px;height:70px;background:white;border-radius:12px;margin:0 auto 12px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:bold;color:${primaryColor};">${siteName.substring(0,3).toUpperCase()}</div>`}
+                        <h1 style="margin: 0; color: white; font-size: 24px; font-weight: 700;">&#128296; Contractor Check-In Pass</h1>
+                        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">Your Personal QR Code for Quick Check-In</p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="mobile-padding" style="padding: 25px 25px 15px;">
+                        <h2 style="margin: 0 0 8px 0; color: ${textColor}; font-size: 20px;">Hello ${workerName},</h2>
+                        <p style="margin: 0; color: ${variableTextColor}; font-size: 15px; line-height: 1.5;">
+                          Here is your personal QR code for checking in and out at <strong>${siteName}</strong> as a contractor for <strong>${companyName}</strong>. Simply scan this code at the kiosk to instantly check in or check out.
+                        </p>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="mobile-padding" style="padding: 10px 25px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                          <tr>
+                            <td style="background: linear-gradient(to bottom, #ffffff, #f8fafc); border: 2px solid ${primaryColor}30; border-radius: 12px; padding: 25px; text-align: center;">
+                              <img src="${qrCodeUrl}" alt="Contractor QR Code" class="qr-code" style="width: 200px; height: 200px; margin: 0 auto 15px; display: block; border: 3px solid white; box-shadow: 0 4px 16px rgba(0,0,0,0.12); border-radius: 10px;">
+                              <p style="margin: 0 0 4px 0; color: ${textColor}; font-weight: 700; font-size: 16px;">${workerName}</p>
+                              <p style="margin: 0; color: ${variableTextColor}; font-size: 13px;">${companyName}</p>
+                            </td>
+                          </tr>
+                        </table>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="mobile-padding" style="padding: 15px 25px 25px;">
+                        <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;">
+                          <tr>
+                            <td style="background: ${primaryColor}10; padding: 12px 18px; border-bottom: 1px solid #e5e7eb;">
+                              <h3 style="margin: 0; color: ${textColor}; font-size: 16px; font-weight: 700;">&#128241; How to Use</h3>
+                            </td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 15px 18px;">
+                              <p style="margin: 0 0 8px 0; color: ${variableTextColor}; font-size: 14px;"><strong>1.</strong> Go to the reception kiosk and tap "QR Scanner"</p>
+                              <p style="margin: 0 0 8px 0; color: ${variableTextColor}; font-size: 14px;"><strong>2.</strong> Scan this QR code from your phone or printed pass</p>
+                              <p style="margin: 0; color: ${variableTextColor}; font-size: 14px;"><strong>3.</strong> You'll be automatically checked in or out</p>
+                            </td>
+                          </tr>
+                        </table>
+                        <p style="margin: 15px 0 0 0; color: #9ca3af; font-size: 12px; text-align: center;">This QR code is personal to you. Do not share it with others.</p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `;
+
+      const text = `Contractor Check-In QR Pass\n\nHello ${workerName},\n\nHere is your personal QR code for checking in at ${siteName} as a contractor for ${companyName}.\n\nYour QR Code: ${qrCode}\n\nHow to use:\n1. Go to the reception kiosk and tap "QR Scanner"\n2. Scan this QR code from your phone or printed pass\n3. You'll be automatically checked in or out\n\nThis QR code is personal to you. Do not share it with others.`;
+
+      return await this.sendEmail({ to: email, subject, html, text });
+    } catch (error) {
+      console.error('Error sending contractor worker QR pass:', error);
+      return false;
+    }
+  }
+
   forCustomer(customerId: string): EmailService {
     return new EmailService(customerId);
   }

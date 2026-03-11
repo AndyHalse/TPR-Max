@@ -5737,6 +5737,54 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // Contractor worker QR pass endpoint
+  app.post("/api/contractors/workers/:id/send-qr-pass", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { method = 'email' } = req.body;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      const worker = await databaseService.getContractorWorkerById(context, id);
+      if (!worker) return res.status(404).json({ error: "Contractor worker not found" });
+
+      if (!worker.qrCode) {
+        const qrCode = 'CTR-' + randomUUID().replace(/-/g, '').substring(0, 12);
+        await databaseService.updateContractorWorker(context, id, { qrCode } as any);
+        (worker as any).qrCode = qrCode;
+      }
+
+      const settings = await databaseService.getCompanySettings(context);
+      const companyName = worker.companyName || 'Contractor';
+
+      const passPayload = {
+        success: true,
+        method,
+        qrCode: (worker as any).qrCode,
+        workerName: `${worker.firstName} ${worker.lastName}`,
+        companyName,
+        email: worker.email,
+      };
+
+      if (method === 'email') {
+        if (!worker.email) return res.status(400).json({ error: "Worker has no email address" });
+        const emailSent = await emailService.forCustomer(req.customerId).sendContractorWorkerQrPass(
+          worker.email,
+          `${worker.firstName} ${worker.lastName}`,
+          companyName,
+          (worker as any).qrCode,
+          settings
+        );
+        return res.json({ ...passPayload, emailSent, message: emailSent ? `QR pass sent to ${worker.email}` : 'Failed to send email' });
+      }
+
+      res.json({ ...passPayload, message: 'QR pass ready' });
+    } catch (error) {
+      console.error("Error sending contractor worker QR pass:", error);
+      res.status(500).json({ error: "Failed to send contractor worker QR pass" });
+    }
+  });
+
   // ID Card printing endpoint
   app.post("/api/staff/:id/print-id-card", requireAuth, async (req, res) => {
     try {

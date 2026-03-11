@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import {
   Building2, Users, FileText, Shield, AlertTriangle, CheckCircle2, 
   Calendar, MapPin, Phone, Mail, User, Award, Leaf, TrendingUp,
   XCircle, Clock, AlertCircle, CalendarPlus, Lock, CheckSquare,
-  ChevronRight, Upload, Eye
+  ChevronRight, Upload, Eye, QrCode, Printer, Download
 } from "lucide-react";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import { apiRequest } from "@/lib/queryClient";
@@ -67,6 +67,8 @@ export default function ContractorDetails() {
   const [workerWizardStep, setWorkerWizardStep] = useState(1);
   const [workerWizardSavedName, setWorkerWizardSavedName] = useState("");
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
+  const [qrPassWorker, setQrPassWorker] = useState<ContractorWorker | null>(null);
+  const [qrPassData, setQrPassData] = useState<{ qrCode: string; workerName: string } | null>(null);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
   const [selectedWorkerForPrint, setSelectedWorkerForPrint] = useState<ContractorWorker | null>(null);
   const [preBookingWorker, setPreBookingWorker] = useState<ContractorWorker | null>(null);
@@ -456,6 +458,82 @@ export default function ContractorDetails() {
 
   const handleWorkerPrint = (worker: ContractorWorker) => {
     setSelectedWorkerForPrint(worker);
+  };
+
+  const { data: companySettings } = useQuery<any>({ queryKey: ['/api/settings'] });
+
+  useEffect(() => {
+    if ((qrPassWorker as any)?.qrCode) {
+      setQrPassData({ qrCode: (qrPassWorker as any).qrCode, workerName: `${qrPassWorker!.firstName} ${qrPassWorker!.lastName}` });
+    } else if (!qrPassWorker) {
+      setQrPassData(null);
+    }
+  }, [qrPassWorker]);
+
+  const sendWorkerQrPassMutation = useMutation({
+    mutationFn: async ({ id, method }: { id: string; method: string }) => {
+      const response = await apiRequest("POST", `/api/contractors/workers/${id}/send-qr-pass`, { method });
+      return response.json();
+    },
+    onSuccess: (data: any) => {
+      if (data.qrCode) setQrPassData({ qrCode: data.qrCode, workerName: data.workerName || '' });
+      if (data.method === 'email') toast({ title: "QR Pass Sent", description: data.message || "QR pass emailed to contractor" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to send QR pass", variant: "destructive" }),
+  });
+
+  const getWorkerPassBranding = () => {
+    const brandColor = companySettings?.backgroundColor || '#2460A9';
+    const companyName = companySettings?.companyName || 'Company';
+    const logoPath = companySettings?.logoUrl || '';
+    const logoUrl = logoPath ? (logoPath.startsWith('http') ? logoPath : `${window.location.origin}/objects${logoPath.startsWith('/') ? '' : '/'}${logoPath}`) : '';
+    return { brandColor, companyName, logoUrl };
+  };
+
+  const getBrandedWorkerPassHtml = (qrCode: string, workerName: string, workerCompanyName: string) => {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+    const { brandColor, companyName, logoUrl } = getWorkerPassBranding();
+    const logoHtml = logoUrl ? `<img src="${logoUrl}" style="max-height:40px;max-width:160px;margin:0 auto 6px;display:block;" crossorigin="anonymous">` : '';
+    return `<div style="border:2px solid ${brandColor};border-radius:14px;padding:20px 18px;max-width:280px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;text-align:center;background:#fff;"><div style="background:${brandColor};margin:-20px -18px 12px -18px;border-radius:12px 12px 0 0;padding:14px 12px 10px 12px;">${logoHtml}<div style="color:#fff;font-size:15px;font-weight:700;">${companyName}</div><div style="color:rgba(255,255,255,0.8);font-size:10px;margin-top:2px;">CONTRACTOR CHECK-IN PASS</div></div><img src="${qrUrl}" style="width:180px;height:180px;margin:6px auto 10px;display:block;border-radius:8px;border:1px solid #e5e7eb;"><h3 style="margin:0 0 2px;font-size:16px;color:#111;">${workerName}</h3><p style="margin:2px 0;color:#555;font-size:13px;">${workerCompanyName}</p><div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e7eb;"><p style="margin:0;font-size:10px;color:#aaa;">Scan at kiosk to check in / check out</p></div></div>`;
+  };
+
+  const handlePrintWorkerQrPass = (qrCode: string, workerName: string, workerCompanyName: string) => {
+    const passHtml = getBrandedWorkerPassHtml(qrCode, workerName, workerCompanyName);
+    const printWindow = window.open('', '_blank', 'width=400,height=600');
+    if (!printWindow) return;
+    printWindow.document.write(`<html><head><title>QR Pass - ${workerName}</title></head><body style="margin:0;display:flex;justify-content:center;padding:20px;">${passHtml}</body></html>`);
+    printWindow.document.close();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+  };
+
+  const handleDownloadWorkerQrPass = async (qrCode: string, workerName: string, workerCompanyName: string) => {
+    toast({ title: "Generating Pass", description: "Creating branded QR pass image..." });
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+    const { brandColor, companyName } = getWorkerPassBranding();
+    const canvas = document.createElement('canvas');
+    canvas.width = 320; canvas.height = 420;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 320, 420);
+    ctx.strokeStyle = brandColor; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.roundRect(2, 2, 316, 416, 12); ctx.stroke();
+    ctx.fillStyle = brandColor; ctx.fillRect(2, 2, 316, 70);
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 14px Arial'; ctx.textAlign = 'center'; ctx.fillText(companyName, 160, 32);
+    ctx.font = '11px Arial'; ctx.fillText('CONTRACTOR CHECK-IN PASS', 160, 52);
+    const img = new Image(); img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      ctx.drawImage(img, 60, 80, 200, 200);
+      ctx.fillStyle = '#111111'; ctx.font = 'bold 16px Arial'; ctx.fillText(workerName, 160, 305);
+      ctx.fillStyle = '#555555'; ctx.font = '13px Arial'; ctx.fillText(workerCompanyName, 160, 325);
+      ctx.fillStyle = '#aaaaaa'; ctx.font = '10px Arial'; ctx.fillText('Scan at kiosk to check in / check out', 160, 365);
+      const link = document.createElement('a');
+      link.download = `qr-pass-${workerName.replace(/\s/g, '-')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      toast({ title: "Download Complete", description: "QR pass saved to your downloads" });
+    };
+    img.onerror = () => toast({ title: "Download Failed", description: "Could not generate pass image", variant: "destructive" });
+    img.src = qrUrl;
   };
 
 
@@ -916,6 +994,7 @@ export default function ContractorDetails() {
                   onCheckOut={handleWorkerCheckOut}
                   onEdit={handleWorkerEdit}
                   onPrint={handleWorkerPrint}
+                  onQrPass={(worker) => setQrPassWorker(worker)}
                   onPreBook={(worker) => setPreBookingWorker(worker)}
                   onIssueCard={(workerId) => {
                     cardIssueForm.setValue('workerId', workerId);
@@ -2119,6 +2198,108 @@ export default function ContractorDetails() {
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               {uploading ? "Uploading..." : "Save Document"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Contractor Worker QR Pass Dialog */}
+      <Dialog open={!!qrPassWorker} onOpenChange={(open) => { if (!open) { setQrPassWorker(null); setQrPassData(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <QrCode className="w-5 h-5 text-indigo-600" />
+              Contractor QR Check-In Pass
+            </DialogTitle>
+            <DialogDescription>
+              Send a QR code pass to {qrPassWorker?.firstName} {qrPassWorker?.lastName} for quick kiosk check-in and check-out.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="p-3 bg-indigo-50 rounded-lg border border-indigo-200">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-sm">
+                    {qrPassWorker ? `${qrPassWorker.firstName[0]}${qrPassWorker.lastName[0]}` : ''}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800">{qrPassWorker?.firstName} {qrPassWorker?.lastName}</p>
+                  <p className="text-sm text-gray-600">{(qrPassWorker as any)?.companyName || contractorData?.name}</p>
+                </div>
+              </div>
+            </div>
+
+            {qrPassData && (
+              <div className="text-center p-4 bg-white rounded-lg border">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrPassData.qrCode)}`}
+                  alt="Contractor QR Code"
+                  className="w-40 h-40 mx-auto mb-2 rounded-lg shadow-sm"
+                />
+                <p className="text-xs text-gray-500 font-mono">{qrPassData.qrCode}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3">
+              <Button
+                onClick={() => qrPassWorker && sendWorkerQrPassMutation.mutate({ id: qrPassWorker.id, method: 'email' })}
+                disabled={sendWorkerQrPassMutation.isPending}
+                className="w-full justify-start gap-3 h-14 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <Mail size={20} />
+                <div className="text-left">
+                  <div className="font-medium">Email QR Pass</div>
+                  <div className="text-xs opacity-80">Send branded pass to {qrPassWorker?.email}</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!qrPassWorker) return;
+                  sendWorkerQrPassMutation.mutate({ id: qrPassWorker.id, method: 'print' }, {
+                    onSuccess: (data: any) => {
+                      handlePrintWorkerQrPass(data.qrCode, data.workerName, (qrPassWorker as any).companyName || contractorData?.name || '');
+                    }
+                  });
+                }}
+                disabled={sendWorkerQrPassMutation.isPending}
+                className="w-full justify-start gap-3 h-14"
+              >
+                <Printer size={20} className="text-green-600" />
+                <div className="text-left">
+                  <div className="font-medium">Print QR Pass</div>
+                  <div className="text-xs text-gray-500">Print a card-sized pass with QR code</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!qrPassWorker) return;
+                  sendWorkerQrPassMutation.mutate({ id: qrPassWorker.id, method: 'download' }, {
+                    onSuccess: (data: any) => {
+                      handleDownloadWorkerQrPass(data.qrCode, data.workerName, (qrPassWorker as any).companyName || contractorData?.name || '');
+                    }
+                  });
+                }}
+                disabled={sendWorkerQrPassMutation.isPending}
+                className="w-full justify-start gap-3 h-14"
+              >
+                <Download size={20} className="text-purple-600" />
+                <div className="text-left">
+                  <div className="font-medium">Download QR Image</div>
+                  <div className="text-xs text-gray-500">Download branded pass as image</div>
+                </div>
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setQrPassWorker(null); setQrPassData(null); }}>
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
