@@ -828,9 +828,9 @@ export default function ContractorManagement() {
 
   // Derive compliance badge from documentsStatus returned by the API
   const getComplianceBadge = (documentsStatus?: Record<string, string>) => {
-    if (!documentsStatus) return { label: 'Not started', className: 'bg-gray-100 text-gray-600', icon: '⬜' };
+    if (!documentsStatus) return { label: 'Not started', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', icon: '⬜' };
     const allMissing = Object.values(documentsStatus).every(v => v === 'missing');
-    if (allMissing) return { label: 'Not started', className: 'bg-gray-100 text-gray-600', icon: '⬜' };
+    if (allMissing) return { label: 'Not started', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', icon: '⬜' };
     const missingLegal = documentsStatus.publicLiability === 'missing' || documentsStatus.employersLiability === 'missing'
       || documentsStatus.publicLiability === 'expired' || documentsStatus.employersLiability === 'expired';
     if (missingLegal) return { label: 'Missing legal docs', className: 'bg-red-100 text-red-700', icon: '🔴' };
@@ -850,7 +850,7 @@ export default function ContractorManagement() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <HardHat className="h-8 w-8 text-orange-600" />
-          <h1 className="text-xl sm:text-3xl font-bold text-slate-800">Contractor Management</h1>
+          <h1 className="text-xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">Contractor Management</h1>
         </div>
       </div>
 
@@ -942,7 +942,7 @@ export default function ContractorManagement() {
 
             {/* Show All Button & View Toggle */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-slate-600 dark:text-slate-300">
                 Showing {showAllWorkers ? previousContractors.length : Math.min(6, previousContractors.length)} of {previousContractors.length} contractors
                 {searchTerm && ` matching "${searchTerm}"`}
               </div>
@@ -1016,7 +1016,7 @@ export default function ContractorManagement() {
                           {contractor.firstName} {contractor.lastName}
                         </h3>
                         <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium flex-shrink-0 ${
-                          contractor.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                          contractor.isCheckedIn ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300' : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                         }`}>
                           {contractor.isCheckedIn ? 'Checked In' : 'Available'}
                         </span>
@@ -1076,7 +1076,7 @@ export default function ContractorManagement() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-200/50">
+                  <div className="flex items-center justify-between pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
                     <div className="flex items-center gap-1.5">
                       <Button 
                         size="sm" 
@@ -1179,7 +1179,7 @@ export default function ContractorManagement() {
                           }}
                           disabled={checkInMutation.isPending}
                           title={notCleared ? blockReason : 'Check in contractor'}
-                          className={`h-9 px-3 text-sm font-medium border ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50'}`}
+                          className={`h-9 px-3 text-sm font-medium border ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed dark:text-gray-600 dark:border-gray-600' : 'text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50'}`}
                           data-testid={`button-checkin-${contractor.id}`}
                         >
                           <LogIn className="mr-1.5 h-4 w-4" />
@@ -1216,7 +1216,7 @@ export default function ContractorManagement() {
                             {contractor.companyName}
                           </span>
                           <Badge 
-                            className={`text-xs ${contractor.isCheckedIn ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-800"}`}
+                            className={`text-xs ${contractor.isCheckedIn ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"}`}
                           >
                             {contractor.isCheckedIn ? "Checked In" : "Available"}
                           </Badge>
@@ -1349,7 +1349,7 @@ export default function ContractorManagement() {
                             }}
                             disabled={checkInMutation.isPending}
                             title={notCleared ? blockReason : 'Check in contractor'}
-                            className={`${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50'}`}
+                            className={`${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed dark:text-gray-600 dark:border-gray-600' : 'text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50'}`}
                           >
                             <LogIn className="mr-1 h-4 w-4" />
                             Check In
@@ -1375,7 +1375,7 @@ export default function ContractorManagement() {
             </div>
 
             {previousContractors.length === 0 && (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                 {searchTerm ? `No contractors found matching "${searchTerm}"` : "No previous contractors found"}
               </div>
             )}
@@ -1388,14 +1388,14 @@ export default function ContractorManagement() {
           <div className="space-y-4">
             <div className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-green-600" />
-              <h2 className="text-xl font-semibold text-slate-800">Walk-in Registration</h2>
-              <span className="text-sm text-slate-500">
+              <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Walk-in Registration</h2>
+              <span className="text-sm text-slate-500 dark:text-slate-400">
                 Register new contractor with document upload for clearance
               </span>
             </div>
             
             <div className="text-center py-8">
-              <p className="text-slate-600 mb-4">Register a new contractor who is visiting for the first time</p>
+              <p className="text-slate-600 dark:text-slate-300 mb-4">Register a new contractor who is visiting for the first time</p>
               <Button
                 onClick={() => setShowWalkInForm(true)}
                 className="bg-green-600 hover:bg-green-700 text-white"
@@ -1416,8 +1416,8 @@ export default function ContractorManagement() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-purple-600" />
-                <h2 className="text-xl font-semibold text-slate-800">Contractor Companies</h2>
-                <span className="text-sm text-slate-500">
+                <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Contractor Companies</h2>
+                <span className="text-sm text-slate-500 dark:text-slate-400">
                   Manage all contractor companies and their details
                 </span>
               </div>
@@ -1445,7 +1445,7 @@ export default function ContractorManagement() {
 
             {/* Show All Button & View Toggle */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-slate-600 dark:text-slate-300">
                 Showing {showAllCompanies ? companies.filter(company => 
                   matchesSearch(company, searchTerm)
                 ).length : Math.min(6, companies.filter(company => 
@@ -1497,20 +1497,20 @@ export default function ContractorManagement() {
                   <div className="space-y-3">
                     <div>
                       <h3
-                        className="font-semibold text-slate-800 hover:text-blue-700 cursor-pointer hover:underline transition-colors"
+                        className="font-semibold text-slate-800 dark:text-slate-100 hover:text-blue-700 dark:hover:text-blue-400 cursor-pointer hover:underline transition-colors"
                         onClick={() => handleViewContractorDetails(company.id)}
                         title="Click to view contractor details"
                       >
                         {company.name}
                       </h3>
-                      <p className="text-sm text-slate-600">{company.contactEmail || company.email}</p>
-                      <p className="text-sm text-slate-600">{(company as any).contactPhone || company.phone || 'No phone provided'}</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-300">{company.contactEmail || company.email}</p>
+                      <p className="text-sm text-slate-600 dark:text-slate-300">{(company as any).contactPhone || company.phone || 'No phone provided'}</p>
                       {company.industry && (
                         <p className="text-sm text-blue-600 font-medium capitalize">
                           {company.industry}
                         </p>
                       )}
-                      <p className="text-xs text-slate-500">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         Workers: {company.workersCount || 0}
                       </p>
                     </div>
@@ -1627,7 +1627,7 @@ export default function ContractorManagement() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
                           <h3
-                            className="font-semibold text-slate-800 truncate hover:text-blue-700 cursor-pointer hover:underline transition-colors"
+                            className="font-semibold text-slate-800 dark:text-slate-100 truncate hover:text-blue-700 dark:hover:text-blue-400 cursor-pointer hover:underline transition-colors"
                             onClick={() => handleViewContractorDetails(company.id)}
                           >{company.name}</h3>
                           <Badge 
@@ -1658,10 +1658,10 @@ export default function ContractorManagement() {
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-slate-600 mt-1">
+                        <div className="flex items-center gap-4 text-sm text-slate-600 dark:text-slate-300 mt-1">
                           <span>{company.contactEmail || company.email}</span>
                           <span>{(company as any).contactPhone || company.phone || 'No phone'}</span>
-                          <span className="text-xs text-slate-500">Workers: {company.workersCount || 0}</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">Workers: {company.workersCount || 0}</span>
                         </div>
                       </div>
                     </div>
@@ -1725,7 +1725,7 @@ export default function ContractorManagement() {
             {companies.filter(company => 
               matchesSearch(company, searchTerm)
             ).length === 0 && (
-              <div className="text-center py-8 text-slate-500">
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
                 {searchTerm ? `No contractor companies found matching "${searchTerm}"` : "No contractor companies found"}
               </div>
             )}
@@ -1775,7 +1775,7 @@ export default function ContractorManagement() {
           </DialogHeader>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Company Name *</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Company Name *</label>
               <Input
                 value={contractorForm.name}
                 onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })}
@@ -1784,7 +1784,7 @@ export default function ContractorManagement() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Contact First Name *</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Contact First Name *</label>
               <Input
                 value={contractorForm.contactFirstName}
                 onChange={(e) => setContractorForm({ ...contractorForm, contactFirstName: e.target.value })}
@@ -1793,7 +1793,7 @@ export default function ContractorManagement() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Contact Last Name *</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Contact Last Name *</label>
               <Input
                 value={contractorForm.contactLastName}
                 onChange={(e) => setContractorForm({ ...contractorForm, contactLastName: e.target.value })}
@@ -1802,7 +1802,7 @@ export default function ContractorManagement() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Email Address *</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Email Address *</label>
               <Input
                 type="email"
                 value={contractorForm.email}
@@ -1812,7 +1812,7 @@ export default function ContractorManagement() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Phone Number *</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Phone Number *</label>
               <Input
                 type="tel"
                 value={contractorForm.phone}
@@ -1822,7 +1822,7 @@ export default function ContractorManagement() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Postcode</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Postcode</label>
               <Input
                 value={contractorForm.postcode}
                 onChange={(e) => setContractorForm({ ...contractorForm, postcode: e.target.value })}
@@ -1831,7 +1831,7 @@ export default function ContractorManagement() {
               />
             </div>
             <div className="col-span-2 space-y-2">
-              <label className="text-sm font-medium text-slate-700">Address *</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Address *</label>
               <Textarea
                 value={contractorForm.address}
                 onChange={(e) => setContractorForm({ ...contractorForm, address: e.target.value })}
@@ -1841,7 +1841,7 @@ export default function ContractorManagement() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Website</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Website</label>
               <Input
                 value={contractorForm.website}
                 onChange={(e) => setContractorForm({ ...contractorForm, website: e.target.value })}
@@ -1850,7 +1850,7 @@ export default function ContractorManagement() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Industry</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Industry</label>
               <Select
                 value={contractorForm.industry}
                 onValueChange={(value: string) => 
@@ -1878,7 +1878,7 @@ export default function ContractorManagement() {
             </div>
             <div className="col-span-2 space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-slate-700">Description</label>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Description</label>
                 <Button
                   type="button"
                   variant="outline"
@@ -1904,7 +1904,7 @@ export default function ContractorManagement() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Status</label>
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Status</label>
               <Select
                 value={contractorForm.status}
                 onValueChange={(value: "pending" | "approved" | "suspended") => 
@@ -1964,10 +1964,10 @@ export default function ContractorManagement() {
               {[{ n: 1, label: "Company Details" }, { n: 2, label: "UK Documents" }, { n: 3, label: "Review" }].map((s, i) => (
                 <div key={s.n} className={`flex items-center ${i < 2 ? 'flex-1' : ''}`}>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${addWizardStep >= s.n ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{addWizardStep > s.n ? '✓' : s.n}</div>
-                    <span className={`text-xs font-medium hidden sm:inline transition-colors ${addWizardStep >= s.n ? 'text-blue-700' : 'text-gray-400'}`}>{s.label}</span>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${addWizardStep >= s.n ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>{addWizardStep > s.n ? '✓' : s.n}</div>
+                    <span className={`text-xs font-medium hidden sm:inline transition-colors ${addWizardStep >= s.n ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>{s.label}</span>
                   </div>
-                  {i < 2 && <div className={`flex-1 h-0.5 mx-2 transition-colors ${addWizardStep > s.n ? 'bg-blue-600' : 'bg-gray-200'}`} />}
+                  {i < 2 && <div className={`flex-1 h-0.5 mx-2 transition-colors ${addWizardStep > s.n ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}`} />}
                 </div>
               ))}
             </div>
@@ -1978,11 +1978,11 @@ export default function ContractorManagement() {
             <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Company Name *</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Company Name *</label>
                   <Input value={contractorForm.name} onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })} data-testid="input-company-name" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Industry</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Industry</label>
                   <Select value={contractorForm.industry} onValueChange={(v) => setContractorForm({ ...contractorForm, industry: v })}>
                     <SelectTrigger data-testid="select-industry"><SelectValue placeholder="Select industry" /></SelectTrigger>
                     <SelectContent>
@@ -2003,36 +2003,36 @@ export default function ContractorManagement() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Contact First Name *</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Contact First Name *</label>
                   <Input value={contractorForm.contactFirstName} onChange={(e) => setContractorForm({ ...contractorForm, contactFirstName: e.target.value })} data-testid="input-contact-first-name" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Contact Last Name *</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Contact Last Name *</label>
                   <Input value={contractorForm.contactLastName} onChange={(e) => setContractorForm({ ...contractorForm, contactLastName: e.target.value })} data-testid="input-contact-last-name" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Email Address *</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Email Address *</label>
                   <Input type="email" value={contractorForm.email} onChange={(e) => setContractorForm({ ...contractorForm, email: e.target.value })} data-testid="input-email" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Phone Number *</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Phone Number *</label>
                   <Input type="tel" value={contractorForm.phone} onChange={(e) => setContractorForm({ ...contractorForm, phone: e.target.value })} data-testid="input-phone" />
                 </div>
                 <div className="md:col-span-2 space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Address</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Address</label>
                   <Textarea value={contractorForm.address} onChange={(e) => setContractorForm({ ...contractorForm, address: e.target.value })} data-testid="input-address" rows={2} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Postcode</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Postcode</label>
                   <Input value={contractorForm.postcode} onChange={(e) => setContractorForm({ ...contractorForm, postcode: e.target.value })} data-testid="input-postcode" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Website</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Website</label>
                   <Input value={contractorForm.website} onChange={(e) => setContractorForm({ ...contractorForm, website: e.target.value })} data-testid="input-website" />
                 </div>
                 <div className="md:col-span-2 space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-slate-700">Description</label>
+                    <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Description</label>
                     <Button type="button" variant="outline" size="sm" onClick={handleGenerateDescription} disabled={isGeneratingDescription || !contractorForm.website || !contractorForm.name} className="text-xs" data-testid="button-generate-description">
                       {isGeneratingDescription ? <>🤖 Generating...</> : <>🤖 Auto-fill with AI</>}
                     </Button>
@@ -2046,7 +2046,7 @@ export default function ContractorManagement() {
           {/* Step 2 — UK Compliance Documents */}
           {addWizardStep === 2 && (
             <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-5">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-sm text-blue-800">
+              <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
                 Tick which documents this contractor currently holds. You can upload the actual files from their detail page after registration. This helps you track compliance from day one.
               </div>
 
@@ -2056,16 +2056,16 @@ export default function ContractorManagement() {
                   <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <Lock className="w-3.5 h-3.5 text-red-600" />
                   </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">Legally Required</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white text-sm">Legally Required</h4>
                   <Badge className="bg-red-100 text-red-700 text-xs">UK Law</Badge>
                 </div>
                 <div className="space-y-2">
                   {UK_LEGAL_DOCS.map(doc => (
-                    <label key={doc.key} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${docChecklist[doc.key] ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <label key={doc.key} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${docChecklist[doc.key] ? 'border-green-400 bg-green-50 dark:bg-green-900/20 dark:border-green-600' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
                       <input type="checkbox" checked={docChecklist[doc.key]} onChange={(e) => setDocChecklist({ ...docChecklist, [doc.key]: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="font-medium text-sm text-gray-900">{doc.name}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{doc.basis} — {doc.note}</p>
+                        <p className="font-medium text-sm text-gray-900 dark:text-white">{doc.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{doc.basis} — {doc.note}</p>
                       </div>
                       {docChecklist[doc.key] && <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />}
                     </label>
@@ -2079,16 +2079,16 @@ export default function ContractorManagement() {
                   <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <Shield className="w-3.5 h-3.5 text-amber-600" />
                   </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">Site Required</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white text-sm">Site Required</h4>
                   <Badge className="bg-amber-100 text-amber-700 text-xs">Most sites</Badge>
                 </div>
                 <div className="space-y-2">
                   {UK_SITE_DOCS.map(doc => (
-                    <label key={doc.key} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${docChecklist[doc.key] ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <label key={doc.key} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${docChecklist[doc.key] ? 'border-green-400 bg-green-50 dark:bg-green-900/20 dark:border-green-600' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
                       <input type="checkbox" checked={docChecklist[doc.key]} onChange={(e) => setDocChecklist({ ...docChecklist, [doc.key]: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="font-medium text-sm text-gray-900">{doc.name}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{doc.basis} — {doc.note}</p>
+                        <p className="font-medium text-sm text-gray-900 dark:text-white">{doc.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{doc.basis} — {doc.note}</p>
                       </div>
                       {docChecklist[doc.key] && <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />}
                     </label>
@@ -2102,16 +2102,16 @@ export default function ContractorManagement() {
                   <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <CheckSquare className="w-3.5 h-3.5 text-green-600" />
                   </div>
-                  <h4 className="font-semibold text-gray-900 text-sm">Good Practice</h4>
+                  <h4 className="font-semibold text-gray-900 dark:text-white text-sm">Good Practice</h4>
                   <Badge className="bg-green-100 text-green-700 text-xs">Recommended</Badge>
                 </div>
                 <div className="space-y-2">
                   {UK_GOOD_DOCS.map(doc => (
-                    <label key={doc.key} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${docChecklist[doc.key] ? 'border-green-400 bg-green-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                    <label key={doc.key} className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${docChecklist[doc.key] ? 'border-green-400 bg-green-50 dark:bg-green-900/20 dark:border-green-600' : 'border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-800'}`}>
                       <input type="checkbox" checked={docChecklist[doc.key]} onChange={(e) => setDocChecklist({ ...docChecklist, [doc.key]: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600 flex-shrink-0" />
                       <div className="min-w-0">
-                        <p className="font-medium text-sm text-gray-900">{doc.name}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">{doc.basis} — {doc.note}</p>
+                        <p className="font-medium text-sm text-gray-900 dark:text-white">{doc.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{doc.basis} — {doc.note}</p>
                       </div>
                       {docChecklist[doc.key] && <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" />}
                     </label>
@@ -2120,7 +2120,7 @@ export default function ContractorManagement() {
               </div>
 
               {/* Running count */}
-              <div className="text-center text-sm text-gray-600 pt-1">
+              <div className="text-center text-sm text-gray-600 dark:text-gray-300 pt-1">
                 {Object.values(docChecklist).filter(Boolean).length} of {[...UK_LEGAL_DOCS, ...UK_SITE_DOCS].length} required documents confirmed
               </div>
             </div>
@@ -2129,42 +2129,42 @@ export default function ContractorManagement() {
           {/* Step 3 — Review & Submit */}
           {addWizardStep === 3 && (
             <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-4">
-              <p className="text-sm text-gray-600">Please review the details before creating the contractor record.</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Please review the details before creating the contractor record.</p>
 
               {/* Company summary */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                <h4 className="font-semibold text-gray-900 flex items-center gap-2"><Building2 className="w-4 h-4" /> Company Details</h4>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2"><Building2 className="w-4 h-4" /> Company Details</h4>
                 <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-                  <span className="text-gray-500">Company</span><span className="font-medium">{contractorForm.name}</span>
-                  <span className="text-gray-500">Contact</span><span>{contractorForm.contactFirstName} {contractorForm.contactLastName}</span>
-                  <span className="text-gray-500">Email</span><span>{contractorForm.email}</span>
-                  <span className="text-gray-500">Phone</span><span>{contractorForm.phone || '—'}</span>
-                  <span className="text-gray-500">Industry</span><span className="capitalize">{contractorForm.industry || '—'}</span>
-                  <span className="text-gray-500">Postcode</span><span>{contractorForm.postcode || '—'}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Company</span><span className="font-medium">{contractorForm.name}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Contact</span><span>{contractorForm.contactFirstName} {contractorForm.contactLastName}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Email</span><span>{contractorForm.email}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Phone</span><span>{contractorForm.phone || '—'}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Industry</span><span className="capitalize">{contractorForm.industry || '—'}</span>
+                  <span className="text-gray-500 dark:text-gray-400">Postcode</span><span>{contractorForm.postcode || '—'}</span>
                 </div>
               </div>
 
               {/* Document checklist summary */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                <h4 className="font-semibold text-gray-900 flex items-center gap-2"><FileText className="w-4 h-4" /> Compliance Documents</h4>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2"><FileText className="w-4 h-4" /> Compliance Documents</h4>
                 <div className="space-y-1.5">
                   {[...UK_LEGAL_DOCS, ...UK_SITE_DOCS, ...UK_GOOD_DOCS].map(doc => (
                     <div key={doc.key} className="flex items-center gap-2 text-sm">
                       {docChecklist[doc.key]
                         ? <CheckCircle className="w-4 h-4 text-green-600 flex-shrink-0" />
-                        : <div className="w-4 h-4 rounded-full border-2 border-gray-300 flex-shrink-0" />
+                        : <div className="w-4 h-4 rounded-full border-2 border-gray-300 dark:border-gray-500 flex-shrink-0" />
                       }
-                      <span className={docChecklist[doc.key] ? 'text-gray-800' : 'text-gray-400'}>{doc.name}</span>
+                      <span className={docChecklist[doc.key] ? 'text-gray-800 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}>{doc.name}</span>
                       {!docChecklist[doc.key] && UK_LEGAL_DOCS.some(d => d.key === doc.key) && <Badge className="bg-red-100 text-red-700 text-xs ml-auto">Required</Badge>}
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-2">Upload the actual document files from the contractor's detail page after registration.</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Upload the actual document files from the contractor's detail page after registration.</p>
               </div>
 
               {/* Warnings */}
               {(!docChecklist.publicLiability || !docChecklist.employersLiability) && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-start gap-2 text-sm text-amber-800">
+                <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg px-4 py-3 flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                   <span>Some legally required documents have not been confirmed. Ensure these are provided before the contractor begins any work on site.</span>
                 </div>
@@ -2175,13 +2175,13 @@ export default function ContractorManagement() {
           {/* Step 4 — Success */}
           {addWizardStep === 4 && (
             <div className="overflow-y-auto flex-1 min-h-0 px-6 py-8 flex flex-col items-center justify-center gap-6 text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
                 <CheckCircle className="w-9 h-9 text-green-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Contractor Added Successfully</h3>
-                <p className="text-sm text-gray-500">
-                  <span className="font-medium text-gray-800">{justCreatedCompany?.name || justCreatedCompany?.companyName || 'The company'}</span> has been registered.
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Contractor Added Successfully</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="font-medium text-gray-800 dark:text-gray-100">{justCreatedCompany?.name || justCreatedCompany?.companyName || 'The company'}</span> has been registered.
                   Upload their compliance documents from the detail page at any time.
                 </p>
               </div>
@@ -2251,10 +2251,10 @@ export default function ContractorManagement() {
               {[{ n: 1, label: "Personal Details" }, { n: 2, label: "Right to Work & Cards" }, { n: 3, label: "Training & Review" }].map((s, i) => (
                 <div key={s.n} className={`flex items-center ${i < 2 ? 'flex-1' : ''}`}>
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${workerWizardStep >= s.n ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{workerWizardStep > s.n ? '✓' : s.n}</div>
-                    <span className={`text-xs font-medium hidden sm:inline transition-colors ${workerWizardStep >= s.n ? 'text-blue-700' : 'text-gray-400'}`}>{s.label}</span>
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${workerWizardStep >= s.n ? 'bg-blue-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>{workerWizardStep > s.n ? '✓' : s.n}</div>
+                    <span className={`text-xs font-medium hidden sm:inline transition-colors ${workerWizardStep >= s.n ? 'text-blue-700 dark:text-blue-400' : 'text-gray-400 dark:text-gray-500'}`}>{s.label}</span>
                   </div>
-                  {i < 2 && <div className={`flex-1 h-0.5 mx-2 transition-colors ${workerWizardStep > s.n ? 'bg-blue-600' : 'bg-gray-200'}`} />}
+                  {i < 2 && <div className={`flex-1 h-0.5 mx-2 transition-colors ${workerWizardStep > s.n ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-700'}`} />}
                 </div>
               ))}
             </div>
@@ -2265,28 +2265,28 @@ export default function ContractorManagement() {
             <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">First Name *</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">First Name *</label>
                   <Input value={workerForm.firstName} onChange={(e) => setWorkerForm({ ...workerForm, firstName: e.target.value })} data-testid="input-worker-firstname" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Last Name *</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Last Name *</label>
                   <Input value={workerForm.lastName} onChange={(e) => setWorkerForm({ ...workerForm, lastName: e.target.value })} data-testid="input-worker-lastname" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Email Address</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Email Address</label>
                   <Input type="email" value={workerForm.email} onChange={(e) => setWorkerForm({ ...workerForm, email: e.target.value })} data-testid="input-worker-email" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Phone Number *</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Phone Number *</label>
                   <Input type="tel" value={workerForm.phone} onChange={(e) => setWorkerForm({ ...workerForm, phone: e.target.value })} data-testid="input-worker-phone" placeholder="e.g. 07700 900000" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Home Postcode</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Home Postcode</label>
                   <Input value={workerForm.postcode} onChange={(e) => setWorkerForm({ ...workerForm, postcode: e.target.value })} data-testid="input-worker-postcode" />
-                  <p className="text-xs text-slate-500">Used for CO2 emissions calculations</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Used for CO2 emissions calculations</p>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-700">Vehicle / Transport</label>
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Vehicle / Transport</label>
                   <Select value={workerForm.transportMethod} onValueChange={(v) => setWorkerForm({ ...workerForm, transportMethod: v })}>
                     <SelectTrigger data-testid="select-worker-transport"><SelectValue /></SelectTrigger>
                     <SelectContent>
@@ -2302,7 +2302,7 @@ export default function ContractorManagement() {
                       <SelectItem value="walking">Walking</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-slate-500">Used for CO2 emissions calculations</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Used for CO2 emissions calculations</p>
                 </div>
               </div>
             </div>
@@ -2319,8 +2319,8 @@ export default function ContractorManagement() {
                     <Lock className="w-3.5 h-3.5 text-red-600" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 text-sm">Right to Work</h4>
-                    <p className="text-xs text-gray-500">Immigration Act 2014 — <span className="font-semibold text-red-600">Legally required before work commences</span></p>
+                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm">Right to Work</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Immigration Act 2014 — <span className="font-semibold text-red-600">Legally required before work commences</span></p>
                   </div>
                 </div>
                 <Select value={workerForm.rightToWork} onValueChange={(v: "valid" | "expired" | "pending") => setWorkerForm({ ...workerForm, rightToWork: v })}>
@@ -2345,17 +2345,17 @@ export default function ContractorManagement() {
                     <Shield className="w-3.5 h-3.5 text-amber-600" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 text-sm">CSCS Card</h4>
-                    <p className="text-xs text-gray-500">CDM 2015 / Site policy — required on most construction sites</p>
+                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm">CSCS Card</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">CDM 2015 / Site policy — required on most construction sites</p>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-600">Card Number</label>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Card Number</label>
                     <Input value={workerForm.cscsCard} onChange={(e) => setWorkerForm({ ...workerForm, cscsCard: e.target.value })} placeholder="e.g. CS-1234567" data-testid="input-cscs-card" />
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs font-medium text-slate-600">Status</label>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Status</label>
                     <Select value={workerForm.cscsStatus} onValueChange={(v: "valid" | "expired" | "pending") => setWorkerForm({ ...workerForm, cscsStatus: v })}>
                       <SelectTrigger data-testid="select-cscs-status"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -2375,8 +2375,8 @@ export default function ContractorManagement() {
                     <Shield className="w-3.5 h-3.5 text-amber-600" />
                   </div>
                   <div>
-                    <h4 className="font-semibold text-gray-900 text-sm">IPAF Card</h4>
-                    <p className="text-xs text-gray-500">PUWER / WAHR 2005 — required for MEWP operation (cherry pickers, scissor lifts)</p>
+                    <h4 className="font-semibold text-gray-900 dark:text-white text-sm">IPAF Card</h4>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">PUWER / WAHR 2005 — required for MEWP operation (cherry pickers, scissor lifts)</p>
                   </div>
                 </div>
                 <Select value={workerForm.ipafStatus} onValueChange={(v: "none" | "3a" | "3b" | "1+" | "expired") => setWorkerForm({ ...workerForm, ipafStatus: v })}>
@@ -2398,69 +2398,69 @@ export default function ContractorManagement() {
             <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-5">
               {/* Training certificates */}
               <div>
-                <h4 className="font-semibold text-gray-900 text-sm mb-3">Training Certificates</h4>
+                <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-3">Training Certificates</h4>
                 <div className="space-y-2">
-                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <label className="flex items-start gap-3 p-3 border dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
                     <input type="checkbox" checked={workerForm.asbestosAwareness} onChange={(e) => setWorkerForm({ ...workerForm, asbestosAwareness: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-asbestos" />
                     <div>
                       <p className="font-medium text-sm">Asbestos Awareness</p>
-                      <p className="text-xs text-gray-500">CAR 2012 — required for most construction and refurbishment work</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">CAR 2012 — required for most construction and refurbishment work</p>
                     </div>
                   </label>
-                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <label className="flex items-start gap-3 p-3 border dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
                     <input type="checkbox" checked={workerForm.manualHandling} onChange={(e) => setWorkerForm({ ...workerForm, manualHandling: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-manual-handling" />
                     <div>
                       <p className="font-medium text-sm">Manual Handling</p>
-                      <p className="text-xs text-gray-500">MHOR 1992 — required for all roles involving lifting or carrying</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">MHOR 1992 — required for all roles involving lifting or carrying</p>
                     </div>
                   </label>
-                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <label className="flex items-start gap-3 p-3 border dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
                     <input type="checkbox" checked={workerForm.workingAtHeight} onChange={(e) => setWorkerForm({ ...workerForm, workingAtHeight: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-working-height" />
                     <div>
                       <p className="font-medium text-sm">Working at Height</p>
-                      <p className="text-xs text-gray-500">WAHR 2005 — required when using ladders, scaffolding, or MEWPs</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">WAHR 2005 — required when using ladders, scaffolding, or MEWPs</p>
                     </div>
                   </label>
-                  <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <label className="flex items-start gap-3 p-3 border dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
                     <input type="checkbox" checked={workerForm.inductionCompleted} onChange={(e) => setWorkerForm({ ...workerForm, inductionCompleted: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-induction" />
                     <div>
                       <p className="font-medium text-sm">Site Induction Completed</p>
-                      <p className="text-xs text-gray-500">Site-specific H&S briefing completed</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Site-specific H&S briefing completed</p>
                     </div>
                   </label>
                 </div>
               </div>
 
               {/* Compliance summary panel */}
-              <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                <h4 className="font-semibold text-gray-900 text-sm flex items-center gap-2"><Shield className="w-4 h-4" /> Compliance Summary</h4>
+              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-2">
+                <h4 className="font-semibold text-gray-900 dark:text-white text-sm flex items-center gap-2"><Shield className="w-4 h-4" /> Compliance Summary</h4>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Right to Work</span>
+                    <span className="text-gray-600 dark:text-gray-300">Right to Work</span>
                     <Badge className={workerForm.rightToWork === 'valid' ? 'bg-green-100 text-green-700' : workerForm.rightToWork === 'expired' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}>
                       {workerForm.rightToWork === 'valid' ? '✅ Valid' : workerForm.rightToWork === 'expired' ? '❌ Expired' : '⏳ Pending'}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">CSCS Card</span>
+                    <span className="text-gray-600 dark:text-gray-300">CSCS Card</span>
                     <Badge className={workerForm.cscsStatus === 'valid' ? 'bg-green-100 text-green-700' : workerForm.cscsStatus === 'expired' ? 'bg-red-100 text-red-700' : workerForm.cscsCard ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}>
                       {workerForm.cscsStatus === 'valid' ? '✅ Valid' : workerForm.cscsStatus === 'expired' ? '❌ Expired' : workerForm.cscsCard ? '⏳ Pending' : '— Not recorded'}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">IPAF</span>
+                    <span className="text-gray-600 dark:text-gray-300">IPAF</span>
                     <Badge className={workerForm.ipafStatus === 'none' ? 'bg-gray-100 text-gray-500' : workerForm.ipafStatus === 'expired' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}>
                       {workerForm.ipafStatus === 'none' ? '— Not applicable' : workerForm.ipafStatus === 'expired' ? '❌ Expired' : `✅ ${workerForm.ipafStatus}`}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Asbestos Awareness</span>
+                    <span className="text-gray-600 dark:text-gray-300">Asbestos Awareness</span>
                     <Badge className={workerForm.asbestosAwareness ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
                       {workerForm.asbestosAwareness ? '✅ Held' : '— Not recorded'}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-600">Manual Handling</span>
+                    <span className="text-gray-600 dark:text-gray-300">Manual Handling</span>
                     <Badge className={workerForm.manualHandling ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}>
                       {workerForm.manualHandling ? '✅ Held' : '— Not recorded'}
                     </Badge>
@@ -2473,13 +2473,13 @@ export default function ContractorManagement() {
           {/* Step 4 — Success */}
           {workerWizardStep === 4 && (
             <div className="overflow-y-auto flex-1 min-h-0 px-6 py-10 flex flex-col items-center justify-center gap-5 text-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+              <div className="w-16 h-16 bg-green-100 dark:bg-green-900/40 rounded-full flex items-center justify-center">
                 <CheckCircle className="w-9 h-9 text-green-600" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-1">Worker Added</h3>
-                <p className="text-sm text-gray-500">
-                  <span className="font-medium text-gray-800">{workerWizardSavedName}</span> has been registered to {selectedContractor?.name}.
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Worker Added</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="font-medium text-gray-800 dark:text-gray-100">{workerWizardSavedName}</span> has been registered to {selectedContractor?.name}.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
@@ -2821,8 +2821,8 @@ export default function ContractorManagement() {
                     </label>
                   </div>
 
-                  <h2 className="mt-3 text-xl font-bold text-gray-900">{ww.firstName} {ww.lastName}</h2>
-                  {ww.jobTitle && <p className="text-sm text-gray-500 mt-0.5">{ww.jobTitle}</p>}
+                  <h2 className="mt-3 text-xl font-bold text-gray-900 dark:text-white">{ww.firstName} {ww.lastName}</h2>
+                  {ww.jobTitle && <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">{ww.jobTitle}</p>}
 
                   {/* Status + compliance badges */}
                   <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
@@ -2854,33 +2854,33 @@ export default function ContractorManagement() {
                         <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
                           <Mail size={13} className="text-orange-600" />
                         </div>
-                        <span className="text-gray-700 break-all">{ww.email}</span>
+                        <span className="text-gray-700 dark:text-gray-200 break-all">{ww.email}</span>
                       </div>
                     )}
                     {(ww.phoneNumber || ww.mobileNumber) && (
                       <div className="flex items-center gap-3 text-sm">
-                        <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
                           <Phone size={13} className="text-orange-600" />
                         </div>
-                        <span className="text-gray-700">{ww.phoneNumber || ww.mobileNumber}</span>
+                        <span className="text-gray-700 dark:text-gray-200">{ww.phoneNumber || ww.mobileNumber}</span>
                       </div>
                     )}
                     {ww.updatedAt && !isCheckedIn && (
                       <div className="flex items-center gap-3 text-sm">
-                        <div className="w-7 h-7 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-orange-50 dark:bg-orange-900/30 flex items-center justify-center flex-shrink-0">
                           <History size={13} className="text-orange-600" />
                         </div>
-                        <span className="text-gray-700">
+                        <span className="text-gray-700 dark:text-gray-200">
                           Last visit: {new Date(ww.updatedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       </div>
                     )}
                     {isCheckedIn && ww.checkedInAt && (
                       <div className="flex items-center gap-3 text-sm">
-                        <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
+                        <div className="w-7 h-7 rounded-full bg-green-50 dark:bg-green-900/30 flex items-center justify-center flex-shrink-0">
                           <Clock size={13} className="text-green-600" />
                         </div>
-                        <span className="text-gray-700">
+                        <span className="text-gray-700 dark:text-gray-200">
                           Signed in at {new Date(ww.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
