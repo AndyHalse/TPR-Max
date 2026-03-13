@@ -80,6 +80,7 @@ import { eq, and, sql, desc, inArray, gte, ne } from "drizzle-orm";
 import { Pool } from 'pg';
 import { websocketService } from "./websocketService";
 import { drizzle } from 'drizzle-orm/node-postgres';
+import { generateStaffWalletPass } from './walletPassService';
 import * as sharedSchema from '@shared/schema';
 import { biostarService } from "./biostarService";
 import { paxtonService } from "./paxtonService";
@@ -5734,6 +5735,50 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     } catch (error) {
       console.error("Error sending staff QR pass:", error);
       res.status(500).json({ error: "Failed to send staff QR pass" });
+    }
+  });
+
+  // Staff Apple Wallet pass (.pkpass) endpoint
+  app.get("/api/staff/:id/wallet-pass", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      const staffMember = await databaseService.getStaffById(context, id);
+      if (!staffMember) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+
+      if (!staffMember.qrCode) {
+        const qrCode = 'STF-' + randomUUID().replace(/-/g, '').substring(0, 12);
+        await databaseService.updateStaff(context, id, { qrCode } as any);
+        staffMember.qrCode = qrCode;
+      }
+
+      const settings = await databaseService.getCompanySettings(context);
+      const companyName = settings?.companyName || 'TPR Max';
+      const brandColor = settings?.accentColor || '#4f46e5';
+
+      const passBuffer = await generateStaffWalletPass({
+        qrCode: staffMember.qrCode,
+        staffName: `${staffMember.firstName} ${staffMember.lastName}`,
+        department: staffMember.department || '',
+        employeeId: staffMember.employeeId || staffMember.id,
+        companyName,
+        brandColor,
+      });
+
+      const safeName = `${staffMember.firstName}-${staffMember.lastName}`
+        .toLowerCase().replace(/[^a-z0-9-]/g, '-');
+
+      res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
+      res.setHeader('Content-Disposition', `attachment; filename="${safeName}-pass.pkpass"`);
+      res.setHeader('Cache-Control', 'no-store');
+      res.send(passBuffer);
+    } catch (error) {
+      console.error("Error generating wallet pass:", error);
+      res.status(500).json({ error: "Failed to generate wallet pass" });
     }
   });
 

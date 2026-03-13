@@ -5,7 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import AddStaffModal from "@/components/AddStaffModal";
-import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera, Wallet, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -21,6 +21,7 @@ export default function StaffManagement() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchTerm, setSearchTerm] = useState("");
   const [isUploadingStaffPhoto, setIsUploadingStaffPhoto] = useState(false);
+  const [isDownloadingWalletPass, setIsDownloadingWalletPass] = useState(false);
   const staffPhotoInputId = "staff-photo-upload-input";
   const { toast } = useToast();
 
@@ -383,6 +384,34 @@ export default function StaffManagement() {
     }
     setQrPassStaff(null);
     setQrPassData(null);
+  };
+
+  const handleDownloadWalletPass = async (staffId: string, staffName: string) => {
+    setIsDownloadingWalletPass(true);
+    try {
+      const response = await fetch(`/api/staff/${staffId}/wallet-pass`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to generate wallet pass');
+      }
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${staffName.replace(/\s+/g, '-').toLowerCase()}-pass.pkpass`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast({ title: 'Wallet Pass Downloaded', description: 'Open the .pkpass file to add it to Apple Wallet or a compatible wallet app.' });
+    } catch (err: any) {
+      toast({ title: 'Download Failed', description: err.message || 'Could not generate wallet pass', variant: 'destructive' });
+    } finally {
+      setIsDownloadingWalletPass(false);
+    }
   };
 
   const getInitials = (staff: Staff) => {
@@ -902,6 +931,29 @@ export default function StaffManagement() {
                 <div className="text-left">
                   <div className="font-medium">Download QR Image</div>
                   <div className="text-xs text-gray-500">Download branded pass as image</div>
+                </div>
+              </Button>
+
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!qrPassStaff) return;
+                  const staffName = `${qrPassStaff.firstName} ${qrPassStaff.lastName}`;
+                  handleDownloadWalletPass(qrPassStaff.id, staffName);
+                }}
+                disabled={isDownloadingWalletPass || sendQrPassMutation.isPending}
+                className="w-full justify-start gap-3 h-14"
+              >
+                {isDownloadingWalletPass ? (
+                  <Loader2 size={20} className="text-gray-500 animate-spin" />
+                ) : (
+                  <Wallet size={20} className="text-gray-700 dark:text-gray-300" />
+                )}
+                <div className="text-left">
+                  <div className="font-medium">Download Wallet Pass</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Download .pkpass for Apple Wallet &amp; compatible apps
+                  </div>
                 </div>
               </Button>
             </div>
