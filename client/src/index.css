@@ -387,3 +387,248 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* Chrome/Safari/Opera */
 }
+
+/* ─── Global Dark-Mode Neutral Colour Overrides ───────────────────────────────
+   Pages use raw Tailwind colors without dark: variants (596+ instances). These
+   rules remap the most common neutral backgrounds, text, and borders so every
+   page looks correct when the .dark class is active.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Neutral Backgrounds ── */
+.dark .bg-white {
+  background-color: hsl(222.2, 47%, 7%) !important;
+}
+.dark .bg-gray-50,
+.dark .bg-slate-50,
+.dark .bg-zinc-50,
+.dark .bg-neutral-50 {
+  background-color: hsl(222.2, 40%, 10%) !important;
+}
+.dark .bg-gray-100,
+.dark .bg-slate-100,
+.dark .bg-zinc-100,
+.dark .bg-neutral-100 {
+  background-color: hsl(222.2, 35%, 13%) !important;
+}
+.dark .bg-gray-200,
+.dark .bg-slate-200,
+.dark .bg-zinc-200,
+.dark .bg-neutral-200 {
+  background-color: hsl(222.2, 30%, 18%) !important;
+}
+.dark .bg-gray-300,
+.dark .bg-slate-300,
+.dark .bg-zinc-300 {
+  background-color: hsl(222.2, 25%, 24%) !important;
+}
+
+/* ── Coloured Light Backgrounds → deep-tinted dark equivalents ── */
+.dark .bg-blue-50   { background-color: hsl(220, 60%, 10%) !important; }
+.dark .bg-blue-100  { background-color: hsl(220, 55%, 14%) !important; }
+.dark .bg-indigo-50 { background-color: hsl(239, 50%, 10%) !important; }
+.dark .bg-indigo-100{ background-color: hsl(239, 45%, 14%) !important; }
+.dark .bg-green-50  { background-color: hsl(140, 50%, 8%)  !important; }
+.dark .bg-green-100 { background-color: hsl(140, 45%, 12%) !important; }
+.dark .bg-emerald-50  { background-color: hsl(152, 50%, 8%)  !important; }
+.dark .bg-emerald-100 { background-color: hsl(152, 45%, 12%) !important; }
+.dark .bg-teal-50   { background-color: hsl(168, 50%, 8%)  !important; }
+.dark .bg-teal-100  { background-color: hsl(168, 45%, 12%) !important; }
+.dark .bg-amber-50  { background-color: hsl(45, 60%, 8%)   !important; }
+.dark .bg-amber-100 { background-color: hsl(45, 55%, 12%)  !important; }
+.dark .bg-yellow-50 { background-color: hsl(55, 60%, 8%)   !important; }
+.dark .bg-yellow-100{ background-color: hsl(55, 55%, 12%)  !important; }
+.dark .bg-orange-50 { background-color: hsl(25, 60%, 9%)   !important; }
+.dark .bg-orange-100{ background-color: hsl(25, 55%, 13%)  !important; }
+.dark .bg-red-50    { background-color: hsl(0, 55%, 9%)    !important; }
+.dark .bg-red-100   { background-color: hsl(0, 50%, 13%)   !important; }
+.dark .bg-rose-50   { background-color: hsl(350, 55%, 9%)  !important; }
+.dark .bg-rose-100  { background-color: hsl(350, 50%, 13%) !important; }
+.dark .bg-pink-50   { background-color: hsl(330, 55%, 9%)  !important; }
+.dark .bg-pink-100  { background-color: hsl(330, 50%, 13%) !important; }
+.dark .bg-purple-50 { background-color: hsl(270, 55%, 9%)  !important; }
+.dark .bg-purple-100{ background-color: hsl(270, 50%, 13%) !important; }
+.dark .bg-violet-50 { background-color: hsl(260, 55%, 9%)  !important; }
+.dark .bg-violet-100{ background-color: hsl(260, 50%, 13%) !important; }
+.dark .bg-cyan-50   { background-color: hsl(188, 55%, 8%)  !important; }
+.dark .bg-cyan-100  { background-color: hsl(188, 50%, 12%) !important; }
+
+/* ── Text — Neutrals ── */
+.dark .text-black,
+.dark .text-gray-950,
+.dark .text-slate-950,
+.dark .text-gray-900,
+.dark .text-slate-900,
+.dark .text-zinc-900,
+.dark .text-neutral-900 {
+  color: hsl(210, 40%, 96%) !important;
+}
+.dark .text-gray-800,
+.dark .text-slate-800,
+.dark .text-zinc-800,
+.dark .text-neutral-800 {
+  color: hsl(210, 35%, 86%) !important;
+}
+.dark .text-gray-700,
+.dark .text-slate-700,
+.dark .text-zinc-700,
+.dark .text-neutral-700 {
+  color: hsl(215, 25%, 72%) !important;
+}
+.dark .text-gray-600,
+.dark .text-slate-600,
+.dark .text-zinc-600,
+.dark .text-neutral-600 {
+  color: hsl(215, 20%, 62%) !important;
+}
+.dark .text-gray-500,
+.dark .text-slate-500,
+.dark .text-zinc-500,
+.dark .text-neutral-500 {
+  color: hsl(215, 16%, 52%) !important;
+}
+.dark .text-gray-400,
+.dark .text-slate-400,
+.dark .text-zinc-400,
+.dark .text-neutral-400 {
+  color: hsl(215, 14%, 45%) !important;
+}
+
+/* ── Text — Coloured (light shades → bright on dark) ── */
+.dark .text-blue-900   { color: hsl(220, 90%, 80%) !important; }
+.dark .text-blue-800   { color: hsl(220, 85%, 75%) !important; }
+.dark .text-blue-700   { color: hsl(220, 80%, 70%) !important; }
+.dark .text-indigo-900 { color: hsl(239, 85%, 80%) !important; }
+.dark .text-indigo-800 { color: hsl(239, 80%, 75%) !important; }
+.dark .text-indigo-700 { color: hsl(239, 75%, 70%) !important; }
+.dark .text-green-900  { color: hsl(140, 70%, 70%) !important; }
+.dark .text-green-800  { color: hsl(140, 65%, 65%) !important; }
+.dark .text-green-700  { color: hsl(140, 60%, 60%) !important; }
+.dark .text-emerald-900{ color: hsl(152, 70%, 68%) !important; }
+.dark .text-emerald-800{ color: hsl(152, 65%, 63%) !important; }
+.dark .text-emerald-700{ color: hsl(152, 60%, 58%) !important; }
+.dark .text-teal-900   { color: hsl(168, 70%, 65%) !important; }
+.dark .text-teal-800   { color: hsl(168, 65%, 60%) !important; }
+.dark .text-teal-700   { color: hsl(168, 60%, 55%) !important; }
+.dark .text-amber-900  { color: hsl(45, 90%, 70%) !important; }
+.dark .text-amber-800  { color: hsl(45, 85%, 65%) !important; }
+.dark .text-amber-700  { color: hsl(45, 80%, 60%) !important; }
+.dark .text-yellow-900 { color: hsl(55, 90%, 70%) !important; }
+.dark .text-yellow-800 { color: hsl(55, 85%, 65%) !important; }
+.dark .text-orange-900 { color: hsl(25, 90%, 72%) !important; }
+.dark .text-orange-800 { color: hsl(25, 85%, 67%) !important; }
+.dark .text-orange-700 { color: hsl(25, 80%, 62%) !important; }
+.dark .text-red-900    { color: hsl(0, 80%, 72%) !important; }
+.dark .text-red-800    { color: hsl(0, 75%, 67%) !important; }
+.dark .text-red-700    { color: hsl(0, 70%, 62%) !important; }
+.dark .text-rose-900   { color: hsl(350, 80%, 72%) !important; }
+.dark .text-rose-800   { color: hsl(350, 75%, 67%) !important; }
+.dark .text-rose-700   { color: hsl(350, 70%, 62%) !important; }
+.dark .text-pink-900   { color: hsl(330, 80%, 72%) !important; }
+.dark .text-pink-800   { color: hsl(330, 75%, 67%) !important; }
+.dark .text-purple-900 { color: hsl(270, 80%, 78%) !important; }
+.dark .text-purple-800 { color: hsl(270, 75%, 73%) !important; }
+.dark .text-purple-700 { color: hsl(270, 70%, 68%) !important; }
+.dark .text-violet-900 { color: hsl(260, 80%, 78%) !important; }
+.dark .text-violet-800 { color: hsl(260, 75%, 73%) !important; }
+.dark .text-cyan-900   { color: hsl(188, 75%, 68%) !important; }
+.dark .text-cyan-800   { color: hsl(188, 70%, 63%) !important; }
+
+/* ── Borders — Neutrals ── */
+.dark .border-gray-100,
+.dark .border-slate-100,
+.dark .border-zinc-100,
+.dark .border-neutral-100 {
+  border-color: hsl(217.2, 30%, 16%) !important;
+}
+.dark .border-gray-200,
+.dark .border-slate-200,
+.dark .border-zinc-200,
+.dark .border-neutral-200 {
+  border-color: hsl(217.2, 28%, 20%) !important;
+}
+.dark .border-gray-300,
+.dark .border-slate-300,
+.dark .border-zinc-300,
+.dark .border-neutral-300 {
+  border-color: hsl(217.2, 25%, 28%) !important;
+}
+.dark .border-gray-400,
+.dark .border-slate-400 {
+  border-color: hsl(217.2, 22%, 36%) !important;
+}
+
+/* ── Borders — Coloured ── */
+.dark .border-blue-100   { border-color: hsl(220, 50%, 20%) !important; }
+.dark .border-blue-200   { border-color: hsl(220, 45%, 25%) !important; }
+.dark .border-blue-300   { border-color: hsl(220, 40%, 32%) !important; }
+.dark .border-indigo-100 { border-color: hsl(239, 50%, 20%) !important; }
+.dark .border-indigo-200 { border-color: hsl(239, 45%, 25%) !important; }
+.dark .border-green-100  { border-color: hsl(140, 40%, 15%) !important; }
+.dark .border-green-200  { border-color: hsl(140, 38%, 20%) !important; }
+.dark .border-green-300  { border-color: hsl(140, 35%, 28%) !important; }
+.dark .border-emerald-100{ border-color: hsl(152, 40%, 15%) !important; }
+.dark .border-emerald-200{ border-color: hsl(152, 38%, 20%) !important; }
+.dark .border-teal-100   { border-color: hsl(168, 40%, 15%) !important; }
+.dark .border-teal-200   { border-color: hsl(168, 38%, 20%) !important; }
+.dark .border-amber-100  { border-color: hsl(45, 50%, 15%) !important; }
+.dark .border-amber-200  { border-color: hsl(45, 48%, 20%) !important; }
+.dark .border-amber-300  { border-color: hsl(45, 45%, 28%) !important; }
+.dark .border-yellow-100 { border-color: hsl(55, 50%, 15%) !important; }
+.dark .border-yellow-200 { border-color: hsl(55, 48%, 20%) !important; }
+.dark .border-orange-100 { border-color: hsl(25, 50%, 16%) !important; }
+.dark .border-orange-200 { border-color: hsl(25, 48%, 21%) !important; }
+.dark .border-red-100    { border-color: hsl(0, 45%, 15%) !important; }
+.dark .border-red-200    { border-color: hsl(0, 42%, 20%) !important; }
+.dark .border-red-300    { border-color: hsl(0, 40%, 28%) !important; }
+.dark .border-rose-100   { border-color: hsl(350, 45%, 15%) !important; }
+.dark .border-rose-200   { border-color: hsl(350, 42%, 20%) !important; }
+.dark .border-pink-100   { border-color: hsl(330, 45%, 15%) !important; }
+.dark .border-pink-200   { border-color: hsl(330, 42%, 20%) !important; }
+.dark .border-purple-100 { border-color: hsl(270, 45%, 16%) !important; }
+.dark .border-purple-200 { border-color: hsl(270, 42%, 21%) !important; }
+.dark .border-violet-100 { border-color: hsl(260, 45%, 16%) !important; }
+.dark .border-violet-200 { border-color: hsl(260, 42%, 21%) !important; }
+
+/* ── Divide colours ── */
+.dark .divide-gray-100 > * + *,
+.dark .divide-slate-100 > * + * {
+  border-color: hsl(217.2, 30%, 16%) !important;
+}
+.dark .divide-gray-200 > * + *,
+.dark .divide-slate-200 > * + * {
+  border-color: hsl(217.2, 28%, 20%) !important;
+}
+
+/* ── Shadow override — avoid harsh white shadows in dark mode ── */
+.dark .shadow-sm  { box-shadow: 0 1px 2px rgba(0,0,0,0.4) !important; }
+.dark .shadow     { box-shadow: 0 1px 3px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.4) !important; }
+.dark .shadow-md  { box-shadow: 0 4px 6px rgba(0,0,0,0.5), 0 2px 4px rgba(0,0,0,0.4) !important; }
+.dark .shadow-lg  { box-shadow: 0 10px 15px rgba(0,0,0,0.5), 0 4px 6px rgba(0,0,0,0.4) !important; }
+.dark .shadow-xl  { box-shadow: 0 20px 25px rgba(0,0,0,0.5), 0 10px 10px rgba(0,0,0,0.4) !important; }
+
+/* ── Ring colours in dark mode ── */
+.dark .ring-gray-200,
+.dark .ring-slate-200 {
+  --tw-ring-color: hsl(217.2, 28%, 20%);
+}
+
+/* ── Placeholder text ── */
+.dark ::placeholder {
+  color: hsl(215, 16%, 45%) !important;
+  opacity: 1;
+}
+
+/* ── Prose / rendered HTML content in dark mode ── */
+.dark .prose p,
+.dark .prose li,
+.dark .prose td,
+.dark .prose th,
+.dark .prose blockquote {
+  color: hsl(210, 35%, 82%);
+}
+.dark .prose h1,
+.dark .prose h2,
+.dark .prose h3,
+.dark .prose h4 {
+  color: hsl(210, 40%, 96%);
+}
