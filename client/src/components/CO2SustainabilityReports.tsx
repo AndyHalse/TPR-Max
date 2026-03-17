@@ -100,6 +100,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
   const [showReportDialog, setShowReportDialog] = useState(false);
   const [showTargetDialog, setShowTargetDialog] = useState(false);
   const [customTarget, setCustomTarget] = useState<number>(0);
+  const [activeTab, setActiveTab] = useState<string>('overview');
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
   const [showWorkerDialog, setShowWorkerDialog] = useState(false);
   
@@ -549,7 +550,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
             return null;
           })()}
 
-          <Tabs defaultValue="overview" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="overview" data-testid="tab-overview">Overview</TabsTrigger>
               <TabsTrigger value="dashboard" data-testid="tab-dashboard">Live Dashboard</TabsTrigger>
@@ -1155,10 +1156,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                             size="sm" 
                             className="w-full bg-emerald-600 hover:bg-emerald-700"
                             onClick={() => {
-                              toast({
-                                title: "Carbon Offset Purchase",
-                                description: `Redirecting to carbon offset marketplace for ${((co2Summary.data.totalAnnualCO2kg || 0) / 1000).toFixed(2)} tonnes CO2...`,
-                              });
+                              window.open('https://www.goldstandard.org/impact-products', '_blank', 'noopener,noreferrer');
                             }}
                           >
                             Purchase Offsets
@@ -1177,29 +1175,31 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                       <CardContent>
                         <div className="space-y-3">
                           {(() => {
-                            const carbonScore = calculateCarbonScore(co2Summary?.data?.totalAnnualCO2kg || 0, co2Summary?.data?.totalWorkers);
+                            const hasData = (co2Summary?.data?.totalWorkers || 0) > 0;
                             const targetProgress = calculateTargetProgress(co2Summary?.data?.totalMonthlyCO2kg || 0, co2Summary?.data?.totalWorkers);
-                            const secrReady = carbonScore >= 70;
-                            const iso14001Compliant = carbonScore >= 50 && targetProgress >= 30;
                             const netZeroProgress = targetProgress >= 70 ? "On Track" : targetProgress >= 30 ? "In Progress" : "Behind Target";
                             
                             return (
                               <>
                                 <div className="flex items-center gap-2">
-                                  {secrReady ? (
+                                  {hasData ? (
                                     <CheckCircle className="w-4 h-4 text-green-600" />
                                   ) : (
                                     <AlertCircle className="w-4 h-4 text-orange-600" />
                                   )}
-                                  <span className="text-sm text-amber-900">SECR Reporting: {secrReady ? 'Ready' : 'Needs Improvement'}</span>
+                                  <span className="text-sm text-amber-900">
+                                    SECR Scope 3: {hasData ? 'Data Collected' : 'Data Required'}
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                  {iso14001Compliant ? (
+                                  {hasData ? (
                                     <CheckCircle className="w-4 h-4 text-green-600" />
                                   ) : (
                                     <AlertCircle className="w-4 h-4 text-orange-600" />
                                   )}
-                                  <span className="text-sm text-amber-900">ISO 14001: {iso14001Compliant ? 'Compliant' : 'Action Required'}</span>
+                                  <span className="text-sm text-amber-900">
+                                    ISO 14001: {hasData ? 'Emissions Monitored' : 'Monitoring Required'}
+                                  </span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {netZeroProgress === "On Track" ? (
@@ -1209,7 +1209,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                                   ) : (
                                     <AlertCircle className="w-4 h-4 text-red-600" />
                                   )}
-                                  <span className="text-sm text-amber-900">Net Zero Target: {netZeroProgress}</span>
+                                  <span className="text-sm text-amber-900">Net Zero 2050: {netZeroProgress}</span>
                                 </div>
                               </>
                             );
@@ -1217,14 +1217,8 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                           <Button 
                             size="sm" 
                             variant="outline" 
-                            className="w-full"
-                            onClick={() => {
-                              const carbonScore = calculateCarbonScore(co2Summary?.data?.totalAnnualCO2kg || 0, co2Summary?.data?.totalWorkers);
-                              toast({
-                                title: "Compliance Report",
-                                description: `Carbon Score: ${carbonScore}/100 - ${getCarbonScoreLabel(carbonScore)}`,
-                              });
-                            }}
+                            className="w-full border-amber-400 text-amber-900 hover:bg-amber-200"
+                            onClick={() => setActiveTab('reports')}
                           >
                             View Full Report
                           </Button>
@@ -1246,13 +1240,8 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                             variant="outline" 
                             className="w-full justify-start"
                             onClick={() => {
-                              const currentTarget = getMonthlyTarget(co2Summary?.data?.totalWorkers || 0);
-                              const actualEmissions = co2Summary?.data?.totalMonthlyCO2kg || 0;
-                              const progress = calculateTargetProgress(actualEmissions, co2Summary?.data?.totalWorkers);
-                              toast({
-                                title: "CO2 Reduction Targets",
-                                description: `Current target: ${currentTarget}kg/month. Progress: ${progress.toFixed(1)}%`,
-                              });
+                              setCustomTarget(getMonthlyTarget(co2Summary?.data?.totalWorkers || 0));
+                              setShowTargetDialog(true);
                             }}
                           >
                             <Target className="w-4 h-4 mr-2" />
@@ -1262,48 +1251,30 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                             size="sm" 
                             variant="outline" 
                             className="w-full justify-start"
-                            onClick={() => {
-                              toast({
-                                title: "Report Scheduled",
-                                description: "Monthly CO2 report scheduled for automatic generation at month end.",
-                              });
-                            }}
+                            onClick={() => setActiveTab('reports')}
                           >
                             <Calendar className="w-4 h-4 mr-2" />
-                            Schedule Report
+                            Generate AI Report
                           </Button>
                           <Button 
                             size="sm" 
                             variant="outline" 
                             className="w-full justify-start"
-                            onClick={() => {
-                              const carbonScore = calculateCarbonScore(co2Summary?.data?.totalAnnualCO2kg || 0, co2Summary?.data?.totalWorkers);
-                              const trainingNeeded = carbonScore < 70;
-                              toast({
-                                title: "Worker Training",
-                                description: trainingNeeded 
-                                  ? "Environmental training recommended for workers with high emissions."
-                                  : "Workers are meeting environmental standards.",
-                              });
-                            }}
+                            onClick={() => setActiveTab('workers')}
                           >
                             <Users className="w-4 h-4 mr-2" />
-                            Worker Training
+                            View Worker Analysis
                           </Button>
                           <Button 
                             size="sm" 
                             variant="outline" 
                             className="w-full justify-start"
                             onClick={() => {
-                              const avgDistance = co2Summary?.data?.averageDistance || 0;
-                              toast({
-                                title: "Route Optimizer",
-                                description: `Average distance: ${avgDistance.toFixed(1)} miles. AI suggestions available for route optimization.`,
-                              });
+                              window.open('https://www.gov.uk/guidance/transport-emissions-a-guide-to-reducing-your-carbon-footprint', '_blank', 'noopener,noreferrer');
                             }}
                           >
                             <MapPin className="w-4 h-4 mr-2" />
-                            Route Optimizer
+                            UK Transport Guidance
                           </Button>
                         </div>
                       </CardContent>
