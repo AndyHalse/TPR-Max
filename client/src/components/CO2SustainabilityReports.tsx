@@ -101,6 +101,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
   const [showTargetDialog, setShowTargetDialog] = useState(false);
   const [customTarget, setCustomTarget] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<string>('overview');
+  const [showOffsetDialog, setShowOffsetDialog] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<any>(null);
   const [showWorkerDialog, setShowWorkerDialog] = useState(false);
   
@@ -1155,11 +1156,10 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                           <Button 
                             size="sm" 
                             className="w-full bg-emerald-600 hover:bg-emerald-700"
-                            onClick={() => {
-                              window.open('https://www.goldstandard.org/impact-products', '_blank', 'noopener,noreferrer');
-                            }}
+                            onClick={() => setShowOffsetDialog(true)}
                           >
-                            Purchase Offsets
+                            <Leaf className="w-4 h-4 mr-2" />
+                            UK Carbon Offset Schemes
                           </Button>
                         </div>
                       </CardContent>
@@ -1626,6 +1626,109 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
               </div>
             </ScrollArea>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* UK Carbon Offset Schemes Dialog */}
+      <Dialog open={showOffsetDialog} onOpenChange={setShowOffsetDialog}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Leaf className="w-5 h-5 text-emerald-600" />
+              UK Carbon Offset Schemes
+            </DialogTitle>
+            <DialogDescription>
+              Voluntary carbon offset options recognised for UK Scope 3 reporting. These do not replace emission reductions — they complement them.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Your figures */}
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-4">
+              <p className="text-sm font-medium text-emerald-800 mb-1">Your estimated offset requirement</p>
+              <div className="flex items-center justify-between">
+                <span className="text-2xl font-bold text-emerald-900">
+                  {((co2Summary?.data?.totalAnnualCO2kg || 0) / 1000).toFixed(2)} tonnes CO₂e / year
+                </span>
+                <span className="text-sm text-emerald-700">
+                  Based on contractor commuting data
+                </span>
+              </div>
+              <p className="text-xs text-emerald-600 mt-1">
+                Scope 3 — Category 7: Employee / Contractor Commuting (GHG Protocol)
+              </p>
+            </div>
+
+            {/* Scheme 1 */}
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-base">🌳 Woodland Carbon Code (WCC)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">UK Government backed — DEFRA / Forestry Commission endorsed</p>
+                </div>
+                <span className="text-xs font-medium bg-green-100 text-green-800 rounded-full px-2 py-1 whitespace-nowrap">UK-specific</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                The gold standard for UK-based offsets. Funds new woodland creation across Great Britain. Credits (WCUs) are independently verified and listed on the UK Land Carbon Registry. Recognised by HMRC and widely used in UK ESG reporting.
+              </p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Typical price: <span className="font-medium text-foreground">£10–30 / tonne</span></span>
+                <Button size="sm" variant="outline" onClick={() => window.open('https://woodlandcarboncode.org.uk', '_blank', 'noopener,noreferrer')}>
+                  woodlandcarboncode.org.uk ↗
+                </Button>
+              </div>
+            </div>
+
+            {/* Scheme 2 */}
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-base">🌿 Peatland Code</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">IUCN UK Peatland Programme / Scottish Government</p>
+                </div>
+                <span className="text-xs font-medium bg-green-100 text-green-800 rounded-full px-2 py-1 whitespace-nowrap">UK-specific</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Supports the restoration of degraded UK peatland — one of the most carbon-dense ecosystems. Credits listed on the UK Land Carbon Registry. Suitable for organisations wanting to demonstrate UK environmental stewardship.
+              </p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Typical price: <span className="font-medium text-foreground">£10–25 / tonne</span></span>
+                <Button size="sm" variant="outline" onClick={() => window.open('https://www.peatlandcode.org.uk', '_blank', 'noopener,noreferrer')}>
+                  peatlandcode.org.uk ↗
+                </Button>
+              </div>
+            </div>
+
+            {/* Scheme 3 */}
+            <div className="rounded-lg border p-4 space-y-2">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-semibold text-base">🌐 Gold Standard</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">ICROA-accredited international standard</p>
+                </div>
+                <span className="text-xs font-medium bg-blue-100 text-blue-800 rounded-full px-2 py-1 whitespace-nowrap">International</span>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Widely used in UK voluntary reporting. ICROA-accredited and accepted for SECR Scope 3 disclosures. Projects span renewables, clean cookstoves, and reforestation globally. Suitable if UK-specific schemes are unavailable.
+              </p>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Typical price: <span className="font-medium text-foreground">£15–50 / tonne</span></span>
+                <Button size="sm" variant="outline" onClick={() => window.open('https://www.goldstandard.org/impact-products', '_blank', 'noopener,noreferrer')}>
+                  goldstandard.org ↗
+                </Button>
+              </div>
+            </div>
+
+            {/* UK rules note */}
+            <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+              <p className="font-medium mb-1">⚠️ UK regulatory note</p>
+              <p>Carbon offsets are voluntary for Scope 3 commuting emissions. Under SECR, organisations must disclose their methodology. The CMA (Competition and Markets Authority) Green Claims Code requires that offset claims are not misleading — always pair offsets with a documented emissions reduction plan.</p>
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
+            <Button variant="outline" onClick={() => setShowOffsetDialog(false)}>Close</Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
