@@ -35,7 +35,6 @@ import {
   AlertCircle,
   CheckCircle,
   Settings,
-  TrendingUp as TrendUp,
   MapPin,
   Clock,
   DollarSign,
@@ -375,15 +374,6 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
     if (avgPerWorker < 200) return "Top 25%";
     if (avgPerWorker < 300) return "Top 50%";
     return "Bottom 50%";
-  };
-
-  const getEmissionTrend = (currentEmissions: number): { trend: 'up' | 'down' | 'stable', percentage: number } => {
-    // Simulated historical comparison - in production, this would use real historical data
-    const previousMonth = currentEmissions * (0.9 + Math.random() * 0.2); // ±10% variation
-    const change = ((currentEmissions - previousMonth) / previousMonth) * 100;
-    
-    if (Math.abs(change) < 2) return { trend: 'stable', percentage: Math.abs(change) };
-    return { trend: change > 0 ? 'up' : 'down', percentage: Math.abs(change) };
   };
 
   const getRouteOptimizationSuggestions = (workers: WorkerCO2Summary[]): string[] => {
@@ -1019,15 +1009,20 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                       <CardContent className="p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-sm font-medium text-blue-700">Cost Savings</p>
+                            <p className="text-sm font-medium text-blue-700">Potential Savings</p>
                             <p className="text-2xl font-bold text-blue-800">
-                              £{calculateCostSavings(300).toLocaleString()}
+                              £{(() => {
+                                const totalPotentialSavingsKg = (co2Summary.data.workers || [])
+                                  .filter(w => w.transportMethod !== 'electric' && w.transportMethod !== 'bicycle' && w.transportMethod !== 'walking')
+                                  .reduce((sum, w) => sum + calculateCO2Savings(w.transportMethod, 'electric', w.monthlyCO2kg || 0), 0);
+                                return calculateCostSavings(totalPotentialSavingsKg).toLocaleString();
+                              })()}
                             </p>
                           </div>
                           <DollarSign className="w-8 h-8 text-blue-600" />
                         </div>
                         <p className="text-xs text-blue-600 mt-2">
-                          Potential annual savings
+                          If all petrol/diesel workers switched to electric
                         </p>
                       </CardContent>
                     </Card>
@@ -1066,22 +1061,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                         <div className="space-y-4">
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground">This Month</span>
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">{co2Summary.data.totalMonthlyCO2kg?.toFixed(1)} kg</span>
-                              {(() => {
-                                const trend = getEmissionTrend(co2Summary.data.totalMonthlyCO2kg || 0);
-                                return (
-                                  <div className={`flex items-center gap-1 ${
-                                    trend.trend === 'down' ? 'text-green-600' : 
-                                    trend.trend === 'up' ? 'text-red-600' : 'text-variable'
-                                  }`}>
-                                    {trend.trend === 'down' ? <TrendingDown className="w-4 h-4" /> :
-                                     trend.trend === 'up' ? <TrendingUp className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                                    <span className="text-xs">{trend.percentage.toFixed(1)}%</span>
-                                  </div>
-                                );
-                              })()}
-                            </div>
+                            <span className="font-semibold">{co2Summary.data.totalMonthlyCO2kg?.toFixed(1)} kg CO2</span>
                           </div>
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground">Per Worker Average</span>
@@ -1090,9 +1070,30 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                             </span>
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Industry Average</span>
-                            <span className="font-semibold text-orange-600">200 kg</span>
+                            <span className="text-sm text-muted-foreground">UK Construction Average</span>
+                            <span className="font-semibold text-orange-600">200 kg / worker</span>
                           </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-muted-foreground">vs Industry</span>
+                            {(() => {
+                              const perWorker = (co2Summary.data.totalMonthlyCO2kg || 0) / (co2Summary.data.totalWorkers || 1);
+                              const diff = perWorker - 200;
+                              return diff <= 0 ? (
+                                <span className="font-semibold text-green-600 flex items-center gap-1">
+                                  <TrendingDown className="w-4 h-4" />
+                                  {Math.abs(diff).toFixed(1)} kg below average
+                                </span>
+                              ) : (
+                                <span className="font-semibold text-red-600 flex items-center gap-1">
+                                  <TrendingUp className="w-4 h-4" />
+                                  {diff.toFixed(1)} kg above average
+                                </span>
+                              );
+                            })()}
+                          </div>
+                          <p className="text-xs text-muted-foreground pt-1 border-t">
+                            Month-over-month trend will appear after your second monthly calculation.
+                          </p>
                         </div>
                       </CardContent>
                     </Card>
@@ -1109,7 +1110,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3">
-                          {getRouteOptimizationSuggestions([]).map((suggestion, index) => (
+                          {getRouteOptimizationSuggestions(co2Summary.data.workers || []).map((suggestion, index) => (
                             <Alert key={index} className="border-cyan-200 bg-cyan-50">
                               <CheckCircle className="w-4 h-4 text-cyan-600" />
                               <AlertDescription className="text-cyan-800 text-sm">
@@ -1117,6 +1118,11 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                               </AlertDescription>
                             </Alert>
                           ))}
+                          {(co2Summary.data.workers || []).length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              Calculate CO2 for workers to see personalised recommendations.
+                            </p>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
