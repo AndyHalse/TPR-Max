@@ -1191,7 +1191,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                                   ) : (
                                     <AlertCircle className="w-4 h-4 text-orange-600" />
                                   )}
-                                  <span className="text-sm">SECR Reporting: {secrReady ? 'Ready' : 'Needs Improvement'}</span>
+                                  <span className="text-sm text-amber-900">SECR Reporting: {secrReady ? 'Ready' : 'Needs Improvement'}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {iso14001Compliant ? (
@@ -1199,7 +1199,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                                   ) : (
                                     <AlertCircle className="w-4 h-4 text-orange-600" />
                                   )}
-                                  <span className="text-sm">ISO 14001: {iso14001Compliant ? 'Compliant' : 'Action Required'}</span>
+                                  <span className="text-sm text-amber-900">ISO 14001: {iso14001Compliant ? 'Compliant' : 'Action Required'}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   {netZeroProgress === "On Track" ? (
@@ -1209,7 +1209,7 @@ export function CO2SustainabilityReports({ companyId, companyName }: CO2Sustaina
                                   ) : (
                                     <AlertCircle className="w-4 h-4 text-red-600" />
                                   )}
-                                  <span className="text-sm">Net Zero Target: {netZeroProgress}</span>
+                                  <span className="text-sm text-amber-900">Net Zero Target: {netZeroProgress}</span>
                                 </div>
                               </>
                             );
