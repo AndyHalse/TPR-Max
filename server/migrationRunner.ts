@@ -168,6 +168,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addVisitorsMissingColumnsMigration,
     addContractorWorkerQrCodesMigration,
     generateStaffQrCodesMigration,
+    enableEPassByDefaultMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -356,7 +357,7 @@ const rebuildCompanySettingsMigration: Migration = {
               clue_auto_delete_expired BOOLEAN DEFAULT true,
               clue_test_mode BOOLEAN DEFAULT false,
               clue_last_sync TIMESTAMP,
-              e_pass_enabled BOOLEAN DEFAULT false,
+              e_pass_enabled BOOLEAN DEFAULT true,
               e_pass_delivery_method TEXT DEFAULT 'both',
               e_pass_email_template TEXT DEFAULT 'default',
               e_pass_sms_template TEXT DEFAULT 'default',
@@ -498,7 +499,7 @@ const addMissingCompanySettingsColumnsMigration: Migration = {
       
       // Integration flags
       { name: 'clue_enabled', definition: 'BOOLEAN DEFAULT false' },
-      { name: 'e_pass_enabled', definition: 'BOOLEAN DEFAULT false' },
+      { name: 'e_pass_enabled', definition: 'BOOLEAN DEFAULT true' },
       { name: 'twilio_enabled', definition: 'BOOLEAN DEFAULT false' },
       
       // Additional printing columns
@@ -1572,5 +1573,22 @@ const addVisitorsMissingColumnsMigration: Migration = {
       }
     }
     console.log('✅ [019] visitors missing columns migration complete');
+  }
+};
+
+const enableEPassByDefaultMigration: Migration = {
+  version: '20260317_021_enable_epass_by_default',
+  description: 'Enable Digital E-Pass by default for all customers — digital-first deployment strategy',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        UPDATE company_settings
+        SET e_pass_enabled = true
+        WHERE e_pass_enabled IS NULL OR e_pass_enabled = false
+      `);
+      console.log('✅ [021] Digital E-Pass enabled by default for all customers');
+    } catch (err: any) {
+      console.log(`⚠️ [021] enable e-pass by default: ${err.message?.substring(0, 120)}`);
+    }
   }
 };

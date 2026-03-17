@@ -65,7 +65,7 @@ async function fixIsolatedDatabaseSchema() {
       'clue_auto_delete_expired BOOLEAN DEFAULT true',
       'clue_test_mode BOOLEAN DEFAULT false',
       'clue_last_sync TIMESTAMP',
-      'e_pass_enabled BOOLEAN DEFAULT false',
+      'e_pass_enabled BOOLEAN DEFAULT true',
       'e_pass_delivery_method TEXT DEFAULT \'both\'',
       'e_pass_email_template TEXT DEFAULT \'default\'',
       'e_pass_sms_template TEXT DEFAULT \'default\'',

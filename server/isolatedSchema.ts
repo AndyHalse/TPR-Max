@@ -417,7 +417,7 @@ export const companySettings = pgTable("company_settings", {
   clueLastSync: timestamp("clue_last_sync"), // Last successful sync timestamp
   
   // E-Pass Configuration Settings
-  ePassEnabled: boolean("e_pass_enabled").default(false),
+  ePassEnabled: boolean("e_pass_enabled").default(true),
   ePassDeliveryMethod: text("e_pass_delivery_method").default("both"), // email, sms, both, choice
   ePassEmailTemplate: text("e_pass_email_template").default("default"), // default, custom
   ePassSmsTemplate: text("e_pass_sms_template").default("default"), // default, custom

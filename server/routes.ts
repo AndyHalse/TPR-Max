@@ -16980,7 +16980,7 @@ This is an automated notification from your visitor management system.`;
               worker.email,
               `${worker.firstName} ${worker.lastName}`,
               company.name || 'Contractor',
-              qrCode,
+              workerQrCode,
               passUrl,
               companySettings,
               workerId,

@@ -144,7 +144,7 @@ export const addAllMissingCompanySettingsColumnsMigration: Migration = {
       'clue_last_sync TIMESTAMP',
       
       // E-Pass Configuration
-      'e_pass_enabled BOOLEAN DEFAULT false',
+      'e_pass_enabled BOOLEAN DEFAULT true',
       'e_pass_delivery_method TEXT DEFAULT \'both\'',
       'e_pass_email_template TEXT DEFAULT \'default\'',
       'e_pass_sms_template TEXT DEFAULT \'default\'',
