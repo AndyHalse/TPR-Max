@@ -16886,20 +16886,22 @@ This is an automated notification from your visitor management system.`;
 
       console.log(`🔄 Starting contractor check-in for: ${worker.firstName} ${worker.lastName} from ${company.name}`);
       
-      // Preserve existing QR code; only generate a new one if the worker has none yet
-      const qrCode = worker.qrCode || `CONTRACTOR-${workerId}-${Date.now()}`;
+      // Worker's permanent QR code (their identity/pass) — generate once if missing
+      const workerQrCode = worker.qrCode || `CTR-${randomUUID().replace(/-/g, '').substring(0, 12)}`;
+      // Per-visit QR code — always fresh so the unique constraint on contractor_visits is never violated
+      const visitQrCode = `CPB-${randomUUID().replace(/-/g, '').substring(0, 12)}`;
       const passUrl = `${process.env.REPLIT_DOMAINS || process.env.APP_URL || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`}/pass/contractor/${workerId}`;
       
       // Mark worker as checked in using customer-isolated database service
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
-        qrCode: qrCode,
+        qrCode: workerQrCode,
         isCheckedIn: true,
         checkedInAt: new Date(),
         hsRulesAccepted: contractorHsAccepted,
         hsRulesAcceptedAt: contractorHsAcceptedAt
       });
 
-      // Create a visit record for history tracking
+      // Create a visit record for history tracking (each visit gets its own unique QR code)
       const visitData = {
         workerId: workerId,
         companyId: worker.companyId,
@@ -16908,7 +16910,7 @@ This is an automated notification from your visitor management system.`;
         hostStaffId: hostStaffId,
         hostName: hostName,
         hsRulesAccepted: contractorHsAccepted,
-        qrCode: qrCode,
+        qrCode: visitQrCode,
         passUrl: passUrl
       };
       
