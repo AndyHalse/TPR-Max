@@ -1356,6 +1356,7 @@ export class DatabaseService {
           hsRulesAcceptedAt: isolatedSchema.contractorWorkers.hsRulesAcceptedAt,
           currentCardStatus: isolatedSchema.contractorWorkers.currentCardStatus,
           companyId: isolatedSchema.contractorWorkers.companyId,
+          needsEvacuationAssistance: isolatedSchema.contractorWorkers.needsEvacuationAssistance,
           companyName: isolatedSchema.contractorCompanies.companyName,
           contactEmail: isolatedSchema.contractorCompanies.contactEmail,
           contactPhone: isolatedSchema.contractorCompanies.contactPhone,

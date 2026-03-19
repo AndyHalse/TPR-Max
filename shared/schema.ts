@@ -173,6 +173,7 @@ export const staff = pgTable("staff", {
   manualCheckIn: boolean("manual_check_in").default(false), // Track if check-in was manual due to lost card
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  needsEvacuationAssistance: boolean("needs_evacuation_assistance").default(false).notNull(),
   // Fire Marshal emergency access
   isFireMarshal: boolean("is_fire_marshal").default(false).notNull(),
   fireMarshalUrlId: text("fire_marshal_url_id").unique(), // Unique permanent URL ID for Fire Marshal access (e.g., /fire-marshal/abc123xyz)
@@ -278,6 +279,7 @@ export const evacuations = pgTable("evacuations", {
   totalPeopleOnSite: integer("total_people_on_site").notNull(),
   totalAccountedFor: integer("total_accounted_for").default(0).notNull(),
   musterPoints: text("muster_points").array().notNull(),
+  isDrill: boolean("is_drill").default(false).notNull(),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
@@ -333,6 +335,7 @@ export const visitors = pgTable("visitors", {
   isCheckedIn: boolean("is_checked_in").default(true).notNull(),
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  needsEvacuationAssistance: boolean("needs_evacuation_assistance").default(false).notNull(),
   // Induction tracking
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
   inductionCompletedAt: timestamp("induction_completed_at"),

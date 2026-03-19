@@ -26,6 +26,8 @@ import ContractorManagement from "@/pages/ContractorManagement";
 import FireMarshalMuster from "@/pages/FireMarshalMuster";
 import FireMarshalPanel from "@/pages/FireMarshalPanel";
 import FireMarshalMobile from "@/pages/FireMarshalMobile";
+import IncidentMonitor from "@/pages/IncidentMonitor";
+import MartynLaw from "@/pages/MartynLaw";
 import InductionSettings from "@/pages/InductionSettings";
 import EmailOutbox from "@/pages/EmailOutbox";
 import MeetingRooms from "@/pages/MeetingRooms";
@@ -124,6 +126,24 @@ function Router() {
     return <FireMarshalPanel token={emergencyToken} />;
   }
   
+  // Incident Monitor - read-only live evacuation view (public, uses evacuationId + customerId)
+  if (window.location.pathname.startsWith('/monitor/')) {
+    const evacuationId = window.location.pathname.split('/monitor/')[1];
+    const monitorCustomerId = urlParams.get('customer') || urlParams.get('customerId');
+    if (evacuationId && monitorCustomerId) {
+      return <IncidentMonitor evacuationId={evacuationId} customerId={monitorCustomerId} />;
+    }
+    return (
+      <div className="min-h-screen bg-gray-800 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+          <div className="text-5xl mb-4">🔍</div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">Monitor Link Invalid</h1>
+          <p className="text-gray-600">This incident monitor link is missing required parameters.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Invitation acceptance - public route with token (no authentication required)
   if (window.location.pathname === '/invite/accept') {
     return <AcceptInvitation />;
@@ -312,6 +332,7 @@ function Router() {
             <Route path="/contractors/:id" component={ContractorDetails} />
             <Route path="/checkin" component={VisitorCheckIn} />
             <Route path="/muster" component={EmergencyMuster} />
+            <Route path="/martyn-law" component={MartynLaw} />
             <Route path="/fire-marshal-panel" component={FireMarshalPanel} />
             <Route path="/fire-marshal-mobile" component={FireMarshalMobile} />
             <Route path="/reports" component={Reports} />

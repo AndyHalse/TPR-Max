@@ -28,7 +28,8 @@ import {
   Map,
   QrCode,
   Timer,
-  ShieldAlert
+  ShieldAlert,
+  BellRing
 } from "lucide-react";
 
 interface MusterListItem {
@@ -42,6 +43,7 @@ interface MusterListItem {
   accounted: boolean;
   zoneId?: string;
   zoneName?: string;
+  needsEvacuationAssistance?: boolean;
 }
 
 interface Zone {
@@ -66,6 +68,8 @@ export default function EmergencyMuster() {
   const [typeFilter, setTypeFilter] = useState<'all' | 'staff' | 'visitor' | 'contractor' | 'member'>('all');
   const [emergencyActive, setEmergencyActive] = useState(false);
   const [emergencyPhase, setEmergencyPhase] = useState<'idle' | 'send_alert' | 'active'>('idle');
+  const [isDrillMode, setIsDrillMode] = useState(false);
+  const [lastEvacuationId, setLastEvacuationId] = useState<string | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [selectedZones, setSelectedZones] = useState<Set<string>>(new Set());
   const [showZoneSelector, setShowZoneSelector] = useState(false);
@@ -296,14 +300,16 @@ export default function EmergencyMuster() {
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/emergency/activate", {
         selectedZones: selectedZones.size > 0 ? Array.from(selectedZones) : undefined,
+        isDrill: isDrillMode,
       });
       return await response.json();
     },
     onSuccess: (data) => {
       setEmergencyPhase('active');
       setEmergencyStartTime(new Date());
+      if (data.evacuationId) setLastEvacuationId(data.evacuationId);
       toast({
-        title: "Emergency Notifications Sent",
+        title: isDrillMode ? "Fire Drill Started" : "Emergency Notifications Sent",
         description: data.message || `Successfully notified all personnel & Fire Marshals via email.`,
       });
     },
@@ -405,7 +411,42 @@ export default function EmergencyMuster() {
       setEmergencyPhase('idle');
       setEmergencyStartTime(null);
       setElapsedSeconds(0);
+      setIsDrillMode(false);
     }
+  };
+
+  const openIncidentReport = (evacuationId: string) => {
+    window.open(`/api/emergency/incident-report/${evacuationId}`, '_blank');
+  };
+
+  const nudgeUnaccountedMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/emergency/nudge-unaccounted"),
+    onSuccess: (data: any) => {
+      if (data.sent === 0) {
+        toast({ title: "No emails to send", description: "All on-site personnel are already accounted for, or have no email address on file." });
+      } else {
+        toast({
+          title: `Nudge emails sent (${data.sent})`,
+          description: `${data.sent} unaccounted ${data.sent === 1 ? 'person' : 'people'} emailed. ${data.skipped} already safe or no email.`,
+        });
+      }
+    },
+    onError: () => {
+      toast({ title: "Failed to send nudge emails", variant: "destructive" });
+    }
+  });
+
+  const copyMonitorLink = () => {
+    if (!activeEvacuation?.evacuationId || !activeEvacuation?.customerId) {
+      toast({ title: "No active evacuation", description: "Start an emergency first", variant: "destructive" });
+      return;
+    }
+    const monitorUrl = `${window.location.origin}/monitor/${activeEvacuation.evacuationId}?customer=${encodeURIComponent(activeEvacuation.customerId)}`;
+    navigator.clipboard.writeText(monitorUrl).then(() => {
+      toast({ title: "Monitor link copied", description: "Share this read-only link with management" });
+    }).catch(() => {
+      toast({ title: "Monitor link", description: monitorUrl });
+    });
   };
 
 
@@ -457,39 +498,98 @@ export default function EmergencyMuster() {
               )}
             </>
           )}
+          {/* Share monitor link — shown when emergency is active */}
+          {emergencyPhase === 'active' && activeEvacuation?.evacuationId && (
+            <>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => nudgeUnaccountedMutation.mutate()}
+                disabled={nudgeUnaccountedMutation.isPending}
+                className="text-xs border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300"
+                title="Send reminder email to all unaccounted personnel with a self-confirm safety link"
+              >
+                <BellRing size={14} className="mr-1" />
+                {nudgeUnaccountedMutation.isPending ? "Sending..." : "Nudge Unaccounted"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={copyMonitorLink}
+                className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300"
+                title="Copy a read-only monitor link to share with management"
+              >
+                <Copy size={14} className="mr-1" />
+                Monitor Link
+              </Button>
+            </>
+          )}
+          {/* Incident report button — shown after an event was recorded */}
+          {lastEvacuationId && emergencyPhase === 'idle' && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => openIncidentReport(lastEvacuationId)}
+              className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300"
+            >
+              <Download size={14} className="mr-1" />
+              Incident Report
+            </Button>
+          )}
+          {/* Drill mode toggle — only shown when idle */}
+          {emergencyPhase === 'idle' && (
+            <button
+              onClick={() => setIsDrillMode(!isDrillMode)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                isDrillMode
+                  ? 'bg-amber-100 border-amber-400 text-amber-800 dark:bg-amber-900/30 dark:border-amber-600 dark:text-amber-300'
+                  : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+              }`}
+              title="Toggle drill mode — emails will be clearly marked as a drill"
+            >
+              <ShieldAlert size={13} />
+              {isDrillMode ? 'Drill ON' : 'Drill'}
+            </button>
+          )}
           <Button 
             onClick={handleEmergencyButtonClick}
             disabled={activateFireMarshalMutation.isPending}
             className={`${
               emergencyPhase === 'idle' 
-                ? "bg-orange-600 hover:bg-orange-700 text-white" 
+                ? isDrillMode
+                  ? "bg-amber-500 hover:bg-amber-600 text-white"
+                  : "bg-orange-600 hover:bg-orange-700 text-white" 
                 : emergencyPhase === 'send_alert'
                 ? zonesRequireSelection
                   ? "bg-amber-500 hover:bg-amber-600 text-white"
-                  : "bg-blue-600 hover:bg-blue-700 text-white animate-pulse"
-                : "bg-red-600 hover:bg-red-700 text-white"
+                  : isDrillMode
+                    ? "bg-amber-600 hover:bg-amber-700 text-white animate-pulse"
+                    : "bg-blue-600 hover:bg-blue-700 text-white animate-pulse"
+                : isDrillMode
+                  ? "bg-amber-600 hover:bg-amber-700 text-white"
+                  : "bg-red-600 hover:bg-red-700 text-white"
             } text-sm sm:text-base whitespace-nowrap`}
             data-testid="button-emergency-toggle"
           >
             {emergencyPhase === 'idle' && (
               <>
                 <Siren className="mr-1.5 sm:mr-2" size={16} />
-                <span className="hidden sm:inline">Activate Emergency</span>
-                <span className="sm:hidden">Activate</span>
+                <span className="hidden sm:inline">{isDrillMode ? 'Start Drill' : 'Activate Emergency'}</span>
+                <span className="sm:hidden">{isDrillMode ? 'Start Drill' : 'Activate'}</span>
               </>
             )}
             {emergencyPhase === 'send_alert' && (
               <>
                 <Mail className="mr-1.5 sm:mr-2" size={16} />
-                <span className="hidden sm:inline">{zonesRequireSelection ? "Select Zones First" : "Send Email Alert"}</span>
-                <span className="sm:hidden">{zonesRequireSelection ? "Select Zones" : "Send Alert"}</span>
+                <span className="hidden sm:inline">{zonesRequireSelection ? "Select Zones First" : isDrillMode ? "Send Drill Alert" : "Send Email Alert"}</span>
+                <span className="sm:hidden">{zonesRequireSelection ? "Select Zones" : isDrillMode ? "Send Drill" : "Send Alert"}</span>
               </>
             )}
             {emergencyPhase === 'active' && (
               <>
                 <Siren className="mr-1.5 sm:mr-2" size={16} />
-                <span className="hidden sm:inline">Deactivate Emergency</span>
-                <span className="sm:hidden">Deactivate</span>
+                <span className="hidden sm:inline">{isDrillMode ? 'End Drill' : 'Deactivate Emergency'}</span>
+                <span className="sm:hidden">{isDrillMode ? 'End Drill' : 'Deactivate'}</span>
               </>
             )}
           </Button>
@@ -497,21 +597,39 @@ export default function EmergencyMuster() {
       </div>
 
       {emergencyActive && (
-        <div className="flex items-center justify-between gap-3 p-4 rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="text-red-600 flex-shrink-0 animate-pulse" size={24} />
-            <div>
-              <h3 className="text-base font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
-              <p className="text-sm text-red-700 dark:text-red-300">All personnel must proceed to a safe location immediately</p>
+        isDrillMode ? (
+          <div className="flex items-center justify-between gap-3 p-4 rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-900/20">
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="text-amber-600 flex-shrink-0 animate-pulse" size={24} />
+              <div>
+                <h3 className="text-base font-bold text-amber-800 dark:text-amber-200">🔶 FIRE DRILL IN PROGRESS</h3>
+                <p className="text-sm text-amber-700 dark:text-amber-300">This is a scheduled drill — not a real emergency</p>
+              </div>
             </div>
+            {emergencyStartTime && (
+              <div className="flex items-center gap-2 bg-amber-100 dark:bg-amber-800/40 px-3 py-2 rounded-lg flex-shrink-0">
+                <Timer size={16} className="text-amber-700 dark:text-amber-300" />
+                <span className="text-amber-800 dark:text-amber-200 font-mono font-bold text-lg tabular-nums">{formatElapsed(elapsedSeconds)}</span>
+              </div>
+            )}
           </div>
-          {emergencyStartTime && (
-            <div className="flex items-center gap-2 bg-red-100 dark:bg-red-800/40 px-3 py-2 rounded-lg flex-shrink-0">
-              <Timer size={16} className="text-red-700 dark:text-red-300" />
-              <span className="text-red-800 dark:text-red-200 font-mono font-bold text-lg tabular-nums">{formatElapsed(elapsedSeconds)}</span>
+        ) : (
+          <div className="flex items-center justify-between gap-3 p-4 rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="text-red-600 flex-shrink-0 animate-pulse" size={24} />
+              <div>
+                <h3 className="text-base font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
+                <p className="text-sm text-red-700 dark:text-red-300">All personnel must proceed to a safe location immediately</p>
+              </div>
             </div>
-          )}
-        </div>
+            {emergencyStartTime && (
+              <div className="flex items-center gap-2 bg-red-100 dark:bg-red-800/40 px-3 py-2 rounded-lg flex-shrink-0">
+                <Timer size={16} className="text-red-700 dark:text-red-300" />
+                <span className="text-red-800 dark:text-red-200 font-mono font-bold text-lg tabular-nums">{formatElapsed(elapsedSeconds)}</span>
+              </div>
+            )}
+          </div>
+        )
       )}
 
 
@@ -800,7 +918,14 @@ export default function EmergencyMuster() {
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-fixed text-sm sm:text-base truncate leading-tight">{person.name}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-semibold text-fixed text-sm sm:text-base truncate leading-tight">{person.name}</p>
+                        {person.needsEvacuationAssistance && (
+                          <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
+                            ♿ PEEP
+                          </span>
+                        )}
+                      </div>
                       <div className="flex flex-wrap items-center gap-1 mt-0.5">
                         <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                           person.type === 'staff' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
@@ -811,10 +936,10 @@ export default function EmergencyMuster() {
                         <span className="text-[11px] text-variable truncate max-w-[100px] sm:max-w-[140px]">
                           {person.type === 'staff' ? person.department : person.company}
                         </span>
-                        {person.zoneName && (
+                        {(person.location && person.location !== 'Not specified') && (
                           <span className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-medium text-variable bg-muted px-1.5 py-0.5 rounded-full">
                             <MapPin size={8} />
-                            {person.zoneName}
+                            {person.location}
                           </span>
                         )}
                       </div>

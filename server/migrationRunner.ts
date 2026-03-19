@@ -169,6 +169,9 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addContractorWorkerQrCodesMigration,
     generateStaffQrCodesMigration,
     enableEPassByDefaultMigration,
+    addPeepFlagMigration,
+    addDrillModeToEvacuationsMigration,
+    addMartynLawMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1589,6 +1592,73 @@ const enableEPassByDefaultMigration: Migration = {
       console.log('✅ [021] Digital E-Pass enabled by default for all customers');
     } catch (err: any) {
       console.log(`⚠️ [021] enable e-pass by default: ${err.message?.substring(0, 120)}`);
+    }
+  }
+};
+
+const addPeepFlagMigration: Migration = {
+  version: '20260319_022_add_peep_flag',
+  description: 'Add PEEP (Personal Emergency Evacuation Plan) flag to staff, visitors, and contractor_workers tables',
+  async up(db: any) {
+    const tables = ['staff', 'visitors', 'contractor_workers'];
+    for (const table of tables) {
+      try {
+        await db.execute(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS needs_evacuation_assistance BOOLEAN NOT NULL DEFAULT FALSE`);
+        console.log(`✅ [022] Added needs_evacuation_assistance to ${table}`);
+      } catch (err: any) {
+        console.log(`⚠️ [022] ${table}.needs_evacuation_assistance: ${err.message?.substring(0, 120)}`);
+      }
+    }
+  }
+};
+const addDrillModeToEvacuationsMigration: Migration = {
+  version: '20260319_023_add_drill_mode_to_evacuations',
+  description: 'Add is_drill column to evacuations table in the shared database',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE evacuations ADD COLUMN IF NOT EXISTS is_drill BOOLEAN NOT NULL DEFAULT FALSE`);
+      console.log(`✅ [023] Added is_drill to evacuations table`);
+    } catch (err: any) {
+      console.log(`⚠️ [023] evacuations.is_drill: ${err.message?.substring(0, 120)}`);
+    }
+  }
+};
+
+const addMartynLawMigration = {
+  version: '20260319_024_add_martyn_law_config',
+  description: "Create martyn_law_config table for UK Protect Duty (Martyn's Law) compliance",
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS martyn_law_config (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          customer_id TEXT NOT NULL UNIQUE,
+          venue_type TEXT,
+          venue_capacity INTEGER,
+          is_in_scope BOOLEAN DEFAULT FALSE,
+          scope_notes TEXT,
+          supervisor_name TEXT,
+          supervisor_role TEXT,
+          supervisor_phone TEXT,
+          supervisor_email TEXT,
+          sia_provider_name TEXT,
+          sia_license_number TEXT,
+          sia_expiry_date TIMESTAMP,
+          action_plan TEXT,
+          evacuation_procedure TEXT,
+          lockdown_procedure TEXT,
+          communication_plan TEXT,
+          checklist_items TEXT,
+          evidence_log TEXT,
+          last_reviewed_at TIMESTAMP,
+          last_reviewed_by TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log(`✅ [024] Created martyn_law_config table`);
+    } catch (err: any) {
+      console.log(`⚠️ [024] martyn_law_config: ${err.message?.substring(0, 120)}`);
     }
   }
 };

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -33,6 +33,7 @@ export const staff = pgTable("staff", {
   manualCheckIn: boolean("manual_check_in").default(false), // Track if check-in was manual due to lost card
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  needsEvacuationAssistance: boolean("needs_evacuation_assistance").default(false).notNull(),
   // Fire Marshal emergency access
   isFireMarshal: boolean("is_fire_marshal").default(false).notNull(),
   fireMarshalUrlId: text("fire_marshal_url_id"), // Permanent static URL ID for Fire Marshal emergency access
@@ -132,6 +133,7 @@ export const visitors = pgTable("visitors", {
   isCheckedIn: boolean("is_checked_in").default(true).notNull(),
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  needsEvacuationAssistance: boolean("needs_evacuation_assistance").default(false).notNull(),
   // Induction tracking
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
   inductionCompletedAt: timestamp("induction_completed_at"),
@@ -673,6 +675,7 @@ export const contractorWorkers = pgTable("contractor_workers", {
   visitCount: integer("visit_count").default(0),
   // Emergency muster tracking
   isAccountedFor: boolean("is_accounted_for").default(false).notNull(),
+  needsEvacuationAssistance: boolean("needs_evacuation_assistance").default(false).notNull(),
   // Right to work verification  
   rightToWork: text("right_to_work_status").default("pending"), // pending, verified, expired, invalid
   rightToWorkDocumentType: text("right_to_work_document_type"), // passport, driving_licence, birth_certificate_ni, etc.
@@ -1942,3 +1945,43 @@ export const insertEmailLogSchema = createInsertSchema(emailLog).omit({
 });
 export type EmailLog = typeof emailLog.$inferSelect;
 export type InsertEmailLog = z.infer<typeof insertEmailLogSchema>;
+
+// ==============================================
+// MARTYN'S LAW (UK PROTECT DUTY) COMPLIANCE
+// ==============================================
+
+export const martynLawConfig = pgTable("martyn_law_config", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: text("customer_id").notNull().unique(),
+  // Venue details
+  venueType: text("venue_type"),
+  venueCapacity: integer("venue_capacity"),
+  isInScope: boolean("is_in_scope").default(false),
+  scopeNotes: text("scope_notes"),
+  // Designated Security Supervisor
+  supervisorName: text("supervisor_name"),
+  supervisorRole: text("supervisor_role"),
+  supervisorPhone: text("supervisor_phone"),
+  supervisorEmail: text("supervisor_email"),
+  // SIA / Security Provider
+  siaProviderName: text("sia_provider_name"),
+  siaLicenseNumber: text("sia_license_number"),
+  siaExpiryDate: timestamp("sia_expiry_date"),
+  // Terrorism Action Plan
+  actionPlan: text("action_plan"),
+  evacuationProcedure: text("evacuation_procedure"),
+  lockdownProcedure: text("lockdown_procedure"),
+  communicationPlan: text("communication_plan"),
+  // Checklist (JSON array of {id, label, completed, completedAt, notes})
+  checklistItems: text("checklist_items"),
+  // Evidence log (JSON array of {id, type, description, date, conductedBy})
+  evidenceLog: text("evidence_log"),
+  // Metadata
+  lastReviewedAt: timestamp("last_reviewed_at"),
+  lastReviewedBy: text("last_reviewed_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export type MartynLawConfig = typeof martynLawConfig.$inferSelect;
+export type InsertMartynLawConfig = typeof martynLawConfig.$inferInsert;

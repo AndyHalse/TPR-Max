@@ -15,7 +15,9 @@ import {
   RefreshCw,
   Phone,
   MapPin,
-  Clock
+  Clock,
+  Layers,
+  ChevronRight,
 } from "lucide-react";
 
 interface MusterListItem {
@@ -26,7 +28,17 @@ interface MusterListItem {
   company?: string;
   checkedInAt: string;
   location: string;
+  zoneId?: string | null;
+  zoneName?: string | null;
+  zoneColor?: string | null;
   accounted: boolean;
+  needsEvacuationAssistance?: boolean;
+}
+
+interface Zone {
+  id: string;
+  name: string;
+  color: string;
 }
 
 interface FireMarshalProps {
@@ -40,6 +52,9 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [evacuationId, setEvacuationId] = useState<string | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
+  const [activeZoneFilter, setActiveZoneFilter] = useState<string | null>(null);
+  const [marshalZoneId, setMarshalZoneId] = useState<string | null>(null);
+  const [zoneSweepMode, setZoneSweepMode] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
@@ -83,14 +98,31 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
     validateToken();
   }, [token, toast]);
 
+  // Fetch zones for this fire marshal
+  const { data: zoneData } = useQuery<{ zones: Zone[]; marshalZoneId: string | null }>({
+    queryKey: ["/api/emergency/zones", token],
+    enabled: isValidToken && !!token,
+    refetchInterval: false,
+  });
+
+  useEffect(() => {
+    if (zoneData?.marshalZoneId) {
+      setMarshalZoneId(zoneData.marshalZoneId);
+      // Auto-activate zone sweep if marshal has a zone assigned
+      setActiveZoneFilter(zoneData.marshalZoneId);
+      setZoneSweepMode(true);
+    }
+  }, [zoneData]);
+
+  const zones = zoneData?.zones || [];
+
   // WebSocket connection for real-time updates
   useEffect(() => {
     if (!isValidToken || !customerId || !evacuationId) return;
 
     const connectWebSocket = () => {
-      // Get WebSocket URL (use wss:// for HTTPS, ws:// for HTTP)
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host; // Gets hostname:port
+      const host = window.location.host;
       const wsUrl = `${protocol}//${host}/ws/muster`;
       
       console.log('Connecting to WebSocket:', wsUrl, 'Host:', host);
@@ -100,7 +132,6 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
         console.log('WebSocket connected');
         setWsConnected(true);
         
-        // Register with customer and evacuation context
         ws.send(JSON.stringify({
           type: 'register',
           customerId,
@@ -114,10 +145,8 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
           console.log('WebSocket message received:', message);
           
           if (message.type === 'muster_update') {
-            // Update the cache immediately for real-time sync
             queryClient.invalidateQueries({ queryKey: ["/api/emergency/muster", token] });
             
-            // Show toast notification for the update
             const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
             toast({
               title: "Real-time Update",
@@ -138,7 +167,6 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
         console.log('WebSocket disconnected');
         setWsConnected(false);
         
-        // Attempt to reconnect after 3 seconds
         reconnectTimeoutRef.current = setTimeout(() => {
           console.log('Attempting to reconnect WebSocket...');
           connectWebSocket();
@@ -150,7 +178,6 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
 
     connectWebSocket();
 
-    // Cleanup on unmount
     return () => {
       if (wsRef.current) {
         wsRef.current.close();
@@ -162,11 +189,11 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
     };
   }, [isValidToken, customerId, evacuationId, token, toast, queryClient]);
 
-  // Fetch muster list - reduced polling as WebSocket provides real-time updates
+  // Fetch muster list
   const { data: musterList = [], isLoading, refetch } = useQuery<MusterListItem[]>({
     queryKey: ["/api/emergency/muster", token],
     enabled: isValidToken && !!token,
-    refetchInterval: 30000, // Reduced to 30 seconds as backup (WebSocket is primary)
+    refetchInterval: 30000,
     retry: 3,
   });
 
@@ -187,7 +214,6 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
       return await response.json();
     },
     onSuccess: (data) => {
-      // WebSocket will handle the real-time update, but we still invalidate for consistency
       queryClient.invalidateQueries({ queryKey: ["/api/emergency/muster", token] });
       
       toast({
@@ -204,7 +230,30 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
     },
   });
 
-  const filteredList = musterList.filter(person => 
+  // Compute zone sweep stats
+  const zoneStats = zones.map(zone => {
+    const inZone = musterList.filter(p => p.zoneId === zone.id);
+    const accountedInZone = inZone.filter(p => p.accounted).length;
+    const isCleared = inZone.length > 0 && accountedInZone === inZone.length;
+    return {
+      ...zone,
+      total: inZone.length,
+      accounted: accountedInZone,
+      cleared: isCleared,
+    };
+  });
+
+  const unassignedPeople = musterList.filter(p => !p.zoneId);
+
+  // Apply zone filter
+  const zoneFilteredList = activeZoneFilter === '__unassigned'
+    ? unassignedPeople
+    : activeZoneFilter
+    ? musterList.filter(p => p.zoneId === activeZoneFilter)
+    : musterList;
+
+  // Apply search
+  const filteredList = zoneFilteredList.filter(person => 
     person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (person.department && person.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (person.company && person.company.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -265,6 +314,8 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
     );
   }
 
+  const hasZones = zones.length > 0;
+
   return (
     <div className="min-h-screen bg-red-600 text-white">
       {/* Mobile-optimized header */}
@@ -301,7 +352,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
         </div>
       </div>
 
-      {/* Stats cards - mobile optimized */}
+      {/* Stats cards */}
       <div className="p-4 grid grid-cols-2 gap-4">
         <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
           <Users className="mx-auto mb-2 text-white" size={24} />
@@ -316,7 +367,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
         </div>
       </div>
 
-      {/* Critical status - Only show if people unaccounted */}
+      {/* Critical status */}
       {unaccountedFor > 0 && (
         <div className="mx-4 mb-4 bg-yellow-500 text-black p-4 rounded-xl">
           <div className="flex items-center justify-center space-x-2">
@@ -328,8 +379,141 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
         </div>
       )}
 
+      {/* Zone Sweep Panel */}
+      {hasZones && (
+        <div className="px-4 mb-3">
+          <div className="bg-red-800/60 rounded-xl overflow-hidden">
+            <button
+              className="w-full flex items-center justify-between p-3 text-left"
+              onClick={() => setZoneSweepMode(!zoneSweepMode)}
+            >
+              <div className="flex items-center gap-2">
+                <Layers size={16} className="text-yellow-300" />
+                <span className="text-sm font-bold text-yellow-200">ZONE SWEEP</span>
+                <span className="text-xs text-red-300">
+                  {zoneStats.filter(z => z.cleared).length}/{zoneStats.length} zones cleared
+                </span>
+              </div>
+              <ChevronRight 
+                size={16} 
+                className={`text-red-300 transition-transform ${zoneSweepMode ? 'rotate-90' : ''}`} 
+              />
+            </button>
+
+            {zoneSweepMode && (
+              <div className="px-3 pb-3 space-y-2">
+                {/* All zones button */}
+                <button
+                  onClick={() => setActiveZoneFilter(null)}
+                  className={`w-full flex items-center justify-between p-2 rounded-lg text-sm font-medium transition-colors ${
+                    activeZoneFilter === null 
+                      ? 'bg-white text-red-800' 
+                      : 'bg-red-700/50 text-white hover:bg-red-700'
+                  }`}
+                >
+                  <span>All Zones</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs opacity-70">{accountedFor}/{totalPeople}</span>
+                    {accountedFor === totalPeople && totalPeople > 0 && (
+                      <CheckCircle size={14} className="text-green-400" />
+                    )}
+                  </div>
+                </button>
+
+                {/* Zone buttons */}
+                {zoneStats.map(zone => (
+                  <button
+                    key={zone.id}
+                    onClick={() => setActiveZoneFilter(zone.id === activeZoneFilter ? null : zone.id)}
+                    className={`w-full flex items-center justify-between p-2 rounded-lg text-sm font-medium transition-colors ${
+                      activeZoneFilter === zone.id
+                        ? 'bg-white text-red-800'
+                        : zone.cleared
+                        ? 'bg-green-700/50 text-white hover:bg-green-700/70'
+                        : 'bg-red-700/50 text-white hover:bg-red-700'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full flex-shrink-0" 
+                        style={{ backgroundColor: zone.color }}
+                      />
+                      <span>{zone.name}</span>
+                      {zone.id === marshalZoneId && (
+                        <span className="text-[10px] bg-yellow-400 text-yellow-900 px-1 rounded font-bold">MINE</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {zone.total === 0 ? (
+                        <span className="text-xs opacity-50">Empty</span>
+                      ) : (
+                        <>
+                          <span className="text-xs opacity-70">{zone.accounted}/{zone.total}</span>
+                          {zone.cleared 
+                            ? <CheckCircle size={14} className="text-green-300" />
+                            : <AlertTriangle size={14} className="text-yellow-400" />
+                          }
+                        </>
+                      )}
+                    </div>
+                  </button>
+                ))}
+
+                {/* Unassigned people */}
+                {unassignedPeople.length > 0 && (
+                  <button
+                    onClick={() => setActiveZoneFilter(activeZoneFilter === '__unassigned' ? null : '__unassigned')}
+                    className={`w-full flex items-center justify-between p-2 rounded-lg text-sm font-medium transition-colors ${
+                      activeZoneFilter === '__unassigned'
+                        ? 'bg-white text-red-800'
+                        : 'bg-red-700/50 text-white hover:bg-red-700'
+                    }`}
+                  >
+                    <span className="text-red-300">⚪ Unassigned</span>
+                    <span className="text-xs opacity-70">
+                      {unassignedPeople.filter(p => p.accounted).length}/{unassignedPeople.length}
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Zone filter active banner */}
+      {activeZoneFilter && activeZoneFilter !== '__unassigned' && (
+        <div className="mx-4 mb-3">
+          {(() => {
+            const zone = zones.find(z => z.id === activeZoneFilter);
+            if (!zone) return null;
+            const stat = zoneStats.find(z => z.id === activeZoneFilter);
+            return (
+              <div 
+                className="flex items-center justify-between px-3 py-2 rounded-lg text-sm font-bold"
+                style={{ backgroundColor: zone.color + '40', border: `2px solid ${zone.color}` }}
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: zone.color }} />
+                  <span>Viewing: {zone.name}</span>
+                </div>
+                <span className={stat?.cleared ? 'text-green-300' : 'text-yellow-300'}>
+                  {stat?.cleared ? '✅ CLEARED' : `${stat?.accounted}/${stat?.total} safe`}
+                </span>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
+      {activeZoneFilter === '__unassigned' && (
+        <div className="mx-4 mb-3 bg-red-800/60 px-3 py-2 rounded-lg text-sm font-bold text-red-300 border border-red-500">
+          Viewing: Unassigned Personnel ({unassignedPeople.length})
+        </div>
+      )}
+
       {/* Search */}
-      <div className="p-4">
+      <div className="px-4 pb-3">
         <div className="relative">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-red-300" size={20} />
           <Input
@@ -342,8 +526,13 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
         </div>
       </div>
 
-      {/* Personnel list - mobile optimized with large touch targets */}
+      {/* Personnel list */}
       <div className="px-4 pb-6 space-y-3">
+        {filteredList.length === 0 && (
+          <div className="text-center py-8 text-red-300">
+            {activeZoneFilter ? 'No personnel in this zone' : 'No personnel found'}
+          </div>
+        )}
         {filteredList.map((person) => (
           <div 
             key={person.id} 
@@ -364,13 +553,23 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                   {person.name.split(' ').map(n => n[0]).join('').toUpperCase()}
                 </div>
                 <div>
-                  <p className="font-bold text-lg text-white">{person.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-bold text-lg text-white">{person.name}</p>
+                    {person.needsEvacuationAssistance && (
+                      <span title="Requires Evacuation Assistance (PEEP)" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-200 text-purple-900 border border-purple-400">
+                        ♿ PEEP
+                      </span>
+                    )}
+                  </div>
                   <p className="text-red-200 text-sm">
                     {person.type === 'staff' ? person.department : person.company}
                   </p>
-                  <div className="flex items-center text-red-300 text-xs mt-1">
-                    <MapPin className="mr-1" size={12} />
-                    {person.location}
+                  <div className="flex items-center gap-2 text-red-300 text-xs mt-1">
+                    <MapPin size={12} />
+                    {person.zoneName 
+                      ? <span style={{ color: person.zoneColor || undefined }} className="font-medium">{person.zoneName}</span>
+                      : <span className="opacity-70">No zone assigned</span>
+                    }
                   </div>
                 </div>
               </div>
@@ -387,7 +586,6 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                   {person.type.toUpperCase()}
                 </Badge>
                 
-                {/* Large touch-friendly button */}
                 <Button
                   size="lg"
                   className={`px-6 py-3 rounded-xl font-bold text-lg min-w-[120px] ${

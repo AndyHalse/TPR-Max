@@ -90,6 +90,14 @@ import { stripeService } from "./stripeService";
 import cron from "node-cron";
 
 export async function registerRoutes(app: Express, existingServer?: Server): Promise<Server> {
+  // Apply shared-DB schema migrations (evacuations table is in the shared DB, not isolated)
+  try {
+    await db.execute(sql`ALTER TABLE evacuations ADD COLUMN IF NOT EXISTS is_drill BOOLEAN NOT NULL DEFAULT FALSE`);
+    console.log(`✅ [shared-migration] evacuations.is_drill column ensured`);
+  } catch (e: any) {
+    console.log(`⚠️ [shared-migration] evacuations.is_drill: ${String(e?.message || e).substring(0, 120)}`);
+  }
+
   app.use('/api', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     res.setHeader('Pragma', 'no-cache');
@@ -2876,6 +2884,19 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         console.log(`⚠️ MUSTER: No customerId available - accountability data will be empty`);
       }
       
+      // Build zone name lookup map for last-known-location display
+      let zoneNameMap = new Map<string, string>();
+      try {
+        const custDb = await customerDbService.getCustomerDatabase(customerId || context.customerId);
+        const zones = await custDb.select().from(isolatedSchema.evacuationZones);
+        zones.forEach((z: any) => zoneNameMap.set(z.id, z.name));
+      } catch (e) { /* no zones configured */ }
+
+      const resolveLocation = (zoneId: string | null | undefined): string => {
+        if (zoneId && zoneNameMap.has(zoneId)) return zoneNameMap.get(zoneId)!;
+        return zoneId ? `Zone ${zoneId}` : 'Not specified';
+      };
+
       const musterList = [
         ...checkedInStaff.map(staff => ({
           id: staff.id,
@@ -2883,9 +2904,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           type: 'staff' as const,
           department: staff.department,
           checkedInAt: staff.checkedInAt || staff.createdAt,
-          location: 'Building A',
+          location: resolveLocation((staff as any).zoneId),
           accounted: accountabilityMap.get(staff.id) ?? false,
           zoneId: (staff as any).zoneId || null,
+          needsEvacuationAssistance: (staff as any).needsEvacuationAssistance ?? false,
         })),
         ...currentVisitors.map(visitor => ({
           id: visitor.id,
@@ -2893,9 +2915,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           type: 'visitor' as const,
           company: visitor.company,
           checkedInAt: visitor.checkedInAt,
-          location: 'Building A', 
+          location: resolveLocation((visitor as any).zoneId),
           accounted: accountabilityMap.get(visitor.id) ?? false,
           zoneId: (visitor as any).zoneId || null,
+          needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance ?? false,
         })),
         ...checkedInContractors.map(contractor => ({
           id: contractor.id,
@@ -2903,9 +2926,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           type: 'contractor' as const,
           company: contractor.companyName || contractor.company,
           checkedInAt: contractor.checkedInAt || contractor.createdAt,
-          location: 'Site',
+          location: resolveLocation((contractor as any).zoneId),
           accounted: accountabilityMap.get(contractor.id) ?? false,
           zoneId: (contractor as any).zoneId || null,
+          needsEvacuationAssistance: (contractor as any).needsEvacuationAssistance ?? false,
         })),
         ...checkedInMembers.map(member => ({
           id: member.id,
@@ -2914,9 +2938,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           company: null,
           department: member.membershipType || 'Member',
           checkedInAt: member.checkedInAt || member.createdAt,
-          location: 'Building A',
+          location: resolveLocation((member as any).zoneId),
           accounted: accountabilityMap.get(member.id) ?? false,
           zoneId: (member as any).zoneId || null,
+          needsEvacuationAssistance: false,
         }))
       ];
       
@@ -3124,7 +3149,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   app.post("/api/emergency/activate", requireAuth, async (req, res) => {
     try {
       const activatedBy = req.user?.username || 'System Administrator';
-      const { selectedZones } = req.body || {};
+      const { selectedZones, isDrill } = req.body || {};
+      const drillMode = isDrill === true;
       const zoneFilter = Array.isArray(selectedZones) && selectedZones.length > 0 ? new Set(selectedZones) : null;
       
       // Get customer context using authenticated session customerId
@@ -3238,6 +3264,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         evacuationId,
         status: 'active',
         activatedBy,
+        isDrill: drillMode,
         totalPeopleOnSite: checkedInStaff.length + currentVisitors.length + checkedInContractors.length + checkedInMembers.length,
         totalAccountedFor: 0,
         musterPoints
@@ -3306,9 +3333,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         contractors: filteredContractors.length,
         members: filteredMembers.length,
         musterPoints,
-        message: zoneFilter 
-          ? '🚨 ZONE EVACUATION IN PROGRESS. Personnel in affected zones must proceed to the nearest muster point immediately.'
-          : '🚨 EMERGENCY EVACUATION IN PROGRESS. Please proceed to your nearest muster point immediately.',
+        isDrill: drillMode,
+        message: drillMode
+          ? '🔶 [FIRE DRILL] This is a scheduled fire drill. Please proceed to your nearest muster point as you would in a real emergency.'
+          : zoneFilter 
+            ? '🚨 ZONE EVACUATION IN PROGRESS. Personnel in affected zones must proceed to the nearest muster point immediately.'
+            : '🚨 EMERGENCY EVACUATION IN PROGRESS. Please proceed to your nearest muster point immediately.',
         notificationsSent: 0,
         activatedBy
       };
@@ -3583,6 +3613,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           active: true,
           evacuationId: evacuation.evacuationId,
           startedAt: evacuation.startedAt.toISOString(),
+          isDrill: evacuation.isDrill || false,
           customerId
         });
       } else {
@@ -3634,7 +3665,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         res.json({ 
           active: true,
           evacuationId: evacuation.evacuationId,
-          startedAt: evacuation.startedAt.toISOString()
+          startedAt: evacuation.startedAt.toISOString(),
+          isDrill: evacuation.isDrill || false
         });
       } else {
         res.json({ 
@@ -4106,7 +4138,101 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
-  // Complete evacuation with optional checkout - supports both emergency token and Fire Marshal URL ID
+  // Send nudge emails to unaccounted personnel during an active emergency
+  app.post("/api/emergency/nudge-unaccounted", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      // Get active evacuation
+      const activeEvacs = await db
+        .select()
+        .from(evacuations)
+        .where(and(eq(evacuations.status, 'active'), eq(evacuations.customerId, customerId)))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+
+      if (!activeEvacs.length) {
+        return res.status(400).json({ error: "No active evacuation" });
+      }
+
+      const evac = activeEvacs[0];
+      const evacuationId = evac.evacuationId;
+      const isDrill = (evac as any).isDrill || false;
+
+      const companySettings = await databaseService.getCompanySettings(context);
+      const customEmailService = new EmailService(companySettings);
+
+      // Build accountability map from DB
+      const accountabilityRecords = await db
+        .select()
+        .from(evacuationAccountability)
+        .where(and(
+          eq(evacuationAccountability.evacuationId, evacuationId),
+          eq(evacuationAccountability.customerId, customerId)
+        ));
+      const accountabilityMap = new Map<string, boolean>();
+      accountabilityRecords.forEach((r: any) => accountabilityMap.set(r.personId, r.isAccountedFor));
+
+      const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
+        databaseService.getCurrentVisitors(context),
+        databaseService.getCheckedInStaff(context),
+        databaseService.getCheckedInContractors(context),
+      ]);
+
+      const nudgeMsg = isDrill
+        ? 'FIRE DRILL: You have not yet been accounted for. Please proceed to the muster point and confirm you are safe.'
+        : 'You have not yet been accounted for at the muster point. Please proceed there immediately and confirm you are safe.';
+
+      let nudgesSent = 0;
+      let nudgesSkipped = 0;
+      const errors: string[] = [];
+
+      // Helper to nudge one person
+      const nudgePerson = async (
+        id: string,
+        firstName: string,
+        lastName: string,
+        email: string | null | undefined,
+        personType: 'staff' | 'visitor' | 'contractor'
+      ) => {
+        const accounted = accountabilityMap.get(id) ?? false;
+        if (accounted || !email) {
+          nudgesSkipped++;
+          return;
+        }
+        try {
+          const safetyToken = await generateSafetyToken(custDb, customerId, evacuationId, id, personType, `${firstName} ${lastName}`, email);
+          await customEmailService.sendEvacuationAlert(email, `${firstName} ${lastName}`, nudgeMsg, companySettings!, safetyToken);
+          nudgesSent++;
+        } catch (e: any) {
+          errors.push(`${personType} ${firstName} ${lastName}: ${e.message}`);
+        }
+      };
+
+      for (const s of checkedInStaff) {
+        await nudgePerson(s.id, s.firstName, s.lastName, (s as any).email, 'staff');
+      }
+      for (const v of currentVisitors) {
+        await nudgePerson(v.id, v.firstName, v.lastName, v.email, 'visitor');
+      }
+      for (const c of checkedInContractors) {
+        await nudgePerson(c.id, c.firstName, c.lastName, (c as any).email, 'contractor');
+      }
+
+      console.log(`📧 NUDGE UNACCOUNTED: Sent ${nudgesSent} nudge emails, ${nudgesSkipped} already safe or no email`);
+      res.json({ sent: nudgesSent, skipped: nudgesSkipped, errors });
+    } catch (error) {
+      console.error("Error sending nudge emails:", error);
+      res.status(500).json({ error: "Failed to send nudge emails" });
+    }
+  });
+
   app.post("/api/emergency/complete-evacuation", async (req, res) => {
     try {
       let validatedStaff: any = null;
@@ -4252,6 +4378,286 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     } catch (error) {
       console.error("❌ Error completing evacuation:", error);
       res.status(500).json({ error: "Failed to complete evacuation" });
+    }
+  });
+
+  // ==============================================
+  // EMERGENCY INCIDENT REPORT PDF ENDPOINT
+  // ==============================================
+
+  // Generate post-event incident report for a completed (or active) evacuation
+  app.get("/api/emergency/incident-report/:evacuationId", requireAuth, async (req, res) => {
+    try {
+      const { evacuationId } = req.params;
+      const customerId = req.session.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Fetch the evacuation record
+      const evacRecords = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.evacuationId, evacuationId),
+          eq(evacuations.customerId, customerId)
+        ))
+        .limit(1);
+
+      if (evacRecords.length === 0) {
+        return res.status(404).json({ error: "Evacuation not found" });
+      }
+      const evac = evacRecords[0];
+
+      // Fetch accountability records
+      const accountability = await db
+        .select()
+        .from(evacuationAccountability)
+        .where(and(
+          eq(evacuationAccountability.evacuationId, evacuationId),
+          eq(evacuationAccountability.customerId, customerId)
+        ));
+
+      // Fetch company settings for branding
+      const context = { customerId };
+      const companySettings = await simpleDatabaseService.getCompanySettings(context);
+
+      const accounted = accountability.filter(p => p.isAccountedFor);
+      const unaccounted = accountability.filter(p => !p.isAccountedFor);
+      const staffPeople = accountability.filter(p => p.personType === 'staff');
+      const visitorPeople = accountability.filter(p => p.personType === 'visitor');
+      const contractorPeople = accountability.filter(p => p.personType === 'contractor');
+      const memberPeople = accountability.filter(p => p.personType === 'member');
+
+      const startedAt = evac.startedAt ? new Date(evac.startedAt) : new Date();
+      const completedAt = evac.completedAt ? new Date(evac.completedAt) : null;
+      const durationMs = completedAt ? completedAt.getTime() - startedAt.getTime() : null;
+      const durationStr = durationMs !== null
+        ? `${Math.floor(durationMs / 60000)}m ${Math.round((durationMs % 60000) / 1000)}s`
+        : 'Ongoing';
+
+      const companyName = companySettings?.companyName || 'Company';
+      const drillLabel = evac.isDrill ? ' [FIRE DRILL]' : '';
+      const reportTitle = `Evacuation Incident Report${drillLabel}`;
+      const formatDate = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const formatTime = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      // Build HTML report
+      const personRows = (people: typeof accountability) =>
+        people.map(p => `
+          <tr style="border-bottom:1px solid #e5e7eb;">
+            <td style="padding:6px 8px;">${p.personName}</td>
+            <td style="padding:6px 8px; text-transform:capitalize;">${p.personType}</td>
+            <td style="padding:6px 8px;">${p.department || p.company || '—'}</td>
+            <td style="padding:6px 8px; text-align:center;">
+              ${p.isAccountedFor
+                ? `<span style="color:#16a34a; font-weight:bold;">✓ Accounted</span>${p.accountedBy ? `<br><small style="color:#666;">${p.accountedBy}</small>` : ''}`
+                : `<span style="color:#dc2626; font-weight:bold;">✗ Missing</span>`
+              }
+            </td>
+            <td style="padding:6px 8px;">${p.accountedAt ? formatTime(new Date(p.accountedAt)) : '—'}</td>
+          </tr>`).join('');
+
+      const accentColor = companySettings?.accentColor || '#2460a9';
+      const html = `<!DOCTYPE html><html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${reportTitle}</title>
+<style>
+  body { font-family: Arial, sans-serif; color: #111; margin: 0; padding: 24px; }
+  h1 { color: ${accentColor}; margin:0; }
+  h2 { color: ${accentColor}; margin: 24px 0 8px; font-size:16px; border-bottom: 2px solid ${accentColor}; padding-bottom:4px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { background:${accentColor}; color:white; padding:8px; text-align:left; }
+  .stat-box { display:inline-block; background:#f3f4f6; border-radius:8px; padding:12px 20px; margin:4px 8px 4px 0; min-width:100px; text-align:center; }
+  .stat-num { font-size:28px; font-weight:bold; color:${accentColor}; }
+  .stat-label { font-size:11px; color:#555; }
+  .drill-banner { background:#fef3c7; border:2px solid #d97706; border-radius:8px; padding:12px 20px; margin-bottom:16px; text-align:center; color:#92400e; font-weight:bold; font-size:16px; }
+  .header-row { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${accentColor}; padding-bottom:16px; margin-bottom:16px; }
+  .kv { margin:4px 0; font-size:13px; } .kv strong { display:inline-block; min-width:160px; }
+  @media print { body { margin:0; padding:12px; } }
+</style>
+</head>
+<body>
+<div class="header-row">
+  <div>
+    <h1>${reportTitle}</h1>
+    <p style="margin:4px 0 0; color:#555; font-size:13px;">Reference: ${evacuationId}</p>
+  </div>
+  <div style="text-align:right; font-size:13px; color:#555;">
+    <strong>${companyName}</strong><br>
+    Generated: ${formatDate(new Date())} ${formatTime(new Date())}
+  </div>
+</div>
+
+${evac.isDrill ? '<div class="drill-banner">🔶 FIRE DRILL — This event was a scheduled drill and was NOT a real emergency.</div>' : ''}
+
+<h2>Event Summary</h2>
+<div class="kv"><strong>Type:</strong> ${evac.isDrill ? 'Fire Drill' : 'Emergency Evacuation'}</div>
+<div class="kv"><strong>Activated by:</strong> ${evac.activatedBy}</div>
+<div class="kv"><strong>Start time:</strong> ${formatDate(startedAt)} at ${formatTime(startedAt)}</div>
+<div class="kv"><strong>End time:</strong> ${completedAt ? `${formatDate(completedAt)} at ${formatTime(completedAt)}` : 'Still active'}</div>
+<div class="kv"><strong>Duration:</strong> ${durationStr}</div>
+<div class="kv"><strong>Status:</strong> ${evac.status === 'completed' ? 'Completed' : 'Active'}</div>
+<div class="kv"><strong>Muster points:</strong> ${(evac.musterPoints || []).join(', ') || '—'}</div>
+
+<h2>Accountability Statistics</h2>
+<div>
+  <div class="stat-box"><div class="stat-num">${accountability.length}</div><div class="stat-label">Total On-Site</div></div>
+  <div class="stat-box"><div class="stat-num" style="color:#16a34a;">${accounted.length}</div><div class="stat-label">Accounted For</div></div>
+  <div class="stat-box"><div class="stat-num" style="color:#dc2626;">${unaccounted.length}</div><div class="stat-label">Unaccounted</div></div>
+  <div class="stat-box"><div class="stat-num">${accountability.length > 0 ? Math.round((accounted.length / accountability.length) * 100) : 0}%</div><div class="stat-label">Completion Rate</div></div>
+</div>
+<div style="margin-top:12px;">
+  <div class="stat-box"><div class="stat-num">${staffPeople.length}</div><div class="stat-label">Staff</div></div>
+  <div class="stat-box"><div class="stat-num">${visitorPeople.length}</div><div class="stat-label">Visitors</div></div>
+  <div class="stat-box"><div class="stat-num">${contractorPeople.length}</div><div class="stat-label">Contractors</div></div>
+  ${memberPeople.length > 0 ? `<div class="stat-box"><div class="stat-num">${memberPeople.length}</div><div class="stat-label">Members</div></div>` : ''}
+</div>
+
+${unaccounted.length > 0 ? `
+<h2 style="color:#dc2626;">⚠ Unaccounted Personnel (${unaccounted.length})</h2>
+<table>
+  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Status</th><th>Accounted At</th></tr>
+  ${personRows(unaccounted)}
+</table>` : '<h2 style="color:#16a34a;">✓ All Personnel Accounted For</h2>'}
+
+<h2>Full Personnel Register</h2>
+<table>
+  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Status</th><th>Accounted At</th></tr>
+  ${personRows(accountability)}
+</table>
+
+<div style="margin-top:32px; padding-top:16px; border-top:1px solid #e5e7eb; font-size:11px; color:#888; text-align:center;">
+  This report was generated by TPR Max Visitor Management System for ${companyName}.<br>
+  Report ID: ${evacuationId} | Generated: ${new Date().toISOString()}
+</div>
+</body></html>`;
+
+      // Return as HTML — browser can print-to-PDF
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Content-Disposition', `inline; filename="incident-report-${evacuationId}.html"`);
+      res.send(html);
+    } catch (error) {
+      console.error("Error generating incident report:", error);
+      res.status(500).json({ error: "Failed to generate incident report" });
+    }
+  });
+
+  // Read-only incident monitor endpoint (public, no auth required — evacuationId + customerId act as token)
+  app.get("/api/emergency/monitor/:evacuationId", async (req, res) => {
+    try {
+      const { evacuationId } = req.params;
+      const customerId = (req.query.customerId as string) || req.session?.customerId;
+      if (!customerId || !evacuationId) {
+        return res.status(400).json({ error: "Missing evacuationId or customerId" });
+      }
+
+      // Fetch the evacuation from shared DB
+      const evacRecords = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.evacuationId, evacuationId),
+          eq(evacuations.customerId, customerId)
+        ))
+        .limit(1);
+
+      if (!evacRecords.length) {
+        return res.status(404).json({ error: "Evacuation not found" });
+      }
+      const evac = evacRecords[0];
+
+      // Get customer context and data
+      const context = { customerId, username: 'monitor' } as any;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const settings = await databaseService.getCompanySettings(context);
+
+      const [currentVisitors, checkedInStaff, contractorCompanies, zones] = await Promise.all([
+        databaseService.getCurrentVisitors(context),
+        databaseService.getCheckedInStaff(context),
+        databaseService.getAllContractorCompanies(context),
+        custDb.select().from(isolatedSchema.evacuationZones).orderBy(isolatedSchema.evacuationZones.displayOrder),
+      ]);
+
+      const zoneMap = new Map(zones.map(z => [z.id, { id: z.id, name: z.name, color: z.color }]));
+
+      let checkedInContractors: any[] = [];
+      for (const company of contractorCompanies) {
+        const workers = await databaseService.getWorkersByCompanyId(context, company.id);
+        checkedInContractors.push(
+          ...workers.filter(w => w.isCheckedIn).map(w => ({
+            id: w.id,
+            name: `${w.firstName} ${w.lastName}`,
+            type: 'contractor' as const,
+            company: company.name,
+            location: w.zoneId ? (zoneMap.get(w.zoneId)?.name || 'Unknown') : 'Unassigned',
+            zoneId: w.zoneId || null,
+            zoneName: w.zoneId ? zoneMap.get(w.zoneId)?.name || null : null,
+            zoneColor: w.zoneId ? zoneMap.get(w.zoneId)?.color || null : null,
+            accounted: w.isAccountedFor || false,
+            needsEvacuationAssistance: (w as any).needsEvacuationAssistance || false,
+          }))
+        );
+      }
+
+      const allPersonnel = [
+        ...checkedInStaff.map(s => ({
+          id: s.id,
+          name: `${s.firstName} ${s.lastName}`,
+          type: 'staff' as const,
+          department: s.department,
+          location: (s as any).zoneId ? (zoneMap.get((s as any).zoneId)?.name || 'Unknown') : 'Unassigned',
+          zoneId: (s as any).zoneId || null,
+          zoneName: (s as any).zoneId ? zoneMap.get((s as any).zoneId)?.name || null : null,
+          zoneColor: (s as any).zoneId ? zoneMap.get((s as any).zoneId)?.color || null : null,
+          accounted: s.isAccountedFor || false,
+          needsEvacuationAssistance: (s as any).needsEvacuationAssistance || false,
+        })),
+        ...currentVisitors.map(v => ({
+          id: v.id,
+          name: `${v.firstName} ${v.lastName}`,
+          type: 'visitor' as const,
+          company: v.company,
+          location: (v as any).zoneId ? (zoneMap.get((v as any).zoneId)?.name || 'Unknown') : 'Unassigned',
+          zoneId: (v as any).zoneId || null,
+          zoneName: (v as any).zoneId ? zoneMap.get((v as any).zoneId)?.name || null : null,
+          zoneColor: (v as any).zoneId ? zoneMap.get((v as any).zoneId)?.color || null : null,
+          accounted: v.isAccountedFor || false,
+          needsEvacuationAssistance: false,
+        })),
+        ...checkedInContractors,
+      ];
+
+      const accountedFor = allPersonnel.filter(p => p.accounted).length;
+
+      const zoneStats = zones.map(z => {
+        const inZone = allPersonnel.filter(p => p.zoneId === z.id);
+        return {
+          id: z.id,
+          name: z.name,
+          color: z.color,
+          total: inZone.length,
+          accounted: inZone.filter(p => p.accounted).length,
+        };
+      });
+
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json({
+        evacuationId,
+        customerId,
+        companyName: settings?.companyName || 'Unknown Company',
+        status: evac.status,
+        startedAt: evac.startedAt,
+        isDrill: (evac as any).isDrill || false,
+        totalPersonnel: allPersonnel.length,
+        accountedFor,
+        personnel: allPersonnel,
+        zones: zoneStats,
+      });
+    } catch (error) {
+      console.error("Error fetching monitor data:", error);
+      res.status(500).json({ error: "Failed to fetch monitor data" });
     }
   });
 
@@ -5130,12 +5536,18 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(401).json({ error: "Invalid or expired emergency token" });
       }
       
-      const [currentVisitors, checkedInStaff, contractorCompanies] = await Promise.all([
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      
+      const [currentVisitors, checkedInStaff, contractorCompanies, zones] = await Promise.all([
         databaseService.getCurrentVisitors(context),
         databaseService.getCheckedInStaff(context),
         databaseService.getAllContractorCompanies(context),
+        custDb.select().from(isolatedSchema.evacuationZones).orderBy(isolatedSchema.evacuationZones.displayOrder),
       ]);
-      
+
+      // Build zone lookup map
+      const zoneMap = new Map(zones.map(z => [z.id, { id: z.id, name: z.name, color: z.color }]));
+
       // Get all checked-in contractors
       let checkedInContractors: any[] = [];
       for (const company of contractorCompanies) {
@@ -5149,8 +5561,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               type: 'contractor' as const,
               company: company.name,
               checkedInAt: worker.checkedInAt || worker.createdAt,
-              location: 'Building A',
-              accounted: worker.isAccountedFor || false
+              location: worker.zoneId ? (zoneMap.get(worker.zoneId)?.name || 'Zone ' + worker.zoneId) : 'Unassigned',
+              zoneId: worker.zoneId || null,
+              zoneName: worker.zoneId ? (zoneMap.get(worker.zoneId)?.name || null) : null,
+              zoneColor: worker.zoneId ? (zoneMap.get(worker.zoneId)?.color || null) : null,
+              accounted: worker.isAccountedFor || false,
+              needsEvacuationAssistance: (worker as any).needsEvacuationAssistance || false,
             }))
         );
       }
@@ -5162,8 +5578,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           type: 'staff' as const,
           department: staff.department,
           checkedInAt: staff.checkedInAt || staff.createdAt,
-          location: 'Building A',
-          accounted: staff.isAccountedFor || false
+          location: (staff as any).zoneId ? (zoneMap.get((staff as any).zoneId)?.name || 'Zone ' + (staff as any).zoneId) : 'Unassigned',
+          zoneId: (staff as any).zoneId || null,
+          zoneName: (staff as any).zoneId ? (zoneMap.get((staff as any).zoneId)?.name || null) : null,
+          zoneColor: (staff as any).zoneId ? (zoneMap.get((staff as any).zoneId)?.color || null) : null,
+          accounted: staff.isAccountedFor || false,
+          needsEvacuationAssistance: (staff as any).needsEvacuationAssistance || false,
         })),
         ...currentVisitors.map(visitor => ({
           id: visitor.id,
@@ -5171,8 +5591,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           type: 'visitor' as const,
           company: visitor.company,
           checkedInAt: visitor.checkedInAt,
-          location: 'Building A', 
-          accounted: visitor.isAccountedFor || false
+          location: (visitor as any).zoneId ? (zoneMap.get((visitor as any).zoneId)?.name || 'Zone ' + (visitor as any).zoneId) : 'Unassigned',
+          zoneId: (visitor as any).zoneId || null,
+          zoneName: (visitor as any).zoneId ? (zoneMap.get((visitor as any).zoneId)?.name || null) : null,
+          zoneColor: (visitor as any).zoneId ? (zoneMap.get((visitor as any).zoneId)?.color || null) : null,
+          accounted: visitor.isAccountedFor || false,
+          needsEvacuationAssistance: false,
         })),
         ...checkedInContractors
       ];
@@ -5186,6 +5610,32 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     } catch (error) {
       console.error("Failed to fetch emergency muster list:", error);
       res.status(500).json({ error: "Failed to fetch emergency muster list" });
+    }
+  });
+
+  // Get zones for fire marshal (token-based, no auth required)
+  app.get("/api/emergency/zones/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const username = req.user?.username || 'system';
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const marshal = await databaseService.validateEmergencyToken(context, token);
+      if (!marshal) {
+        return res.status(401).json({ error: "Invalid or expired emergency token" });
+      }
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const zones = await custDb
+        .select()
+        .from(isolatedSchema.evacuationZones)
+        .where(eq(isolatedSchema.evacuationZones.isActive, true))
+        .orderBy(isolatedSchema.evacuationZones.displayOrder);
+      // Also return the marshal's assigned zone
+      const marshalZoneId = (marshal as any).zoneId || null;
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json({ zones, marshalZoneId });
+    } catch (error) {
+      console.error("Failed to fetch zones for fire marshal:", error);
+      res.status(500).json({ error: "Failed to fetch zones" });
     }
   });
   
@@ -10204,6 +10654,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         console.log(`🔄 Mapped manualHandling: ${uiData.manualHandling} → manualHandling: ${mappedData.manualHandling}`);
       }
 
+      // needsEvacuationAssistance (PEEP flag): direct boolean passthrough
+      if (uiData.needsEvacuationAssistance !== undefined) {
+        mappedData.needsEvacuationAssistance = Boolean(uiData.needsEvacuationAssistance);
+        console.log(`🔄 Mapped needsEvacuationAssistance: ${uiData.needsEvacuationAssistance} → ${mappedData.needsEvacuationAssistance}`);
+      }
+
       // Boolean fields that can be passed through directly (only include fields that exist in database schema)
       const booleanFields = ['workingAtHeight', 'isCheckedIn', 'hsRulesAccepted'];
       booleanFields.forEach(field => {
@@ -10250,6 +10706,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       if (mappedData.transportMethod !== undefined) {
         validatedData.transportMethod = mappedData.transportMethod;
         console.log(`🔧 MANUAL FIX: Preserved transportMethod: ${validatedData.transportMethod}`);
+      }
+
+      if (mappedData.needsEvacuationAssistance !== undefined) {
+        (validatedData as any).needsEvacuationAssistance = mappedData.needsEvacuationAssistance;
+        console.log(`🔧 MANUAL FIX: Preserved needsEvacuationAssistance: ${mappedData.needsEvacuationAssistance}`);
       }
 
       // MANUAL FIX: Preserve phone/phoneNumber — Zod strips 'phoneNumber' because shared schema uses 'phone'
@@ -22663,6 +23124,88 @@ This is an automated notification from your visitor management system.`;
         error: 'Diagnostics failed', 
         details: error.message 
       });
+    }
+  });
+
+  // =========================================
+  // MARTYN'S LAW (UK PROTECT DUTY) ENDPOINTS
+  // =========================================
+
+  app.get("/api/martyn-law", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const rows = await custDb.select().from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
+      if (!rows.length) {
+        return res.json(null);
+      }
+      const row = rows[0];
+      res.json({
+        ...row,
+        checklistItems: row.checklistItems ? JSON.parse(row.checklistItems) : null,
+        evidenceLog: row.evidenceLog ? JSON.parse(row.evidenceLog) : null,
+      });
+    } catch (error: any) {
+      console.error("GET /api/martyn-law error:", error);
+      res.status(500).json({ error: "Failed to load Martyn's Law config" });
+    }
+  });
+
+  app.put("/api/martyn-law", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const {
+        venueType, venueCapacity, isInScope, scopeNotes,
+        supervisorName, supervisorRole, supervisorPhone, supervisorEmail,
+        siaProviderName, siaLicenseNumber, siaExpiryDate,
+        actionPlan, evacuationProcedure, lockdownProcedure, communicationPlan,
+        checklistItems, evidenceLog,
+        lastReviewedBy,
+      } = req.body;
+
+      const updateData: any = {
+        venueType: venueType ?? null,
+        venueCapacity: venueCapacity ?? null,
+        isInScope: isInScope ?? false,
+        scopeNotes: scopeNotes ?? null,
+        supervisorName: supervisorName ?? null,
+        supervisorRole: supervisorRole ?? null,
+        supervisorPhone: supervisorPhone ?? null,
+        supervisorEmail: supervisorEmail ?? null,
+        siaProviderName: siaProviderName ?? null,
+        siaLicenseNumber: siaLicenseNumber ?? null,
+        siaExpiryDate: siaExpiryDate ? new Date(siaExpiryDate) : null,
+        actionPlan: actionPlan ?? null,
+        evacuationProcedure: evacuationProcedure ?? null,
+        lockdownProcedure: lockdownProcedure ?? null,
+        communicationPlan: communicationPlan ?? null,
+        checklistItems: checklistItems ? JSON.stringify(checklistItems) : null,
+        evidenceLog: evidenceLog ? JSON.stringify(evidenceLog) : null,
+        lastReviewedAt: lastReviewedBy ? new Date() : undefined,
+        lastReviewedBy: lastReviewedBy ?? null,
+        updatedAt: new Date(),
+      };
+
+      const existing = await custDb.select({ id: isolatedSchema.martynLawConfig.id }).from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
+      let result: any;
+      if (existing.length) {
+        const updated = await custDb.update(isolatedSchema.martynLawConfig).set(updateData).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).returning();
+        result = updated[0];
+      } else {
+        const inserted = await custDb.insert(isolatedSchema.martynLawConfig).values({ ...updateData, customerId }).returning();
+        result = inserted[0];
+      }
+
+      res.json({
+        ...result,
+        checklistItems: result.checklistItems ? JSON.parse(result.checklistItems) : null,
+        evidenceLog: result.evidenceLog ? JSON.parse(result.evidenceLog) : null,
+      });
+    } catch (error: any) {
+      console.error("PUT /api/martyn-law error:", error);
+      res.status(500).json({ error: "Failed to save Martyn's Law config" });
     }
   });
 

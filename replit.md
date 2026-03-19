@@ -34,6 +34,11 @@ Preferred communication style: Simple, everyday language.
 - **Daily Reset / End of Day System**: Multi-tenant aware system using `node-cron` for automatic checkout of on-site personnel based on configurable schedules, including grace periods and notifications.
 - **Email Outbox System**: Customer-isolated log of all system-sent emails, viewable by administrators with search/filter capabilities and HTML previews.
 - **Zone-Based Evacuation**: Supports up to 16 configurable evacuation zones per customer with interactive floor plan placement, zone-filtered emergency alerts, and zone assignment during check-in.
+- **Drill Mode**: Evacuation drills are clearly marked amber in the UI and in emails. Post-drill Incident Report PDF download. `is_drill` column in shared `evacuations` table.
+- **Zone Sweep Mode**: Fire Marshal muster page has collapsible zone sweep panel, zone filter tabs, "MINE" badge for own zone, cleared/pending indicators.
+- **Incident Monitor**: Read-only shareable link (`/monitor/{evacuationId}?customer={id}`) for senior management to view live evacuation stats without authentication. Purple "Monitor Link" button in EmergencyMuster.
+- **Nudge Unaccounted**: During an active emergency, admin can send reminder emails to all unaccounted personnel via "Nudge Unaccounted" button. Emails include a self-confirm mark-safe link.
+- **Martyn's Law (UK Protect Duty)**: Dedicated compliance section at `/martyn-law` with 4 tabs: Venue & Scope, 12-item UK compliance Checklist, Security Plan (terrorism action plan / lockdown / evacuation / comms), and an Evidence Log (training/drills). Customer-isolated storage in `martyn_law_config` table (migration #024). Navigation link added to sidebar.
 
 ## External Dependencies
 - **@tanstack/react-query**: For server state management.
