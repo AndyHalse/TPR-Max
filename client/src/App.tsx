@@ -28,6 +28,7 @@ import FireMarshalPanel from "@/pages/FireMarshalPanel";
 import FireMarshalMobile from "@/pages/FireMarshalMobile";
 import IncidentMonitor from "@/pages/IncidentMonitor";
 import MartynLaw from "@/pages/MartynLaw";
+import IncidentReports from "@/pages/IncidentReports";
 import InductionSettings from "@/pages/InductionSettings";
 import EmailOutbox from "@/pages/EmailOutbox";
 import MeetingRooms from "@/pages/MeetingRooms";
@@ -332,6 +333,7 @@ function Router() {
             <Route path="/contractors/:id" component={ContractorDetails} />
             <Route path="/checkin" component={VisitorCheckIn} />
             <Route path="/muster" component={EmergencyMuster} />
+            <Route path="/incident-reports" component={IncidentReports} />
             <Route path="/martyn-law" component={MartynLaw} />
             <Route path="/fire-marshal-panel" component={FireMarshalPanel} />
             <Route path="/fire-marshal-mobile" component={FireMarshalMobile} />

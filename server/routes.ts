@@ -4361,6 +4361,48 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
       console.log(`✅ Evacuation completed - Mode: ${checkOutMode}, Checked out: ${checkedOutCount} people`);
 
+      // Auto-save incident report record for this completed evacuation
+      try {
+        const completedEvacs = await db
+          .select()
+          .from(evacuations)
+          .where(eq(evacuations.evacuationId, evacuationId))
+          .limit(1);
+        const completedEvac = completedEvacs[0];
+        const allAccountability = await db
+          .select()
+          .from(evacuationAccountability)
+          .where(and(
+            eq(evacuationAccountability.evacuationId, evacuationId),
+            eq(evacuationAccountability.customerId, customerId)
+          ));
+        const accountedCt = allAccountability.filter(p => p.isAccountedFor).length;
+        const totalCt = allAccountability.length;
+        const unaccountedCt = totalCt - accountedCt;
+        const pct = totalCt > 0 ? Math.round((accountedCt / totalCt) * 100) : 0;
+        const startMs = completedEvac?.startedAt ? new Date(completedEvac.startedAt).getTime() : 0;
+        const endMs = new Date().getTime();
+        const durSec = startMs ? Math.round((endMs - startMs) / 1000) : null;
+        const custDb = await customerDbService.getCustomerDatabase(customerId);
+        await custDb.insert(isolatedSchema.incidentReports).values({
+          evacuationId,
+          customerId,
+          isDrill: completedEvac?.isDrill || false,
+          activatedBy: completedEvac?.activatedBy || null,
+          startedAt: completedEvac?.startedAt ? new Date(completedEvac.startedAt) : null,
+          completedAt: new Date(),
+          durationSeconds: durSec,
+          totalOnSite: totalCt,
+          accountedFor: accountedCt,
+          unaccounted: unaccountedCt,
+          completionPct: pct,
+          generatedAt: new Date(),
+        });
+        console.log(`📄 Incident report record saved for evacuation ${evacuationId}`);
+      } catch (reportErr: any) {
+        console.error(`⚠️ Failed to save incident report record: ${reportErr.message}`);
+      }
+
       res.json({
         success: true,
         message: checkOutMode === 'check_out_all' 
@@ -4541,6 +4583,24 @@ ${unaccounted.length > 0 ? `
     } catch (error) {
       console.error("Error generating incident report:", error);
       res.status(500).json({ error: "Failed to generate incident report" });
+    }
+  });
+
+  // List all saved incident reports for the authenticated customer
+  app.get("/api/emergency/incident-reports", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "Not authenticated" });
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const reports = await custDb
+        .select()
+        .from(isolatedSchema.incidentReports)
+        .where(eq(isolatedSchema.incidentReports.customerId, customerId))
+        .orderBy(desc(isolatedSchema.incidentReports.generatedAt));
+      res.json(reports);
+    } catch (error) {
+      console.error("Error fetching incident reports:", error);
+      res.status(500).json({ error: "Failed to fetch incident reports" });
     }
   });
 

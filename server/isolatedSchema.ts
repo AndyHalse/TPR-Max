@@ -1984,4 +1984,25 @@ export const martynLawConfig = pgTable("martyn_law_config", {
 });
 
 export type MartynLawConfig = typeof martynLawConfig.$inferSelect;
+
+// =====================================================
+// INCIDENT REPORTS (per-customer, isolated schema)
+// =====================================================
+export const incidentReports = pgTable("incident_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  evacuationId: text("evacuation_id").notNull(),
+  customerId: text("customer_id").notNull(),
+  isDrill: boolean("is_drill").notNull().default(false),
+  activatedBy: text("activated_by"),
+  startedAt: timestamp("started_at"),
+  completedAt: timestamp("completed_at"),
+  durationSeconds: integer("duration_seconds"),
+  totalOnSite: integer("total_on_site").notNull().default(0),
+  accountedFor: integer("accounted_for").notNull().default(0),
+  unaccounted: integer("unaccounted").notNull().default(0),
+  completionPct: integer("completion_pct").notNull().default(0),
+  generatedAt: timestamp("generated_at").defaultNow(),
+});
+
+export type IncidentReport = typeof incidentReports.$inferSelect;
 export type InsertMartynLawConfig = typeof martynLawConfig.$inferInsert;

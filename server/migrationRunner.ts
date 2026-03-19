@@ -172,6 +172,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addPeepFlagMigration,
     addDrillModeToEvacuationsMigration,
     addMartynLawMigration,
+    addIncidentReportsMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1620,6 +1621,35 @@ const addDrillModeToEvacuationsMigration: Migration = {
       console.log(`✅ [023] Added is_drill to evacuations table`);
     } catch (err: any) {
       console.log(`⚠️ [023] evacuations.is_drill: ${err.message?.substring(0, 120)}`);
+    }
+  }
+};
+
+const addIncidentReportsMigration = {
+  version: '20260319_025_add_incident_reports',
+  description: 'Create incident_reports table to persist evacuation/drill report metadata per customer',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS incident_reports (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          evacuation_id TEXT NOT NULL,
+          customer_id TEXT NOT NULL,
+          is_drill BOOLEAN NOT NULL DEFAULT FALSE,
+          activated_by TEXT,
+          started_at TIMESTAMP,
+          completed_at TIMESTAMP,
+          duration_seconds INTEGER,
+          total_on_site INTEGER NOT NULL DEFAULT 0,
+          accounted_for INTEGER NOT NULL DEFAULT 0,
+          unaccounted INTEGER NOT NULL DEFAULT 0,
+          completion_pct INTEGER NOT NULL DEFAULT 0,
+          generated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log(`✅ [025] Created incident_reports table`);
+    } catch (err: any) {
+      console.log(`⚠️ [025] incident_reports: ${err.message?.substring(0, 120)}`);
     }
   }
 };

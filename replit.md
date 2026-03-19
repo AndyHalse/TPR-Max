@@ -39,6 +39,7 @@ Preferred communication style: Simple, everyday language.
 - **Incident Monitor**: Read-only shareable link (`/monitor/{evacuationId}?customer={id}`) for senior management to view live evacuation stats without authentication. Purple "Monitor Link" button in EmergencyMuster.
 - **Nudge Unaccounted**: During an active emergency, admin can send reminder emails to all unaccounted personnel via "Nudge Unaccounted" button. Emails include a self-confirm mark-safe link.
 - **Martyn's Law (UK Protect Duty)**: Dedicated compliance section at `/martyn-law` with 4 tabs: Venue & Scope, 12-item UK compliance Checklist, Security Plan (terrorism action plan / lockdown / evacuation / comms), and an Evidence Log (training/drills). Customer-isolated storage in `martyn_law_config` table (migration #024). Navigation link added to sidebar.
+- **Drill Mode & Incident Reports**: Fire Drill toggle on the Muster page activates amber "FIRE DRILL IN PROGRESS" banner, labels emails with `[FIRE DRILL]` prefix, and marks the evacuation record with `is_drill=true`. On evacuation completion, an `incident_reports` record is auto-saved (customer-isolated, migration #025) storing accountability stats. `/incident-reports` page lists all past events with drill/emergency badge, duration, accountability counts and completion %, with "View / Print" link opening the HTML incident report. The report itself renders as print-ready HTML with event summary, stats, and full personnel register.
 
 ## External Dependencies
 - **@tanstack/react-query**: For server state management.
