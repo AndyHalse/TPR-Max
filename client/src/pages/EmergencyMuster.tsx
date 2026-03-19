@@ -384,7 +384,7 @@ export default function EmergencyMuster() {
       (person.name && person.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (person.department && person.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (person.company && person.company.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesZone = selectedZones.size === 0 || (person.zoneId && selectedZones.has(person.zoneId));
+    const matchesZone = selectedZones.size === 0 || !person.zoneId || selectedZones.has(person.zoneId);
     return matchesType && matchesSearch && matchesZone;
   });
 
