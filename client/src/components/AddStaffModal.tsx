@@ -188,6 +188,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       voiceLanguage: "en-GB",
       voiceProfile: "en-GB-Standard-A",
       zoneId: "",
+      needsEvacuationAssistance: false,
     });
     setUploadedPhoto(null);
     onClose();
