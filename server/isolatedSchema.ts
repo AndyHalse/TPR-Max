@@ -474,6 +474,8 @@ export const companySettings = pgTable("company_settings", {
   featureContractorPage: boolean("feature_contractor_page").default(false),
   featureMembers: boolean("feature_members").default(false),
   featureEmailOutbox: boolean("feature_email_outbox").default(true),
+  featureMartynLaw: boolean("feature_martyn_law").default(true),
+  featureIncidentReports: boolean("feature_incident_reports").default(true),
   
   // Zones configuration
   zonesEnabled: boolean("zones_enabled").default(false),

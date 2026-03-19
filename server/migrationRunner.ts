@@ -137,6 +137,25 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
   const runner = new MigrationRunner(customerDbService);
   
   // Register all migrations in order - bootstrap MUST run first for new schemas
+  const addMartynLawIncidentFeatureTogglesMigration = {
+    version: '20260319_026_add_martyn_law_incident_feature_toggles',
+    description: 'Add feature_martyn_law and feature_incident_reports columns to company_settings',
+    async up(db: any) {
+      try {
+        await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_martyn_law BOOLEAN DEFAULT true`);
+        console.log('✅ [026] Added feature_martyn_law to company_settings');
+      } catch (err: any) {
+        console.log(`⚠️ [026] feature_martyn_law: ${err.message?.substring(0, 80)}`);
+      }
+      try {
+        await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_incident_reports BOOLEAN DEFAULT true`);
+        console.log('✅ [026] Added feature_incident_reports to company_settings');
+      } catch (err: any) {
+        console.log(`⚠️ [026] feature_incident_reports: ${err.message?.substring(0, 80)}`);
+      }
+    }
+  };
+
   const allMigrations = [
     bootstrapSchemaMigration,
     rebuildCompanySettingsMigration,
@@ -173,6 +192,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addDrillModeToEvacuationsMigration,
     addMartynLawMigration,
     addIncidentReportsMigration,
+    addMartynLawIncidentFeatureTogglesMigration,
   ];
 
   allMigrations.forEach(migration => {
