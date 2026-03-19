@@ -4394,22 +4394,30 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         const durSec = startMs ? Math.round((endMs - startMs) / 1000) : null;
         const custDb = await customerDbService.getCustomerDatabase(customerId);
         const reportUrl = `/api/emergency/incident-report/${evacuationId}`;
-        await custDb.insert(isolatedSchema.incidentReports).values({
-          evacuationId,
-          customerId,
-          isDrill: completedEvac?.isDrill || false,
-          activatedBy: completedEvac?.activatedBy || null,
-          startedAt: completedEvac?.startedAt ? new Date(completedEvac.startedAt) : null,
-          completedAt: new Date(),
-          durationSeconds: durSec,
-          totalOnSite: totalCt,
-          accountedFor: accountedCt,
-          unaccounted: unaccountedCt,
-          completionPct: pct,
-          generatedAt: new Date(),
-          reportUrl,
-        });
-        console.log(`📄 Incident report record saved for evacuation ${evacuationId}`);
+        const existing = await custDb.select({ id: isolatedSchema.incidentReports.id })
+          .from(isolatedSchema.incidentReports)
+          .where(eq(isolatedSchema.incidentReports.evacuationId, evacuationId))
+          .limit(1);
+        if (existing.length === 0) {
+          await custDb.insert(isolatedSchema.incidentReports).values({
+            evacuationId,
+            customerId,
+            isDrill: completedEvac?.isDrill || false,
+            activatedBy: completedEvac?.activatedBy || null,
+            startedAt: completedEvac?.startedAt ? new Date(completedEvac.startedAt) : null,
+            completedAt: new Date(),
+            durationSeconds: durSec,
+            totalOnSite: totalCt,
+            accountedFor: accountedCt,
+            unaccounted: unaccountedCt,
+            completionPct: pct,
+            generatedAt: new Date(),
+            reportUrl,
+          });
+          console.log(`📄 Incident report record saved for evacuation ${evacuationId}`);
+        } else {
+          console.log(`📄 Incident report already exists for evacuation ${evacuationId}, skipping duplicate insert`);
+        }
       } catch (reportErr: any) {
         console.error(`⚠️ Failed to save incident report record: ${reportErr.message}`);
       }

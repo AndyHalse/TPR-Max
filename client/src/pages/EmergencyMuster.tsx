@@ -416,7 +416,7 @@ export default function EmergencyMuster() {
   };
 
   const openIncidentReport = (evacuationId: string) => {
-    window.open(`/api/emergency/incident-report/${evacuationId}`, '_blank');
+    window.open(`/api/emergency/incident-report/${evacuationId}?format=pdf`, '_blank');
   };
 
   const nudgeUnaccountedMutation = useMutation({
