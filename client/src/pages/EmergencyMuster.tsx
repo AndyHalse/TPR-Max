@@ -61,6 +61,7 @@ interface ActiveEvacuation {
   active: boolean;
   evacuationId?: string;
   customerId?: string;
+  isDrill?: boolean;
 }
 
 export default function EmergencyMuster() {
@@ -135,6 +136,13 @@ export default function EmergencyMuster() {
   const fireMarshals = staffList.filter((s: any) => s.isFireMarshal && s.fireMarshalUrlId);
 
   const hasActiveEvacuation = activeEvacuation?.active || false;
+
+  // Sync drill mode from backend state so page reload / multi-session shows correct amber banner
+  useEffect(() => {
+    if (activeEvacuation?.active && activeEvacuation.isDrill !== undefined) {
+      setIsDrillMode(activeEvacuation.isDrill);
+    }
+  }, [activeEvacuation?.active, activeEvacuation?.isDrill]);
 
   const toggleZone = (zoneId: string) => {
     setSelectedZones(prev => {
