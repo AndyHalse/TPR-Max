@@ -361,7 +361,7 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* Main Content */}
-      <div className="pt-20 sm:pt-24 pb-6 sm:pb-8 px-3 sm:px-6">
+      <div className="pt-20 sm:pt-28 pb-6 sm:pb-8 px-3 sm:px-6">
         <div className="max-w-7xl mx-auto">
           {children}
         </div>
