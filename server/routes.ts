@@ -10709,8 +10709,7 @@ ${unaccounted.length > 0 ? `
       }
 
       if (mappedData.needsEvacuationAssistance !== undefined) {
-        (validatedData as any).needsEvacuationAssistance = mappedData.needsEvacuationAssistance;
-        console.log(`🔧 MANUAL FIX: Preserved needsEvacuationAssistance: ${mappedData.needsEvacuationAssistance}`);
+        validatedData.needsEvacuationAssistance = Boolean(mappedData.needsEvacuationAssistance);
       }
 
       // MANUAL FIX: Preserve phone/phoneNumber — Zod strips 'phoneNumber' because shared schema uses 'phone'

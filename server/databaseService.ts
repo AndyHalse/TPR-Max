@@ -2057,6 +2057,9 @@ export class DatabaseService {
       if (updates.hsRulesAcceptedAt !== undefined) {
         updateData.hsRulesAcceptedAt = updates.hsRulesAcceptedAt;
       }
+      if (updates.needsEvacuationAssistance !== undefined) {
+        updateData.needsEvacuationAssistance = Boolean(updates.needsEvacuationAssistance);
+      }
       if ((updates as any).qrCode !== undefined) {
         (updateData as any).qrCode = (updates as any).qrCode;
       }
