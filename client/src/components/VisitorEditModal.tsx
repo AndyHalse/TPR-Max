@@ -36,7 +36,7 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
     purpose: visitor?.purpose || '',
     carRegistration: visitor?.carRegistration || '',
     notes: visitor?.notes || '',
-    needsEvacuationAssistance: (visitor as any)?.needsEvacuationAssistance ?? false,
+    needsEvacuationAssistance: visitor?.needsEvacuationAssistance ?? false,
   });
 
   // Update form data when visitor changes
@@ -54,7 +54,7 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
         purpose: visitor.purpose || '',
         carRegistration: visitor.carRegistration || '',
         notes: visitor.notes || '',
-        needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance ?? false,
+        needsEvacuationAssistance: visitor.needsEvacuationAssistance ?? false,
       });
     }
   }, [visitor]);

@@ -571,6 +571,13 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                       : <span className="opacity-70">No zone assigned</span>
                     }
                   </div>
+                  {/* Last known location — shown prominently for unaccounted people */}
+                  {!person.accounted && person.location && person.location !== 'Not specified' && (
+                    <p className="flex items-center gap-1 text-xs font-semibold text-yellow-300 mt-1">
+                      <MapPin size={11} className="flex-shrink-0" />
+                      Last known: {person.location}
+                    </p>
+                  )}
                 </div>
               </div>
               

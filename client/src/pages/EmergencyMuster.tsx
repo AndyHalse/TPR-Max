@@ -918,7 +918,7 @@ export default function EmergencyMuster() {
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="font-semibold text-fixed text-sm sm:text-base truncate leading-tight">{person.name}</p>
                         {person.needsEvacuationAssistance && (
                           <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
@@ -936,13 +936,18 @@ export default function EmergencyMuster() {
                         <span className="text-[11px] text-variable truncate max-w-[100px] sm:max-w-[140px]">
                           {person.type === 'staff' ? person.department : person.company}
                         </span>
-                        {(person.location && person.location !== 'Not specified') && (
-                          <span className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-medium text-variable bg-muted px-1.5 py-0.5 rounded-full">
-                            <MapPin size={8} />
-                            {person.location}
-                          </span>
-                        )}
                       </div>
+                      {/* Last known location — shown prominently for unaccounted people, subtly for accounted */}
+                      {(person.location && person.location !== 'Not specified') && (
+                        <p className={`text-[11px] mt-1 flex items-center gap-1 ${
+                          !person.accounted
+                            ? 'text-red-600 dark:text-red-400 font-medium'
+                            : 'text-gray-400 dark:text-gray-500'
+                        }`}>
+                          <MapPin size={10} className="flex-shrink-0" />
+                          Last known: {person.location}
+                        </p>
+                      )}
                       <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
                         <Clock size={9} />
                         {new Date(person.checkedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
