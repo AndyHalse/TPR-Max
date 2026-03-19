@@ -175,6 +175,32 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     }
   };
 
+  const ensureIncidentReportsTableMigration = {
+    version: '20260319_028_ensure_incident_reports_table',
+    description: 'Ensure incident_reports table exists (fixes silent failure in migration 025)',
+    async up(db: any) {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS incident_reports (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          evacuation_id TEXT NOT NULL,
+          customer_id TEXT NOT NULL,
+          is_drill BOOLEAN NOT NULL DEFAULT FALSE,
+          activated_by TEXT,
+          started_at TIMESTAMP,
+          completed_at TIMESTAMP,
+          duration_seconds INTEGER,
+          total_on_site INTEGER NOT NULL DEFAULT 0,
+          accounted_for INTEGER NOT NULL DEFAULT 0,
+          unaccounted INTEGER NOT NULL DEFAULT 0,
+          completion_pct INTEGER NOT NULL DEFAULT 0,
+          generated_at TIMESTAMP DEFAULT NOW(),
+          report_url TEXT
+        )
+      `);
+      console.log(`✅ [028] incident_reports table ensured`);
+    }
+  };
+
   const allMigrations = [
     bootstrapSchemaMigration,
     rebuildCompanySettingsMigration,
@@ -213,6 +239,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addIncidentReportsMigration,
     addMartynLawIncidentFeatureTogglesMigration,
     backfillMartynLawIncidentTogglesMigration,
+    ensureIncidentReportsTableMigration,
   ];
 
   allMigrations.forEach(migration => {

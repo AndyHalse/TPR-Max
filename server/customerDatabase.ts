@@ -279,7 +279,32 @@ export class CustomerDatabaseService {
     } catch (error) {
       console.error(`⚠️ Schema migration failed for customer ${customerId}:`, error);
     }
-    
+
+    // Directly ensure incident_reports table exists (bypasses migration transaction issues)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".incident_reports (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          evacuation_id TEXT NOT NULL,
+          customer_id TEXT NOT NULL,
+          is_drill BOOLEAN NOT NULL DEFAULT FALSE,
+          activated_by TEXT,
+          started_at TIMESTAMP,
+          completed_at TIMESTAMP,
+          duration_seconds INTEGER,
+          total_on_site INTEGER NOT NULL DEFAULT 0,
+          accounted_for INTEGER NOT NULL DEFAULT 0,
+          unaccounted INTEGER NOT NULL DEFAULT 0,
+          completion_pct INTEGER NOT NULL DEFAULT 0,
+          generated_at TIMESTAMP DEFAULT NOW(),
+          report_url TEXT
+        )
+      `);
+      console.log(`✅ incident_reports table ensured for ${schemaName}`);
+    } catch (err: any) {
+      console.warn(`⚠️ incident_reports table ensure failed: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure admin user exists in this customer schema (critical for production)
     try {
       await this.ensureAdminUserExists(customerId, db);
