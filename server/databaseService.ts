@@ -1493,6 +1493,7 @@ export class DatabaseService {
           // CRITICAL FIX: Map frontend compatibility fields
           inductionCompleted: worker.siteInductionCompleted || false,
           phone: worker.phoneNumber,
+          needsEvacuationAssistance: worker.needsEvacuationAssistance ?? false,
         } as ContractorWorker;
         
         
@@ -1952,6 +1953,7 @@ export class DatabaseService {
         inductionCompleted: worker.siteInductionCompleted || false, // Map DB field to frontend field
         phone: worker.phoneNumber, // Add phone alias for compatibility
         qrCode: worker.qrCode || null, // Include QR code so send-qr-pass doesn't regenerate it every time
+        needsEvacuationAssistance: worker.needsEvacuationAssistance ?? false,
       } as ContractorWorker;
       
       console.log(`✅ DEBUG: Successfully mapped worker. Key fields - inductionCompleted: ${mappedWorker.inductionCompleted}, cscsStatus: ${mappedWorker.cscsStatus}, transportMethod: ${mappedWorker.transportMethod}`);
