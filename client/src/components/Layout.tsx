@@ -243,22 +243,22 @@ export default function Layout({ children }: LayoutProps) {
       <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-3 sm:px-6 py-2 sm:py-3" style={navBannerStyle}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <Link href="/marketing">
-            <div className="flex items-center space-x-3 min-w-0 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
-              <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-xl flex items-center justify-center flex-shrink-0">
+            <div className="flex items-center space-x-4 min-w-0 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
+              <div className="w-[50px] h-[50px] sm:w-20 sm:h-20 rounded-xl flex items-center justify-center flex-shrink-0">
                 {currentLogoSrc ? (
                   <img 
                     src={currentLogoSrc}
                     alt="Company Logo" 
-                    className="w-15 h-15 object-contain rounded"
+                    className="w-full h-full object-contain rounded"
                     onError={handleLogoError}
                   />
                 ) : (
-                  <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold" style={navInvert ? { color: '#ffffff' } : {color: settings?.accentColor || '#2460a9'}}>
+                  <div className="w-[50px] h-[50px] sm:w-[70px] sm:h-[70px] rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold" style={navInvert ? { color: '#ffffff' } : {color: settings?.accentColor || '#2460a9'}}>
                     {settings?.companyName?.charAt(0) || 'A'}
                   </div>
                 )}
               </div>
-              <div className="hidden sm:block min-w-0 max-w-[200px] lg:max-w-xs">
+              <div className="hidden sm:block min-w-0 max-w-[220px] lg:max-w-xs">
                 <h1 className="text-base sm:text-lg lg:text-xl font-bold truncate" style={navInvert ? bannerTextStyle : {}}>{settings?.companyName || ''}</h1>
                 <p className="text-xs" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}}>TPR Max</p>
               </div>
