@@ -536,8 +536,8 @@ export default function EmergencyMuster() {
               Incident Report
             </Button>
           )}
-          {/* Drill mode toggle — only shown when idle */}
-          {emergencyPhase === 'idle' && (
+          {/* Drill mode toggle — shown when idle or send_alert (before emails go out) */}
+          {(emergencyPhase === 'idle' || emergencyPhase === 'send_alert') && (
             <button
               onClick={() => setIsDrillMode(!isDrillMode)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
@@ -545,7 +545,7 @@ export default function EmergencyMuster() {
                   ? 'bg-amber-100 border-amber-400 text-amber-800 dark:bg-amber-900/30 dark:border-amber-600 dark:text-amber-300'
                   : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
               }`}
-              title="Toggle drill mode — emails will be clearly marked as a drill"
+              title="Toggle drill mode — emails will be clearly marked as a drill (not a real emergency)"
             >
               <ShieldAlert size={13} />
               {isDrillMode ? 'Drill ON' : 'Drill'}

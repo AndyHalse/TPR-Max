@@ -1347,10 +1347,16 @@ For questions about this report, please contact the administrator.
     recipientName: string,
     message: string,
     companySettings: CompanySettings,
-    safetyToken?: string // Optional token for self-service mark-safe
+    safetyToken?: string, // Optional token for self-service mark-safe
+    isDrill?: boolean // If true, send as drill notification
   ): Promise<boolean> {
-    const subject = '🚨 EMERGENCY EVACUATION - IMMEDIATE ACTION REQUIRED';
-    const primaryColor = companySettings?.accentColor || '#dc2626';
+    const drill = isDrill === true;
+    const subject = drill
+      ? '🔶 EVACUATION DRILL - Action Required (This is a Drill)'
+      : '🚨 EMERGENCY EVACUATION - IMMEDIATE ACTION REQUIRED';
+    const primaryColor = drill ? '#d97706' : (companySettings?.accentColor || '#dc2626');
+    const bgColor = drill ? '#fef3c7' : '#fee2e2';
+    const textColor = drill ? '#92400e' : '#991b1b';
     
     // Generate mark-safe URL if token is provided
     const baseUrl = process.env.REPLIT_DOMAINS 
@@ -1360,27 +1366,28 @@ For questions about this report, please contact the administrator.
     
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 3px solid ${primaryColor};">
+        ${drill ? `<div style="background:#92400e; color:white; padding:6px; text-align:center; font-size:12px; font-weight:bold; letter-spacing:1px;">THIS IS A SCHEDULED FIRE DRILL — NOT A REAL EMERGENCY</div>` : ''}
         <div style="background: ${primaryColor}; color: white; padding: 20px; text-align: center;">
-          <h1 style="margin: 0; font-size: 28px;">🚨 EMERGENCY EVACUATION 🚨</h1>
+          <h1 style="margin: 0; font-size: 28px;">${drill ? '🔶 EVACUATION DRILL 🔶' : '🚨 EMERGENCY EVACUATION 🚨'}</h1>
         </div>
         
-        <div style="padding: 20px; background: #fee2e2;">
-          <h2 style="color: #991b1b; margin-top: 0;">Dear ${recipientName},</h2>
+        <div style="padding: 20px; background: ${bgColor};">
+          <h2 style="color: ${textColor}; margin-top: 0;">Dear ${recipientName},</h2>
           
           <div style="background: white; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid ${primaryColor};">
-            <p style="font-size: 18px; font-weight: bold; color: #991b1b; margin: 0;">
+            <p style="font-size: 18px; font-weight: bold; color: ${textColor}; margin: 0;">
               ${message}
             </p>
           </div>
           
-          <div style="background: #fef3c7; padding: 15px; border-radius: 8px; margin: 15px 0;">
-            <h3 style="color: #92400e; margin-top: 0;">⚠️ Important Instructions:</h3>
+          <div style="background: ${drill ? '#fef9c3' : '#fef3c7'}; padding: 15px; border-radius: 8px; margin: 15px 0;">
+            <h3 style="color: #92400e; margin-top: 0;">⚠️ ${drill ? 'Drill' : 'Important'} Instructions:</h3>
             <ul style="margin: 0;">
-              <li>Leave the building immediately via the nearest exit</li>
+              <li>${drill ? 'Participate as you would in a real emergency' : 'Leave the building immediately via the nearest exit'}</li>
               <li>Do NOT use elevators</li>
-              <li>Do NOT collect personal belongings</li>
-              <li>Proceed to a safe location away from the building</li>
-              <li>Remain at a safe distance until given the all-clear</li>
+              <li>${drill ? 'No need to collect personal belongings' : 'Do NOT collect personal belongings'}</li>
+              <li>Proceed to your designated muster point</li>
+              <li>Remain at the muster point until${drill ? ' the drill is complete' : ' given the all-clear'}</li>
             </ul>
           </div>
           
@@ -1411,18 +1418,18 @@ For questions about this report, please contact the administrator.
       </div>
     `;
     
-    const text = `EMERGENCY EVACUATION - IMMEDIATE ACTION REQUIRED
-
+    const text = `${drill ? 'EVACUATION DRILL - Action Required (This is a Drill)' : 'EMERGENCY EVACUATION - IMMEDIATE ACTION REQUIRED'}
+${drill ? '\n*** THIS IS A SCHEDULED FIRE DRILL — NOT A REAL EMERGENCY ***\n' : ''}
 Dear ${recipientName},
 
 ${message}
 
-Important Instructions:
-- Leave the building immediately via the nearest exit
+${drill ? 'Drill' : 'Important'} Instructions:
+- ${drill ? 'Participate as you would in a real emergency' : 'Leave the building immediately via the nearest exit'}
 - Do NOT use elevators
-- Do NOT collect personal belongings
+- ${drill ? 'Proceed to your designated muster point' : 'Do NOT collect personal belongings'}
 - Proceed to a safe location away from the building
-- Remain at a safe distance until given the all-clear
+- Remain at ${drill ? 'the muster point until the drill is complete' : 'a safe distance until given the all-clear'}
 
 ${markSafeUrl ? `
 ONCE YOU ARE SAFE:

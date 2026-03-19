@@ -2002,6 +2002,7 @@ export const incidentReports = pgTable("incident_reports", {
   unaccounted: integer("unaccounted").notNull().default(0),
   completionPct: integer("completion_pct").notNull().default(0),
   generatedAt: timestamp("generated_at").defaultNow(),
+  reportUrl: text("report_url"),
 });
 
 export type IncidentReport = typeof incidentReports.$inferSelect;

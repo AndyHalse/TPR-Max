@@ -18,6 +18,7 @@ interface IncidentReport {
   unaccounted: number;
   completionPct: number;
   generatedAt: string | null;
+  reportUrl: string | null;
 }
 
 function formatDuration(seconds: number | null): string {
@@ -40,8 +41,9 @@ export default function IncidentReports() {
     queryKey: ["/api/emergency/incident-reports"],
   });
 
-  const openReport = (evacuationId: string) => {
-    window.open(`/api/emergency/incident-report/${evacuationId}`, "_blank");
+  const openReport = (r: IncidentReport) => {
+    const url = r.reportUrl || `/api/emergency/incident-report/${r.evacuationId}`;
+    window.open(url, "_blank");
   };
 
   return (
@@ -150,7 +152,7 @@ export default function IncidentReports() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => openReport(r.evacuationId)}
+                          onClick={() => openReport(r)}
                           className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
                         >
                           <Download size={12} className="mr-1" />

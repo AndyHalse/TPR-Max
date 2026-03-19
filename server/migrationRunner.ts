@@ -1644,7 +1644,8 @@ const addIncidentReportsMigration = {
           accounted_for INTEGER NOT NULL DEFAULT 0,
           unaccounted INTEGER NOT NULL DEFAULT 0,
           completion_pct INTEGER NOT NULL DEFAULT 0,
-          generated_at TIMESTAMP DEFAULT NOW()
+          generated_at TIMESTAMP DEFAULT NOW(),
+          report_url TEXT
         )
       `);
       console.log(`✅ [025] Created incident_reports table`);

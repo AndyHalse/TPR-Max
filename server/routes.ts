@@ -3386,7 +3386,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               `${staff.firstName} ${staff.lastName}`,
               evacuationData.message,
               companySettings!,
-              safetyToken
+              safetyToken,
+              drillMode
             );
             if (sent) {
               console.log(`✅ Successfully sent to ${staff.firstName} ${staff.lastName}`);
@@ -3423,7 +3424,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               `${visitor.firstName} ${visitor.lastName}`,
               evacuationData.message,
               companySettings!,
-              safetyToken
+              safetyToken,
+              drillMode
             );
             
             if (sent) {
@@ -3464,7 +3466,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               `${contractor.firstName} ${contractor.lastName}`,
               evacuationData.message,
               companySettings!,
-              safetyToken
+              safetyToken,
+              drillMode
             );
             
             if (sent) {
@@ -4208,7 +4211,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         }
         try {
           const safetyToken = await generateSafetyToken(custDb, customerId, evacuationId, id, personType, `${firstName} ${lastName}`, email);
-          await customEmailService.sendEvacuationAlert(email, `${firstName} ${lastName}`, nudgeMsg, companySettings!, safetyToken);
+          await customEmailService.sendEvacuationAlert(email, `${firstName} ${lastName}`, nudgeMsg, companySettings!, safetyToken, isDrill);
           nudgesSent++;
         } catch (e: any) {
           errors.push(`${personType} ${firstName} ${lastName}: ${e.message}`);
@@ -4384,6 +4387,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         const endMs = new Date().getTime();
         const durSec = startMs ? Math.round((endMs - startMs) / 1000) : null;
         const custDb = await customerDbService.getCustomerDatabase(customerId);
+        const reportUrl = `/api/emergency/incident-report/${evacuationId}`;
         await custDb.insert(isolatedSchema.incidentReports).values({
           evacuationId,
           customerId,
@@ -4397,6 +4401,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           unaccounted: unaccountedCt,
           completionPct: pct,
           generatedAt: new Date(),
+          reportUrl,
         });
         console.log(`📄 Incident report record saved for evacuation ${evacuationId}`);
       } catch (reportErr: any) {
@@ -4484,13 +4489,41 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const formatDate = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
       const formatTime = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
+      // Build zone breakdown
+      const zoneMap = new Map<string, { name: string; total: number; accounted: number }>();
+      for (const p of accountability) {
+        const zoneKey = (p as any).zoneId || '__none__';
+        const zoneName = (p as any).zoneName || 'No Zone Assigned';
+        if (!zoneMap.has(zoneKey)) zoneMap.set(zoneKey, { name: zoneName, total: 0, accounted: 0 });
+        const z = zoneMap.get(zoneKey)!;
+        z.total++;
+        if (p.isAccountedFor) z.accounted++;
+      }
+
+      // Build accountability timeline (who was marked safe and when, sorted by time)
+      const timelineEntries = accountability
+        .filter(p => p.isAccountedFor && p.accountedAt)
+        .sort((a, b) => new Date(a.accountedAt!).getTime() - new Date(b.accountedAt!).getTime());
+
+      // Time to full accountability (time from start until last person was marked safe)
+      const lastAccountedAt = timelineEntries.length > 0 ? new Date(timelineEntries[timelineEntries.length - 1].accountedAt!) : null;
+      const timeToFullAccountability = lastAccountedAt && startedAt
+        ? (() => {
+            const ms = lastAccountedAt.getTime() - startedAt.getTime();
+            const m = Math.floor(ms / 60000);
+            const s = Math.round((ms % 60000) / 1000);
+            return `${m}m ${s}s`;
+          })()
+        : null;
+
       // Build HTML report
       const personRows = (people: typeof accountability) =>
         people.map(p => `
           <tr style="border-bottom:1px solid #e5e7eb;">
             <td style="padding:6px 8px;">${p.personName}</td>
             <td style="padding:6px 8px; text-transform:capitalize;">${p.personType}</td>
-            <td style="padding:6px 8px;">${p.department || p.company || '—'}</td>
+            <td style="padding:6px 8px;">${p.department || (p as any).company || '—'}</td>
+            <td style="padding:6px 8px;">${(p as any).zoneName || '—'}</td>
             <td style="padding:6px 8px; text-align:center;">
               ${p.isAccountedFor
                 ? `<span style="color:#16a34a; font-weight:bold;">✓ Accounted</span>${p.accountedBy ? `<br><small style="color:#666;">${p.accountedBy}</small>` : ''}`
@@ -4516,11 +4549,18 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   .stat-label { font-size:11px; color:#555; }
   .drill-banner { background:#fef3c7; border:2px solid #d97706; border-radius:8px; padding:12px 20px; margin-bottom:16px; text-align:center; color:#92400e; font-weight:bold; font-size:16px; }
   .header-row { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:3px solid ${accentColor}; padding-bottom:16px; margin-bottom:16px; }
-  .kv { margin:4px 0; font-size:13px; } .kv strong { display:inline-block; min-width:160px; }
-  @media print { body { margin:0; padding:12px; } }
+  .kv { margin:4px 0; font-size:13px; } .kv strong { display:inline-block; min-width:180px; }
+  .timeline-row { display:flex; align-items:center; gap:12px; padding:4px 0; font-size:12px; border-bottom:1px solid #f3f4f6; }
+  .timeline-time { font-weight:bold; color:${accentColor}; min-width:80px; }
+  .timeline-elapsed { color:#888; min-width:70px; }
+  .zone-bar { height:10px; background:#16a34a; border-radius:3px; display:inline-block; }
+  .zone-bar-bg { height:10px; background:#e5e7eb; border-radius:3px; display:inline-block; }
+  .print-button { display:inline-block; background:${accentColor}; color:white; border:none; padding:10px 24px; border-radius:6px; font-size:14px; cursor:pointer; margin-bottom:16px; }
+  @media print { body { margin:0; padding:12px; } .print-button { display:none; } }
 </style>
 </head>
 <body>
+<button class="print-button" onclick="window.print()">🖨 Print / Save as PDF</button>
 <div class="header-row">
   <div>
     <h1>${reportTitle}</h1>
@@ -4535,11 +4575,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 ${evac.isDrill ? '<div class="drill-banner">🔶 FIRE DRILL — This event was a scheduled drill and was NOT a real emergency.</div>' : ''}
 
 <h2>Event Summary</h2>
-<div class="kv"><strong>Type:</strong> ${evac.isDrill ? 'Fire Drill' : 'Emergency Evacuation'}</div>
-<div class="kv"><strong>Activated by:</strong> ${evac.activatedBy}</div>
-<div class="kv"><strong>Start time:</strong> ${formatDate(startedAt)} at ${formatTime(startedAt)}</div>
-<div class="kv"><strong>End time:</strong> ${completedAt ? `${formatDate(completedAt)} at ${formatTime(completedAt)}` : 'Still active'}</div>
-<div class="kv"><strong>Duration:</strong> ${durationStr}</div>
+<div class="kv"><strong>Event type:</strong> ${evac.isDrill ? 'Fire Drill' : 'Emergency Evacuation'}</div>
+<div class="kv"><strong>Activated by:</strong> ${evac.activatedBy || '—'}</div>
+<div class="kv"><strong>Alarm raised:</strong> ${formatDate(startedAt)} at ${formatTime(startedAt)}</div>
+<div class="kv"><strong>All-clear given:</strong> ${completedAt ? `${formatDate(completedAt)} at ${formatTime(completedAt)}` : 'Event still active'}</div>
+<div class="kv"><strong>Total event duration:</strong> ${durationStr}</div>
+<div class="kv"><strong>Time to full accountability:</strong> ${timeToFullAccountability || (unaccounted.length > 0 ? 'Not achieved' : '—')}</div>
 <div class="kv"><strong>Status:</strong> ${evac.status === 'completed' ? 'Completed' : 'Active'}</div>
 <div class="kv"><strong>Muster points:</strong> ${(evac.musterPoints || []).join(', ') || '—'}</div>
 
@@ -4557,16 +4598,51 @@ ${evac.isDrill ? '<div class="drill-banner">🔶 FIRE DRILL — This event was a
   ${memberPeople.length > 0 ? `<div class="stat-box"><div class="stat-num">${memberPeople.length}</div><div class="stat-label">Members</div></div>` : ''}
 </div>
 
+${zoneMap.size > 0 ? `
+<h2>Zone-by-Zone Breakdown</h2>
+<table>
+  <tr><th>Zone</th><th>Total</th><th>Accounted</th><th>Unaccounted</th><th>Progress</th></tr>
+  ${Array.from(zoneMap.entries()).map(([, z]) => {
+    const pct = z.total > 0 ? Math.round((z.accounted / z.total) * 100) : 0;
+    const barWidth = Math.max(0, Math.min(100, pct));
+    return `<tr style="border-bottom:1px solid #e5e7eb;">
+      <td style="padding:6px 8px;">${z.name}</td>
+      <td style="padding:6px 8px; text-align:center;">${z.total}</td>
+      <td style="padding:6px 8px; text-align:center; color:#16a34a; font-weight:bold;">${z.accounted}</td>
+      <td style="padding:6px 8px; text-align:center; color:${z.total - z.accounted > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${z.total - z.accounted}</td>
+      <td style="padding:6px 8px;"><div style="background:#e5e7eb; border-radius:3px; height:10px; width:120px; display:inline-block; vertical-align:middle;"><div style="width:${barWidth}%; background:#16a34a; border-radius:3px; height:10px;"></div></div> <span style="font-size:11px; color:#555;">${pct}%</span></td>
+    </tr>`;
+  }).join('')}
+</table>` : ''}
+
+${timelineEntries.length > 0 ? `
+<h2>Accountability Timeline</h2>
+<div style="max-height:320px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:6px; padding:8px;">
+  ${timelineEntries.map((p, i) => {
+    const t = new Date(p.accountedAt!);
+    const elapsedMs = t.getTime() - startedAt.getTime();
+    const elapsedMin = Math.floor(elapsedMs / 60000);
+    const elapsedSec = Math.round((elapsedMs % 60000) / 1000);
+    return `<div class="timeline-row">
+      <span class="timeline-time">${formatTime(t)}</span>
+      <span class="timeline-elapsed">+${elapsedMin}m ${elapsedSec}s</span>
+      <span style="flex:1;">${p.personName}</span>
+      <span style="text-transform:capitalize; color:#888; font-size:11px;">${p.personType}</span>
+      ${p.accountedBy ? `<span style="color:#555; font-size:11px;">via ${p.accountedBy}</span>` : ''}
+    </div>`;
+  }).join('')}
+</div>` : ''}
+
 ${unaccounted.length > 0 ? `
 <h2 style="color:#dc2626;">⚠ Unaccounted Personnel (${unaccounted.length})</h2>
 <table>
-  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Status</th><th>Accounted At</th></tr>
+  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Zone</th><th>Status</th><th>Accounted At</th></tr>
   ${personRows(unaccounted)}
 </table>` : '<h2 style="color:#16a34a;">✓ All Personnel Accounted For</h2>'}
 
 <h2>Full Personnel Register</h2>
 <table>
-  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Status</th><th>Accounted At</th></tr>
+  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Zone</th><th>Status</th><th>Accounted At</th></tr>
   ${personRows(accountability)}
 </table>
 
