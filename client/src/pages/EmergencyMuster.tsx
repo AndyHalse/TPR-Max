@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { 
   AlertTriangle, 
   Users, 
@@ -15,7 +16,6 @@ import {
   CheckCircle, 
   XCircle, 
   Search,
-
   Clock,
   Phone,
   Mail,
@@ -25,7 +25,10 @@ import {
   ExternalLink,
   Copy,
   MapPin,
-  Map
+  Map,
+  QrCode,
+  Timer,
+  ShieldAlert
 } from "lucide-react";
 
 interface MusterListItem {
@@ -66,10 +69,28 @@ export default function EmergencyMuster() {
   const [wsConnected, setWsConnected] = useState(false);
   const [selectedZones, setSelectedZones] = useState<Set<string>>(new Set());
   const [showZoneSelector, setShowZoneSelector] = useState(false);
+  const [emergencyStartTime, setEmergencyStartTime] = useState<Date | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showQrFor, setShowQrFor] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Emergency timer
+  useEffect(() => {
+    if (!emergencyActive || !emergencyStartTime) { setElapsedSeconds(0); return; }
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.floor((Date.now() - emergencyStartTime.getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [emergencyActive, emergencyStartTime]);
+
+  const formatElapsed = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, '0');
+    const s = (secs % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   const { data: musterList = [], isLoading } = useQuery<MusterListItem[]>({
     queryKey: ["/api/muster"],
@@ -280,6 +301,7 @@ export default function EmergencyMuster() {
     },
     onSuccess: (data) => {
       setEmergencyPhase('active');
+      setEmergencyStartTime(new Date());
       toast({
         title: "Emergency Notifications Sent",
         description: data.message || `Successfully notified all personnel & Fire Marshals via email.`,
@@ -381,6 +403,8 @@ export default function EmergencyMuster() {
     } else if (emergencyPhase === 'active') {
       setEmergencyActive(false);
       setEmergencyPhase('idle');
+      setEmergencyStartTime(null);
+      setElapsedSeconds(0);
     }
   };
 
@@ -473,12 +497,20 @@ export default function EmergencyMuster() {
       </div>
 
       {emergencyActive && (
-        <div className="flex items-center justify-center gap-3 p-4 rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
-          <AlertTriangle className="text-red-600 flex-shrink-0" size={24} />
-          <div className="text-center">
-            <h3 className="text-base font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
-            <p className="text-sm text-red-700 dark:text-red-300">All personnel must proceed to a safe location immediately</p>
+        <div className="flex items-center justify-between gap-3 p-4 rounded-lg border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="text-red-600 flex-shrink-0 animate-pulse" size={24} />
+            <div>
+              <h3 className="text-base font-bold text-red-800 dark:text-red-200">EMERGENCY ACTIVE</h3>
+              <p className="text-sm text-red-700 dark:text-red-300">All personnel must proceed to a safe location immediately</p>
+            </div>
           </div>
+          {emergencyStartTime && (
+            <div className="flex items-center gap-2 bg-red-100 dark:bg-red-800/40 px-3 py-2 rounded-lg flex-shrink-0">
+              <Timer size={16} className="text-red-700 dark:text-red-300" />
+              <span className="text-red-800 dark:text-red-200 font-mono font-bold text-lg tabular-nums">{formatElapsed(elapsedSeconds)}</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -600,36 +632,56 @@ export default function EmergencyMuster() {
 
       {/* Emergency Stats — compact 2-row grid for quick reading on mobile */}
       <div className="space-y-2 sm:space-y-3">
-        {/* Row 1: Total + Accounted — the two most critical numbers */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-3">
+        {/* Row 1: Total + Accounted + Unaccounted — the three most critical numbers */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
           <GlassCard hover className={`dark:glass-dark bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 cursor-pointer transition-all !p-3 sm:!p-5 ${typeFilter === 'all' ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-300 dark:ring-emerald-600' : 'border-emerald-200 dark:border-emerald-800'}`} onClick={() => setTypeFilter('all')}>
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start justify-between gap-1">
               <div className="min-w-0">
-                <p className="text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-semibold leading-tight">Total People</p>
-                <p className="text-4xl sm:text-5xl font-black text-emerald-700 dark:text-emerald-300 leading-none mt-1" data-testid="stat-total-people">
+                <p className="text-emerald-700 dark:text-emerald-300 text-[10px] sm:text-sm font-semibold leading-tight">Total</p>
+                <p className="text-3xl sm:text-5xl font-black text-emerald-700 dark:text-emerald-300 leading-none mt-1" data-testid="stat-total-people">
                   {totalPeople}
                 </p>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">On-Site Now</p>
+                <p className="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 mt-1 font-medium">On-Site</p>
               </div>
-              <div className="w-9 h-9 sm:w-12 sm:h-12 bg-emerald-200 dark:bg-emerald-800/50 rounded-xl flex items-center justify-center shrink-0">
-                <Users className="text-emerald-700 dark:text-emerald-300" size={18} />
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-emerald-200 dark:bg-emerald-800/50 rounded-xl flex items-center justify-center shrink-0">
+                <Users className="text-emerald-700 dark:text-emerald-300" size={16} />
               </div>
             </div>
           </GlassCard>
 
           <GlassCard hover className="dark:glass-dark border-2 border-transparent !p-3 sm:!p-5">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-variable text-xs sm:text-sm font-semibold leading-tight">Accounted For</p>
-                <p className="text-4xl sm:text-5xl font-black text-green-600 dark:text-green-400 leading-none mt-1" data-testid="stat-accounted">
+            <div className="flex items-start justify-between gap-1">
+              <div className="min-w-0 flex-1">
+                <p className="text-variable text-[10px] sm:text-sm font-semibold leading-tight">Accounted</p>
+                <p className="text-3xl sm:text-5xl font-black text-green-600 dark:text-green-400 leading-none mt-1" data-testid="stat-accounted">
                   {accountedFor}
                 </p>
-                <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">
-                  {totalPeople > 0 ? Math.round((accountedFor / totalPeople) * 100) : 0}% Complete
+                <div className="mt-1.5 space-y-0.5">
+                  <Progress value={totalPeople > 0 ? (accountedFor / totalPeople) * 100 : 0} className="h-1.5 bg-green-100 dark:bg-green-900/30 [&>div]:bg-green-500" />
+                  <p className="text-[10px] sm:text-xs text-green-600 dark:text-green-400 font-medium">
+                    {totalPeople > 0 ? Math.round((accountedFor / totalPeople) * 100) : 0}%
+                  </p>
+                </div>
+              </div>
+              <div className="w-8 h-8 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center shrink-0">
+                <CheckCircle className="text-green-600 dark:text-green-400" size={16} />
+              </div>
+            </div>
+          </GlassCard>
+
+          <GlassCard hover className={`dark:glass-dark border-2 !p-3 sm:!p-5 transition-all ${(totalPeople - accountedFor) > 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'border-transparent'}`}>
+            <div className="flex items-start justify-between gap-1">
+              <div className="min-w-0">
+                <p className={`text-[10px] sm:text-sm font-semibold leading-tight ${(totalPeople - accountedFor) > 0 ? 'text-red-700 dark:text-red-300' : 'text-variable'}`}>Missing</p>
+                <p className={`text-3xl sm:text-5xl font-black leading-none mt-1 ${(totalPeople - accountedFor) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`} data-testid="stat-unaccounted">
+                  {totalPeople - accountedFor}
+                </p>
+                <p className={`text-[10px] sm:text-xs mt-1 font-medium ${(totalPeople - accountedFor) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`}>
+                  {(totalPeople - accountedFor) === 0 ? 'All safe' : 'Unaccounted'}
                 </p>
               </div>
-              <div className="w-9 h-9 sm:w-12 sm:h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center shrink-0">
-                <CheckCircle className="text-green-600 dark:text-green-400" size={18} />
+              <div className={`w-8 h-8 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${(totalPeople - accountedFor) > 0 ? 'bg-red-100 dark:bg-red-900/30' : 'bg-gray-100 dark:bg-gray-800/30'}`}>
+                <ShieldAlert className={`${(totalPeople - accountedFor) > 0 ? 'text-red-600 dark:text-red-400' : 'text-gray-400 dark:text-gray-500'}`} size={16} />
               </div>
             </div>
           </GlassCard>
@@ -749,14 +801,26 @@ export default function EmergencyMuster() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-fixed text-sm sm:text-base truncate leading-tight">{person.name}</p>
-                      <p className="text-xs text-variable truncate mt-0.5">
-                        <span className={`inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                          person.type === 'staff' ? 'bg-purple-100 text-purple-700' :
-                          person.type === 'visitor' ? 'bg-blue-100 text-blue-700' :
-                          person.type === 'member' ? 'bg-purple-100 text-purple-700' :
-                          'bg-orange-100 text-orange-700'
+                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                          person.type === 'staff' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                          person.type === 'visitor' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                          person.type === 'member' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
+                          'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
                         }`}>{person.type}</span>
-                        {person.type === 'staff' ? person.department : person.company}
+                        <span className="text-[11px] text-variable truncate max-w-[100px] sm:max-w-[140px]">
+                          {person.type === 'staff' ? person.department : person.company}
+                        </span>
+                        {person.zoneName && (
+                          <span className="hidden sm:inline-flex items-center gap-0.5 text-[10px] font-medium text-variable bg-muted px-1.5 py-0.5 rounded-full">
+                            <MapPin size={8} />
+                            {person.zoneName}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                        <Clock size={9} />
+                        {new Date(person.checkedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
                   </div>
@@ -816,37 +880,72 @@ export default function EmergencyMuster() {
             
             {fireMarshals.length > 0 ? (
               <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Fire Marshal Links</h4>
-                <div className="space-y-2">
-                  {fireMarshals.map((fm: any) => (
-                    <div key={fm.id} className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-blue-700 dark:text-blue-300 text-sm font-medium truncate">{fm.firstName} {fm.lastName}</p>
-                        <p className="text-blue-500 dark:text-blue-400 text-xs truncate">{fm.department}</p>
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-blue-800 dark:text-blue-200">Fire Marshal Links</h4>
+                  <Badge variant="outline" className="text-xs text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-600">
+                    {fireMarshals.length} marshal{fireMarshals.length !== 1 ? 's' : ''}
+                  </Badge>
+                </div>
+                <div className="space-y-3">
+                  {fireMarshals.map((fm: any) => {
+                    const marshalUrl = `${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`;
+                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(marshalUrl)}&color=1e3a5f&bgcolor=eff6ff`;
+                    const isShowingQr = showQrFor === fm.id;
+                    return (
+                      <div key={fm.id} className="bg-white dark:bg-blue-900/30 rounded-lg p-2.5 border border-blue-200 dark:border-blue-700">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-blue-800 dark:text-blue-200 text-sm font-semibold leading-tight">{fm.firstName} {fm.lastName}</p>
+                            {fm.department && <p className="text-blue-500 dark:text-blue-400 text-xs mt-0.5">{fm.department}</p>}
+                          </div>
+                          <div className="flex gap-1 flex-shrink-0">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700 dark:text-blue-300' : ''}`}
+                              title="Show QR Code"
+                              onClick={() => setShowQrFor(isShowingQr ? null : fm.id)}
+                            >
+                              <QrCode size={14} />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              title="Copy link"
+                              onClick={() => {
+                                navigator.clipboard.writeText(marshalUrl);
+                                toast({ title: "Copied", description: `Fire Marshal link copied for ${fm.firstName}` });
+                              }}
+                            >
+                              <Copy size={14} />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0"
+                              title="Open link"
+                              onClick={() => window.open(marshalUrl, '_blank')}
+                            >
+                              <ExternalLink size={14} />
+                            </Button>
+                          </div>
+                        </div>
+                        {isShowingQr && (
+                          <div className="mt-2.5 pt-2.5 border-t border-blue-200 dark:border-blue-700 flex flex-col items-center gap-2">
+                            <img
+                              src={qrUrl}
+                              alt={`QR code for ${fm.firstName} ${fm.lastName}`}
+                              className="w-28 h-28 rounded-lg border border-blue-200 dark:border-blue-600 bg-white"
+                            />
+                            <p className="text-[10px] text-blue-600 dark:text-blue-400 text-center leading-tight">
+                              Scan to open Fire Marshal<br />view on mobile
+                            </p>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                          onClick={() => {
-                            navigator.clipboard.writeText(`${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`);
-                            toast({ title: "Copied", description: `Fire Marshal link copied for ${fm.firstName}` });
-                          }}
-                        >
-                          <Copy size={14} />
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                          onClick={() => window.open(`/fire-marshal/${fm.fireMarshalUrlId}`, '_blank')}
-                        >
-                          <ExternalLink size={14} />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             ) : (
@@ -858,15 +957,25 @@ export default function EmergencyMuster() {
             )}
             
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
-              <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">Security</h4>
-              <p className="text-green-700 dark:text-green-300">Control Room</p>
-              <p className="text-green-600 dark:text-green-400 text-sm">+44 123 456 7891</p>
+              <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">Site Contact</h4>
+              {companySettings?.phone ? (
+                <a href={`tel:${companySettings.phone}`} className="text-green-700 dark:text-green-300 text-lg font-bold hover:underline block">
+                  {companySettings.phone}
+                </a>
+              ) : (
+                <>
+                  <p className="text-green-700 dark:text-green-300">Control Room</p>
+                  <p className="text-green-600 dark:text-green-400 text-sm">Call Reception</p>
+                </>
+              )}
             </div>
             
-            <Button className="w-full" variant="outline" data-testid="button-call-emergency">
-              <Phone className="mr-2" size={16} />
-              Quick Call Emergency
-            </Button>
+            <a href="tel:999" className="w-full">
+              <Button className="w-full bg-red-600 hover:bg-red-700 text-white border-0" data-testid="button-call-emergency">
+                <Phone className="mr-2" size={16} />
+                Call 999 – Emergency Services
+              </Button>
+            </a>
             
             <Button 
               className="w-full" 
