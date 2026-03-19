@@ -4624,7 +4624,7 @@ ${unaccounted.length > 0 ? `
           zoneName: (v as any).zoneId ? zoneMap.get((v as any).zoneId)?.name || null : null,
           zoneColor: (v as any).zoneId ? zoneMap.get((v as any).zoneId)?.color || null : null,
           accounted: v.isAccountedFor || false,
-          needsEvacuationAssistance: false,
+          needsEvacuationAssistance: (v as any).needsEvacuationAssistance || false,
         })),
         ...checkedInContractors,
       ];
@@ -5596,7 +5596,7 @@ ${unaccounted.length > 0 ? `
           zoneName: (visitor as any).zoneId ? (zoneMap.get((visitor as any).zoneId)?.name || null) : null,
           zoneColor: (visitor as any).zoneId ? (zoneMap.get((visitor as any).zoneId)?.color || null) : null,
           accounted: visitor.isAccountedFor || false,
-          needsEvacuationAssistance: false,
+          needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance || false,
         })),
         ...checkedInContractors
       ];
