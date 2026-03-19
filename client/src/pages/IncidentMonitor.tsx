@@ -314,7 +314,7 @@ export default function IncidentMonitor({ evacuationId, customerId }: IncidentMo
                     <div className="flex items-center gap-1 flex-wrap">
                       <p className="font-medium text-sm text-white truncate">{person.name}</p>
                       {person.needsEvacuationAssistance && (
-                        <span className="text-[9px] font-bold bg-purple-200 text-purple-900 px-1 rounded border border-purple-400 flex-shrink-0">♿</span>
+                        <span className="text-[9px] font-bold bg-amber-300 text-amber-900 px-1 rounded border border-amber-500 flex-shrink-0">♿ PEEP</span>
                       )}
                     </div>
                     <div className="flex items-center gap-1 text-red-300 text-xs">

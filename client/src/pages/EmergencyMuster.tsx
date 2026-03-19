@@ -921,7 +921,7 @@ export default function EmergencyMuster() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="font-semibold text-fixed text-sm sm:text-base truncate leading-tight">{person.name}</p>
                         {person.needsEvacuationAssistance && (
-                          <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
+                          <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-400 dark:border-amber-600">
                             ♿ PEEP
                           </span>
                         )}

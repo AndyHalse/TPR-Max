@@ -971,7 +971,7 @@ export default function EditContractorWorkerModal({
                     control={form.control}
                     name="needsEvacuationAssistance"
                     render={({ field }) => (
-                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                      <FormItem className="flex flex-row items-start space-x-3 space-y-0 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700">
                         <FormControl>
                           <Checkbox
                             checked={field.value}
@@ -980,8 +980,8 @@ export default function EditContractorWorkerModal({
                           />
                         </FormControl>
                         <div className="space-y-1 leading-none">
-                          <FormLabel className="text-purple-800 dark:text-purple-200">♿ Requires Evacuation Assistance (PEEP)</FormLabel>
-                          <p className="text-xs text-purple-600 dark:text-purple-300">
+                          <FormLabel className="text-amber-800 dark:text-amber-200">♿ Requires Evacuation Assistance (PEEP)</FormLabel>
+                          <p className="text-xs text-amber-600 dark:text-amber-400">
                             Personal Emergency Evacuation Plan — this worker needs assistance during evacuation and will be highlighted on muster lists.
                           </p>
                         </div>

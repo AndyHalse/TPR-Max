@@ -556,7 +556,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-lg text-white">{person.name}</p>
                     {person.needsEvacuationAssistance && (
-                      <span title="Requires Evacuation Assistance (PEEP)" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-200 text-purple-900 border border-purple-400">
+                      <span title="Requires Evacuation Assistance (PEEP)" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-300 text-amber-900 border border-amber-500">
                         ♿ PEEP
                       </span>
                     )}

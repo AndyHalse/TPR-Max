@@ -270,17 +270,17 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
           </div>
 
           {/* PEEP toggle */}
-          <div className="p-4 bg-purple-50 dark:bg-purple-900/20 rounded-xl border border-purple-200 dark:border-purple-800">
+          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-200 dark:border-amber-700">
             <label className="flex items-start gap-3 cursor-pointer">
               <input
                 type="checkbox"
                 checked={formData.needsEvacuationAssistance}
                 onChange={(e) => setFormData(prev => ({ ...prev, needsEvacuationAssistance: e.target.checked }))}
-                className="mt-0.5 w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500 focus:ring-2"
+                className="mt-0.5 w-4 h-4 accent-amber-600 bg-gray-100 border-gray-300 rounded"
               />
               <div>
-                <span className="text-sm font-medium text-purple-800 dark:text-purple-200">♿ Requires Evacuation Assistance (PEEP)</span>
-                <p className="text-xs text-purple-600 dark:text-purple-300 mt-0.5">This visitor needs assistance during emergency evacuation and will be highlighted on muster lists.</p>
+                <span className="text-sm font-medium text-amber-800 dark:text-amber-200">♿ Requires Evacuation Assistance (PEEP)</span>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">This visitor needs assistance during emergency evacuation and will be highlighted on muster lists.</p>
               </div>
             </label>
           </div>

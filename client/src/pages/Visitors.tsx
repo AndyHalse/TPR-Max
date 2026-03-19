@@ -294,6 +294,7 @@ export default function Visitors() {
     hostStaffId: "",
     purpose: "",
     carRegistration: "",
+    needsEvacuationAssistance: false,
   });
   
   // Walk-in validation errors
@@ -556,6 +557,7 @@ export default function Visitors() {
         hostStaffId: "",
         purpose: "",
         carRegistration: "",
+        needsEvacuationAssistance: false,
       });
       setWalkInValidationErrors({});
       
@@ -778,6 +780,7 @@ export default function Visitors() {
       hostStaffId: walkInData.hostStaffId,
       purpose: walkInData.purpose.trim() || null,
       carRegistration: walkInData.carRegistration.trim() || null,
+      needsEvacuationAssistance: walkInData.needsEvacuationAssistance,
     };
 
     const settingsAny = settings as any;
@@ -1496,6 +1499,25 @@ export default function Visitors() {
                     data-testid="input-walkin-car"
                   />
                 </div>
+              </div>
+
+              {/* PEEP - Personal Emergency Evacuation Plan */}
+              <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/60 dark:bg-amber-900/20 dark:border-amber-700">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    id="walkin-peep"
+                    checked={walkInData.needsEvacuationAssistance}
+                    onChange={(e) => setWalkInData(prev => ({ ...prev, needsEvacuationAssistance: e.target.checked }))}
+                    className="w-4 h-4 accent-amber-600"
+                  />
+                  <span className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                    ♿ Requires Evacuation Assistance (PEEP)
+                  </span>
+                </label>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 ml-7">
+                  Flag for Personal Emergency Evacuation Plan — will appear on muster list during an emergency.
+                </p>
               </div>
 
               <Button
