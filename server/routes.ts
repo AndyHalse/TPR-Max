@@ -3276,9 +3276,27 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         musterPoints
       });
       
+      // Load zone name map from customer isolated DB for accurate zone reporting
+      const zoneNameMapForReport = new Map<string, string>();
+      try {
+        const custDbForZones = await customerDbService.getCustomerDatabase(context.customerId);
+        const zones = await custDbForZones.select({ id: isolatedSchema.evacuationZones.id, name: isolatedSchema.evacuationZones.name })
+          .from(isolatedSchema.evacuationZones);
+        for (const zone of zones) {
+          zoneNameMapForReport.set(zone.id, zone.name);
+        }
+      } catch (e) {
+        console.log(`⚠️ Could not load zones for report: ${e}`);
+      }
+
+      const resolveZoneLocation = (zoneId: string | null | undefined): string => {
+        if (zoneId && zoneNameMapForReport.has(zoneId)) return zoneNameMapForReport.get(zoneId)!;
+        return 'No Zone Assigned';
+      };
+
       // Create evacuationAccountability records for filtered people (zone-based if applicable)
       const accountabilityRecords = [
-        ...filteredStaff.map(s => ({
+        ...filteredStaff.map((s: any) => ({
           customerId: context.customerId,
           evacuationId,
           personId: s.id,
@@ -3286,10 +3304,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           personName: `${s.firstName} ${s.lastName}`,
           department: s.department || '',
           company: '',
-          lastKnownLocation: 'On Site',
+          lastKnownLocation: resolveZoneLocation(s.zoneId),
           isAccountedFor: false
         })),
-        ...filteredVisitors.map(v => ({
+        ...filteredVisitors.map((v: any) => ({
           customerId: context.customerId,
           evacuationId,
           personId: v.id,
@@ -3297,10 +3315,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           personName: `${v.firstName} ${v.lastName}`,
           department: '',
           company: v.company || '',
-          lastKnownLocation: 'On Site',
+          lastKnownLocation: resolveZoneLocation((v as any).zoneId),
           isAccountedFor: false
         })),
-        ...filteredContractors.map(c => ({
+        ...filteredContractors.map((c: any) => ({
           customerId: context.customerId,
           evacuationId,
           personId: c.id,
@@ -3308,10 +3326,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           personName: `${c.firstName} ${c.lastName}`,
           department: '',
           company: c.company || '',
-          lastKnownLocation: 'On Site',
+          lastKnownLocation: resolveZoneLocation((c as any).zoneId),
           isAccountedFor: false
         })),
-        ...filteredMembers.map(m => ({
+        ...filteredMembers.map((m: any) => ({
           customerId: context.customerId,
           evacuationId,
           personId: m.id,
@@ -3319,7 +3337,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           personName: `${m.firstName} ${m.lastName}`,
           department: m.department || '',
           company: m.company || '',
-          lastKnownLocation: 'On Site',
+          lastKnownLocation: resolveZoneLocation((m as any).zoneId),
           isAccountedFor: false
         }))
       ];
