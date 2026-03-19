@@ -97,6 +97,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   } catch (e: any) {
     console.log(`⚠️ [shared-migration] evacuations.is_drill: ${String(e?.message || e).substring(0, 120)}`);
   }
+  try {
+    await db.execute(sql`ALTER TABLE evacuations ADD COLUMN IF NOT EXISTS report_pdf_url TEXT`);
+    console.log(`✅ [shared-migration] evacuations.report_pdf_url column ensured`);
+  } catch (e: any) {
+    console.log(`⚠️ [shared-migration] evacuations.report_pdf_url: ${String(e?.message || e).substring(0, 120)}`);
+  }
 
   app.use('/api', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -4437,6 +4443,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     try {
       const { evacuationId } = req.params;
       const customerId = req.session.customerId;
+      const format = (req.query.format as string) || 'html';
       if (!customerId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -4489,11 +4496,22 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const formatDate = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
       const formatTime = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-      // Build zone breakdown
+      // XSS safe HTML escape
+      const esc = (s: string | null | undefined): string => {
+        if (!s) return '—';
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      };
+
+      // Build zone breakdown using lastKnownLocation (the denormalized zone text stored at activation)
       const zoneMap = new Map<string, { name: string; total: number; accounted: number }>();
       for (const p of accountability) {
-        const zoneKey = (p as any).zoneId || '__none__';
-        const zoneName = (p as any).zoneName || 'No Zone Assigned';
+        const zoneKey = p.lastKnownLocation || '__none__';
+        const zoneName = p.lastKnownLocation || 'No Zone Assigned';
         if (!zoneMap.has(zoneKey)) zoneMap.set(zoneKey, { name: zoneName, total: 0, accounted: 0 });
         const z = zoneMap.get(zoneKey)!;
         z.total++;
@@ -4516,28 +4534,28 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           })()
         : null;
 
-      // Build HTML report
+      // Build HTML report (all user-data escaped via esc())
       const personRows = (people: typeof accountability) =>
         people.map(p => `
           <tr style="border-bottom:1px solid #e5e7eb;">
-            <td style="padding:6px 8px;">${p.personName}</td>
-            <td style="padding:6px 8px; text-transform:capitalize;">${p.personType}</td>
-            <td style="padding:6px 8px;">${p.department || (p as any).company || '—'}</td>
-            <td style="padding:6px 8px;">${(p as any).zoneName || '—'}</td>
+            <td style="padding:6px 8px;">${esc(p.personName)}</td>
+            <td style="padding:6px 8px; text-transform:capitalize;">${esc(p.personType)}</td>
+            <td style="padding:6px 8px;">${esc(p.department || p.company)}</td>
+            <td style="padding:6px 8px;">${esc(p.lastKnownLocation)}</td>
             <td style="padding:6px 8px; text-align:center;">
               ${p.isAccountedFor
-                ? `<span style="color:#16a34a; font-weight:bold;">✓ Accounted</span>${p.accountedBy ? `<br><small style="color:#666;">${p.accountedBy}</small>` : ''}`
-                : `<span style="color:#dc2626; font-weight:bold;">✗ Missing</span>`
+                ? `<span style="color:#16a34a; font-weight:bold;">&#10003; Accounted</span>${p.accountedBy ? `<br><small style="color:#666;">${esc(p.accountedBy)}</small>` : ''}`
+                : `<span style="color:#dc2626; font-weight:bold;">&#10007; Missing</span>`
               }
             </td>
             <td style="padding:6px 8px;">${p.accountedAt ? formatTime(new Date(p.accountedAt)) : '—'}</td>
           </tr>`).join('');
 
-      const accentColor = companySettings?.accentColor || '#2460a9';
+      const accentColor = /^#[0-9a-fA-F]{3,6}$/.test(companySettings?.accentColor || '') ? companySettings!.accentColor! : '#2460a9';
       const html = `<!DOCTYPE html><html lang="en">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>${reportTitle}</title>
+<title>${esc(reportTitle)}</title>
 <style>
   body { font-family: Arial, sans-serif; color: #111; margin: 0; padding: 24px; }
   h1 { color: ${accentColor}; margin:0; }
@@ -4553,36 +4571,36 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   .timeline-row { display:flex; align-items:center; gap:12px; padding:4px 0; font-size:12px; border-bottom:1px solid #f3f4f6; }
   .timeline-time { font-weight:bold; color:${accentColor}; min-width:80px; }
   .timeline-elapsed { color:#888; min-width:70px; }
-  .zone-bar { height:10px; background:#16a34a; border-radius:3px; display:inline-block; }
-  .zone-bar-bg { height:10px; background:#e5e7eb; border-radius:3px; display:inline-block; }
-  .print-button { display:inline-block; background:${accentColor}; color:white; border:none; padding:10px 24px; border-radius:6px; font-size:14px; cursor:pointer; margin-bottom:16px; }
-  @media print { body { margin:0; padding:12px; } .print-button { display:none; } }
+  .download-btn { display:inline-block; background:${accentColor}; color:white; border:none; padding:10px 24px; border-radius:6px; font-size:14px; cursor:pointer; margin-bottom:16px; text-decoration:none; }
+  @media print { body { margin:0; padding:12px; } .download-btn { display:none; } }
 </style>
 </head>
 <body>
-<button class="print-button" onclick="window.print()">🖨 Print / Save as PDF</button>
+<a class="download-btn" href="/api/emergency/incident-report/${esc(evacuationId)}?format=pdf" target="_blank">&#128196; Download PDF</a>
+&nbsp;
+<button class="download-btn" onclick="window.print()" style="cursor:pointer;">&#128424; Print Report</button>
 <div class="header-row">
   <div>
-    <h1>${reportTitle}</h1>
-    <p style="margin:4px 0 0; color:#555; font-size:13px;">Reference: ${evacuationId}</p>
+    <h1>${esc(reportTitle)}</h1>
+    <p style="margin:4px 0 0; color:#555; font-size:13px;">Reference: ${esc(evacuationId)}</p>
   </div>
   <div style="text-align:right; font-size:13px; color:#555;">
-    <strong>${companyName}</strong><br>
+    <strong>${esc(companyName)}</strong><br>
     Generated: ${formatDate(new Date())} ${formatTime(new Date())}
   </div>
 </div>
 
-${evac.isDrill ? '<div class="drill-banner">🔶 FIRE DRILL — This event was a scheduled drill and was NOT a real emergency.</div>' : ''}
+${evac.isDrill ? '<div class="drill-banner">&#128998; FIRE DRILL &mdash; This event was a scheduled drill and was NOT a real emergency.</div>' : ''}
 
 <h2>Event Summary</h2>
 <div class="kv"><strong>Event type:</strong> ${evac.isDrill ? 'Fire Drill' : 'Emergency Evacuation'}</div>
-<div class="kv"><strong>Activated by:</strong> ${evac.activatedBy || '—'}</div>
+<div class="kv"><strong>Activated by:</strong> ${esc(evac.activatedBy)}</div>
 <div class="kv"><strong>Alarm raised:</strong> ${formatDate(startedAt)} at ${formatTime(startedAt)}</div>
 <div class="kv"><strong>All-clear given:</strong> ${completedAt ? `${formatDate(completedAt)} at ${formatTime(completedAt)}` : 'Event still active'}</div>
 <div class="kv"><strong>Total event duration:</strong> ${durationStr}</div>
-<div class="kv"><strong>Time to full accountability:</strong> ${timeToFullAccountability || (unaccounted.length > 0 ? 'Not achieved' : '—')}</div>
+<div class="kv"><strong>Time to full accountability:</strong> ${timeToFullAccountability || (unaccounted.length > 0 ? 'Not achieved' : '&mdash;')}</div>
 <div class="kv"><strong>Status:</strong> ${evac.status === 'completed' ? 'Completed' : 'Active'}</div>
-<div class="kv"><strong>Muster points:</strong> ${(evac.musterPoints || []).join(', ') || '—'}</div>
+<div class="kv"><strong>Muster points:</strong> ${esc((evac.musterPoints || []).join(', ') || '—')}</div>
 
 <h2>Accountability Statistics</h2>
 <div>
@@ -4598,18 +4616,19 @@ ${evac.isDrill ? '<div class="drill-banner">🔶 FIRE DRILL — This event was a
   ${memberPeople.length > 0 ? `<div class="stat-box"><div class="stat-num">${memberPeople.length}</div><div class="stat-label">Members</div></div>` : ''}
 </div>
 
-${zoneMap.size > 0 ? `
+${zoneMap.size > 1 || (zoneMap.size === 1 && !zoneMap.has('__none__')) ? `
 <h2>Zone-by-Zone Breakdown</h2>
 <table>
-  <tr><th>Zone</th><th>Total</th><th>Accounted</th><th>Unaccounted</th><th>Progress</th></tr>
+  <tr><th>Zone / Last Known Location</th><th>Total</th><th>Accounted</th><th>Unaccounted</th><th>Progress</th></tr>
   ${Array.from(zoneMap.entries()).map(([, z]) => {
     const pct = z.total > 0 ? Math.round((z.accounted / z.total) * 100) : 0;
     const barWidth = Math.max(0, Math.min(100, pct));
+    const missing = z.total - z.accounted;
     return `<tr style="border-bottom:1px solid #e5e7eb;">
-      <td style="padding:6px 8px;">${z.name}</td>
+      <td style="padding:6px 8px;">${esc(z.name)}</td>
       <td style="padding:6px 8px; text-align:center;">${z.total}</td>
       <td style="padding:6px 8px; text-align:center; color:#16a34a; font-weight:bold;">${z.accounted}</td>
-      <td style="padding:6px 8px; text-align:center; color:${z.total - z.accounted > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${z.total - z.accounted}</td>
+      <td style="padding:6px 8px; text-align:center; color:${missing > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${missing}</td>
       <td style="padding:6px 8px;"><div style="background:#e5e7eb; border-radius:3px; height:10px; width:120px; display:inline-block; vertical-align:middle;"><div style="width:${barWidth}%; background:#16a34a; border-radius:3px; height:10px;"></div></div> <span style="font-size:11px; color:#555;">${pct}%</span></td>
     </tr>`;
   }).join('')}
@@ -4617,8 +4636,8 @@ ${zoneMap.size > 0 ? `
 
 ${timelineEntries.length > 0 ? `
 <h2>Accountability Timeline</h2>
-<div style="max-height:320px; overflow-y:auto; border:1px solid #e5e7eb; border-radius:6px; padding:8px;">
-  ${timelineEntries.map((p, i) => {
+<div style="border:1px solid #e5e7eb; border-radius:6px; padding:8px;">
+  ${timelineEntries.map(p => {
     const t = new Date(p.accountedAt!);
     const elapsedMs = t.getTime() - startedAt.getTime();
     const elapsedMin = Math.floor(elapsedMs / 60000);
@@ -4626,33 +4645,79 @@ ${timelineEntries.length > 0 ? `
     return `<div class="timeline-row">
       <span class="timeline-time">${formatTime(t)}</span>
       <span class="timeline-elapsed">+${elapsedMin}m ${elapsedSec}s</span>
-      <span style="flex:1;">${p.personName}</span>
-      <span style="text-transform:capitalize; color:#888; font-size:11px;">${p.personType}</span>
-      ${p.accountedBy ? `<span style="color:#555; font-size:11px;">via ${p.accountedBy}</span>` : ''}
+      <span style="flex:1;">${esc(p.personName)}</span>
+      <span style="text-transform:capitalize; color:#888; font-size:11px;">${esc(p.personType)}</span>
+      ${p.accountedBy ? `<span style="color:#555; font-size:11px;">via ${esc(p.accountedBy)}</span>` : ''}
     </div>`;
   }).join('')}
 </div>` : ''}
 
 ${unaccounted.length > 0 ? `
-<h2 style="color:#dc2626;">⚠ Unaccounted Personnel (${unaccounted.length})</h2>
+<h2 style="color:#dc2626;">&#9888; Unaccounted Personnel (${unaccounted.length})</h2>
 <table>
-  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Zone</th><th>Status</th><th>Accounted At</th></tr>
+  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Last Known Zone</th><th>Status</th><th>Accounted At</th></tr>
   ${personRows(unaccounted)}
-</table>` : '<h2 style="color:#16a34a;">✓ All Personnel Accounted For</h2>'}
+</table>` : '<h2 style="color:#16a34a;">&#10003; All Personnel Accounted For</h2>'}
 
 <h2>Full Personnel Register</h2>
 <table>
-  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Zone</th><th>Status</th><th>Accounted At</th></tr>
+  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Last Known Zone</th><th>Status</th><th>Accounted At</th></tr>
   ${personRows(accountability)}
 </table>
 
 <div style="margin-top:32px; padding-top:16px; border-top:1px solid #e5e7eb; font-size:11px; color:#888; text-align:center;">
-  This report was generated by TPR Max Visitor Management System for ${companyName}.<br>
-  Report ID: ${evacuationId} | Generated: ${new Date().toISOString()}
+  This report was generated by TPR Max Visitor Management System for ${esc(companyName)}.<br>
+  Report ID: ${esc(evacuationId)} | Generated: ${new Date().toISOString()}
 </div>
 </body></html>`;
 
-      // Return as HTML — browser can print-to-PDF
+      if (format === 'pdf') {
+        // Server-side PDF generation using Puppeteer
+        let puppeteer: any;
+        try {
+          puppeteer = await import('puppeteer');
+        } catch {
+          // Fallback: serve HTML if puppeteer unavailable
+          res.setHeader('Content-Type', 'text/html; charset=utf-8');
+          res.setHeader('Content-Disposition', `attachment; filename="incident-report-${evacuationId}.html"`);
+          return res.send(html);
+        }
+        const browser = await puppeteer.default.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+        try {
+          const page = await browser.newPage();
+          await page.setContent(html, { waitUntil: 'networkidle0' });
+          const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '15mm', bottom: '15mm', left: '12mm', right: '12mm' }
+          });
+          await browser.close();
+
+          // Store the PDF URL reference in the evacuations table
+          try {
+            await db.update(evacuations)
+              .set({ reportPdfUrl: `/api/emergency/incident-report/${evacuationId}?format=pdf` })
+              .where(and(
+                eq(evacuations.evacuationId, evacuationId),
+                eq(evacuations.customerId, customerId)
+              ));
+          } catch (updateErr) {
+            console.warn('[incident-report] Could not persist reportPdfUrl:', updateErr);
+          }
+
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="incident-report-${evacuationId}.pdf"`);
+          return res.send(Buffer.from(pdfBuffer));
+        } catch (pdfErr) {
+          await browser.close();
+          throw pdfErr;
+        }
+      }
+
+      // Default: return HTML (browser can view inline or print-to-PDF)
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.setHeader('Content-Disposition', `inline; filename="incident-report-${evacuationId}.html"`);
       res.send(html);

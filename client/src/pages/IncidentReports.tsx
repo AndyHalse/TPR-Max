@@ -42,8 +42,11 @@ export default function IncidentReports() {
   });
 
   const openReport = (r: IncidentReport) => {
-    const url = r.reportUrl || `/api/emergency/incident-report/${r.evacuationId}`;
-    window.open(url, "_blank");
+    window.open(`/api/emergency/incident-report/${r.evacuationId}`, "_blank");
+  };
+
+  const downloadPdf = (r: IncidentReport) => {
+    window.open(`/api/emergency/incident-report/${r.evacuationId}?format=pdf`, "_blank");
   };
 
   return (
@@ -149,15 +152,25 @@ export default function IncidentReports() {
                         <span className={`font-semibold ${pctColor}`}>{pct}%</span>
                       </td>
                       <td className="py-3">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openReport(r)}
-                          className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
-                        >
-                          <Download size={12} className="mr-1" />
-                          View / Print
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openReport(r)}
+                            className="text-xs border-blue-300 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                          >
+                            View Report
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => downloadPdf(r)}
+                            className="text-xs border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300 dark:hover:bg-green-900/20"
+                          >
+                            <Download size={12} className="mr-1" />
+                            PDF
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   );

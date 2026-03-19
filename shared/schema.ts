@@ -281,6 +281,7 @@ export const evacuations = pgTable("evacuations", {
   musterPoints: text("muster_points").array().notNull(),
   isDrill: boolean("is_drill").default(false).notNull(),
   notes: text("notes"),
+  reportPdfUrl: text("report_pdf_url"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 }, (table) => ({
