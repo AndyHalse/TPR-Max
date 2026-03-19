@@ -156,6 +156,25 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     }
   };
 
+  const backfillMartynLawIncidentTogglesMigration = {
+    version: '20260319_027_backfill_martyn_law_incident_toggles',
+    description: 'Backfill NULL values for feature_martyn_law and feature_incident_reports to TRUE',
+    async up(db: any) {
+      try {
+        await db.execute(`UPDATE company_settings SET feature_martyn_law = true WHERE feature_martyn_law IS NULL`);
+        console.log('✅ [027] Backfilled feature_martyn_law NULL → true');
+      } catch (err: any) {
+        console.log(`⚠️ [027] feature_martyn_law backfill: ${err.message?.substring(0, 80)}`);
+      }
+      try {
+        await db.execute(`UPDATE company_settings SET feature_incident_reports = true WHERE feature_incident_reports IS NULL`);
+        console.log('✅ [027] Backfilled feature_incident_reports NULL → true');
+      } catch (err: any) {
+        console.log(`⚠️ [027] feature_incident_reports backfill: ${err.message?.substring(0, 80)}`);
+      }
+    }
+  };
+
   const allMigrations = [
     bootstrapSchemaMigration,
     rebuildCompanySettingsMigration,
@@ -193,6 +212,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addMartynLawMigration,
     addIncidentReportsMigration,
     addMartynLawIncidentFeatureTogglesMigration,
+    backfillMartynLawIncidentTogglesMigration,
   ];
 
   allMigrations.forEach(migration => {

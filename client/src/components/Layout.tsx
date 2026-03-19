@@ -211,8 +211,8 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/meeting-rooms", icon: Calendar, label: "Meeting Rooms", featureKey: "featureMeetingRooms" },
     { path: "/time-attendance", icon: Clock, label: "T&A Report", featureKey: "featureTimeAttendance" },
     { path: "/muster", icon: ListChecks, label: "Muster List", alwaysVisible: true },
-    { path: "/incident-reports", icon: ScrollText, label: "Incident Reports", featureKey: "featureIncidentReports" },
-    { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw" },
+    { path: "/incident-reports", icon: ScrollText, label: "Incident Reports", featureKey: "featureIncidentReports", defaultOn: true },
+    { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw", defaultOn: true },
     { path: "/reports", icon: FileText, label: "Reports", alwaysVisible: true },
     { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings" },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk" },
@@ -226,7 +226,13 @@ export default function Layout({ children }: LayoutProps) {
   const navItems = allNavItems.filter(item => {
     if (item.alwaysVisible) return true;
     if (!settings) return false; // hide feature-gated items until settings have loaded
-    if (item.featureKey) return settings[item.featureKey as keyof CompanySettings] === true;
+    if (item.featureKey) {
+      const val = settings[item.featureKey as keyof CompanySettings];
+      // defaultOn items (opt-out) are visible unless explicitly set to false
+      if (item.defaultOn) return val !== false;
+      // normal opt-in items require explicit true
+      return val === true;
+    }
     return true;
   });
 
