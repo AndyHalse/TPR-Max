@@ -4758,13 +4758,80 @@ ${unaccounted.length > 0 ? `
     try {
       const customerId = req.session.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
+
+      // Fetch all completed evacuations from shared DB for this customer
+      const completedEvacs = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.customerId, customerId),
+          eq(evacuations.status, "completed")
+        ))
+        .orderBy(desc(evacuations.completedAt));
+
       const custDb = await customerDbService.getCustomerDatabase(customerId);
-      const reports = await custDb
+
+      // Get existing incident report records (keyed by evacuationId)
+      const existingReports = await custDb
         .select()
         .from(isolatedSchema.incidentReports)
-        .where(eq(isolatedSchema.incidentReports.customerId, customerId))
-        .orderBy(desc(isolatedSchema.incidentReports.generatedAt));
-      res.json(reports);
+        .where(eq(isolatedSchema.incidentReports.customerId, customerId));
+
+      const existingByEvacId = new Map(existingReports.map(r => [r.evacuationId, r]));
+
+      // Back-fill incident report records for any completed evacuation that doesn't have one
+      for (const evac of completedEvacs) {
+        if (!existingByEvacId.has(evac.evacuationId)) {
+          try {
+            // Pull accountability records to get accurate counts
+            const accountability = await db
+              .select()
+              .from(evacuationAccountability)
+              .where(and(
+                eq(evacuationAccountability.evacuationId, evac.evacuationId),
+                eq(evacuationAccountability.customerId, customerId)
+              ));
+            const totalCt = accountability.length || evac.totalPeopleOnSite || 0;
+            const accountedCt = accountability.length > 0
+              ? accountability.filter(p => p.isAccountedFor).length
+              : (evac.totalAccountedFor || 0);
+            const unaccountedCt = totalCt - accountedCt;
+            const pct = totalCt > 0 ? Math.round((accountedCt / totalCt) * 100) : 0;
+            const durSec = (evac.startedAt && evac.completedAt)
+              ? Math.round((new Date(evac.completedAt).getTime() - new Date(evac.startedAt).getTime()) / 1000)
+              : null;
+            const [inserted] = await custDb.insert(isolatedSchema.incidentReports).values({
+              evacuationId: evac.evacuationId,
+              customerId,
+              isDrill: evac.isDrill || false,
+              activatedBy: evac.activatedBy || null,
+              startedAt: evac.startedAt ? new Date(evac.startedAt) : null,
+              completedAt: evac.completedAt ? new Date(evac.completedAt) : null,
+              durationSeconds: durSec,
+              totalOnSite: totalCt,
+              accountedFor: accountedCt,
+              unaccounted: unaccountedCt,
+              completionPct: pct,
+              generatedAt: evac.completedAt ? new Date(evac.completedAt) : new Date(),
+              reportUrl: `/api/emergency/incident-report/${evac.evacuationId}`,
+            }).returning();
+            if (inserted) existingByEvacId.set(evac.evacuationId, inserted);
+            console.log(`📄 Back-filled incident report for evacuation ${evac.evacuationId}`);
+          } catch (backfillErr: any) {
+            console.error(`⚠️ Failed to back-fill incident report for ${evac.evacuationId}: ${backfillErr.message}`);
+          }
+        }
+      }
+
+      // Return all reports ordered by most recent first
+      const allReports = Array.from(existingByEvacId.values())
+        .sort((a, b) => {
+          const aTime = a.generatedAt ? new Date(a.generatedAt).getTime() : 0;
+          const bTime = b.generatedAt ? new Date(b.generatedAt).getTime() : 0;
+          return bTime - aTime;
+        });
+
+      res.json(allReports);
     } catch (error) {
       console.error("Error fetching incident reports:", error);
       res.status(500).json({ error: "Failed to fetch incident reports" });
