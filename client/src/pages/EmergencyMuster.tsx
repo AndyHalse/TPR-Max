@@ -45,6 +45,7 @@ interface MusterListItem {
   zoneId?: string;
   zoneName?: string;
   needsEvacuationAssistance?: boolean;
+  hasEmail?: boolean;
 }
 
 interface Zone {
@@ -362,6 +363,30 @@ export default function EmergencyMuster() {
           : errorMsg,
         variant: "destructive",
       });
+    },
+  });
+
+  // Track which person IDs have a pending email send
+  const [emailingPersonId, setEmailingPersonId] = useState<string | null>(null);
+
+  // Mutation to send individual email reminder to one unaccounted person
+  const emailPersonMutation = useMutation({
+    mutationFn: async ({ personId, personType }: { personId: string; personType: string }) => {
+      setEmailingPersonId(personId);
+      const response = await apiRequest("POST", `/api/emergency/email-person/${personType}/${personId}`, {});
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to send reminder");
+      }
+      return await response.json();
+    },
+    onSuccess: (data) => {
+      setEmailingPersonId(null);
+      toast({ title: "Reminder Sent", description: data.message || "Email reminder sent successfully" });
+    },
+    onError: (error: any) => {
+      setEmailingPersonId(null);
+      toast({ title: "Send Failed", description: error.message || "Failed to send email reminder", variant: "destructive" });
     },
   });
 
@@ -1082,6 +1107,30 @@ export default function EmergencyMuster() {
                           Unsafe
                         </span>
                       )
+                    )}
+                    {hasActiveEvacuation && !person.accounted && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={`h-8 w-8 p-0 flex-shrink-0 ${
+                          person.hasEmail
+                            ? 'border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20'
+                            : 'border-gray-200 text-gray-300 cursor-not-allowed dark:border-gray-700 dark:text-gray-600'
+                        }`}
+                        disabled={!person.hasEmail || emailingPersonId === person.id}
+                        onClick={() => person.hasEmail && emailPersonMutation.mutate({ personId: person.id, personType: person.type })}
+                        title={person.hasEmail ? `Send email reminder to ${person.name}` : 'No email address on file'}
+                        data-testid={`button-email-${person.id}`}
+                      >
+                        {emailingPersonId === person.id ? (
+                          <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                        ) : (
+                          <Mail size={13} />
+                        )}
+                      </Button>
                     )}
                     <Button
                       variant={person.accounted ? "outline" : "default"}

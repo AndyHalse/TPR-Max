@@ -18,6 +18,7 @@ import {
   Layers,
   ChevronRight,
   Footprints,
+  Mail,
 } from "lucide-react";
 
 interface MusterListItem {
@@ -33,6 +34,7 @@ interface MusterListItem {
   zoneColor?: string | null;
   accounted: boolean;
   needsEvacuationAssistance?: boolean;
+  hasEmail?: boolean;
 }
 
 interface Zone {
@@ -70,6 +72,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
   // Confirm dialog for sweeping a zone with unaccounted people
   const [sweepConfirmZone, setSweepConfirmZone] = useState<{ id: string; name: string; unaccountedCount: number } | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
+  const [emailingPersonId, setEmailingPersonId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
@@ -168,6 +171,30 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
     onError: () => {
       toast({ title: "Failed", description: "Could not record zone sweep", variant: "destructive" });
     }
+  });
+
+  // Mutation to send an individual email reminder from the fire marshal view
+  const emailPersonMutation = useMutation({
+    mutationFn: async ({ personId, personType }: { personId: string; personType: string }) => {
+      setEmailingPersonId(personId);
+      const response = await fetch(`/api/emergency/email-person/${personType}/${personId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to send reminder");
+      return data;
+    },
+    onSuccess: (data) => {
+      setEmailingPersonId(null);
+      toast({ title: "Reminder Sent", description: data.message || "Email reminder sent" });
+    },
+    onError: (error: any) => {
+      setEmailingPersonId(null);
+      toast({ title: "Send Failed", description: error.message || "Failed to send email reminder", variant: "destructive" });
+    },
   });
 
   const handleSweepZone = (zone: { id: string; name: string }, unaccountedCount: number) => {
@@ -786,30 +813,57 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                 >
                   {person.type.toUpperCase()}
                 </Badge>
-                
-                <Button
-                  size="lg"
-                  className={`px-6 py-3 rounded-xl font-bold text-lg min-w-[120px] ${
-                    person.accounted 
-                      ? "bg-red-600 hover:bg-red-700 text-white border-2 border-red-400" 
-                      : "bg-green-600 hover:bg-green-700 text-white border-2 border-green-400"
-                  }`}
-                  onClick={() => toggleAccountedStatus(person.id, person.type)}
-                  data-testid={`button-toggle-${person.id}`}
-                  disabled={toggleAccountedMutation.isPending}
-                >
-                  {person.accounted ? (
-                    <>
-                      <XCircle className="mr-2" size={20} />
-                      UNSAFE
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="mr-2" size={20} />
-                      SAFE
-                    </>
+
+                <div className="flex items-center gap-2">
+                  {!person.accounted && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className={`h-10 w-10 p-0 rounded-xl border-2 ${
+                        person.hasEmail
+                          ? 'border-orange-400 text-orange-300 hover:bg-orange-500/20'
+                          : 'border-red-900 text-red-800 cursor-not-allowed opacity-40'
+                      }`}
+                      disabled={!person.hasEmail || emailingPersonId === person.id}
+                      onClick={() => person.hasEmail && emailPersonMutation.mutate({ personId: person.id, personType: person.type })}
+                      title={person.hasEmail ? `Send email reminder to ${person.name}` : 'No email address on file'}
+                      data-testid={`button-email-${person.id}`}
+                    >
+                      {emailingPersonId === person.id ? (
+                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                        </svg>
+                      ) : (
+                        <Mail size={16} />
+                      )}
+                    </Button>
                   )}
-                </Button>
+
+                  <Button
+                    size="lg"
+                    className={`px-6 py-3 rounded-xl font-bold text-lg min-w-[120px] ${
+                      person.accounted 
+                        ? "bg-red-600 hover:bg-red-700 text-white border-2 border-red-400" 
+                        : "bg-green-600 hover:bg-green-700 text-white border-2 border-green-400"
+                    }`}
+                    onClick={() => toggleAccountedStatus(person.id, person.type)}
+                    data-testid={`button-toggle-${person.id}`}
+                    disabled={toggleAccountedMutation.isPending}
+                  >
+                    {person.accounted ? (
+                      <>
+                        <XCircle className="mr-2" size={20} />
+                        UNSAFE
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="mr-2" size={20} />
+                        SAFE
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </div>

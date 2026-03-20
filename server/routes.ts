@@ -2915,6 +2915,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           accounted: accountabilityMap.get(staff.id) ?? false,
           zoneId: (staff as any).zoneId || null,
           needsEvacuationAssistance: (staff as any).needsEvacuationAssistance ?? false,
+          hasEmail: !!staff.email,
         })),
         ...currentVisitors.map(visitor => ({
           id: visitor.id,
@@ -2926,6 +2927,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           accounted: accountabilityMap.get(visitor.id) ?? false,
           zoneId: (visitor as any).zoneId || null,
           needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance ?? false,
+          hasEmail: !!visitor.email,
         })),
         ...checkedInContractors.map(contractor => ({
           id: contractor.id,
@@ -2937,6 +2939,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           accounted: accountabilityMap.get(contractor.id) ?? false,
           zoneId: (contractor as any).zoneId || null,
           needsEvacuationAssistance: (contractor as any).needsEvacuationAssistance ?? false,
+          hasEmail: !!(contractor as any).email,
         })),
         ...checkedInMembers.map(member => ({
           id: member.id,
@@ -2949,6 +2952,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           accounted: accountabilityMap.get(member.id) ?? false,
           zoneId: (member as any).zoneId || null,
           needsEvacuationAssistance: false,
+          hasEmail: !!(member as any).email,
         }))
       ];
       
@@ -4258,6 +4262,120 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     } catch (error) {
       console.error("Error sending nudge emails:", error);
       res.status(500).json({ error: "Failed to send nudge emails" });
+    }
+  });
+
+  // In-memory rate limit for individual person email reminders: key = `customerId:personId`, value = timestamp
+  const emailPersonRateLimit = new globalThis.Map<string, number>();
+
+  // Send individual email reminder to one unaccounted person during an active emergency
+  app.post("/api/emergency/email-person/:personType/:personId", async (req, res) => {
+    try {
+      let customerId: string | null = null;
+
+      // Support both session auth (admin) and fire marshal token
+      const { token } = req.body || {};
+
+      if (req.session?.customerId) {
+        customerId = req.session.customerId;
+      } else if (token) {
+        const context = simpleDatabaseService.createCustomerContext('system', req.customerId);
+        const marshal = await databaseService.validateEmergencyToken(context, token);
+        if (!marshal) {
+          return res.status(401).json({ error: "Invalid or expired emergency token" });
+        }
+        customerId = context.customerId;
+      } else {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { personType, personId } = req.params;
+
+      if (!['staff', 'visitor', 'contractor'].includes(personType)) {
+        return res.status(400).json({ error: "Invalid person type" });
+      }
+
+      // Rate limit: once per person per 5 minutes
+      const rateLimitKey = `${customerId}:${personId}`;
+      const now = Date.now();
+      const lastSent = emailPersonRateLimit.get(rateLimitKey);
+      if (lastSent && now - lastSent < 5 * 60 * 1000) {
+        const remainingSeconds = Math.ceil((5 * 60 * 1000 - (now - lastSent)) / 1000);
+        return res.status(429).json({
+          error: `Please wait ${remainingSeconds} seconds before sending another reminder to this person`,
+          remainingSeconds,
+        });
+      }
+
+      // Validate active evacuation
+      const activeEvacs = await db
+        .select()
+        .from(evacuations)
+        .where(and(eq(evacuations.status, 'active'), eq(evacuations.customerId, customerId)))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+
+      if (!activeEvacs.length) {
+        return res.status(400).json({ error: "No active evacuation" });
+      }
+
+      const evac = activeEvacs[0];
+      const evacuationId = evac.evacuationId;
+      const isDrill = (evac as any).isDrill || false;
+
+      const context = simpleDatabaseService.createCustomerContext('system', customerId);
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const companySettings = await databaseService.getCompanySettings(context);
+      const customEmailService = new EmailService(companySettings);
+
+      // Look up person email by type
+      let personEmail: string | null = null;
+      let personName = '';
+
+      if (personType === 'staff') {
+        const staffMember = await databaseService.getStaffById(context, personId);
+        if (!staffMember) return res.status(404).json({ error: "Person not found" });
+        personEmail = staffMember.email || null;
+        personName = `${staffMember.firstName} ${staffMember.lastName}`;
+      } else if (personType === 'visitor') {
+        const visitor = await databaseService.getVisitorById(context, personId);
+        if (!visitor) return res.status(404).json({ error: "Person not found" });
+        personEmail = visitor.email || null;
+        personName = `${visitor.firstName} ${visitor.lastName}`;
+      } else if (personType === 'contractor') {
+        const [worker] = await custDb
+          .select()
+          .from(isolatedSchema.contractorWorkers)
+          .where(eq(isolatedSchema.contractorWorkers.id, personId))
+          .limit(1);
+        if (!worker) return res.status(404).json({ error: "Person not found" });
+        personEmail = (worker as any).email || null;
+        personName = `${worker.firstName} ${worker.lastName}`;
+      }
+
+      if (!personEmail) {
+        return res.status(400).json({ error: "This person has no email address on file" });
+      }
+
+      // Generate a safety token so they can self-mark safe from the email
+      const safetyToken = await generateSafetyToken(custDb, customerId, evacuationId, personId, personType as 'staff' | 'visitor' | 'contractor', personName, personEmail);
+
+      // Send the reminder email
+      const nudgeMsg = isDrill
+        ? 'FIRE DRILL REMINDER: We cannot account for you at the muster point. Please proceed there now and confirm you are safe.'
+        : 'URGENT: We cannot account for you. Please proceed to the muster point immediately and confirm you are safe.';
+
+      await customEmailService.sendEvacuationAlert(personEmail, personName, nudgeMsg, companySettings!, safetyToken, isDrill);
+
+      // Update rate limit map
+      emailPersonRateLimit.set(rateLimitKey, now);
+
+      console.log(`📧 INDIVIDUAL NUDGE: Sent reminder to ${personName} (${personEmail}) during evacuation ${evacuationId}`);
+
+      res.json({ success: true, message: `Reminder sent to ${personName}` });
+    } catch (error) {
+      console.error("Error sending individual reminder:", error);
+      res.status(500).json({ error: "Failed to send reminder email" });
     }
   });
 
@@ -6349,6 +6467,7 @@ ${hasDetailedData
           zoneColor: (staff as any).zoneId ? (zoneMap.get((staff as any).zoneId)?.color || null) : null,
           accounted: staff.isAccountedFor || false,
           needsEvacuationAssistance: (staff as any).needsEvacuationAssistance || false,
+          hasEmail: !!staff.email,
         })),
         ...currentVisitors.map(visitor => ({
           id: visitor.id,
@@ -6362,8 +6481,9 @@ ${hasDetailedData
           zoneColor: (visitor as any).zoneId ? (zoneMap.get((visitor as any).zoneId)?.color || null) : null,
           accounted: visitor.isAccountedFor || false,
           needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance || false,
+          hasEmail: !!visitor.email,
         })),
-        ...checkedInContractors
+        ...checkedInContractors.map(c => ({ ...c, hasEmail: !!c.email }))
       ];
       
       // Prevent browser caching for real-time updates
