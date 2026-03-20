@@ -4376,10 +4376,13 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         ? existingToken.token
         : await generateSafetyToken(custDb, customerId, evacuationId, personId, personType as 'staff' | 'visitor' | 'contractor', personName, personEmail);
 
-      // Send the reminder email
+      // Build contextual emergency message using evacuation details
+      const evacStartTime = evac.startedAt
+        ? new Date(evac.startedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+        : 'earlier today';
       const nudgeMsg = isDrill
-        ? 'FIRE DRILL REMINDER: We cannot account for you at the muster point. Please proceed there now and confirm you are safe.'
-        : 'URGENT: We cannot account for you. Please proceed to the muster point immediately and confirm you are safe.';
+        ? `FIRE DRILL REMINDER: A fire drill was initiated at ${evacStartTime}. We cannot account for you at the muster point. Please proceed there now and confirm you are safe.`
+        : `URGENT EVACUATION REMINDER: An emergency evacuation was initiated at ${evacStartTime}. We cannot account for you at the muster point. Please proceed to safety immediately and confirm you are safe using the link below.`;
 
       await customEmailService.sendEvacuationAlert(personEmail, personName, nudgeMsg, companySettings!, safetyToken, isDrill);
 
@@ -6466,6 +6469,7 @@ ${hasDetailedData
               zoneColor: worker.zoneId ? (zoneMap.get(worker.zoneId)?.color || null) : null,
               accounted: worker.isAccountedFor || false,
               needsEvacuationAssistance: (worker as any).needsEvacuationAssistance || false,
+              email: (worker as any).email || null,
             }))
         );
       }
