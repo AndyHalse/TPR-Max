@@ -5039,8 +5039,9 @@ ${hasDetailedData
         }
       }
 
-      // Return all reports ordered by most recent first
+      // Return all non-deleted reports ordered by most recent first
       const allReports = Array.from(existingByEvacId.values())
+        .filter(r => !r.deletedAt)
         .sort((a, b) => {
           const aTime = a.generatedAt ? new Date(a.generatedAt).getTime() : 0;
           const bTime = b.generatedAt ? new Date(b.generatedAt).getTime() : 0;
@@ -5054,7 +5055,7 @@ ${hasDetailedData
     }
   });
 
-  // DELETE a single incident report record (does not delete the underlying evacuation)
+  // DELETE a single incident report record — soft delete so back-fill doesn't re-create it
   app.delete("/api/emergency/incident-reports/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
@@ -5063,15 +5064,16 @@ ${hasDetailedData
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);
 
-      const deleted = await custDb
-        .delete(isolatedSchema.incidentReports)
+      const updated = await custDb
+        .update(isolatedSchema.incidentReports)
+        .set({ deletedAt: new Date() })
         .where(and(
           eq(isolatedSchema.incidentReports.id, id),
           eq(isolatedSchema.incidentReports.customerId, customerId)
         ))
         .returning();
 
-      if (deleted.length === 0) {
+      if (updated.length === 0) {
         return res.status(404).json({ error: "Incident report not found" });
       }
 

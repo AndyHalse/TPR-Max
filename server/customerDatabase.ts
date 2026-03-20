@@ -297,9 +297,12 @@ export class CustomerDatabaseService {
           unaccounted INTEGER NOT NULL DEFAULT 0,
           completion_pct INTEGER NOT NULL DEFAULT 0,
           generated_at TIMESTAMP DEFAULT NOW(),
-          report_url TEXT
+          report_url TEXT,
+          deleted_at TIMESTAMP
         )
       `);
+      // Ensure deleted_at column exists for tables created before this migration
+      await pool.query(`ALTER TABLE "${schemaName}".incident_reports ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
       console.log(`✅ incident_reports table ensured for ${schemaName}`);
     } catch (err: any) {
       console.warn(`⚠️ incident_reports table ensure failed: ${err.message?.substring(0, 100)}`);

@@ -2021,6 +2021,7 @@ export const incidentReports = pgTable("incident_reports", {
   completionPct: integer("completion_pct").notNull().default(0),
   generatedAt: timestamp("generated_at").defaultNow(),
   reportUrl: text("report_url"),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export type IncidentReport = typeof incidentReports.$inferSelect;
