@@ -1,5 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { storage } from "./storage";
 import { databaseService } from "./databaseService";
@@ -5272,14 +5273,29 @@ ${hasDetailedData
       const custDb = await customerDbService.getCustomerDatabase(foundCustomerId);
       const settings = await databaseService.getCompanySettings(context);
 
-      const [currentVisitors, checkedInStaff, contractorCompanies, zones] = await Promise.all([
+      const [currentVisitors, checkedInStaff, contractorCompanies, zones, sweepRecords] = await Promise.all([
         databaseService.getCurrentVisitors(context),
         databaseService.getCheckedInStaff(context),
         databaseService.getAllContractorCompanies(context),
         custDb.select().from(isolatedSchema.evacuationZones).orderBy(isolatedSchema.evacuationZones.displayOrder),
+        custDb.select().from(isolatedSchema.zoneSweeps)
+          .where(eq(isolatedSchema.zoneSweeps.evacuationId, evac.evacuationId))
+          .orderBy(desc(isolatedSchema.zoneSweeps.sweptAt)),
       ]);
 
       const zoneMap = new Map(zones.map(z => [z.id, { id: z.id, name: z.name, color: z.color }]));
+
+      // Build zone sweep map: latest sweep per zone
+      const sweepByZone = new Map<string, { sweptAt: Date; sweptByName: string; hasUnaccountedAtTime: boolean }>();
+      for (const sweep of sweepRecords) {
+        if (!sweepByZone.has(sweep.zoneId)) {
+          sweepByZone.set(sweep.zoneId, {
+            sweptAt: sweep.sweptAt,
+            sweptByName: sweep.sweptByName,
+            hasUnaccountedAtTime: sweep.hasUnaccountedAtTime,
+          });
+        }
+      }
 
       let checkedInContractors: any[] = [];
       for (const company of contractorCompanies) {
@@ -5290,6 +5306,7 @@ ${hasDetailedData
             name: `${w.firstName} ${w.lastName}`,
             type: 'contractor' as const,
             company: company.name,
+            checkInTime: (w as any).checkedInAt || null,
             location: w.zoneId ? (zoneMap.get(w.zoneId)?.name || 'Unknown') : 'Unassigned',
             zoneId: w.zoneId || null,
             zoneName: w.zoneId ? zoneMap.get(w.zoneId)?.name || null : null,
@@ -5306,6 +5323,7 @@ ${hasDetailedData
           name: `${s.firstName} ${s.lastName}`,
           type: 'staff' as const,
           department: s.department,
+          checkInTime: (s as any).checkedInAt || null,
           location: (s as any).zoneId ? (zoneMap.get((s as any).zoneId)?.name || 'Unknown') : 'Unassigned',
           zoneId: (s as any).zoneId || null,
           zoneName: (s as any).zoneId ? zoneMap.get((s as any).zoneId)?.name || null : null,
@@ -5318,6 +5336,7 @@ ${hasDetailedData
           name: `${v.firstName} ${v.lastName}`,
           type: 'visitor' as const,
           company: v.company,
+          checkInTime: (v as any).checkedInAt || null,
           location: (v as any).zoneId ? (zoneMap.get((v as any).zoneId)?.name || 'Unknown') : 'Unassigned',
           zoneId: (v as any).zoneId || null,
           zoneName: (v as any).zoneId ? zoneMap.get((v as any).zoneId)?.name || null : null,
@@ -5332,12 +5351,17 @@ ${hasDetailedData
 
       const zoneStats = zones.map(z => {
         const inZone = allPersonnel.filter(p => p.zoneId === z.id);
+        const sweep = sweepByZone.get(z.id);
         return {
           id: z.id,
           name: z.name,
           color: z.color,
           total: inZone.length,
           accounted: inZone.filter(p => p.accounted).length,
+          swept: !!sweep,
+          sweptAt: sweep?.sweptAt || null,
+          sweptByName: sweep?.sweptByName || null,
+          sweptWithUnaccounted: sweep?.hasUnaccountedAtTime || false,
         };
       });
 
@@ -5365,16 +5389,26 @@ ${hasDetailedData
   app.post("/api/admin/incident-monitor/generate", requireAuth, async (req, res) => {
     try {
       const customerId = req.session?.customerId;
-      if (!customerId) {
+      const userId = req.session?.userId;
+      if (!customerId || !userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      // Generate a new random URL ID (12 chars from two 6-char segments)
-      const newUrlId = Math.random().toString(36).substring(2, 8) +
-                       Math.random().toString(36).substring(2, 8);
+      // Admin-only: verify the requesting user has admin role
+      const custDb2 = await customerDbService.getCustomerDatabase(customerId);
+      const callerRows = await custDb2
+        .select({ role: isolatedSchema.users.role })
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.id, userId))
+        .limit(1);
+      if (!callerRows.length || callerRows[0].role !== 'admin') {
+        return res.status(403).json({ error: "Administrator access required" });
+      }
 
-      const custDb = await customerDbService.getCustomerDatabase(customerId);
-      await custDb
+      // Generate a cryptographically secure random URL ID (24 hex chars)
+      const newUrlId = crypto.randomBytes(12).toString('hex');
+
+      await custDb2
         .update(isolatedSchema.companySettings)
         .set({ incidentManagerUrlId: newUrlId });
 

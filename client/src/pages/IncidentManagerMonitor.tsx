@@ -12,7 +12,10 @@ import {
   Clock,
   Eye,
   MapPin,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
+import { format } from "date-fns";
 
 interface PersonnelItem {
   id: string;
@@ -23,6 +26,7 @@ interface PersonnelItem {
   location: string;
   zoneName?: string | null;
   zoneColor?: string | null;
+  checkInTime?: string | null;
   accounted: boolean;
   needsEvacuationAssistance?: boolean;
 }
@@ -33,6 +37,10 @@ interface ZoneStat {
   color: string;
   total: number;
   accounted: number;
+  swept: boolean;
+  sweptAt?: string | null;
+  sweptByName?: string | null;
+  sweptWithUnaccounted?: boolean;
 }
 
 interface MusterResponse {
@@ -69,6 +77,7 @@ interface IncidentManagerMonitorProps {
 export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitorProps) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [startTime, setStartTime] = useState<Date | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const refetchRef = useRef<(() => void) | null>(null);
 
@@ -109,7 +118,7 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
       return res.json();
     },
     enabled: !!context?.valid,
-    refetchInterval: 15000,
+    refetchInterval: 10000,
     retry: 2,
   });
 
@@ -131,7 +140,7 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
     return () => clearInterval(interval);
   }, [startTime, musterData?.active]);
 
-  // WebSocket for live updates
+  // WebSocket for live updates with connection state tracking
   useEffect(() => {
     if (!context?.valid || !musterData?.active || !musterData.evacuationId || !context.customerId) return;
 
@@ -139,6 +148,7 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
     const ws = new WebSocket(`${protocol}//${window.location.host}/ws/muster`);
 
     ws.onopen = () => {
+      setWsConnected(true);
       ws.send(
         JSON.stringify({
           type: "register",
@@ -152,11 +162,19 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
       refetchRef.current?.();
     };
 
-    ws.onerror = () => {};
+    ws.onerror = () => {
+      setWsConnected(false);
+    };
+
+    ws.onclose = () => {
+      setWsConnected(false);
+    };
+
     wsRef.current = ws;
 
     return () => {
       ws.close();
+      setWsConnected(false);
     };
   }, [context?.valid, context?.customerId, musterData?.active, musterData?.evacuationId]);
 
@@ -167,6 +185,15 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
     if (h > 0) return `${h}h ${m}m ${s}s`;
     if (m > 0) return `${m}m ${s}s`;
     return `${s}s`;
+  };
+
+  const formatCheckInTime = (t: string | null | undefined) => {
+    if (!t) return null;
+    try {
+      return format(new Date(t), "HH:mm");
+    } catch {
+      return null;
+    }
   };
 
   const accentColor =
@@ -227,7 +254,7 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
           </div>
           <div className="flex items-center justify-center gap-2 text-xs text-gray-400 mt-1">
             <RefreshCw size={12} />
-            <span>Auto-refreshes every 15 seconds</span>
+            <span>Auto-refreshes every 10 seconds</span>
           </div>
         </div>
       </div>
@@ -277,7 +304,7 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
 
       {/* Banner */}
       <div className={`${bannerBg} p-3 border-b-4 border-yellow-400`}>
-        <div className="max-w-5xl mx-auto flex items-center justify-center gap-3">
+        <div className="max-w-5xl mx-auto flex items-center justify-center gap-3 flex-wrap">
           <AlertTriangle className="text-yellow-400 animate-pulse flex-shrink-0" size={20} />
           <span className="font-bold text-sm sm:text-base">
             {isDrill ? "FIRE DRILL IN PROGRESS" : "EMERGENCY ACTIVE"}
@@ -286,10 +313,18 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
             <Clock size={14} />
             <span className="font-mono text-sm">{formatElapsed(elapsedSeconds)}</span>
           </div>
-          <div className="flex items-center gap-1 text-yellow-300 ml-2">
-            <Activity size={14} />
-            <span className="text-xs">Live</span>
-          </div>
+          {/* WebSocket live indicator */}
+          {wsConnected ? (
+            <div className="flex items-center gap-1 ml-2">
+              <Wifi size={13} className="text-green-400" />
+              <span className="text-xs text-green-400 font-semibold">● Live</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1 ml-2">
+              <WifiOff size={13} className="text-gray-400" />
+              <span className="text-xs text-gray-400 font-semibold">● Reconnecting</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -377,7 +412,12 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
                         className="w-2 h-2 rounded-full flex-shrink-0"
                         style={{ backgroundColor: zone.color }}
                       />
-                      <span className="font-semibold truncate">{zone.name}</span>
+                      <span className="font-semibold truncate flex-1">{zone.name}</span>
+                      {zone.swept ? (
+                        <span className="text-green-400 font-bold text-xs ml-auto">✓ Swept</span>
+                      ) : (
+                        <span className="text-yellow-300 text-xs ml-auto">Pending</span>
+                      )}
                     </div>
                     <div className="flex justify-between text-red-200">
                       <span>{zone.accounted}/{zone.total}</span>
@@ -392,6 +432,9 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
                         }}
                       />
                     </div>
+                    {zone.swept && zone.sweptByName && (
+                      <p className="text-green-300 mt-1 text-xs truncate">by {zone.sweptByName}</p>
+                    )}
                   </div>
                 );
               })}
@@ -418,6 +461,9 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
                     </p>
                     <p className="text-xs text-red-300">
                       {p.department || p.company || p.type} · {p.zoneName || p.location || "Unassigned"}
+                      {p.checkInTime && (
+                        <span className="ml-1 text-red-400">· in {formatCheckInTime(p.checkInTime)}</span>
+                      )}
                     </p>
                   </div>
                   <Badge variant="destructive" className="text-xs">Missing</Badge>
@@ -441,6 +487,9 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
                     <p className="text-sm font-semibold">{p.name}</p>
                     <p className="text-xs text-green-300">
                       {p.department || p.company || p.type} · {p.zoneName || p.location || "Unassigned"}
+                      {p.checkInTime && (
+                        <span className="ml-1 text-green-400">· in {formatCheckInTime(p.checkInTime)}</span>
+                      )}
                     </p>
                   </div>
                   <Badge className="text-xs bg-green-600 text-white hover:bg-green-600">Safe</Badge>
@@ -450,8 +499,9 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
           </div>
         )}
 
-        <div className="text-center text-xs text-red-300 pb-4">
-          Read-only view — refreshes automatically every 15 seconds
+        <div className="text-center text-xs text-red-300 pb-4 flex items-center justify-center gap-1.5">
+          <Activity size={11} />
+          Read-only view — refreshes automatically every 10 seconds
         </div>
       </div>
     </div>
