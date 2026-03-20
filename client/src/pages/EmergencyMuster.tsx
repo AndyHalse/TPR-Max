@@ -467,22 +467,28 @@ export default function EmergencyMuster() {
     }
   };
 
-  const filteredList = musterList.filter(person => {
+  // Apply zone filter first — when zones are selected, only include people assigned to those zones
+  const zonedMusterList = selectedZones.size === 0
+    ? musterList
+    : musterList.filter(p => p.zoneId && selectedZones.has(p.zoneId));
+
+  // Apply search and type filters on top of the zone-filtered list
+  const filteredList = zonedMusterList.filter(person => {
     const matchesType = typeFilter === 'all' || person.type === typeFilter;
     const matchesSearch = searchTerm === '' || 
       (person.name && person.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (person.department && person.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (person.company && person.company.toLowerCase().includes(searchTerm.toLowerCase()));
-    const matchesZone = selectedZones.size === 0 || !person.zoneId || selectedZones.has(person.zoneId);
-    return matchesType && matchesSearch && matchesZone;
+    return matchesType && matchesSearch;
   });
 
-  const totalPeople = musterList.length;
-  const accountedFor = musterList.filter(p => p.accounted).length;
-  const staffCount = musterList.filter(p => p.type === 'staff').length;
-  const visitorCount = musterList.filter(p => p.type === 'visitor').length;
-  const contractorCount = musterList.filter(p => p.type === 'contractor').length;
-  const memberCount = musterList.filter(p => p.type === 'member').length;
+  // Summary stats reflect the zone-filtered list so counts match what's visible
+  const totalPeople = zonedMusterList.length;
+  const accountedFor = zonedMusterList.filter(p => p.accounted).length;
+  const staffCount = zonedMusterList.filter(p => p.type === 'staff').length;
+  const visitorCount = zonedMusterList.filter(p => p.type === 'visitor').length;
+  const contractorCount = zonedMusterList.filter(p => p.type === 'contractor').length;
+  const memberCount = zonedMusterList.filter(p => p.type === 'member').length;
 
   const zonesRequireSelection = showZoneSelector && zones.length > 0 && selectedZones.size === 0;
 
@@ -1017,6 +1023,12 @@ export default function EmergencyMuster() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
               <h3 className="text-base sm:text-lg font-semibold text-fixed">
                 Personnel Accountability
+                {selectedZones.size > 0 && (
+                  <span className="ml-2 text-xs font-normal bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-1 rounded-full">
+                    {selectedZones.size === 1 ? '1 zone' : `${selectedZones.size} zones`}
+                    <button onClick={() => setSelectedZones(new Set())} className="ml-1 hover:text-amber-900 dark:hover:text-amber-100" title="Clear zone filter">&times;</button>
+                  </span>
+                )}
                 {typeFilter !== 'all' && (
                   <span className="ml-2 text-xs font-normal bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
                     {typeFilter === 'staff' ? 'Staff' : typeFilter === 'visitor' ? 'Visitors' : typeFilter === 'contractor' ? 'Contractors' : 'Members'}
