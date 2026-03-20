@@ -115,7 +115,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [evacuationDetails, setEvacuationDetails] = useState<EvacuationDetails | null>(null);
   const [marshalZoneId, setMarshalZoneId] = useState<string | null>(null);
   const [showZoneSweep, setShowZoneSweep] = useState(false);
-  const [showMyZoneOnly, setShowMyZoneOnly] = useState(true);
+  const [showMyZoneOnly, setShowMyZoneOnly] = useState(false);
   const [sweepConfirmZone, setSweepConfirmZone] = useState<{ id: string; name: string; unaccountedCount: number } | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
@@ -572,16 +572,20 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       {/* Zone filter banner — shown when marshal has an assigned zone */}
       {hasZoneAssignment && (
         <div className="px-4 pb-2">
-          <div className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium border ${showMyZoneOnly ? 'bg-blue-600 text-white border-blue-700' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}>
+          <div className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium border ${showMyZoneOnly ? 'bg-blue-600 text-white border-blue-700' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'}`}>
             <div className="flex items-center gap-2">
               <MapPin size={14} className="flex-shrink-0" />
-              <span>{showMyZoneOnly ? `Showing: ${zones.find(z => z.id === marshalZoneId)?.name || 'My Zone'} only` : 'Showing: All zones'}</span>
+              <span>
+                {showMyZoneOnly
+                  ? `My zone: ${zones.find(z => z.id === marshalZoneId)?.name || 'My Zone'} only`
+                  : `My zone: ${zones.find(z => z.id === marshalZoneId)?.name || 'assigned'} — showing all`}
+              </span>
             </div>
             <button
               onClick={() => setShowMyZoneOnly(!showMyZoneOnly)}
-              className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${showMyZoneOnly ? 'bg-white/20 text-white border-white/40' : 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'}`}
+              className={`text-xs px-2 py-0.5 rounded-full font-semibold border flex-shrink-0 ${showMyZoneOnly ? 'bg-white/20 text-white border-white/40' : 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'}`}
             >
-              {showMyZoneOnly ? 'View All' : 'My Zone Only'}
+              {showMyZoneOnly ? 'Show all' : 'My zone only'}
             </button>
           </div>
         </div>
