@@ -4954,17 +4954,47 @@ ${hasDetailedData
 
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
 
-      // Count unaccounted in this zone at time of sweep
-      const allAccountability = await custDb
-        .select()
-        .from(isolatedSchema.evacuationAccountability)
-        .where(and(
-          eq(isolatedSchema.evacuationAccountability.evacuationId, evacuationId),
-          eq(isolatedSchema.evacuationAccountability.customerId, context.customerId)
-        ));
-
-      const zonePersonnel = allAccountability.filter((p: any) => p.zoneId === zoneId);
-      const hasUnaccountedAtTime = zonePersonnel.some((p: any) => !p.isAccountedFor);
+      // Determine hasUnaccountedAtTime by querying the live source tables directly.
+      // Each person table (staff, visitors, contractorWorkers, members) has:
+      //   - zoneId: where they are currently assigned
+      //   - isCheckedIn / isAccountedFor: live status
+      // The evacuationAccountability table does NOT have zoneId, so we use the source tables.
+      const [unaccountedStaff, unaccountedVisitors, unaccountedWorkers, unaccountedMembers] = await Promise.all([
+        custDb.select({ id: isolatedSchema.staff.id })
+          .from(isolatedSchema.staff)
+          .where(and(
+            eq(isolatedSchema.staff.zoneId, zoneId),
+            eq(isolatedSchema.staff.isCheckedIn, true),
+            eq(isolatedSchema.staff.isAccountedFor, false)
+          )),
+        custDb.select({ id: isolatedSchema.visitors.id })
+          .from(isolatedSchema.visitors)
+          .where(and(
+            eq(isolatedSchema.visitors.zoneId, zoneId),
+            eq(isolatedSchema.visitors.isCheckedIn, true),
+            eq(isolatedSchema.visitors.isAccountedFor, false)
+          )),
+        custDb.select({ id: isolatedSchema.contractorWorkers.id })
+          .from(isolatedSchema.contractorWorkers)
+          .where(and(
+            eq(isolatedSchema.contractorWorkers.zoneId, zoneId),
+            eq(isolatedSchema.contractorWorkers.isCheckedIn, true),
+            eq(isolatedSchema.contractorWorkers.isAccountedFor, false)
+          )),
+        custDb.select({ id: isolatedSchema.members.id })
+          .from(isolatedSchema.members)
+          .where(and(
+            eq(isolatedSchema.members.zoneId, zoneId),
+            eq(isolatedSchema.members.isCheckedIn, true),
+            eq(isolatedSchema.members.isAccountedFor, false)
+          )),
+      ]);
+      const hasUnaccountedAtTime = (
+        unaccountedStaff.length > 0 ||
+        unaccountedVisitors.length > 0 ||
+        unaccountedWorkers.length > 0 ||
+        unaccountedMembers.length > 0
+      );
 
       // Upsert: remove any previous sweep for this zone in this evacuation, then insert fresh
       await custDb

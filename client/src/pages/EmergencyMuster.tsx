@@ -150,10 +150,11 @@ export default function EmergencyMuster() {
     },
     refetchInterval: 15000,
   });
-  const sweptZoneMap = useMemo(() => 
-    new Map<string, ZoneSweep>(zoneSweeps.map(s => [s.zoneId, s])),
-    [zoneSweeps]
-  );
+  const sweptZoneMap = useMemo(() => {
+    const m = new globalThis.Map<string, ZoneSweep>();
+    for (const s of zoneSweeps) m.set(s.zoneId, s);
+    return m;
+  }, [zoneSweeps]);
 
   const zonePersonnelCounts = useMemo(() => {
     const counts: Record<string, { total: number; safe: number }> = {};
@@ -1199,6 +1200,45 @@ export default function EmergencyMuster() {
               </div>
             )}
             
+            {/* Zone Sweep Status — in sidebar beneath fire marshal links, during active evacuation */}
+            {hasActiveEvacuation && activeZones.length > 0 && (
+              <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Footprints size={14} className="text-green-600 dark:text-green-400" />
+                    <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Zone Sweep Progress</h4>
+                  </div>
+                  <span className="text-xs text-muted-foreground">{zoneSweeps.length}/{activeZones.length}</span>
+                </div>
+                <div className="space-y-1">
+                  {activeZones.map(zone => {
+                    const sweep = sweptZoneMap.get(zone.id);
+                    return (
+                      <div key={zone.id} className="flex items-center gap-2 text-xs">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
+                        <span className={`flex-1 truncate ${sweep ? 'text-green-700 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                          {zone.name}
+                        </span>
+                        {sweep ? (
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Footprints size={10} className="text-green-600 dark:text-green-400" />
+                            <span className="text-green-600 dark:text-green-400 font-medium">
+                              {new Date(sweep.sweptAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {sweep.hasUnaccountedAtTime && (
+                              <span className="text-amber-500" title="Swept with unaccounted people">⚠</span>
+                            )}
+                          </div>
+                        ) : (
+                          <Clock size={10} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
               <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">Site Contact</h4>
               {companySettings?.phone ? (
