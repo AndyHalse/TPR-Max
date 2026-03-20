@@ -269,26 +269,45 @@ export default function EmergencyMuster() {
     };
   }, [hasActiveEvacuation, activeEvacuation?.evacuationId, activeEvacuation?.customerId, toast, queryClient]);
 
-  // Mutation to toggle accounted status
+  // Mutation to toggle accounted status — with optimistic update for instant UI response
   const toggleAccountedMutation = useMutation({
     mutationFn: async ({ personId, type }: { personId: string, type: string }) => {
       const response = await apiRequest("POST", `/api/muster/${personId}/toggle`, { type });
       return await response.json();
     },
-    onSuccess: (data) => {
-      // WebSocket will handle the real-time update, but we still invalidate for consistency
-      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      toast({
-        title: "Status Updated", 
-        description: `Successfully updated accounted status for ${data.type}`,
+    onMutate: async ({ personId }) => {
+      // Cancel any in-flight refetches so they don't clobber our optimistic state
+      await queryClient.cancelQueries({ queryKey: ["/api/muster"] });
+
+      // Snapshot current data for rollback
+      const previousData = queryClient.getQueryData<any[]>(["/api/muster"]);
+
+      // Instantly flip the person's accounted status in the cache
+      queryClient.setQueryData(["/api/muster"], (old: any[] | undefined) => {
+        if (!old) return old;
+        return old.map(person =>
+          person.id === personId
+            ? { ...person, isAccountedFor: !person.isAccountedFor }
+            : person
+        );
       });
+
+      return { previousData };
     },
-    onError: (error: any) => {
+    onError: (error: any, _variables, context) => {
+      // Roll back to previous state on failure
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/muster"], context.previousData);
+      }
       toast({
         title: "Update Failed",
         description: error.message || "Failed to update accounted status",
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      // Sync with server to confirm the real state
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
     },
   });
 
@@ -313,26 +332,39 @@ export default function EmergencyMuster() {
     },
   });
 
-  // Mutation to mark all personnel as safe
+  // Mutation to mark all personnel as safe — with optimistic update
   const markAllSafeMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("POST", "/api/muster/mark-all-safe", {});
       return await response.json();
     },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ["/api/muster"] });
+      const previousData = queryClient.getQueryData<any[]>(["/api/muster"]);
+      queryClient.setQueryData(["/api/muster"], (old: any[] | undefined) => {
+        if (!old) return old;
+        return old.map(person => ({ ...person, isAccountedFor: true }));
+      });
+      return { previousData };
+    },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      queryClient.refetchQueries({ queryKey: ["/api/muster"] });
       toast({
         title: "All Personnel Marked Safe",
         description: `Successfully marked ${data.updatedCount} out of ${data.totalPersonnel} personnel as safe`,
       });
     },
-    onError: (error: any) => {
+    onError: (error: any, _variables, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["/api/muster"], context.previousData);
+      }
       toast({
         title: "Mark All Safe Failed", 
         description: error.message || "Failed to mark all personnel as safe",
         variant: "destructive",
       });
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
     },
   });
 
