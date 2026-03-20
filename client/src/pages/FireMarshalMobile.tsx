@@ -1,11 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Shield, 
@@ -18,12 +16,13 @@ import {
   UserCheck,
   Siren,
   ChevronDown,
+  ChevronRight,
   LogOut,
-  UserMinus,
   Eye,
   EyeOff,
   Clock,
-  Timer
+  Timer,
+  Footprints,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -50,13 +49,12 @@ interface PersonOnSite {
   musterPoint?: string;
 }
 
-interface EvacuationData {
-  evacuationId: string;
+interface PersonnelData {
+  evacuationId: string | null;
   people: PersonOnSite[];
   totalOnSite: number;
   accountedFor: number;
   unaccounted: number;
-  musterPoints: string[];
 }
 
 interface ActiveEvacuationResponse {
@@ -71,9 +69,26 @@ interface EvacuationDetails {
   status: string;
 }
 
+interface Zone {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface ZoneSweep {
+  id: string;
+  evacuationId: string;
+  zoneId: string;
+  zoneName: string;
+  sweptByName: string;
+  sweptAt: string;
+  hasUnaccountedAtTime: boolean;
+  overrideReason?: string | null;
+}
+
 interface FireMarshalMobileProps {
-  urlId?: string;  // NEW: Static URL ID
-  token?: string;  // LEGACY: Token-based auth
+  urlId?: string;
+  token?: string;
 }
 
 interface MarshalInfo {
@@ -86,22 +101,25 @@ interface MarshalInfo {
 }
 
 export default function FireMarshalMobile({ urlId, token }: FireMarshalMobileProps) {
-  const queryClient = useQueryClient(); // CRITICAL: Use the hook for cache invalidation
+  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeEvacuationId, setActiveEvacuationId] = useState<string | null>(null);
   const [marshalName, setMarshalName] = useState("");
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
-  const [filterType, setFilterType] = useState<'all' | 'unaccounted' | 'accounted'>('all');
   const [marshalInfo, setMarshalInfo] = useState<MarshalInfo | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
-  const [showSafePeople, setShowSafePeople] = useState(false); // Hide safe people by default
+  const [showSafePeople, setShowSafePeople] = useState(false);
   const [evacuationDetails, setEvacuationDetails] = useState<EvacuationDetails | null>(null);
+  const [marshalZoneId, setMarshalZoneId] = useState<string | null>(null);
+  const [showZoneSweep, setShowZoneSweep] = useState(false);
+  const [sweepConfirmZone, setSweepConfirmZone] = useState<{ id: string; name: string; unaccountedCount: number } | null>(null);
+  const [overrideReason, setOverrideReason] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // NEW: Authenticate using static URL ID
+  // Authenticate using static URL ID
   useEffect(() => {
     if (urlId) {
       fetch(`/api/emergency/fire-marshal/${urlId}`)
@@ -110,7 +128,6 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
           return res.json();
         })
         .then(data => {
-          console.log('✅ Fire Marshal authenticated:', data.marshal.name);
           setMarshalInfo(data.marshal);
           setMarshalName(data.marshal.name);
           if (data.evacuation) {
@@ -122,97 +139,55 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             });
           }
         })
-        .catch(err => {
-          console.error('❌ Fire Marshal authentication failed:', err);
+        .catch(() => {
           setAuthError('Invalid or expired Fire Marshal link');
         });
     }
   }, [urlId]);
 
-  // WebSocket connection for real-time updates (CRITICAL for cross-Fire-Marshal updates)
+  // WebSocket connection for real-time updates
   useEffect(() => {
-    console.log('🔥 WebSocket Effect Running - marshalInfo:', marshalInfo);
-    console.log('🔥 Has customerId?', !!marshalInfo?.customerId, 'customerId:', marshalInfo?.customerId);
-    console.log('🔥 activeEvacuationId:', activeEvacuationId);
-    
-    // Only connect if we have marshalInfo with customerId
-    if (!marshalInfo?.customerId) {
-      console.warn('⚠️ NOT connecting WebSocket - missing marshalInfo.customerId');
-      return;
-    }
+    if (!marshalInfo?.customerId) return;
 
     const connectWebSocket = () => {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws/muster`;
-      
-      console.log('🔥 CONNECTING Fire Marshal WebSocket:', wsUrl);
-      console.log('🔥 Registration payload:', {
-        type: 'register',
-        customerId: marshalInfo.customerId,
-        evacuationId: activeEvacuationId || 'fire-marshal-standalone'
-      });
-      
+      const wsUrl = `${protocol}//${window.location.host}/ws/muster`;
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('✅ Fire Marshal WebSocket CONNECTED!');
         setWsConnected(true);
-        
-        // Register with customer context (evacuation may or may not exist yet)
-        const registration = {
+        ws.send(JSON.stringify({
           type: 'register',
           customerId: marshalInfo.customerId,
           evacuationId: activeEvacuationId || 'fire-marshal-standalone'
-        };
-        console.log('📤 Sending registration:', registration);
-        ws.send(JSON.stringify(registration));
+        }));
       };
 
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('📨 Fire Marshal WebSocket message:', message);
-          
           if (message.type === 'muster_update') {
-            console.log('🚨 REAL-TIME UPDATE RECEIVED:', message.personName, message.isAccountedFor ? 'SAFE' : 'UNSAFE');
-            
             queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
-            queryClient.invalidateQueries({ queryKey: ['/api/emergency/accountability', activeEvacuationId || ''] });
-            
             const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
             toast({
-              title: "🚨 Real-time Update",
+              title: "Real-time Update",
               description: `${message.personName} marked as ${statusText}`,
             });
           }
-          
           if (message.type === 'personnel_update') {
-            console.log('👤 PERSONNEL UPDATE:', message.personName, message.action);
-            
             queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
           }
-        } catch (error) {
-          console.error('❌ Error parsing WebSocket message:', error);
+        } catch {
+          // ignore parse errors
         }
       };
 
-      ws.onerror = (error) => {
-        console.error('❌ Fire Marshal WebSocket error:', error);
-        setWsConnected(false);
-      };
+      ws.onerror = () => setWsConnected(false);
 
       ws.onclose = () => {
-        console.log('❌ Fire Marshal WebSocket disconnected');
         setWsConnected(false);
-        
-        // Attempt to reconnect after 3 seconds if we still have marshalInfo
         if (marshalInfo?.customerId) {
-          console.log('⏳ Scheduling WebSocket reconnection in 3 seconds...');
-          reconnectTimeoutRef.current = setTimeout(() => {
-            console.log('🔄 Attempting to reconnect Fire Marshal WebSocket...');
-            connectWebSocket();
-          }, 3000);
+          reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
         }
       };
 
@@ -221,31 +196,14 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
 
     connectWebSocket();
 
-    // Cleanup on unmount
     return () => {
-      console.log('🧹 Cleaning up WebSocket connection');
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
+      if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
     };
-    // NOTE: toast and queryClient are intentionally excluded from dependencies
-    // - toast function is stable despite useToast() returning new object each render
-    // - queryClient is stable singleton
-    // Including them would cause WebSocket to tear down/reconnect on every render
-  }, [marshalInfo?.customerId, activeEvacuationId, urlId]);
+  }, [marshalInfo?.customerId, activeEvacuationId, urlId, queryClient, toast]);
 
-  // Fetch on-site personnel data (Fire Marshal URL ALWAYS shows who's on site, regardless of evacuation status)
-  const { data: personnelData, isLoading: isLoadingPersonnel } = useQuery<{
-    people: PersonOnSite[];
-    totalOnSite: number;
-    accountedFor: number;
-    unaccounted: number;
-  }>({
-    // CRITICAL: Query key pattern must match WebSocket invalidation pattern exactly
+  // Fetch on-site personnel data (polls every 5s — also returns evacuationId when active)
+  const { data: personnelData, isLoading: isLoadingPersonnel } = useQuery<PersonnelData>({
     queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'],
     enabled: !!urlId,
     refetchInterval: 5000,
@@ -256,58 +214,21 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   });
 
-  // Load marshal name from localStorage (legacy)
+  // Keep activeEvacuationId in sync with the polling data
   useEffect(() => {
-    if (!urlId) {  // Only use localStorage for legacy token auth
-      const savedName = localStorage.getItem('fireMarshallName');
-      if (savedName) setMarshalName(savedName);
+    if (personnelData?.evacuationId && personnelData.evacuationId !== activeEvacuationId) {
+      setActiveEvacuationId(personnelData.evacuationId);
+    } else if (!personnelData?.evacuationId && activeEvacuationId) {
+      // Evacuation ended — clear local state
+      setActiveEvacuationId(null);
+      setEvacuationDetails(null);
     }
-  }, [urlId]);
+  }, [personnelData?.evacuationId]);
 
-  // Save marshal name to localStorage (legacy)
-  useEffect(() => {
-    if (marshalName && !urlId) {  // Only save for legacy token auth
-      localStorage.setItem('fireMarshallName', marshalName);
-    }
-  }, [marshalName, urlId]);
-
-  // Fetch evacuation accountability list with shorter refresh for real-time updates
-  const { data: evacuationData, refetch } = useQuery<EvacuationData>({
-    // CRITICAL: Query key pattern must match WebSocket invalidation pattern exactly
-    queryKey: ['/api/emergency/accountability', activeEvacuationId || ''],
-    enabled: !!activeEvacuationId && (!!token || !!marshalInfo),
-    refetchInterval: 2000, // Refresh every 2 seconds for real-time updates
-    queryFn: async () => {
-      const headers: HeadersInit = {};
-      if (token) {
-        headers['X-Emergency-Token'] = token;  // Legacy token auth
-      } else if (urlId) {
-        headers['X-Fire-Marshal-Id'] = urlId;  // NEW: URL ID auth
-      }
-      const response = await fetch(`/api/emergency/accountability/${activeEvacuationId}`, { headers });
-      if (!response.ok) throw new Error('Failed to fetch accountability data');
-      return response.json();
-    }
-  });
-
-  // Convert personnel data to evacuation format - ALWAYS USE PERSONNEL DATA to show who's on site
-  const personnelDisplayData: EvacuationData | null = personnelData ? {
-    evacuationId: activeEvacuationId || 'standalone', // Fire Marshal URL works independently
-    people: personnelData.people,
-    totalOnSite: personnelData.totalOnSite,
-    accountedFor: personnelData.accountedFor,
-    unaccounted: personnelData.unaccounted,
-    musterPoints: []
-  } : null;
-
-  // ALWAYS prioritize on-site personnel data - Fire Marshal URLs show who's on site at ANY time
-  // If there's evacuation-specific data with more detail, merge it
-  const displayData = personnelDisplayData || evacuationData;
-
-  // Check for active evacuation (only for legacy token auth - new URL ID system gets this from auth endpoint)
+  // Check for active evacuation (legacy token auth only)
   const { data: activeEvacuation } = useQuery<ActiveEvacuationResponse>({
     queryKey: ["/api/emergency/active"],
-    enabled: !!token && !urlId,  // Only for legacy token auth
+    enabled: !!token && !urlId,
     refetchInterval: 5000,
     queryFn: async () => {
       const response = await fetch('/api/emergency/active', {
@@ -324,89 +245,92 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   }, [activeEvacuation]);
 
+  // Load marshal name from localStorage (legacy token auth)
+  useEffect(() => {
+    if (!urlId) {
+      const savedName = localStorage.getItem('fireMarshallName');
+      if (savedName) setMarshalName(savedName);
+    }
+  }, [urlId]);
 
-  // Mark person as safe mutation
+  useEffect(() => {
+    if (marshalName && !urlId) {
+      localStorage.setItem('fireMarshallName', marshalName);
+    }
+  }, [marshalName, urlId]);
+
+  // Fetch zones for this fire marshal (URL ID auth)
+  const { data: zoneData } = useQuery<{ zones: Zone[]; marshalZoneId: string | null }>({
+    queryKey: ['/api/emergency/fire-marshal', urlId, 'zones'],
+    enabled: !!urlId,
+    queryFn: async () => {
+      const res = await fetch(`/api/emergency/fire-marshal/${urlId}/zones`);
+      if (!res.ok) return { zones: [], marshalZoneId: null };
+      return res.json();
+    },
+    refetchInterval: false,
+  });
+
+  useEffect(() => {
+    if (zoneData?.marshalZoneId) setMarshalZoneId(zoneData.marshalZoneId);
+  }, [zoneData]);
+
+  const zones = zoneData?.zones || [];
+
+  // Fetch zone sweeps (only when evacuation is active)
+  const { data: zoneSweeps = [] } = useQuery<ZoneSweep[]>({
+    queryKey: ['/api/emergency/zone-sweeps', activeEvacuationId, urlId],
+    enabled: !!activeEvacuationId && !!urlId,
+    queryFn: async () => {
+      const res = await fetch(`/api/emergency/zone-sweeps/${activeEvacuationId}`, {
+        headers: { 'X-Fire-Marshal-Id': urlId! },
+        credentials: 'include',
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    refetchInterval: 15000,
+  });
+
+  const sweptZoneMap = new globalThis.Map<string, ZoneSweep>(zoneSweeps.map(s => [s.zoneId, s]));
+
+  // Mark safe mutation
   const markSafeMutation = useMutation({
     mutationFn: async ({ personId }: { personId: string }) => {
-      console.log('🚀 [MUTATION] Mark Safe mutation starting for personId:', personId);
-      console.log('🚀 [MUTATION] marshalName:', marshalName);
-      console.log('🚀 [MUTATION] activeEvacuationId:', activeEvacuationId);
-      console.log('🚀 [MUTATION] token:', token);
-      console.log('🚀 [MUTATION] urlId:', urlId);
-      
       const headers: HeadersInit = { "Content-Type": "application/json" };
-      
-      // Support both authentication methods
-      if (token) {
-        headers["X-Emergency-Token"] = token;  // Legacy token auth
-        console.log('🚀 [MUTATION] Using token auth');
-      } else if (urlId) {
-        headers["X-Fire-Marshal-Id"] = urlId;  // URL ID auth
-        console.log('🚀 [MUTATION] Using URL ID auth:', urlId);
-      }
-      
-      const requestBody = { 
-        musterPoint: "Safe Location",  // Default location - no longer requires selection
-        evacuationId: activeEvacuationId || 'standalone',  // Use 'standalone' if no active evacuation
-        marshalName: marshalName
-      };
-      console.log('🚀 [MUTATION] Request body:', requestBody);
-      
-      console.log('🚀 [MUTATION] Sending POST to:', `/api/emergency/mark-safe/${personId}`);
+      if (token) headers["X-Emergency-Token"] = token;
+      else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
+
       const response = await fetch(`/api/emergency/mark-safe/${personId}`, {
         method: "POST",
         headers,
         credentials: "include",
-        body: JSON.stringify(requestBody)
+        body: JSON.stringify({
+          musterPoint: "Safe Location",
+          evacuationId: activeEvacuationId || 'standalone',
+          marshalName
+        })
       });
-      console.log('🚀 [MUTATION] Response status:', response.status);
-      if (!response.ok) {
-        console.error('🚀 [MUTATION] Response not OK:', response.status, response.statusText);
-        throw new Error("Failed to mark person as safe");
-      }
-      const data = await response.json();
-      console.log('🚀 [MUTATION] Response data:', data);
-      return data;
+      if (!response.ok) throw new Error("Failed to mark person as safe");
+      return response.json();
     },
     onSuccess: (data) => {
-      console.log('✅ [MUTATION SUCCESS] Person marked safe successfully');
-      
-      // If the response includes an evacuation ID (from standalone mode), update our state
       if (data.evacuationId && !activeEvacuationId) {
         setActiveEvacuationId(data.evacuationId);
       }
-      
-      // Collapse the card for the person who was just marked safe
       if (data.personId) {
-        const newExpanded = new Set(expandedCards);
-        newExpanded.delete(data.personId);
-        setExpandedCards(newExpanded);
-        console.log('✅ [MUTATION SUCCESS] Collapsed card for person:', data.personId);
+        const next = new Set(expandedCards);
+        next.delete(data.personId);
+        setExpandedCards(next);
       }
-      
-      // CRITICAL: Invalidate queries with EXACT key patterns to sync across all Fire Marshal views
       queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
       queryClient.invalidateQueries({ queryKey: ['/api/emergency/accountability', activeEvacuationId || ''] });
-      // Invalidate admin muster dashboard for real-time sync
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      
-      console.log('✅ [MUTATION SUCCESS] Queries invalidated with segmented keys');
-      
-      toast({
-        title: "✓ Marked Safe",
-        description: `${data.personName || 'Person'} has been marked as safe`,
-      });
-      // Vibrate on mobile devices for feedback
-      if (navigator.vibrate) {
-        navigator.vibrate(200);
-      }
+      toast({ title: "Marked Safe", description: `${data.personName || 'Person'} has been marked as safe` });
+      if (navigator.vibrate) navigator.vibrate(200);
     },
     onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to update status",
-        variant: "destructive"
-      });
+      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
     }
   });
 
@@ -414,248 +338,223 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const completeEvacuationMutation = useMutation({
     mutationFn: async ({ checkOutMode }: { checkOutMode: 'keep_checked_in' | 'check_out_all' }) => {
       const headers: HeadersInit = { "Content-Type": "application/json" };
-      
-      // Support both authentication methods
-      if (token) {
-        headers["X-Emergency-Token"] = token;  // Legacy token auth
-      } else if (urlId) {
-        headers["X-Fire-Marshal-Id"] = urlId;  // URL ID auth
-      }
-      
+      if (token) headers["X-Emergency-Token"] = token;
+      else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
+
       const response = await fetch('/api/emergency/complete-evacuation', {
         method: 'POST',
         headers,
         credentials: 'include',
-        body: JSON.stringify({
-          evacuationId: activeEvacuationId,
-          checkOutMode
-        })
+        body: JSON.stringify({ evacuationId: activeEvacuationId, checkOutMode })
       });
-      if (!response.ok) throw new Error('Failed to complete evacuation');
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to complete evacuation');
+      }
       return response.json();
     },
     onSuccess: (data) => {
-      // Invalidate all emergency-related queries
+      queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
       queryClient.invalidateQueries({ queryKey: ['/api/emergency/active'] });
       queryClient.invalidateQueries({ queryKey: ['/api/muster'] });
-      
-      // Invalidate all personnel queries to update UI everywhere
       queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/staff/checked-in'] });
       queryClient.invalidateQueries({ queryKey: ['/api/visitors'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/visitors/current'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/visitors/today'] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/contractors/checked-in'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
-      
-      // Invalidate dashboard and stats queries
       queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
       queryClient.invalidateQueries({ queryKey: ['/api/activity/recent'] });
-      
-      toast({
-        title: "✓ Evacuation Completed",
-        description: data.message,
-      });
+      toast({ title: "Evacuation Completed", description: data.message });
       setActiveEvacuationId(null);
+      setEvacuationDetails(null);
     },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to complete evacuation",
-        variant: "destructive"
-      });
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to complete evacuation", variant: "destructive" });
     }
   });
 
-
-  // Toggle card expansion
-  const toggleCard = (id: string) => {
-    const newExpanded = new Set(expandedCards);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
+  // Sweep zone mutation
+  const sweepZoneMutation = useMutation({
+    mutationFn: async ({ zoneId, zoneName, overrideReason: reason }: { zoneId: string; zoneName: string; overrideReason?: string }) => {
+      const response = await fetch('/api/emergency/sweep-zone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Fire-Marshal-Id': urlId || '' },
+        credentials: 'include',
+        body: JSON.stringify({ urlId, evacuationId: activeEvacuationId, zoneId, zoneName, overrideReason: reason }),
+      });
+      if (!response.ok) throw new Error('Failed to record zone sweep');
+      return response.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['/api/emergency/zone-sweeps', activeEvacuationId, urlId] });
+      toast({ title: "Zone Cleared", description: `${vars.zoneName} marked as physically swept.` });
+      setSweepConfirmZone(null);
+      setOverrideReason("");
+    },
+    onError: () => {
+      toast({ title: "Failed", description: "Could not record zone sweep", variant: "destructive" });
     }
-    setExpandedCards(newExpanded);
+  });
+
+  const handleSweepZone = (zone: Zone, unaccountedCount: number) => {
+    if (unaccountedCount > 0) {
+      setSweepConfirmZone({ id: zone.id, name: zone.name, unaccountedCount });
+    } else {
+      sweepZoneMutation.mutate({ zoneId: zone.id, zoneName: zone.name });
+    }
   };
 
-  // Filter people based on search and filter type (uses either evacuation data or personnel data)
-  const filteredPeople = displayData?.people?.filter(person => {
+  const toggleCard = (id: string) => {
+    const next = new Set(expandedCards);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setExpandedCards(next);
+  };
+
+  const filteredPeople = personnelData?.people?.filter(person => {
     const matchesSearch = (person.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (person.department || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (person.company || '').toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesFilter = filterType === 'all' ||
-                         (filterType === 'unaccounted' && !person.isAccountedFor) ||
-                         (filterType === 'accounted' && person.isAccountedFor);
-    
-    // Hide safe people unless toggle is on
     const matchesVisibility = showSafePeople || !person.isAccountedFor;
-    
-    return matchesSearch && matchesFilter && matchesVisibility;
+    return matchesSearch && matchesVisibility;
   }) || [];
 
-  // Show authentication error if present
+  // Zone stats for sweep panel
+  const zoneStats = zones.map(zone => {
+    const inZone = (personnelData?.people || []).filter((p: any) => p.zoneId === zone.id);
+    const unaccounted = inZone.filter((p: any) => !p.isAccountedFor).length;
+    return { ...zone, total: inZone.length, unaccounted, swept: sweptZoneMap.has(zone.id), sweepRecord: sweptZoneMap.get(zone.id) };
+  });
+
   if (authError) {
     return (
       <div className="min-h-screen bg-red-50 flex items-center justify-center p-4">
         <Card className="w-full max-w-md border-red-200">
-          <CardHeader className="text-center">
+          <CardContent className="p-8 text-center">
             <AlertTriangle className="h-16 w-16 mx-auto text-red-500 mb-4" />
-            <CardTitle className="text-xl text-red-600">Authentication Failed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-center text-muted-foreground mb-4">
-              {authError}
-            </p>
-            <p className="text-sm text-center text-gray-500">
-              Please contact your administrator for a valid Fire Marshal access link.
-            </p>
+            <h1 className="text-xl font-bold text-red-600 mb-2">Authentication Failed</h1>
+            <p className="text-muted-foreground">{authError}</p>
           </CardContent>
         </Card>
       </div>
     );
   }
 
-  // Determine if we're in emergency mode or just showing on-site personnel
   const isEmergencyActive = !!activeEvacuationId;
-  
+  const displayData = personnelData;
+
   return (
-    <div className={`min-h-screen pb-20 ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}>
-      {/* Header - Fixed */}
+    <div className={`min-h-screen pb-24 ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}>
+
+      {/* Sweep confirmation dialog */}
+      {sweepConfirmZone && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <AlertTriangle className="text-amber-500 flex-shrink-0" size={28} />
+              <h2 className="text-lg font-bold text-gray-900">Unaccounted People in Zone</h2>
+            </div>
+            <p className="text-gray-700 mb-2">
+              <strong>{sweepConfirmZone.unaccountedCount} person{sweepConfirmZone.unaccountedCount !== 1 ? 's' : ''}</strong> in <strong>{sweepConfirmZone.name}</strong> {sweepConfirmZone.unaccountedCount === 1 ? 'is' : 'are'} still unaccounted.
+            </p>
+            <p className="text-gray-600 text-sm mb-4">Provide a reason to mark the zone as swept anyway.</p>
+            <Input
+              value={overrideReason}
+              onChange={e => setOverrideReason(e.target.value)}
+              placeholder="e.g. zone confirmed empty, person absent today"
+              className="mb-4 text-gray-900"
+            />
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => { setSweepConfirmZone(null); setOverrideReason(""); }}>Cancel</Button>
+              <Button
+                className="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold"
+                onClick={() => sweepZoneMutation.mutate({ zoneId: sweepConfirmZone.id, zoneName: sweepConfirmZone.name, overrideReason: overrideReason || `${sweepConfirmZone.unaccountedCount} person(s) unaccounted` })}
+                disabled={sweepZoneMutation.isPending}
+              >
+                <Footprints className="mr-2" size={16} />
+                {sweepZoneMutation.isPending ? "Recording..." : "Mark Swept"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header */}
       <div className={`sticky top-0 z-50 text-white shadow-lg ${isEmergencyActive ? 'bg-red-600' : 'bg-orange-600'}`}>
         <div className={`p-3 ${isEmergencyActive ? 'animate-pulse' : ''}`}>
           <div className="flex items-center gap-2">
             {isEmergencyActive ? <Siren className="h-6 w-6 flex-shrink-0" /> : <Shield className="h-6 w-6 flex-shrink-0" />}
             <div className="flex-1 min-w-0">
               <h1 className="text-lg font-bold">{isEmergencyActive ? 'EVACUATION ACTIVE' : 'FIRE MARSHAL PANEL'}</h1>
-              {marshalInfo?.companyName && (
-                <div className="text-xs font-medium opacity-90">{marshalInfo.companyName}</div>
-              )}
-              {isEmergencyActive && (activeEvacuation?.startedAt || evacuationDetails?.startedAt) && (
-                <div className="text-xs space-y-0.5 mt-1">
-                  <div className="flex items-center gap-1">
-                    <Clock className="h-3 w-3 flex-shrink-0" />
-                    <span className="truncate">Started: {new Date((activeEvacuation?.startedAt || evacuationDetails?.startedAt)!).toLocaleString()}</span>
-                  </div>
-                  {displayData && displayData.totalOnSite > 0 && displayData.accountedFor === displayData.totalOnSite && (
-                    <div className="flex items-center gap-1 text-green-200">
-                      <CheckCircle2 className="h-3 w-3 flex-shrink-0" />
-                      <span className="truncate">All Safe: {new Date().toLocaleString()}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center gap-1">
-                    <Timer className="h-3 w-3 flex-shrink-0" />
-                    <span>Duration: {Math.floor((Date.now() - new Date((activeEvacuation?.startedAt || evacuationDetails?.startedAt)!).getTime()) / 60000)} min</span>
-                  </div>
+              {marshalInfo?.companyName && <div className="text-xs font-medium opacity-90">{marshalInfo.companyName}</div>}
+              {isEmergencyActive && evacuationDetails?.startedAt && (
+                <div className="text-xs mt-1 flex items-center gap-1">
+                  <Timer className="h-3 w-3 flex-shrink-0" />
+                  <span>{Math.floor((Date.now() - new Date(evacuationDetails.startedAt).getTime()) / 60000)} min elapsed</span>
                 </div>
               )}
             </div>
-            {/* WebSocket Connection Status Indicator */}
-            <div className="flex-shrink-0">
-              <Badge 
-                variant={wsConnected ? "default" : "secondary"}
-                className={`text-xs ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
-                title={wsConnected ? "Real-time updates active" : "Using polling mode"}
-              >
-                {wsConnected ? '● LIVE' : '○ OFFLINE'}
-              </Badge>
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => setShowSafePeople(!showSafePeople)}
-              className="bg-white/20 hover:bg-white/30 flex-shrink-0"
-              title={showSafePeople ? "Hide safe people" : "Show safe people"}
-              data-testid="button-toggle-safe-people"
+            <Badge
+              variant={wsConnected ? "default" : "secondary"}
+              className={`text-xs flex-shrink-0 ${wsConnected ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}
             >
+              {wsConnected ? '● LIVE' : '○ SYNC'}
+            </Badge>
+            <Button size="sm" variant="secondary" onClick={() => setShowSafePeople(!showSafePeople)} className="bg-white/20 hover:bg-white/30 flex-shrink-0">
               {showSafePeople ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={() => window.location.reload()}
-              className="bg-white/20 hover:bg-white/30 flex-shrink-0"
-              data-testid="button-refresh-mobile"
-            >
+            <Button size="sm" variant="secondary" onClick={() => window.location.reload()} className="bg-white/20 hover:bg-white/30 flex-shrink-0">
               <RefreshCw className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Marshal Name Input - Always Visible */}
+      {/* Marshal Name Input */}
       <div className="sticky top-16 z-40 bg-yellow-400 p-3 shadow-md">
         <div className="flex items-center gap-2">
-          <UserCheck className="h-5 w-5 text-yellow-900" />
+          <UserCheck className="h-5 w-5 text-yellow-900 flex-shrink-0" />
           <Input
             placeholder="Enter your name to enable marking people safe..."
             value={marshalName}
             onChange={(e) => setMarshalName(e.target.value)}
             className="text-base font-medium bg-white border-yellow-600"
-            autoFocus={!marshalName}
             data-testid="input-marshal-name-mobile"
           />
         </div>
-        {!marshalName && (
-          <p className="text-xs text-yellow-900 mt-1 ml-7">
-            ⚠️ Enter your name to enable "Mark Safe" buttons
-          </p>
-        )}
+        {!marshalName && <p className="text-xs text-yellow-900 mt-1 ml-7">⚠️ Enter your name to enable "Mark Safe" buttons</p>}
       </div>
 
-      {/* Statistics Cards */}
+      {/* Stats */}
       <div className="p-4 grid grid-cols-2 gap-3">
         <Card className="border-0 shadow-sm">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Total</p>
-                <p className="text-2xl font-bold">{displayData?.totalOnSite || 0}</p>
-              </div>
+              <div><p className="text-xs text-muted-foreground">Total</p><p className="text-2xl font-bold">{displayData?.totalOnSite || 0}</p></div>
               <Users className="h-6 w-6 text-blue-500" />
             </div>
           </CardContent>
         </Card>
-
         <Card className="border-0 shadow-sm">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Safe</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {displayData?.accountedFor || 0}
-                </p>
-              </div>
+              <div><p className="text-xs text-muted-foreground">Safe</p><p className="text-2xl font-bold text-green-600">{displayData?.accountedFor || 0}</p></div>
               <CheckCircle2 className="h-6 w-6 text-green-500" />
             </div>
           </CardContent>
         </Card>
-
         <Card className="border-0 shadow-sm">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">Missing</p>
-                <p className="text-2xl font-bold text-red-600">
-                  {displayData?.unaccounted || 0}
-                </p>
-              </div>
+              <div><p className="text-xs text-muted-foreground">Missing</p><p className="text-2xl font-bold text-red-600">{displayData?.unaccounted || 0}</p></div>
               <AlertTriangle className="h-6 w-6 text-red-500" />
             </div>
           </CardContent>
         </Card>
-
         <Card className="border-0 shadow-sm">
           <CardContent className="p-3">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Progress</p>
                 <p className="text-2xl font-bold">
-                  {displayData && displayData.totalOnSite > 0
-                    ? Math.round((displayData.accountedFor / displayData.totalOnSite) * 100)
-                    : 0}%
+                  {displayData && displayData.totalOnSite > 0 ? Math.round((displayData.accountedFor / displayData.totalOnSite) * 100) : 0}%
                 </p>
               </div>
               <div className="h-6 w-6 rounded-full border-2 border-blue-500" />
@@ -664,9 +563,68 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         </Card>
       </div>
 
-      {/* Controls */}
-      <div className="px-4 pb-3 space-y-3">
-        {/* Search */}
+      {/* Zone Sweep Panel — only during active evacuation when zones configured */}
+      {isEmergencyActive && zones.length > 0 && (
+        <div className="px-4 pb-3">
+          <button
+            className="w-full flex items-center justify-between p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm text-left"
+            onClick={() => setShowZoneSweep(!showZoneSweep)}
+          >
+            <div className="flex items-center gap-2">
+              <Footprints size={18} className="text-green-600" />
+              <span className="font-semibold text-sm">Zone Sweep</span>
+              <span className="text-xs text-muted-foreground">{zoneSweeps.length}/{zones.length} swept</span>
+            </div>
+            {showZoneSweep ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
+          </button>
+
+          {showZoneSweep && (
+            <div className="mt-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-3 space-y-2">
+              {zoneStats.map(zone => {
+                const isMine = zone.id === marshalZoneId;
+                const sweep = zone.sweepRecord;
+                return (
+                  <div key={zone.id} className={`rounded-lg p-2 border text-sm ${sweep ? 'border-green-300 bg-green-50 dark:bg-green-900/20' : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
+                        <span className="font-medium truncate">{zone.name}</span>
+                        {isMine && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold flex-shrink-0">MINE</span>}
+                      </div>
+                      {sweep ? (
+                        <div className="flex items-center gap-1 text-green-700 dark:text-green-400 text-xs flex-shrink-0">
+                          <Footprints size={12} />
+                          <span>{new Date(sweep.sweptAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                          {sweep.hasUnaccountedAtTime && <span className="text-amber-500 ml-1" title="Swept with unaccounted">⚠</span>}
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="text-xs h-7 px-2 bg-amber-500 hover:bg-amber-600 text-white flex-shrink-0"
+                          onClick={() => handleSweepZone(zone, zone.unaccounted)}
+                          disabled={sweepZoneMutation.isPending}
+                        >
+                          <Footprints size={12} className="mr-1" />
+                          Mark Swept
+                        </Button>
+                      )}
+                    </div>
+                    {!sweep && zone.unaccounted > 0 && (
+                      <p className="text-xs text-red-600 dark:text-red-400 mt-1">{zone.unaccounted} unaccounted</p>
+                    )}
+                    {sweep?.overrideReason && (
+                      <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 truncate">Override: {sweep.overrideReason}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Search */}
+      <div className="px-4 pb-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -681,88 +639,71 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
 
       {/* People List */}
       <div className="px-4 space-y-3">
+        {isLoadingPersonnel && filteredPeople.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin opacity-50" />
+            <p>Loading personnel...</p>
+          </div>
+        )}
+
         {filteredPeople.map((person) => (
-          <Card 
+          <Card
             key={person.id}
             className={`overflow-hidden transition-all ${
-              person.isAccountedFor 
-                ? 'border-green-300 bg-green-50/50' 
-                : 'border-red-300 bg-red-50/50 shadow-md'
+              person.isAccountedFor ? 'border-green-300 bg-green-50/50' : 'border-red-300 bg-red-50/50 shadow-md'
             }`}
           >
-            <div 
-              className="p-4 cursor-pointer"
-              onClick={() => !person.isAccountedFor && toggleCard(person.id)}
-            >
+            <div className="p-4 cursor-pointer" onClick={() => !person.isAccountedFor && toggleCard(person.id)}>
               <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <span className="font-semibold text-lg">{person.name}</span>
                     {person.isAccountedFor && (
-                      <Badge variant="outline" className="bg-green-100 text-green-700 text-xs">
-                        SAFE
-                      </Badge>
+                      <Badge variant="outline" className="bg-green-100 text-green-700 text-xs">SAFE</Badge>
                     )}
                   </div>
                   <div className="text-sm text-gray-600 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        variant="secondary" 
-                        className={`text-xs ${
-                          person.type === 'member' ? 'bg-purple-100 text-purple-800' :
-                          person.type === 'contractor' ? 'bg-yellow-100 text-yellow-800' :
-                          person.type === 'staff' ? 'bg-blue-100 text-blue-800' :
-                          'bg-green-100 text-green-800'
-                        }`}
-                      >
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary" className={`text-xs ${
+                        person.type === 'member' ? 'bg-purple-100 text-purple-800' :
+                        person.type === 'contractor' ? 'bg-yellow-100 text-yellow-800' :
+                        person.type === 'staff' ? 'bg-blue-100 text-blue-800' :
+                        'bg-green-100 text-green-800'
+                      }`}>
                         {person.type.charAt(0).toUpperCase() + person.type.slice(1)}
                       </Badge>
                       <span>{person.department || person.company}</span>
                     </div>
-                    <div className="text-xs">{person.location}</div>
+                    <div className="text-xs flex items-center gap-1">
+                      <MapPin size={11} className="flex-shrink-0 text-gray-400" />
+                      {person.location}
+                    </div>
                   </div>
                   {person.isAccountedFor && person.musterPoint && (
                     <div className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                      <MapPin className="h-3 w-3" />
-                      {person.musterPoint}
-                      {person.accountedBy && ` • ${person.accountedBy}`}
+                      <MapPin className="h-3 w-3 flex-shrink-0" />
+                      {person.musterPoint}{person.accountedBy && ` · ${person.accountedBy}`}
                     </div>
                   )}
                 </div>
                 {!person.isAccountedFor && (
-                  <ChevronDown 
-                    className={`h-5 w-5 text-gray-400 transition-transform ${
-                      expandedCards.has(person.id) ? 'rotate-180' : ''
-                    }`}
-                  />
+                  <ChevronDown className={`h-5 w-5 text-gray-400 flex-shrink-0 transition-transform ${expandedCards.has(person.id) ? 'rotate-180' : ''}`} />
                 )}
               </div>
-              
-              {/* Expanded Actions */}
+
+              {/* Expanded Mark Safe */}
               {!person.isAccountedFor && expandedCards.has(person.id) && (
                 <div className="mt-4 pt-4 border-t">
                   <Button
                     className="w-full bg-green-600 hover:bg-green-700 text-white h-14 text-lg font-semibold"
                     size="lg"
                     onClick={(e) => {
-                      console.log('🔘 [BUTTON CLICK] Mark Safe button clicked for person:', person.name, person.id);
-                      console.log('🔘 [BUTTON CLICK] marshalName:', marshalName);
-                      console.log('🔘 [BUTTON CLICK] isPending:', markSafeMutation.isPending);
                       e.stopPropagation();
                       if (!marshalName) {
-                        console.error('🔘 [BUTTON CLICK] No marshal name! Showing toast.');
-                        toast({
-                          title: "Name Required",
-                          description: "Please enter your name first",
-                          variant: "destructive"
-                        });
+                        toast({ title: "Name Required", description: "Please enter your name first", variant: "destructive" });
                         return;
                       }
-                      console.log('🔘 [BUTTON CLICK] Calling markSafeMutation.mutate...');
-                      markSafeMutation.mutate({ 
-                        personId: person.id
-                      });
-                      console.log('🔘 [BUTTON CLICK] mutate() called successfully');
+                      markSafeMutation.mutate({ personId: person.id });
                     }}
                     disabled={markSafeMutation.isPending || !marshalName}
                     data-testid={`button-mark-safe-mobile-${person.id}`}
@@ -781,81 +722,70 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         ))}
       </div>
 
-      {/* No Results */}
-      {filteredPeople.length === 0 && (
+      {filteredPeople.length === 0 && !isLoadingPersonnel && (
         <div className="text-center py-8 text-gray-500">
           <AlertTriangle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>No people found matching your search</p>
+          <p>{searchQuery ? 'No people found matching your search' : 'No unaccounted personnel'}</p>
         </div>
       )}
 
-      {/* Complete Evacuation Button - Fixed at Bottom */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-900 border-t shadow-lg z-50">
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white h-14 text-lg font-bold"
-              size="lg"
-              data-testid="button-complete-evacuation-mobile"
-            >
-              <CheckCircle2 className="h-6 w-6 mr-2" />
-              Complete Evacuation
-            </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent className="max-w-md">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-xl">Complete Evacuation</AlertDialogTitle>
-              <AlertDialogDescription className="text-base space-y-4">
-                {evacuationData && evacuationData.unaccounted > 0 && (
-                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-3">
-                    <p className="text-yellow-800 font-medium">
-                      ⚠️ Warning: {evacuationData.unaccounted} {evacuationData.unaccounted === 1 ? 'person is' : 'people are'} still unaccounted for
-                    </p>
+      {/* Complete Evacuation — only shown when emergency is active */}
+      {isEmergencyActive && (
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-900 border-t shadow-lg z-50">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white h-14 text-lg font-bold"
+                size="lg"
+                data-testid="button-complete-evacuation-mobile"
+              >
+                <CheckCircle2 className="h-6 w-6 mr-2" />
+                Complete Evacuation
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent className="max-w-md">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="text-xl">Complete Evacuation</AlertDialogTitle>
+                <AlertDialogDescription className="text-base space-y-4">
+                  {displayData && displayData.unaccounted > 0 && (
+                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-3">
+                      <p className="text-yellow-800 font-medium">
+                        ⚠️ Warning: {displayData.unaccounted} {displayData.unaccounted === 1 ? 'person is' : 'people are'} still unaccounted for
+                      </p>
+                    </div>
+                  )}
+                  <p>How would you like to complete this evacuation?</p>
+                  <div className="space-y-2">
+                    <p className="text-sm text-gray-600"><strong>Keep Everyone Checked In:</strong> Personnel remain checked in and can return to work immediately.</p>
+                    <p className="text-sm text-gray-600"><strong>Check Out All Safe Personnel:</strong> Only people marked safe will be checked out. They'll need to check in again when returning.</p>
                   </div>
-                )}
-                <p>How would you like to complete this evacuation?</p>
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-600">
-                    <strong>Keep Everyone Checked In:</strong> Personnel remain checked in and can return to work immediately.
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    <strong>Check Out All Safe Personnel:</strong> Only people marked safe will be checked out. They'll need to check in again when returning.
-                  </p>
-                </div>
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="flex-col sm:flex-col gap-2">
-              <AlertDialogAction
-                className="w-full bg-green-600 hover:bg-green-700 h-12"
-                onClick={(e) => {
-                  e.preventDefault();
-                  completeEvacuationMutation.mutate({ checkOutMode: 'keep_checked_in' });
-                }}
-                disabled={completeEvacuationMutation.isPending}
-                data-testid="button-keep-checked-in"
-              >
-                <UserCheck className="h-5 w-5 mr-2" />
-                Keep Everyone Checked In
-              </AlertDialogAction>
-              <AlertDialogAction
-                className="w-full bg-orange-600 hover:bg-orange-700 h-12"
-                onClick={(e) => {
-                  e.preventDefault();
-                  completeEvacuationMutation.mutate({ checkOutMode: 'check_out_all' });
-                }}
-                disabled={completeEvacuationMutation.isPending}
-                data-testid="button-check-out-all"
-              >
-                <LogOut className="h-5 w-5 mr-2" />
-                Check Out All Safe Personnel
-              </AlertDialogAction>
-              <AlertDialogCancel className="w-full h-12" data-testid="button-cancel-complete">
-                Cancel
-              </AlertDialogCancel>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="flex-col sm:flex-col gap-2">
+                <AlertDialogAction
+                  className="w-full bg-green-600 hover:bg-green-700 h-12"
+                  onClick={(e) => { e.preventDefault(); completeEvacuationMutation.mutate({ checkOutMode: 'keep_checked_in' }); }}
+                  disabled={completeEvacuationMutation.isPending}
+                  data-testid="button-keep-checked-in"
+                >
+                  <UserCheck className="h-5 w-5 mr-2" />
+                  Keep Everyone Checked In
+                </AlertDialogAction>
+                <AlertDialogAction
+                  className="w-full bg-orange-600 hover:bg-orange-700 h-12"
+                  onClick={(e) => { e.preventDefault(); completeEvacuationMutation.mutate({ checkOutMode: 'check_out_all' }); }}
+                  disabled={completeEvacuationMutation.isPending}
+                  data-testid="button-check-out-all"
+                >
+                  <LogOut className="h-5 w-5 mr-2" />
+                  Check Out All Safe Personnel
+                </AlertDialogAction>
+                <AlertDialogCancel className="w-full h-12" data-testid="button-cancel-complete">Cancel</AlertDialogCancel>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
     </div>
   );
 }

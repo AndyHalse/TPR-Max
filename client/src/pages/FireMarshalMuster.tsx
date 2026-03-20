@@ -224,11 +224,9 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
       const host = window.location.host;
       const wsUrl = `${protocol}//${host}/ws/muster`;
       
-      console.log('Connecting to WebSocket:', wsUrl, 'Host:', host);
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
         setWsConnected(true);
         
         ws.send(JSON.stringify({
@@ -241,8 +239,6 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('WebSocket message received:', message);
-          
           if (message.type === 'muster_update') {
             queryClient.invalidateQueries({ queryKey: ["/api/emergency/muster", token] });
             
@@ -252,22 +248,19 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
               description: `${message.personName} marked as ${statusText}`,
             });
           }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+        } catch {
+          // ignore parse errors
         }
       };
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+      ws.onerror = () => {
         setWsConnected(false);
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
         setWsConnected(false);
         
         reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('Attempting to reconnect WebSocket...');
           connectWebSocket();
         }, 3000);
       };

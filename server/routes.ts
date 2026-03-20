@@ -5059,6 +5059,7 @@ ${hasDetailedData
     try {
       const { evacuationId } = req.params;
       const token = req.query.token as string | undefined;
+      const fireMarshalId = req.headers['x-fire-marshal-id'] as string | undefined;
 
       let customerId: string;
 
@@ -5068,6 +5069,11 @@ ${hasDetailedData
         const marshal = await databaseService.validateEmergencyToken(devContext, token);
         if (!marshal) return res.status(401).json({ error: "Invalid emergency token" });
         customerId = (marshal as any).customerId || req.customerId || devContext.customerId;
+      } else if (fireMarshalId) {
+        // Fire Marshal URL ID auth (permanent URL)
+        const marshalResult = await databaseService.findFireMarshalByUrlId(fireMarshalId);
+        if (!marshalResult) return res.status(401).json({ error: "Invalid Fire Marshal link" });
+        customerId = marshalResult.customerId;
       } else if (req.customerId) {
         customerId = req.customerId;
       } else {
@@ -5088,10 +5094,11 @@ ${hasDetailedData
     }
   });
 
-  // POST sweep a zone clear (fire marshal token OR session auth)
+  // POST sweep a zone clear (fire marshal token, URL ID, OR session auth)
   app.post("/api/emergency/sweep-zone", async (req, res) => {
     try {
-      const { token, evacuationId, zoneId, zoneName, overrideReason } = req.body;
+      const { token, evacuationId, zoneId, zoneName, overrideReason, urlId } = req.body;
+      const fireMarshalIdHeader = req.headers['x-fire-marshal-id'] as string | undefined;
 
       if (!evacuationId || !zoneId || !zoneName) {
         return res.status(400).json({ error: "evacuationId, zoneId, and zoneName are required" });
@@ -5108,6 +5115,14 @@ ${hasDetailedData
         if (!marshal) return res.status(401).json({ error: "Invalid emergency token" });
         customerId = (marshal as any).customerId || req.customerId || devContext.customerId;
         sweptByName = `${marshal.firstName} ${marshal.lastName}`;
+        sweptByType = "staff";
+      } else if (urlId || fireMarshalIdHeader) {
+        // Fire Marshal URL ID auth (permanent URL) — from body or header
+        const resolvedUrlId = urlId || fireMarshalIdHeader!;
+        const marshalResult = await databaseService.findFireMarshalByUrlId(resolvedUrlId);
+        if (!marshalResult) return res.status(401).json({ error: "Invalid Fire Marshal link" });
+        customerId = marshalResult.customerId;
+        sweptByName = `${marshalResult.marshal.firstName} ${marshalResult.marshal.lastName}`;
         sweptByType = "staff";
       } else if (req.customerId) {
         customerId = req.customerId;
@@ -6111,7 +6126,8 @@ ${hasDetailedData
         people: personnelList,
         totalOnSite: personnelList.length,
         accountedFor: personnelList.filter(p => p.isAccountedFor).length,
-        unaccounted: personnelList.filter(p => !p.isAccountedFor).length
+        unaccounted: personnelList.filter(p => !p.isAccountedFor).length,
+        evacuationId: activeEvacuation.length > 0 ? activeEvacuation[0].evacuationId : null
       });
     } catch (error) {
       console.error("❌ Error fetching Fire Marshal personnel:", error);
@@ -6532,6 +6548,30 @@ ${hasDetailedData
     } catch (error) {
       console.error("Failed to fetch emergency muster list:", error);
       res.status(500).json({ error: "Failed to fetch emergency muster list" });
+    }
+  });
+
+  // Get zones for fire marshal via permanent URL ID
+  app.get("/api/emergency/fire-marshal/:urlId/zones", async (req, res) => {
+    try {
+      const { urlId } = req.params;
+      const marshalResult = await databaseService.findFireMarshalByUrlId(urlId);
+      if (!marshalResult) {
+        return res.status(401).json({ error: "Invalid Fire Marshal link" });
+      }
+      const { marshal, customerId } = marshalResult;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const zones = await custDb
+        .select()
+        .from(isolatedSchema.evacuationZones)
+        .where(eq(isolatedSchema.evacuationZones.isActive, true))
+        .orderBy(isolatedSchema.evacuationZones.displayOrder);
+      const marshalZoneId = (marshal as any).zoneId || null;
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json({ zones, marshalZoneId });
+    } catch (error) {
+      console.error("Failed to fetch zones for fire marshal by URL ID:", error);
+      res.status(500).json({ error: "Failed to fetch zones" });
     }
   });
 
