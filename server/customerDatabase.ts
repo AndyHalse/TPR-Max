@@ -315,6 +315,25 @@ export class CustomerDatabaseService {
       console.warn(`⚠️ Feature toggle column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Ensure zone_sweeps table exists (migration #029)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".zone_sweeps (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          evacuation_id TEXT NOT NULL,
+          zone_id TEXT NOT NULL,
+          zone_name TEXT NOT NULL,
+          swept_by_name TEXT NOT NULL,
+          swept_by_type TEXT NOT NULL DEFAULT 'staff',
+          swept_at TIMESTAMP DEFAULT NOW() NOT NULL,
+          has_unaccounted_at_time BOOLEAN NOT NULL DEFAULT FALSE,
+          override_reason TEXT
+        )
+      `);
+    } catch (err: any) {
+      console.warn(`⚠️ zone_sweeps table ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure admin user exists in this customer schema (critical for production)
     try {
       await this.ensureAdminUserExists(customerId, db);

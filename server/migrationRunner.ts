@@ -177,6 +177,27 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     }
   };
 
+  const addZoneSweepsMigration = {
+    version: '20260320_029_add_zone_sweeps',
+    description: 'Create zone_sweeps table for fire marshal physical zone sweep tracking',
+    async up(db: any) {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS zone_sweeps (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          evacuation_id TEXT NOT NULL,
+          zone_id TEXT NOT NULL,
+          zone_name TEXT NOT NULL,
+          swept_by_name TEXT NOT NULL,
+          swept_by_type TEXT NOT NULL DEFAULT 'staff',
+          swept_at TIMESTAMP DEFAULT NOW() NOT NULL,
+          has_unaccounted_at_time BOOLEAN NOT NULL DEFAULT FALSE,
+          override_reason TEXT
+        )
+      `);
+      console.log('✅ [029] Created zone_sweeps table');
+    }
+  };
+
   const ensureIncidentReportsTableMigration = {
     version: '20260319_028_ensure_incident_reports_table',
     description: 'Ensure incident_reports table exists (fixes silent failure in migration 025)',
@@ -242,6 +263,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addMartynLawIncidentFeatureTogglesMigration,
     backfillMartynLawIncidentTogglesMigration,
     ensureIncidentReportsTableMigration,
+    addZoneSweepsMigration,
   ];
 
   allMigrations.forEach(migration => {

@@ -526,6 +526,19 @@ export const evacuationZones = pgTable("evacuation_zones", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+// Zone Sweeps — records when a fire marshal physically clears a zone during an evacuation
+export const zoneSweeps = pgTable("zone_sweeps", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  evacuationId: text("evacuation_id").notNull(),
+  zoneId: text("zone_id").notNull(),
+  zoneName: text("zone_name").notNull(),
+  sweptByName: text("swept_by_name").notNull(),
+  sweptByType: text("swept_by_type").notNull().default("staff"),
+  sweptAt: timestamp("swept_at").defaultNow().notNull(),
+  hasUnaccountedAtTime: boolean("has_unaccounted_at_time").notNull().default(false),
+  overrideReason: text("override_reason"),
+});
+
 // Meeting Rooms for tenant companies
 export const meetingRooms = pgTable("meeting_rooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

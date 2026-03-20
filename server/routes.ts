@@ -4498,6 +4498,19 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           eq(evacuationAccountability.customerId, customerId)
         ));
 
+      // Fetch zone sweeps for this evacuation
+      let zoneSweepsData: any[] = [];
+      try {
+        const custDb = await customerDbService.getCustomerDatabase(customerId);
+        zoneSweepsData = await custDb
+          .select()
+          .from(isolatedSchema.zoneSweeps)
+          .where(eq(isolatedSchema.zoneSweeps.evacuationId, evacuationId))
+          .orderBy(isolatedSchema.zoneSweeps.sweptAt);
+      } catch (e) {
+        // zone_sweeps table may not exist for older schemas — safe to ignore
+      }
+
       // Fetch company settings for branding
       const context = { customerId };
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -4666,6 +4679,26 @@ ${zoneMap.size > 1 || (zoneMap.size === 1 && !zoneMap.has('__none__')) ? `
       <td style="padding:6px 8px; text-align:center; color:#16a34a; font-weight:bold;">${z.accounted}</td>
       <td style="padding:6px 8px; text-align:center; color:${missing > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${missing}</td>
       <td style="padding:6px 8px;"><div style="background:#e5e7eb; border-radius:3px; height:10px; width:120px; display:inline-block; vertical-align:middle;"><div style="width:${barWidth}%; background:#16a34a; border-radius:3px; height:10px;"></div></div> <span style="font-size:11px; color:#555;">${pct}%</span></td>
+    </tr>`;
+  }).join('')}
+</table>` : ''}
+
+${zoneSweepsData.length > 0 ? `
+<h2>Zone Sweep Record</h2>
+<table>
+  <tr><th>Zone</th><th>Swept By</th><th>Time</th><th>Elapsed</th><th>Unaccounted at Time</th><th>Override Reason</th></tr>
+  ${zoneSweepsData.map((s: any) => {
+    const sweptAt = new Date(s.sweptAt);
+    const elapsedMs = sweptAt.getTime() - startedAt.getTime();
+    const elapsedMin = Math.floor(elapsedMs / 60000);
+    const elapsedSec = Math.round((elapsedMs % 60000) / 1000);
+    return `<tr style="border-bottom:1px solid #e5e7eb;">
+      <td style="padding:6px 8px; font-weight:bold;">${esc(s.zoneName)}</td>
+      <td style="padding:6px 8px;">${esc(s.sweptByName)}</td>
+      <td style="padding:6px 8px;">${formatTime(sweptAt)}</td>
+      <td style="padding:6px 8px; color:#888;">+${elapsedMin}m ${elapsedSec}s</td>
+      <td style="padding:6px 8px; text-align:center;">${s.hasUnaccountedAtTime ? '<span style="color:#d97706; font-weight:bold;">&#9888; Yes (Override)</span>' : '<span style="color:#16a34a;">&#10003; No</span>'}</td>
+      <td style="padding:6px 8px; color:#888; font-style:italic;">${esc(s.overrideReason)}</td>
     </tr>`;
   }).join('')}
 </table>` : ''}
@@ -4858,6 +4891,108 @@ ${hasDetailedData
     } catch (error) {
       console.error("Error fetching incident reports:", error);
       res.status(500).json({ error: "Failed to fetch incident reports" });
+    }
+  });
+
+  // GET zone sweeps for an evacuation (fire marshal token OR session auth)
+  app.get("/api/emergency/zone-sweeps/:evacuationId", async (req, res) => {
+    try {
+      const { evacuationId } = req.params;
+      const token = req.query.token as string | undefined;
+
+      const username = req.user?.username || 'system';
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      // Validate: either a valid fire marshal token or an authenticated session
+      if (token) {
+        const marshal = await databaseService.validateEmergencyToken(context, token);
+        if (!marshal) return res.status(401).json({ error: "Invalid emergency token" });
+      } else if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const sweeps = await custDb
+        .select()
+        .from(isolatedSchema.zoneSweeps)
+        .where(eq(isolatedSchema.zoneSweeps.evacuationId, evacuationId))
+        .orderBy(isolatedSchema.zoneSweeps.sweptAt);
+
+      res.json(sweeps);
+    } catch (error) {
+      console.error("Failed to fetch zone sweeps:", error);
+      res.status(500).json({ error: "Failed to fetch zone sweeps" });
+    }
+  });
+
+  // POST sweep a zone clear (fire marshal token OR session auth)
+  app.post("/api/emergency/sweep-zone", async (req, res) => {
+    try {
+      const { token, evacuationId, zoneId, zoneName, overrideReason } = req.body;
+
+      if (!evacuationId || !zoneId || !zoneName) {
+        return res.status(400).json({ error: "evacuationId, zoneId, and zoneName are required" });
+      }
+
+      const username = req.user?.username || 'system';
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      let sweptByName = "Admin";
+      let sweptByType = "staff";
+
+      if (token) {
+        const marshal = await databaseService.validateEmergencyToken(context, token);
+        if (!marshal) return res.status(401).json({ error: "Invalid emergency token" });
+        sweptByName = `${marshal.firstName} ${marshal.lastName}`;
+        sweptByType = "staff";
+      } else if (req.isAuthenticated() && req.user) {
+        sweptByName = (req.user as any).username || "Admin";
+        sweptByType = "staff";
+      } else {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      // Count unaccounted in this zone at time of sweep
+      const allAccountability = await custDb
+        .select()
+        .from(isolatedSchema.evacuationAccountability)
+        .where(and(
+          eq(isolatedSchema.evacuationAccountability.evacuationId, evacuationId),
+          eq(isolatedSchema.evacuationAccountability.customerId, context.customerId)
+        ));
+
+      const zonePersonnel = allAccountability.filter((p: any) => p.zoneId === zoneId);
+      const hasUnaccountedAtTime = zonePersonnel.some((p: any) => !p.isAccountedFor);
+
+      // Upsert: remove any previous sweep for this zone in this evacuation, then insert fresh
+      await custDb
+        .delete(isolatedSchema.zoneSweeps)
+        .where(and(
+          eq(isolatedSchema.zoneSweeps.evacuationId, evacuationId),
+          eq(isolatedSchema.zoneSweeps.zoneId, zoneId)
+        ));
+
+      const [sweep] = await custDb
+        .insert(isolatedSchema.zoneSweeps)
+        .values({
+          evacuationId,
+          zoneId,
+          zoneName,
+          sweptByName,
+          sweptByType,
+          sweptAt: new Date(),
+          hasUnaccountedAtTime,
+          overrideReason: overrideReason || null,
+        })
+        .returning();
+
+      console.log(`✅ Zone swept: ${zoneName} by ${sweptByName} for evacuation ${evacuationId}`);
+      res.json({ success: true, sweep });
+    } catch (error) {
+      console.error("Failed to record zone sweep:", error);
+      res.status(500).json({ error: "Failed to record zone sweep" });
     }
   });
 

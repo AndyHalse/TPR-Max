@@ -29,7 +29,8 @@ import {
   QrCode,
   Timer,
   ShieldAlert,
-  BellRing
+  BellRing,
+  Footprints
 } from "lucide-react";
 
 interface MusterListItem {
@@ -62,6 +63,17 @@ interface ActiveEvacuation {
   evacuationId?: string;
   customerId?: string;
   isDrill?: boolean;
+}
+
+interface ZoneSweep {
+  id: string;
+  evacuationId: string;
+  zoneId: string;
+  zoneName: string;
+  sweptByName: string;
+  sweptAt: string;
+  hasUnaccountedAtTime: boolean;
+  overrideReason?: string | null;
 }
 
 export default function EmergencyMuster() {
@@ -123,6 +135,25 @@ export default function EmergencyMuster() {
   const zoneMapUrl = companySettings?.zoneMapUrl ?? null;
 
   const activeZones = useMemo(() => zones.filter(z => z.isActive), [zones]);
+
+  // Zone sweeps for the active evacuation
+  const activeEvacuationId = activeEvacuation?.evacuationId;
+  const { data: zoneSweeps = [] } = useQuery<ZoneSweep[]>({
+    queryKey: ["/api/emergency/zone-sweeps", activeEvacuationId],
+    enabled: !!activeEvacuationId,
+    queryFn: async () => {
+      const res = await fetch(`/api/emergency/zone-sweeps/${activeEvacuationId}`, {
+        credentials: 'include'
+      });
+      if (!res.ok) return [];
+      return res.json();
+    },
+    refetchInterval: 15000,
+  });
+  const sweptZoneMap = useMemo(() => 
+    new Map<string, ZoneSweep>(zoneSweeps.map(s => [s.zoneId, s])),
+    [zoneSweeps]
+  );
 
   const zonePersonnelCounts = useMemo(() => {
     const counts: Record<string, { total: number; safe: number }> = {};
@@ -702,6 +733,8 @@ export default function EmergencyMuster() {
                   const counts = zonePersonnelCounts[zone.id];
                   const numMatch = zone.name.match(/\d+/);
                   const markerLabel = numMatch ? numMatch[0] : zone.name.slice(0, 3).toUpperCase();
+                  const sweepRecord = sweptZoneMap.get(zone.id);
+                  const isSwept = !!sweepRecord;
                   return (
                     <button
                       key={zone.id}
@@ -712,7 +745,7 @@ export default function EmergencyMuster() {
                         zIndex: isSelected ? 20 : 10,
                       }}
                       onClick={() => toggleZone(zone.id)}
-                      title={`${zone.name}${counts ? ` - ${counts.total} personnel` : ''} - Click to ${isSelected ? 'deselect' : 'select'}`}
+                      title={`${zone.name}${counts ? ` - ${counts.total} personnel` : ''}${isSwept ? ' - PHYSICALLY SWEPT' : ''} - Click to ${isSelected ? 'deselect' : 'select'}`}
                     >
                       <div className={`relative transition-all duration-200 ${isSelected ? 'scale-110' : 'group-hover:scale-110'}`}>
                         <div
@@ -730,6 +763,12 @@ export default function EmergencyMuster() {
                         >
                           {markerLabel}
                         </div>
+                        {/* Swept badge — bottom-left of marker */}
+                        {isSwept && (
+                          <div className="absolute -bottom-1 -left-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shadow-sm" title="Physically swept by fire marshal">
+                            <Footprints className="w-2.5 h-2.5 text-white" />
+                          </div>
+                        )}
                         {isSelected && (
                           <div className="absolute -top-1 -right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-sm">
                             <CheckCircle className="w-3.5 h-3.5 text-green-600" />
@@ -745,6 +784,7 @@ export default function EmergencyMuster() {
                           {counts && counts.total > 0 && (
                             <span className="ml-1 opacity-80">({counts.total})</span>
                           )}
+                          {isSwept && <span className="ml-1">✓swept</span>}
                         </div>
                       </div>
                     </button>
@@ -846,6 +886,71 @@ export default function EmergencyMuster() {
           )}
         </div>
       </div>
+
+      {/* Zone Sweep Status — shown during active evacuation when zones are configured */}
+      {hasActiveEvacuation && activeZones.length > 0 && (
+        <GlassCard className="dark:glass-dark">
+          <div className="flex items-center gap-2 mb-3">
+            <Footprints className="text-green-600 dark:text-green-400" size={18} />
+            <h3 className="text-sm font-semibold text-fixed">Zone Sweep Status</h3>
+            <span className="text-xs text-muted-foreground ml-auto">
+              {zoneSweeps.length}/{activeZones.length} zones swept by fire marshals
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+            {activeZones.map(zone => {
+              const sweep = sweptZoneMap.get(zone.id);
+              const counts = zonePersonnelCounts[zone.id];
+              return (
+                <div
+                  key={zone.id}
+                  className={`rounded-lg p-2 border text-xs ${
+                    sweep
+                      ? sweep.hasUnaccountedAtTime
+                        ? 'border-amber-300 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-700'
+                        : 'border-green-300 bg-green-50 dark:bg-green-900/20 dark:border-green-700'
+                      : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
+                    <span className="font-semibold truncate text-fixed">{zone.name}</span>
+                  </div>
+                  {sweep ? (
+                    <div>
+                      <div className="flex items-center gap-1 text-green-700 dark:text-green-400 font-semibold">
+                        <Footprints size={10} />
+                        <span>SWEPT</span>
+                        {sweep.hasUnaccountedAtTime && (
+                          <span className="text-amber-600 dark:text-amber-400 ml-1">⚠ override</span>
+                        )}
+                      </div>
+                      <div className="text-muted-foreground mt-0.5 truncate">
+                        {sweep.sweptByName}
+                      </div>
+                      <div className="text-muted-foreground">
+                        {new Date(sweep.sweptAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <Clock size={10} />
+                        <span>Not swept</span>
+                      </div>
+                      {counts && counts.total > 0 && (
+                        <div className={counts.safe === counts.total ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}>
+                          {counts.safe}/{counts.total} safe
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </GlassCard>
+      )}
 
       {/* Search and Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
