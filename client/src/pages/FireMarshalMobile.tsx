@@ -43,6 +43,7 @@ interface PersonOnSite {
   department?: string;
   company?: string;
   location: string;
+  zoneId?: string | null;
   isAccountedFor: boolean;
   accountedBy?: string;
   accountedAt?: string;
@@ -114,6 +115,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [evacuationDetails, setEvacuationDetails] = useState<EvacuationDetails | null>(null);
   const [marshalZoneId, setMarshalZoneId] = useState<string | null>(null);
   const [showZoneSweep, setShowZoneSweep] = useState(false);
+  const [showMyZoneOnly, setShowMyZoneOnly] = useState(true);
   const [sweepConfirmZone, setSweepConfirmZone] = useState<{ id: string; name: string; unaccountedCount: number } | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
   const wsRef = useRef<WebSocket | null>(null);
@@ -408,18 +410,22 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     setExpandedCards(next);
   };
 
+  // When the marshal has an assigned zone and showMyZoneOnly is enabled, filter to that zone only
+  const hasZoneAssignment = !!marshalZoneId && zones.length > 0;
+
   const filteredPeople = personnelData?.people?.filter(person => {
     const matchesSearch = (person.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (person.department || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (person.company || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesVisibility = showSafePeople || !person.isAccountedFor;
-    return matchesSearch && matchesVisibility;
+    const matchesZone = !hasZoneAssignment || !showMyZoneOnly || person.zoneId === marshalZoneId;
+    return matchesSearch && matchesVisibility && matchesZone;
   }) || [];
 
-  // Zone stats for sweep panel
+  // Zone stats for sweep panel (uses zoneId from personnel data)
   const zoneStats = zones.map(zone => {
-    const inZone = (personnelData?.people || []).filter((p: any) => p.zoneId === zone.id);
-    const unaccounted = inZone.filter((p: any) => !p.isAccountedFor).length;
+    const inZone = (personnelData?.people || []).filter((p: PersonOnSite) => p.zoneId === zone.id);
+    const unaccounted = inZone.filter((p: PersonOnSite) => !p.isAccountedFor).length;
     return { ...zone, total: inZone.length, unaccounted, swept: sweptZoneMap.has(zone.id), sweepRecord: sweptZoneMap.get(zone.id) };
   });
 
@@ -563,8 +569,26 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         </Card>
       </div>
 
-      {/* Zone Sweep Panel — only during active evacuation when zones configured */}
-      {isEmergencyActive && zones.length > 0 && (
+      {/* Zone filter banner — shown when marshal has an assigned zone */}
+      {hasZoneAssignment && (
+        <div className="px-4 pb-2">
+          <div className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium border ${showMyZoneOnly ? 'bg-blue-600 text-white border-blue-700' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'}`}>
+            <div className="flex items-center gap-2">
+              <MapPin size={14} className="flex-shrink-0" />
+              <span>{showMyZoneOnly ? `Showing: ${zones.find(z => z.id === marshalZoneId)?.name || 'My Zone'} only` : 'Showing: All zones'}</span>
+            </div>
+            <button
+              onClick={() => setShowMyZoneOnly(!showMyZoneOnly)}
+              className={`text-xs px-2 py-0.5 rounded-full font-semibold border ${showMyZoneOnly ? 'bg-white/20 text-white border-white/40' : 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'}`}
+            >
+              {showMyZoneOnly ? 'View All' : 'My Zone Only'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Zone Sweep Panel — always shown when zones are configured */}
+      {zones.length > 0 && (
         <div className="px-4 pb-3">
           <button
             className="w-full flex items-center justify-between p-3 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm text-left"
@@ -573,43 +597,56 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             <div className="flex items-center gap-2">
               <Footprints size={18} className="text-green-600" />
               <span className="font-semibold text-sm">Zone Sweep</span>
-              <span className="text-xs text-muted-foreground">{zoneSweeps.length}/{zones.length} swept</span>
+              {isEmergencyActive
+                ? <span className="text-xs text-muted-foreground">{zoneSweeps.length}/{zones.length} swept</span>
+                : <span className="text-xs text-amber-600 font-medium">— Emergency not active</span>
+              }
             </div>
             {showZoneSweep ? <ChevronDown size={16} className="text-gray-400" /> : <ChevronRight size={16} className="text-gray-400" />}
           </button>
 
           {showZoneSweep && (
             <div className="mt-2 rounded-xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm p-3 space-y-2">
+              {!isEmergencyActive && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2 text-xs text-amber-700 dark:text-amber-300 flex items-start gap-2">
+                  <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                  <span>Zone sweeps can only be recorded during an active emergency. This panel shows your zone configuration.</span>
+                </div>
+              )}
               {zoneStats.map(zone => {
                 const isMine = zone.id === marshalZoneId;
                 const sweep = zone.sweepRecord;
                 return (
-                  <div key={zone.id} className={`rounded-lg p-2 border text-sm ${sweep ? 'border-green-300 bg-green-50 dark:bg-green-900/20' : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30'}`}>
+                  <div key={zone.id} className={`rounded-lg p-2 border text-sm ${sweep ? 'border-green-300 bg-green-50 dark:bg-green-900/20' : isMine ? 'border-blue-300 bg-blue-50 dark:bg-blue-900/20' : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/30'}`}>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
                         <span className="font-medium truncate">{zone.name}</span>
-                        {isMine && <span className="text-[10px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded font-bold flex-shrink-0">MINE</span>}
+                        {isMine && <span className="text-[10px] bg-blue-600 text-white px-1.5 py-0.5 rounded font-bold flex-shrink-0">MINE</span>}
                       </div>
-                      {sweep ? (
-                        <div className="flex items-center gap-1 text-green-700 dark:text-green-400 text-xs flex-shrink-0">
-                          <Footprints size={12} />
-                          <span>{new Date(sweep.sweptAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
-                          {sweep.hasUnaccountedAtTime && <span className="text-amber-500 ml-1" title="Swept with unaccounted">⚠</span>}
-                        </div>
+                      {isEmergencyActive ? (
+                        sweep ? (
+                          <div className="flex items-center gap-1 text-green-700 dark:text-green-400 text-xs flex-shrink-0">
+                            <Footprints size={12} />
+                            <span>{new Date(sweep.sweptAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</span>
+                            {sweep.hasUnaccountedAtTime && <span className="text-amber-500 ml-1" title="Swept with unaccounted">⚠</span>}
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="text-xs h-7 px-2 bg-amber-500 hover:bg-amber-600 text-white flex-shrink-0"
+                            onClick={() => handleSweepZone(zone, zone.unaccounted)}
+                            disabled={sweepZoneMutation.isPending}
+                          >
+                            <Footprints size={12} className="mr-1" />
+                            Mark Swept
+                          </Button>
+                        )
                       ) : (
-                        <Button
-                          size="sm"
-                          className="text-xs h-7 px-2 bg-amber-500 hover:bg-amber-600 text-white flex-shrink-0"
-                          onClick={() => handleSweepZone(zone, zone.unaccounted)}
-                          disabled={sweepZoneMutation.isPending}
-                        >
-                          <Footprints size={12} className="mr-1" />
-                          Mark Swept
-                        </Button>
+                        <span className="text-xs text-gray-400">{zone.total} on site</span>
                       )}
                     </div>
-                    {!sweep && zone.unaccounted > 0 && (
+                    {isEmergencyActive && !sweep && zone.unaccounted > 0 && (
                       <p className="text-xs text-red-600 dark:text-red-400 mt-1">{zone.unaccounted} unaccounted</p>
                     )}
                     {sweep?.overrideReason && (
