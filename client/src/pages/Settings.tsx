@@ -1310,103 +1310,124 @@ export default function Settings() {
   const currentSettings = { ...settings, ...formData };
 
   return (
-    <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
+      <div className="flex items-center justify-between gap-2">
         <h2 className="text-xl sm:text-2xl font-bold text-fixed">Settings</h2>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-shrink-0">
           <Link to="/settings/ai">
             <Button
               variant="outline"
+              size="sm"
               className="border-purple-200 text-purple-700 hover:bg-purple-50 font-medium transition-all duration-300"
               data-testid="link-ai-settings"
             >
-              <Bot className="mr-2" size={16} />
-              AI Settings
+              <Bot size={15} />
+              <span className="hidden sm:inline ml-2">AI Settings</span>
             </Button>
           </Link>
         </div>
       </div>
 
       {/* Auto-save information banner */}
-      <div className="flex items-center gap-3 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
-        <div className="h-2 w-2 bg-green-50 dark:bg-green-950/300 rounded-full animate-pulse"></div>
-        <p className="text-sm text-green-800 dark:text-green-300 font-medium">
-          ✨ Auto-save enabled - All changes are automatically saved after 1.5 seconds
+      <div className="flex items-center gap-2 p-3 sm:p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-lg">
+        <div className="h-2 w-2 flex-shrink-0 bg-green-500 rounded-full animate-pulse"></div>
+        <p className="text-xs sm:text-sm text-green-800 dark:text-green-300 font-medium">
+          ✨ Auto-save enabled — changes saved after 1.5 seconds
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        {/* Mobile: single scrollable row — Desktop: wrapping grid */}
-        <TabsList className="flex overflow-x-auto lg:flex-wrap lg:overflow-x-visible h-auto gap-1 p-2 w-full lg:justify-start [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <TabsTrigger value="company" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Building2 size={15} className="flex-shrink-0" />
-            <span className="lg:hidden">Company</span>
-            <span className="hidden lg:inline">Company</span>
+        {/* Mobile (< md): full-width dropdown selector */}
+        <div className="md:hidden mb-4">
+          <Select value={activeTab} onValueChange={setActiveTab}>
+            <SelectTrigger className="w-full h-11 text-sm font-medium">
+              <SelectValue placeholder="Select section…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="company">Company</SelectItem>
+              <SelectItem value="branding">Branding</SelectItem>
+              <SelectItem value="users">Users</SelectItem>
+              <SelectItem value="departments">Departments</SelectItem>
+              <SelectItem value="zones">Zones</SelectItem>
+              <SelectItem value="email">Email</SelectItem>
+              <SelectItem value="phone-systems">Phone Systems</SelectItem>
+              <SelectItem value="reports">Reports</SelectItem>
+              <SelectItem value="printing">Printing &amp; ID</SelectItem>
+              <SelectItem value="hs-documents">H&amp;S Documents</SelectItem>
+              <SelectItem value="hsrules">H&amp;S Rules</SelectItem>
+              <SelectItem value="contractors">Card Offences</SelectItem>
+              <SelectItem value="ai">AI Settings</SelectItem>
+              <SelectItem value="biostar">BioStar</SelectItem>
+              <SelectItem value="integrations">Integrations</SelectItem>
+              <SelectItem value="system">System</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Tablet / Desktop (≥ md): wrapping tab pill grid */}
+        <TabsList className="hidden md:flex md:flex-wrap md:h-auto gap-1 p-2 w-full md:justify-start">
+          <TabsTrigger value="company" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Building2 size={13} className="flex-shrink-0" />
+            Company
           </TabsTrigger>
-          <TabsTrigger value="branding" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Palette size={15} className="flex-shrink-0" />
-            <span className="lg:hidden">Branding</span>
-            <span className="hidden lg:inline">Branding</span>
+          <TabsTrigger value="branding" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Palette size={13} className="flex-shrink-0" />
+            Branding
           </TabsTrigger>
-          <TabsTrigger value="users" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Users size={15} className="flex-shrink-0" />
+          <TabsTrigger value="users" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Users size={13} className="flex-shrink-0" />
             Users
           </TabsTrigger>
-          <TabsTrigger value="departments" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Building size={15} className="flex-shrink-0" />
-            <span className="lg:hidden">Departments</span>
-            <span className="hidden lg:inline">Departments</span>
+          <TabsTrigger value="departments" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Building size={13} className="flex-shrink-0" />
+            Departments
           </TabsTrigger>
-          <TabsTrigger value="zones" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <MapPin size={15} className="flex-shrink-0" />
+          <TabsTrigger value="zones" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <MapPin size={13} className="flex-shrink-0" />
             Zones
           </TabsTrigger>
-          <TabsTrigger value="email" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Mail size={15} className="flex-shrink-0" />
+          <TabsTrigger value="email" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Mail size={13} className="flex-shrink-0" />
             Email
           </TabsTrigger>
-          <TabsTrigger value="phone-systems" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Phone size={15} className="flex-shrink-0" />
-            <span className="lg:hidden">Phone</span>
-            <span className="hidden lg:inline">Phone Systems</span>
+          <TabsTrigger value="phone-systems" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Phone size={13} className="flex-shrink-0" />
+            Phone Systems
           </TabsTrigger>
-          <TabsTrigger value="reports" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <FileText size={15} className="flex-shrink-0" />
+          <TabsTrigger value="reports" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <FileText size={13} className="flex-shrink-0" />
             Reports
           </TabsTrigger>
-          <TabsTrigger value="printing" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Printer size={15} className="flex-shrink-0" />
-            <span className="lg:hidden">Printing</span>
-            <span className="hidden lg:inline">Printing &amp; ID</span>
+          <TabsTrigger value="printing" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Printer size={13} className="flex-shrink-0" />
+            Printing &amp; ID
           </TabsTrigger>
-          <TabsTrigger value="hs-documents" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <FileText size={15} className="flex-shrink-0" />
+          <TabsTrigger value="hs-documents" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <FileText size={13} className="flex-shrink-0" />
             H&amp;S Docs
           </TabsTrigger>
-          <TabsTrigger value="hsrules" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Shield size={15} className="flex-shrink-0" />
+          <TabsTrigger value="hsrules" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Shield size={13} className="flex-shrink-0" />
             H&amp;S Rules
           </TabsTrigger>
-          <TabsTrigger value="contractors" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <HardHat size={15} className="flex-shrink-0" />
-            <span className="lg:hidden">ID Cards</span>
-            <span className="hidden lg:inline">Card Offences</span>
+          <TabsTrigger value="contractors" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <HardHat size={13} className="flex-shrink-0" />
+            Card Offences
           </TabsTrigger>
-          <TabsTrigger value="ai" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Brain size={15} className="flex-shrink-0" />
+          <TabsTrigger value="ai" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Brain size={13} className="flex-shrink-0" />
             AI
           </TabsTrigger>
-          <TabsTrigger value="biostar" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Shield size={15} className="flex-shrink-0" />
+          <TabsTrigger value="biostar" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Shield size={13} className="flex-shrink-0" />
             BioStar
           </TabsTrigger>
-          <TabsTrigger value="integrations" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <Zap size={15} className="flex-shrink-0" />
-            <span className="lg:hidden">Integrations</span>
-            <span className="hidden lg:inline">Integrations</span>
+          <TabsTrigger value="integrations" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Zap size={13} className="flex-shrink-0" />
+            Integrations
           </TabsTrigger>
-          <TabsTrigger value="system" className="flex items-center gap-1.5 px-3 py-2.5 text-sm whitespace-nowrap flex-shrink-0 lg:text-xs lg:py-2">
-            <SettingsIcon size={15} className="flex-shrink-0" />
+          <TabsTrigger value="system" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <SettingsIcon size={13} className="flex-shrink-0" />
             System
           </TabsTrigger>
         </TabsList>
