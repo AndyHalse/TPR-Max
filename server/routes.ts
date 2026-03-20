@@ -4900,18 +4900,21 @@ ${hasDetailedData
       const { evacuationId } = req.params;
       const token = req.query.token as string | undefined;
 
-      const username = req.user?.username || 'system';
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      let customerId: string;
 
-      // Validate: either a valid fire marshal token or an authenticated session
       if (token) {
-        const marshal = await databaseService.validateEmergencyToken(context, token);
+        // Token-based: validate against dev (shared) context, then get the real customerId
+        const devContext = simpleDatabaseService.createDevelopmentContext();
+        const marshal = await databaseService.validateEmergencyToken(devContext, token);
         if (!marshal) return res.status(401).json({ error: "Invalid emergency token" });
-      } else if (!req.isAuthenticated()) {
+        customerId = (marshal as any).customerId || req.customerId || devContext.customerId;
+      } else if (req.isAuthenticated() && req.customerId) {
+        customerId = req.customerId;
+      } else {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
       const sweeps = await custDb
         .select()
         .from(isolatedSchema.zoneSweeps)
@@ -4934,25 +4937,27 @@ ${hasDetailedData
         return res.status(400).json({ error: "evacuationId, zoneId, and zoneName are required" });
       }
 
-      const username = req.user?.username || 'system';
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-
+      let customerId: string;
       let sweptByName = "Admin";
       let sweptByType = "staff";
 
       if (token) {
-        const marshal = await databaseService.validateEmergencyToken(context, token);
+        // Token-based: validate against dev (shared) context to get the real customerId
+        const devContext = simpleDatabaseService.createDevelopmentContext();
+        const marshal = await databaseService.validateEmergencyToken(devContext, token);
         if (!marshal) return res.status(401).json({ error: "Invalid emergency token" });
+        customerId = (marshal as any).customerId || req.customerId || devContext.customerId;
         sweptByName = `${marshal.firstName} ${marshal.lastName}`;
         sweptByType = "staff";
-      } else if (req.isAuthenticated() && req.user) {
-        sweptByName = (req.user as any).username || "Admin";
+      } else if (req.isAuthenticated() && req.customerId) {
+        customerId = req.customerId;
+        sweptByName = (req.user as any)?.username || "Admin";
         sweptByType = "staff";
       } else {
         return res.status(401).json({ error: "Authentication required" });
       }
 
-      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
 
       // Determine hasUnaccountedAtTime by querying the live source tables directly.
       // Each person table (staff, visitors, contractorWorkers, members) has:
