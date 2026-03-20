@@ -4820,7 +4820,7 @@ ${evac.isDrill ? '<div class="drill-banner">&#128998; FIRE DRILL &mdash; This ev
   ${memberPeople.length > 0 ? `<div class="stat-box"><div class="stat-num">${memberPeople.length}</div><div class="stat-label">Members</div></div>` : ''}
 </div>
 
-${zoneMap.size > 1 || (zoneMap.size === 1 && !zoneMap.has('__none__')) ? `
+${hasDetailedData ? `
 <h2>Zone-by-Zone Breakdown</h2>
 <table>
   <tr><th>Zone / Last Known Location</th><th>Total</th><th>Accounted</th><th>Unaccounted</th><th>Progress</th></tr>
@@ -4829,14 +4829,14 @@ ${zoneMap.size > 1 || (zoneMap.size === 1 && !zoneMap.has('__none__')) ? `
     const barWidth = Math.max(0, Math.min(100, pct));
     const missing = z.total - z.accounted;
     return `<tr style="border-bottom:1px solid #e5e7eb;">
-      <td style="padding:6px 8px;">${esc(z.name)}</td>
+      <td style="padding:6px 8px;">${z.name === 'No Zone Assigned' ? '<em style="color:#888;">No Zone Assigned</em>' : esc(z.name)}</td>
       <td style="padding:6px 8px; text-align:center;">${z.total}</td>
       <td style="padding:6px 8px; text-align:center; color:#16a34a; font-weight:bold;">${z.accounted}</td>
       <td style="padding:6px 8px; text-align:center; color:${missing > 0 ? '#dc2626' : '#16a34a'}; font-weight:bold;">${missing}</td>
       <td style="padding:6px 8px;"><div style="background:#e5e7eb; border-radius:3px; height:10px; width:120px; display:inline-block; vertical-align:middle;"><div style="width:${barWidth}%; background:#16a34a; border-radius:3px; height:10px;"></div></div> <span style="font-size:11px; color:#555;">${pct}%</span></td>
     </tr>`;
   }).join('')}
-</table>` : ''}
+</table>` : '<p style="color:#888; font-style:italic; font-size:13px; padding:4px 0;">Zone breakdown not available — no per-person accountability records found for this event.</p>'}
 
 ${zoneSweepsData.length > 0 ? `
 <h2>Zone Sweep Record</h2>
@@ -5051,6 +5051,34 @@ ${hasDetailedData
     } catch (error) {
       console.error("Error fetching incident reports:", error);
       res.status(500).json({ error: "Failed to fetch incident reports" });
+    }
+  });
+
+  // DELETE a single incident report record (does not delete the underlying evacuation)
+  app.delete("/api/emergency/incident-reports/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "Not authenticated" });
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const deleted = await custDb
+        .delete(isolatedSchema.incidentReports)
+        .where(and(
+          eq(isolatedSchema.incidentReports.id, id),
+          eq(isolatedSchema.incidentReports.customerId, customerId)
+        ))
+        .returning();
+
+      if (deleted.length === 0) {
+        return res.status(404).json({ error: "Incident report not found" });
+      }
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting incident report:", error);
+      res.status(500).json({ error: "Failed to delete incident report" });
     }
   });
 
