@@ -24130,6 +24130,188 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // ============================================================
+  // MARTYN'S LAW COMPLIANCE REPORT ENDPOINTS
+  // ============================================================
+
+  app.get("/api/compliance/summary", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const rows = await custDb.select().from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
+      const row = rows[0] || null;
+
+      const checklistItems = row?.checklistItems ? JSON.parse(row.checklistItems) : [];
+      const evidenceLog = row?.evidenceLog ? JSON.parse(row.evidenceLog) : [];
+      const completedCount = checklistItems.filter((i: any) => i.completed).length;
+      const totalCount = checklistItems.length;
+      const compliancePercent = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
+
+      res.json({
+        compliancePercent,
+        completedCount,
+        totalCount,
+        isInScope: row?.isInScope ?? false,
+        venueType: row?.venueType ?? null,
+        venueCapacity: row?.venueCapacity ?? null,
+        supervisorName: row?.supervisorName ?? null,
+        supervisorRole: row?.supervisorRole ?? null,
+        lastReviewedAt: row?.lastReviewedAt ?? null,
+        lastReviewedBy: row?.lastReviewedBy ?? null,
+        evidenceCount: evidenceLog.length,
+      });
+    } catch (error: any) {
+      console.error("GET /api/compliance/summary error:", error);
+      res.status(500).json({ error: "Failed to fetch compliance summary" });
+    }
+  });
+
+  app.get("/api/compliance/report", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      // Load company settings for branding
+      const settingsRows = await custDb.select().from(isolatedSchema.companySettings).limit(1);
+      const settingsRow = settingsRows[0];
+      const companyName = settingsRow?.companyName || "Your Organisation";
+
+      const rows = await custDb.select().from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
+      const row = rows[0] || null;
+
+      const checklistItems: any[] = row?.checklistItems ? JSON.parse(row.checklistItems) : [];
+      const evidenceLog: any[] = row?.evidenceLog ? JSON.parse(row.evidenceLog) : [];
+      const completedCount = checklistItems.filter(i => i.completed).length;
+      const totalCount = checklistItems.length;
+      const compliancePercent = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
+
+      const esc = (s: any) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }) : "—";
+
+      const complianceColor = compliancePercent >= 80 ? "#16a34a" : compliancePercent >= 50 ? "#d97706" : "#dc2626";
+      const complianceBg = compliancePercent >= 80 ? "#dcfce7" : compliancePercent >= 50 ? "#fef3c7" : "#fee2e2";
+
+      const checklistRows = checklistItems.map(item => `
+        <tr>
+          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb;">
+            <span style="font-size:16px; margin-right:8px;">${item.completed ? "✅" : "❌"}</span>
+            ${esc(item.label)}
+          </td>
+          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; text-align:center; color:${item.completed ? "#16a34a" : "#9ca3af"}; font-size:13px;">
+            ${item.completed ? "Complete" : "Pending"}
+          </td>
+          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; color:#6b7280; font-size:12px;">
+            ${item.completed && item.completedAt ? fmtDate(item.completedAt) : "—"}
+          </td>
+        </tr>`).join("");
+
+      const evidenceRows = evidenceLog.slice().reverse().map(e => `
+        <tr>
+          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; font-size:13px;">${esc(e.date)}</td>
+          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; font-size:13px;"><strong>${esc(e.type)}</strong></td>
+          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; font-size:13px;">${esc(e.description)}</td>
+          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; font-size:13px;">${esc(e.conductedBy)}</td>
+        </tr>`).join("");
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Martyn's Law Compliance Summary — ${esc(companyName)}</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 24px; color: #1e293b; font-size: 14px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 24px 0 8px; color: #1e293b; border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #f1f5f9; text-align: left; padding: 8px 12px; font-size: 12px; color: #64748b; border-bottom: 2px solid #e5e7eb; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+  .score-box { background: ${complianceBg}; border: 1px solid ${complianceColor}; border-radius: 8px; padding: 16px 24px; display: flex; align-items: center; gap: 24px; margin-bottom: 20px; }
+  .score-num { font-size: 42px; font-weight: bold; color: ${complianceColor}; }
+  .progress-outer { background: #e5e7eb; height: 10px; border-radius: 5px; overflow: hidden; width: 220px; }
+  .progress-inner { background: ${complianceColor}; height: 100%; border-radius: 5px; width: ${compliancePercent}%; }
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px; margin-bottom: 16px; }
+  .detail-item label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+  .detail-item p { margin: 2px 0; font-size: 14px; }
+  @media print { body { padding: 10px; } }
+</style>
+</head>
+<body>
+<div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px;">
+  <div>
+    <h1>Martyn's Law Compliance Summary</h1>
+    <div style="font-size:13px; color:#64748b;">Terrorism (Protection of Premises) Act 2025 — UK Protect Duty</div>
+    <div style="font-size:13px; color:#64748b; margin-top:2px;"><strong>${esc(companyName)}</strong></div>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#9ca3af;">
+    Generated: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}<br>
+    TPR Max Visitor Management
+  </div>
+</div>
+
+<div class="score-box">
+  <div class="score-num">${compliancePercent}%</div>
+  <div>
+    <div style="font-weight:600; font-size:15px;">Compliance Score</div>
+    <div style="font-size:13px; color:#64748b; margin-bottom:8px;">${completedCount} of ${totalCount} checklist items completed</div>
+    <div class="progress-outer"><div class="progress-inner"></div></div>
+  </div>
+</div>
+
+<h2>Venue Details</h2>
+<div class="detail-grid">
+  <div class="detail-item"><label>Venue Type</label><p>${esc(row?.venueType || "—")}</p></div>
+  <div class="detail-item"><label>Maximum Capacity</label><p>${row?.venueCapacity ?? "—"}</p></div>
+  <div class="detail-item"><label>In Scope</label><p>${row?.isInScope ? "Yes — in scope for Martyn's Law" : "Not confirmed / Out of scope"}</p></div>
+  <div class="detail-item"><label>Last Review</label><p>${fmtDate(row?.lastReviewedAt)}${row?.lastReviewedBy ? ` by ${row.lastReviewedBy}` : ""}</p></div>
+</div>
+${row?.scopeNotes ? `<p style="font-size:13px; color:#374151; background:#f8fafc; border-left:3px solid #94a3b8; padding:8px 12px; margin-bottom:16px;"><em>${esc(row.scopeNotes)}</em></p>` : ""}
+
+<h2>Designated Security Supervisor</h2>
+<div class="detail-grid">
+  <div class="detail-item"><label>Name</label><p>${esc(row?.supervisorName || "—")}</p></div>
+  <div class="detail-item"><label>Role / Title</label><p>${esc(row?.supervisorRole || "—")}</p></div>
+  <div class="detail-item"><label>Phone</label><p>${esc(row?.supervisorPhone || "—")}</p></div>
+  <div class="detail-item"><label>Email</label><p>${esc(row?.supervisorEmail || "—")}</p></div>
+</div>
+
+<h2>Compliance Checklist</h2>
+<table>
+  <thead><tr><th style="width:60%;">Item</th><th style="width:15%; text-align:center;">Status</th><th style="width:25%;">Completed On</th></tr></thead>
+  <tbody>${checklistRows || '<tr><td colspan="3" style="padding:12px; color:#9ca3af; text-align:center;">No checklist data</td></tr>'}</tbody>
+</table>
+
+${evidenceLog.length > 0 ? `
+<h2>Evidence Log (${evidenceLog.length} entries)</h2>
+<table>
+  <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Conducted By</th></tr></thead>
+  <tbody>${evidenceRows}</tbody>
+</table>
+` : ""}
+
+${row?.actionPlan ? `
+<h2>Security / Action Plan Summary</h2>
+<p style="font-size:13px; white-space:pre-wrap; color:#374151;">${esc(row.actionPlan)}</p>
+` : ""}
+
+<div style="margin-top:32px; padding-top:16px; border-top:1px solid #e5e7eb; font-size:11px; color:#9ca3af; text-align:center;">
+  Martyn's Law Compliance Summary for ${esc(companyName)} | Generated by TPR Max on ${new Date().toLocaleDateString("en-GB")}
+</div>
+
+<script>
+  window.onload = function() { window.print(); }
+</script>
+</body>
+</html>`;
+
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.setHeader("Content-Disposition", `inline; filename="martyn-law-compliance-${new Date().toISOString().slice(0,10)}.html"`);
+      res.send(html);
+    } catch (error: any) {
+      console.error("GET /api/compliance/report error:", error);
+      res.status(500).json({ error: "Failed to generate compliance report" });
+    }
+  });
+
   const httpServer = existingServer || createServer(app);
   
   // Initialize WebSocket server for real-time muster updates

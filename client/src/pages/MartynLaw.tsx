@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Shield,
   AlertTriangle,
@@ -24,6 +25,8 @@ import {
   ClipboardList,
   BookOpen,
   Calendar,
+  Download,
+  HelpCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -177,11 +180,15 @@ export default function MartynLaw() {
     );
   }
 
+  const handleDownloadReport = () => {
+    window.open("/api/compliance/report", "_blank");
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <Shield className="text-blue-600" size={28} />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Martyn's Law Compliance</h1>
@@ -191,11 +198,58 @@ export default function MartynLaw() {
             The Terrorism (Protection of Premises) Act 2025 — commonly known as Martyn's Law — requires qualifying venues to have a security plan and trained staff. Use this section to document your compliance.
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saveMutation.isPending} className="flex-shrink-0">
-          <Save size={16} className="mr-2" />
-          {saveMutation.isPending ? "Saving..." : "Save All"}
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Button variant="outline" onClick={handleDownloadReport}>
+            <Download size={15} className="mr-2" />
+            Download Report
+          </Button>
+          <Button onClick={handleSave} disabled={saveMutation.isPending}>
+            <Save size={16} className="mr-2" />
+            {saveMutation.isPending ? "Saving..." : "Save All"}
+          </Button>
+        </div>
       </div>
+
+      {/* What is Martyn's Law? Accordion */}
+      <Accordion type="single" collapsible>
+        <AccordionItem value="what-is" className="border border-blue-200 dark:border-blue-800 rounded-lg bg-blue-50 dark:bg-blue-950/20 px-4">
+          <AccordionTrigger className="text-sm font-semibold text-blue-800 dark:text-blue-300 hover:no-underline py-3">
+            <span className="flex items-center gap-2">
+              <HelpCircle size={15} />
+              What is Martyn's Law?
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="pb-4 text-sm text-blue-800 dark:text-blue-300 space-y-3">
+            <p>
+              <strong>Martyn's Law</strong> (formally the <em>Terrorism (Protection of Premises) Act 2025</em>) is UK legislation introduced following the 2017 Manchester Arena attack that killed 22 people, including Martyn Hett. It places a legal duty on venues and events to take proportionate protective security and preparedness measures.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="bg-white dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                <div className="font-semibold mb-1">Standard Tier</div>
+                <div className="text-xs">Venues or events with a capacity of <strong>200–799 people</strong>. Must implement reasonably practicable protective security measures and have a written security plan.</div>
+              </div>
+              <div className="bg-white dark:bg-blue-900/20 rounded-lg p-3 border border-blue-200 dark:border-blue-700">
+                <div className="font-semibold mb-1">Enhanced Tier</div>
+                <div className="text-xs">Venues or events with a capacity of <strong>800 or more people</strong>. Subject to stricter requirements including a trained Designated Security Supervisor and detailed risk assessments.</div>
+              </div>
+            </div>
+            <div>
+              <div className="font-semibold mb-1">Key Requirements</div>
+              <ul className="text-xs space-y-1 list-disc list-inside">
+                <li>Conduct a terrorism threat assessment for your premises</li>
+                <li>Appoint a Designated Security Supervisor (enhanced tier)</li>
+                <li>Create a written protective security plan</li>
+                <li>Train staff on Action Counters Terrorism (ACT) — available free at <strong>gov.uk/act</strong></li>
+                <li>Communicate Run, Hide, Tell procedures to all staff</li>
+                <li>Review your security plan annually</li>
+              </ul>
+            </div>
+            <p className="text-xs text-blue-600 dark:text-blue-400">
+              The Act received Royal Assent in April 2025. Implementation dates and full enforcement guidance are published by the Home Office. This section helps you document your compliance work. It is not legal advice — consult a qualified security professional or solicitor for your specific situation.
+            </p>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
 
       {/* Compliance Score Banner */}
       <GlassCard className={`border ${complianceBg}`}>
