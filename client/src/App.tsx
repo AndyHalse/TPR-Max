@@ -28,6 +28,7 @@ import FireMarshalPanel from "@/pages/FireMarshalPanel";
 import FireMarshalMobile from "@/pages/FireMarshalMobile";
 import IncidentMonitor from "@/pages/IncidentMonitor";
 import MartynLaw from "@/pages/MartynLaw";
+import Compliance from "@/pages/Compliance";
 import IncidentReports from "@/pages/IncidentReports";
 import InductionSettings from "@/pages/InductionSettings";
 import EmailOutbox from "@/pages/EmailOutbox";
@@ -353,6 +354,7 @@ function Router() {
             <Route path="/muster" component={EmergencyMuster} />
             <Route path="/incident-reports" component={IncidentReports} />
             <Route path="/martyn-law" component={MartynLaw} />
+            <Route path="/compliance" component={Compliance} />
             <Route path="/fire-marshal-panel" component={FireMarshalPanel} />
             <Route path="/fire-marshal-mobile" component={FireMarshalMobile} />
             <Route path="/reports" component={Reports} />

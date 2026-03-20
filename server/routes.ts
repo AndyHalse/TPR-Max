@@ -24134,31 +24134,139 @@ This is an automated notification from your visitor management system.`;
   // MARTYN'S LAW COMPLIANCE REPORT ENDPOINTS
   // ============================================================
 
+  // Helper: build structured compliance requirements from live customer data
+  async function buildComplianceRequirements(customerId: string, custDb: any) {
+    const esc2 = (s: any) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    // Load customer settings
+    const [settingsRows, zoneRows, martynRows, staffRows, preBookingRows, incidentRows, drillEvacRows] = await Promise.all([
+      custDb.select().from(isolatedSchema.companySettings).limit(1),
+      custDb.select({ id: isolatedSchema.evacuationZones.id }).from(isolatedSchema.evacuationZones).where(eq(isolatedSchema.evacuationZones.isActive, true)).limit(1),
+      custDb.select().from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1),
+      custDb.select({ id: isolatedSchema.staff.id }).from(isolatedSchema.staff).where(and(eq(isolatedSchema.staff.isFireMarshal, true), eq(isolatedSchema.staff.isActive, true))).limit(1),
+      custDb.select({ id: isolatedSchema.preBookings.id }).from(isolatedSchema.preBookings).limit(1),
+      custDb.select({ id: isolatedSchema.incidentReports.id }).from(isolatedSchema.incidentReports).where(eq(isolatedSchema.incidentReports.customerId, customerId)).limit(1),
+      db.select({ evacuationId: evacuations.evacuationId }).from(evacuations).where(and(eq(evacuations.customerId, customerId), eq(evacuations.status, "completed"), eq(evacuations.isDrill, true))).limit(1),
+    ]);
+
+    const settings = settingsRows[0];
+    const martynRow = martynRows[0] || null;
+
+    const hasZones = zoneRows.length > 0;
+    const hasFireMarshal = staffRows.length > 0;
+    const hasPreBookings = preBookingRows.length > 0;
+    const hasIncidentReports = incidentRows.length > 0;
+    const hasDrills = drillEvacRows.length > 0;
+    const hasEvacProcedure = !!(martynRow?.evacuationProcedure || martynRow?.actionPlan);
+    const featureIncidentReports = settings?.featureIncidentReports !== false;
+    const featureKiosk = settings?.featureKiosk === true;
+
+    const requirements = [
+      {
+        id: "personnel-tracking",
+        label: "Real-time personnel tracking",
+        legalObligation: "Premises must be able to account for all individuals on-site during an emergency or evacuation.",
+        tprFeature: "Visitor Management & Muster List",
+        active: true,
+        detail: "TPR Max tracks visitors, staff, and contractors in real time with live on-site lists and emergency muster functionality.",
+      },
+      {
+        id: "evacuation-procedure",
+        label: "Documented evacuation procedures",
+        legalObligation: "A written evacuation procedure must be in place and communicated to all relevant staff.",
+        tprFeature: "Martyn's Law Security Plan",
+        active: hasEvacProcedure,
+        detail: hasEvacProcedure
+          ? "Evacuation procedures are documented in the Martyn's Law security plan."
+          : "Add your evacuation procedure in the Martyn's Law section to complete this requirement.",
+      },
+      {
+        id: "fire-marshal",
+        label: "Fire marshal accountability",
+        legalObligation: "Named, trained individuals must be responsible for accounting for personnel during an evacuation.",
+        tprFeature: "Fire Marshal Static URLs",
+        active: hasFireMarshal,
+        detail: hasFireMarshal
+          ? "One or more staff members are designated as Fire Marshals with permanent emergency access links."
+          : "Designate at least one staff member as a Fire Marshal in Staff Management.",
+      },
+      {
+        id: "zone-evacuation",
+        label: "Zone-based evacuation management",
+        legalObligation: "For larger venues, evacuation must be coordinated by area/zone to ensure systematic accountability.",
+        tprFeature: "Zone-Based Evacuation",
+        active: hasZones,
+        detail: hasZones
+          ? "Evacuation zones are configured and active for zone-by-zone personnel sweep."
+          : "Configure evacuation zones in Settings → Zones to enable zone-based muster.",
+      },
+      {
+        id: "drill-recording",
+        label: "Evacuation drill recording",
+        legalObligation: "Regular evacuation drills must be conducted and recorded as evidence of preparedness.",
+        tprFeature: "Drill Mode & Incident Reports",
+        active: hasDrills,
+        detail: hasDrills
+          ? "At least one completed fire drill has been recorded and an incident report is available."
+          : "Run an evacuation drill using Drill Mode on the Muster page to satisfy this requirement.",
+      },
+      {
+        id: "post-event-reporting",
+        label: "Post-event incident reporting",
+        legalObligation: "Records of evacuation events and drills must be retained for audit purposes.",
+        tprFeature: "Incident Reports",
+        active: featureIncidentReports && hasIncidentReports,
+        detail: featureIncidentReports
+          ? (hasIncidentReports ? "Incident reports feature is enabled and at least one report has been generated." : "Incident Reports are enabled. Complete an evacuation or drill to generate your first report.")
+          : "Enable the Incident Reports feature in Settings to satisfy this requirement.",
+      },
+      {
+        id: "visitor-preregistration",
+        label: "Visitor pre-registration",
+        legalObligation: "Venues should maintain advance knowledge of expected visitors to support rapid accountability.",
+        tprFeature: "Pre-booking System",
+        active: hasPreBookings || featureKiosk,
+        detail: (hasPreBookings || featureKiosk)
+          ? "Visitor pre-booking or kiosk self-check-in is available to capture visitor details in advance."
+          : "Use the Pre-booking or Kiosk feature to pre-register expected visitors.",
+      },
+      {
+        id: "audit-trail",
+        label: "Audit trail and access records",
+        legalObligation: "A record of all individuals who access the premises must be maintained and available for inspection.",
+        tprFeature: "Visitor & Contractor Logs",
+        active: true,
+        detail: "TPR Max maintains a complete, tamper-evident log of all visitor, contractor, and staff access records.",
+      },
+    ];
+
+    const companyName = settings?.companyName || "Your Organisation";
+    const activeCount = requirements.filter(r => r.active).length;
+    const totalCount = requirements.length;
+    const compliancePercent = Math.round((activeCount / totalCount) * 100);
+
+    return { requirements, companyName, activeCount, totalCount, compliancePercent, esc: esc2 };
+  }
+
   app.get("/api/compliance/summary", requireAuth, async (req, res) => {
     try {
       const customerId = req.session.customerId!;
       const custDb = await customerDbService.getCustomerDatabase(customerId);
-      const rows = await custDb.select().from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
-      const row = rows[0] || null;
-
-      const checklistItems = row?.checklistItems ? JSON.parse(row.checklistItems) : [];
-      const evidenceLog = row?.evidenceLog ? JSON.parse(row.evidenceLog) : [];
-      const completedCount = checklistItems.filter((i: any) => i.completed).length;
-      const totalCount = checklistItems.length;
-      const compliancePercent = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
+      const { requirements, companyName, activeCount, totalCount, compliancePercent } = await buildComplianceRequirements(customerId, custDb);
 
       res.json({
+        companyName,
         compliancePercent,
-        completedCount,
+        activeCount,
         totalCount,
-        isInScope: row?.isInScope ?? false,
-        venueType: row?.venueType ?? null,
-        venueCapacity: row?.venueCapacity ?? null,
-        supervisorName: row?.supervisorName ?? null,
-        supervisorRole: row?.supervisorRole ?? null,
-        lastReviewedAt: row?.lastReviewedAt ?? null,
-        lastReviewedBy: row?.lastReviewedBy ?? null,
-        evidenceCount: evidenceLog.length,
+        requirements: requirements.map(r => ({
+          id: r.id,
+          label: r.label,
+          legalObligation: r.legalObligation,
+          tprFeature: r.tprFeature,
+          active: r.active,
+          detail: r.detail,
+        })),
       });
     } catch (error: any) {
       console.error("GET /api/compliance/summary error:", error);
@@ -24170,48 +24278,28 @@ This is an automated notification from your visitor management system.`;
     try {
       const customerId = req.session.customerId!;
       const custDb = await customerDbService.getCustomerDatabase(customerId);
-
-      // Load company settings for branding
-      const settingsRows = await custDb.select().from(isolatedSchema.companySettings).limit(1);
-      const settingsRow = settingsRows[0];
-      const companyName = settingsRow?.companyName || "Your Organisation";
-
-      const rows = await custDb.select().from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
-      const row = rows[0] || null;
-
-      const checklistItems: any[] = row?.checklistItems ? JSON.parse(row.checklistItems) : [];
-      const evidenceLog: any[] = row?.evidenceLog ? JSON.parse(row.evidenceLog) : [];
-      const completedCount = checklistItems.filter(i => i.completed).length;
-      const totalCount = checklistItems.length;
-      const compliancePercent = totalCount ? Math.round((completedCount / totalCount) * 100) : 0;
-
-      const esc = (s: any) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-      const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" }) : "—";
+      const { requirements, companyName, activeCount, totalCount, compliancePercent, esc } = await buildComplianceRequirements(customerId, custDb);
 
       const complianceColor = compliancePercent >= 80 ? "#16a34a" : compliancePercent >= 50 ? "#d97706" : "#dc2626";
       const complianceBg = compliancePercent >= 80 ? "#dcfce7" : compliancePercent >= 50 ? "#fef3c7" : "#fee2e2";
+      const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
 
-      const checklistRows = checklistItems.map(item => `
+      const requirementRows = requirements.map(r => `
         <tr>
-          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb;">
-            <span style="font-size:16px; margin-right:8px;">${item.completed ? "✅" : "❌"}</span>
-            ${esc(item.label)}
+          <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
+            <div style="font-weight:600; font-size:13px; margin-bottom:2px;">${esc(r.label)}</div>
+            <div style="font-size:11px; color:#6b7280; margin-bottom:4px;">${esc(r.legalObligation)}</div>
+            <div style="font-size:11px; color:#3b82f6;">TPR Max: ${esc(r.tprFeature)}</div>
           </td>
-          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; text-align:center; color:${item.completed ? "#16a34a" : "#9ca3af"}; font-size:13px;">
-            ${item.completed ? "Complete" : "Pending"}
+          <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; text-align:center; vertical-align:middle; white-space:nowrap;">
+            ${r.active
+              ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">&#10003; Enabled</span>'
+              : '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">&#8869; Action needed</span>'
+            }
           </td>
-          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; color:#6b7280; font-size:12px;">
-            ${item.completed && item.completedAt ? fmtDate(item.completedAt) : "—"}
-          </td>
-        </tr>`).join("");
-
-      const evidenceRows = evidenceLog.slice().reverse().map(e => `
-        <tr>
-          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; font-size:13px;">${esc(e.date)}</td>
-          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; font-size:13px;"><strong>${esc(e.type)}</strong></td>
-          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; font-size:13px;">${esc(e.description)}</td>
-          <td style="padding:8px 12px; border-bottom:1px solid #e5e7eb; font-size:13px;">${esc(e.conductedBy)}</td>
-        </tr>`).join("");
+        </tr>
+        ${!r.active ? `<tr><td colspan="2" style="padding:4px 12px 10px 12px; border-bottom:1px solid #e5e7eb; font-size:11px; color:#6b7280; font-style:italic;">${esc(r.detail)}</td></tr>` : ""}
+      `).join("");
 
       const html = `<!DOCTYPE html>
 <html lang="en">
@@ -24219,20 +24307,12 @@ This is an automated notification from your visitor management system.`;
 <meta charset="UTF-8">
 <title>Martyn's Law Compliance Summary — ${esc(companyName)}</title>
 <style>
-  body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 24px; color: #1e293b; font-size: 14px; }
+  body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 28px; color: #1e293b; font-size: 14px; }
   h1 { font-size: 22px; margin: 0 0 4px; }
-  h2 { font-size: 16px; margin: 24px 0 8px; color: #1e293b; border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  h2 { font-size: 15px; margin: 24px 0 8px; color: #1e293b; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; }
+  table { width: 100%; border-collapse: collapse; }
   th { background: #f1f5f9; text-align: left; padding: 8px 12px; font-size: 12px; color: #64748b; border-bottom: 2px solid #e5e7eb; }
-  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 12px; font-weight: bold; }
-  .score-box { background: ${complianceBg}; border: 1px solid ${complianceColor}; border-radius: 8px; padding: 16px 24px; display: flex; align-items: center; gap: 24px; margin-bottom: 20px; }
-  .score-num { font-size: 42px; font-weight: bold; color: ${complianceColor}; }
-  .progress-outer { background: #e5e7eb; height: 10px; border-radius: 5px; overflow: hidden; width: 220px; }
-  .progress-inner { background: ${complianceColor}; height: 100%; border-radius: 5px; width: ${compliancePercent}%; }
-  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px; margin-bottom: 16px; }
-  .detail-item label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
-  .detail-item p { margin: 2px 0; font-size: 14px; }
-  @media print { body { padding: 10px; } }
+  @media print { body { padding: 14px; } }
 </style>
 </head>
 <body>
@@ -24240,72 +24320,79 @@ This is an automated notification from your visitor management system.`;
   <div>
     <h1>Martyn's Law Compliance Summary</h1>
     <div style="font-size:13px; color:#64748b;">Terrorism (Protection of Premises) Act 2025 — UK Protect Duty</div>
-    <div style="font-size:13px; color:#64748b; margin-top:2px;"><strong>${esc(companyName)}</strong></div>
+    <div style="font-size:13px; color:#374151; margin-top:2px; font-weight:600;">${esc(companyName)}</div>
   </div>
   <div style="text-align:right; font-size:11px; color:#9ca3af;">
-    Generated: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}<br>
+    Generated: ${dateStr}<br>
     TPR Max Visitor Management
   </div>
 </div>
 
-<div class="score-box">
-  <div class="score-num">${compliancePercent}%</div>
+<div style="background:${complianceBg}; border:1px solid ${complianceColor}; border-radius:8px; padding:16px 24px; display:flex; align-items:center; gap:24px; margin-bottom:24px;">
+  <div style="font-size:48px; font-weight:bold; color:${complianceColor}; line-height:1;">${compliancePercent}%</div>
   <div>
-    <div style="font-weight:600; font-size:15px;">Compliance Score</div>
-    <div style="font-size:13px; color:#64748b; margin-bottom:8px;">${completedCount} of ${totalCount} checklist items completed</div>
-    <div class="progress-outer"><div class="progress-inner"></div></div>
+    <div style="font-weight:600; font-size:16px; color:#1e293b;">Overall Compliance Score</div>
+    <div style="font-size:13px; color:#6b7280; margin-bottom:6px;">${activeCount} of ${totalCount} requirements met</div>
+    <div style="background:#e5e7eb; height:10px; border-radius:5px; overflow:hidden; width:240px;">
+      <div style="background:${complianceColor}; height:100%; border-radius:5px; width:${compliancePercent}%;"></div>
+    </div>
   </div>
 </div>
 
-<h2>Venue Details</h2>
-<div class="detail-grid">
-  <div class="detail-item"><label>Venue Type</label><p>${esc(row?.venueType || "—")}</p></div>
-  <div class="detail-item"><label>Maximum Capacity</label><p>${row?.venueCapacity ?? "—"}</p></div>
-  <div class="detail-item"><label>In Scope</label><p>${row?.isInScope ? "Yes — in scope for Martyn's Law" : "Not confirmed / Out of scope"}</p></div>
-  <div class="detail-item"><label>Last Review</label><p>${fmtDate(row?.lastReviewedAt)}${row?.lastReviewedBy ? ` by ${row.lastReviewedBy}` : ""}</p></div>
-</div>
-${row?.scopeNotes ? `<p style="font-size:13px; color:#374151; background:#f8fafc; border-left:3px solid #94a3b8; padding:8px 12px; margin-bottom:16px;"><em>${esc(row.scopeNotes)}</em></p>` : ""}
-
-<h2>Designated Security Supervisor</h2>
-<div class="detail-grid">
-  <div class="detail-item"><label>Name</label><p>${esc(row?.supervisorName || "—")}</p></div>
-  <div class="detail-item"><label>Role / Title</label><p>${esc(row?.supervisorRole || "—")}</p></div>
-  <div class="detail-item"><label>Phone</label><p>${esc(row?.supervisorPhone || "—")}</p></div>
-  <div class="detail-item"><label>Email</label><p>${esc(row?.supervisorEmail || "—")}</p></div>
-</div>
-
-<h2>Compliance Checklist</h2>
+<h2>Compliance Requirements</h2>
 <table>
-  <thead><tr><th style="width:60%;">Item</th><th style="width:15%; text-align:center;">Status</th><th style="width:25%;">Completed On</th></tr></thead>
-  <tbody>${checklistRows || '<tr><td colspan="3" style="padding:12px; color:#9ca3af; text-align:center;">No checklist data</td></tr>'}</tbody>
+  <thead>
+    <tr>
+      <th style="width:76%;">Requirement</th>
+      <th style="width:24%; text-align:center;">Status</th>
+    </tr>
+  </thead>
+  <tbody>${requirementRows}</tbody>
 </table>
 
-${evidenceLog.length > 0 ? `
-<h2>Evidence Log (${evidenceLog.length} entries)</h2>
-<table>
-  <thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Conducted By</th></tr></thead>
-  <tbody>${evidenceRows}</tbody>
-</table>
-` : ""}
-
-${row?.actionPlan ? `
-<h2>Security / Action Plan Summary</h2>
-<p style="font-size:13px; white-space:pre-wrap; color:#374151;">${esc(row.actionPlan)}</p>
-` : ""}
-
-<div style="margin-top:32px; padding-top:16px; border-top:1px solid #e5e7eb; font-size:11px; color:#9ca3af; text-align:center;">
-  Martyn's Law Compliance Summary for ${esc(companyName)} | Generated by TPR Max on ${new Date().toLocaleDateString("en-GB")}
+<div style="margin-top:32px; padding-top:16px; border-top:1px solid #e5e7eb; font-size:11px; color:#9ca3af;">
+  <p style="margin:0 0 4px;">This compliance summary was generated by TPR Max Visitor Management for <strong>${esc(companyName)}</strong> on ${dateStr}.</p>
+  <p style="margin:0;">This document does not constitute legal advice or certification. For guidance, refer to the UK Home Office Martyn's Law factsheet at <strong>gov.uk/government/publications/martyns-law</strong>.</p>
 </div>
-
-<script>
-  window.onload = function() { window.print(); }
-</script>
 </body>
 </html>`;
 
-      res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.setHeader("Content-Disposition", `inline; filename="martyn-law-compliance-${new Date().toISOString().slice(0,10)}.html"`);
-      res.send(html);
+      // Server-side PDF using Puppeteer (with HTML fallback, same pattern as incident reports)
+      try {
+        let puppeteer: any;
+        try {
+          puppeteer = await import('puppeteer');
+        } catch {
+          throw new Error('puppeteer_unavailable');
+        }
+        const browser = await puppeteer.default.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+        try {
+          const page = await browser.newPage();
+          await page.setContent(html, { waitUntil: 'networkidle0' });
+          const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '15mm', bottom: '15mm', left: '12mm', right: '12mm' }
+          });
+          await browser.close();
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="martyn-law-compliance-${new Date().toISOString().slice(0,10)}.pdf"`);
+          return res.send(Buffer.from(pdfBuffer));
+        } catch (pdfErr) {
+          await browser.close();
+          throw pdfErr;
+        }
+      } catch (pdfGenerationErr) {
+        // Puppeteer unavailable — serve as printable HTML (auto-triggers browser print dialog)
+        console.warn('[compliance-report] PDF unavailable, falling back to HTML:', (pdfGenerationErr as Error).message);
+        const printHtml = html.replace('</body>', '<script>window.onload=function(){window.print();}</script></body>');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `inline; filename="martyn-law-compliance-${new Date().toISOString().slice(0,10)}.html"`);
+        return res.send(printHtml);
+      }
     } catch (error: any) {
       console.error("GET /api/compliance/report error:", error);
       res.status(500).json({ error: "Failed to generate compliance report" });
