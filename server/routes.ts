@@ -4753,48 +4753,53 @@ ${hasDetailedData
 </body></html>`;
 
       if (format === 'pdf') {
-        // Server-side PDF generation using Puppeteer
-        let puppeteer: any;
+        // Server-side PDF generation using Puppeteer with HTML fallback
         try {
-          puppeteer = await import('puppeteer');
-        } catch {
-          // Fallback: serve HTML if puppeteer unavailable
+          let puppeteer: any;
+          try {
+            puppeteer = await import('puppeteer');
+          } catch {
+            throw new Error('puppeteer_unavailable');
+          }
+          const browser = await puppeteer.default.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+          });
+          try {
+            const page = await browser.newPage();
+            await page.setContent(html, { waitUntil: 'networkidle0' });
+            const pdfBuffer = await page.pdf({
+              format: 'A4',
+              printBackground: true,
+              margin: { top: '15mm', bottom: '15mm', left: '12mm', right: '12mm' }
+            });
+            await browser.close();
+
+            // Store the PDF URL reference in the evacuations table
+            try {
+              await db.update(evacuations)
+                .set({ reportPdfUrl: `/api/emergency/incident-report/${evacuationId}?format=pdf` })
+                .where(and(
+                  eq(evacuations.evacuationId, evacuationId),
+                  eq(evacuations.customerId, customerId)
+                ));
+            } catch (updateErr) {
+              console.warn('[incident-report] Could not persist reportPdfUrl:', updateErr);
+            }
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename="incident-report-${evacuationId}.pdf"`);
+            return res.send(Buffer.from(pdfBuffer));
+          } catch (pdfErr) {
+            await browser.close();
+            throw pdfErr;
+          }
+        } catch (pdfGenerationErr) {
+          // Chrome binary not installed or Puppeteer unavailable — serve as printable HTML
+          console.warn('[incident-report] PDF generation unavailable, falling back to HTML:', (pdfGenerationErr as Error).message);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
           res.setHeader('Content-Disposition', `attachment; filename="incident-report-${evacuationId}.html"`);
           return res.send(html);
-        }
-        const browser = await puppeteer.default.launch({
-          headless: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
-        });
-        try {
-          const page = await browser.newPage();
-          await page.setContent(html, { waitUntil: 'networkidle0' });
-          const pdfBuffer = await page.pdf({
-            format: 'A4',
-            printBackground: true,
-            margin: { top: '15mm', bottom: '15mm', left: '12mm', right: '12mm' }
-          });
-          await browser.close();
-
-          // Store the PDF URL reference in the evacuations table
-          try {
-            await db.update(evacuations)
-              .set({ reportPdfUrl: `/api/emergency/incident-report/${evacuationId}?format=pdf` })
-              .where(and(
-                eq(evacuations.evacuationId, evacuationId),
-                eq(evacuations.customerId, customerId)
-              ));
-          } catch (updateErr) {
-            console.warn('[incident-report] Could not persist reportPdfUrl:', updateErr);
-          }
-
-          res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `attachment; filename="incident-report-${evacuationId}.pdf"`);
-          return res.send(Buffer.from(pdfBuffer));
-        } catch (pdfErr) {
-          await browser.close();
-          throw pdfErr;
         }
       }
 
@@ -4908,7 +4913,7 @@ ${hasDetailedData
         const marshal = await databaseService.validateEmergencyToken(devContext, token);
         if (!marshal) return res.status(401).json({ error: "Invalid emergency token" });
         customerId = (marshal as any).customerId || req.customerId || devContext.customerId;
-      } else if (req.isAuthenticated() && req.customerId) {
+      } else if (req.customerId) {
         customerId = req.customerId;
       } else {
         return res.status(401).json({ error: "Authentication required" });
@@ -4949,7 +4954,7 @@ ${hasDetailedData
         customerId = (marshal as any).customerId || req.customerId || devContext.customerId;
         sweptByName = `${marshal.firstName} ${marshal.lastName}`;
         sweptByType = "staff";
-      } else if (req.isAuthenticated() && req.customerId) {
+      } else if (req.customerId) {
         customerId = req.customerId;
         sweptByName = (req.user as any)?.username || "Admin";
         sweptByType = "staff";
