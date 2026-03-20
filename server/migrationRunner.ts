@@ -224,6 +224,19 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     }
   };
 
+  const addIncidentManagerUrlIdMigration = {
+    version: '20260320_030_add_incident_manager_url_id',
+    description: 'Add incident_manager_url_id column to company_settings for permanent senior manager monitor URL',
+    async up(db: any) {
+      try {
+        await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS incident_manager_url_id TEXT`);
+        console.log('✅ [030] Added incident_manager_url_id to company_settings');
+      } catch (err: any) {
+        console.log(`⚠️ [030] incident_manager_url_id: ${err.message?.substring(0, 80)}`);
+      }
+    }
+  };
+
   const allMigrations = [
     bootstrapSchemaMigration,
     rebuildCompanySettingsMigration,
@@ -264,6 +277,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     backfillMartynLawIncidentTogglesMigration,
     ensureIncidentReportsTableMigration,
     addZoneSweepsMigration,
+    addIncidentManagerUrlIdMigration,
   ];
 
   allMigrations.forEach(migration => {

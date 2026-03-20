@@ -5149,6 +5149,245 @@ ${hasDetailedData
   });
 
   // ==============================================
+  // INCIDENT MANAGER MONITOR - Permanent per-customer read-only URL
+  // ==============================================
+
+  // Validate incident manager URL and return company/evacuation context
+  app.get("/api/incident-monitor/:urlId", async (req, res) => {
+    try {
+      const { urlId } = req.params;
+      if (!urlId) return res.status(400).json({ error: "Missing URL ID" });
+
+      // Search all active customer databases for matching incidentManagerUrlId
+      const customers = await customerDbService.getAllCustomers();
+      let foundCustomerId: string | null = null;
+      let foundSettings: any = null;
+
+      for (const customer of customers) {
+        if (!customer.isActive) continue;
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+          const rows = await custDb
+            .select()
+            .from(isolatedSchema.companySettings)
+            .where(eq(isolatedSchema.companySettings.incidentManagerUrlId, urlId))
+            .limit(1);
+          if (rows.length > 0) {
+            foundCustomerId = customer.id;
+            foundSettings = rows[0];
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (!foundCustomerId || !foundSettings) {
+        return res.status(404).json({ error: "Monitor link not found or has been revoked" });
+      }
+
+      // Find the most recent active evacuation for this customer
+      const activeEvacs = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.customerId, foundCustomerId),
+          eq(evacuations.status, 'active')
+        ))
+        .orderBy(sql`started_at DESC`)
+        .limit(1);
+
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json({
+        valid: true,
+        customerId: foundCustomerId,
+        companyName: foundSettings.companyName || 'Unknown Company',
+        accentColor: foundSettings.accentColor || '#2460a9',
+        activeEvacuation: activeEvacs.length > 0 ? {
+          evacuationId: activeEvacs[0].evacuationId,
+          startedAt: activeEvacs[0].startedAt,
+          isDrill: (activeEvacs[0] as any).isDrill || false,
+        } : null,
+      });
+    } catch (error) {
+      console.error("Error validating incident monitor URL:", error);
+      res.status(500).json({ error: "Failed to validate monitor link" });
+    }
+  });
+
+  // Get live muster data via permanent incident manager URL
+  app.get("/api/incident-monitor/:urlId/muster", async (req, res) => {
+    try {
+      const { urlId } = req.params;
+      if (!urlId) return res.status(400).json({ error: "Missing URL ID" });
+
+      // Find the customer with this incidentManagerUrlId
+      const customers = await customerDbService.getAllCustomers();
+      let foundCustomerId: string | null = null;
+
+      for (const customer of customers) {
+        if (!customer.isActive) continue;
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+          const rows = await custDb
+            .select({ id: isolatedSchema.companySettings.incidentManagerUrlId })
+            .from(isolatedSchema.companySettings)
+            .where(eq(isolatedSchema.companySettings.incidentManagerUrlId, urlId))
+            .limit(1);
+          if (rows.length > 0) {
+            foundCustomerId = customer.id;
+            break;
+          }
+        } catch {
+          continue;
+        }
+      }
+
+      if (!foundCustomerId) {
+        return res.status(404).json({ error: "Monitor link not found or has been revoked" });
+      }
+
+      // Find the most recent active evacuation
+      const activeEvacs = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.customerId, foundCustomerId),
+          eq(evacuations.status, 'active')
+        ))
+        .orderBy(sql`started_at DESC`)
+        .limit(1);
+
+      if (activeEvacs.length === 0) {
+        return res.json({ active: false, message: "No active emergency at this time" });
+      }
+
+      const evac = activeEvacs[0];
+      const context = { customerId: foundCustomerId, username: 'incident-monitor' } as any;
+      const custDb = await customerDbService.getCustomerDatabase(foundCustomerId);
+      const settings = await databaseService.getCompanySettings(context);
+
+      const [currentVisitors, checkedInStaff, contractorCompanies, zones] = await Promise.all([
+        databaseService.getCurrentVisitors(context),
+        databaseService.getCheckedInStaff(context),
+        databaseService.getAllContractorCompanies(context),
+        custDb.select().from(isolatedSchema.evacuationZones).orderBy(isolatedSchema.evacuationZones.displayOrder),
+      ]);
+
+      const zoneMap = new Map(zones.map(z => [z.id, { id: z.id, name: z.name, color: z.color }]));
+
+      let checkedInContractors: any[] = [];
+      for (const company of contractorCompanies) {
+        const workers = await databaseService.getWorkersByCompanyId(context, company.id);
+        checkedInContractors.push(
+          ...workers.filter(w => w.isCheckedIn).map(w => ({
+            id: w.id,
+            name: `${w.firstName} ${w.lastName}`,
+            type: 'contractor' as const,
+            company: company.name,
+            location: w.zoneId ? (zoneMap.get(w.zoneId)?.name || 'Unknown') : 'Unassigned',
+            zoneId: w.zoneId || null,
+            zoneName: w.zoneId ? zoneMap.get(w.zoneId)?.name || null : null,
+            zoneColor: w.zoneId ? zoneMap.get(w.zoneId)?.color || null : null,
+            accounted: w.isAccountedFor || false,
+            needsEvacuationAssistance: (w as any).needsEvacuationAssistance || false,
+          }))
+        );
+      }
+
+      const allPersonnel = [
+        ...checkedInStaff.map(s => ({
+          id: s.id,
+          name: `${s.firstName} ${s.lastName}`,
+          type: 'staff' as const,
+          department: s.department,
+          location: (s as any).zoneId ? (zoneMap.get((s as any).zoneId)?.name || 'Unknown') : 'Unassigned',
+          zoneId: (s as any).zoneId || null,
+          zoneName: (s as any).zoneId ? zoneMap.get((s as any).zoneId)?.name || null : null,
+          zoneColor: (s as any).zoneId ? zoneMap.get((s as any).zoneId)?.color || null : null,
+          accounted: s.isAccountedFor || false,
+          needsEvacuationAssistance: (s as any).needsEvacuationAssistance || false,
+        })),
+        ...currentVisitors.map(v => ({
+          id: v.id,
+          name: `${v.firstName} ${v.lastName}`,
+          type: 'visitor' as const,
+          company: v.company,
+          location: (v as any).zoneId ? (zoneMap.get((v as any).zoneId)?.name || 'Unknown') : 'Unassigned',
+          zoneId: (v as any).zoneId || null,
+          zoneName: (v as any).zoneId ? zoneMap.get((v as any).zoneId)?.name || null : null,
+          zoneColor: (v as any).zoneId ? zoneMap.get((v as any).zoneId)?.color || null : null,
+          accounted: v.isAccountedFor || false,
+          needsEvacuationAssistance: (v as any).needsEvacuationAssistance || false,
+        })),
+        ...checkedInContractors,
+      ];
+
+      const accountedFor = allPersonnel.filter(p => p.accounted).length;
+
+      const zoneStats = zones.map(z => {
+        const inZone = allPersonnel.filter(p => p.zoneId === z.id);
+        return {
+          id: z.id,
+          name: z.name,
+          color: z.color,
+          total: inZone.length,
+          accounted: inZone.filter(p => p.accounted).length,
+        };
+      });
+
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.json({
+        active: true,
+        evacuationId: evac.evacuationId,
+        customerId: foundCustomerId,
+        companyName: settings?.companyName || 'Unknown Company',
+        status: evac.status,
+        startedAt: evac.startedAt,
+        isDrill: (evac as any).isDrill || false,
+        totalPersonnel: allPersonnel.length,
+        accountedFor,
+        personnel: allPersonnel,
+        zones: zoneStats,
+      });
+    } catch (error) {
+      console.error("Error fetching incident monitor muster data:", error);
+      res.status(500).json({ error: "Failed to fetch muster data" });
+    }
+  });
+
+  // Admin: generate or regenerate the incident manager monitor URL for this customer
+  app.post("/api/admin/incident-monitor/generate", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session?.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      // Generate a new random URL ID (12 chars from two 6-char segments)
+      const newUrlId = Math.random().toString(36).substring(2, 8) +
+                       Math.random().toString(36).substring(2, 8);
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      await custDb
+        .update(isolatedSchema.companySettings)
+        .set({ incidentManagerUrlId: newUrlId });
+
+      const proto = req.headers['x-forwarded-proto'] || req.protocol;
+      const host = req.headers['x-forwarded-host'] || req.get('host');
+      const baseUrl = `${proto}://${host}`;
+      res.json({
+        success: true,
+        urlId: newUrlId,
+        url: `${baseUrl}/incident-monitor/${newUrlId}`,
+      });
+    } catch (error) {
+      console.error("Error generating incident monitor URL:", error);
+      res.status(500).json({ error: "Failed to generate monitor URL" });
+    }
+  });
+
+  // ==============================================
   // MUSTER POINTS CRUD API - Isolated per customer
   // ==============================================
 

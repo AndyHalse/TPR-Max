@@ -43,6 +43,7 @@ import Welcome from "@/pages/Welcome";
 import AcceptInvitation from "@/pages/AcceptInvitation";
 import PlatformAdminLogin from "@/pages/PlatformAdminLogin";
 import PlatformAdminDashboard from "@/pages/PlatformAdminDashboard";
+import IncidentManagerMonitor from "@/pages/IncidentManagerMonitor";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -127,6 +128,23 @@ function Router() {
     return <FireMarshalPanel token={emergencyToken} />;
   }
   
+  // Incident Manager Monitor - permanent per-customer read-only URL for senior managers
+  if (window.location.pathname.startsWith('/incident-monitor/')) {
+    const urlId = window.location.pathname.split('/incident-monitor/')[1];
+    if (urlId) {
+      return <IncidentManagerMonitor urlId={urlId} />;
+    }
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-2xl">
+          <div className="text-5xl mb-4">🔍</div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">Invalid Monitor Link</h1>
+          <p className="text-gray-600">This monitor link is missing a required ID.</p>
+        </div>
+      </div>
+    );
+  }
+
   // Incident Monitor - read-only live evacuation view (public, uses evacuationId + customerId)
   if (window.location.pathname.startsWith('/monitor/')) {
     const evacuationId = window.location.pathname.split('/monitor/')[1];

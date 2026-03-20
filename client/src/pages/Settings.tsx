@@ -79,6 +79,9 @@ export default function Settings() {
     color: "bg-blue-50 dark:bg-blue-950/300"
   });
 
+  // Incident Manager Monitor URL state
+  const [incidentMonitorGenerating, setIncidentMonitorGenerating] = useState(false);
+
   // Backup/Restore state
   const [selectedBackupFile, setSelectedBackupFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -5098,6 +5101,119 @@ export default function Settings() {
 
         <TabsContent value="zones" className="space-y-6 mt-6">
           <ZoneManagement />
+
+          {/* Emergency Access - Incident Manager Monitor URL */}
+          {isAdminUser && (
+            <GlassCard className="dark:glass-dark">
+              <div className="flex items-center mb-5">
+                <Eye className="mr-3 text-purple-600 dark:text-purple-400" size={22} />
+                <div>
+                  <h3 className="text-base font-semibold text-fixed">Emergency Access — Incident Manager Monitor</h3>
+                  <p className="text-xs text-variable mt-0.5">
+                    Generate a permanent read-only link for senior managers to view live evacuation status without logging in.
+                  </p>
+                </div>
+              </div>
+
+              {currentSettings?.incidentManagerUrlId ? (
+                <div className="space-y-3">
+                  <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg p-3">
+                    <p className="text-xs font-semibold text-purple-700 dark:text-purple-400 mb-1.5">Your Incident Manager Monitor URL</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs bg-white dark:bg-slate-800 border border-purple-200 dark:border-purple-700 rounded px-2 py-1.5 text-purple-800 dark:text-purple-300 break-all font-mono select-all">
+                        {`${window.location.origin}/incident-monitor/${currentSettings.incidentManagerUrlId}`}
+                      </code>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs"
+                      onClick={() => {
+                        const url = `${window.location.origin}/incident-monitor/${currentSettings.incidentManagerUrlId}`;
+                        navigator.clipboard.writeText(url).then(() => {
+                          toast({ title: "Link Copied", description: "Monitor URL copied to clipboard." });
+                        });
+                      }}
+                    >
+                      <Copy size={13} />
+                      Copy Link
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs"
+                      onClick={() => {
+                        const url = `${window.location.origin}/incident-monitor/${currentSettings.incidentManagerUrlId}`;
+                        window.open(url, '_blank');
+                      }}
+                    >
+                      <Eye size={13} />
+                      Preview
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 text-xs text-red-600 hover:text-red-700 border-red-200 hover:border-red-300"
+                      disabled={incidentMonitorGenerating}
+                      onClick={async () => {
+                        if (!window.confirm('Regenerating the link will invalidate the old one. Anyone using the old link will lose access. Continue?')) return;
+                        setIncidentMonitorGenerating(true);
+                        try {
+                          const res = await apiRequest("POST", "/api/admin/incident-monitor/generate");
+                          if (res.ok) {
+                            queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+                            toast({ title: "Link Regenerated", description: "A new monitor URL has been generated." });
+                          } else {
+                            toast({ title: "Failed", description: "Could not regenerate link.", variant: "destructive" });
+                          }
+                        } finally {
+                          setIncidentMonitorGenerating(false);
+                        }
+                      }}
+                    >
+                      <RotateCcw size={13} />
+                      {incidentMonitorGenerating ? "Regenerating…" : "Regenerate"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-variable">
+                    This link shows live muster data during an active emergency. Anyone with this link can view it — treat it as sensitive.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-gray-50 dark:bg-gray-800/40 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 text-center">
+                    <Eye className="mx-auto mb-2 text-gray-400" size={24} />
+                    <p className="text-sm text-variable">No monitor link generated yet.</p>
+                    <p className="text-xs text-variable mt-1">Generate a permanent URL to share with senior managers.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    disabled={incidentMonitorGenerating}
+                    onClick={async () => {
+                      setIncidentMonitorGenerating(true);
+                      try {
+                        const res = await apiRequest("POST", "/api/admin/incident-monitor/generate");
+                        if (res.ok) {
+                          queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+                          toast({ title: "Monitor Link Generated", description: "Share this URL with your senior managers for read-only emergency access." });
+                        } else {
+                          toast({ title: "Failed", description: "Could not generate monitor link.", variant: "destructive" });
+                        }
+                      } finally {
+                        setIncidentMonitorGenerating(false);
+                      }
+                    }}
+                  >
+                    <Eye size={13} />
+                    {incidentMonitorGenerating ? "Generating…" : "Generate Monitor Link"}
+                  </Button>
+                </div>
+              )}
+            </GlassCard>
+          )}
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 mt-6">

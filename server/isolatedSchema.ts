@@ -508,6 +508,9 @@ export const companySettings = pgTable("company_settings", {
   apiRateLimit: text("api_rate_limit").default("100"),
   apiLastActivity: timestamp("api_last_activity"),
 
+  // Incident Manager Monitor - permanent read-only URL for senior management
+  incidentManagerUrlId: text("incident_manager_url_id"),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
