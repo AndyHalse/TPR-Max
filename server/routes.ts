@@ -4644,14 +4644,14 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       }
       const evac = evacRecords[0];
 
-      // Fetch accountability records
+      // Fetch accountability records — query by evacuationId only.
+      // We've already verified above that this evacuation belongs to the customer.
+      // Some older records were stored without a customerId so filtering by customerId
+      // would incorrectly exclude them and produce an empty Personnel Register.
       const accountability = await db
         .select()
         .from(evacuationAccountability)
-        .where(and(
-          eq(evacuationAccountability.evacuationId, evacuationId),
-          eq(evacuationAccountability.customerId, customerId)
-        ));
+        .where(eq(evacuationAccountability.evacuationId, evacuationId));
 
       // Fetch zone sweeps for this evacuation
       let zoneSweepsData: any[] = [];
