@@ -3,7 +3,7 @@ import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Shield, CheckCircle, AlertTriangle, Download, HelpCircle, ExternalLink } from "lucide-react";
+import { ShieldCheck, CheckCircle, AlertTriangle, Download, HelpCircle, ExternalLink } from "lucide-react";
 
 interface ComplianceRequirement {
   id: string;
@@ -65,7 +65,7 @@ export default function Compliance() {
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <Shield className="text-blue-600" size={28} />
+            <ShieldCheck className="text-blue-600" size={28} />
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Martyn's Law Compliance</h1>
             <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs">
               UK Protect Duty
@@ -155,7 +155,7 @@ export default function Compliance() {
       {/* Compliance Requirements */}
       <GlassCard>
         <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-          <Shield size={16} />
+          <ShieldCheck size={16} />
           Martyn's Law Requirements — TPR Max Mapping
         </h2>
         <div className="space-y-3">

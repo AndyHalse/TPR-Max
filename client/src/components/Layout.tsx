@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ShieldCheck, ScrollText } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
@@ -207,19 +207,19 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/", icon: ChartLine, label: "Dashboard", alwaysVisible: true },
     { path: "/visitors", icon: User, label: "Visitors", alwaysVisible: true },
     { path: "/contractors", icon: HardHat, label: "Contractors", alwaysVisible: true },
-    { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out", featureKey: "featureContractorPage" },
+    { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out", featureKey: "featureContractorPage", defaultOn: true },
     { path: "/staff", icon: Users, label: "Staff", alwaysVisible: true },
-    { path: "/members", icon: UserCheck, label: "Members", featureKey: "featureMembers" },
-    { path: "/meeting-rooms", icon: Calendar, label: "Meeting Rooms", featureKey: "featureMeetingRooms" },
-    { path: "/time-attendance", icon: Clock, label: "T&A Report", featureKey: "featureTimeAttendance" },
+    { path: "/members", icon: UserCheck, label: "Members", featureKey: "featureMembers", defaultOn: true },
+    { path: "/meeting-rooms", icon: Calendar, label: "Meeting Rooms", featureKey: "featureMeetingRooms", defaultOn: true },
+    { path: "/time-attendance", icon: Clock, label: "T&A Report", featureKey: "featureTimeAttendance", defaultOn: true },
     { path: "/muster", icon: ListChecks, label: "Muster List", alwaysVisible: true },
     { path: "/incident-reports", icon: ScrollText, label: "Incident Reports", featureKey: "featureIncidentReports", defaultOn: true },
     { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw", defaultOn: true },
-    { path: "/compliance", icon: Shield, label: "Compliance", adminOnly: true },
+    { path: "/compliance", icon: ShieldCheck, label: "Compliance", adminOnly: true },
     { path: "/reports", icon: FileText, label: "Reports", alwaysVisible: true },
-    { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings" },
-    { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk" },
-    { path: "/ai-demo", icon: Brain, label: "AI Demo", featureKey: "featureAiDemo" },
+    { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings", defaultOn: true },
+    { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk", defaultOn: true },
+    { path: "/ai-demo", icon: Brain, label: "AI Demo", featureKey: "featureAiDemo", defaultOn: true },
     { path: "/email-outbox", icon: Mail, label: "Email Outbox", featureKey: "featureEmailOutbox" },
     { path: "/settings", icon: Settings, label: "Settings", alwaysVisible: true },
   ];
