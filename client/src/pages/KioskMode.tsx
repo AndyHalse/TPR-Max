@@ -311,7 +311,7 @@ export default function KioskMode() {
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+          video: { facingMode: { ideal: "environment" } }
         });
       } catch {
         stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -321,12 +321,18 @@ export default function KioskMode() {
       const video = videoRef.current;
       if (!video) { clearTimeout(startupGuard); return; }
 
+      // iOS Safari fix: React's `muted` JSX prop does NOT set the HTML attribute,
+      // so iOS refuses to autoplay. Must be set imperatively.
+      video.muted = true;
+      video.setAttribute('playsinline', '');
+      video.setAttribute('autoplay', '');
       video.srcObject = stream;
 
       await new Promise<void>((resolve) => {
         const onReady = () => { video.removeEventListener("canplay", onReady); resolve(); };
         video.addEventListener("canplay", onReady);
-        video.play().catch(() => {});
+        const playP = video.play();
+        if (playP !== undefined) playP.catch((e) => { console.warn('[QR Camera] play():', e?.message); resolve(); });
         setTimeout(resolve, 4000);
       });
 
