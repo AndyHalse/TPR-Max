@@ -4324,6 +4324,23 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const evacuationId = evac.evacuationId;
       const isDrill = (evac as any).isDrill || false;
 
+      // Server-side unaccounted guard: do not send if already marked safe
+      const [accountabilityRecord] = await db
+        .select()
+        .from(evacuationAccountability)
+        .where(
+          and(
+            eq(evacuationAccountability.evacuationId, evacuationId),
+            eq(evacuationAccountability.customerId, customerId),
+            eq(evacuationAccountability.personId, personId)
+          )
+        )
+        .limit(1);
+
+      if (accountabilityRecord?.isAccountedFor) {
+        return res.status(409).json({ error: "This person has already been marked as accounted for" });
+      }
+
       const context = simpleDatabaseService.createCustomerContext('system', customerId);
       const custDb = await customerDbService.getCustomerDatabase(customerId);
       const companySettings = await databaseService.getCompanySettings(context);
