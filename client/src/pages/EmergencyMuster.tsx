@@ -1108,7 +1108,7 @@ export default function EmergencyMuster() {
                         </span>
                       )
                     )}
-                    {hasActiveEvacuation && !person.accounted && (
+                    {hasActiveEvacuation && !person.accounted && person.type !== 'member' && (
                       <Button
                         variant="outline"
                         size="sm"

@@ -4279,12 +4279,13 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       if (req.session?.customerId) {
         customerId = req.session.customerId;
       } else if (token) {
-        const context = simpleDatabaseService.createCustomerContext('system', req.customerId);
-        const marshal = await databaseService.validateEmergencyToken(context, token);
+        // Use development/cross-schema context to validate token, then derive customer from the marshal record
+        const devContext = simpleDatabaseService.createDevelopmentContext();
+        const marshal = await databaseService.validateEmergencyToken(devContext, token);
         if (!marshal) {
           return res.status(401).json({ error: "Invalid or expired emergency token" });
         }
-        customerId = context.customerId;
+        customerId = (marshal as any).customerId;
       } else {
         return res.status(401).json({ error: "Authentication required" });
       }
@@ -4357,8 +4358,23 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         return res.status(400).json({ error: "This person has no email address on file" });
       }
 
-      // Generate a safety token so they can self-mark safe from the email
-      const safetyToken = await generateSafetyToken(custDb, customerId, evacuationId, personId, personType as 'staff' | 'visitor' | 'contractor', personName, personEmail);
+      // Reuse an existing unexpired, unused safety token if available; otherwise generate a new one
+      const now2 = new Date();
+      const existingTokenRows = await custDb
+        .select()
+        .from(isolatedSchema.safetyTokens)
+        .where(
+          and(
+            eq(isolatedSchema.safetyTokens.evacuationId, evacuationId),
+            eq(isolatedSchema.safetyTokens.personId, personId),
+            eq(isolatedSchema.safetyTokens.isUsed, false)
+          )
+        )
+        .limit(1);
+      const existingToken = existingTokenRows[0];
+      const safetyToken = existingToken && existingToken.expiresAt > now2
+        ? existingToken.token
+        : await generateSafetyToken(custDb, customerId, evacuationId, personId, personType as 'staff' | 'visitor' | 'contractor', personName, personEmail);
 
       // Send the reminder email
       const nudgeMsg = isDrill
