@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   Shield,
+  ShieldCheck,
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -27,6 +28,7 @@ import {
   Calendar,
   Download,
   HelpCircle,
+  ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -109,12 +111,33 @@ const EVIDENCE_TYPES = [
   "Incident Review",
 ];
 
+interface ComplianceRequirement {
+  id: string;
+  label: string;
+  legalObligation: string;
+  tprFeature: string;
+  active: boolean;
+  detail: string;
+}
+
+interface ComplianceSummary {
+  companyName: string;
+  compliancePercent: number;
+  activeCount: number;
+  totalCount: number;
+  requirements: ComplianceRequirement[];
+}
+
 export default function MartynLaw() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: config, isLoading } = useQuery<MartynLawData | null>({
     queryKey: ["/api/martyn-law"],
+  });
+
+  const { data: systemCheck } = useQuery<ComplianceSummary>({
+    queryKey: ["/api/compliance/summary"],
   });
 
   const [form, setForm] = useState<MartynLawData>({});
@@ -285,11 +308,12 @@ export default function MartynLaw() {
       </GlassCard>
 
       <Tabs defaultValue="overview">
-        <TabsList className="grid grid-cols-4 w-full">
+        <TabsList className="grid grid-cols-5 w-full">
           <TabsTrigger value="overview"><Building size={14} className="mr-1.5" />Venue & Scope</TabsTrigger>
           <TabsTrigger value="checklist"><ClipboardList size={14} className="mr-1.5" />Checklist</TabsTrigger>
           <TabsTrigger value="plan"><FileText size={14} className="mr-1.5" />Security Plan</TabsTrigger>
           <TabsTrigger value="evidence"><BookOpen size={14} className="mr-1.5" />Evidence Log</TabsTrigger>
+          <TabsTrigger value="system"><ShieldCheck size={14} className="mr-1.5" />System Check</TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW TAB */}
@@ -592,6 +616,113 @@ export default function MartynLaw() {
                     </button>
                   </div>
                 ))}
+              </div>
+            )}
+          </GlassCard>
+        </TabsContent>
+
+        {/* SYSTEM CHECK TAB */}
+        <TabsContent value="system" className="mt-4 space-y-4">
+          <GlassCard>
+            <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
+              <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <ShieldCheck size={16} />
+                TPR Max System Requirements
+              </h2>
+              <Button variant="outline" size="sm" onClick={() => window.open("/api/compliance/report", "_blank")}>
+                <Download size={13} className="mr-1.5" />
+                Download PDF Report
+              </Button>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Shows how your current TPR Max configuration maps to each legal requirement. Updated automatically from live system data.
+            </p>
+
+            {systemCheck ? (
+              <>
+                {/* Score banner */}
+                <div className={`rounded-lg border p-4 mb-4 ${
+                  (systemCheck.compliancePercent ?? 0) >= 80
+                    ? "bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800"
+                    : (systemCheck.compliancePercent ?? 0) >= 50
+                    ? "bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800"
+                    : "bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-800"
+                }`}>
+                  <div className="flex items-center gap-4">
+                    <div className={`text-4xl font-bold ${
+                      (systemCheck.compliancePercent ?? 0) >= 80 ? "text-green-600" :
+                      (systemCheck.compliancePercent ?? 0) >= 50 ? "text-amber-600" : "text-red-600"
+                    }`}>{systemCheck.compliancePercent}%</div>
+                    <div>
+                      <div className="font-semibold text-gray-800 dark:text-gray-200">System Compliance Score</div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        {systemCheck.activeCount} of {systemCheck.totalCount} requirements met
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${
+                        (systemCheck.compliancePercent ?? 0) >= 80 ? "bg-green-500" :
+                        (systemCheck.compliancePercent ?? 0) >= 50 ? "bg-amber-500" : "bg-red-500"
+                      }`}
+                      style={{ width: `${systemCheck.compliancePercent}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Requirements list */}
+                <div className="space-y-3">
+                  {(systemCheck.requirements ?? []).map((req) => (
+                    <div
+                      key={req.id}
+                      className={`rounded-lg border p-3 ${
+                        req.active
+                          ? "bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-800"
+                          : "bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800"
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        {req.active ? (
+                          <CheckCircle size={18} className="text-green-500 flex-shrink-0 mt-0.5" />
+                        ) : (
+                          <AlertTriangle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                            <span className="font-semibold text-gray-800 dark:text-gray-200 text-sm">{req.label}</span>
+                            {req.active ? (
+                              <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-xs px-2">Enabled</Badge>
+                            ) : (
+                              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-xs px-2">Action needed</Badge>
+                            )}
+                            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">TPR Max: {req.tprFeature}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-gray-400">{req.legalObligation}</p>
+                          {!req.active && (
+                            <p className="text-xs text-amber-700 dark:text-amber-400 italic mt-0.5">{req.detail}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-3 flex items-center gap-1 flex-wrap">
+                  Statuses reflect live system configuration.
+                  <a
+                    href="https://www.gov.uk/government/publications/martyns-law"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 underline text-blue-500"
+                  >
+                    Home Office factsheet <ExternalLink size={10} />
+                  </a>
+                </p>
+              </>
+            ) : (
+              <div className="flex items-center justify-center py-10">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
               </div>
             )}
           </GlassCard>
