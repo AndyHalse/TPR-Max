@@ -73,10 +73,12 @@ export class MigrationRunner {
           try {
             await migration.up(db);
             
-            // Mark migration as applied (idempotent)
+            // Mark migration as applied (idempotent) — escape single quotes in description
+            const safeVersion = migration.version.replace(/'/g, "''");
+            const safeDescription = migration.description.replace(/'/g, "''");
             await db.execute(`
               INSERT INTO schema_version (version, description) 
-              VALUES ('${migration.version}', '${migration.description}')
+              VALUES ('${safeVersion}', '${safeDescription}')
               ON CONFLICT (version) DO NOTHING
             `);
             

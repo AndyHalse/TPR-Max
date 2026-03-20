@@ -93,7 +93,7 @@ export default function IncidentReports() {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {reports.map(r => {
-                  const pct = r.completionPct ?? 0;
+                  const pct = Math.min(100, r.completionPct ?? 0);
                   const pctColor =
                     pct === 100
                       ? "text-green-600 dark:text-green-400"

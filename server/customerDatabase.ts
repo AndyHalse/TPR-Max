@@ -305,6 +305,16 @@ export class CustomerDatabaseService {
       console.warn(`⚠️ incident_reports table ensure failed: ${err.message?.substring(0, 100)}`);
     }
 
+    // Ensure feature toggle columns exist in company_settings (migration #026/#027)
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_martyn_law BOOLEAN DEFAULT true`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_incident_reports BOOLEAN DEFAULT true`);
+      await pool.query(`UPDATE "${schemaName}".company_settings SET feature_martyn_law = true WHERE feature_martyn_law IS NULL`);
+      await pool.query(`UPDATE "${schemaName}".company_settings SET feature_incident_reports = true WHERE feature_incident_reports IS NULL`);
+    } catch (err: any) {
+      console.warn(`⚠️ Feature toggle column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure admin user exists in this customer schema (critical for production)
     try {
       await this.ensureAdminUserExists(customerId, db);

@@ -4509,6 +4509,16 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       const contractorPeople = accountability.filter(p => p.personType === 'contractor');
       const memberPeople = accountability.filter(p => p.personType === 'member');
 
+      // When no per-person accountability records exist (older events), fall back to snapshot totals
+      const hasDetailedData = accountability.length > 0;
+      const effectiveTotalOnSite = hasDetailedData ? accountability.length : (evac.totalPeopleOnSite || 0);
+      const rawEffectiveAccounted = hasDetailedData ? accounted.length : (evac.totalAccountedFor || 0);
+      const effectiveAccountedFor = Math.min(rawEffectiveAccounted, effectiveTotalOnSite);
+      const effectiveUnaccounted = Math.max(0, effectiveTotalOnSite - effectiveAccountedFor);
+      const effectiveCompletionPct = effectiveTotalOnSite > 0
+        ? Math.min(100, Math.round((effectiveAccountedFor / effectiveTotalOnSite) * 100))
+        : 0;
+
       const startedAt = evac.startedAt ? new Date(evac.startedAt) : new Date();
       const completedAt = evac.completedAt ? new Date(evac.completedAt) : null;
       const durationMs = completedAt ? completedAt.getTime() - startedAt.getTime() : null;
@@ -4624,16 +4634,16 @@ ${evac.isDrill ? '<div class="drill-banner">&#128998; FIRE DRILL &mdash; This ev
 <div class="kv"><strong>Alarm raised:</strong> ${formatDate(startedAt)} at ${formatTime(startedAt)}</div>
 <div class="kv"><strong>All-clear given:</strong> ${completedAt ? `${formatDate(completedAt)} at ${formatTime(completedAt)}` : 'Event still active'}</div>
 <div class="kv"><strong>Total event duration:</strong> ${durationStr}</div>
-<div class="kv"><strong>Time to full accountability:</strong> ${timeToFullAccountability || (unaccounted.length > 0 ? 'Not achieved' : '&mdash;')}</div>
+<div class="kv"><strong>Time to full accountability:</strong> ${timeToFullAccountability || (effectiveUnaccounted > 0 ? 'Not achieved' : '&mdash;')}</div>
 <div class="kv"><strong>Status:</strong> ${evac.status === 'completed' ? 'Completed' : 'Active'}</div>
 <div class="kv"><strong>Muster points:</strong> ${esc((evac.musterPoints || []).join(', ') || '—')}</div>
 
 <h2>Accountability Statistics</h2>
 <div>
-  <div class="stat-box"><div class="stat-num">${accountability.length}</div><div class="stat-label">Total On-Site</div></div>
-  <div class="stat-box"><div class="stat-num" style="color:#16a34a;">${accounted.length}</div><div class="stat-label">Accounted For</div></div>
-  <div class="stat-box"><div class="stat-num" style="color:#dc2626;">${unaccounted.length}</div><div class="stat-label">Unaccounted</div></div>
-  <div class="stat-box"><div class="stat-num">${accountability.length > 0 ? Math.round((accounted.length / accountability.length) * 100) : 0}%</div><div class="stat-label">Completion Rate</div></div>
+  <div class="stat-box"><div class="stat-num">${effectiveTotalOnSite}</div><div class="stat-label">Total On-Site</div></div>
+  <div class="stat-box"><div class="stat-num" style="color:#16a34a;">${effectiveAccountedFor}</div><div class="stat-label">Accounted For</div></div>
+  <div class="stat-box"><div class="stat-num" style="color:#dc2626;">${effectiveUnaccounted}</div><div class="stat-label">Unaccounted</div></div>
+  <div class="stat-box"><div class="stat-num">${effectiveCompletionPct}%</div><div class="stat-label">Completion Rate</div></div>
 </div>
 <div style="margin-top:12px;">
   <div class="stat-box"><div class="stat-num">${staffPeople.length}</div><div class="stat-label">Staff</div></div>
@@ -4678,18 +4688,30 @@ ${timelineEntries.length > 0 ? `
   }).join('')}
 </div>` : ''}
 
-${unaccounted.length > 0 ? `
-<h2 style="color:#dc2626;">&#9888; Unaccounted Personnel (${unaccounted.length})</h2>
+${hasDetailedData
+  ? (unaccounted.length > 0
+      ? `<h2 style="color:#dc2626;">&#9888; Unaccounted Personnel (${unaccounted.length})</h2>
 <table>
   <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Last Known Zone</th><th>Status</th><th>Accounted At</th></tr>
   ${personRows(unaccounted)}
-</table>` : '<h2 style="color:#16a34a;">&#10003; All Personnel Accounted For</h2>'}
+</table>`
+      : '<h2 style="color:#16a34a;">&#10003; All Personnel Accounted For</h2>')
+  : (effectiveUnaccounted > 0
+      ? `<h2 style="color:#dc2626;">&#9888; ${effectiveUnaccounted} Unaccounted (summary only &mdash; per-person records not available)</h2>`
+      : effectiveAccountedFor === effectiveTotalOnSite && effectiveTotalOnSite > 0
+        ? '<h2 style="color:#16a34a;">&#10003; All Personnel Accounted For (summary data)</h2>'
+        : '<h2 style="color:#888;">&#8212; Accountability Status Unknown</h2>')}
 
 <h2>Full Personnel Register</h2>
-<table>
+${hasDetailedData
+  ? `<table>
   <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Last Known Zone</th><th>Status</th><th>Accounted At</th></tr>
   ${personRows(accountability)}
-</table>
+</table>`
+  : `<p style="color:#888; font-style:italic; font-size:13px; padding:8px 0;">
+  Personnel tracking records are not available for this event. This evacuation was recorded before per-person accountability tracking was introduced, or no personnel were on-site at the time.
+  The summary statistics above are sourced from the evacuation record snapshot.
+</p>`}
 
 <div style="margin-top:32px; padding-top:16px; border-top:1px solid #e5e7eb; font-size:11px; color:#888; text-align:center;">
   This report was generated by TPR Max Visitor Management System for ${esc(companyName)}.<br>
@@ -4792,11 +4814,12 @@ ${unaccounted.length > 0 ? `
                 eq(evacuationAccountability.customerId, customerId)
               ));
             const totalCt = accountability.length || evac.totalPeopleOnSite || 0;
-            const accountedCt = accountability.length > 0
+            const rawAccountedCt = accountability.length > 0
               ? accountability.filter(p => p.isAccountedFor).length
               : (evac.totalAccountedFor || 0);
-            const unaccountedCt = totalCt - accountedCt;
-            const pct = totalCt > 0 ? Math.round((accountedCt / totalCt) * 100) : 0;
+            const accountedCt = Math.min(rawAccountedCt, totalCt);
+            const unaccountedCt = Math.max(0, totalCt - accountedCt);
+            const pct = totalCt > 0 ? Math.min(100, Math.round((accountedCt / totalCt) * 100)) : 0;
             const durSec = (evac.startedAt && evac.completedAt)
               ? Math.round((new Date(evac.completedAt).getTime() - new Date(evac.startedAt).getTime()) / 1000)
               : null;
