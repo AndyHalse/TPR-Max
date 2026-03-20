@@ -270,6 +270,17 @@ export default function MartynLaw() {
             <p className="text-xs text-blue-600 dark:text-blue-400">
               The Act received Royal Assent in April 2025. Implementation dates and full enforcement guidance are published by the Home Office. This section helps you document your compliance work. It is not legal advice — consult a qualified security professional or solicitor for your specific situation.
             </p>
+            <p className="text-xs">
+              <a
+                href="https://www.gov.uk/government/publications/martyns-law"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 underline font-medium"
+              >
+                <ExternalLink size={11} />
+                Official Home Office Martyn's Law factsheet →
+              </a>
+            </p>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
