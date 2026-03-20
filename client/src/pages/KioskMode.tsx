@@ -273,21 +273,21 @@ export default function KioskMode() {
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < 2) {
-      scanTimerRef.current = setTimeout(scanFrame, 50);
+    if (!video || !canvas || video.readyState < 2 || video.videoWidth === 0) {
+      scanTimerRef.current = setTimeout(scanFrame, 80);
       return;
     }
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) { scanTimerRef.current = setTimeout(scanFrame, 120); return; }
+    if (!ctx) { scanTimerRef.current = setTimeout(scanFrame, 150); return; }
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
     if (code?.data) {
       processDetectedCode(code.data);
     } else {
-      scanTimerRef.current = setTimeout(scanFrame, 120);
+      scanTimerRef.current = setTimeout(scanFrame, 150);
     }
   }, [processDetectedCode]);
 
@@ -296,15 +296,47 @@ export default function KioskMode() {
     setCameraError(null);
     setScanResult(null);
     lastScannedRef.current = null;
+    isProcessingRef.current = false;
+    stopCamera();
+
+    let didStart = false;
+    const startupGuard = setTimeout(() => {
+      if (!didStart) {
+        setCameraState("error");
+        setCameraError("Camera took too long to start. Tap 'Try Again' or enter the code manually.");
+      }
+    }, 10000);
+
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment", width: { ideal: 640 }, height: { ideal: 480 } }
-      });
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+      } catch {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      }
+
       streamRef.current = stream;
-      if (videoRef.current) { videoRef.current.srcObject = stream; videoRef.current.play(); }
+      const video = videoRef.current;
+      if (!video) { clearTimeout(startupGuard); return; }
+
+      video.srcObject = stream;
+
+      await new Promise<void>((resolve) => {
+        const onReady = () => { video.removeEventListener("canplay", onReady); resolve(); };
+        video.addEventListener("canplay", onReady);
+        video.play().catch(() => {});
+        setTimeout(resolve, 4000);
+      });
+
+      didStart = true;
+      clearTimeout(startupGuard);
       setCameraState("scanning");
-      scanTimerRef.current = setTimeout(scanFrame, 120);
+      scanTimerRef.current = setTimeout(scanFrame, 150);
     } catch (err: any) {
+      didStart = true;
+      clearTimeout(startupGuard);
       const msg = err?.name === "NotAllowedError"
         ? "Camera access denied. Enter the code manually below."
         : err?.name === "NotFoundError"
@@ -313,7 +345,7 @@ export default function KioskMode() {
       setCameraError(msg);
       setCameraState("error");
     }
-  }, [scanFrame]);
+  }, [scanFrame, stopCamera]);
 
   // Start camera when scan section becomes active; stop and reset when leaving
   useEffect(() => {
