@@ -395,6 +395,7 @@ export default function EmergencyMuster() {
 
   // Track which person IDs have a pending email send
   const [emailingPersonId, setEmailingPersonId] = useState<string | null>(null);
+  const [showEndEvacDialog, setShowEndEvacDialog] = useState(false);
 
   // Mutation to send individual email reminder to one unaccounted person
   const emailPersonMutation = useMutation({
@@ -534,6 +535,27 @@ export default function EmergencyMuster() {
     }
   });
 
+  const completeEvacuationMutation = useMutation({
+    mutationFn: (checkOutMode: 'keep_checked_in' | 'check_out_all') =>
+      apiRequest("POST", "/api/emergency/complete-evacuation", { checkOutMode }),
+    onSuccess: (data: any) => {
+      setShowEndEvacDialog(false);
+      toast({
+        title: "Evacuation ended",
+        description: data?.checkOutMode === 'check_out_all'
+          ? `All accounted personnel checked out. Incident report saved.`
+          : `Evacuation closed. Personnel remain checked in. Incident report saved.`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/evacuation/status"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      if (data?.evacuationId) setLastEvacuationId(data.evacuationId);
+    },
+    onError: () => {
+      toast({ title: "Failed to end evacuation", description: "Please try again or use a Fire Marshal link.", variant: "destructive" });
+    }
+  });
+
   const copyMonitorLink = () => {
     if (!activeEvacuation?.evacuationId || !activeEvacuation?.customerId) {
       toast({ title: "No active evacuation", description: "Start an emergency first", variant: "destructive" });
@@ -626,6 +648,16 @@ export default function EmergencyMuster() {
               >
                 <Copy size={14} className="mr-1" />
                 Monitor Link
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => setShowEndEvacDialog(true)}
+                disabled={completeEvacuationMutation.isPending}
+                className="text-xs bg-red-700 hover:bg-red-800 text-white border-0"
+                title="End this evacuation and save the incident report"
+              >
+                <ShieldAlert size={14} className="mr-1" />
+                End Evacuation
               </Button>
             </>
           )}
@@ -1387,6 +1419,41 @@ export default function EmergencyMuster() {
           </div>
         </GlassCard>
       </div>
+
+      {/* End Evacuation confirmation dialog */}
+      {showEndEvacDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowEndEvacDialog(false)}>
+          <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl max-w-md w-full mx-4 p-6" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <ShieldAlert className="w-7 h-7 text-red-600 shrink-0" />
+              <h2 className="text-lg font-bold text-gray-900 dark:text-white">End Evacuation?</h2>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
+              Ending the evacuation will mark it as complete and automatically save an incident report. Choose what to do with checked-in personnel:
+            </p>
+            <div className="flex flex-col gap-3">
+              <Button
+                className="w-full bg-red-700 hover:bg-red-800 text-white"
+                disabled={completeEvacuationMutation.isPending}
+                onClick={() => completeEvacuationMutation.mutate('check_out_all')}
+              >
+                {completeEvacuationMutation.isPending ? "Ending…" : "End & Check Out All Accounted"}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300"
+                disabled={completeEvacuationMutation.isPending}
+                onClick={() => completeEvacuationMutation.mutate('keep_checked_in')}
+              >
+                {completeEvacuationMutation.isPending ? "Ending…" : "End & Keep Personnel Checked In"}
+              </Button>
+              <Button variant="ghost" className="w-full text-gray-600" onClick={() => setShowEndEvacDialog(false)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

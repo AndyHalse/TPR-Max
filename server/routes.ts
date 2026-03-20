@@ -4441,6 +4441,11 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         customerId = marshal.customerId;
         validatedStaff.customerId = customerId;
         console.log(`✅ Fire Marshal URL authenticated: ${validatedStaff.firstName} ${validatedStaff.lastName} (${customerId})`);
+      } else if ((req.session as any)?.userId && (req.session as any)?.customerId) {
+        // Admin session auth — allows admins on the Muster page to end an evacuation
+        customerId = (req.session as any).customerId;
+        validatedStaff = { firstName: 'Admin', lastName: '(session)', customerId };
+        console.log(`✅ Session-authenticated admin ending evacuation for customer: ${customerId}`);
       } else {
         return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
       }
