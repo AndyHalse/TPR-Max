@@ -353,7 +353,6 @@ function Router() {
             <Route path="/muster" component={EmergencyMuster} />
             <Route path="/incident-reports" component={IncidentReports} />
             <Route path="/martyn-law" component={MartynLaw} />
-            <Route path="/compliance" component={MartynLaw} />
             <Route path="/fire-marshal-panel" component={FireMarshalPanel} />
             <Route path="/fire-marshal-mobile" component={FireMarshalMobile} />
             <Route path="/reports" component={Reports} />

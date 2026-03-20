@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ShieldCheck, ScrollText } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
@@ -19,13 +19,11 @@ export default function Layout({ children }: LayoutProps) {
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
   
-  const { data: user } = useQuery<{ id: string; username: string; role?: string } | null>({
+  const { data: user } = useQuery<{ id: string; username: string } | null>({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     staleTime: 5 * 60 * 1000,
   });
-
-  const isAdmin = user?.role === 'admin';
 
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -214,8 +212,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/time-attendance", icon: Clock, label: "T&A Report", featureKey: "featureTimeAttendance", defaultOn: true },
     { path: "/muster", icon: ListChecks, label: "Muster List", alwaysVisible: true },
     { path: "/incident-reports", icon: ScrollText, label: "Incident Reports", featureKey: "featureIncidentReports", defaultOn: true },
-    { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw", defaultOn: true },
-    { path: "/compliance", icon: ShieldCheck, label: "Compliance", adminOnly: true },
+    { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw" },
     { path: "/reports", icon: FileText, label: "Reports", alwaysVisible: true },
     { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings", defaultOn: true },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk", defaultOn: true },
@@ -227,7 +224,6 @@ export default function Layout({ children }: LayoutProps) {
   // Filter navigation items based on feature toggles.
   // While settings are loading, only show always-visible items so there is no flash of extra nav items.
   const navItems = allNavItems.filter(item => {
-    if ((item as any).adminOnly) return isAdmin;
     if (item.alwaysVisible) return true;
     if (!settings) return false; // hide feature-gated items until settings have loaded
     if (item.featureKey) {
