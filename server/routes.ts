@@ -9239,6 +9239,8 @@ ${hasDetailedData
     try {
       const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      // Optional zone filter — when provided, only mark people in those zones safe
+      const { zoneIds } = req.body as { zoneIds?: string[] };
       
       const activeEvacuations = await db
         .select()
@@ -9251,6 +9253,32 @@ ${hasDetailedData
         .limit(1);
       
       const activeEvacuation = activeEvacuations[0];
+
+      // If zone IDs were provided, resolve them to names and build an allowlist of personIds
+      let allowedPersonIds: Set<string> | null = null;
+      if (zoneIds && zoneIds.length > 0 && activeEvacuation) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+          const zoneRecords = await custDb
+            .select({ id: isolatedSchema.zones.id, name: isolatedSchema.zones.name })
+            .from(isolatedSchema.zones)
+            .where(inArray(isolatedSchema.zones.id, zoneIds));
+          const zoneNames = zoneRecords.map(z => z.name);
+          // Find people whose lastKnownLocation matches one of the zone names
+          if (zoneNames.length > 0) {
+            const inZone = await db
+              .select({ personId: evacuationAccountability.personId })
+              .from(evacuationAccountability)
+              .where(and(
+                eq(evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
+                inArray(evacuationAccountability.lastKnownLocation, zoneNames)
+              ));
+            allowedPersonIds = new Set(inZone.map(r => r.personId));
+          }
+        } catch (e) {
+          console.warn('[mark-all-safe] Zone filter lookup failed, falling back to all:', e);
+        }
+      }
 
       const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
         databaseService.getCurrentVisitors(context),
@@ -9306,6 +9334,7 @@ ${hasDetailedData
       };
 
       for (const staff of checkedInStaff) {
+        if (allowedPersonIds && !allowedPersonIds.has(staff.id)) continue;
         try {
           if (!staff.isAccountedFor) {
             const result = await databaseService.toggleStaffAccountedStatus(context, staff.id);
@@ -9320,6 +9349,7 @@ ${hasDetailedData
       }
 
       for (const visitor of currentVisitors) {
+        if (allowedPersonIds && !allowedPersonIds.has(visitor.id)) continue;
         try {
           if (!visitor.isAccountedFor) {
             const result = await databaseService.toggleVisitorAccountedStatus(context, visitor.id);
@@ -9334,6 +9364,7 @@ ${hasDetailedData
       }
 
       for (const contractor of checkedInContractors) {
+        if (allowedPersonIds && !allowedPersonIds.has(contractor.id)) continue;
         try {
           if (!contractor.isAccountedFor) {
             const result = await databaseService.toggleContractorAccountedStatus(context, contractor.id);
@@ -9360,8 +9391,11 @@ ${hasDetailedData
             .from(isolatedSchema.members)
             .where(eq(isolatedSchema.members.isCheckedIn, true));
           
-          memberCount = checkedInMembers.length;
-          for (const member of checkedInMembers) {
+          const filteredMembers = allowedPersonIds
+            ? checkedInMembers.filter(m => allowedPersonIds!.has(m.id))
+            : checkedInMembers;
+          memberCount = filteredMembers.length;
+          for (const member of filteredMembers) {
             try {
               await custDb
                 .update(isolatedSchema.members)

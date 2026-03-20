@@ -199,17 +199,13 @@ export default function EmergencyMuster() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const host = window.location.host;
       const wsUrl = `${protocol}//${host}/ws/muster`;
-      
-      console.log('Connecting to WebSocket:', wsUrl, 'Host:', host);
       const ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
-        console.log('WebSocket connected');
         setWsConnected(true);
-        
         ws.send(JSON.stringify({
           type: 'register',
-          customerId: activeEvacuation?.customerId || 'default',
+          customerId: activeEvacuation?.customerId || '',
           evacuationId: activeEvacuation?.evacuationId || 'muster-standby'
         }));
       };
@@ -217,11 +213,9 @@ export default function EmergencyMuster() {
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data);
-          console.log('WebSocket message received:', message);
           
           if (message.type === 'muster_update') {
             queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-            
             const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
             toast({
               title: "Real-time Update",
@@ -232,24 +226,18 @@ export default function EmergencyMuster() {
           if (message.type === 'personnel_update') {
             queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
           }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
+        } catch {
+          // Silently ignore malformed WebSocket messages
         }
       };
 
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
+      ws.onerror = () => {
         setWsConnected(false);
       };
 
       ws.onclose = () => {
-        console.log('WebSocket disconnected');
         setWsConnected(false);
-        
-        reconnectTimeoutRef.current = setTimeout(() => {
-          console.log('Attempting to reconnect WebSocket...');
-          connectWebSocket();
-        }, 3000);
+        reconnectTimeoutRef.current = setTimeout(connectWebSocket, 3000);
       };
 
       wsRef.current = ws;
@@ -332,24 +320,31 @@ export default function EmergencyMuster() {
     },
   });
 
-  // Mutation to mark all personnel as safe — with optimistic update
+  // Mutation to mark all personnel as safe — zone-aware with optimistic update
   const markAllSafeMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("POST", "/api/muster/mark-all-safe", {});
+      const payload = selectedZones.size > 0 ? { zoneIds: Array.from(selectedZones) } : {};
+      const response = await apiRequest("POST", "/api/muster/mark-all-safe", payload);
       return await response.json();
     },
     onMutate: async () => {
       await queryClient.cancelQueries({ queryKey: ["/api/muster"] });
       const previousData = queryClient.getQueryData<any[]>(["/api/muster"]);
+      const zoneSet = selectedZones.size > 0 ? new Set(selectedZones) : null;
       queryClient.setQueryData(["/api/muster"], (old: any[] | undefined) => {
         if (!old) return old;
-        return old.map(person => ({ ...person, isAccountedFor: true }));
+        return old.map(person => {
+          // Only flip to safe if no zone filter, or if this person is in the selected zone(s)
+          if (zoneSet && !zoneSet.has(person.zoneId)) return person;
+          return { ...person, isAccountedFor: true };
+        });
       });
       return { previousData };
     },
     onSuccess: (data) => {
+      const zoneLabel = selectedZones.size > 0 ? ` in ${selectedZones.size} zone${selectedZones.size !== 1 ? 's' : ''}` : '';
       toast({
-        title: "All Personnel Marked Safe",
+        title: `Personnel Marked Safe${zoneLabel}`,
         description: `Successfully marked ${data.updatedCount} out of ${data.totalPersonnel} personnel as safe`,
       });
     },
@@ -558,7 +553,14 @@ export default function EmergencyMuster() {
   };
 
   if (isLoading) {
-    return <div>Loading emergency muster list...</div>;
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm font-medium">Loading emergency muster list...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -627,7 +629,7 @@ export default function EmergencyMuster() {
               </Button>
             </>
           )}
-          {/* Incident report button — shown after an event was recorded */}
+          {/* Incident report button — shown immediately after an event this session */}
           {lastEvacuationId && emergencyPhase === 'idle' && (
             <Button
               variant="outline"
@@ -638,6 +640,13 @@ export default function EmergencyMuster() {
               <Download size={14} className="mr-1" />
               Incident Report
             </Button>
+          )}
+          {/* Always-visible link to the full incident reports archive */}
+          {emergencyPhase === 'idle' && (
+            <a href="/incident-reports" className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-medium border border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800 transition-colors">
+              <Download size={13} />
+              All Reports
+            </a>
           )}
           {/* Drill mode toggle — shown when idle or send_alert (before emails go out) */}
           {(emergencyPhase === 'idle' || emergencyPhase === 'send_alert') && (
@@ -954,13 +963,16 @@ export default function EmergencyMuster() {
       {/* Zone Sweep Status — shown during active evacuation when zones are configured */}
       {hasActiveEvacuation && activeZones.length > 0 && (
         <GlassCard className="dark:glass-dark">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2 mb-1">
             <Footprints className="text-green-600 dark:text-green-400" size={18} />
             <h3 className="text-sm font-semibold text-fixed">Zone Sweep Status</h3>
             <span className="text-xs text-muted-foreground ml-auto">
-              {zoneSweeps.length}/{activeZones.length} zones swept by fire marshals
+              {zoneSweeps.length}/{activeZones.length} zones swept
             </span>
           </div>
+          <p className="text-[11px] text-muted-foreground mb-3">
+            Fire Marshals physically sweep their zone and mark it cleared via their dedicated mobile link. Status updates here in real-time.
+          </p>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
             {activeZones.map(zone => {
               const sweep = sweptZoneMap.get(zone.id);
@@ -1044,9 +1056,14 @@ export default function EmergencyMuster() {
                     disabled={markAllSafeMutation.isPending}
                     data-testid="button-mark-all-safe"
                     className="w-full sm:w-auto text-sm py-2.5 sm:py-2 font-semibold"
+                    title={selectedZones.size > 0 ? `Mark all safe in selected zone(s) only` : `Mark all on-site personnel as safe`}
                   >
                     <CheckCircle className="mr-2 flex-shrink-0" size={16} />
-                    {markAllSafeMutation.isPending ? "Marking..." : "Mark All Safe"}
+                    {markAllSafeMutation.isPending
+                      ? "Marking..."
+                      : selectedZones.size > 0
+                        ? `Mark Zone${selectedZones.size > 1 ? 's' : ''} Safe`
+                        : "Mark All Safe"}
                   </Button>
                 )}
                 <Button 
