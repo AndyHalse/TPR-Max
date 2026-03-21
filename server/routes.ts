@@ -5140,7 +5140,6 @@ ${hasDetailedData
             unaccounted: unaccountedCt,
             completionPct: pct,
             durationSeconds: durSec,
-            generatedAt: new Date(),
           })
           .where(eq(isolatedSchema.incidentReports.evacuationId, evacuationId));
       } else {
