@@ -4419,8 +4419,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     try {
       let validatedStaff: any = null;
       
-      // Support both authentication methods
-      const emergencyToken = req.emergencyToken;
+      // Support all three authentication methods.
+      // Note: req.emergencyToken is set by CSRF middleware for other emergency endpoints;
+      // for complete-evacuation we also read the header directly since it bypasses that block.
+      const emergencyToken = req.emergencyToken
+        || (req.headers['x-emergency-token'] as string)
+        || (req.query.token as string);
       const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
       
       let customerId: string;
