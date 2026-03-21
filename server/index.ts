@@ -183,12 +183,16 @@ function createCSRFMiddleware() {
       // Check for emergency token in Authorization header or query parameter
       const emergencyToken = req.headers['x-emergency-token'] as string || req.query.token as string;
       const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
+      // complete-evacuation also accepts an admin session (allows the Muster page to end drills/evacuations)
+      const sessionUserId = req.originalUrl.startsWith('/api/emergency/complete-evacuation')
+        ? (req.session as any)?.userId
+        : null;
       
-      console.log(`🔍 [MIDDLEWARE] Token extraction: emergencyToken=${req.headers['x-emergency-token'] ? 'YES' : 'NO'}, query=${req.query.token ? 'YES' : 'NO'}, fireMarshalId=${fireMarshalId ? 'YES' : 'NO'}`);
+      console.log(`🔍 [MIDDLEWARE] Token extraction: emergencyToken=${req.headers['x-emergency-token'] ? 'YES' : 'NO'}, query=${req.query.token ? 'YES' : 'NO'}, fireMarshalId=${fireMarshalId ? 'YES' : 'NO'}, sessionUserId=${sessionUserId ? 'YES' : 'NO'}`);
       
-      // Allow if either emergency token OR Fire Marshal URL ID is present
-      if (!emergencyToken && !fireMarshalId) {
-        console.log(`❌ CSRF/AUTH FAILURE: Emergency endpoint requires valid token or Fire Marshal URL ID`);
+      // Allow if emergency token, Fire Marshal URL ID, or admin session present
+      if (!emergencyToken && !fireMarshalId && !sessionUserId) {
+        console.log(`❌ CSRF/AUTH FAILURE: Emergency endpoint requires valid token, Fire Marshal URL ID, or admin session`);
         return res.status(401).json({ 
           error: 'Emergency access requires valid token or Fire Marshal URL ID',
           code: 'EMERGENCY_AUTH_REQUIRED'
@@ -201,6 +205,8 @@ function createCSRFMiddleware() {
         console.log(`✅ CSRF EXEMPTION: Emergency endpoint with emergency token: ${emergencyToken.substring(0, 20)}...`);
       } else if (fireMarshalId) {
         console.log(`✅ CSRF EXEMPTION: Emergency endpoint with Fire Marshal URL ID: ${fireMarshalId}`);
+      } else {
+        console.log(`✅ CSRF EXEMPTION: complete-evacuation via admin session (userId: ${sessionUserId})`);
       }
       return next();
     }
