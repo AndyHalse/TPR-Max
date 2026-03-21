@@ -30,7 +30,9 @@ import {
   Timer,
   ShieldAlert,
   BellRing,
-  Footprints
+  Footprints,
+  ClipboardList,
+  X
 } from "lucide-react";
 
 interface MusterListItem {
@@ -680,8 +682,8 @@ export default function EmergencyMuster() {
               All Reports
             </a>
           )}
-          {/* Drill mode toggle — shown when idle or send_alert (before emails go out) */}
-          {(emergencyPhase === 'idle' || emergencyPhase === 'send_alert') && (
+          {/* Drill mode toggle — idle phase only (send_alert uses the wizard's toggle) */}
+          {emergencyPhase === 'idle' && (
             <button
               onClick={() => setIsDrillMode(!isDrillMode)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
@@ -695,48 +697,38 @@ export default function EmergencyMuster() {
               {isDrillMode ? 'Drill ON' : 'Drill'}
             </button>
           )}
-          <Button 
-            onClick={handleEmergencyButtonClick}
-            disabled={activateFireMarshalMutation.isPending}
-            className={`${
-              emergencyPhase === 'idle' 
-                ? isDrillMode
-                  ? "bg-amber-500 hover:bg-amber-600 text-white"
-                  : "bg-orange-600 hover:bg-orange-700 text-white" 
-                : emergencyPhase === 'send_alert'
-                ? zonesRequireSelection
-                  ? "bg-amber-500 hover:bg-amber-600 text-white"
+          {/* Main action button — idle shows Activate, active shows End (send_alert uses wizard) */}
+          {emergencyPhase !== 'send_alert' && (
+            <Button 
+              onClick={handleEmergencyButtonClick}
+              disabled={activateFireMarshalMutation.isPending}
+              className={`${
+                emergencyPhase === 'idle' 
+                  ? isDrillMode
+                    ? "bg-amber-500 hover:bg-amber-600 text-white"
+                    : "bg-orange-600 hover:bg-orange-700 text-white" 
                   : isDrillMode
-                    ? "bg-amber-600 hover:bg-amber-700 text-white animate-pulse"
-                    : "bg-blue-600 hover:bg-blue-700 text-white animate-pulse"
-                : isDrillMode
-                  ? "bg-amber-600 hover:bg-amber-700 text-white"
-                  : "bg-red-600 hover:bg-red-700 text-white"
-            } text-sm sm:text-base whitespace-nowrap`}
-            data-testid="button-emergency-toggle"
-          >
-            {emergencyPhase === 'idle' && (
-              <>
-                <Siren className="mr-1.5 sm:mr-2" size={16} />
-                <span className="hidden sm:inline">{isDrillMode ? 'Start Drill' : 'Activate Emergency'}</span>
-                <span className="sm:hidden">{isDrillMode ? 'Start Drill' : 'Activate'}</span>
-              </>
-            )}
-            {emergencyPhase === 'send_alert' && (
-              <>
-                <Mail className="mr-1.5 sm:mr-2" size={16} />
-                <span className="hidden sm:inline">{zonesRequireSelection ? "Select Zones First" : isDrillMode ? "Send Drill Alert" : "Send Email Alert"}</span>
-                <span className="sm:hidden">{zonesRequireSelection ? "Select Zones" : isDrillMode ? "Send Drill" : "Send Alert"}</span>
-              </>
-            )}
-            {emergencyPhase === 'active' && (
-              <>
-                <Siren className="mr-1.5 sm:mr-2" size={16} />
-                <span className="hidden sm:inline">{isDrillMode ? 'End Drill' : 'Deactivate Emergency'}</span>
-                <span className="sm:hidden">{isDrillMode ? 'End Drill' : 'Deactivate'}</span>
-              </>
-            )}
-          </Button>
+                    ? "bg-amber-600 hover:bg-amber-700 text-white"
+                    : "bg-red-600 hover:bg-red-700 text-white"
+              } text-sm sm:text-base whitespace-nowrap`}
+              data-testid="button-emergency-toggle"
+            >
+              {emergencyPhase === 'idle' && (
+                <>
+                  <Siren className="mr-1.5 sm:mr-2" size={16} />
+                  <span className="hidden sm:inline">{isDrillMode ? 'Start Drill' : 'Activate Emergency'}</span>
+                  <span className="sm:hidden">{isDrillMode ? 'Start Drill' : 'Activate'}</span>
+                </>
+              )}
+              {emergencyPhase === 'active' && (
+                <>
+                  <Siren className="mr-1.5 sm:mr-2" size={16} />
+                  <span className="hidden sm:inline">{isDrillMode ? 'End Drill' : 'Deactivate Emergency'}</span>
+                  <span className="sm:hidden">{isDrillMode ? 'End Drill' : 'Deactivate'}</span>
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -777,7 +769,244 @@ export default function EmergencyMuster() {
       )}
 
 
-      {showZoneSelector && zones.length > 0 && (
+      {/* ── PROCESS PANEL: Activation Wizard (send_alert phase) ─────────────── */}
+      {emergencyPhase === 'send_alert' && (
+        <GlassCard className={`dark:glass-dark border-2 ${isDrillMode ? 'border-amber-500 dark:border-amber-600' : 'border-orange-500 dark:border-orange-600'}`}>
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isDrillMode ? 'bg-amber-500' : 'bg-orange-500'}`}>
+                <Siren size={16} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-fixed">{isDrillMode ? 'Activate Fire Drill' : 'Activate Emergency'}</h3>
+                <p className="text-xs text-muted-foreground">Work through each step, then send the alert</p>
+              </div>
+            </div>
+            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-muted-foreground" onClick={() => { setEmergencyActive(false); setEmergencyPhase('idle'); setSelectedZones(new Set()); setShowZoneSelector(false); }} title="Cancel">
+              <X size={16} />
+            </Button>
+          </div>
+
+          <div className="space-y-5">
+            {/* Step 1 — Emergency Type */}
+            <div className="flex gap-3">
+              <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>1</div>
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-fixed mb-2">Emergency Type</h4>
+                <div className="flex gap-2">
+                  <button onClick={() => setIsDrillMode(false)} className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-colors ${!isDrillMode ? 'bg-red-600 border-red-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-red-300'}`}>
+                    <Siren size={14} className="inline mr-1.5" />Real Emergency
+                  </button>
+                  <button onClick={() => setIsDrillMode(true)} className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-colors ${isDrillMode ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-amber-300'}`}>
+                    <ShieldAlert size={14} className="inline mr-1.5" />Fire Drill
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Step 2 — Zone Selection (only when zones are configured) */}
+            {activeZones.length > 0 && (
+              <div className="flex gap-3">
+                <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>2</div>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold text-fixed">Select Zones to Evacuate</h4>
+                    <span className="text-xs text-muted-foreground">{selectedZones.size === 0 ? 'All zones' : `${selectedZones.size} selected`}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {activeZones.map(zone => {
+                      const isSelected = selectedZones.has(zone.id);
+                      const counts = zonePersonnelCounts[zone.id];
+                      return (
+                        <button key={zone.id} onClick={() => toggleZone(zone.id)} className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-all ${isSelected ? 'text-white border-transparent' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'}`} style={isSelected ? { backgroundColor: zone.color, borderColor: zone.color } : {}}>
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
+                          {zone.name}
+                          {counts && counts.total > 0 && <span className={`text-[10px] px-1 rounded-full ${isSelected ? 'bg-white/25' : 'bg-gray-100 dark:bg-gray-700'}`}>{counts.total}</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {selectedZones.size === 0 && <p className="text-xs text-muted-foreground mt-1.5">Leave unselected to alert all zones</p>}
+                </div>
+              </div>
+            )}
+
+            {/* Step 3 (or 2 if no zones) — Share Fire Marshal Links */}
+            {fireMarshals.length > 0 && (
+              <div className="flex gap-3">
+                <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>{activeZones.length > 0 ? 3 : 2}</div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-semibold text-fixed mb-1">Share Fire Marshal Links</h4>
+                  <p className="text-xs text-muted-foreground mb-2">Send these to your Fire Marshals — they open a live muster view on their phone, no login required.</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {fireMarshals.map((fm: any) => {
+                      const marshalUrl = `${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`;
+                      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(marshalUrl)}&color=1e3a5f&bgcolor=eff6ff`;
+                      const isShowingQr = showQrFor === `pre-${fm.id}`;
+                      return (
+                        <div key={fm.id} className="bg-white dark:bg-gray-800/50 rounded-lg p-2.5 border border-gray-200 dark:border-gray-600">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-fixed leading-tight">{fm.firstName} {fm.lastName}</p>
+                              {fm.department && <p className="text-xs text-muted-foreground">{fm.department}</p>}
+                            </div>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700' : ''}`} onClick={() => setShowQrFor(isShowingQr ? null : `pre-${fm.id}`)} title="Show QR Code"><QrCode size={13} /></Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { navigator.clipboard.writeText(marshalUrl); toast({ title: "Copied", description: `Fire Marshal link copied for ${fm.firstName}` }); }} title="Copy link"><Copy size={13} /></Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(marshalUrl, '_blank')} title="Open link"><ExternalLink size={13} /></Button>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground font-mono truncate bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded">{marshalUrl}</p>
+                          {isShowingQr && (
+                            <div className="mt-2 flex flex-col items-center gap-1">
+                              <img src={qrUrl} alt={`QR for ${fm.firstName}`} className="w-24 h-24 rounded bg-white border border-gray-200" />
+                              <p className="text-[10px] text-muted-foreground">Scan to open on mobile</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Final Step — Send Alert */}
+            <div className="flex gap-3">
+              <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${isDrillMode ? 'bg-amber-500' : 'bg-red-600'}`}>
+                <Mail size={14} className="text-white" />
+              </div>
+              <div className="flex-1">
+                <h4 className="text-sm font-semibold text-fixed mb-1">{isDrillMode ? 'Send Drill Alert to All Personnel' : 'Send Emergency Alert to All Personnel'}</h4>
+                <Button onClick={() => activateFireMarshalMutation.mutate()} disabled={activateFireMarshalMutation.isPending} className={`w-full sm:w-auto font-bold animate-pulse ${isDrillMode ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
+                  {activateFireMarshalMutation.isPending ? 'Sending alerts...' : (<><Mail size={16} className="mr-2" />{isDrillMode ? 'Send Fire Drill Alert Now' : 'Send Emergency Alert Now'}</>)}
+                </Button>
+                {isDrillMode && <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">All emails will be clearly marked as a FIRE DRILL</p>}
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+      )}
+
+      {/* ── PROCESS PANEL: Active Emergency Checklist ─────────────────────────── */}
+      {emergencyPhase === 'active' && (
+        <GlassCard className={`dark:glass-dark border-2 ${isDrillMode ? 'border-amber-500 dark:border-amber-600' : 'border-red-500 dark:border-red-600'}`}>
+          <div className="flex items-center gap-2 mb-4">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isDrillMode ? 'bg-amber-500' : 'bg-red-600'}`}>
+              <ClipboardList size={16} className="text-white" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-fixed">{isDrillMode ? 'Drill Response Checklist' : 'Emergency Response Checklist'}</h3>
+              <p className="text-xs text-muted-foreground">Follow each step to manage the {isDrillMode ? 'drill' : 'emergency'}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {/* Step 1 — Alert Sent (always complete) */}
+            <div className="flex gap-3 p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-green-500 text-white flex items-center justify-center"><CheckCircle size={15} /></div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="text-sm font-semibold text-green-800 dark:text-green-200">{isDrillMode ? 'Drill Alert Sent' : 'Emergency Alert Sent'}</h4>
+                  {emergencyStartTime && <span className="text-xs text-green-600 dark:text-green-400 flex-shrink-0 font-mono">{emergencyStartTime.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>}
+                </div>
+                <p className="text-xs text-green-700 dark:text-green-300">All on-site personnel notified via email</p>
+              </div>
+            </div>
+
+            {/* Step 2 — Fire Marshal Deployment */}
+            <div className={`flex gap-3 p-3 rounded-lg border ${fireMarshals.length > 0 ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800' : 'bg-gray-50 dark:bg-gray-800/30 border-gray-200 dark:border-gray-700'}`}>
+              <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${fireMarshals.length > 0 ? 'bg-blue-600 text-white' : 'bg-gray-400 text-white'}`}><HardHat size={15} /></div>
+              <div className="flex-1 min-w-0">
+                <h4 className="text-sm font-semibold text-fixed mb-2">Deploy Fire Marshals</h4>
+                {fireMarshals.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {fireMarshals.map((fm: any) => {
+                      const marshalUrl = `${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`;
+                      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(marshalUrl)}&color=1e3a5f&bgcolor=eff6ff`;
+                      const isShowingQr = showQrFor === `active-${fm.id}`;
+                      return (
+                        <div key={fm.id} className="bg-white dark:bg-gray-800/50 rounded-lg p-2.5 border border-blue-200 dark:border-blue-700">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-fixed leading-tight">{fm.firstName} {fm.lastName}</p>
+                              {fm.department && <p className="text-xs text-muted-foreground">{fm.department}</p>}
+                            </div>
+                            <div className="flex gap-1 flex-shrink-0">
+                              <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700' : ''}`} onClick={() => setShowQrFor(isShowingQr ? null : `active-${fm.id}`)} title="Show QR Code"><QrCode size={13} /></Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { navigator.clipboard.writeText(marshalUrl); toast({ title: "Copied", description: `Fire Marshal link copied for ${fm.firstName}` }); }} title="Copy link"><Copy size={13} /></Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(marshalUrl, '_blank')} title="Open in new tab"><ExternalLink size={13} /></Button>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-blue-600 dark:text-blue-400 font-mono truncate bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded">{marshalUrl}</p>
+                          {isShowingQr && (
+                            <div className="mt-2 flex items-center gap-3">
+                              <img src={qrUrl} alt={`QR for ${fm.firstName}`} className="w-28 h-28 rounded bg-white border border-blue-200 flex-shrink-0" />
+                              <p className="text-xs text-muted-foreground">Scan to open the Fire Marshal mobile view — no login required</p>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No Fire Marshals configured. Assign them in Staff Management.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Step 3 — Account for All Personnel */}
+            {(() => {
+              const allSafe = accountedFor === totalPeople && totalPeople > 0;
+              return (
+                <div className={`flex gap-3 p-3 rounded-lg border ${allSafe ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'}`}>
+                  <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${allSafe ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'}`}>{allSafe ? <CheckCircle size={15} /> : <Users size={15} />}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <h4 className="text-sm font-semibold text-fixed">Account for All Personnel</h4>
+                      <span className={`text-xs font-bold flex-shrink-0 ${allSafe ? 'text-green-600 dark:text-green-400' : 'text-orange-600 dark:text-orange-400'}`}>{accountedFor}/{totalPeople}</span>
+                    </div>
+                    <Progress value={totalPeople > 0 ? (accountedFor / totalPeople) * 100 : 0} className={`h-2 mb-2 ${allSafe ? '[&>div]:bg-green-500' : '[&>div]:bg-orange-500'}`} />
+                    {!allSafe && totalPeople > 0 && (
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-orange-700 dark:text-orange-300">{totalPeople - accountedFor} person{totalPeople - accountedFor !== 1 ? 's' : ''} unaccounted for</p>
+                        <Button size="sm" variant="outline" onClick={() => nudgeUnaccountedMutation.mutate()} disabled={nudgeUnaccountedMutation.isPending} className="text-xs h-7 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 flex-shrink-0">
+                          <BellRing size={12} className="mr-1" />{nudgeUnaccountedMutation.isPending ? 'Sending...' : 'Nudge Unaccounted'}
+                        </Button>
+                      </div>
+                    )}
+                    {allSafe && <p className="text-xs text-green-700 dark:text-green-300 font-semibold">✓ All personnel accounted for</p>}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Step 4 — End Incident */}
+            <div className="flex gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700">
+              <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${accountedFor === totalPeople && totalPeople > 0 ? 'bg-red-600 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-300'}`}><ShieldAlert size={15} /></div>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h4 className="text-sm font-semibold text-fixed">End the Incident</h4>
+                    <p className="text-xs text-muted-foreground">Save the incident report and close this {isDrillMode ? 'drill' : 'event'}</p>
+                  </div>
+                  <div className="flex gap-2 flex-shrink-0">
+                    <Button size="sm" variant="outline" onClick={copyMonitorLink} className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300" title="Share a read-only live view with management">
+                      <Copy size={12} className="mr-1" />Monitor Link
+                    </Button>
+                    <Button size="sm" onClick={() => setShowEndEvacDialog(true)} disabled={completeEvacuationMutation.isPending} className="text-xs text-white border-0 bg-red-600 hover:bg-red-700">
+                      <ShieldAlert size={12} className="mr-1" />End Evacuation
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </GlassCard>
+      )}
+
+      {/* ── Legacy zone selector card (hide during activation — wizard handles it) ── */}
+      {showZoneSelector && zones.length > 0 && emergencyPhase !== 'send_alert' && (
         <GlassCard className="dark:glass-dark">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
