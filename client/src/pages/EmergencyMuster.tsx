@@ -708,36 +708,21 @@ export default function EmergencyMuster() {
               {isDrillMode ? 'Drill ON' : 'Drill'}
             </button>
           )}
-          {/* Main action button — idle shows Activate, active shows End (send_alert uses wizard) */}
-          {emergencyPhase !== 'send_alert' && (
+          {/* Main action button — idle only: Activate Emergency / Start Drill */}
+          {emergencyPhase === 'idle' && (
             <Button 
               onClick={handleEmergencyButtonClick}
               disabled={activateFireMarshalMutation.isPending}
               className={`${
-                emergencyPhase === 'idle' 
-                  ? isDrillMode
-                    ? "bg-amber-500 hover:bg-amber-600 text-white"
-                    : "bg-orange-600 hover:bg-orange-700 text-white" 
-                  : isDrillMode
-                    ? "bg-amber-600 hover:bg-amber-700 text-white"
-                    : "bg-red-600 hover:bg-red-700 text-white"
+                isDrillMode
+                  ? "bg-amber-500 hover:bg-amber-600 text-white"
+                  : "bg-orange-600 hover:bg-orange-700 text-white"
               } text-sm sm:text-base whitespace-nowrap`}
               data-testid="button-emergency-toggle"
             >
-              {emergencyPhase === 'idle' && (
-                <>
-                  <Siren className="mr-1.5 sm:mr-2" size={16} />
-                  <span className="hidden sm:inline">{isDrillMode ? 'Start Drill' : 'Activate Emergency'}</span>
-                  <span className="sm:hidden">{isDrillMode ? 'Start Drill' : 'Activate'}</span>
-                </>
-              )}
-              {emergencyPhase === 'active' && (
-                <>
-                  <Siren className="mr-1.5 sm:mr-2" size={16} />
-                  <span className="hidden sm:inline">{isDrillMode ? 'End Drill' : 'Deactivate Emergency'}</span>
-                  <span className="sm:hidden">{isDrillMode ? 'End Drill' : 'Deactivate'}</span>
-                </>
-              )}
+              <Siren className="mr-1.5 sm:mr-2" size={16} />
+              <span className="hidden sm:inline">{isDrillMode ? 'Start Drill' : 'Activate Emergency'}</span>
+              <span className="sm:hidden">{isDrillMode ? 'Start Drill' : 'Activate'}</span>
             </Button>
           )}
         </div>
