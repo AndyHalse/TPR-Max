@@ -179,16 +179,21 @@ export default function EmergencyMuster() {
     }
   }, [activeEvacuation?.active, activeEvacuation?.isDrill]);
 
-  // On page load / re-mount: if the DB already has an active evacuation, skip the wizard
-  // and go straight to the 'active' phase. Without this, refreshing or returning to the
-  // page while an emergency is running leaves the phase stuck at 'idle', which lets the
-  // user accidentally re-activate (and re-activate as a drill if that was the last toggle state).
+  // Sync emergencyPhase with the server's live evacuation state.
+  // Goes idle → active on page load when an evacuation is already running.
+  // Goes active → idle when the evacuation ends (from this tab or another).
   useEffect(() => {
+    if (activeEvacuation === undefined) return; // still loading
     if (activeEvacuation?.active === true && emergencyPhase === 'idle') {
       setEmergencyPhase('active');
+      setEmergencyActive(true);
+    } else if (activeEvacuation?.active === false && emergencyPhase === 'active') {
+      setEmergencyPhase('idle');
+      setEmergencyActive(false);
+      setEmergencyStartTime(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeEvacuation?.active]); // intentionally omit emergencyPhase to avoid loop
+  }, [activeEvacuation?.active]);
 
   const toggleZone = (zoneId: string) => {
     setSelectedZones(prev => {
@@ -552,17 +557,25 @@ export default function EmergencyMuster() {
     mutationFn: (checkOutMode: 'keep_checked_in' | 'check_out_all') =>
       apiRequest("POST", "/api/emergency/complete-evacuation", { checkOutMode }),
     onSuccess: (data: any) => {
+      // Immediately reset UI to idle — don't wait for the query to refetch
       setShowEndEvacDialog(false);
+      setEmergencyPhase('idle');
+      setEmergencyActive(false);
+      setEmergencyStartTime(null);
+      setSelectedZones(new Set());
+      setShowZoneSelector(false);
+      if (data?.evacuationId) setLastEvacuationId(data.evacuationId);
       toast({
-        title: "Evacuation ended",
+        title: isDrillMode ? "Fire Drill Ended" : "Evacuation Ended",
         description: data?.checkOutMode === 'check_out_all'
-          ? `All accounted personnel checked out. Incident report saved.`
-          : `Evacuation closed. Personnel remain checked in. Incident report saved.`,
+          ? `All accounted personnel checked out. Incident report saved — view it in the header.`
+          : `Evacuation closed. Personnel remain checked in. Incident report saved — view it in the header.`,
+        duration: 6000,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/evacuation/status"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      if (data?.evacuationId) setLastEvacuationId(data.evacuationId);
+      queryClient.invalidateQueries({ queryKey: ["/api/incident-reports"] });
     },
     onError: () => {
       toast({ title: "Failed to end evacuation", description: "Please try again or use a Fire Marshal link.", variant: "destructive" });
@@ -608,7 +621,7 @@ export default function EmergencyMuster() {
             <span className="sm:hidden">Real-time emergency evacuation</span>
             {wsConnected && (
               <span className="inline-flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
                 LIVE
               </span>
             )}
@@ -661,16 +674,6 @@ export default function EmergencyMuster() {
               >
                 <Copy size={14} className="mr-1" />
                 Monitor Link
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => setShowEndEvacDialog(true)}
-                disabled={completeEvacuationMutation.isPending}
-                className="text-xs bg-red-700 hover:bg-red-800 text-white border-0"
-                title="End this evacuation and save the incident report"
-              >
-                <ShieldAlert size={14} className="mr-1" />
-                End Evacuation
               </Button>
             </>
           )}
