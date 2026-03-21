@@ -5001,7 +5001,19 @@ ${hasDetailedData
         .from(isolatedSchema.incidentReports)
         .where(eq(isolatedSchema.incidentReports.customerId, customerId));
 
-      const existingByEvacId = new Map(existingReports.map(r => [r.evacuationId, r]));
+      // Build map — if duplicates exist for same evacuationId, keep the one with the oldest generatedAt
+      const existingByEvacId = new Map<string, typeof existingReports[0]>();
+      for (const r of existingReports) {
+        const prev = existingByEvacId.get(r.evacuationId);
+        if (!prev) {
+          existingByEvacId.set(r.evacuationId, r);
+        } else {
+          // Keep whichever has the older (earlier) generatedAt — that is the original report date
+          const prevTime = prev.generatedAt ? new Date(prev.generatedAt).getTime() : Infinity;
+          const currTime = r.generatedAt ? new Date(r.generatedAt).getTime() : Infinity;
+          if (currTime < prevTime) existingByEvacId.set(r.evacuationId, r);
+        }
+      }
 
       // Back-fill incident report records for any completed evacuation that doesn't have one
       for (const evac of completedEvacs) {
@@ -5155,7 +5167,7 @@ ${hasDetailedData
           accountedFor: accountedCt,
           unaccounted: unaccountedCt,
           completionPct: pct,
-          generatedAt: new Date(),
+          generatedAt: evac.completedAt ? new Date(evac.completedAt) : null,
           reportUrl: `/api/emergency/incident-report/${evacuationId}`,
         });
       }
