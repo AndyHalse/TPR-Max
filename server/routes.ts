@@ -5093,6 +5093,82 @@ ${hasDetailedData
     }
   });
 
+  // Recalculate and refresh an incident report's stored stats from live evacuationAccountability data
+  app.post("/api/emergency/incident-reports/:evacuationId/refresh", requireAuth, async (req, res) => {
+    try {
+      const { evacuationId } = req.params;
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "Not authenticated" });
+
+      // Verify evacuation belongs to this customer
+      const [evac] = await db
+        .select()
+        .from(evacuations)
+        .where(and(eq(evacuations.evacuationId, evacuationId), eq(evacuations.customerId, customerId)))
+        .limit(1);
+      if (!evac) return res.status(404).json({ error: "Evacuation not found" });
+
+      // Re-read live accountability data
+      const accountability = await db
+        .select()
+        .from(evacuationAccountability)
+        .where(eq(evacuationAccountability.evacuationId, evacuationId));
+
+      const totalCt = accountability.length || evac.totalPeopleOnSite || 0;
+      const accountedCt = Math.min(accountability.filter(p => p.isAccountedFor).length, totalCt);
+      const unaccountedCt = Math.max(0, totalCt - accountedCt);
+      const pct = totalCt > 0 ? Math.min(100, Math.round((accountedCt / totalCt) * 100)) : 0;
+      const durSec = (evac.startedAt && evac.completedAt)
+        ? Math.round((new Date(evac.completedAt).getTime() - new Date(evac.startedAt).getTime()) / 1000)
+        : null;
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      // Upsert the incident report record
+      const existing = await custDb
+        .select({ id: isolatedSchema.incidentReports.id })
+        .from(isolatedSchema.incidentReports)
+        .where(eq(isolatedSchema.incidentReports.evacuationId, evacuationId))
+        .limit(1);
+
+      if (existing.length > 0) {
+        await custDb
+          .update(isolatedSchema.incidentReports)
+          .set({
+            totalOnSite: totalCt,
+            accountedFor: accountedCt,
+            unaccounted: unaccountedCt,
+            completionPct: pct,
+            durationSeconds: durSec,
+            generatedAt: new Date(),
+          })
+          .where(eq(isolatedSchema.incidentReports.evacuationId, evacuationId));
+      } else {
+        await custDb.insert(isolatedSchema.incidentReports).values({
+          evacuationId,
+          customerId,
+          isDrill: evac.isDrill || false,
+          activatedBy: evac.activatedBy || null,
+          startedAt: evac.startedAt ? new Date(evac.startedAt) : null,
+          completedAt: evac.completedAt ? new Date(evac.completedAt) : null,
+          durationSeconds: durSec,
+          totalOnSite: totalCt,
+          accountedFor: accountedCt,
+          unaccounted: unaccountedCt,
+          completionPct: pct,
+          generatedAt: new Date(),
+          reportUrl: `/api/emergency/incident-report/${evacuationId}`,
+        });
+      }
+
+      console.log(`🔄 Incident report refreshed for evacuation ${evacuationId}: ${accountedCt}/${totalCt} accounted (${pct}%)`);
+      res.json({ success: true, totalOnSite: totalCt, accountedFor: accountedCt, unaccounted: unaccountedCt, completionPct: pct });
+    } catch (error) {
+      console.error("Error refreshing incident report:", error);
+      res.status(500).json({ error: "Failed to refresh incident report" });
+    }
+  });
+
   // GET zone sweeps for an evacuation (fire marshal token OR session auth)
   app.get("/api/emergency/zone-sweeps/:evacuationId", async (req, res) => {
     try {
@@ -9320,8 +9396,12 @@ ${hasDetailedData
   // Mark all personnel as safe endpoint
   app.post("/api/muster/mark-all-safe", async (req, res) => {
     try {
-      const username = req.user?.username || 'system';
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const username = req.user?.username || (req.session as any)?.username || 'system';
+      const customerId = req.customerId || (req.session as any)?.customerId;
+      if (!customerId) {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+      const context = simpleDatabaseService.createCustomerContext(username, customerId);
       // Optional zone filter — when provided, only mark people in those zones safe
       const { zoneIds } = req.body as { zoneIds?: string[] };
       

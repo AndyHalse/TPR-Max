@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { ScrollText, Download, ShieldAlert, Siren, Clock, Users, CheckCircle, XCircle, Eye, Trash2 } from "lucide-react";
+import { ScrollText, Download, ShieldAlert, Siren, Clock, Users, CheckCircle, XCircle, Eye, Trash2, RefreshCw, AlertTriangle } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 
@@ -52,6 +52,7 @@ function formatDateTime(iso: string | null): string {
 export default function IncidentReports() {
   const { toast } = useToast();
   const [deleteTarget, setDeleteTarget] = useState<IncidentReport | null>(null);
+  const [refreshingId, setRefreshingId] = useState<string | null>(null);
 
   const { data: reports = [], isLoading } = useQuery<IncidentReport[]>({
     queryKey: ["/api/emergency/incident-reports"],
@@ -69,6 +70,19 @@ export default function IncidentReports() {
       toast({ title: "Delete failed", description: "Could not delete the report. Please try again.", variant: "destructive" });
     },
   });
+
+  const refreshReport = async (r: IncidentReport) => {
+    setRefreshingId(r.evacuationId);
+    try {
+      await apiRequest("POST", `/api/emergency/incident-reports/${r.evacuationId}/refresh`);
+      queryClient.invalidateQueries({ queryKey: ["/api/emergency/incident-reports"] });
+      toast({ title: "Report refreshed", description: "Accountability data has been recalculated from the latest records." });
+    } catch {
+      toast({ title: "Refresh failed", description: "Could not refresh the report. Please try again.", variant: "destructive" });
+    } finally {
+      setRefreshingId(null);
+    }
+  };
 
   const openReport = (r: IncidentReport) => {
     window.open(`/api/emergency/incident-report/${r.evacuationId}`, "_blank");
@@ -165,8 +179,16 @@ export default function IncidentReports() {
                       <p className="text-xs text-gray-400 dark:text-gray-500">Activated by {r.activatedBy}</p>
                     )}
 
+                    {/* Warning banner if no accountability data was captured */}
+                    {r.totalOnSite > 0 && r.accountedFor === 0 && (
+                      <div className="flex items-start gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 p-2.5 text-xs text-amber-700 dark:text-amber-300">
+                        <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+                        <span>No accountability data was recorded for this event. Use <strong>Refresh</strong> to recalculate from the latest muster records.</span>
+                      </div>
+                    )}
+
                     {/* Action buttons — full width on mobile */}
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex gap-2 pt-1 flex-wrap">
                       <Button
                         size="sm"
                         onClick={() => openReport(r)}
@@ -183,6 +205,16 @@ export default function IncidentReports() {
                       >
                         <Download size={14} className="mr-1.5" />
                         PDF
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => refreshReport(r)}
+                        disabled={refreshingId === r.evacuationId}
+                        className="text-sm border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                        title="Recalculate stats from latest accountability records"
+                      >
+                        <RefreshCw size={14} className={refreshingId === r.evacuationId ? "animate-spin" : ""} />
                       </Button>
                       <Button
                         size="sm"
@@ -272,6 +304,11 @@ export default function IncidentReports() {
                         </td>
                         <td className="py-3 pr-4">
                           <span className={`font-semibold ${pctColor}`}>{pct}%</span>
+                          {r.totalOnSite > 0 && r.accountedFor === 0 && (
+                            <span className="ml-1.5 inline-flex items-center text-amber-500" title="No accountability data recorded — click Refresh to recalculate">
+                              <AlertTriangle size={12} />
+                            </span>
+                          )}
                         </td>
                         <td className="py-3">
                           <div className="flex items-center gap-2">
@@ -292,6 +329,16 @@ export default function IncidentReports() {
                             >
                               <Download size={12} className="mr-1" />
                               PDF
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => refreshReport(r)}
+                              disabled={refreshingId === r.evacuationId}
+                              className="text-xs border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/20"
+                              title="Recalculate stats from latest accountability records"
+                            >
+                              <RefreshCw size={12} className={refreshingId === r.evacuationId ? "animate-spin" : ""} />
                             </Button>
                             <Button
                               size="sm"
