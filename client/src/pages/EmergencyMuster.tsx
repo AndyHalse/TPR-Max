@@ -769,6 +769,82 @@ export default function EmergencyMuster() {
       )}
 
 
+      {/* ── IDLE READINESS PANEL ─────────────────────────────────────────────── */}
+      {emergencyPhase === 'idle' && (
+        <GlassCard className="dark:glass-dark border-2 border-blue-200 dark:border-blue-800">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
+                <ShieldAlert size={16} className="text-white" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-fixed">Emergency Readiness</h3>
+                <p className="text-xs text-muted-foreground">Review before activating</p>
+              </div>
+            </div>
+            <div className="flex gap-4 text-center">
+              <div>
+                <p className={`text-2xl font-black ${fireMarshals.length > 0 ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{fireMarshals.length}</p>
+                <p className="text-[10px] text-muted-foreground">Marshals</p>
+              </div>
+              <div>
+                <p className={`text-2xl font-black ${activeZones.length > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-gray-400'}`}>{activeZones.length}</p>
+                <p className="text-[10px] text-muted-foreground">Zones</p>
+              </div>
+              <div>
+                <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{totalPeople}</p>
+                <p className="text-[10px] text-muted-foreground">On-Site</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Fire Marshal quick access — QR codes right here */}
+          {fireMarshals.length > 0 ? (
+            <div>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Fire Marshal Access Links</p>
+              <p className="text-xs text-muted-foreground mb-3">Share these links with your Fire Marshals now — they work without a login and update in real-time during an emergency.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {fireMarshals.map((fm: any) => {
+                  const marshalUrl = `${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`;
+                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(marshalUrl)}&color=1e3a5f&bgcolor=eff6ff`;
+                  const isShowingQr = showQrFor === `idle-${fm.id}`;
+                  return (
+                    <div key={fm.id} className="bg-white dark:bg-gray-800/50 rounded-lg p-2.5 border border-blue-200 dark:border-blue-700">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-fixed leading-tight">{fm.firstName} {fm.lastName}</p>
+                          {fm.department && <p className="text-xs text-muted-foreground">{fm.department}</p>}
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <Button size="sm" variant="ghost" className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700' : ''}`} onClick={() => setShowQrFor(isShowingQr ? null : `idle-${fm.id}`)} title="Show QR Code"><QrCode size={13} /></Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { navigator.clipboard.writeText(marshalUrl); toast({ title: "Copied", description: `Link copied for ${fm.firstName}` }); }} title="Copy link"><Copy size={13} /></Button>
+                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(marshalUrl, '_blank')} title="Open in new tab"><ExternalLink size={13} /></Button>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-mono truncate bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded">{marshalUrl}</p>
+                      {isShowingQr && (
+                        <div className="mt-2 flex flex-col items-center gap-1">
+                          <img src={qrUrl} alt={`QR for ${fm.firstName}`} className="w-24 h-24 rounded bg-white border border-blue-200" />
+                          <p className="text-[10px] text-muted-foreground">Scan to open on mobile</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+              <ShieldAlert size={20} className="text-red-500 flex-shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-red-700 dark:text-red-300">No Fire Marshals Assigned</p>
+                <p className="text-xs text-red-600 dark:text-red-400">Go to Staff Management and enable Fire Marshal status for relevant staff members.</p>
+              </div>
+            </div>
+          )}
+        </GlassCard>
+      )}
+
       {/* ── PROCESS PANEL: Activation Wizard (send_alert phase) ─────────────── */}
       {emergencyPhase === 'send_alert' && (
         <GlassCard className={`dark:glass-dark border-2 ${isDrillMode ? 'border-amber-500 dark:border-amber-600' : 'border-orange-500 dark:border-orange-600'}`}>
