@@ -179,6 +179,17 @@ export default function EmergencyMuster() {
     }
   }, [activeEvacuation?.active, activeEvacuation?.isDrill]);
 
+  // On page load / re-mount: if the DB already has an active evacuation, skip the wizard
+  // and go straight to the 'active' phase. Without this, refreshing or returning to the
+  // page while an emergency is running leaves the phase stuck at 'idle', which lets the
+  // user accidentally re-activate (and re-activate as a drill if that was the last toggle state).
+  useEffect(() => {
+    if (activeEvacuation?.active === true && emergencyPhase === 'idle') {
+      setEmergencyPhase('active');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEvacuation?.active]); // intentionally omit emergencyPhase to avoid loop
+
   const toggleZone = (zoneId: string) => {
     setSelectedZones(prev => {
       const next = new Set(prev);
