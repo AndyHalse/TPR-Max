@@ -1488,75 +1488,22 @@ export default function EmergencyMuster() {
             </div>
             
             <div className="space-y-2 sm:space-y-3 max-h-[55vh] sm:max-h-[60vh] overflow-y-auto">
-              {filteredList.map((person) => (
-                <div 
-                  key={person.id} 
-                  className={`flex items-center justify-between p-3 sm:p-4 rounded-xl transition-all gap-2 sm:gap-3 ${
-                    person.accounted 
-                      ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' 
-                      : 'bg-white/50 dark:bg-slate-800/50 border border-gray-200 dark:border-gray-600'
-                  }`}
-                  data-testid={`person-${person.id}`}
-                >
-                  <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-                    <div className={`w-10 h-10 sm:w-11 sm:h-11 flex-shrink-0 rounded-full flex items-center justify-center ${
-                      person.type === 'staff' ? 'bg-purple-500' : 
-                      person.type === 'visitor' ? 'bg-blue-500' : 
-                      person.type === 'member' ? 'bg-purple-500' : 'bg-orange-500'
-                    }`}>
-                      <span className="text-white font-bold text-sm">
-                        {person.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                      </span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="font-semibold text-fixed text-sm sm:text-base truncate leading-tight">{person.name}</p>
-                        {person.needsEvacuationAssistance && (
-                          <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-400 dark:border-amber-600">
-                            ♿ PEEP
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                        <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                          person.type === 'staff' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
-                          person.type === 'visitor' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
-                          person.type === 'member' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' :
-                          'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300'
-                        }`}>{person.type}</span>
-                        <span className="text-[11px] text-variable truncate max-w-[100px] sm:max-w-[140px]">
-                          {person.type === 'staff' ? person.department : person.company}
-                        </span>
-                      </div>
-                      {/* Last known location — shown prominently for unaccounted people, subtly for accounted */}
-                      {(person.location && person.location !== 'Not specified') && (
-                        <p className={`text-[11px] mt-1 flex items-center gap-1 ${
-                          !person.accounted
-                            ? 'text-red-600 dark:text-red-400 font-medium'
-                            : 'text-gray-400 dark:text-gray-500'
-                        }`}>
-                          <MapPin size={10} className="flex-shrink-0" />
-                          Last known: {person.location}
-                        </p>
-                      )}
-                      <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                        <Clock size={9} />
-                        {new Date(person.checkedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+              {filteredList.map((person) => {
+                const avatarBg = person.type === 'staff' ? 'bg-purple-500' : person.type === 'visitor' ? 'bg-blue-500' : person.type === 'member' ? 'bg-purple-500' : 'bg-orange-500';
+                const typeBadge = person.type === 'staff' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : person.type === 'visitor' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : person.type === 'member' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
+                const initials = person.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+                const cardBg = person.accounted ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-white/50 dark:bg-slate-800/50 border-gray-200 dark:border-gray-600';
+
+                const ActionButtons = () => (
+                  <>
                     {hasActiveEvacuation && (
                       person.accounted ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-green-700 bg-green-100 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap" data-testid={`badge-safe-${person.id}`}>
-                          <CheckCircle size={10} />
-                          <span className="hidden xs:inline">Safe</span>
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-safe-${person.id}`}>
+                          <CheckCircle size={11} />Safe
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-red-700 bg-red-100 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap" data-testid={`badge-unsafe-${person.id}`}>
-                          <XCircle size={10} />
-                          <span className="hidden xs:inline">Unsafe</span>
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-unsafe-${person.id}`}>
+                          <XCircle size={11} />Missing
                         </span>
                       )
                     )}
@@ -1564,49 +1511,82 @@ export default function EmergencyMuster() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className={`h-8 w-8 p-0 flex-shrink-0 ${
-                          person.hasEmail
-                            ? 'border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:hover:bg-orange-900/20'
-                            : 'border-gray-200 text-gray-300 cursor-not-allowed dark:border-gray-700 dark:text-gray-600'
-                        }`}
+                        className={`h-9 w-9 p-0 flex-shrink-0 ${person.hasEmail ? 'border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400' : 'border-gray-200 text-gray-300 cursor-not-allowed dark:border-gray-700 dark:text-gray-600'}`}
                         disabled={!person.hasEmail || emailingPersonId === person.id}
                         onClick={() => person.hasEmail && emailPersonMutation.mutate({ personId: person.id, personType: person.type })}
                         title={person.hasEmail ? `Send email reminder to ${person.name}` : 'No email address on file'}
                         data-testid={`button-email-${person.id}`}
                       >
                         {emailingPersonId === person.id ? (
-                          <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
-                          </svg>
+                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>
                         ) : (
-                          <Mail size={13} />
+                          <Mail size={14} />
                         )}
                       </Button>
                     )}
                     <Button
                       variant={person.accounted ? "outline" : "default"}
-                      className={`${person.accounted ? "border-gray-300 text-gray-600" : "bg-green-600 hover:bg-green-700 text-white"} text-xs sm:text-sm font-semibold px-3 sm:px-4 py-2 h-auto whitespace-nowrap`}
+                      className={`${person.accounted ? "border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400" : "bg-green-600 hover:bg-green-700 text-white"} text-sm font-semibold px-4 py-2 h-9 whitespace-nowrap`}
                       onClick={() => toggleAccountedStatus(person.id, person.type)}
                       data-testid={`button-toggle-${person.id}`}
                     >
                       {person.accounted ? (
-                        <>
-                          <XCircle className="mr-1 sm:mr-1.5" size={13} />
-                          <span className="hidden sm:inline">Unmark</span>
-                          <span className="sm:hidden">Undo</span>
-                        </>
+                        <><XCircle className="mr-1.5" size={14} />Undo</>
                       ) : (
-                        <>
-                          <CheckCircle className="mr-1 sm:mr-1.5" size={13} />
-                          <span className="hidden sm:inline">Mark Safe</span>
-                          <span className="sm:hidden">Safe</span>
-                        </>
+                        <><CheckCircle className="mr-1.5" size={14} />Mark Safe</>
                       )}
                     </Button>
+                  </>
+                );
+
+                return (
+                  <div
+                    key={person.id}
+                    className={`rounded-xl border transition-all ${cardBg}`}
+                    data-testid={`person-${person.id}`}
+                  >
+                    {/* Info row — always full-width so name is never truncated */}
+                    <div className="flex items-start gap-3 p-3 sm:p-4">
+                      <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center ${avatarBg}`}>
+                        <span className="text-white font-bold text-sm">{initials}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {/* Name — never truncated */}
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="font-semibold text-fixed text-sm sm:text-base leading-tight">{person.name}</p>
+                          {person.needsEvacuationAssistance && (
+                            <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-400 dark:border-amber-600">
+                              ♿ PEEP
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${typeBadge}`}>{person.type}</span>
+                          <span className="text-[11px] text-variable">{person.type === 'staff' ? person.department : person.company}</span>
+                        </div>
+                        {(person.location && person.location !== 'Not specified') && (
+                          <p className={`text-[11px] mt-1 flex items-center gap-1 ${!person.accounted ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
+                            <MapPin size={10} className="flex-shrink-0" />Last known: {person.location}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                          <Clock size={9} />
+                          {new Date(person.checkedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
+                      {/* Desktop-only: action buttons inline with name */}
+                      <div className="hidden sm:flex items-center gap-2 flex-shrink-0 self-center">
+                        <ActionButtons />
+                      </div>
+                    </div>
+
+                    {/* Mobile-only: action buttons as a dedicated bottom row */}
+                    <div className="sm:hidden flex items-center justify-end gap-2 px-3 pb-3">
+                      <ActionButtons />
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </GlassCard>
         </div>
