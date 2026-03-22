@@ -4822,22 +4822,34 @@ ${fmPhotos.map((ph: any) => {
 </body></html>`;
 
               // Try to generate a PDF attachment (Puppeteer), fall back to HTML
-              let pdfAttachment: { filename: string; content: Buffer | string; contentType: string } | null = null;
+              let pdfAttachment: { filename: string; content: Buffer | string; contentType: string; contentDisposition: string } | null = null;
               try {
                 let puppeteer: any;
-                try { puppeteer = await import('puppeteer'); } catch { throw new Error('puppeteer_unavailable'); }
-                const browser = await puppeteer.default.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+                try { puppeteer = await import('puppeteer'); } catch (importErr: any) { throw new Error(`puppeteer_import_failed: ${importErr.message}`); }
+                const puppeteerLaunch = puppeteer.default?.launch ?? puppeteer.launch;
+                if (!puppeteerLaunch) throw new Error('puppeteer_launch_missing');
+                const browser = await puppeteerLaunch({
+                  headless: true,
+                  args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-gpu',
+                    '--no-zygote',
+                    '--single-process',
+                  ],
+                });
                 try {
                   const page = await browser.newPage();
-                  await page.setContent(reportHtml, { waitUntil: 'networkidle0' });
+                  await page.setContent(reportHtml, { waitUntil: 'domcontentloaded' });
                   const pdfBuf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } });
                   await browser.close();
-                  pdfAttachment = { filename: `incident-report-${evacuationId}.pdf`, content: Buffer.from(pdfBuf), contentType: 'application/pdf' };
+                  pdfAttachment = { filename: `incident-report-${evacuationId}.pdf`, content: Buffer.from(pdfBuf), contentType: 'application/pdf', contentDisposition: 'attachment' };
                   console.log(`📄 Incident report PDF generated (${pdfBuf.byteLength} bytes)`);
-                } catch (e) { await browser.close(); throw e; }
+                } catch (e: any) { try { await browser.close(); } catch { } throw e; }
               } catch (pdfErr: any) {
-                console.warn(`⚠️ PDF generation failed for FM email, attaching HTML instead: ${pdfErr.message}`);
-                pdfAttachment = { filename: `incident-report-${evacuationId}.html`, content: reportHtml, contentType: 'text/html' };
+                console.warn(`⚠️ PDF generation failed for FM email (${pdfErr.message}), attaching HTML instead`);
+                pdfAttachment = { filename: `incident-report-${evacuationId}.pdf.html`, content: reportHtml, contentType: 'text/html', contentDisposition: 'attachment' };
               }
 
               // ── Build the notification email body ──────────────────────────────────
