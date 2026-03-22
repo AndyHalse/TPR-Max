@@ -329,7 +329,7 @@ export default function Visitors() {
   const [showVisitorSearch, setShowVisitorSearch] = useState(false);
 
   // View mode state for existing visitors
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
 
   // H&S modal state
   const [showHSModal, setShowHSModal] = useState(false);
@@ -1181,11 +1181,12 @@ export default function Visitors() {
                   ) : (
                     <div 
                       key={visitor.id} 
-                      className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all cursor-pointer" 
+                      className="bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all cursor-pointer" 
                       data-testid={`card-visitor-${visitor.id}`}
                       onClick={() => setViewingVisitor(visitor)}
                     >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                      {/* Info row — full width so name is never truncated */}
+                      <div className="flex items-center gap-3 px-3 pt-3 pb-1">
                         <div className={`w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center overflow-hidden ${visitor.photoUrl ? '' : 'bg-gradient-to-br from-green-500 to-teal-600'}`}>
                           {visitor.photoUrl ? (
                             <img src={visitor.photoUrl.startsWith('/objects/') ? visitor.photoUrl : `/objects${visitor.photoUrl}`} alt="" className="w-full h-full object-cover" />
@@ -1193,60 +1194,42 @@ export default function Visitors() {
                             <span className="text-white font-bold text-xs">{(visitor.firstName?.[0] || '').toUpperCase()}{(visitor.lastName?.[0] || '').toUpperCase()}</span>
                           )}
                         </div>
-                        <span className="font-semibold text-fixed text-sm truncate">{visitor.firstName} {visitor.lastName}</span>
-                        {visitor.company && <span className="text-sm text-variable truncate hidden sm:inline">{visitor.company}</span>}
-                        <span className="text-xs text-variable hidden md:inline">Last: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-fixed text-sm leading-tight">{visitor.firstName} {visitor.lastName}</p>
+                          {visitor.company && <p className="text-xs text-variable mt-0.5">{visitor.company}</p>}
+                          <p className="text-[11px] text-muted-foreground mt-0.5">
+                            Last visit: {new Date(visitor.checkedInAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        </div>
+                        {/* Desktop only: actions inline */}
+                        <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                          <Badge variant={visitor.isCheckedIn ? "default" : "secondary"} className={visitor.isCheckedIn ? "bg-green-100 text-green-700 border-green-200" : "bg-gray-100 text-gray-600"}>
+                            {visitor.isCheckedIn ? "On Site" : "Off Site"}
+                          </Badge>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }} data-testid={`button-edit-visitor-list-${visitor.id}`} className="p-2 h-8 w-8" title="Edit visitor details"><Edit size={14} /></Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }} data-testid={`button-prebook-visitor-list-${visitor.id}`} className="p-2 h-8 w-8" title="Pre-book this visitor"><CalendarPlus size={14} /></Button>
+                          {visitor.isCheckedIn ? (
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }} disabled={checkoutVisitorMutation.isPending} data-testid={`button-checkout-visitor-list-${visitor.id}`} className="h-9 px-3 text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"><UserX size={15} className="mr-1" />Check Out</Button>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }} data-testid={`button-select-visitor-list-${visitor.id}`} className="h-9 px-3 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"><UserCheck size={15} className="mr-1" />Check In</Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <Badge variant={visitor.isCheckedIn ? "default" : "secondary"} className={visitor.isCheckedIn ? "bg-green-100 text-green-700" : ""}>
+
+                      {/* Mobile-only: actions as a bottom row */}
+                      <div className="sm:hidden flex items-center justify-between gap-2 px-3 pb-3 pt-1">
+                        <Badge variant={visitor.isCheckedIn ? "default" : "secondary"} className={visitor.isCheckedIn ? "bg-green-100 text-green-700 border-green-200 text-xs" : "bg-gray-100 text-gray-600 text-xs"}>
                           {visitor.isCheckedIn ? "On Site" : "Off Site"}
                         </Badge>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }}
-                          data-testid={`button-edit-visitor-list-${visitor.id}`}
-                          className="p-2 h-8 w-8"
-                          title="Edit visitor details"
-                        >
-                          <Edit size={14} />
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }}
-                          data-testid={`button-prebook-visitor-list-${visitor.id}`}
-                          className="p-2 h-8 w-8"
-                          title="Pre-book this visitor"
-                        >
-                          <CalendarPlus size={14} />
-                        </Button>
-                        {visitor.isCheckedIn ? (
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }}
-                            disabled={checkoutVisitorMutation.isPending}
-                            data-testid={`button-checkout-visitor-list-${visitor.id}`}
-                            title="Check out visitor"
-                            className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
-                          >
-                            <UserX size={16} className="mr-1" />
-                            Check Out
-                          </Button>
-                        ) : (
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }}
-                            data-testid={`button-select-visitor-list-${visitor.id}`}
-                            title="Check in visitor"
-                            className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                          >
-                            <UserCheck size={16} className="mr-1" />
-                            Check In
-                          </Button>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handleEditVisitor(visitor); }} data-testid={`button-edit-visitor-list-mob-${visitor.id}`} className="h-9 w-9 p-0" title="Edit"><Edit size={14} /></Button>
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreBookVisitor(visitor); }} data-testid={`button-prebook-visitor-list-mob-${visitor.id}`} className="h-9 w-9 p-0" title="Pre-book"><CalendarPlus size={14} /></Button>
+                          {visitor.isCheckedIn ? (
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkoutVisitorMutation.mutate(visitor.id); }} disabled={checkoutVisitorMutation.isPending} data-testid={`button-checkout-visitor-list-mob-${visitor.id}`} className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50"><UserX size={14} className="mr-1" />Check Out</Button>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); handlePreviousVisitorSelect(visitor); }} data-testid={`button-select-visitor-list-mob-${visitor.id}`} className="h-9 px-3 font-medium text-green-600 border-green-300 hover:bg-green-50"><UserCheck size={14} className="mr-1" />Check In</Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   )
@@ -1455,10 +1438,11 @@ export default function Visitors() {
                     >
                       <SelectValue placeholder="Select host staff member" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper" className="max-h-64 overflow-y-auto">
                       {staff?.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.firstName} {member.lastName} - {member.department}
+                        <SelectItem key={member.id} value={member.id} className="py-3 text-sm">
+                          <span className="font-medium">{member.firstName} {member.lastName}</span>
+                          {member.department && <span className="text-muted-foreground ml-1">— {member.department}</span>}
                         </SelectItem>
                       ))}
                       {(!staff || staff.length === 0) && (
@@ -1843,35 +1827,36 @@ export default function Visitors() {
 
       {/* Host Selection Dialog for Previous Visitors */}
       <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="w-[95vw] max-w-md mx-auto rounded-2xl">
           <DialogHeader>
-            <DialogTitle>Select Host for {selectedPreviousVisitor?.firstName} {selectedPreviousVisitor?.lastName}</DialogTitle>
+            <DialogTitle className="text-base">
+              Who is {selectedPreviousVisitor?.firstName} {selectedPreviousVisitor?.lastName} visiting?
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-variable">
-              Who is {selectedPreviousVisitor?.firstName} {selectedPreviousVisitor?.lastName} visiting today?
-            </p>
             <div className="space-y-2">
-              <Label htmlFor="hostSelection" className="text-sm font-medium text-fixed">
-                Host Staff Member *
-              </Label>
+              <Label className="text-sm font-medium text-fixed">Host Staff Member *</Label>
               <Select 
                 value={selectedHostForPrevious} 
                 onValueChange={setSelectedHostForPrevious}
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select host staff member" />
+                <SelectTrigger className="w-full h-12 text-sm" data-testid="input-host-select">
+                  <SelectValue placeholder="Tap to choose a staff member…" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" className="max-h-64 overflow-y-auto">
                   {staff?.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.firstName} {member.lastName} - {member.department}
+                    <SelectItem key={member.id} value={member.id} className="py-3 text-sm">
+                      <span className="font-medium">{member.firstName} {member.lastName}</span>
+                      {member.department && <span className="text-muted-foreground ml-1">— {member.department}</span>}
                     </SelectItem>
                   ))}
+                  {(!staff || staff.length === 0) && (
+                    <SelectItem key="no-staff" value="no-selection" disabled>No staff members available</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             </div>
-            <div className="flex gap-3 pt-4">
+            <div className="flex gap-3">
               <Button
                 variant="outline"
                 onClick={() => {
@@ -1879,17 +1864,17 @@ export default function Visitors() {
                   setSelectedPreviousVisitor(null);
                   setSelectedHostForPrevious("");
                 }}
-                className="flex-1"
+                className="flex-1 h-12"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleHostSelectionConfirm}
                 disabled={checkInPreviousVisitorMutation.isPending || !selectedHostForPrevious}
-                className="flex-1 bg-blue-600 hover:bg-blue-700"
+                className="flex-1 h-12 bg-blue-600 hover:bg-blue-700 text-sm font-semibold"
                 data-testid="button-confirm-host"
               >
-                {checkInPreviousVisitorMutation.isPending ? "Checking In..." : "Check In & Print Pass"}
+                {checkInPreviousVisitorMutation.isPending ? "Checking In…" : "Check In & Print Pass"}
               </Button>
             </div>
           </div>
