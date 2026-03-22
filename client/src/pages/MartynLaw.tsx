@@ -210,24 +210,24 @@ export default function MartynLaw() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <Shield className="text-blue-600" size={28} />
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Martyn's Law Compliance</h1>
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <Shield className="text-blue-600 flex-shrink-0" size={24} />
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Martyn's Law Compliance</h1>
             <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs">UK Protect Duty</Badge>
           </div>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            The Terrorism (Protection of Premises) Act 2025 — commonly known as Martyn's Law — requires qualifying venues to have a security plan and trained staff. Use this section to document your compliance.
+            The Terrorism (Protection of Premises) Act 2025 — commonly known as Martyn's Law — requires qualifying venues to have a security plan and trained staff.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          <Button variant="outline" onClick={handleDownloadReport}>
-            <Download size={15} className="mr-2" />
+          <Button variant="outline" size="sm" onClick={handleDownloadReport} className="flex-1 sm:flex-none">
+            <Download size={14} className="mr-1.5" />
             Download Report
           </Button>
-          <Button onClick={handleSave} disabled={saveMutation.isPending}>
-            <Save size={16} className="mr-2" />
+          <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending} className="flex-1 sm:flex-none">
+            <Save size={14} className="mr-1.5" />
             {saveMutation.isPending ? "Saving..." : "Save All"}
           </Button>
         </div>
@@ -287,27 +287,29 @@ export default function MartynLaw() {
 
       {/* Compliance Score Banner */}
       <GlassCard className={`border ${complianceBg}`}>
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className={`text-4xl font-bold ${complianceColor}`}>{compliancePercent}%</div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className={`text-3xl sm:text-4xl font-bold ${complianceColor}`}>{compliancePercent}%</div>
             <div>
-              <div className="font-semibold text-gray-800 dark:text-gray-200">Compliance Score</div>
-              <div className="text-sm text-gray-600 dark:text-gray-400">{completedCount} of {totalCount} checklist items completed</div>
+              <div className="font-semibold text-gray-800 dark:text-gray-200 text-sm sm:text-base">Compliance Score</div>
+              <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">{completedCount} of {totalCount} items completed</div>
             </div>
           </div>
-          {form.lastReviewedAt && (
-            <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
-              <div>Last reviewed</div>
-              <div className="font-medium">{format(new Date(form.lastReviewedAt), "dd MMM yyyy")}</div>
-              {form.lastReviewedBy && <div className="text-xs">by {form.lastReviewedBy}</div>}
-            </div>
-          )}
-          {!form.isInScope && (
-            <Badge variant="outline" className="text-amber-700 border-amber-400 dark:text-amber-300">
-              <AlertTriangle size={12} className="mr-1" />
-              Scope not confirmed
-            </Badge>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {form.lastReviewedAt && (
+              <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 text-right">
+                <div>Last reviewed</div>
+                <div className="font-medium">{format(new Date(form.lastReviewedAt), "dd MMM yyyy")}</div>
+                {form.lastReviewedBy && <div className="text-xs">by {form.lastReviewedBy}</div>}
+              </div>
+            )}
+            {!form.isInScope && (
+              <Badge variant="outline" className="text-amber-700 border-amber-400 dark:text-amber-300 text-xs">
+                <AlertTriangle size={11} className="mr-1" />
+                Scope not confirmed
+              </Badge>
+            )}
+          </div>
         </div>
         {/* Progress bar */}
         <div className="mt-3 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -320,11 +322,28 @@ export default function MartynLaw() {
 
       <Tabs defaultValue="overview">
         <TabsList className="grid grid-cols-5 w-full">
-          <TabsTrigger value="overview"><Building size={14} className="mr-1.5" />Venue & Scope</TabsTrigger>
-          <TabsTrigger value="checklist"><ClipboardList size={14} className="mr-1.5" />Checklist</TabsTrigger>
-          <TabsTrigger value="plan"><FileText size={14} className="mr-1.5" />Security Plan</TabsTrigger>
-          <TabsTrigger value="evidence"><BookOpen size={14} className="mr-1.5" />Evidence Log</TabsTrigger>
-          <TabsTrigger value="system"><ShieldCheck size={14} className="mr-1.5" />System Check</TabsTrigger>
+          <TabsTrigger value="overview" className="flex flex-col sm:flex-row items-center gap-0 sm:gap-1.5 px-1 py-2 sm:py-1.5 text-[10px] sm:text-sm">
+            <Building size={16} className="flex-shrink-0" />
+            <span className="hidden xs:inline leading-tight">Venue</span>
+            <span className="hidden sm:inline leading-tight">&amp; Scope</span>
+          </TabsTrigger>
+          <TabsTrigger value="checklist" className="flex flex-col sm:flex-row items-center gap-0 sm:gap-1.5 px-1 py-2 sm:py-1.5 text-[10px] sm:text-sm">
+            <ClipboardList size={16} className="flex-shrink-0" />
+            <span className="hidden xs:inline leading-tight">Checklist</span>
+          </TabsTrigger>
+          <TabsTrigger value="plan" className="flex flex-col sm:flex-row items-center gap-0 sm:gap-1.5 px-1 py-2 sm:py-1.5 text-[10px] sm:text-sm">
+            <FileText size={16} className="flex-shrink-0" />
+            <span className="hidden xs:inline leading-tight">Security</span>
+            <span className="hidden sm:inline leading-tight">Plan</span>
+          </TabsTrigger>
+          <TabsTrigger value="evidence" className="flex flex-col sm:flex-row items-center gap-0 sm:gap-1.5 px-1 py-2 sm:py-1.5 text-[10px] sm:text-sm">
+            <BookOpen size={16} className="flex-shrink-0" />
+            <span className="hidden xs:inline leading-tight">Evidence</span>
+          </TabsTrigger>
+          <TabsTrigger value="system" className="flex flex-col sm:flex-row items-center gap-0 sm:gap-1.5 px-1 py-2 sm:py-1.5 text-[10px] sm:text-sm">
+            <ShieldCheck size={16} className="flex-shrink-0" />
+            <span className="hidden xs:inline leading-tight">System</span>
+          </TabsTrigger>
         </TabsList>
 
         {/* OVERVIEW TAB */}
