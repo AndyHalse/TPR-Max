@@ -11,8 +11,6 @@ import { Progress } from "@/components/ui/progress";
 import { 
   AlertTriangle, 
   Users, 
-  User,
-  UserCheck,
   CheckCircle, 
   XCircle, 
   Search,
@@ -94,6 +92,7 @@ export default function EmergencyMuster() {
   const [emergencyStartTime, setEmergencyStartTime] = useState<Date | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showQrFor, setShowQrFor] = useState<string | null>(null);
+  const [showSafePeople, setShowSafePeople] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
@@ -509,8 +508,6 @@ export default function EmergencyMuster() {
     : musterList.filter(p => p.zoneId && selectedZones.has(p.zoneId));
 
   // Apply search and type filters on top of the zone-filtered list
-  const [showSafePeople, setShowSafePeople] = useState(false);
-
   const filteredList = zonedMusterList.filter(person => {
     const matchesType = typeFilter === 'all' || person.type === typeFilter;
     const matchesSearch = searchTerm === '' || 
