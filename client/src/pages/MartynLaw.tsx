@@ -473,12 +473,12 @@ export default function MartynLaw() {
         {/* CHECKLIST TAB */}
         <TabsContent value="checklist" className="mt-4">
           <GlassCard>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                <ClipboardList size={16} />
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+              <h2 className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+                <ClipboardList size={16} className="flex-shrink-0" />
                 UK Protect Duty Compliance Checklist
               </h2>
-              <span className={`text-sm font-medium ${complianceColor}`}>{completedCount}/{totalCount} complete</span>
+              <span className={`text-sm font-medium flex-shrink-0 ${complianceColor}`}>{completedCount}/{totalCount} complete</span>
             </div>
             <div className="space-y-2">
               {checklist.map((item) => (
@@ -678,14 +678,14 @@ export default function MartynLaw() {
                     ? "bg-amber-50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-800"
                     : "bg-red-50 border-red-200 dark:bg-red-900/10 dark:border-red-800"
                 }`}>
-                  <div className="flex items-center gap-4">
-                    <div className={`text-4xl font-bold ${
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className={`text-3xl sm:text-4xl font-bold ${
                       (systemCheck.compliancePercent ?? 0) >= 80 ? "text-green-600" :
                       (systemCheck.compliancePercent ?? 0) >= 50 ? "text-amber-600" : "text-red-600"
                     }`}>{systemCheck.compliancePercent}%</div>
                     <div>
-                      <div className="font-semibold text-gray-800 dark:text-gray-200">System Compliance Score</div>
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                      <div className="font-semibold text-gray-800 dark:text-gray-200 text-sm sm:text-base">System Compliance Score</div>
+                      <div className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
                         {systemCheck.activeCount} of {systemCheck.totalCount} requirements met
                       </div>
                     </div>
