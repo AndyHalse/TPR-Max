@@ -542,6 +542,27 @@ export const zoneSweeps = pgTable("zone_sweeps", {
   overrideReason: text("override_reason"),
 });
 
+// Evacuation Notes — quick text notes logged during an active evacuation (customer-isolated)
+export const evacuationNotes = pgTable("evacuation_notes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  evacuationId: text("evacuation_id").notNull(),
+  noteText: text("note_text").notNull(),
+  addedBy: text("added_by").notNull(),
+  addedByType: text("added_by_type").notNull().default("firemarshal"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// Evacuation Photos — camera photos captured during an active evacuation (customer-isolated)
+export const evacuationPhotos = pgTable("evacuation_photos", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  evacuationId: text("evacuation_id").notNull(),
+  photoData: text("photo_data").notNull(),
+  caption: text("caption"),
+  addedBy: text("added_by").notNull(),
+  addedByType: text("added_by_type").notNull().default("firemarshal"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Meeting Rooms for tenant companies
 export const meetingRooms = pgTable("meeting_rooms", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

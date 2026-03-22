@@ -24,6 +24,10 @@ import {
   Timer,
   Footprints,
   XCircle,
+  FileText,
+  Camera,
+  X,
+  Send,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -119,8 +123,17 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [showMyZoneOnly, setShowMyZoneOnly] = useState(false);
   const [sweepConfirmZone, setSweepConfirmZone] = useState<{ id: string; name: string; unaccountedCount: number } | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
+
+  // Note and Photo capture state
+  const [showNoteDialog, setShowNoteDialog] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [showPhotoPreview, setShowPhotoPreview] = useState(false);
+  const [pendingPhotoData, setPendingPhotoData] = useState<string | null>(null);
+  const [photoCaption, setPhotoCaption] = useState("");
+
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   // Authenticate using static URL ID
   useEffect(() => {
@@ -551,6 +564,97 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   };
 
+  // ── Compress a File to a base64 JPEG (max 900px wide, quality 0.72)
+  const compressPhoto = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const MAX_W = 900;
+          const scale = img.width > MAX_W ? MAX_W / img.width : 1;
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return reject(new Error("canvas unavailable"));
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          resolve(canvas.toDataURL("image/jpeg", 0.72));
+        };
+        img.onerror = reject;
+        img.src = e.target?.result as string;
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+  // ── Add Note mutation (FM auth)
+  const addNoteMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["X-Emergency-Token"] = token;
+      else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
+      const response = await fetch("/api/emergency/evacuation-note", {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ evacuationId: activeEvacuationId, noteText: text }),
+      });
+      if (!response.ok) throw new Error("Failed to save note");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Note saved", description: "Added to the incident report." });
+      setNoteText("");
+      setShowNoteDialog(false);
+    },
+    onError: () => {
+      toast({ title: "Could not save note", variant: "destructive" });
+    },
+  });
+
+  // ── Add Photo mutation (FM auth)
+  const addPhotoMutation = useMutation({
+    mutationFn: async ({ photoData, caption }: { photoData: string; caption: string }) => {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["X-Emergency-Token"] = token;
+      else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
+      const response = await fetch("/api/emergency/evacuation-photo", {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({ evacuationId: activeEvacuationId, photoData, caption }),
+      });
+      if (!response.ok) throw new Error("Failed to save photo");
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Photo saved", description: "Added to the incident report." });
+      setPendingPhotoData(null);
+      setPhotoCaption("");
+      setShowPhotoPreview(false);
+    },
+    onError: () => {
+      toast({ title: "Could not save photo", variant: "destructive" });
+    },
+  });
+
+  // ── Handle photo file selection
+  const handlePhotoSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressPhoto(file);
+      setPendingPhotoData(compressed);
+      setPhotoCaption("");
+      setShowPhotoPreview(true);
+    } catch {
+      toast({ title: "Could not process photo", variant: "destructive" });
+    }
+    // Reset so same file can be re-selected
+    e.target.value = "";
+  };
+
   const toggleCard = (id: string) => {
     const next = new Set(expandedCards);
     if (next.has(id)) next.delete(id); else next.add(id);
@@ -639,6 +743,110 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         </div>
       )}
 
+      {/* Hidden camera input */}
+      <input
+        ref={photoInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handlePhotoSelected}
+      />
+
+      {/* Note dialog overlay */}
+      {showNoteDialog && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-black/80" onClick={() => { setShowNoteDialog(false); setNoteText(""); }}>
+          <div
+            className="mt-auto bg-white rounded-t-2xl p-5 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <FileText className="h-5 w-5 text-red-600" />
+                Add Evacuation Note
+              </h2>
+              <button onClick={() => { setShowNoteDialog(false); setNoteText(""); }} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mb-3">This note will appear in the incident report with a timestamp.</p>
+            <textarea
+              autoFocus
+              value={noteText}
+              onChange={e => setNoteText(e.target.value)}
+              placeholder="e.g. Visitor refused to evacuate assembly point B, escorted by FM..."
+              className="w-full border border-gray-300 rounded-xl p-3 text-sm text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
+              rows={5}
+              maxLength={1000}
+            />
+            <div className="flex items-center justify-between mt-1 mb-4">
+              <span className="text-xs text-gray-400">{noteText.length}/1000</span>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowNoteDialog(false); setNoteText(""); }}
+                className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => noteText.trim() && addNoteMutation.mutate(noteText.trim())}
+                disabled={!noteText.trim() || addNoteMutation.isPending}
+                className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+                {addNoteMutation.isPending ? "Saving…" : "Save Note"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Photo preview + caption dialog */}
+      {showPhotoPreview && pendingPhotoData && (
+        <div className="fixed inset-0 z-[100] flex flex-col bg-black/90" onClick={() => { setShowPhotoPreview(false); setPendingPhotoData(null); }}>
+          <div
+            className="mt-auto bg-white rounded-t-2xl p-5 shadow-2xl"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <Camera className="h-5 w-5 text-red-600" />
+                Save Photo to Report
+              </h2>
+              <button onClick={() => { setShowPhotoPreview(false); setPendingPhotoData(null); }} className="text-gray-400 hover:text-gray-600 p-1">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <img src={pendingPhotoData} alt="Preview" className="w-full max-h-52 object-contain rounded-xl border border-gray-200 mb-3 bg-gray-50" />
+            <input
+              type="text"
+              value={photoCaption}
+              onChange={e => setPhotoCaption(e.target.value)}
+              placeholder="Optional caption (e.g. Exit B blocked by debris)"
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
+              maxLength={200}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowPhotoPreview(false); setPendingPhotoData(null); }}
+                className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm"
+              >
+                Discard
+              </button>
+              <button
+                onClick={() => pendingPhotoData && addPhotoMutation.mutate({ photoData: pendingPhotoData, caption: photoCaption })}
+                disabled={addPhotoMutation.isPending}
+                className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+                {addPhotoMutation.isPending ? "Saving…" : "Save Photo"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className={`sticky top-0 z-50 text-white shadow-lg ${isEmergencyActive ? 'bg-red-600' : 'bg-orange-600'}`}>
         <div className={`p-3 ${isEmergencyActive ? 'animate-pulse' : ''}`}>
@@ -665,6 +873,26 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             </Button>
           </div>
         </div>
+        {/* Quick-capture row — only during active evacuation */}
+        {isEmergencyActive && activeEvacuationId && (
+          <div className="flex border-t border-white/20">
+            <button
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors"
+              onClick={() => { setNoteText(""); setShowNoteDialog(true); }}
+            >
+              <FileText className="h-4 w-4" />
+              Add Note
+            </button>
+            <div className="w-px bg-white/20" />
+            <button
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors"
+              onClick={() => photoInputRef.current?.click()}
+            >
+              <Camera className="h-4 w-4" />
+              Take Photo
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Name input — only shown when not URL-authenticated (no marshalInfo) */}
