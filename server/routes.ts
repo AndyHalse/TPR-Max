@@ -4667,6 +4667,105 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             reportUrl,
           });
           console.log(`📄 Incident report record saved for evacuation ${evacuationId}`);
+
+          // ── Email incident report summary to all designated Fire Marshals ──
+          try {
+            // Fetch all active fire marshal staff who have an email
+            const fmStaff = await custDb
+              .select({
+                id: isolatedSchema.staff.id,
+                firstName: isolatedSchema.staff.firstName,
+                lastName: isolatedSchema.staff.lastName,
+                email: isolatedSchema.staff.email,
+              })
+              .from(isolatedSchema.staff)
+              .where(and(
+                eq(isolatedSchema.staff.isFireMarshal, true),
+                eq(isolatedSchema.staff.isActive, true),
+              ));
+
+            const fmWithEmail = fmStaff.filter(fm => fm.email?.trim());
+
+            if (fmWithEmail.length > 0) {
+              // Get company name from settings for the email
+              let companyName = 'Your Organisation';
+              try {
+                const settingsRows = await custDb
+                  .select({ companyName: isolatedSchema.companySettings.companyName })
+                  .from(isolatedSchema.companySettings)
+                  .limit(1);
+                if (settingsRows[0]?.companyName) companyName = settingsRows[0].companyName;
+              } catch { /* ignore — use fallback */ }
+
+              const isDrillLabel = completedEvac?.isDrill ? '[FIRE DRILL] ' : '';
+              const eventLabel = completedEvac?.isDrill ? 'Fire Drill' : 'Emergency Evacuation';
+              const durLabel = durSec !== null
+                ? durSec >= 60
+                  ? `${Math.floor(durSec / 60)} min ${durSec % 60} sec`
+                  : `${durSec} sec`
+                : 'Unknown';
+              const reportLink = `/incident-reports`;
+              const pctColour = pct >= 100 ? '#16a34a' : pct >= 75 ? '#d97706' : '#dc2626';
+              const subject = `${isDrillLabel}Incident Report — ${eventLabel} completed`;
+              const html = `
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  body{font-family:Arial,sans-serif;color:#1a2e4a;background:#f4f4f4;margin:0;padding:0}
+  .wrap{max-width:620px;margin:32px auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)}
+  .header{background:${completedEvac?.isDrill ? '#d97706' : '#dc2626'};color:#fff;padding:24px 28px}
+  .header h1{margin:0;font-size:20px}
+  .header p{margin:4px 0 0;font-size:13px;opacity:.88}
+  .body{padding:28px}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+  .stat{background:#f8f8f8;border-radius:8px;padding:16px;text-align:center}
+  .stat .val{font-size:28px;font-weight:700;color:#1a2e4a}
+  .stat .lbl{font-size:12px;color:#64748b;margin-top:4px}
+  .pct{font-size:36px;font-weight:800;color:${pctColour};text-align:center;margin:8px 0}
+  .btn{display:inline-block;background:#1a2e4a;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-top:20px}
+  .footer{background:#f4f4f4;padding:14px 28px;font-size:11px;color:#94a3b8;text-align:center}
+</style></head><body>
+<div class="wrap">
+  <div class="header">
+    <h1>${isDrillLabel}${eventLabel} — Incident Report</h1>
+    <p>${companyName} &bull; ${new Date().toLocaleDateString('en-GB', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</p>
+  </div>
+  <div class="body">
+    <p>The ${eventLabel.toLowerCase()} has been closed. Here is the final accountability summary:</p>
+    <div class="pct">${pct}% Accounted For</div>
+    <div class="stat-grid">
+      <div class="stat"><div class="val">${totalCt}</div><div class="lbl">Total On Site</div></div>
+      <div class="stat"><div class="val" style="color:#16a34a">${accountedCt}</div><div class="lbl">Accounted For</div></div>
+      <div class="stat"><div class="val" style="color:${unaccountedCt > 0 ? '#dc2626' : '#16a34a'}">${unaccountedCt}</div><div class="lbl">Unaccounted</div></div>
+      <div class="stat"><div class="val">${durLabel}</div><div class="lbl">Duration</div></div>
+    </div>
+    ${completedEvac?.activatedBy ? `<p style="font-size:13px;color:#64748b">Activated by: <strong>${completedEvac.activatedBy}</strong></p>` : ''}
+    <p>The full incident report (including notes and photos captured by Fire Marshals) is available in the TPR Max admin portal.</p>
+    <a href="${reportLink}" class="btn">View Full Incident Report</a>
+  </div>
+  <div class="footer">This is an automated notification from TPR Max &mdash; Visitor Management System. Do not reply to this email.</div>
+</div>
+</body></html>`;
+
+              const fmEmailService = emailService.forCustomer(customerId);
+              let sent = 0;
+              for (const fm of fmWithEmail) {
+                const ok = await fmEmailService.sendEmail({
+                  to: fm.email!,
+                  subject,
+                  html,
+                  text: `${isDrillLabel}${eventLabel} complete. Accountability: ${accountedCt}/${totalCt} (${pct}%). Duration: ${durLabel}. View the full report in TPR Max.`,
+                  companyName,
+                });
+                if (ok) sent++;
+              }
+              console.log(`📧 Incident report emailed to ${sent}/${fmWithEmail.length} Fire Marshal(s)`);
+            } else {
+              console.log(`📧 No Fire Marshals with email found — skipping incident report email`);
+            }
+          } catch (fmEmailErr: any) {
+            console.error(`⚠️ Failed to email incident report to Fire Marshals: ${fmEmailErr.message}`);
+          }
+
         } else {
           console.log(`📄 Incident report already exists for evacuation ${evacuationId}, skipping duplicate insert`);
         }
