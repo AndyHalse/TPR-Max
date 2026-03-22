@@ -1195,29 +1195,29 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                   )}
                   <p>How would you like to complete this evacuation?</p>
                   <div className="space-y-2">
-                    <p className="text-sm text-gray-600"><strong>Keep Everyone Checked In:</strong> Personnel remain checked in and can return to work immediately.</p>
-                    <p className="text-sm text-gray-600"><strong>Check Out All Safe Personnel:</strong> Only people marked safe will be checked out. They'll need to check in again when returning.</p>
+                    <p className="text-sm text-gray-600"><strong>End & Check Out All Personnel:</strong> All on-site staff, visitors and contractors are checked out. They'll need to check in again when returning.</p>
+                    <p className="text-sm text-gray-600"><strong>End & Keep Personnel Checked In:</strong> Everyone remains checked in and can return to work immediately without re-checking in.</p>
                   </div>
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="flex-col sm:flex-col gap-2">
                 <AlertDialogAction
-                  className="w-full bg-green-600 hover:bg-green-700 h-12"
-                  onClick={(e) => { e.preventDefault(); completeEvacuationMutation.mutate({ checkOutMode: 'keep_checked_in' }); }}
-                  disabled={completeEvacuationMutation.isPending}
-                  data-testid="button-keep-checked-in"
-                >
-                  <UserCheck className="h-5 w-5 mr-2" />
-                  Keep Everyone Checked In
-                </AlertDialogAction>
-                <AlertDialogAction
-                  className="w-full bg-orange-600 hover:bg-orange-700 h-12"
+                  className="w-full bg-red-700 hover:bg-red-800 h-12"
                   onClick={(e) => { e.preventDefault(); completeEvacuationMutation.mutate({ checkOutMode: 'check_out_all' }); }}
                   disabled={completeEvacuationMutation.isPending}
                   data-testid="button-check-out-all"
                 >
                   <LogOut className="h-5 w-5 mr-2" />
-                  Check Out All Safe Personnel
+                  {completeEvacuationMutation.isPending ? "Ending…" : "End & Check Out All Personnel"}
+                </AlertDialogAction>
+                <AlertDialogAction
+                  className="w-full bg-transparent border border-red-300 text-red-700 hover:bg-red-50 h-12"
+                  onClick={(e) => { e.preventDefault(); completeEvacuationMutation.mutate({ checkOutMode: 'keep_checked_in' }); }}
+                  disabled={completeEvacuationMutation.isPending}
+                  data-testid="button-keep-checked-in"
+                >
+                  <UserCheck className="h-5 w-5 mr-2" />
+                  {completeEvacuationMutation.isPending ? "Ending…" : "End & Keep Personnel Checked In"}
                 </AlertDialogAction>
                 <AlertDialogCancel className="w-full h-12" data-testid="button-cancel-complete">Cancel</AlertDialogCancel>
               </AlertDialogFooter>

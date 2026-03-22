@@ -4585,38 +4585,30 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       let visitorsCheckedOut = 0;
       let contractorsCheckedOut = 0;
 
-      // If check_out_all mode, check out everyone who was marked safe
+      // If check_out_all mode, check out ALL currently on-site personnel
       if (checkOutMode === 'check_out_all') {
-        // Get all people who were marked safe in this evacuation
-        const accountedPeople = await db
-          .select()
-          .from(evacuationAccountability)
-          .where(
-            and(
-              eq(evacuationAccountability.evacuationId, evacuationId),
-              eq(evacuationAccountability.isAccountedFor, true),
-              eq(evacuationAccountability.customerId, customerId)
-            )
-          );
+        const custDb = await customerDbService.getCustomerDatabase(customerId);
 
-        console.log(`📤 Checking out ${accountedPeople.length} accounted people`);
+        // Fetch all currently checked-in people from the isolated customer DB
+        const [onSiteStaff, onSiteVisitors, onSiteContractors] = await Promise.all([
+          custDb.select({ id: isolatedSchema.staff.id }).from(isolatedSchema.staff).where(eq(isolatedSchema.staff.isCheckedIn, true)),
+          custDb.select({ id: isolatedSchema.visitors.id }).from(isolatedSchema.visitors).where(eq(isolatedSchema.visitors.isCheckedIn, true)),
+          custDb.select({ id: isolatedSchema.contractorWorkers.id }).from(isolatedSchema.contractorWorkers).where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true)),
+        ]);
 
-        for (const person of accountedPeople) {
-          try {
-            if (person.personType === 'staff') {
-              await databaseService.checkOutStaff(context, person.personId);
-              staffCheckedOut++;
-            } else if (person.personType === 'visitor') {
-              await databaseService.checkOutVisitor(context, person.personId);
-              visitorsCheckedOut++;
-            } else if (person.personType === 'contractor') {
-              await databaseService.checkOutContractorWorker(context, person.personId);
-              contractorsCheckedOut++;
-            }
-            checkedOutCount++;
-          } catch (error) {
-            console.error(`❌ Failed to check out ${person.personType} ${person.personId}:`, error);
-          }
+        console.log(`📤 Checking out all on-site: ${onSiteStaff.length} staff, ${onSiteVisitors.length} visitors, ${onSiteContractors.length} contractors`);
+
+        for (const s of onSiteStaff) {
+          try { await databaseService.checkOutStaff(context, s.id); staffCheckedOut++; checkedOutCount++; }
+          catch (e: any) { console.error(`❌ Failed to check out staff ${s.id}:`, e.message); }
+        }
+        for (const v of onSiteVisitors) {
+          try { await databaseService.checkOutVisitor(context, v.id); visitorsCheckedOut++; checkedOutCount++; }
+          catch (e: any) { console.error(`❌ Failed to check out visitor ${v.id}:`, e.message); }
+        }
+        for (const c of onSiteContractors) {
+          try { await databaseService.checkOutContractorWorker(context, c.id); contractorsCheckedOut++; checkedOutCount++; }
+          catch (e: any) { console.error(`❌ Failed to check out contractor ${c.id}:`, e.message); }
         }
       }
 

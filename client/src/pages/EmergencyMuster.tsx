@@ -1760,7 +1760,7 @@ export default function EmergencyMuster() {
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">End Evacuation?</h2>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">
-              Ending the evacuation will mark it as complete and automatically save an incident report. Choose what to do with checked-in personnel:
+              Ending the evacuation will mark it as complete and automatically save an incident report. Choose what to do with on-site personnel:
             </p>
             <div className="flex flex-col gap-3">
               <Button
@@ -1768,7 +1768,7 @@ export default function EmergencyMuster() {
                 disabled={completeEvacuationMutation.isPending}
                 onClick={() => completeEvacuationMutation.mutate('check_out_all')}
               >
-                {completeEvacuationMutation.isPending ? "Ending…" : "End & Check Out All Accounted"}
+                {completeEvacuationMutation.isPending ? "Ending…" : "End & Check Out All Personnel"}
               </Button>
               <Button
                 variant="outline"
