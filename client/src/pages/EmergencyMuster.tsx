@@ -576,8 +576,22 @@ export default function EmergencyMuster() {
   });
 
   const completeEvacuationMutation = useMutation({
-    mutationFn: (checkOutMode: 'keep_checked_in' | 'check_out_all') =>
-      apiRequest("POST", "/api/emergency/complete-evacuation", { checkOutMode }),
+    mutationFn: async (checkOutMode: 'keep_checked_in' | 'check_out_all') => {
+      const response = await fetch("/api/emergency/complete-evacuation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ checkOutMode }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const err: any = new Error(data?.error || "Failed to end evacuation");
+        err.status = response.status;
+        err.serverMessage = data?.error;
+        throw err;
+      }
+      return data;
+    },
     onSuccess: (data: any) => {
       // Immediately reset UI to idle — don't wait for the query to refetch
       setShowEndEvacDialog(false);
@@ -590,7 +604,7 @@ export default function EmergencyMuster() {
       toast({
         title: isDrillMode ? "Fire Drill Ended" : "Evacuation Ended",
         description: data?.checkOutMode === 'check_out_all'
-          ? `All accounted personnel checked out. Incident report saved — view it in the header.`
+          ? `All personnel checked out. Incident report saved — view it in the header.`
           : `Evacuation closed. Personnel remain checked in. Incident report saved — view it in the header.`,
         duration: 6000,
       });
@@ -599,8 +613,22 @@ export default function EmergencyMuster() {
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/incident-reports"] });
     },
-    onError: () => {
-      toast({ title: "Failed to end evacuation", description: "Please try again or use a Fire Marshal link.", variant: "destructive" });
+    onError: (error: any) => {
+      // Always close the dialog — never leave it open on error
+      setShowEndEvacDialog(false);
+      setEmergencyPhase('idle');
+      setEmergencyActive(false);
+      if (error?.status === 404) {
+        // Evacuation was already completed (e.g. double-click or concurrent session)
+        toast({
+          title: "Evacuation Already Ended",
+          description: "This evacuation has already been closed. The system is up to date.",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/evacuation/status"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+      } else {
+        toast({ title: "Failed to End Evacuation", description: error?.serverMessage || "An unexpected error occurred. Please try again.", variant: "destructive" });
+      }
     }
   });
 

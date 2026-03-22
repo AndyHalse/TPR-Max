@@ -509,11 +509,14 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         credentials: 'include',
         body: JSON.stringify({ evacuationId: activeEvacuationId, checkOutMode })
       });
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        throw new Error(err.error || 'Failed to complete evacuation');
+        const err: any = new Error(data?.error || 'Failed to complete evacuation');
+        err.status = response.status;
+        err.serverMessage = data?.error;
+        throw err;
       }
-      return response.json();
+      return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
@@ -529,7 +532,17 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       setEvacuationDetails(null);
     },
     onError: (error: any) => {
-      toast({ title: "Error", description: error.message || "Failed to complete evacuation", variant: "destructive" });
+      if (error?.status === 404) {
+        toast({
+          title: "Evacuation Already Ended",
+          description: "This evacuation has already been closed. The page will refresh.",
+        });
+        setActiveEvacuationId(null);
+        setEvacuationDetails(null);
+        queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
+      } else {
+        toast({ title: "Error", description: error?.serverMessage || "Failed to complete evacuation", variant: "destructive" });
+      }
     }
   });
 
