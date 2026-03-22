@@ -169,12 +169,24 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         try {
           const message = JSON.parse(event.data);
           if (message.type === 'muster_update') {
-            queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
-            const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
-            toast({
-              title: "Real-time Update",
-              description: `${message.personName} marked as ${statusText}`,
-            });
+            // Silently patch the one person — no toast, no full list refetch
+            if (message.personId !== undefined && message.isAccountedFor !== undefined) {
+              queryClient.setQueryData(
+                ['/api/emergency/fire-marshal', urlId, 'personnel'],
+                (old: any) => {
+                  if (!old?.people) return old;
+                  const updatedPeople = old.people.map((p: any) =>
+                    p.id === message.personId
+                      ? { ...p, isAccountedFor: message.isAccountedFor, accountedBy: message.personName }
+                      : p
+                  );
+                  const accountedFor = updatedPeople.filter((p: any) => p.isAccountedFor).length;
+                  return { ...old, people: updatedPeople, accountedFor, unaccounted: old.totalOnSite - accountedFor };
+                }
+              );
+            } else {
+              queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
+            }
           }
           if (message.type === 'personnel_update') {
             queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
@@ -316,7 +328,27 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       if (!response.ok) throw new Error("Failed to mark person as safe");
       return response.json();
     },
-    onSuccess: (data) => {
+    onMutate: async ({ personId }) => {
+      // Cancel in-flight fetches so they don't clobber the optimistic state
+      await queryClient.cancelQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
+      const previousData = queryClient.getQueryData(['/api/emergency/fire-marshal', urlId, 'personnel']);
+      // Instantly flip this person to safe — button disappears before the server replies
+      queryClient.setQueryData(
+        ['/api/emergency/fire-marshal', urlId, 'personnel'],
+        (old: any) => {
+          if (!old?.people) return old;
+          const updatedPeople = old.people.map((p: any) =>
+            p.id === personId
+              ? { ...p, isAccountedFor: true, accountedBy: marshalName }
+              : p
+          );
+          const accountedFor = updatedPeople.filter((p: any) => p.isAccountedFor).length;
+          return { ...old, people: updatedPeople, accountedFor, unaccounted: old.totalOnSite - accountedFor };
+        }
+      );
+      return { previousData };
+    },
+    onSuccess: (data, _vars, _context) => {
       if (data.evacuationId && !activeEvacuationId) {
         setActiveEvacuationId(data.evacuationId);
       }
@@ -325,13 +357,27 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         next.delete(data.personId);
         setExpandedCards(next);
       }
-      queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/emergency/accountability', activeEvacuationId || ''] });
-      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      toast({ title: "Marked Safe", description: `${data.personName || 'Person'} has been marked as safe` });
+      // Confirm the optimistic state with the server's actual values
+      queryClient.setQueryData(
+        ['/api/emergency/fire-marshal', urlId, 'personnel'],
+        (old: any) => {
+          if (!old?.people) return old;
+          const updatedPeople = old.people.map((p: any) =>
+            p.id === data.personId
+              ? { ...p, isAccountedFor: true, accountedBy: marshalName }
+              : p
+          );
+          const accountedFor = updatedPeople.filter((p: any) => p.isAccountedFor).length;
+          return { ...old, people: updatedPeople, accountedFor, unaccounted: old.totalOnSite - accountedFor };
+        }
+      );
       if (navigator.vibrate) navigator.vibrate(200);
     },
-    onError: () => {
+    onError: (_error, _vars, context: any) => {
+      // Roll back the optimistic update on failure
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/emergency/fire-marshal', urlId, 'personnel'], context.previousData);
+      }
       toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
     }
   });
@@ -725,14 +771,10 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                       }
                       markSafeMutation.mutate({ personId: person.id });
                     }}
-                    disabled={markSafeMutation.isPending || !marshalName}
+                    disabled={!marshalName}
                     data-testid={`button-mark-safe-mobile-${person.id}`}
                   >
-                    {markSafeMutation.isPending ? (
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <><CheckCircle2 className="h-4 w-4 mr-1" />Safe</>
-                    )}
+                    <><CheckCircle2 className="h-4 w-4 mr-1" />Safe</>
                   </Button>
                 )}
               </div>
