@@ -4704,15 +4704,149 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
                   ? `${Math.floor(durSec / 60)} min ${durSec % 60} sec`
                   : `${durSec} sec`
                 : 'Unknown';
-              const reportLink = `/incident-reports`;
               const pctColour = pct >= 100 ? '#16a34a' : pct >= 75 ? '#d97706' : '#dc2626';
               const subject = `${isDrillLabel}Incident Report — ${eventLabel} completed`;
-              const html = `
+              const headerBg = completedEvac?.isDrill ? '#d97706' : '#dc2626';
+              const today = new Date().toLocaleDateString('en-GB', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+              // ── Build the full report HTML for the PDF attachment ──────────────────
+              const escPdf = (s: string | null | undefined): string => {
+                if (!s) return '—';
+                return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+              };
+              const startedAt = completedEvac?.startedAt ? new Date(completedEvac.startedAt) : new Date();
+              const completedAt = completedEvac?.completedAt ? new Date(completedEvac.completedAt) : new Date();
+              const fmtTime = (d: Date) => d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+              const fmtDate = (d: Date) => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+              // Fetch notes + photos for the attachment
+              let fmNotes: any[] = [];
+              let fmPhotos: any[] = [];
+              try {
+                fmNotes = await custDb.select().from(isolatedSchema.evacuationNotes)
+                  .where(eq(isolatedSchema.evacuationNotes.evacuationId, evacuationId))
+                  .orderBy(isolatedSchema.evacuationNotes.createdAt);
+              } catch { /* table may not exist */ }
+              try {
+                fmPhotos = await custDb.select().from(isolatedSchema.evacuationPhotos)
+                  .where(eq(isolatedSchema.evacuationPhotos.evacuationId, evacuationId))
+                  .orderBy(isolatedSchema.evacuationPhotos.createdAt);
+              } catch { /* table may not exist */ }
+
+              const accounted = allAccountability.filter((p: any) => p.isAccountedFor);
+              const unaccountedPeople = allAccountability.filter((p: any) => !p.isAccountedFor);
+
+              const personRows = (people: any[]) => people.map(p => `
+                <tr style="border-bottom:1px solid #e5e7eb;">
+                  <td style="padding:5px 8px;">${escPdf(p.personName)}</td>
+                  <td style="padding:5px 8px;text-transform:capitalize;">${escPdf(p.personType)}</td>
+                  <td style="padding:5px 8px;">${escPdf(p.department || p.company)}</td>
+                  <td style="padding:5px 8px;">${escPdf(p.lastKnownLocation)}</td>
+                  <td style="padding:5px 8px;text-align:center;">${p.isAccountedFor
+                    ? `<span style="color:#16a34a;font-weight:bold;">&#10003; Accounted</span>`
+                    : `<span style="color:#dc2626;font-weight:bold;">&#10007; Missing</span>`}
+                  </td>
+                  <td style="padding:5px 8px;">${p.accountedAt ? fmtTime(new Date(p.accountedAt)) : '—'}</td>
+                </tr>`).join('');
+
+              const reportHtml = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8">
+<title>${escPdf(eventLabel)} — Incident Report</title>
+<style>
+  body{font-family:Arial,sans-serif;color:#111;margin:0;padding:20px;font-size:13px}
+  h1{color:${headerBg};margin:0 0 4px}
+  h2{color:#1a2e4a;margin:20px 0 6px;font-size:14px;border-bottom:2px solid #1a2e4a;padding-bottom:3px}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  th{background:#1a2e4a;color:#fff;padding:7px 8px;text-align:left}
+  .stat-box{display:inline-block;background:#f3f4f6;border-radius:6px;padding:10px 18px;margin:4px 6px 4px 0;min-width:90px;text-align:center}
+  .stat-num{font-size:24px;font-weight:bold;color:#1a2e4a}
+  .stat-lbl{font-size:10px;color:#555}
+  .kv{margin:3px 0} .kv strong{display:inline-block;min-width:180px}
+  ${completedEvac?.isDrill ? '.drill{background:#fef3c7;border:2px solid #d97706;border-radius:6px;padding:10px 16px;margin-bottom:12px;text-align:center;color:#92400e;font-weight:bold}' : ''}
+  @media print{body{padding:0}}
+</style></head><body>
+<div style="display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid ${headerBg};padding-bottom:12px;margin-bottom:14px">
+  <div><h1>${isDrillLabel}${eventLabel} — Incident Report</h1><p style="margin:2px 0;color:#555;font-size:12px">Ref: ${escPdf(evacuationId)}</p></div>
+  <div style="text-align:right;font-size:12px;color:#555"><strong>${escPdf(companyName)}</strong><br>Generated: ${fmtDate(new Date())} ${fmtTime(new Date())}</div>
+</div>
+${completedEvac?.isDrill ? '<div class="drill">&#128998; FIRE DRILL — This was a scheduled drill, NOT a real emergency.</div>' : ''}
+<h2>Event Summary</h2>
+<div class="kv"><strong>Event type:</strong> ${escPdf(eventLabel)}</div>
+<div class="kv"><strong>Activated by:</strong> ${escPdf(completedEvac?.activatedBy)}</div>
+<div class="kv"><strong>Alarm raised:</strong> ${fmtDate(startedAt)} at ${fmtTime(startedAt)}</div>
+<div class="kv"><strong>All-clear given:</strong> ${fmtDate(completedAt)} at ${fmtTime(completedAt)}</div>
+<div class="kv"><strong>Duration:</strong> ${durLabel}</div>
+<h2>Accountability Statistics</h2>
+<div>
+  <div class="stat-box"><div class="stat-num">${totalCt}</div><div class="stat-lbl">Total On-Site</div></div>
+  <div class="stat-box"><div class="stat-num" style="color:#16a34a">${accountedCt}</div><div class="stat-lbl">Accounted For</div></div>
+  <div class="stat-box"><div class="stat-num" style="color:#dc2626">${unaccountedCt}</div><div class="stat-lbl">Unaccounted</div></div>
+  <div class="stat-box"><div class="stat-num">${pct}%</div><div class="stat-lbl">Completion Rate</div></div>
+</div>
+${unaccountedPeople.length > 0 ? `
+<h2 style="color:#dc2626">&#9888; Unaccounted Personnel (${unaccountedPeople.length})</h2>
+<table><tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Last Known Zone</th><th>Status</th><th>Time</th></tr>
+${personRows(unaccountedPeople)}
+</table>` : '<h2 style="color:#16a34a">&#10003; All Personnel Accounted For</h2>'}
+<h2>Full Personnel Register</h2>
+<table><tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Last Known Zone</th><th>Status</th><th>Accounted At</th></tr>
+${personRows(allAccountability)}
+</table>
+${fmNotes.length > 0 ? `
+<h2>&#128221; Event Notes (${fmNotes.length})</h2>
+${fmNotes.map((n: any) => {
+  const t = new Date(n.createdAt);
+  const elMin = Math.max(0, Math.floor((t.getTime() - startedAt.getTime()) / 60000));
+  const elSec = Math.max(0, Math.round(((t.getTime() - startedAt.getTime()) % 60000) / 1000));
+  return `<div style="border-left:3px solid #1a2e4a;padding:8px 12px;margin:6px 0;background:#f8f8f8;border-radius:4px">
+    <div style="font-size:11px;color:#666;margin-bottom:4px">${fmtTime(t)} (+${elMin}m ${elSec}s) &mdash; ${escPdf(n.addedBy)}</div>
+    <div>${escPdf(n.noteText)}</div>
+  </div>`;
+}).join('')}` : ''}
+${fmPhotos.length > 0 ? `
+<h2>&#128247; Photos (${fmPhotos.length})</h2>
+<div style="display:flex;flex-wrap:wrap;gap:12px">
+${fmPhotos.map((ph: any) => {
+  const t = new Date(ph.createdAt);
+  const elMin = Math.max(0, Math.floor((t.getTime() - startedAt.getTime()) / 60000));
+  const elSec = Math.max(0, Math.round(((t.getTime() - startedAt.getTime()) % 60000) / 1000));
+  return `<div style="max-width:220px;text-align:center">
+    <img src="${ph.photoData}" style="width:220px;height:165px;object-fit:cover;border-radius:6px;border:1px solid #e5e7eb" alt="Evacuation photo">
+    <div style="font-size:10px;color:#666;margin-top:3px">${fmtTime(t)} (+${elMin}m ${elSec}s)</div>
+    ${ph.caption ? `<div style="font-size:11px;color:#444;margin-top:2px">${escPdf(ph.caption)}</div>` : ''}
+  </div>`;
+}).join('')}
+</div>` : ''}
+<div style="margin-top:24px;padding-top:12px;border-top:1px solid #e5e7eb;font-size:10px;color:#94a3b8;text-align:center">
+  This report was auto-generated by TPR Max Visitor Management System
+</div>
+</body></html>`;
+
+              // Try to generate a PDF attachment (Puppeteer), fall back to HTML
+              let pdfAttachment: { filename: string; content: Buffer | string; contentType: string } | null = null;
+              try {
+                let puppeteer: any;
+                try { puppeteer = await import('puppeteer'); } catch { throw new Error('puppeteer_unavailable'); }
+                const browser = await puppeteer.default.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+                try {
+                  const page = await browser.newPage();
+                  await page.setContent(reportHtml, { waitUntil: 'networkidle0' });
+                  const pdfBuf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } });
+                  await browser.close();
+                  pdfAttachment = { filename: `incident-report-${evacuationId}.pdf`, content: Buffer.from(pdfBuf), contentType: 'application/pdf' };
+                  console.log(`📄 Incident report PDF generated (${pdfBuf.byteLength} bytes)`);
+                } catch (e) { await browser.close(); throw e; }
+              } catch (pdfErr: any) {
+                console.warn(`⚠️ PDF generation failed for FM email, attaching HTML instead: ${pdfErr.message}`);
+                pdfAttachment = { filename: `incident-report-${evacuationId}.html`, content: reportHtml, contentType: 'text/html' };
+              }
+
+              // ── Build the notification email body ──────────────────────────────────
+              const emailHtml = `
 <!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
   body{font-family:Arial,sans-serif;color:#1a2e4a;background:#f4f4f4;margin:0;padding:0}
   .wrap{max-width:620px;margin:32px auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1)}
-  .header{background:${completedEvac?.isDrill ? '#d97706' : '#dc2626'};color:#fff;padding:24px 28px}
+  .header{background:${headerBg};color:#fff;padding:24px 28px}
   .header h1{margin:0;font-size:20px}
   .header p{margin:4px 0 0;font-size:13px;opacity:.88}
   .body{padding:28px}
@@ -4721,13 +4855,13 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   .stat .val{font-size:28px;font-weight:700;color:#1a2e4a}
   .stat .lbl{font-size:12px;color:#64748b;margin-top:4px}
   .pct{font-size:36px;font-weight:800;color:${pctColour};text-align:center;margin:8px 0}
-  .btn{display:inline-block;background:#1a2e4a;color:#fff;padding:12px 28px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-top:20px}
+  .attach-note{background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:12px 16px;margin-top:20px;font-size:13px;color:#0c4a6e;display:flex;align-items:center;gap:10px}
   .footer{background:#f4f4f4;padding:14px 28px;font-size:11px;color:#94a3b8;text-align:center}
 </style></head><body>
 <div class="wrap">
   <div class="header">
     <h1>${isDrillLabel}${eventLabel} — Incident Report</h1>
-    <p>${companyName} &bull; ${new Date().toLocaleDateString('en-GB', { weekday:'long', year:'numeric', month:'long', day:'numeric' })}</p>
+    <p>${companyName} &bull; ${today}</p>
   </div>
   <div class="body">
     <p>The ${eventLabel.toLowerCase()} has been closed. Here is the final accountability summary:</p>
@@ -4739,8 +4873,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       <div class="stat"><div class="val">${durLabel}</div><div class="lbl">Duration</div></div>
     </div>
     ${completedEvac?.activatedBy ? `<p style="font-size:13px;color:#64748b">Activated by: <strong>${completedEvac.activatedBy}</strong></p>` : ''}
-    <p>The full incident report (including notes and photos captured by Fire Marshals) is available in the TPR Max admin portal.</p>
-    <a href="${reportLink}" class="btn">View Full Incident Report</a>
+    <div class="attach-note">
+      &#128206; The full incident report${fmNotes.length > 0 || fmPhotos.length > 0 ? ` (including ${fmNotes.length} note${fmNotes.length !== 1 ? 's' : ''} and ${fmPhotos.length} photo${fmPhotos.length !== 1 ? 's' : ''} captured by Fire Marshals)` : ''} is attached to this email as a PDF.
+    </div>
   </div>
   <div class="footer">This is an automated notification from TPR Max &mdash; Visitor Management System. Do not reply to this email.</div>
 </div>
@@ -4752,13 +4887,14 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
                 const ok = await fmEmailService.sendEmail({
                   to: fm.email!,
                   subject,
-                  html,
-                  text: `${isDrillLabel}${eventLabel} complete. Accountability: ${accountedCt}/${totalCt} (${pct}%). Duration: ${durLabel}. View the full report in TPR Max.`,
+                  html: emailHtml,
+                  text: `${isDrillLabel}${eventLabel} complete. Accountability: ${accountedCt}/${totalCt} (${pct}%). Duration: ${durLabel}. The full incident report is attached as a PDF.`,
                   companyName,
+                  attachments: pdfAttachment ? [pdfAttachment] : [],
                 });
                 if (ok) sent++;
               }
-              console.log(`📧 Incident report emailed to ${sent}/${fmWithEmail.length} Fire Marshal(s)`);
+              console.log(`📧 Incident report emailed to ${sent}/${fmWithEmail.length} Fire Marshal(s) with PDF attachment`);
             } else {
               console.log(`📧 No Fire Marshals with email found — skipping incident report email`);
             }
