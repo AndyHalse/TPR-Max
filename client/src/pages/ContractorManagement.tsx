@@ -95,7 +95,7 @@ export default function ContractorManagement() {
   const [showAllWorkers, setShowAllWorkers] = useState(false);
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [companyViewMode, setCompanyViewMode] = useState<'grid' | 'list'>('grid');
-  const [previousViewMode, setPreviousViewMode] = useState<'grid' | 'list'>('grid');
+  const [previousViewMode, setPreviousViewMode] = useState<'grid' | 'list'>('list');
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [selectedWorker, setSelectedWorker] = useState<ContractorWorker | null>(null);
   const [selectedCompanyName, setSelectedCompanyName] = useState<string>("");
@@ -1205,171 +1205,106 @@ export default function ContractorManagement() {
                   </div>
                 </GlassCard>
                 ) : (
-                <GlassCard key={contractor.id} className="p-3 hover:shadow-md transition-shadow cursor-pointer" onClick={() => setViewingWorker(contractor)}>
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-4 flex-1 min-w-0">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <h3 className="font-semibold text-fixed">{contractor.firstName} {contractor.lastName}</h3>
-                          <span className="text-sm text-variable flex items-center gap-1">
-                            <Building2 className="h-3 w-3" />
-                            {contractor.companyName}
+                <div key={contractor.id} className="bg-white/60 dark:bg-slate-800/60 rounded-lg border border-white/30 dark:border-slate-700/40 hover:bg-white/80 dark:hover:bg-slate-800/80 transition-all cursor-pointer" onClick={() => setViewingWorker(contractor)}>
+                  {/* Info row — name never truncates on mobile */}
+                  <div className="flex items-center gap-3 px-3 pt-3 pb-1">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 overflow-hidden ${
+                      contractor.photoUrl ? '' :
+                      ['bg-gradient-to-r from-orange-500 to-red-500',
+                       'bg-gradient-to-r from-blue-500 to-purple-500',
+                       'bg-gradient-to-r from-green-500 to-teal-500',
+                       'bg-gradient-to-r from-purple-500 to-pink-500',
+                       'bg-gradient-to-r from-indigo-500 to-purple-500',
+                       'bg-gradient-to-r from-teal-500 to-cyan-500'][previousContractors.indexOf(contractor) % 6]
+                    }`}>
+                      {contractor.photoUrl ? (
+                        <img src={contractor.photoUrl.startsWith('/objects/') ? contractor.photoUrl : `/objects${contractor.photoUrl}`} alt={`${contractor.firstName} ${contractor.lastName}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-white font-bold text-xs">{(contractor.firstName?.[0] || '').toUpperCase()}{(contractor.lastName?.[0] || '').toUpperCase()}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-fixed text-sm leading-tight">{contractor.firstName} {contractor.lastName}</p>
+                      <p className="text-variable text-xs flex items-center gap-1 mt-0.5">
+                        <Building2 className="h-3 w-3 flex-shrink-0" />
+                        {contractor.companyName}
+                        {contractor.isCheckedIn && contractor.checkedInAt && (
+                          <span className="flex items-center gap-0.5 ml-2 text-green-700 font-medium">
+                            <Clock className="h-3 w-3" />
+                            {new Date(contractor.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                          <Badge 
-                            className={`text-xs ${contractor.isCheckedIn ? "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300" : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200"}`}
-                          >
-                            {contractor.isCheckedIn ? "Checked In" : "Available"}
-                          </Badge>
-                          {contractor.rightToWork === 'valid' ? (
-                            <Badge className="text-xs bg-green-100 text-green-800">Work Auth</Badge>
-                          ) : (
-                            <Badge className="text-xs bg-red-100 text-red-800">Work Auth</Badge>
-                          )}
-                          {!contractor.inductionCompleted && (
-                            <Badge className="text-xs bg-amber-100 text-amber-800">No Induction</Badge>
-                          )}
-                          <Badge className={`text-xs ${getSafetyRatingColor(contractor.safetyRating)}`}>
-                            {contractor.safetyRating}
-                          </Badge>
-                          {(contractor as any).hasRedCard && <Badge className="text-xs bg-red-200 text-red-900">Red Card</Badge>}
-                          {(contractor as any).hasYellowCard && <Badge className="text-xs bg-yellow-200 text-yellow-900">Yellow Card</Badge>}
-                          {(!(contractor as any).hasRedCard && !(contractor as any).hasYellowCard) && <Badge className="text-xs bg-green-200 text-green-900">Clear</Badge>}
-                          {(contractor as any).zoneId && (() => {
-                            const zone = zones.find((z: any) => z.id === (contractor as any).zoneId);
-                            return zone ? (
-                              <span className="inline-flex items-center gap-1 text-xs">
-                                <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: zone.color }} />
-                                {zone.name}
-                              </span>
-                            ) : null;
-                          })()}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs text-variable mt-1">
-                          <span>Last visit: {contractor.updatedAt ? new Date(contractor.updatedAt).toLocaleDateString() : 'Unknown'}</span>
-                          {contractor.isCheckedIn && contractor.checkedInAt && (
-                            <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" />
-                              {new Date(contractor.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          )}
-                        </div>
+                        )}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1 mt-1">
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium ${contractor.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                          {contractor.isCheckedIn ? 'Checked In' : 'Available'}
+                        </span>
+                        {contractor.rightToWork === 'valid' ? (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800"><CheckCircle className="h-2.5 w-2.5 mr-0.5" />Work Auth</span>
+                        ) : (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-100 text-red-800"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />Work Auth</span>
+                        )}
+                        {!contractor.inductionCompleted && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800"><AlertTriangle className="h-2.5 w-2.5 mr-0.5" />No Induction</span>
+                        )}
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${getSafetyRatingColor(contractor.safetyRating)}`}>{contractor.safetyRating}</span>
+                        {(contractor as any).hasRedCard && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-red-200 text-red-900">Red Card</span>}
+                        {(contractor as any).hasYellowCard && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-yellow-200 text-yellow-900">Yellow Card</span>}
+                        {(!(contractor as any).hasRedCard && !(contractor as any).hasYellowCard) && <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-200 text-green-900">Clear</span>}
+                        {(contractor as any).zoneId && (() => {
+                          const zone = zones.find((z: any) => z.id === (contractor as any).zoneId);
+                          return zone ? <span className="inline-flex items-center gap-1 text-[10px]"><span className="w-2 h-2 rounded-full" style={{ backgroundColor: zone.color }} />{zone.name}</span> : null;
+                        })()}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="p-2"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedWorkerForEdit(contractor);
-                          setSelectedWorkerCompanyName(contractor.companyName);
-                          setShowContractorEditModal(true);
-                        }}
-                        title="Edit contractor"
-                      >
-                        <Edit className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="p-2"
-                        onClick={(e) => { e.stopPropagation(); sendInductionMutation.mutate(contractor.id); }}
-                        disabled={sendInductionMutation.isPending}
-                        title="Send Site Induction Email"
-                      >
-                        <Mail className="h-3.5 w-3.5" />
-                      </Button>
-                      {contractor.isCheckedIn && (
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="p-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedWorker(contractor);
-                            setSelectedCompanyName(contractor.companyName);
-                            setShowPassPreview(true);
-                          }}
-                          title="Print Pass"
-                        >
-                          <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                          </svg>
-                        </Button>
-                      )}
-                      {(() => {
-                        const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
-                        const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
-                        return isClear ? (
-                          <>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="p-2 text-indigo-600 hover:text-indigo-700 border-indigo-300 hover:border-indigo-400 hover:bg-indigo-50"
-                              onClick={(e) => { e.stopPropagation(); setQrPassWorker(contractor); }}
-                              title="QR Pass"
-                              data-testid={`button-qr-pass-list-${contractor.id}`}
-                            >
-                              <QrCode className="h-3.5 w-3.5" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="p-2 text-indigo-600 hover:text-indigo-700 border-indigo-300 hover:border-indigo-400 hover:bg-indigo-50"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setPreBookingWorker(contractor);
-                                setPreBookCompanyName(contractor.companyName);
-                              }}
-                              title="Pre-Book Worker"
-                            >
-                              <CalendarPlus className="h-3.5 w-3.5" />
-                            </Button>
-                          </>
-                        ) : null;
-                      })()}
-                      {!contractor.isCheckedIn ? (() => {
-                        const redBanned = contractor.currentCardStatus === 'red';
-                        const notCleared = redBanned || contractor.rightToWork !== 'valid' || !contractor.inductionCompleted;
-                        const blockReason = redBanned ? 'Active site ban (Red Card)' : contractor.rightToWork !== 'valid' ? 'Right to work not verified' : !contractor.inductionCompleted ? 'Site induction not completed' : '';
-                        return (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (notCleared) {
-                                toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" });
-                                return;
-                              }
-                              setWorkerForCheckIn(contractor);
-                              setCompanyForCheckIn(contractor.companyName);
-                              setShowHSModal(true);
-                            }}
-                            disabled={checkInMutation.isPending}
-                            title={notCleared ? blockReason : 'Check in contractor'}
-                            className={`${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed dark:text-gray-600 dark:border-gray-600' : 'text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50'}`}
-                          >
-                            <LogIn className="mr-1 h-4 w-4" />
-                            Check In
-                          </Button>
-                        );
-                      })() : (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={(e) => { e.stopPropagation(); checkOutMutation.mutate(contractor.id); }}
-                          disabled={checkOutMutation.isPending}
-                          className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
-                        >
-                          <LogOut className="mr-1 h-4 w-4" />
-                          Check Out
-                        </Button>
-                      )}
-                    </div>
+                    {/* Desktop: all actions inline */}
+                    {(() => {
+                      const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
+                      const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
+                      const redBanned = contractor.currentCardStatus === 'red';
+                      const notCleared = redBanned || contractor.rightToWork !== 'valid' || !contractor.inductionCompleted;
+                      const blockReason = redBanned ? 'Active site ban (Red Card)' : contractor.rightToWork !== 'valid' ? 'Right to work not verified' : !contractor.inductionCompleted ? 'Site induction not completed' : '';
+                      return (
+                        <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title="Edit"><Edit className="h-3.5 w-3.5" /></Button>
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); sendInductionMutation.mutate(contractor.id); }} disabled={sendInductionMutation.isPending} title="Send Induction Email"><Mail className="h-3.5 w-3.5" /></Button>
+                          {contractor.isCheckedIn && <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorker(contractor); setSelectedCompanyName(contractor.companyName); setShowPassPreview(true); }} title="Print Pass"><svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg></Button>}
+                          {isClear && <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setQrPassWorker(contractor); }} title="QR Pass"><QrCode className="h-3.5 w-3.5" /></Button>}
+                          {isClear && <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title="Pre-Book"><CalendarPlus className="h-3.5 w-3.5" /></Button>}
+                          {!contractor.isCheckedIn ? (
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (notCleared) { toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" }); return; } setWorkerForCheckIn(contractor); setCompanyForCheckIn(contractor.companyName); setShowHSModal(true); }} disabled={checkInMutation.isPending} title={notCleared ? blockReason : 'Check in'} className={`h-9 px-3 ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 border-green-300 hover:bg-green-50'}`}><LogIn className="mr-1 h-4 w-4" />Check In</Button>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkOutMutation.mutate(contractor.id); }} disabled={checkOutMutation.isPending} className="h-9 px-3 text-red-600 border-red-300 hover:bg-red-50"><LogOut className="mr-1 h-4 w-4" />Check Out</Button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
-                </GlassCard>
+                  {/* Mobile: actions as bottom row */}
+                  {(() => {
+                    const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
+                    const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
+                    const redBanned = contractor.currentCardStatus === 'red';
+                    const notCleared = redBanned || contractor.rightToWork !== 'valid' || !contractor.inductionCompleted;
+                    const blockReason = redBanned ? 'Active site ban (Red Card)' : contractor.rightToWork !== 'valid' ? 'Right to work not verified' : !contractor.inductionCompleted ? 'Site induction not completed' : '';
+                    return (
+                      <div className="sm:hidden flex items-center justify-between gap-2 px-3 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center gap-1.5">
+                          <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title="Edit"><Edit className="h-4 w-4" /></Button>
+                          <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={(e) => { e.stopPropagation(); sendInductionMutation.mutate(contractor.id); }} disabled={sendInductionMutation.isPending} title="Send Induction"><Mail className="h-4 w-4" /></Button>
+                          {contractor.isCheckedIn && <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorker(contractor); setSelectedCompanyName(contractor.companyName); setShowPassPreview(true); }} title="Print Pass"><svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg></Button>}
+                          {isClear && <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setQrPassWorker(contractor); }} title="QR Pass"><QrCode className="h-4 w-4" /></Button>}
+                          {isClear && <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title="Pre-Book"><CalendarPlus className="h-4 w-4" /></Button>}
+                        </div>
+                        {!contractor.isCheckedIn ? (
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (notCleared) { toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" }); return; } setWorkerForCheckIn(contractor); setCompanyForCheckIn(contractor.companyName); setShowHSModal(true); }} disabled={checkInMutation.isPending} title={notCleared ? blockReason : 'Check in'} className={`h-9 px-3 font-medium ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 border-green-300 hover:bg-green-50'}`}><LogIn className="mr-1 h-4 w-4" />Check In</Button>
+                        ) : (
+                          <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); checkOutMutation.mutate(contractor.id); }} disabled={checkOutMutation.isPending} className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50"><LogOut className="mr-1 h-4 w-4" />Check Out</Button>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
                 )
               ))}
             </div>
