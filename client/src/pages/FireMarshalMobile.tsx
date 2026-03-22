@@ -383,6 +383,55 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     }
   });
 
+  // Bulk mark all visible unaccounted people as safe (FM auth)
+  const markZoneSafeMutation = useMutation({
+    mutationFn: async () => {
+      const unaccounted = filteredPeople.filter((p: any) => !p.isAccountedFor);
+      if (unaccounted.length === 0) return;
+      const resolvedName = marshalName || marshalInfo?.name || 'Fire Marshal';
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["X-Emergency-Token"] = token;
+      else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
+      await Promise.all(
+        unaccounted.map((person: any) =>
+          fetch(`/api/emergency/mark-safe/${person.id}`, {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ marshalName: resolvedName, musterPoint: myZone?.name || 'Muster Point' }),
+            credentials: "include",
+          })
+        )
+      );
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
+      const previousData = queryClient.getQueryData(['/api/emergency/fire-marshal', urlId, 'personnel']);
+      const resolvedName = marshalName || marshalInfo?.name || 'Fire Marshal';
+      const unaccountedIds = new Set(filteredPeople.filter((p: any) => !p.isAccountedFor).map((p: any) => p.id));
+      queryClient.setQueryData(
+        ['/api/emergency/fire-marshal', urlId, 'personnel'],
+        (old: any) => {
+          if (!old?.people) return old;
+          const updatedPeople = old.people.map((p: any) =>
+            unaccountedIds.has(p.id) ? { ...p, isAccountedFor: true, accountedBy: resolvedName } : p
+          );
+          const accountedFor = updatedPeople.filter((p: any) => p.isAccountedFor).length;
+          return { ...old, people: updatedPeople, accountedFor, unaccounted: old.totalOnSite - accountedFor };
+        }
+      );
+      return { previousData };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
+    },
+    onError: (_err, _vars, context: any) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/emergency/fire-marshal', urlId, 'personnel'], context.previousData);
+      }
+      toast({ title: "Error", description: "Failed to mark zone safe", variant: "destructive" });
+    }
+  });
+
   // Unmark a person — reverses mark-safe (also uses FM auth headers)
   const unmarkSafeMutation = useMutation({
     mutationFn: async ({ personId }: { personId: string }) => {
@@ -611,9 +660,6 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             >
               {wsConnected ? '● LIVE' : '○ SYNC'}
             </Badge>
-            <Button size="sm" variant="secondary" onClick={() => setShowSafePeople(!showSafePeople)} className="bg-white/20 hover:bg-white/30 flex-shrink-0">
-              {showSafePeople ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
             <Button size="sm" variant="secondary" onClick={() => window.location.reload()} className="bg-white/20 hover:bg-white/30 flex-shrink-0">
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -755,6 +801,47 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         </div>
       )}
 
+
+      {/* Action bar — Mark Zone Safe + Show/Hide Safe toggle */}
+      {isEmergencyActive && (
+        <div className="px-4 pb-2 flex gap-2 flex-wrap">
+          {filteredPeople.some((p: any) => !p.isAccountedFor) && (
+            <Button
+              variant="outline"
+              className="flex-1 text-sm font-semibold border-green-400 text-green-700 hover:bg-green-50"
+              onClick={() => {
+                if (!marshalName && !marshalInfo) {
+                  toast({ title: "Name Required", description: "Please enter your name first", variant: "destructive" });
+                  return;
+                }
+                markZoneSafeMutation.mutate();
+              }}
+              disabled={markZoneSafeMutation.isPending}
+              data-testid="button-mark-zone-safe-mobile"
+            >
+              <CheckCircle2 className="h-4 w-4 mr-2 flex-shrink-0" />
+              {markZoneSafeMutation.isPending
+                ? 'Marking...'
+                : hasZoneAssignment && showMyZoneOnly
+                  ? `Mark ${myZone?.name || 'Zone'} Safe`
+                  : 'Mark All Safe'}
+            </Button>
+          )}
+          {(personnelData?.accountedFor || 0) > 0 && (
+            <Button
+              variant="outline"
+              className="flex-1 text-sm font-semibold"
+              onClick={() => setShowSafePeople(prev => !prev)}
+              data-testid="button-toggle-safe-mobile"
+            >
+              {showSafePeople
+                ? <><EyeOff className="h-4 w-4 mr-2 flex-shrink-0" />Hide Safe ({personnelData?.accountedFor})</>
+                : <><Eye className="h-4 w-4 mr-2 flex-shrink-0" />Show Safe ({personnelData?.accountedFor})</>
+              }
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Search */}
       <div className="px-4 pb-3">
