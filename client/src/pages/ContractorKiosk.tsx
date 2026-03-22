@@ -889,70 +889,70 @@ export default function ContractorKiosk() {
         <p className="text-muted-foreground text-sm sm:text-base">Please select an option below</p>
       </div>
 
-      {/* 3-column option grid — stacks to 1 column on small phones */}
-      <div className="flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full min-h-0">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6 lg:gap-8 mb-4 sm:mb-6">
+      {/* Option menu */}
+      <div className="flex-1 flex flex-col justify-center max-w-5xl mx-auto w-full min-h-0 gap-3 sm:gap-5">
+
+        {/* Mobile: stacked rows with icon left-aligned. Desktop: 3-column cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
+
           {/* Scan QR Code */}
-          <div className="cursor-pointer" onClick={() => setActiveSection("scan")}>
-            <GlassCard hover className="text-center py-5 sm:py-8 lg:py-10 px-4 group flex flex-col sm:flex-col justify-center sm:items-center h-full sm:h-auto flex-row items-center gap-4 sm:gap-0">
-              <div className="w-14 h-14 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 sm:mx-auto sm:mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
-                <QrCode className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
+          <div className="cursor-pointer group" onClick={() => setActiveSection("scan")}>
+            <GlassCard hover className="flex flex-row sm:flex-col items-center gap-4 sm:gap-3 py-4 sm:py-8 px-4 sm:px-4 h-full sm:justify-center sm:text-center">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <QrCode className="text-white w-7 h-7 sm:w-9 sm:h-9" />
               </div>
-              <div className="text-left sm:text-center">
-                <h3 className="text-lg sm:text-lg lg:text-xl font-bold text-foreground sm:mb-1">Scan QR Code</h3>
-                <p className="text-muted-foreground text-sm sm:text-sm">Check in or check out with your pass</p>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">Scan QR Code</h3>
+                <p className="text-muted-foreground text-sm mt-0.5">Check in or check out with your pass</p>
               </div>
             </GlassCard>
           </div>
 
           {/* Walk-in Registration */}
-          <div className="cursor-pointer" onClick={() => setActiveSection("walkin")}>
-            <GlassCard hover className="text-center py-5 sm:py-8 lg:py-10 px-4 group flex flex-col sm:flex-col justify-center sm:items-center h-full sm:h-auto flex-row items-center gap-4 sm:gap-0">
-              <div className="w-14 h-14 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0 sm:mx-auto sm:mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
-                <UserPlus className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
+          <div className="cursor-pointer group" onClick={() => setActiveSection("walkin")}>
+            <GlassCard hover className="flex flex-row sm:flex-col items-center gap-4 sm:gap-3 py-4 sm:py-8 px-4 sm:px-4 h-full sm:justify-center sm:text-center">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <UserPlus className="text-white w-7 h-7 sm:w-9 sm:h-9" />
               </div>
-              <div className="text-left sm:text-center">
-                <h3 className="text-lg sm:text-lg lg:text-xl font-bold text-foreground sm:mb-1">Walk-in Contractor</h3>
-                <p className="text-muted-foreground text-sm sm:text-sm">Register and get your site pass</p>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">Walk-in Contractor</h3>
+                <p className="text-muted-foreground text-sm mt-0.5">Register and get your site pass</p>
               </div>
             </GlassCard>
           </div>
 
           {/* Pre-Booked Contractor */}
-          <div className="cursor-pointer" onClick={() => setActiveSection("prebook")}>
-            <GlassCard hover className="text-center py-5 sm:py-8 lg:py-10 px-4 group flex flex-col sm:flex-col justify-center sm:items-center h-full sm:h-auto flex-row items-center gap-4 sm:gap-0">
-              <div className="w-14 h-14 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 sm:mx-auto sm:mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
-                <CalendarPlus className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
+          <div className="cursor-pointer group" onClick={() => setActiveSection("prebook")}>
+            <GlassCard hover className="flex flex-row sm:flex-col items-center gap-4 sm:gap-3 py-4 sm:py-8 px-4 sm:px-4 h-full sm:justify-center sm:text-center">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                <CalendarPlus className="text-white w-7 h-7 sm:w-9 sm:h-9" />
               </div>
-              <div className="text-left sm:text-center">
-                <h3 className="text-lg sm:text-lg lg:text-xl font-bold text-foreground sm:mb-1">Pre-Booked Contractor</h3>
-                <p className="text-muted-foreground text-sm sm:text-sm">Select your name to check in</p>
+              <div>
+                <h3 className="text-base sm:text-lg font-bold text-foreground leading-tight">Pre-Booked Contractor</h3>
+                <p className="text-muted-foreground text-sm mt-0.5">Select your name to check in</p>
               </div>
             </GlassCard>
           </div>
         </div>
 
         {/* Instructions bar */}
-        <GlassCard className="p-4 sm:p-5 flex-shrink-0">
-          <h3 className="text-base sm:text-lg font-semibold text-fixed mb-3 text-center">Instructions</h3>
-          <div className="grid grid-cols-3 gap-2 sm:gap-6 text-variable">
+        <GlassCard className="flex-shrink-0 p-3 sm:p-5">
+          <h3 className="text-sm sm:text-base font-semibold text-fixed mb-2 sm:mb-3 text-center">Instructions</h3>
+          <div className="grid grid-cols-3 gap-2 sm:gap-6">
             <div className="text-center">
-              <QrCode className="mx-auto mb-1.5 text-purple-500" size={20} />
-              <p className="font-medium mb-0.5 text-xs sm:text-sm text-foreground">Returning contractors</p>
-              <p className="text-xs text-muted-foreground hidden sm:block">Scan your QR pass to check in or out</p>
-              <p className="text-xs text-muted-foreground sm:hidden">Scan your QR pass to check in</p>
+              <QrCode className="mx-auto mb-1 text-purple-500" size={18} />
+              <p className="font-medium text-xs sm:text-sm text-foreground">Returning contractors</p>
+              <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">Scan your QR pass to check in or out</p>
             </div>
             <div className="text-center">
-              <UserPlus className="mx-auto mb-1.5 text-green-500" size={20} />
-              <p className="font-medium mb-0.5 text-xs sm:text-sm text-foreground">New contractors</p>
-              <p className="text-xs text-muted-foreground hidden sm:block">Register here to get your site pass</p>
-              <p className="text-xs text-muted-foreground sm:hidden">Register here to get your site pass</p>
+              <UserPlus className="mx-auto mb-1 text-green-500" size={18} />
+              <p className="font-medium text-xs sm:text-sm text-foreground">New contractors</p>
+              <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">Register here to get your site pass</p>
             </div>
             <div className="text-center">
-              <CalendarPlus className="mx-auto mb-1.5 text-blue-500" size={20} />
-              <p className="font-medium mb-0.5 text-xs sm:text-sm text-foreground">Pre-booked visit</p>
-              <p className="text-xs text-muted-foreground hidden sm:block">Tap your name from today's list</p>
-              <p className="text-xs text-muted-foreground sm:hidden">Tap your name from today's list</p>
+              <CalendarPlus className="mx-auto mb-1 text-blue-500" size={18} />
+              <p className="font-medium text-xs sm:text-sm text-foreground">Pre-booked visit</p>
+              <p className="text-xs text-muted-foreground mt-0.5 hidden sm:block">Tap your name from today's list</p>
             </div>
           </div>
         </GlassCard>
