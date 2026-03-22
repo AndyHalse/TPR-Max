@@ -66,7 +66,7 @@ const emptyForm: MemberFormData = {
 export default function Members() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [formData, setFormData] = useState<MemberFormData>(emptyForm);
@@ -373,9 +373,10 @@ export default function Members() {
             {filteredMembers.map((member) => (
               <div
                 key={member.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50"
+                className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50"
               >
-                <div className="flex items-center gap-3 flex-1 min-w-0">
+                {/* Info row */}
+                <div className="flex items-start gap-3 px-3 pt-3 pb-1">
                   {member.photoUrl ? (
                     <img src={member.photoUrl} alt={`${member.firstName} ${member.lastName}`} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                   ) : (
@@ -383,71 +384,56 @@ export default function Members() {
                       <span className="text-white font-bold text-sm">{member.firstName[0]?.toUpperCase()}{member.lastName[0]?.toUpperCase()}</span>
                     </div>
                   )}
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <span className="text-lg font-semibold text-fixed">
-                        {member.firstName} {member.lastName}
-                      </span>
-                      <Badge className={membershipTypeColors[member.membershipType || "full"]}>
-                        {(member.membershipType || "full").toUpperCase()}
-                      </Badge>
-                      <Badge className={statusColors[member.membershipStatus || "active"]}>
-                        {(member.membershipStatus || "active").toUpperCase()}
-                      </Badge>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-fixed text-sm leading-tight">{member.firstName} {member.lastName}</p>
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                      <Badge className={membershipTypeColors[member.membershipType || "full"]}>{(member.membershipType || "full").toUpperCase()}</Badge>
+                      <Badge className={statusColors[member.membershipStatus || "active"]}>{(member.membershipStatus || "active").toUpperCase()}</Badge>
                       {member.isCheckedIn ? (
                         <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">On Site</Badge>
                       ) : (
                         <Badge variant="secondary">Off Site</Badge>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
-                      {member.email && <span className="text-variable">{member.email}</span>}
-                      {member.phoneNumber && <span className="text-variable">{member.phoneNumber}</span>}
-                      {member.membershipNumber && <span className="text-variable">No: {member.membershipNumber}</span>}
+                    <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-variable mt-1">
+                      {member.email && <span>{member.email}</span>}
+                      {member.phoneNumber && <span>{member.phoneNumber}</span>}
+                      {member.membershipNumber && <span>No: {member.membershipNumber}</span>}
                       {member.expiryDate && (
-                        <span className={`text-variable ${isExpired(member.expiryDate) ? 'text-red-500 font-medium' : ''}`}>
+                        <span className={isExpired(member.expiryDate) ? 'text-red-500 font-medium' : ''}>
                           Expires: {formatDate(member.expiryDate)}
                         </span>
                       )}
                     </div>
                   </div>
+                  {/* Desktop: actions inline */}
+                  <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                    {member.isCheckedIn ? (
+                      <Button variant="outline" size="sm" className="h-9 px-3 text-red-600 border-red-300 hover:bg-red-50" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending}>
+                        <UserX className="h-4 w-4 mr-1" />Check Out
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" className="h-9 px-3 text-green-600 border-green-300 hover:bg-green-50" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending}>
+                        <UserCheck className="h-4 w-4 mr-1" />Check In
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => openEditDialog(member)}><Edit className="h-4 w-4" /></Button>
+                    <Button variant="outline" size="sm" className="h-9 w-9 p-0 text-red-600 hover:bg-red-50" onClick={() => deleteMutation.mutate(member.id)} disabled={deleteMutation.isPending}><Trash2 className="h-4 w-4" /></Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Mobile: actions as bottom row */}
+                <div className="sm:hidden flex items-center justify-end gap-2 px-3 pb-3 pt-1">
                   {member.isCheckedIn ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-red-600 hover:text-red-700 border-red-300 hover:border-red-400 hover:bg-red-50"
-                      onClick={() => checkOutMutation.mutate(member.id)}
-                      disabled={checkOutMutation.isPending}
-                    >
-                      <UserX className="h-4 w-4 mr-1" />
-                      Check Out
+                    <Button variant="outline" size="sm" className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending}>
+                      <UserX className="h-4 w-4 mr-1" />Check Out
                     </Button>
                   ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                      onClick={() => checkInMutation.mutate(member.id)}
-                      disabled={checkInMutation.isPending}
-                    >
-                      <UserCheck className="h-4 w-4 mr-1" />
-                      Check In
+                    <Button variant="outline" size="sm" className="h-9 px-3 font-medium text-green-600 border-green-300 hover:bg-green-50" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending}>
+                      <UserCheck className="h-4 w-4 mr-1" />Check In
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" onClick={() => openEditDialog(member)}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => deleteMutation.mutate(member.id)}
-                    disabled={deleteMutation.isPending}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                  <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => openEditDialog(member)}><Edit className="h-4 w-4" /></Button>
+                  <Button variant="outline" size="sm" className="h-9 w-9 p-0 text-red-600 hover:bg-red-50" onClick={() => deleteMutation.mutate(member.id)} disabled={deleteMutation.isPending}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </div>
             ))}

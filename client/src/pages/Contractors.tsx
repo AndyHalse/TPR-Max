@@ -211,7 +211,7 @@ export default function Contractors() {
   const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState("contractors");
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -1111,27 +1111,41 @@ export default function Contractors() {
               </div>
             </GlassCard>
           ) : (
-            <div key={contractor.id} className="flex items-center justify-between p-3 bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all">
-              <div className="flex items-center gap-4 flex-1 min-w-0">
+            <div key={contractor.id} className="bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all">
+              {/* Info row — full-width so company name is never cut off */}
+              <div className="flex items-center gap-3 px-3 pt-3 pb-1">
                 <div className="w-10 h-10 bg-[var(--background)] rounded-lg flex items-center justify-center flex-shrink-0">
                   <Building2 className="text-variable" size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <span className="font-semibold text-fixed text-sm">{contractor.name}</span>
-                  <div className="flex items-center gap-3 text-xs text-variable">
-                    <span className="flex items-center"><Users className="mr-1" size={12} />{contractor.workersCount} workers</span>
-                    {contractor.email && <span className="hidden sm:inline">{contractor.email}</span>}
+                  <p className="font-semibold text-fixed text-sm leading-tight">{contractor.name}</p>
+                  <div className="flex items-center gap-3 text-xs text-variable mt-0.5">
+                    <span className="flex items-center"><Users className="mr-1" size={11} />{contractor.workersCount} workers</span>
+                    {contractor.email && <span>{contractor.email}</span>}
                   </div>
                 </div>
+                {/* Desktop: actions inline */}
+                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                  {getStatusBadge(contractor.status)}
+                  <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm">
+                    <Users className="mr-1" size={13} />Workers
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm">
+                    <UserPlus className="mr-1" size={13} />Add Worker
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Mobile: actions as bottom row */}
+              <div className="sm:hidden flex items-center justify-between gap-2 px-3 pb-3 pt-1">
                 {getStatusBadge(contractor.status)}
-                <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-8 px-3 text-xs">
-                  <Users className="mr-1" size={12} />Workers
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-8 px-3 text-xs">
-                  <UserPlus className="mr-1" size={12} />Add
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm font-medium">
+                    <Users className="mr-1" size={13} />Workers
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm font-medium">
+                    <UserPlus className="mr-1" size={13} />Add
+                  </Button>
+                </div>
               </div>
             </div>
           )
