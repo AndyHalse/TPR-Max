@@ -32,7 +32,9 @@ import {
   BellRing,
   Footprints,
   ClipboardList,
-  X
+  X,
+  Eye,
+  EyeOff
 } from "lucide-react";
 
 interface MusterListItem {
@@ -507,13 +509,16 @@ export default function EmergencyMuster() {
     : musterList.filter(p => p.zoneId && selectedZones.has(p.zoneId));
 
   // Apply search and type filters on top of the zone-filtered list
+  const [showSafePeople, setShowSafePeople] = useState(false);
+
   const filteredList = zonedMusterList.filter(person => {
     const matchesType = typeFilter === 'all' || person.type === typeFilter;
     const matchesSearch = searchTerm === '' || 
       (person.name && person.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (person.department && person.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (person.company && person.company.toLowerCase().includes(searchTerm.toLowerCase()));
-    return matchesType && matchesSearch;
+    const matchesVisibility = showSafePeople || !person.accounted;
+    return matchesType && matchesSearch && matchesVisibility;
   });
 
   // Summary stats reflect the zone-filtered list so counts match what's visible
@@ -1422,15 +1427,20 @@ export default function EmergencyMuster() {
                         : "Mark All Safe"}
                   </Button>
                 )}
-                <Button 
-                  variant="outline" 
-                  onClick={exportMusterList}
-                  data-testid="button-export-muster"
-                  className="w-full sm:w-auto text-sm py-2.5 sm:py-2 font-semibold"
-                >
-                  <Download className="mr-2 flex-shrink-0" size={16} />
-                  Export List
-                </Button>
+                {accountedFor > 0 && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setShowSafePeople(prev => !prev)}
+                    data-testid="button-toggle-safe-people"
+                    className="w-full sm:w-auto text-sm py-2.5 sm:py-2 font-semibold"
+                  >
+                    {showSafePeople ? (
+                      <><EyeOff className="mr-2 flex-shrink-0" size={16} />Hide Safe ({accountedFor})</>
+                    ) : (
+                      <><Eye className="mr-2 flex-shrink-0" size={16} />Show Safe ({accountedFor})</>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
             

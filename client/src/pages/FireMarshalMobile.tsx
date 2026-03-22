@@ -23,6 +23,7 @@ import {
   Clock,
   Timer,
   Footprints,
+  XCircle,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -379,6 +380,57 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         queryClient.setQueryData(['/api/emergency/fire-marshal', urlId, 'personnel'], context.previousData);
       }
       toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+    }
+  });
+
+  // Unmark a person — reverses mark-safe (also uses FM auth headers)
+  const unmarkSafeMutation = useMutation({
+    mutationFn: async ({ personId }: { personId: string }) => {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["X-Emergency-Token"] = token;
+      else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
+      const response = await fetch(`/api/emergency/unmark-safe/${personId}`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+      });
+      if (!response.ok) throw new Error("Failed to unmark person");
+      return response.json();
+    },
+    onMutate: async ({ personId }) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
+      const previousData = queryClient.getQueryData(['/api/emergency/fire-marshal', urlId, 'personnel']);
+      queryClient.setQueryData(
+        ['/api/emergency/fire-marshal', urlId, 'personnel'],
+        (old: any) => {
+          if (!old?.people) return old;
+          const updatedPeople = old.people.map((p: any) =>
+            p.id === personId ? { ...p, isAccountedFor: false, accountedBy: undefined } : p
+          );
+          const accountedFor = updatedPeople.filter((p: any) => p.isAccountedFor).length;
+          return { ...old, people: updatedPeople, accountedFor, unaccounted: old.totalOnSite - accountedFor };
+        }
+      );
+      return { previousData };
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(
+        ['/api/emergency/fire-marshal', urlId, 'personnel'],
+        (old: any) => {
+          if (!old?.people) return old;
+          const updatedPeople = old.people.map((p: any) =>
+            p.id === data.personId ? { ...p, isAccountedFor: false, accountedBy: undefined } : p
+          );
+          const accountedFor = updatedPeople.filter((p: any) => p.isAccountedFor).length;
+          return { ...old, people: updatedPeople, accountedFor, unaccounted: old.totalOnSite - accountedFor };
+        }
+      );
+    },
+    onError: (_err, _vars, context: any) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/emergency/fire-marshal', urlId, 'personnel'], context.previousData);
+      }
+      toast({ title: "Error", description: "Failed to unmark person", variant: "destructive" });
     }
   });
 
@@ -760,7 +812,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                     <p className="text-[11px] text-green-600 mt-0.5">Confirmed by {person.accountedBy}</p>
                   )}
                 </div>
-                {/* Mark Safe button — always visible for unaccounted people */}
+                {/* Mark Safe button — for unaccounted people */}
                 {!person.isAccountedFor && (
                   <Button
                     className="bg-green-600 hover:bg-green-700 text-white font-bold h-12 px-4 flex-shrink-0 text-sm"
@@ -775,6 +827,17 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                     data-testid={`button-mark-safe-mobile-${person.id}`}
                   >
                     <><CheckCircle2 className="h-4 w-4 mr-1" />Safe</>
+                  </Button>
+                )}
+                {/* Unmark button — only visible when safe people are revealed */}
+                {person.isAccountedFor && showSafePeople && (
+                  <Button
+                    variant="outline"
+                    className="border-red-300 text-red-600 hover:bg-red-50 font-semibold h-10 px-3 flex-shrink-0 text-sm"
+                    onClick={() => unmarkSafeMutation.mutate({ personId: person.id })}
+                    data-testid={`button-unmark-safe-mobile-${person.id}`}
+                  >
+                    <XCircle className="h-4 w-4 mr-1" />Unmark
                   </Button>
                 )}
               </div>

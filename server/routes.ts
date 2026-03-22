@@ -4111,6 +4111,76 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // Unmark a person as safe (Fire Marshal URL auth — mirrors mark-safe pattern)
+  app.post("/api/emergency/unmark-safe/:personId", async (req, res) => {
+    try {
+      let customerId: string | null = null;
+      let marshalName = 'Fire Marshal';
+
+      const emergencyToken = req.emergencyToken;
+      const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
+
+      if (emergencyToken) {
+        const emCtx = simpleDatabaseService.createDevelopmentContext();
+        const validatedStaff = await databaseService.validateEmergencyToken(emCtx, emergencyToken);
+        if (!validatedStaff) return res.status(401).json({ error: "Invalid or expired emergency token" });
+        customerId = validatedStaff.customerId;
+        marshalName = `${validatedStaff.firstName} ${validatedStaff.lastName}`;
+      } else if (fireMarshalId) {
+        const marshal = await databaseService.findFireMarshalByUrlId(fireMarshalId);
+        if (!marshal) return res.status(401).json({ error: "Invalid Fire Marshal link" });
+        customerId = marshal.customerId;
+        marshalName = `${marshal.marshal.firstName} ${marshal.marshal.lastName}`;
+      } else {
+        return res.status(401).json({ error: "Authentication required" });
+      }
+
+      const { personId } = req.params;
+
+      // Find the active evacuation for this customer
+      const [activeEvac] = await db
+        .select()
+        .from(evacuations)
+        .where(and(eq(evacuations.customerId, customerId as any), eq(evacuations.status, 'active')))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+
+      if (!activeEvac) return res.status(404).json({ error: "No active evacuation found" });
+
+      const result = await db
+        .update(evacuationAccountability)
+        .set({ isAccountedFor: false, updatedAt: new Date() })
+        .where(and(
+          eq(evacuationAccountability.evacuationId, activeEvac.evacuationId),
+          eq(evacuationAccountability.personId, personId),
+          eq(evacuationAccountability.customerId, customerId as any)
+        ))
+        .returning();
+
+      if (result.length === 0) return res.status(404).json({ error: "Person not found in accountability list" });
+
+      // Update evacuation accounted count
+      const accountedCount = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(evacuationAccountability)
+        .where(and(eq(evacuationAccountability.evacuationId, activeEvac.evacuationId), eq(evacuationAccountability.isAccountedFor, true)));
+      await db.update(evacuations).set({ totalAccountedFor: accountedCount[0].count, updatedAt: new Date() }).where(eq(evacuations.evacuationId, activeEvac.evacuationId));
+
+      // Broadcast WebSocket update
+      websocketService.broadcastMusterUpdate(customerId, activeEvac.evacuationId, {
+        personId: result[0].personId,
+        personName: result[0].personName,
+        personType: result[0].personType as any,
+        isAccountedFor: false,
+      });
+
+      res.json({ success: true, personId, personName: result[0].personName, isAccountedFor: false });
+    } catch (error) {
+      console.error("❌ Error unmarking person safe:", error);
+      res.status(500).json({ error: "Failed to unmark person" });
+    }
+  });
+
   // Send update to all Fire Marshals
   app.post("/api/emergency/send-update", requireAuth, async (req, res) => {
     try {
