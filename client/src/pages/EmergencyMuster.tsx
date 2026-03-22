@@ -282,13 +282,11 @@ export default function EmergencyMuster() {
       return await response.json();
     },
     onMutate: async ({ personId }) => {
-      // Cancel any in-flight refetches so they don't clobber our optimistic state
+      // Cancel in-flight refetches so they don't clobber the optimistic state
       await queryClient.cancelQueries({ queryKey: ["/api/muster"] });
-
-      // Snapshot current data for rollback
+      // Snapshot for rollback
       const previousData = queryClient.getQueryData<any[]>(["/api/muster"]);
-
-      // Instantly flip the person's accounted status in the cache
+      // Instantly flip in cache — UI responds before server replies
       queryClient.setQueryData(["/api/muster"], (old: any[] | undefined) => {
         if (!old) return old;
         return old.map(person =>
@@ -297,11 +295,24 @@ export default function EmergencyMuster() {
             : person
         );
       });
-
       return { previousData };
     },
+    onSuccess: (data: any) => {
+      // Confirm the optimistic value with what the server actually saved —
+      // targeted patch of just this one person, no full refetch needed.
+      if (data?.personId !== undefined && data?.accounted !== undefined) {
+        queryClient.setQueryData(["/api/muster"], (old: any[] | undefined) => {
+          if (!old) return old;
+          return old.map(person =>
+            person.id === data.personId
+              ? { ...person, isAccountedFor: data.accounted }
+              : person
+          );
+        });
+      }
+    },
     onError: (error: any, _variables, context) => {
-      // Roll back to previous state on failure
+      // Roll back to the snapshot on failure
       if (context?.previousData) {
         queryClient.setQueryData(["/api/muster"], context.previousData);
       }
@@ -311,10 +322,8 @@ export default function EmergencyMuster() {
         variant: "destructive",
       });
     },
-    onSettled: () => {
-      // Sync with server to confirm the real state
-      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-    },
+    // No onSettled invalidation — the targeted onSuccess/onError cache updates
+    // are sufficient. A full refetch after every tap would cause visible flickering.
   });
 
   // Mutation to send emergency alert emails

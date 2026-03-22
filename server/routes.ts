@@ -9234,22 +9234,18 @@ ${hasDetailedData
       const { personId } = req.params;
       const { type } = req.body;
       
-      // Get customer context for isolation based on logged-in user
       const username = req.user?.username || 'system';
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      console.log('Toggle endpoint - personId:', personId, 'type:', type, 'username:', username);
-      
-      // Get active evacuation for WebSocket broadcasting
-      const activeEvacuations = await db
-        .select()
-        .from(evacuations)
-        .where(and(
-          eq(evacuations.status, 'active'),
-          eq(evacuations.customerId, context.customerId)
-        ))
-        .orderBy(desc(evacuations.startedAt))
-        .limit(1);
+
+      // Get customer DB and active evacuation in parallel — one round-trip each
+      const [custDb, activeEvacuations] = await Promise.all([
+        customerDbService.getCustomerDatabase(context.customerId),
+        db.select()
+          .from(evacuations)
+          .where(and(eq(evacuations.status, 'active'), eq(evacuations.customerId, context.customerId)))
+          .orderBy(desc(evacuations.startedAt))
+          .limit(1),
+      ]);
       
       const activeEvacuation = activeEvacuations[0];
       
@@ -9258,60 +9254,67 @@ ${hasDetailedData
       let newStatus = false;
       
       if (type === 'staff') {
-        const staff = await databaseService.getAllStaff(context);
-        console.log('Staff list:', staff.map(s => ({ id: s.id, name: `${s.firstName} ${s.lastName}` })));
-        const staffMember = staff.find(s => s.id === personId);
+        // Direct single-row lookup — no full-list fetch
+        const [staffMember] = await custDb
+          .select({ id: isolatedSchema.staff.id, firstName: isolatedSchema.staff.firstName, lastName: isolatedSchema.staff.lastName, isAccountedFor: isolatedSchema.staff.isAccountedFor })
+          .from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.id, personId))
+          .limit(1);
         if (staffMember) {
-          // Toggle the isAccountedFor status
           newStatus = !staffMember.isAccountedFor;
           personName = `${staffMember.firstName} ${staffMember.lastName}`;
-          await databaseService.updateStaff(context, personId, {
-            ...staffMember,
-            isAccountedFor: newStatus
-          });
+          await custDb
+            .update(isolatedSchema.staff)
+            .set({ isAccountedFor: newStatus })
+            .where(eq(isolatedSchema.staff.id, personId));
           updated = true;
         }
       } else if (type === 'visitor') {
-        const visitors = await databaseService.getCurrentVisitors(context);
-        console.log('Visitor list:', visitors.map(v => ({ id: v.id, name: `${v.firstName} ${v.lastName}` })));
-        const visitor = visitors.find(v => v.id === personId);
+        // Direct single-row lookup — no full-list fetch
+        const [visitor] = await custDb
+          .select({ id: isolatedSchema.visitors.id, firstName: isolatedSchema.visitors.firstName, lastName: isolatedSchema.visitors.lastName, isAccountedFor: isolatedSchema.visitors.isAccountedFor })
+          .from(isolatedSchema.visitors)
+          .where(eq(isolatedSchema.visitors.id, personId))
+          .limit(1);
         if (visitor) {
-          // Toggle the isAccountedFor status
           newStatus = !visitor.isAccountedFor;
           personName = `${visitor.firstName} ${visitor.lastName}`;
-          await databaseService.updateVisitor(context, personId, {
-            ...visitor,
-            isAccountedFor: newStatus
-          });
+          await custDb
+            .update(isolatedSchema.visitors)
+            .set({ isAccountedFor: newStatus })
+            .where(eq(isolatedSchema.visitors.id, personId));
           updated = true;
         }
       } else if (type === 'contractor') {
-        const checkedInContractors = await databaseService.getCheckedInContractors(context);
-        const contractor = checkedInContractors.find(c => c.id === personId);
+        // Direct single-row lookup — no full-list fetch
+        const [contractor] = await custDb
+          .select({ id: isolatedSchema.contractorWorkers.id, firstName: isolatedSchema.contractorWorkers.firstName, lastName: isolatedSchema.contractorWorkers.lastName, isAccountedFor: isolatedSchema.contractorWorkers.isAccountedFor })
+          .from(isolatedSchema.contractorWorkers)
+          .where(eq(isolatedSchema.contractorWorkers.id, personId))
+          .limit(1);
         if (contractor) {
           newStatus = !contractor.isAccountedFor;
           personName = `${contractor.firstName} ${contractor.lastName}`;
-          const result = await databaseService.toggleContractorAccountedStatus(context, personId);
-          updated = result;
+          await custDb
+            .update(isolatedSchema.contractorWorkers)
+            .set({ isAccountedFor: newStatus })
+            .where(eq(isolatedSchema.contractorWorkers.id, personId));
+          updated = true;
         }
       } else if (type === 'member') {
-        try {
-          const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-          const [member] = await custDb
-            .select()
-            .from(isolatedSchema.members)
+        const [member] = await custDb
+          .select({ id: isolatedSchema.members.id, firstName: isolatedSchema.members.firstName, lastName: isolatedSchema.members.lastName, isAccountedFor: isolatedSchema.members.isAccountedFor })
+          .from(isolatedSchema.members)
+          .where(eq(isolatedSchema.members.id, personId))
+          .limit(1);
+        if (member) {
+          newStatus = !member.isAccountedFor;
+          personName = `${member.firstName} ${member.lastName}`;
+          await custDb
+            .update(isolatedSchema.members)
+            .set({ isAccountedFor: newStatus, updatedAt: new Date() })
             .where(eq(isolatedSchema.members.id, personId));
-          if (member) {
-            newStatus = !member.isAccountedFor;
-            personName = `${member.firstName} ${member.lastName}`;
-            await custDb
-              .update(isolatedSchema.members)
-              .set({ isAccountedFor: newStatus, updatedAt: new Date() })
-              .where(eq(isolatedSchema.members.id, personId));
-            updated = true;
-          }
-        } catch (e) {
-          console.error('Failed to toggle member accounted status:', e);
+          updated = true;
         }
       }
       
