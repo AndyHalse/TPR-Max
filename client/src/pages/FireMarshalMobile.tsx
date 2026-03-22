@@ -17,7 +17,6 @@ import {
   Siren,
   ChevronDown,
   ChevronRight,
-  LogOut,
   Eye,
   EyeOff,
   Clock,
@@ -29,17 +28,6 @@ import {
   X,
   Send,
 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 interface PersonOnSite {
   id: string;
@@ -493,56 +481,6 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         queryClient.setQueryData(['/api/emergency/fire-marshal', urlId, 'personnel'], context.previousData);
       }
       toast({ title: "Error", description: "Failed to unmark person", variant: "destructive" });
-    }
-  });
-
-  // Complete evacuation mutation
-  const completeEvacuationMutation = useMutation({
-    mutationFn: async ({ checkOutMode }: { checkOutMode: 'keep_checked_in' | 'check_out_all' }) => {
-      const headers: HeadersInit = { "Content-Type": "application/json" };
-      if (token) headers["X-Emergency-Token"] = token;
-      else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
-
-      const response = await fetch('/api/emergency/complete-evacuation', {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-        body: JSON.stringify({ evacuationId: activeEvacuationId, checkOutMode })
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        const err: any = new Error(data?.error || 'Failed to complete evacuation');
-        err.status = response.status;
-        err.serverMessage = data?.error;
-        throw err;
-      }
-      return data;
-    },
-    onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/emergency/active'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/muster'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/visitors'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/activity/recent'] });
-      toast({ title: "Evacuation Completed", description: data.message });
-      setActiveEvacuationId(null);
-      setEvacuationDetails(null);
-    },
-    onError: (error: any) => {
-      if (error?.status === 404) {
-        toast({
-          title: "Evacuation Already Ended",
-          description: "This evacuation has already been closed. The page will refresh.",
-        });
-        setActiveEvacuationId(null);
-        setEvacuationDetails(null);
-        queryClient.invalidateQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
-      } else {
-        toast({ title: "Error", description: error?.serverMessage || "Failed to complete evacuation", variant: "destructive" });
-      }
     }
   });
 
@@ -1181,61 +1119,13 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         </div>
       )}
 
-      {/* Complete Evacuation — only shown when emergency is active */}
+      {/* Admin-only notice — Fire Marshals cannot end the emergency */}
       {isEmergencyActive && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-gray-900 border-t shadow-lg z-50">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white h-14 text-lg font-bold"
-                size="lg"
-                data-testid="button-complete-evacuation-mobile"
-              >
-                <CheckCircle2 className="h-6 w-6 mr-2" />
-                Complete Evacuation
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="max-w-md">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="text-xl">Complete Evacuation</AlertDialogTitle>
-                <AlertDialogDescription className="text-base space-y-4">
-                  {displayData && displayData.unaccounted > 0 && (
-                    <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 mb-3">
-                      <p className="text-yellow-800 font-medium">
-                        ⚠️ Warning: {displayData.unaccounted} {displayData.unaccounted === 1 ? 'person is' : 'people are'} still unaccounted for
-                      </p>
-                    </div>
-                  )}
-                  <p>How would you like to complete this evacuation?</p>
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600"><strong>End & Check Out All Personnel:</strong> All on-site staff, visitors and contractors are checked out. They'll need to check in again when returning.</p>
-                    <p className="text-sm text-gray-600"><strong>End & Keep Personnel Checked In:</strong> Everyone remains checked in and can return to work immediately without re-checking in.</p>
-                  </div>
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter className="flex-col sm:flex-col gap-2">
-                <AlertDialogAction
-                  className="w-full bg-red-700 hover:bg-red-800 h-12"
-                  onClick={(e) => { e.preventDefault(); completeEvacuationMutation.mutate({ checkOutMode: 'check_out_all' }); }}
-                  disabled={completeEvacuationMutation.isPending}
-                  data-testid="button-check-out-all"
-                >
-                  <LogOut className="h-5 w-5 mr-2" />
-                  {completeEvacuationMutation.isPending ? "Ending…" : "End & Check Out All Personnel"}
-                </AlertDialogAction>
-                <AlertDialogAction
-                  className="w-full bg-transparent border border-red-300 text-red-700 hover:bg-red-50 h-12"
-                  onClick={(e) => { e.preventDefault(); completeEvacuationMutation.mutate({ checkOutMode: 'keep_checked_in' }); }}
-                  disabled={completeEvacuationMutation.isPending}
-                  data-testid="button-keep-checked-in"
-                >
-                  <UserCheck className="h-5 w-5 mr-2" />
-                  {completeEvacuationMutation.isPending ? "Ending…" : "End & Keep Personnel Checked In"}
-                </AlertDialogAction>
-                <AlertDialogCancel className="w-full h-12" data-testid="button-cancel-complete">Cancel</AlertDialogCancel>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+        <div className="fixed bottom-0 left-0 right-0 p-3 bg-gray-900 border-t border-gray-700 shadow-lg z-50">
+          <div className="flex items-center justify-center gap-2 text-gray-300 text-sm">
+            <Shield className="h-4 w-4 text-gray-400 flex-shrink-0" />
+            <span>To end this emergency, a manager must log in to the main system</span>
+          </div>
         </div>
       )}
     </div>
