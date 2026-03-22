@@ -242,7 +242,7 @@ export default function EmergencyMuster() {
                 if (!old) return old;
                 return old.map(person =>
                   person.id === message.personId
-                    ? { ...person, isAccountedFor: message.isAccountedFor }
+                    ? { ...person, accounted: message.isAccountedFor }
                     : person
                 );
               });
@@ -302,7 +302,7 @@ export default function EmergencyMuster() {
         if (!old) return old;
         return old.map(person =>
           person.id === personId
-            ? { ...person, isAccountedFor: !person.isAccountedFor }
+            ? { ...person, accounted: !person.accounted }
             : person
         );
       });
@@ -316,7 +316,7 @@ export default function EmergencyMuster() {
           if (!old) return old;
           return old.map(person =>
             person.id === data.personId
-              ? { ...person, isAccountedFor: data.accounted }
+              ? { ...person, accounted: data.accounted }
               : person
           );
         });
@@ -374,7 +374,7 @@ export default function EmergencyMuster() {
         return old.map(person => {
           // Only flip to safe if no zone filter, or if this person is in the selected zone(s)
           if (zoneSet && !zoneSet.has(person.zoneId)) return person;
-          return { ...person, isAccountedFor: true };
+          return { ...person, accounted: true };
         });
       });
       return { previousData };
