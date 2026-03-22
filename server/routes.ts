@@ -4604,6 +4604,20 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         console.error(`⚠️ Failed to save incident report record: ${reportErr.message}`);
       }
 
+      // Reset isAccountedFor for ALL personnel so the next evacuation starts clean
+      try {
+        const resetDb = await customerDbService.getCustomerDatabase(customerId);
+        await Promise.all([
+          resetDb.update(isolatedSchema.staff).set({ isAccountedFor: false }),
+          resetDb.update(isolatedSchema.visitors).set({ isAccountedFor: false }),
+          resetDb.update(isolatedSchema.contractorWorkers).set({ isAccountedFor: false }),
+          resetDb.update(isolatedSchema.members).set({ isAccountedFor: false }),
+        ]);
+        console.log(`🔄 Accounted status reset for all personnel (customer: ${customerId})`);
+      } catch (resetErr: any) {
+        console.error(`⚠️ Failed to reset accounted status: ${resetErr.message}`);
+      }
+
       res.json({
         success: true,
         message: checkOutMode === 'check_out_all' 

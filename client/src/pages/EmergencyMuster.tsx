@@ -233,12 +233,23 @@ export default function EmergencyMuster() {
           const message = JSON.parse(event.data);
           
           if (message.type === 'muster_update') {
-            queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-            const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
-            toast({
-              title: "Real-time Update",
-              description: `${message.personName} marked as ${statusText}`,
-            });
+            // Patch just the one person silently — no toast, no full list refetch.
+            // This fires for all clients (including the one that made the change),
+            // but since own-changes are already handled by onSuccess the patch is a no-op for them.
+            // For remote changes (another fire marshal device) this keeps the list live.
+            if (message.personId !== undefined && message.isAccountedFor !== undefined) {
+              queryClient.setQueryData(["/api/muster"], (old: any[] | undefined) => {
+                if (!old) return old;
+                return old.map(person =>
+                  person.id === message.personId
+                    ? { ...person, isAccountedFor: message.isAccountedFor }
+                    : person
+                );
+              });
+            } else {
+              // Fallback: full refetch if the message doesn't carry the expected fields
+              queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+            }
           }
           
           if (message.type === 'personnel_update') {
