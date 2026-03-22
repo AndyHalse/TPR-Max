@@ -29,6 +29,18 @@ if (process.env.NODE_ENV === 'production') {
   }
 }
 
+// Ensure Puppeteer Chrome binary is available (used for PDF report generation)
+async function ensureChromeBinary() {
+  try {
+    const { execSync } = await import('child_process');
+    execSync('npx puppeteer browsers install chrome', { stdio: 'inherit', timeout: 120000 });
+    console.log('✅ Puppeteer Chrome binary ready');
+  } catch (e: any) {
+    console.warn('⚠️ Could not install Puppeteer Chrome — PDF generation will fall back to HTML:', e.message);
+  }
+}
+ensureChromeBinary();
+
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (error: any) => {
   logger.error('Uncaught Exception - Critical application error', {
