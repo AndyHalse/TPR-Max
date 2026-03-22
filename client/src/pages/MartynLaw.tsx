@@ -210,21 +210,22 @@ export default function MartynLaw() {
   return (
     <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap mb-1">
-            <Shield className="text-blue-600 flex-shrink-0" size={24} />
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Martyn's Law Compliance</h1>
-            <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs">UK Protect Duty</Badge>
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            The Terrorism (Protection of Premises) Act 2025 — commonly known as Martyn's Law — requires qualifying venues to have a security plan and trained staff.
-          </p>
+      <div className="space-y-3">
+        {/* Title row */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Shield className="text-blue-600 flex-shrink-0" size={22} />
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Martyn's Law Compliance</h1>
+          <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 text-xs">UK Protect Duty</Badge>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Description */}
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          UK legislation requiring qualifying venues to implement protective security measures and maintain a written security plan.
+        </p>
+        {/* Action buttons — full width on mobile, auto width on desktop */}
+        <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleDownloadReport} className="flex-1 sm:flex-none">
             <Download size={14} className="mr-1.5" />
-            Download Report
+            <span className="hidden xs:inline">Download </span>Report
           </Button>
           <Button size="sm" onClick={handleSave} disabled={saveMutation.isPending} className="flex-1 sm:flex-none">
             <Save size={14} className="mr-1.5" />
