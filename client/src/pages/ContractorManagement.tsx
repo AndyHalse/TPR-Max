@@ -985,7 +985,7 @@ export default function ContractorManagement() {
                 <GlassCard 
                   key={contractor.id} 
                   hover
-                  className="cursor-pointer"
+                  className="cursor-pointer overflow-hidden"
                   onClick={() => setViewingWorker(contractor)}
                 >
                   <div className="flex items-start space-x-3 mb-3">
@@ -1076,8 +1076,8 @@ export default function ContractorManagement() {
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center justify-between pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center flex-wrap gap-2 pt-2 border-t border-gray-200/50 dark:border-gray-700/50">
+                    <div className="flex items-center gap-1.5 flex-1">
                       <Button 
                         size="sm" 
                         variant="ghost" 
