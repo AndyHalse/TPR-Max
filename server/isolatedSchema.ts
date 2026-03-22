@@ -43,6 +43,7 @@ export const staff = pgTable("staff", {
   qrCode: text("qr_code").unique(),
   biostarUserId: text("biostar_user_id"),
   paxtonUserId: text("paxton_user_id"),
+  phoneNumber: text("phone_number"),
   // Induction tracking
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
   inductionCompletedAt: timestamp("induction_completed_at"),

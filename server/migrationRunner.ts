@@ -237,6 +237,19 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     }
   };
 
+  const addStaffPhoneNumberMigration = {
+    version: '20260322_031_add_staff_phone_number',
+    description: 'Add phone_number column to staff table for bulk import and staff profiles',
+    async up(db: any) {
+      try {
+        await db.execute(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS phone_number TEXT`);
+        console.log('✅ [031] Added phone_number to staff table');
+      } catch (err: any) {
+        console.log(`⚠️ [031] staff.phone_number: ${err.message?.substring(0, 80)}`);
+      }
+    }
+  };
+
   const allMigrations = [
     bootstrapSchemaMigration,
     rebuildCompanySettingsMigration,
@@ -278,6 +291,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     ensureIncidentReportsTableMigration,
     addZoneSweepsMigration,
     addIncidentManagerUrlIdMigration,
+    addStaffPhoneNumberMigration,
   ];
 
   allMigrations.forEach(migration => {
