@@ -662,7 +662,7 @@ export default function EmergencyMuster() {
   }
 
   return (
-    <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
+    <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 rounded-xl bg-background min-h-screen pb-24 sm:pb-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
         <div>
           <h2 className="text-xl sm:text-2xl font-bold text-fixed">Emergency Muster</h2>
@@ -1093,9 +1093,9 @@ export default function EmergencyMuster() {
                     </div>
                     <Progress value={totalPeople > 0 ? (accountedFor / totalPeople) * 100 : 0} className={`h-2 mb-2 ${allSafe ? '[&>div]:bg-green-500' : '[&>div]:bg-orange-500'}`} />
                     {!allSafe && totalPeople > 0 && (
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs text-orange-700 dark:text-orange-300">{totalPeople - accountedFor} person{totalPeople - accountedFor !== 1 ? 's' : ''} unaccounted for</p>
-                        <Button size="sm" variant="outline" onClick={() => nudgeUnaccountedMutation.mutate()} disabled={nudgeUnaccountedMutation.isPending} className="text-xs h-7 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 flex-shrink-0">
+                      <div className="flex flex-col xs:flex-row items-start xs:items-center gap-2">
+                        <p className="text-xs text-orange-700 dark:text-orange-300 flex-1">{totalPeople - accountedFor} person{totalPeople - accountedFor !== 1 ? 's' : ''} unaccounted for</p>
+                        <Button size="sm" variant="outline" onClick={() => nudgeUnaccountedMutation.mutate()} disabled={nudgeUnaccountedMutation.isPending} className="w-full xs:w-auto text-xs h-8 border-orange-300 text-orange-700 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-300 justify-center">
                           <BellRing size={12} className="mr-1" />{nudgeUnaccountedMutation.isPending ? 'Sending...' : 'Nudge Unaccounted'}
                         </Button>
                       </div>
@@ -1110,16 +1110,16 @@ export default function EmergencyMuster() {
             <div className="flex gap-3 p-3 rounded-lg bg-gray-50 dark:bg-gray-800/30 border border-gray-200 dark:border-gray-700">
               <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${accountedFor === totalPeople && totalPeople > 0 ? 'bg-red-600 text-white' : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-300'}`}><ShieldAlert size={15} /></div>
               <div className="flex-1 min-w-0">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex flex-col gap-2">
                   <div>
                     <h4 className="text-sm font-semibold text-fixed">End the Incident</h4>
                     <p className="text-xs text-muted-foreground">Save the incident report and close this {isDrillMode ? 'drill' : 'event'}</p>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    <Button size="sm" variant="outline" onClick={copyMonitorLink} className="text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300" title="Share a read-only live view with management">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="outline" onClick={copyMonitorLink} className="flex-1 sm:flex-initial text-xs border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300 justify-center" title="Share a read-only live view with management">
                       <Copy size={12} className="mr-1" />Monitor Link
                     </Button>
-                    <Button size="sm" onClick={() => setShowEndEvacDialog(true)} disabled={completeEvacuationMutation.isPending} className="text-xs text-white border-0 bg-red-600 hover:bg-red-700">
+                    <Button size="sm" onClick={() => setShowEndEvacDialog(true)} disabled={completeEvacuationMutation.isPending} className="flex-1 sm:flex-initial text-xs text-white border-0 bg-red-600 hover:bg-red-700 justify-center">
                       <ShieldAlert size={12} className="mr-1" />End Evacuation
                     </Button>
                   </div>
@@ -1415,10 +1415,10 @@ export default function EmergencyMuster() {
       )}
 
       {/* Search and Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <div className="lg:col-span-2 order-2 lg:order-1">
           <GlassCard className="dark:glass-dark">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
               <h3 className="text-base sm:text-lg font-semibold text-fixed">
                 Personnel Accountability
                 {selectedZones.size > 0 && (
@@ -1469,7 +1469,7 @@ export default function EmergencyMuster() {
               </div>
             </div>
             
-            <div className="mb-6">
+            <div className="mb-4 sm:mb-6">
               <Label htmlFor="search" className="text-sm font-medium text-variable mb-2 block">
                 Search Personnel
               </Label>
@@ -1549,14 +1549,14 @@ export default function EmergencyMuster() {
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                     {hasActiveEvacuation && (
                       person.accounted ? (
-                        <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-safe-${person.id}`}>
-                          <CheckCircle size={11} />
-                          Safe
+                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-green-700 bg-green-100 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap" data-testid={`badge-safe-${person.id}`}>
+                          <CheckCircle size={10} />
+                          <span className="hidden xs:inline">Safe</span>
                         </span>
                       ) : (
-                        <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-100 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-unsafe-${person.id}`}>
-                          <XCircle size={11} />
-                          Unsafe
+                        <span className="inline-flex items-center gap-1 text-[10px] sm:text-xs font-semibold text-red-700 bg-red-100 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full whitespace-nowrap" data-testid={`badge-unsafe-${person.id}`}>
+                          <XCircle size={10} />
+                          <span className="hidden xs:inline">Unsafe</span>
                         </span>
                       )
                     )}
@@ -1611,16 +1611,16 @@ export default function EmergencyMuster() {
           </GlassCard>
         </div>
         
-        <GlassCard className="dark:glass-dark">
-          <div className="flex items-center mb-6">
-            <Phone className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
-            <h3 className="text-lg font-semibold text-fixed">Emergency Contacts</h3>
+        <GlassCard className="dark:glass-dark order-1 lg:order-2">
+          <div className="flex items-center mb-4 sm:mb-6">
+            <Phone className="mr-3 text-blue-600 dark:text-blue-400" size={20} />
+            <h3 className="text-base sm:text-lg font-semibold text-fixed">Emergency Contacts</h3>
           </div>
           
-          <div className="space-y-4">
-            <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-              <h4 className="font-medium text-red-800 dark:text-red-200 mb-2">Emergency Services</h4>
-              <p className="text-red-700 dark:text-red-300 text-2xl font-bold">999</p>
+          <div className="space-y-3 sm:space-y-4">
+            <div className="p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
+              <h4 className="font-medium text-red-800 dark:text-red-200 mb-1 text-sm sm:text-base">Emergency Services</h4>
+              <a href="tel:999" className="text-red-700 dark:text-red-300 text-2xl font-bold hover:underline block">999</a>
             </div>
             
             {fireMarshals.length > 0 ? (
