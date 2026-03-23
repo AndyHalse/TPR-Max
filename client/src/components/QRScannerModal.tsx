@@ -130,9 +130,15 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
       streamRef.current = stream;
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
-        // Don't await play() — the frame loop handles waiting for readyState >= 2.
-        // Suppress AbortError which fires harmlessly when the modal is closed mid-startup.
+        // Start playing, then wait for the camera to actually produce a frame
+        // before showing the scanning overlay. Desktop USB cameras can take
+        // 1-3 seconds to initialise their first frame — without this wait
+        // the video container appears black even though the stream is active.
         videoRef.current.play().catch(() => {});
+        await Promise.race([
+          new Promise<void>((resolve) => videoRef.current!.addEventListener('canplay', () => resolve(), { once: true })),
+          new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+        ]);
       }
       setScanState("scanning");
       rafRef.current = requestAnimationFrame(scanFrame);

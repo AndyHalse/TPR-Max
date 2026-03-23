@@ -313,8 +313,15 @@ export default function ContractorKiosk() {
       video.setAttribute('playsinline', '');
       video.setAttribute('autoplay', '');
       video.srcObject = stream;
-      // Suppress AbortError which fires harmlessly when section changes mid-startup
+      // Start playing, then wait for the camera to actually produce a frame
+      // before showing the scanning overlay. Desktop USB cameras can take
+      // 1-3 seconds to initialise their first frame — without this wait
+      // the video container appears black even though the stream is active.
       video.play().catch(() => {});
+      await Promise.race([
+        new Promise<void>((resolve) => video.addEventListener('canplay', () => resolve(), { once: true })),
+        new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+      ]);
 
       setCameraState("scanning");
       rafRef.current = requestAnimationFrame(scanFrame);
