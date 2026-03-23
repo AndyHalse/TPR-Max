@@ -35,7 +35,7 @@ export default function KioskMode() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafRef = useRef<number | null>(null);
   const lastScannedRef = useRef<string | null>(null);
   const isProcessingRef = useRef<boolean>(false);
 
@@ -225,7 +225,7 @@ export default function KioskMode() {
 
   // ── Camera scanning ──────────────────────────────────────────
   const stopCamera = useCallback(() => {
-    if (scanTimerRef.current) { clearTimeout(scanTimerRef.current); scanTimerRef.current = null; }
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
@@ -274,20 +274,20 @@ export default function KioskMode() {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas || video.readyState < 2 || video.videoWidth === 0) {
-      scanTimerRef.current = setTimeout(scanFrame, 80);
+      rafRef.current = requestAnimationFrame(scanFrame);
       return;
     }
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) { scanTimerRef.current = setTimeout(scanFrame, 150); return; }
+    if (!ctx) { rafRef.current = requestAnimationFrame(scanFrame); return; }
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "attemptBoth" });
+    const code = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
     if (code?.data) {
       processDetectedCode(code.data);
     } else {
-      scanTimerRef.current = setTimeout(scanFrame, 150);
+      rafRef.current = requestAnimationFrame(scanFrame);
     }
   }, [processDetectedCode]);
 
@@ -299,50 +299,30 @@ export default function KioskMode() {
     isProcessingRef.current = false;
     stopCamera();
 
-    let didStart = false;
-    const startupGuard = setTimeout(() => {
-      if (!didStart) {
-        setCameraState("error");
-        setCameraError("Camera took too long to start. Tap 'Try Again' or enter the code manually.");
-      }
-    }, 10000);
-
     try {
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: { ideal: "environment" } }
-        });
-      } catch {
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "environment",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+        },
+      });
 
       streamRef.current = stream;
       const video = videoRef.current;
-      if (!video) { clearTimeout(startupGuard); return; }
+      if (!video) return;
 
-      // iOS Safari fix: React's `muted` JSX prop does NOT set the HTML attribute,
-      // so iOS refuses to autoplay. Must be set imperatively.
+      // iOS Safari fix: set imperatively to ensure muted + playsinline
       video.muted = true;
       video.setAttribute('playsinline', '');
       video.setAttribute('autoplay', '');
       video.srcObject = stream;
+      // Suppress AbortError which fires harmlessly when section changes mid-startup
+      video.play().catch(() => {});
 
-      await new Promise<void>((resolve) => {
-        const onReady = () => { video.removeEventListener("canplay", onReady); resolve(); };
-        video.addEventListener("canplay", onReady);
-        const playP = video.play();
-        if (playP !== undefined) playP.catch((e) => { console.warn('[QR Camera] play():', e?.message); resolve(); });
-        setTimeout(resolve, 4000);
-      });
-
-      didStart = true;
-      clearTimeout(startupGuard);
       setCameraState("scanning");
-      scanTimerRef.current = setTimeout(scanFrame, 150);
+      rafRef.current = requestAnimationFrame(scanFrame);
     } catch (err: any) {
-      didStart = true;
-      clearTimeout(startupGuard);
       const msg = err?.name === "NotAllowedError"
         ? "Camera access denied. Enter the code manually below."
         : err?.name === "NotFoundError"
