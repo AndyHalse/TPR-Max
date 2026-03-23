@@ -63,6 +63,7 @@ export default function ContractorKiosk() {
   const rafRef = useRef<number | null>(null);
   const lastScannedRef = useRef<string | null>(null);
   const isProcessingRef = useRef<boolean>(false);
+  const hasShownScannerRef = useRef<boolean>(false);
 
   // Host selection state
   const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<ContractorWorker | null>(null);
@@ -169,10 +170,47 @@ export default function ContractorKiosk() {
   });
 
   // QR scan handler (works for both camera auto-scan and manual entry)
+  // Handles all QR types: staff, visitor pre-booking, contractor pre-booking, contractor worker
   const handleQrScan = async (overrideCode?: string) => {
     const code = (overrideCode || scannedCode).trim();
     if (!code) {
       toast({ title: "No code entered", description: "Please scan or type a QR code", variant: "destructive" });
+      return;
+    }
+
+    // Staff QR codes
+    if (code.startsWith('STF-')) {
+      setCameraState('off');
+      setScannedCode('');
+      try {
+        const resp = await apiRequest("POST", "/api/staff/qr-checkin", { qrCode: code });
+        const data = await resp.json();
+        queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
+        toast({ title: data.action === 'checked_in' ? "Staff Checked In" : "Staff Checked Out", description: data.message });
+      } catch {
+        toast({ title: "Error", description: "Staff QR not recognised", variant: "destructive" });
+      }
+      isProcessingRef.current = false;
+      setActiveSection("main");
+      return;
+    }
+
+    // Visitor pre-booking QR codes
+    if (code.startsWith('PBK-')) {
+      setCameraState('off');
+      setScannedCode('');
+      try {
+        const resp = await apiRequest("POST", "/api/prebookings/checkin", { qrCode: code });
+        const data = await resp.json();
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
+        const name = data.visitor ? `${data.visitor.firstName} ${data.visitor.lastName}` : "Visitor";
+        toast({ title: "Visitor Checked In", description: `${name} checked in successfully` });
+      } catch {
+        toast({ title: "Error", description: "Visitor pre-booking not found", variant: "destructive" });
+      }
+      isProcessingRef.current = false;
+      setActiveSection("main");
       return;
     }
 
@@ -273,6 +311,11 @@ export default function ContractorKiosk() {
       rafRef.current = requestAnimationFrame(scanFrame);
       return;
     }
+    // First valid frame — transition from "starting" spinner to "scanning" viewfinder
+    if (!hasShownScannerRef.current) {
+      hasShownScannerRef.current = true;
+      setCameraState("scanning");
+    }
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) { rafRef.current = requestAnimationFrame(scanFrame); return; }
     canvas.width = video.videoWidth;
@@ -293,6 +336,7 @@ export default function ContractorKiosk() {
     setScanResult(null);
     lastScannedRef.current = null;
     isProcessingRef.current = false;
+    hasShownScannerRef.current = false;
     stopCamera();
 
     try {
@@ -313,17 +357,11 @@ export default function ContractorKiosk() {
       video.setAttribute('playsinline', '');
       video.setAttribute('autoplay', '');
       video.srcObject = stream;
-      // Start playing, then wait for the camera to actually produce a frame
-      // before showing the scanning overlay. Desktop USB cameras can take
-      // 1-3 seconds to initialise their first frame — without this wait
-      // the video container appears black even though the stream is active.
       video.play().catch(() => {});
-      await Promise.race([
-        new Promise<void>((resolve) => video.addEventListener('canplay', () => resolve(), { once: true })),
-        new Promise<void>((resolve) => setTimeout(resolve, 3000)),
-      ]);
-
-      setCameraState("scanning");
+      // Transition to "scanning" happens inside scanFrame on the first
+      // valid frame (readyState >= 2 && videoWidth > 0). This ensures the
+      // viewfinder only appears once the camera is actually producing frames,
+      // eliminating the black-screen window on desktop USB cameras.
       rafRef.current = requestAnimationFrame(scanFrame);
     } catch (err: any) {
       const msg = err?.name === "NotAllowedError"
@@ -439,7 +477,7 @@ export default function ContractorKiosk() {
               QR Code Scanner
             </h2>
             <p className="text-variable text-base sm:text-lg lg:text-xl">
-              Scan your contractor pass to check in or check out
+              Scan any QR pass — contractor, visitor, or staff
             </p>
           </div>
 

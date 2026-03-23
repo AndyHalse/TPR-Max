@@ -38,6 +38,7 @@ export default function KioskMode() {
   const rafRef = useRef<number | null>(null);
   const lastScannedRef = useRef<string | null>(null);
   const isProcessingRef = useRef<boolean>(false);
+  const hasShownScannerRef = useRef<boolean>(false);
 
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
@@ -230,25 +231,16 @@ export default function KioskMode() {
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
 
-  const processDetectedCode = useCallback((code: string) => {
-    // Hard block — prevent any re-entry while a result is being shown
-    if (isProcessingRef.current) return;
-    if (lastScannedRef.current === code) return;
-
-    isProcessingRef.current = true;
-    lastScannedRef.current = code;
-    setCameraState("processing");
-    stopCamera();
-
-    // Staff QR code
+  // Async QR handler — handles all QR types on this kiosk
+  const handleQrScan = useCallback(async (code: string) => {
+    // Staff QR
     if (code.startsWith("STF-")) {
       staffQrMutation.mutate(code);
       setScanResult({ success: true, message: "Staff card recognised — processing…" });
-      // staffQrMutation.onSuccess handles navigation + resets after 5s
       return;
     }
 
-    // Pre-booking QR code — check-in only
+    // Visitor pre-booking
     if (code.startsWith("PBK-")) {
       const settingsAny = settings as any;
       if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
@@ -263,12 +255,76 @@ export default function KioskMode() {
       return;
     }
 
-    // Kiosk is CHECK-IN ONLY — no checkout from the kiosk scanner
+    // Contractor pre-booking
+    if (code.startsWith("CPB-")) {
+      try {
+        const resp = await apiRequest("POST", "/api/contractors/prebookings/checkin", { qrCode: code });
+        await resp.json();
+        queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+        setScanResult({ success: true, message: "Contractor pre-booking checked in!" });
+        setCameraState("off");
+        setTimeout(() => {
+          isProcessingRef.current = false;
+          lastScannedRef.current = null;
+          setActiveSection("main");
+        }, 3000);
+      } catch {
+        setScanResult({ success: false, message: "Contractor pre-booking not found." });
+        setCameraState("error");
+        isProcessingRef.current = false;
+        lastScannedRef.current = null;
+      }
+      return;
+    }
+
+    // Unknown prefix — try contractor worker lookup first
+    try {
+      const resp = await fetch(`/api/contractors/workers/by-qr/${encodeURIComponent(code)}`, { credentials: "include" });
+      if (resp.ok) {
+        const { worker, companyName } = await resp.json();
+        if (worker.isCheckedIn) {
+          await apiRequest("POST", `/api/contractors/workers/${worker.id}/checkout`);
+          queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+          setCheckinSuccess({ name: `${worker.firstName} ${worker.lastName}`, company: companyName });
+          setCameraState("off");
+          setTimeout(() => {
+            setCheckinSuccess(null);
+            isProcessingRef.current = false;
+            lastScannedRef.current = null;
+            setActiveSection("main");
+          }, 3000);
+        } else {
+          setScanResult({ success: false, message: `${worker.firstName} ${worker.lastName} — please use the contractor kiosk to check in.` });
+          setCameraState("error");
+          isProcessingRef.current = false;
+          lastScannedRef.current = null;
+        }
+        return;
+      }
+    } catch { /* fall through to visitor checkout */ }
+
+    // Try visitor checkout (visitor QR codes)
+    try {
+      await checkOutMutation.mutateAsync(code);
+      return;
+    } catch { /* fall through */ }
+
+    // Nothing matched
     isProcessingRef.current = false;
     lastScannedRef.current = null;
     setScanResult({ success: false, message: "QR code not recognised. Please see reception or use manual check-in below." });
     setCameraState("error");
-  }, [stopCamera, staffQrMutation, preBookingCheckInMutation, settings]);
+  }, [staffQrMutation, preBookingCheckInMutation, settings, checkOutMutation]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const processDetectedCode = useCallback((code: string) => {
+    if (isProcessingRef.current) return;
+    if (lastScannedRef.current === code) return;
+    isProcessingRef.current = true;
+    lastScannedRef.current = code;
+    setCameraState("processing");
+    stopCamera();
+    handleQrScan(code);
+  }, [stopCamera]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
@@ -276,6 +332,11 @@ export default function KioskMode() {
     if (!video || !canvas || video.readyState < 2 || video.videoWidth === 0) {
       rafRef.current = requestAnimationFrame(scanFrame);
       return;
+    }
+    // First valid frame — transition from "starting" spinner to "scanning" viewfinder
+    if (!hasShownScannerRef.current) {
+      hasShownScannerRef.current = true;
+      setCameraState("scanning");
     }
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) { rafRef.current = requestAnimationFrame(scanFrame); return; }
@@ -297,6 +358,7 @@ export default function KioskMode() {
     setScanResult(null);
     lastScannedRef.current = null;
     isProcessingRef.current = false;
+    hasShownScannerRef.current = false;
     stopCamera();
 
     try {
@@ -317,17 +379,11 @@ export default function KioskMode() {
       video.setAttribute('playsinline', '');
       video.setAttribute('autoplay', '');
       video.srcObject = stream;
-      // Start playing, then wait for the camera to actually produce a frame
-      // before showing the scanning overlay. Desktop USB cameras can take
-      // 1-3 seconds to initialise their first frame — without this wait
-      // the video container appears black even though the stream is active.
       video.play().catch(() => {});
-      await Promise.race([
-        new Promise<void>((resolve) => video.addEventListener('canplay', () => resolve(), { once: true })),
-        new Promise<void>((resolve) => setTimeout(resolve, 3000)),
-      ]);
-
-      setCameraState("scanning");
+      // Transition to "scanning" happens inside scanFrame on the first
+      // valid frame (readyState >= 2 && videoWidth > 0). This ensures the
+      // viewfinder only appears once the camera is actually producing frames,
+      // eliminating the black-screen window on desktop USB cameras.
       rafRef.current = requestAnimationFrame(scanFrame);
     } catch (err: any) {
       const msg = err?.name === "NotAllowedError"
@@ -358,43 +414,6 @@ export default function KioskMode() {
     }
     return () => stopCamera();
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleQrScan = async (overrideCode?: string) => {
-    const code = overrideCode || scannedCode;
-    if (!code.trim()) {
-      toast({ title: "Error", description: "Please enter a QR code", variant: "destructive" });
-      return;
-    }
-    
-    if (code.startsWith("STF-")) {
-      staffQrMutation.mutate(code);
-      return;
-    }
-    
-    if (code.startsWith("PBK-")) {
-      const settingsAny = settings as any;
-      if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
-        setPendingQrCode(code);
-        setShowHSModal(true);
-        return;
-      }
-      preBookingCheckInMutation.mutate(code);
-      return;
-    }
-    
-    try {
-      await checkOutMutation.mutateAsync(code);
-      return;
-    } catch (error) {
-      // Not a visitor QR code
-    }
-    
-    toast({
-      title: "Error",
-      description: "QR code not recognized. Please try again or proceed with manual check-in.",
-      variant: "destructive",
-    });
-  };
 
   const handleKioskHSAccepted = () => {
     setShowHSModal(false);
@@ -447,7 +466,7 @@ export default function KioskMode() {
             >
               QR Code Scanner
             </h2>
-            <p className="text-variable text-base sm:text-lg lg:text-xl">Scan your visitor pass or pre-booking QR code</p>
+            <p className="text-variable text-base sm:text-lg lg:text-xl">Scan any QR pass — visitor, contractor, or staff</p>
           </div>
 
           <GlassCard className="overflow-hidden flex-1 flex flex-col justify-center">
@@ -568,12 +587,12 @@ export default function KioskMode() {
                   placeholder="Paste or type QR code…"
                   value={scannedCode}
                   onChange={(e) => setScannedCode(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && scannedCode.trim()) handleQrScan(); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && scannedCode.trim()) handleQrScan(scannedCode.trim()); }}
                   className="flex-1 font-mono text-sm"
                   data-testid="input-qr-code"
                 />
                 <Button
-                  onClick={() => handleQrScan()}
+                  onClick={() => handleQrScan(scannedCode.trim())}
                   disabled={!scannedCode.trim() || checkOutMutation.isPending || preBookingCheckInMutation.isPending || staffQrMutation.isPending}
                   className="gradient-blue text-white"
                   data-testid="button-scan-qr"
