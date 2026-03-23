@@ -89,7 +89,9 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < 2) {
+    // videoWidth > 0 is the reliable live-stream readiness indicator;
+    // readyState can stall at 1 (HAVE_METADATA) on desktop USB cameras.
+    if (!video || !canvas || !video.videoWidth) {
       rafRef.current = requestAnimationFrame(scanFrame);
       return;
     }
@@ -136,8 +138,9 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
         // the video container appears black even though the stream is active.
         videoRef.current.play().catch(() => {});
         await Promise.race([
-          new Promise<void>((resolve) => videoRef.current!.addEventListener('canplay', () => resolve(), { once: true })),
-          new Promise<void>((resolve) => setTimeout(resolve, 3000)),
+          new Promise<void>((resolve) => videoRef.current!.addEventListener('playing', resolve, { once: true })),
+          new Promise<void>((resolve) => videoRef.current!.addEventListener('canplay', resolve, { once: true })),
+          new Promise<void>((resolve) => setTimeout(resolve, 4000)),
         ]);
       }
       setScanState("scanning");

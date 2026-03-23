@@ -329,14 +329,11 @@ export default function KioskMode() {
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < 2 || video.videoWidth === 0) {
+    // Guard: video must be producing frames (videoWidth > 0 is the reliable
+    // live-stream indicator; readyState can stall at 1 on desktop USB cameras)
+    if (!video || !canvas || !video.videoWidth) {
       rafRef.current = requestAnimationFrame(scanFrame);
       return;
-    }
-    // First valid frame — transition from "starting" spinner to "scanning" viewfinder
-    if (!hasShownScannerRef.current) {
-      hasShownScannerRef.current = true;
-      setCameraState("scanning");
     }
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) { rafRef.current = requestAnimationFrame(scanFrame); return; }
@@ -374,16 +371,25 @@ export default function KioskMode() {
       const video = videoRef.current;
       if (!video) return;
 
-      // iOS Safari fix: set imperatively to ensure muted + playsinline
+      // iOS Safari requires these attributes set imperatively
       video.muted = true;
       video.setAttribute('playsinline', '');
       video.setAttribute('autoplay', '');
       video.srcObject = stream;
       video.play().catch(() => {});
-      // Transition to "scanning" happens inside scanFrame on the first
-      // valid frame (readyState >= 2 && videoWidth > 0). This ensures the
-      // viewfinder only appears once the camera is actually producing frames,
-      // eliminating the black-screen window on desktop USB cameras.
+
+      // Wait for the camera to produce its first frame before showing the
+      // scanning overlay. 'playing'/'canplay' fires once the browser has
+      // decoded the first frame. 4 s timeout covers slow USB cameras.
+      await Promise.race([
+        new Promise<void>(resolve => video.addEventListener('playing', resolve, { once: true })),
+        new Promise<void>(resolve => video.addEventListener('canplay', resolve, { once: true })),
+        new Promise<void>(resolve => setTimeout(resolve, 4000)),
+      ]);
+
+      // Only show the viewfinder if the stream is still active
+      if (!streamRef.current) return;
+      setCameraState("scanning");
       rafRef.current = requestAnimationFrame(scanFrame);
     } catch (err: any) {
       const msg = err?.name === "NotAllowedError"
