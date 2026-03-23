@@ -307,9 +307,10 @@ export default function ContractorKiosk() {
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    // Guard: videoWidth > 0 is the reliable live-stream indicator.
-    // readyState can stall at 1 (HAVE_METADATA) on desktop USB cameras.
-    if (!video || !canvas || !video.videoWidth) {
+    // Skip decode if dimensions not yet available — keeps looping until ready.
+    // We don't gate the UI on this; setCameraState("scanning") is called
+    // immediately in startCamera so the viewfinder shows right away.
+    if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
       rafRef.current = requestAnimationFrame(scanFrame);
       return;
     }
@@ -327,7 +328,9 @@ export default function ContractorKiosk() {
     }
   }, [processDetectedCode]);
 
-  const startCamera = useCallback(async () => {
+  // Non-async startCamera avoids React double-effect / StrictMode cancellation
+  // race conditions that broke async/await in development.
+  const startCamera = useCallback(() => {
     setCameraState("starting");
     setCameraError(null);
     setScanResult(null);
@@ -336,41 +339,28 @@ export default function ContractorKiosk() {
     hasShownScannerRef.current = false;
     stopCamera();
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-        },
-      });
+    navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: { ideal: "environment" },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+      },
+    }).then(stream => {
+      const video = videoRef.current;
+      if (!video) { stream.getTracks().forEach(t => t.stop()); return; }
 
       streamRef.current = stream;
-      const video = videoRef.current;
-      if (!video) return;
-
       // iOS Safari requires these attributes set imperatively
       video.muted = true;
       video.setAttribute('playsinline', '');
       video.setAttribute('autoplay', '');
       video.srcObject = stream;
       video.play().catch(() => {});
-
-      // Wait for the camera to produce its first frame. 'playing'/'canplay'
-      // fires once the browser has decoded the first frame. 4 s timeout
-      // covers slow USB cameras that delay before producing data.
-      await Promise.race([
-        new Promise<void>(resolve => video.addEventListener('playing', resolve, { once: true })),
-        new Promise<void>(resolve => video.addEventListener('canplay', resolve, { once: true })),
-        new Promise<void>(resolve => setTimeout(resolve, 4000)),
-      ]);
-
-      // Only show the viewfinder if the stream is still active (user may have
-      // navigated away during the await).
-      if (!streamRef.current) return;
+      // Show the scanning viewfinder immediately — don't wait for videoWidth.
+      // scanFrame guards the actual QR decode on !videoWidth so we never crash.
       setCameraState("scanning");
       rafRef.current = requestAnimationFrame(scanFrame);
-    } catch (err: any) {
+    }).catch((err: any) => {
       const msg = err?.name === "NotAllowedError"
         ? "Camera access denied. Enter the code manually below."
         : err?.name === "NotFoundError"
@@ -378,7 +368,7 @@ export default function ContractorKiosk() {
         : "Camera unavailable. Enter the code manually below.";
       setCameraError(msg);
       setCameraState("error");
-    }
+    });
   }, [scanFrame, stopCamera]);
 
   useEffect(() => {
