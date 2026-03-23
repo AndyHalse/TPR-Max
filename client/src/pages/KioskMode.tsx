@@ -350,7 +350,7 @@ export default function KioskMode() {
       isProcessingRef.current = false;
     }
     return () => stopCamera();
-  }, [activeSection, startCamera, stopCamera]);
+  }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleQrScan = async (overrideCode?: string) => {
     const code = overrideCode || scannedCode;
