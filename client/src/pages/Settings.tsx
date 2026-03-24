@@ -55,7 +55,9 @@ export default function Settings() {
     password: "", 
     role: "user",
     firstName: "",
-    lastName: ""
+    lastName: "",
+    allowedMenuItems: [] as string[],
+    defaultLandingPage: ""
   });
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isManualResetDisabled, setIsManualResetDisabled] = useState(false);
@@ -380,7 +382,9 @@ export default function Settings() {
         password: "",
         role: "user",
         firstName: "",
-        lastName: ""
+        lastName: "",
+        allowedMenuItems: [],
+        defaultLandingPage: ""
       });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
@@ -4488,8 +4492,8 @@ export default function Settings() {
                                 Awaiting
                               </Badge>
                             ) : (
-                              <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                                {user.role === 'admin' ? 'Admin' : 'User'}
+                              <Badge variant={user.role === 'admin' ? 'default' : user.role === 'security' || user.role === 'fire_marshal' ? 'outline' : 'secondary'}>
+                                {user.role === 'admin' ? 'Admin' : user.role === 'security' ? 'Security' : user.role === 'fire_marshal' ? 'Fire Marshal' : 'User'}
                               </Badge>
                             )}
                             {isAdminUser && (
@@ -4537,7 +4541,9 @@ export default function Settings() {
                                           password: "",
                                           role: user.role,
                                           firstName: user.firstName || "",
-                                          lastName: user.lastName || ""
+                                          lastName: user.lastName || "",
+                                          allowedMenuItems: Array.isArray(user.allowedMenuItems) ? user.allowedMenuItems : [],
+                                          defaultLandingPage: user.defaultLandingPage || ""
                                         });
                                         setShowEditUserDialog(true);
                                       }}
@@ -4647,6 +4653,8 @@ export default function Settings() {
                     <SelectContent>
                       <SelectItem value="user">Standard User</SelectItem>
                       <SelectItem value="admin">Administrator</SelectItem>
+                      <SelectItem value="security">Security</SelectItem>
+                      <SelectItem value="fire_marshal">Fire Marshal</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -6726,6 +6734,8 @@ export default function Settings() {
                 <SelectContent>
                   <SelectItem value="user">Standard User</SelectItem>
                   <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="security">Security</SelectItem>
+                  <SelectItem value="fire_marshal">Fire Marshal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -6871,6 +6881,8 @@ export default function Settings() {
                 <SelectContent>
                   <SelectItem value="user">Standard User</SelectItem>
                   <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="security">Security</SelectItem>
+                  <SelectItem value="fire_marshal">Fire Marshal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -6906,7 +6918,7 @@ export default function Settings() {
 
       {/* Edit User Dialog */}
       <Dialog open={showEditUserDialog} onOpenChange={setShowEditUserDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="sm:max-w-[580px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="text-blue-600 dark:text-blue-400" size={24} />
@@ -7018,9 +7030,94 @@ export default function Settings() {
                 <SelectContent>
                   <SelectItem value="user">Standard User</SelectItem>
                   <SelectItem value="admin">Administrator</SelectItem>
+                  <SelectItem value="security">Security</SelectItem>
+                  <SelectItem value="fire_marshal">Fire Marshal</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {isAdminUser && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Default Landing Page</Label>
+                <Select value={editUserForm.defaultLandingPage} onValueChange={(value) => setEditUserForm({ ...editUserForm, defaultLandingPage: value })}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Dashboard (default)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">Dashboard (default)</SelectItem>
+                    <SelectItem value="/">Dashboard</SelectItem>
+                    <SelectItem value="/visitors">Visitors</SelectItem>
+                    <SelectItem value="/contractors">Contractors</SelectItem>
+                    <SelectItem value="/contractor">Contractor In/Out</SelectItem>
+                    <SelectItem value="/staff">Staff</SelectItem>
+                    <SelectItem value="/members">Members</SelectItem>
+                    <SelectItem value="/meeting-rooms">Meeting Rooms</SelectItem>
+                    <SelectItem value="/time-attendance">T&A Report</SelectItem>
+                    <SelectItem value="/muster">Muster List</SelectItem>
+                    <SelectItem value="/incident-reports">Incident Reports</SelectItem>
+                    <SelectItem value="/martyn-law">Martyn's Law</SelectItem>
+                    <SelectItem value="/reports">Reports</SelectItem>
+                    <SelectItem value="/induction-settings">Induction Settings</SelectItem>
+                    <SelectItem value="/kiosk">Kiosk Mode</SelectItem>
+                    <SelectItem value="/ai-demo">AI Demo</SelectItem>
+                    <SelectItem value="/email-outbox">Email Outbox</SelectItem>
+                    <SelectItem value="/settings">Settings</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">The page this user sees after logging in.</p>
+              </div>
+            )}
+
+            {isAdminUser && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Page Access</Label>
+                  <span className="text-xs text-muted-foreground">
+                    {editUserForm.allowedMenuItems.length === 0 ? "Unrestricted (all pages)" : `${editUserForm.allowedMenuItems.length} page(s) allowed`}
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">Leave blank to allow all pages. Check specific pages to restrict access.</p>
+                <div className="border rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto bg-slate-50 dark:bg-slate-900/50">
+                  {[
+                    { path: "/", label: "Dashboard" },
+                    { path: "/visitors", label: "Visitors" },
+                    { path: "/contractors", label: "Contractors" },
+                    { path: "/contractor", label: "Contractor In/Out" },
+                    { path: "/staff", label: "Staff" },
+                    { path: "/members", label: "Members" },
+                    { path: "/meeting-rooms", label: "Meeting Rooms" },
+                    { path: "/time-attendance", label: "T&A Report" },
+                    { path: "/muster", label: "Muster List" },
+                    { path: "/incident-reports", label: "Incident Reports" },
+                    { path: "/martyn-law", label: "Martyn's Law" },
+                    { path: "/reports", label: "Reports" },
+                    { path: "/induction-settings", label: "Induction Settings" },
+                    { path: "/kiosk", label: "Kiosk Mode" },
+                    { path: "/ai-demo", label: "AI Demo" },
+                    { path: "/email-outbox", label: "Email Outbox" },
+                    { path: "/settings", label: "Settings" },
+                  ].map((item) => {
+                    const checked = editUserForm.allowedMenuItems.includes(item.path);
+                    return (
+                      <label key={item.path} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const updated = e.target.checked
+                              ? [...editUserForm.allowedMenuItems, item.path]
+                              : editUserForm.allowedMenuItems.filter(p => p !== item.path);
+                            setEditUserForm({ ...editUserForm, allowedMenuItems: updated });
+                          }}
+                          className="rounded border-gray-300"
+                        />
+                        <span className="text-sm">{item.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             
             {!isAdminUser && (
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">

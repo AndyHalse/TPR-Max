@@ -292,6 +292,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addZoneSweepsMigration,
     addIncidentManagerUrlIdMigration,
     addStaffPhoneNumberMigration,
+    addUserMenuPermissionsMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1770,6 +1771,25 @@ const addIncidentReportsMigration = {
       console.log(`✅ [025] Created incident_reports table`);
     } catch (err: any) {
       console.log(`⚠️ [025] incident_reports: ${err.message?.substring(0, 120)}`);
+    }
+  }
+};
+
+const addUserMenuPermissionsMigration: Migration = {
+  version: '20260324_032_add_user_menu_permissions',
+  description: 'Add allowed_menu_items and default_landing_page to users table for role-based nav access',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_menu_items TEXT[]`);
+      console.log('✅ [032] Added allowed_menu_items to users table');
+    } catch (err: any) {
+      console.log(`⚠️ [032] users.allowed_menu_items: ${err.message?.substring(0, 80)}`);
+    }
+    try {
+      await db.execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS default_landing_page TEXT`);
+      console.log('✅ [032] Added default_landing_page to users table');
+    } catch (err: any) {
+      console.log(`⚠️ [032] users.default_landing_page: ${err.message?.substring(0, 80)}`);
     }
   }
 };

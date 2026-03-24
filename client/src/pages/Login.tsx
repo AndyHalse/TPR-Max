@@ -203,8 +203,8 @@ export default function Login() {
           }
         });
         
-        // Redirecting to dashboard...
-        setLocation("/");
+        // Redirecting to dashboard or default landing page...
+        setLocation(data.user.defaultLandingPage || "/");
       } else {
         // Authentication failed
         setError(data.error || "Login failed");

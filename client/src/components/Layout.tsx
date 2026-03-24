@@ -19,7 +19,7 @@ export default function Layout({ children }: LayoutProps) {
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
   
-  const { data: user } = useQuery<{ id: string; username: string } | null>({
+  const { data: user } = useQuery<{ id: string; username: string; role?: string; allowedMenuItems?: string[] | null; defaultLandingPage?: string | null } | null>({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     staleTime: 5 * 60 * 1000,
@@ -221,11 +221,17 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/settings", icon: Settings, label: "Settings", alwaysVisible: true },
   ];
 
-  // Filter navigation items based on feature toggles.
+  // Filter navigation items based on feature toggles and user-specific menu access.
   // While settings are loading, only show always-visible items so there is no flash of extra nav items.
+  const allowedItems = user?.allowedMenuItems;
+  const hasMenuRestrictions = Array.isArray(allowedItems) && allowedItems.length > 0;
+
   const navItems = allNavItems.filter(item => {
-    if (item.alwaysVisible) return true;
-    if (!settings) return false; // hide feature-gated items until settings have loaded
+    // If this user has specific menu restrictions, enforce them (admins are never restricted)
+    if (hasMenuRestrictions && user?.role !== 'admin') {
+      if (!allowedItems!.includes(item.path)) return false;
+    }
+    if (!settings) return item.alwaysVisible; // hide feature-gated items until settings have loaded
     if (item.featureKey) {
       const val = settings[item.featureKey as keyof CompanySettings];
       // defaultOn items (opt-out) are visible unless explicitly set to false

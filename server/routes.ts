@@ -1404,7 +1404,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             user: { 
               id: user.id, 
               username: user.username,
-              customerId: customer.id
+              customerId: customer.id,
+              role: user.role,
+              allowedMenuItems: (user as any).allowedMenuItems ?? null,
+              defaultLandingPage: (user as any).defaultLandingPage ?? null
             },
             customer: {
               id: customer.id,
@@ -1520,7 +1523,9 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         id: user.id, 
         username: user.username, 
         customerId: req.session.customerId,
-        role: user.role
+        role: user.role,
+        allowedMenuItems: user.allowedMenuItems ?? null,
+        defaultLandingPage: user.defaultLandingPage ?? null
       });
     } catch (error) {
       console.error('Error in /api/auth/me:', error);
@@ -15831,6 +15836,8 @@ This is an automated notification from your visitor management system.`;
         role: user.role,
         firstName: user.firstName,
         lastName: user.lastName,
+        allowedMenuItems: (user as any).allowedMenuItems ?? null,
+        defaultLandingPage: (user as any).defaultLandingPage ?? null,
         status: 'active' as const,
         isCurrentUser: user.id === sessionUserId,
       }));
@@ -15925,7 +15932,7 @@ This is an automated notification from your visitor management system.`;
       const context = { customerId: req.session.customerId };
       
       const { id } = req.params;
-      const { username, email, firstName, lastName, role, password } = req.body;
+      const { username, email, firstName, lastName, role, password, allowedMenuItems, defaultLandingPage } = req.body;
       
       // Get current user to check permissions
       const customerDbService = CustomerDatabaseService.getInstance();
@@ -15954,6 +15961,15 @@ This is an automated notification from your visitor management system.`;
       if (lastName !== undefined) updateData.lastName = lastName;
       if (role && currentUser.role === 'admin') updateData.role = role;
       if (password) updateData.password = password; // Will be hashed in updateUser
+      // Only admins can change menu access permissions
+      if (currentUser.role === 'admin') {
+        if (allowedMenuItems !== undefined) {
+          updateData.allowedMenuItems = Array.isArray(allowedMenuItems) && allowedMenuItems.length > 0 ? allowedMenuItems : null;
+        }
+        if (defaultLandingPage !== undefined) {
+          updateData.defaultLandingPage = defaultLandingPage || null;
+        }
+      }
 
       const updatedUser = await databaseService.updateUser(context, id, updateData);
       
@@ -15969,7 +15985,9 @@ This is an automated notification from your visitor management system.`;
           email: updatedUser.email,
           firstName: updatedUser.firstName,
           lastName: updatedUser.lastName,
-          role: updatedUser.role
+          role: updatedUser.role,
+          allowedMenuItems: (updatedUser as any).allowedMenuItems ?? null,
+          defaultLandingPage: (updatedUser as any).defaultLandingPage ?? null
         }
       });
     } catch (error) {

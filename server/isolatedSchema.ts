@@ -277,6 +277,8 @@ export const users = pgTable("users", {
   lastName: text("last_name"),
   isActive: boolean("is_active").default(true),
   lastLoginAt: timestamp("last_login_at"),
+  allowedMenuItems: text("allowed_menu_items").array(),
+  defaultLandingPage: text("default_landing_page"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
