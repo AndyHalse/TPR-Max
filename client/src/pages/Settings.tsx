@@ -57,7 +57,7 @@ export default function Settings() {
     firstName: "",
     lastName: "",
     allowedMenuItems: [] as string[],
-    defaultLandingPage: ""
+    defaultLandingPage: "_default"
   });
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [isManualResetDisabled, setIsManualResetDisabled] = useState(false);
@@ -362,10 +362,14 @@ export default function Settings() {
       role: string;
       firstName: string;
       lastName: string;
+      allowedMenuItems?: string[];
+      defaultLandingPage?: string;
     }) => {
       const { userId, ...updateData } = data;
       // Don't send password if it's empty
-      const payload = data.password ? updateData : { ...updateData, password: undefined };
+      const payload: any = data.password ? updateData : { ...updateData, password: undefined };
+      // Convert "_default" sentinel back to "" (server will store as null)
+      if (payload.defaultLandingPage === "_default") payload.defaultLandingPage = "";
       const response = await apiRequest("PUT", `/api/users/${userId}`, payload);
       if (!response.ok) {
         const errorData = await response.json();
@@ -384,7 +388,7 @@ export default function Settings() {
         firstName: "",
         lastName: "",
         allowedMenuItems: [],
-        defaultLandingPage: ""
+        defaultLandingPage: "_default"
       });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       toast({
@@ -4543,7 +4547,7 @@ export default function Settings() {
                                           firstName: user.firstName || "",
                                           lastName: user.lastName || "",
                                           allowedMenuItems: Array.isArray(user.allowedMenuItems) ? user.allowedMenuItems : [],
-                                          defaultLandingPage: user.defaultLandingPage || ""
+                                          defaultLandingPage: user.defaultLandingPage || "_default"
                                         });
                                         setShowEditUserDialog(true);
                                       }}
@@ -7044,7 +7048,7 @@ export default function Settings() {
                     <SelectValue placeholder="Dashboard (default)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Dashboard (default)</SelectItem>
+                    <SelectItem value="_default">Dashboard (default)</SelectItem>
                     <SelectItem value="/">Dashboard</SelectItem>
                     <SelectItem value="/visitors">Visitors</SelectItem>
                     <SelectItem value="/contractors">Contractors</SelectItem>
