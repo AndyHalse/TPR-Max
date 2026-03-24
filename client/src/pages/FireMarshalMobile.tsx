@@ -659,7 +659,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const displayData = personnelData;
 
   return (
-    <div className={`min-h-screen pb-24 ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}>
+    <div className={`min-h-screen pb-24 overflow-x-hidden w-full max-w-full ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}>
 
       {/* Sweep confirmation dialog */}
       {sweepConfirmZone && (
@@ -708,15 +708,15 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       {showNoteDialog && (
         <div className="fixed inset-0 z-[100] flex flex-col bg-black/80" onClick={() => { setShowNoteDialog(false); setNoteText(""); }}>
           <div
-            className="mt-auto bg-white rounded-t-2xl p-5 shadow-2xl"
+            className="mt-auto bg-white rounded-t-2xl px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl w-full"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <FileText className="h-5 w-5 text-red-600" />
-                Add Evacuation Note
+              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2 min-w-0">
+                <FileText className="h-5 w-5 text-red-600 flex-shrink-0" />
+                <span className="truncate">Add Evacuation Note</span>
               </h2>
-              <button onClick={() => { setShowNoteDialog(false); setNoteText(""); }} className="text-gray-400 hover:text-gray-600 p-1">
+              <button onClick={() => { setShowNoteDialog(false); setNoteText(""); }} className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0 ml-2">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -727,26 +727,26 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
               onChange={e => setNoteText(e.target.value)}
               placeholder="e.g. Visitor refused to evacuate assembly point B, escorted by FM..."
               className="w-full border border-gray-300 rounded-xl p-3 text-sm text-gray-900 resize-none focus:outline-none focus:ring-2 focus:ring-red-500"
-              rows={5}
+              rows={4}
               maxLength={1000}
             />
-            <div className="flex items-center justify-between mt-1 mb-4">
+            <div className="flex items-center justify-between mt-1 mb-3">
               <span className="text-xs text-gray-400">{noteText.length}/1000</span>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowNoteDialog(false); setNoteText(""); }}
-                className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm"
+                className="flex-1 min-w-0 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={() => noteText.trim() && addNoteMutation.mutate(noteText.trim())}
                 disabled={!noteText.trim() || addNoteMutation.isPending}
-                className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 min-w-0 py-3 rounded-xl bg-red-600 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Send className="h-4 w-4" />
-                {addNoteMutation.isPending ? "Saving…" : "Save Note"}
+                <Send className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{addNoteMutation.isPending ? "Saving…" : "Save Note"}</span>
               </button>
             </div>
           </div>
@@ -757,41 +757,41 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       {showPhotoPreview && pendingPhotoData && (
         <div className="fixed inset-0 z-[100] flex flex-col bg-black/90" onClick={() => { setShowPhotoPreview(false); setPendingPhotoData(null); }}>
           <div
-            className="mt-auto bg-white rounded-t-2xl p-5 shadow-2xl"
+            className="mt-auto bg-white rounded-t-2xl px-4 pt-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl w-full"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
-                <Camera className="h-5 w-5 text-red-600" />
-                Save Photo to Report
+              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2 min-w-0">
+                <Camera className="h-5 w-5 text-red-600 flex-shrink-0" />
+                <span className="truncate">Save Photo to Report</span>
               </h2>
-              <button onClick={() => { setShowPhotoPreview(false); setPendingPhotoData(null); }} className="text-gray-400 hover:text-gray-600 p-1">
+              <button onClick={() => { setShowPhotoPreview(false); setPendingPhotoData(null); }} className="text-gray-400 hover:text-gray-600 p-1 flex-shrink-0 ml-2">
                 <X className="h-5 w-5" />
               </button>
             </div>
-            <img src={pendingPhotoData} alt="Preview" className="w-full max-h-52 object-contain rounded-xl border border-gray-200 mb-3 bg-gray-50" />
+            <img src={pendingPhotoData} alt="Preview" className="w-full max-h-44 object-contain rounded-xl border border-gray-200 mb-3 bg-gray-50" />
             <input
               type="text"
               value={photoCaption}
               onChange={e => setPhotoCaption(e.target.value)}
               placeholder="Optional caption (e.g. Exit B blocked by debris)"
-              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 mb-4"
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-red-500 mb-3"
               maxLength={200}
             />
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowPhotoPreview(false); setPendingPhotoData(null); }}
-                className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm"
+                className="flex-1 min-w-0 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm"
               >
                 Discard
               </button>
               <button
                 onClick={() => pendingPhotoData && addPhotoMutation.mutate({ photoData: pendingPhotoData, caption: photoCaption })}
                 disabled={addPhotoMutation.isPending}
-                className="flex-1 py-3 rounded-xl bg-red-600 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                className="flex-1 min-w-0 py-3 rounded-xl bg-red-600 text-white font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
               >
-                <Send className="h-4 w-4" />
-                {addPhotoMutation.isPending ? "Saving…" : "Save Photo"}
+                <Send className="h-4 w-4 flex-shrink-0" />
+                <span className="truncate">{addPhotoMutation.isPending ? "Saving…" : "Save Photo"}</span>
               </button>
             </div>
           </div>
@@ -826,21 +826,21 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         </div>
         {/* Quick-capture row — only during active evacuation */}
         {isEmergencyActive && activeEvacuationId && (
-          <div className="flex border-t border-white/20">
+          <div className="flex border-t border-white/20 w-full overflow-hidden">
             <button
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors"
+              className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-white bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors"
               onClick={() => { setNoteText(""); setShowNoteDialog(true); }}
             >
-              <FileText className="h-4 w-4" />
-              Add Note
+              <FileText className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Add Note</span>
             </button>
-            <div className="w-px bg-white/20" />
+            <div className="w-px flex-shrink-0 bg-white/20" />
             <button
-              className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-semibold text-white bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors"
+              className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2.5 text-sm font-semibold text-white bg-white/10 hover:bg-white/20 active:bg-white/30 transition-colors"
               onClick={() => photoInputRef.current?.click()}
             >
-              <Camera className="h-4 w-4" />
-              Take Photo
+              <Camera className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Take Photo</span>
             </button>
           </div>
         )}
@@ -886,8 +886,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
               </>
             )}
           </div>
-          <div className="flex-shrink-0 text-right">
-            <p className={`text-2xl font-black ${isEmergencyActive ? (displayData?.unaccounted === 0 ? 'text-green-600' : 'text-red-600') : 'text-orange-400'}`}>
+          <div className="flex-shrink-0 text-right min-w-[3.5rem] max-w-[5rem]">
+            <p className={`text-xl font-black leading-tight ${isEmergencyActive ? (displayData?.unaccounted === 0 ? 'text-green-600' : 'text-red-600') : 'text-orange-400'}`}>
               {isEmergencyActive ? `${displayData?.accountedFor || 0}/${displayData?.totalOnSite || 0}` : '--'}
             </p>
             <p className="text-[10px] text-gray-500">safe/total</p>
@@ -962,17 +962,17 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       {hasZoneAssignment && (
         <div className="px-4 pb-2">
           <div className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-sm font-medium border ${showMyZoneOnly ? 'bg-blue-600 text-white border-blue-700' : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'}`}>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
               <MapPin size={14} className="flex-shrink-0" />
-              <span>
+              <span className="truncate">
                 {showMyZoneOnly
-                  ? `My zone: ${zones.find(z => z.id === marshalZoneId)?.name || 'My Zone'} only`
-                  : `My zone: ${zones.find(z => z.id === marshalZoneId)?.name || 'assigned'} — showing all`}
+                  ? `Zone: ${zones.find(z => z.id === marshalZoneId)?.name || 'My Zone'}`
+                  : `Zone: ${zones.find(z => z.id === marshalZoneId)?.name || 'assigned'} — all`}
               </span>
             </div>
             <button
               onClick={() => setShowMyZoneOnly(!showMyZoneOnly)}
-              className={`text-xs px-2 py-0.5 rounded-full font-semibold border flex-shrink-0 ${showMyZoneOnly ? 'bg-white/20 text-white border-white/40' : 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'}`}
+              className={`text-xs px-2 py-1 rounded-full font-semibold border flex-shrink-0 whitespace-nowrap ${showMyZoneOnly ? 'bg-white/20 text-white border-white/40' : 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-700'}`}
             >
               {showMyZoneOnly ? 'Show all' : 'My zone only'}
             </button>
