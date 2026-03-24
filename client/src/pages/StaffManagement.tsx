@@ -196,6 +196,7 @@ export default function StaffManagement() {
   const getPassBranding = () => {
     const brandColor = companySettings?.backgroundColor || companySettings?.primaryColor || '#2460A9';
     const accentColor = companySettings?.accentColor || brandColor;
+    const variableTextColor = (companySettings as any)?.variableTextColor || companySettings?.primaryColor || '#1e4f8c';
     const companyName = companySettings?.companyName || 'Company';
     const logoPath = companySettings?.logoUrl || '';
     const logoUrl = logoPath
@@ -203,7 +204,7 @@ export default function StaffManagement() {
         ? logoPath
         : `${window.location.origin}/objects${logoPath.startsWith('/') ? '' : '/'}${logoPath}`)
       : '';
-    return { brandColor, accentColor, companyName, logoUrl };
+    return { brandColor, accentColor, variableTextColor, companyName, logoUrl };
   };
 
   const getBrandedPassHtml = (
@@ -211,14 +212,14 @@ export default function StaffManagement() {
     photoUrl?: string | null, email?: string | null, jobTitle?: string | null
   ) => {
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}`;
-    const { brandColor, companyName, logoUrl } = getPassBranding();
+    const { brandColor, variableTextColor, companyName, logoUrl } = getPassBranding();
     const logoHtml = logoUrl
       ? `<img src="${logoUrl}" style="height:26px;max-width:80px;object-fit:contain;vertical-align:middle;" crossorigin="anonymous">`
       : '';
     const initials = staffName.split(' ').map((n: string) => n[0] || '').join('').substring(0, 2).toUpperCase();
     const photoHtml = photoUrl
-      ? `<img src="${photoUrl}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid ${brandColor};display:block;" crossorigin="anonymous">`
-      : `<div style="width:64px;height:64px;border-radius:50%;background:${brandColor};display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:700;">${initials}</div>`;
+      ? `<img src="${photoUrl}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid ${variableTextColor};display:block;" crossorigin="anonymous">`
+      : `<div style="width:64px;height:64px;border-radius:50%;background:${variableTextColor};display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:700;">${initials}</div>`;
     return `
       <div style="
         width:204px;background:#fff;border-radius:12px;overflow:hidden;
@@ -229,11 +230,11 @@ export default function StaffManagement() {
         <div style="background:${brandColor};padding:10px 12px;display:flex;align-items:center;gap:8px;">
           ${logoHtml}
           <div style="flex:1;min-width:0;">
-            <div style="color:#fff;font-weight:700;font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${companyName}</div>
-            <div style="color:rgba(255,255,255,0.7);font-size:7px;letter-spacing:0.6px;text-transform:uppercase;margin-top:1px;">Staff ID Pass</div>
+            <div style="color:${variableTextColor};font-weight:700;font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${companyName}</div>
+            <div style="color:${variableTextColor};opacity:0.7;font-size:7px;letter-spacing:0.6px;text-transform:uppercase;margin-top:1px;">Staff ID Pass</div>
           </div>
-          <div style="background:rgba(255,255,255,0.2);border-radius:4px;padding:2px 6px;white-space:nowrap;">
-            <div style="color:#fff;font-size:6.5px;font-weight:700;letter-spacing:0.5px;">STAFF</div>
+          <div style="background:${variableTextColor};border-radius:4px;padding:2px 6px;white-space:nowrap;">
+            <div style="color:${brandColor};font-size:6.5px;font-weight:700;letter-spacing:0.5px;">STAFF</div>
           </div>
         </div>
         <div style="display:flex;justify-content:center;padding:14px 0 10px;">
@@ -284,7 +285,7 @@ export default function StaffManagement() {
     setQrPassStaff(null);
     setQrPassData(null);
 
-    const { brandColor, companyName, logoUrl } = getPassBranding();
+    const { brandColor, variableTextColor, companyName, logoUrl } = getPassBranding();
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}`;
 
     const resolveUrl = (path: string | null | undefined) => path
@@ -354,20 +355,22 @@ export default function StaffManagement() {
       logoEndX = cX + 12 + lw + 8;
     }
 
-    // Company name + label in header
-    ctx.fillStyle = '#fff';
+    // Company name + label in header (using variableTextColor for title)
+    ctx.fillStyle = variableTextColor;
     ctx.textAlign = 'left';
     ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
     ctx.fillText(companyName, logoEndX, hCY - 4, cW - (logoEndX - cX) - 55);
-    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.globalAlpha = 0.7;
+    ctx.fillStyle = variableTextColor;
     ctx.font = '8px "Segoe UI", Arial, sans-serif';
     ctx.fillText('Staff ID Pass', logoEndX, hCY + 10);
+    ctx.globalAlpha = 1;
 
-    // STAFF badge (right of header)
-    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    // STAFF badge (right of header) — variableTextColor bg, brandColor text for contrast
+    ctx.fillStyle = variableTextColor;
     roundRect(cX + cW - 50, cY + headerH / 2 - 13, 40, 22, 5);
     ctx.fill();
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = brandColor;
     ctx.font = 'bold 8px "Segoe UI", Arial, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('STAFF', cX + cW - 30, cY + headerH / 2 + 3);
@@ -384,9 +387,9 @@ export default function StaffManagement() {
     if (photoImg) {
       ctx.drawImage(photoImg, cx - photoR, photoY, photoR * 2, photoR * 2);
     } else {
-      ctx.fillStyle = brandColor;
+      ctx.fillStyle = variableTextColor;
       ctx.fillRect(cx - photoR, photoY, photoR * 2, photoR * 2);
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = brandColor;
       ctx.font = 'bold 28px "Segoe UI", Arial, sans-serif';
       ctx.textAlign = 'center';
       const initials = staffName.split(' ').map((n: string) => n[0] || '').join('').substring(0, 2).toUpperCase();
@@ -395,7 +398,7 @@ export default function StaffManagement() {
     ctx.restore();
 
     // Photo ring
-    ctx.strokeStyle = brandColor;
+    ctx.strokeStyle = variableTextColor;
     ctx.lineWidth = 3.5;
     ctx.beginPath();
     ctx.arc(cx, photoY + photoR, photoR, 0, Math.PI * 2);
