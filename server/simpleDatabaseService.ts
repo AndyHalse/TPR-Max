@@ -69,7 +69,7 @@ export class SimpleDatabaseService {
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
       const rawResult = await customerDb.execute(sql`
-        SELECT * FROM ${sql.raw(`"${schemaName}".company_settings`)} LIMIT 1
+        SELECT * FROM ${sql.identifier(schemaName)}.company_settings LIMIT 1
       `);
       
       if (!rawResult.rows || rawResult.rows.length === 0) {
@@ -99,7 +99,7 @@ export class SimpleDatabaseService {
           const basicResult = await customerDb.execute(sql`
             SELECT id, company_name, logo_url, background_color, foreground_color, variable_text_color, accent_color,
                    email, phone, website, address, site_name, banner_url, theme
-            FROM ${sql.raw(`"${schemaName}".company_settings`)} LIMIT 1
+            FROM ${sql.identifier(schemaName)}.company_settings LIMIT 1
           `);
           
           if (basicResult.rows && basicResult.rows.length > 0) {
