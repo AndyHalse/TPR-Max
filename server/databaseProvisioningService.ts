@@ -456,9 +456,9 @@ export class DatabaseProvisioningService {
 
     for (const tableName of customerTables) {
       try {
-        await db.execute(sql.raw(
-          `CREATE TABLE IF NOT EXISTS "${tableName}" (LIKE public."${tableName}" INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES)`
-        ));
+        await db.execute(sql`
+          CREATE TABLE IF NOT EXISTS ${sql.identifier(tableName)} (LIKE public.${sql.identifier(tableName)} INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES)
+        `);
       } catch (error: any) {
         console.warn(`⚠️ Table ${tableName} clone warning: ${error.message}`);
       }
