@@ -206,25 +206,54 @@ export default function StaffManagement() {
     return { brandColor, accentColor, companyName, logoUrl };
   };
 
-  const getBrandedPassHtml = (qrCode: string, staffName: string, department: string, employeeId: string) => {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+  const getBrandedPassHtml = (
+    qrCode: string, staffName: string, department: string, employeeId: string,
+    photoUrl?: string | null, email?: string | null, jobTitle?: string | null
+  ) => {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}`;
     const { brandColor, companyName, logoUrl } = getPassBranding();
     const logoHtml = logoUrl
-      ? `<img src="${logoUrl}" style="max-height:40px;max-width:160px;margin:0 auto 6px auto;display:block;" crossorigin="anonymous">`
+      ? `<img src="${logoUrl}" style="height:26px;max-width:80px;object-fit:contain;vertical-align:middle;" crossorigin="anonymous">`
       : '';
+    const initials = staffName.split(' ').map((n: string) => n[0] || '').join('').substring(0, 2).toUpperCase();
+    const photoHtml = photoUrl
+      ? `<img src="${photoUrl}" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid ${brandColor};display:block;" crossorigin="anonymous">`
+      : `<div style="width:64px;height:64px;border-radius:50%;background:${brandColor};display:flex;align-items:center;justify-content:center;color:#fff;font-size:22px;font-weight:700;">${initials}</div>`;
     return `
-      <div style="border:2px solid ${brandColor};border-radius:14px;padding:20px 18px;max-width:280px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;text-align:center;background:#fff;">
-        <div style="background:${brandColor};margin:-20px -18px 12px -18px;border-radius:12px 12px 0 0;padding:14px 12px 10px 12px;">
+      <div style="
+        width:204px;background:#fff;border-radius:12px;overflow:hidden;
+        font-family:'Segoe UI',Arial,sans-serif;
+        box-shadow:0 4px 20px rgba(0,0,0,0.15);
+        border:1px solid rgba(0,0,0,0.06);
+      ">
+        <div style="background:${brandColor};padding:10px 12px;display:flex;align-items:center;gap:8px;">
           ${logoHtml}
-          <div style="color:#fff;font-size:15px;font-weight:700;letter-spacing:0.5px;">${companyName}</div>
-          <div style="color:rgba(255,255,255,0.8);font-size:10px;margin-top:2px;">STAFF CHECK-IN PASS</div>
+          <div style="flex:1;min-width:0;">
+            <div style="color:#fff;font-weight:700;font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${companyName}</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:7px;letter-spacing:0.6px;text-transform:uppercase;margin-top:1px;">Staff ID Pass</div>
+          </div>
+          <div style="background:rgba(255,255,255,0.2);border-radius:4px;padding:2px 6px;white-space:nowrap;">
+            <div style="color:#fff;font-size:6.5px;font-weight:700;letter-spacing:0.5px;">STAFF</div>
+          </div>
         </div>
-        <img src="${qrUrl}" style="width:180px;height:180px;margin:6px auto 10px auto;display:block;border-radius:8px;border:1px solid #e5e7eb;">
-        <h3 style="margin:0 0 2px 0;font-size:16px;color:#111;">${staffName}</h3>
-        <p style="margin:2px 0;color:#555;font-size:13px;">${department}</p>
-        <p style="margin:2px 0;color:#888;font-size:11px;">ID: ${employeeId}</p>
-        <div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e7eb;">
-          <p style="margin:0;font-size:10px;color:#aaa;">Scan at kiosk to check in / check out</p>
+        <div style="display:flex;justify-content:center;padding:14px 0 10px;">
+          ${photoHtml}
+        </div>
+        <div style="height:1px;background:linear-gradient(to right,transparent,#e5e7eb,transparent);margin:0 16px;"></div>
+        <div style="padding:10px 14px 8px;text-align:center;">
+          <div style="font-weight:700;font-size:13px;color:#111;margin-bottom:2px;">${staffName}</div>
+          ${jobTitle ? `<div style="font-size:9px;color:${brandColor};font-weight:600;margin-bottom:2px;">${jobTitle}</div>` : ''}
+          <div style="font-size:9px;color:#555;margin-bottom:${email ? '2px' : '6px'};">${department}</div>
+          ${email ? `<div style="font-size:8px;color:#777;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;">${email}</div>` : ''}
+          <div style="display:inline-block;background:#f3f4f6;border-radius:4px;padding:2px 8px;">
+            <span style="font-size:7.5px;color:#555;font-family:monospace;font-weight:600;">ID: ${employeeId}</span>
+          </div>
+        </div>
+        <div style="background:#f9fafb;border-top:1px solid #f0f0f0;padding:8px 10px;display:flex;align-items:center;gap:8px;">
+          <div style="flex:1;">
+            <div style="font-size:7px;color:#999;line-height:1.4;">Scan at kiosk to<br>check in / check out</div>
+          </div>
+          <img src="${qrUrl}" style="width:52px;height:52px;border:1px solid #e5e7eb;border-radius:4px;flex-shrink:0;" crossorigin="anonymous">
         </div>
       </div>`;
   };
@@ -247,32 +276,35 @@ export default function StaffManagement() {
     });
   };
 
-  const handleDownloadQrPass = async (qrCode: string, staffName: string, department: string, employeeId: string) => {
-    toast({ title: "Generating Pass", description: "Creating branded QR pass image..." });
+  const handleDownloadQrPass = async (
+    qrCode: string, staffName: string, department: string, employeeId: string,
+    photoUrl?: string | null, email?: string | null, jobTitle?: string | null
+  ) => {
+    toast({ title: "Generating Pass", description: "Creating staff ID card image..." });
     setQrPassStaff(null);
     setQrPassData(null);
 
     const { brandColor, companyName, logoUrl } = getPassBranding();
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}`;
 
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+    const resolveUrl = (path: string | null | undefined) => path
+      ? (path.startsWith('http') ? path : `${window.location.origin}/objects${path.startsWith('/') ? '' : '/'}${path}`)
+      : null;
 
-    const [qrImg, logoImg] = await Promise.all([
+    const [qrImg, logoImg, photoImg] = await Promise.all([
       loadImageAsDataUrl(qrUrl),
       logoUrl ? loadImageAsDataUrl(logoUrl) : Promise.resolve(null),
+      resolveUrl(photoUrl) ? loadImageAsDataUrl(resolveUrl(photoUrl)!) : Promise.resolve(null),
     ]);
 
+    // CR80 portrait card: 54mm × 85.6mm → canvas at 400×630 logical, 2x scale
     const scale = 2;
-    const W = 320, H = 480;
+    const W = 400, H = 630;
     const canvas = document.createElement('canvas');
     canvas.width = W * scale;
     canvas.height = H * scale;
     const ctx = canvas.getContext('2d')!;
     ctx.scale(scale, scale);
-
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, W, H);
-
-    const cardX = 10, cardY = 10, cardW = W - 20, cardH = H - 20, cardR = 14;
 
     const roundRect = (x: number, y: number, w: number, h: number, r: number) => {
       ctx.beginPath();
@@ -288,93 +320,216 @@ export default function StaffManagement() {
       ctx.closePath();
     };
 
-    roundRect(cardX, cardY, cardW, cardH, cardR);
-    ctx.strokeStyle = brandColor;
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    // White background
+    ctx.fillStyle = '#f5f5f5';
+    ctx.fillRect(0, 0, W, H);
+
+    // Card shadow
+    ctx.shadowColor = 'rgba(0,0,0,0.18)';
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 6;
+    const cX = 10, cY = 10, cW = W - 20, cH = H - 20, cR = 14;
+    roundRect(cX, cY, cW, cH, cR);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+    ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+    // Clip to card
     ctx.save();
+    roundRect(cX, cY, cW, cH, cR);
     ctx.clip();
 
-    const headerH = logoImg ? 80 : 65;
+    // ── Header band ──────────────────────────────────────
+    const headerH = 78;
     ctx.fillStyle = brandColor;
-    ctx.fillRect(cardX, cardY, cardW, headerH);
+    ctx.fillRect(cX, cY, cW, headerH);
 
-    const cx = W / 2;
-    ctx.textAlign = 'center';
-    let textY = cardY + 24;
-
+    // Logo in header (left)
+    const hCY = cY + headerH / 2;
+    let logoEndX = cX + 14;
     if (logoImg) {
       const lh = 30;
-      const lw = Math.min(140, (logoImg.naturalWidth / logoImg.naturalHeight) * lh);
-      ctx.drawImage(logoImg, cx - lw / 2, cardY + 10, lw, lh);
-      textY = cardY + 50;
+      const lw = Math.min(100, (logoImg.naturalWidth / logoImg.naturalHeight) * lh);
+      ctx.drawImage(logoImg, cX + 12, hCY - lh / 2, lw, lh);
+      logoEndX = cX + 12 + lw + 8;
     }
 
+    // Company name + label in header
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold 13px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(companyName, cx, textY);
-    ctx.fillStyle = 'rgba(255,255,255,0.75)';
-    ctx.font = '9px "Segoe UI", Arial, sans-serif';
-    ctx.fillText('STAFF CHECK-IN PASS', cx, textY + 15);
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 12px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(companyName, logoEndX, hCY - 4, cW - (logoEndX - cX) - 55);
+    ctx.fillStyle = 'rgba(255,255,255,0.65)';
+    ctx.font = '8px "Segoe UI", Arial, sans-serif';
+    ctx.fillText('Staff ID Pass', logoEndX, hCY + 10);
 
-    const qrY = cardY + headerH + 14;
-    const qrSize = 170;
-    if (qrImg) {
-      ctx.drawImage(qrImg, cx - qrSize / 2, qrY, qrSize, qrSize);
+    // STAFF badge (right of header)
+    ctx.fillStyle = 'rgba(255,255,255,0.22)';
+    roundRect(cX + cW - 50, cY + headerH / 2 - 13, 40, 22, 5);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 8px "Segoe UI", Arial, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('STAFF', cX + cW - 30, cY + headerH / 2 + 3);
+
+    // ── Photo ─────────────────────────────────────────────
+    const cx = W / 2;
+    const photoR = 44;
+    const photoY = cY + headerH + 22;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, photoY + photoR, photoR, 0, Math.PI * 2);
+    ctx.clip();
+    if (photoImg) {
+      ctx.drawImage(photoImg, cx - photoR, photoY, photoR * 2, photoR * 2);
+    } else {
+      ctx.fillStyle = brandColor;
+      ctx.fillRect(cx - photoR, photoY, photoR * 2, photoR * 2);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 28px "Segoe UI", Arial, sans-serif';
+      ctx.textAlign = 'center';
+      const initials = staffName.split(' ').map((n: string) => n[0] || '').join('').substring(0, 2).toUpperCase();
+      ctx.fillText(initials, cx, photoY + photoR + 10);
     }
+    ctx.restore();
 
-    const infoY = qrY + qrSize + 18;
-    ctx.fillStyle = '#111';
-    ctx.font = 'bold 17px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(staffName, cx, infoY);
-    ctx.fillStyle = '#555';
-    ctx.font = '13px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(department, cx, infoY + 22);
-    ctx.fillStyle = '#888';
-    ctx.font = '11px "Segoe UI", Arial, sans-serif';
-    ctx.fillText(`ID: ${employeeId}`, cx, infoY + 40);
+    // Photo ring
+    ctx.strokeStyle = brandColor;
+    ctx.lineWidth = 3.5;
+    ctx.beginPath();
+    ctx.arc(cx, photoY + photoR, photoR, 0, Math.PI * 2);
+    ctx.stroke();
 
-    ctx.strokeStyle = '#e5e7eb';
+    // ── Separator ─────────────────────────────────────────
+    const sepY = photoY + photoR * 2 + 20;
+    ctx.strokeStyle = '#ebebeb';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(cardX + 20, infoY + 54);
-    ctx.lineTo(cardX + cardW - 20, infoY + 54);
+    ctx.moveTo(cX + 28, sepY);
+    ctx.lineTo(cX + cW - 28, sepY);
     ctx.stroke();
-    ctx.fillStyle = '#aaa';
-    ctx.font = '9px "Segoe UI", Arial, sans-serif';
-    ctx.fillText('Scan at kiosk to check in / check out', cx, infoY + 70);
+
+    // ── Staff details ─────────────────────────────────────
+    ctx.textAlign = 'center';
+    let dy = sepY + 24;
+
+    ctx.fillStyle = '#111';
+    ctx.font = 'bold 19px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(staffName, cx, dy); dy += 24;
+
+    if (jobTitle) {
+      ctx.fillStyle = brandColor;
+      ctx.font = 'bold 11px "Segoe UI", Arial, sans-serif';
+      ctx.fillText(jobTitle, cx, dy); dy += 18;
+    }
+
+    ctx.fillStyle = '#555';
+    ctx.font = '11px "Segoe UI", Arial, sans-serif';
+    ctx.fillText(department, cx, dy); dy += 16;
+
+    if (email) {
+      ctx.fillStyle = '#888';
+      ctx.font = '9.5px "Segoe UI", Arial, sans-serif';
+      ctx.fillText(email, cx, dy); dy += 16;
+    }
+
+    // Employee ID pill
+    const idText = `ID: ${employeeId}`;
+    ctx.font = '9px monospace';
+    const idW = ctx.measureText(idText).width + 20;
+    ctx.fillStyle = '#f3f4f6';
+    roundRect(cx - idW / 2, dy - 10, idW, 20, 5);
+    ctx.fill();
+    ctx.fillStyle = '#555';
+    ctx.fillText(idText, cx, dy + 4);
+
+    // ── QR footer band ────────────────────────────────────
+    const footerH = 86;
+    const footerY = cY + cH - footerH;
+    ctx.fillStyle = '#f9fafb';
+    ctx.fillRect(cX, footerY, cW, footerH);
+
+    // Footer top border
+    ctx.strokeStyle = '#ebebeb';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cX, footerY);
+    ctx.lineTo(cX + cW, footerY);
+    ctx.stroke();
+
+    // QR code (right side of footer)
+    const qrSize = 62;
+    const qrX = cX + cW - qrSize - 14;
+    const qrFY = footerY + (footerH - qrSize) / 2;
+    if (qrImg) {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(qrX - 3, qrFY - 3, qrSize + 6, qrSize + 6);
+      ctx.strokeStyle = '#e5e7eb';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(qrX - 3, qrFY - 3, qrSize + 6, qrSize + 6);
+      ctx.drawImage(qrImg, qrX, qrFY, qrSize, qrSize);
+    }
+
+    // "Scan at kiosk" text (left side of footer)
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#888';
+    ctx.font = 'bold 8.5px "Segoe UI", Arial, sans-serif';
+    ctx.fillText('Scan at kiosk to', cX + 16, footerY + 30);
+    ctx.font = '8px "Segoe UI", Arial, sans-serif';
+    ctx.fillText('check in / check out', cX + 16, footerY + 44);
+
     ctx.restore();
+
+    // Card border
+    ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+    ctx.lineWidth = 1;
+    roundRect(cX, cY, cW, cH, cR);
+    ctx.stroke();
 
     canvas.toBlob((blob) => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `qr-pass-${staffName.replace(/\s+/g, '-').toLowerCase()}.png`;
+      link.download = `staff-id-${staffName.replace(/\s+/g, '-').toLowerCase()}.png`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      toast({ title: "Download Complete", description: "Branded QR pass saved to your downloads" });
+      toast({ title: "Download Complete", description: "Staff ID card saved to your downloads" });
     }, 'image/png');
   };
 
-  const handlePrintQrPass = (qrCode: string, staffName: string, department: string, employeeId: string) => {
-    const passHtml = getBrandedPassHtml(qrCode, staffName, department, employeeId);
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
+  const handlePrintQrPass = (
+    qrCode: string, staffName: string, department: string, employeeId: string,
+    photoUrl?: string | null, email?: string | null, jobTitle?: string | null
+  ) => {
+    const passHtml = getBrandedPassHtml(qrCode, staffName, department, employeeId, photoUrl, email, jobTitle);
+    const printWindow = window.open('', '_blank', 'width=440,height=700');
     if (printWindow) {
       printWindow.document.write(`
         <html>
-          <head><title>Staff QR Pass - ${staffName}</title></head>
-          <body style="margin:0;padding:20px;background:#fff;">
+          <head>
+            <title>Staff ID Pass - ${staffName}</title>
+            <style>
+              @page { size: 54mm 85.6mm; margin: 0; }
+              * { box-sizing: border-box; }
+              body { margin: 0; padding: 0; background: #fff; display: flex; justify-content: center; align-items: center; min-height: 85.6mm; }
+            </style>
+          </head>
+          <body>
             ${passHtml}
             <script>
               var imgs = document.querySelectorAll('img');
               var total = imgs.length, loaded = 0;
-              if (total === 0) window.print();
+              if (total === 0) { setTimeout(function(){ window.print(); }, 300); }
               imgs.forEach(function(img) {
-                if (img.complete) { loaded++; if (loaded >= total) window.print(); }
-                else { img.onload = function() { loaded++; if (loaded >= total) window.print(); }; img.onerror = function() { loaded++; if (loaded >= total) window.print(); }; }
+                if (img.complete) { loaded++; if (loaded >= total) setTimeout(function(){ window.print(); }, 300); }
+                else {
+                  img.onload = function() { loaded++; if (loaded >= total) setTimeout(function(){ window.print(); }, 300); };
+                  img.onerror = function() { loaded++; if (loaded >= total) setTimeout(function(){ window.print(); }, 300); };
+                }
               });
             </script>
           </body>
@@ -911,7 +1066,10 @@ export default function StaffManagement() {
                         data.qrCode,
                         data.staffName,
                         data.department,
-                        data.employeeId
+                        data.employeeId,
+                        qrPassStaff?.photoUrl,
+                        qrPassStaff?.email,
+                        qrPassStaff?.jobTitle
                       );
                     }
                   });
@@ -932,7 +1090,12 @@ export default function StaffManagement() {
                   if (!qrPassStaff) return;
                   sendQrPassMutation.mutate({ id: qrPassStaff.id, method: 'download' }, {
                     onSuccess: (data) => {
-                      handleDownloadQrPass(data.qrCode, data.staffName, data.department, data.employeeId);
+                      handleDownloadQrPass(
+                        data.qrCode, data.staffName, data.department, data.employeeId,
+                        qrPassStaff?.photoUrl,
+                        qrPassStaff?.email,
+                        qrPassStaff?.jobTitle
+                      );
                     }
                   });
                 }}
