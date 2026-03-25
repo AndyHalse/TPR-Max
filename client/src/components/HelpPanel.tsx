@@ -423,7 +423,7 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
       <div className="fixed inset-0 bg-black/20 backdrop-blur-sm" onClick={onClose} />
       
       {/* Panel */}
-      <div className="ml-auto w-96 bg-background border-l shadow-2xl flex flex-col h-full">
+      <div className="ml-auto w-full sm:w-96 bg-background border-l shadow-2xl flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">

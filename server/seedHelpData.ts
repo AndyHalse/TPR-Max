@@ -1,6 +1,6 @@
 import { db } from "./db";
 import { helpCategories, helpArticles, insertHelpArticleSchema } from "@shared/schema";
-import { eq } from "drizzle-orm";
+import { eq, like } from "drizzle-orm";
 
 export async function seedHelpData() {
   try {
@@ -10,6 +10,31 @@ export async function seedHelpData() {
     const existingCategories = await db.select().from(helpCategories);
     const existingArticles = await db.select().from(helpArticles);
     
+    // Migrate any existing records that still reference "VisiGate Pro" -> "TPR-Max"
+    const staleArticles = await db.select().from(helpArticles).where(like(helpArticles.content, '%VisiGate Pro%'));
+    if (staleArticles.length > 0) {
+      console.log(`🔄 Migrating ${staleArticles.length} help article(s) from VisiGate Pro → TPR-Max...`);
+      for (const article of staleArticles) {
+        await db.update(helpArticles)
+          .set({
+            title: article.title.replace(/VisiGate Pro/g, 'TPR-Max'),
+            summary: article.summary ? article.summary.replace(/VisiGate Pro/g, 'TPR-Max') : article.summary,
+            content: article.content.replace(/VisiGate Pro/g, 'TPR-Max'),
+          })
+          .where(eq(helpArticles.id, article.id));
+      }
+      console.log('✅ Migration complete');
+    }
+
+    const staleTitleArticles = await db.select().from(helpArticles).where(like(helpArticles.title, '%VisiGate Pro%'));
+    if (staleTitleArticles.length > 0) {
+      for (const article of staleTitleArticles) {
+        await db.update(helpArticles)
+          .set({ title: article.title.replace(/VisiGate Pro/g, 'TPR-Max') })
+          .where(eq(helpArticles.id, article.id));
+      }
+    }
+
     if (existingCategories.length > 0 && existingArticles.length > 0) {
       console.log('Help data already exists, skipping seeding');
       return;
