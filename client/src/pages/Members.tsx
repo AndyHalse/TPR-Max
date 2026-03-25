@@ -424,6 +424,7 @@ export default function Members() {
                   </div>
                   {/* Desktop: actions inline */}
                   <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                    <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => openEditDialog(member)}><Edit className="h-4 w-4" /></Button>
                     {member.isCheckedIn ? (
                       <Button variant="outline" size="sm" className="h-9 px-3 text-red-600 border-red-300 hover:bg-red-50" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending}>
                         <UserX className="h-4 w-4 mr-1" />Check Out
@@ -433,11 +434,11 @@ export default function Members() {
                         <UserCheck className="h-4 w-4 mr-1" />Check In
                       </Button>
                     )}
-                    <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => openEditDialog(member)}><Edit className="h-4 w-4" /></Button>
                   </div>
                 </div>
                 {/* Mobile: actions as bottom row */}
                 <div className="sm:hidden flex items-center justify-end gap-2 px-3 pb-3 pt-1">
+                  <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => openEditDialog(member)}><Edit className="h-4 w-4" /></Button>
                   {member.isCheckedIn ? (
                     <Button variant="outline" size="sm" className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending}>
                       <UserX className="h-4 w-4 mr-1" />Check Out
@@ -447,7 +448,6 @@ export default function Members() {
                       <UserCheck className="h-4 w-4 mr-1" />Check In
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => openEditDialog(member)}><Edit className="h-4 w-4" /></Button>
                 </div>
               </div>
             ))}
