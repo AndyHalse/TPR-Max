@@ -117,7 +117,7 @@ export default function Dashboard() {
 
   const { data: checkedInMembers } = useQuery<any[]>({
     queryKey: ["/api/members/checked-in"],
-    enabled: !!currentUser && !!stats?.featureMembers,
+    enabled: !!currentUser,
   });
 
   const { data: recentActivity, isLoading: activityLoading } = useQuery<Activity[]>({
@@ -735,7 +735,7 @@ export default function Dashboard() {
           People On-Site
         </h2>
         <div className="flex flex-col lg:flex-row gap-6">
-          <div className={`grid grid-cols-2 md:grid-cols-2 ${stats?.featureMembers ? 'lg:grid-cols-4' : 'lg:grid-cols-3'} gap-3 sm:gap-6 flex-1`}>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 flex-1">
             <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>
               <div className="flex items-start justify-between">
                 <div>
@@ -778,21 +778,19 @@ export default function Dashboard() {
               </div>
             </GlassCard>
 
-            {stats?.featureMembers && (
-              <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('members')}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-variable text-sm font-medium">Members</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-members-onsite">
-                      {stats?.membersOnSite || 0}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
-                    <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
-                  </div>
+            <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('members')}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-variable text-sm font-medium">Members</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-members-onsite">
+                    {stats?.membersOnSite || 0}
+                  </p>
                 </div>
-              </GlassCard>
-            )}
+                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
+                  <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
+                </div>
+              </div>
+            </GlassCard>
           </div>
 
           <GlassCard hover className="cursor-pointer bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-200 dark:border-emerald-800 lg:w-56 shrink-0" onClick={() => setOpenModal('total-people')}>
