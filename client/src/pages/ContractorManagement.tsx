@@ -845,7 +845,7 @@ export default function ContractorManagement() {
   }
 
   return (
-    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 pb-24 sm:pb-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -921,7 +921,7 @@ export default function ContractorManagement() {
               <div className="flex items-center gap-2">
                 <History className="h-5 w-5 text-slate-600 dark:text-slate-400" />
                 <h2 className="text-xl font-semibold text-fixed">Previous Contractor Workers</h2>
-                <span className="text-sm text-variable">
+                <span className="hidden sm:inline text-sm text-variable">
                   Select a contractor who has been onsite before
                 </span>
               </div>
@@ -1324,7 +1324,7 @@ export default function ContractorManagement() {
             <div className="flex items-center gap-2">
               <UserPlus className="h-5 w-5 text-green-600" />
               <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Walk-in Registration</h2>
-              <span className="text-sm text-slate-500 dark:text-slate-400">
+              <span className="hidden sm:inline text-sm text-slate-500 dark:text-slate-400">
                 Register new contractor with document upload for clearance
               </span>
             </div>
@@ -1352,7 +1352,7 @@ export default function ContractorManagement() {
               <div className="flex items-center gap-2">
                 <Building2 className="h-5 w-5 text-purple-600" />
                 <h2 className="text-xl font-semibold text-slate-800 dark:text-slate-100">Contractor Companies</h2>
-                <span className="text-sm text-slate-500 dark:text-slate-400">
+                <span className="hidden sm:inline text-sm text-slate-500 dark:text-slate-400">
                   Manage all contractor companies and their details
                 </span>
               </div>
