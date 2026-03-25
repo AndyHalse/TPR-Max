@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Search, UserCheck, UserX, Edit, Trash2, Users, LayoutGrid, LayoutList, CloudUpload, Upload, X, Calendar, CreditCard } from "lucide-react";
+import { UserPlus, Search, UserCheck, UserX, Edit, Trash2, Users, LayoutGrid, LayoutList, CloudUpload, Upload, X, Calendar, CreditCard, QrCode } from "lucide-react";
+import QRScannerModal from "@/components/QRScannerModal";
 
 interface Member {
   id: string;
@@ -67,6 +68,7 @@ export default function Members() {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [formData, setFormData] = useState<MemberFormData>(emptyForm);
@@ -310,11 +312,25 @@ export default function Members() {
           <h1 className="text-xl sm:text-2xl font-bold text-fixed">Members</h1>
           <Badge variant="secondary" className="ml-1 flex-shrink-0">{members.length} total</Badge>
         </div>
-        <Button onClick={openAddDialog} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 gap-1.5 text-sm px-3 sm:px-4 flex-shrink-0">
-          <UserPlus className="h-4 w-4" />
-          <span className="hidden sm:inline">Add Member</span>
-          <span className="sm:hidden">Add</span>
-        </Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Button
+            onClick={() => setShowQRScanner(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
+            title="Scan a member QR code to check in / out"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+              <path d="M14 14h1v1h-1zm3 0h1v1h-1zm-3 3h1v1h-1zm3 3h1v1h-1zm3-3h1v1h-1zm0-3h1v1h-1z" />
+            </svg>
+            <span className="hidden sm:inline">Scan QR</span>
+            <span className="sm:hidden">Scan</span>
+          </Button>
+          <Button onClick={openAddDialog} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 gap-1.5 text-sm px-3 sm:px-4">
+            <UserPlus className="h-4 w-4" />
+            <span className="hidden sm:inline">Add Member</span>
+            <span className="sm:hidden">Add</span>
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3">
@@ -418,7 +434,6 @@ export default function Members() {
                       </Button>
                     )}
                     <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => openEditDialog(member)}><Edit className="h-4 w-4" /></Button>
-                    <Button variant="outline" size="sm" className="h-9 w-9 p-0 text-red-600 hover:bg-red-50" onClick={() => deleteMutation.mutate(member.id)} disabled={deleteMutation.isPending}><Trash2 className="h-4 w-4" /></Button>
                   </div>
                 </div>
                 {/* Mobile: actions as bottom row */}
@@ -433,7 +448,6 @@ export default function Members() {
                     </Button>
                   )}
                   <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => openEditDialog(member)}><Edit className="h-4 w-4" /></Button>
-                  <Button variant="outline" size="sm" className="h-9 w-9 p-0 text-red-600 hover:bg-red-50" onClick={() => deleteMutation.mutate(member.id)} disabled={deleteMutation.isPending}><Trash2 className="h-4 w-4" /></Button>
                 </div>
               </div>
             ))}
@@ -504,16 +518,6 @@ export default function Members() {
                       title="Edit"
                     >
                       <Edit size={15} />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                      onClick={() => deleteMutation.mutate(member.id)}
-                      disabled={deleteMutation.isPending}
-                      title="Delete"
-                    >
-                      <Trash2 size={15} />
                     </Button>
                   </div>
                   {member.isCheckedIn ? (
@@ -726,25 +730,43 @@ export default function Members() {
               />
             </div>
 
-            <div className="flex justify-end gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={closeDialog}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="gradient-blue text-white"
-                disabled={createMutation.isPending || updateMutation.isPending}
-              >
-                {createMutation.isPending || updateMutation.isPending
-                  ? "Saving..."
-                  : editingMember
-                  ? "Update Member"
-                  : "Add Member"}
-              </Button>
+            <div className="flex items-center justify-between gap-3 pt-4">
+              <div>
+                {editingMember && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-red-600 border-red-300 hover:bg-red-50"
+                    onClick={() => { deleteMutation.mutate(editingMember.id); closeDialog(); }}
+                    disabled={deleteMutation.isPending}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1.5" />
+                    Delete Member
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <Button type="button" variant="outline" onClick={closeDialog}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="gradient-blue text-white"
+                  disabled={createMutation.isPending || updateMutation.isPending}
+                >
+                  {createMutation.isPending || updateMutation.isPending
+                    ? "Saving..."
+                    : editingMember
+                    ? "Update Member"
+                    : "Add Member"}
+                </Button>
+              </div>
             </div>
           </form>
         </DialogContent>
       </Dialog>
+
+      <QRScannerModal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)} />
     </div>
   );
 }

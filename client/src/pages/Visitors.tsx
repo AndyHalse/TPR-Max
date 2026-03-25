@@ -953,7 +953,7 @@ export default function Visitors() {
   return (
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl sm:text-3xl font-bold text-fixed">TPR Max</h1>
+        <h1 className="text-xl sm:text-3xl font-bold text-fixed">Visitor Management</h1>
         <Button
           onClick={() => setShowQRScanner(true)}
           className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"

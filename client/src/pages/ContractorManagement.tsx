@@ -58,6 +58,7 @@ import {
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
+import QRScannerModal from "@/components/QRScannerModal";
 
 // Extended type for list view with computed fields
 type ExtendedContractorCompany = ContractorCompany & {
@@ -72,6 +73,7 @@ type ExtendedContractorCompany = ContractorCompany & {
 export default function ContractorManagement() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors" | "co2" | "assign-hs">("previous");
   const [selectedCO2CompanyId, setSelectedCO2CompanyId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
@@ -852,6 +854,18 @@ export default function ContractorManagement() {
           <HardHat className="h-8 w-8 text-orange-600" />
           <h1 className="text-xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">Contractor Management</h1>
         </div>
+        <Button
+          onClick={() => setShowQRScanner(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
+          title="Scan a contractor QR code to check in / out"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+            <path d="M14 14h1v1h-1zm3 0h1v1h-1zm-3 3h1v1h-1zm3 3h1v1h-1zm3-3h1v1h-1zm0-3h1v1h-1z" />
+          </svg>
+          <span className="hidden sm:inline">Scan QR</span>
+          <span className="sm:hidden">Scan</span>
+        </Button>
       </div>
 
       {/* Tab Navigation — horizontal scroll on mobile, wrap on desktop */}
@@ -3046,6 +3060,8 @@ export default function ContractorManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <QRScannerModal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)} />
     </div>
   );
 }

@@ -11,10 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Staff } from "@shared/schema";
+import QRScannerModal from "@/components/QRScannerModal";
 
 export default function StaffManagement() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
+  const [showQRScanner, setShowQRScanner] = useState(false);
   const [viewingStaff, setViewingStaff] = useState<Staff | null>(null);
   const [qrPassStaff, setQrPassStaff] = useState<Staff | null>(null);
   const [qrPassData, setQrPassData] = useState<{ qrCode: string; staffName: string } | null>(null);
@@ -633,12 +635,27 @@ export default function StaffManagement() {
   return (
     <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="text-xl sm:text-2xl font-bold text-fixed">Staff Management</h2>
-          <Button onClick={() => setIsAddModalOpen(true)} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 whitespace-nowrap" data-testid="button-add-staff">
-            <Plus className="mr-1.5 sm:mr-2" size={16} />
-            <span className="text-sm sm:text-base">Add Staff Member</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setShowQRScanner(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base"
+              title="Scan a staff QR code to check in / out"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
+                <path d="M14 14h1v1h-1zm3 0h1v1h-1zm-3 3h1v1h-1zm3 3h1v1h-1zm3-3h1v1h-1zm0-3h1v1h-1z" />
+              </svg>
+              <span className="hidden sm:inline">Scan QR</span>
+              <span className="sm:hidden">Scan</span>
+            </Button>
+            <Button onClick={() => setIsAddModalOpen(true)} className="gradient-blue text-white font-medium hover:shadow-lg transition-all duration-300 whitespace-nowrap" data-testid="button-add-staff">
+              <Plus className="mr-1.5 sm:mr-2" size={16} />
+              <span className="hidden sm:inline text-sm sm:text-base">Add Staff Member</span>
+              <span className="sm:hidden text-sm">Add</span>
+            </Button>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
@@ -1144,6 +1161,8 @@ export default function StaffManagement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <QRScannerModal isOpen={showQRScanner} onClose={() => setShowQRScanner(false)} />
     </div>
   );
 }
