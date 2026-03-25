@@ -974,7 +974,7 @@ export default function ContractorDetails() {
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4" data-testid="contractor-tabs">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="flex w-full overflow-x-auto gap-1 h-auto p-1 justify-start">
           <TabsTrigger value="workers" data-testid="tab-workers">Workers</TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">Documents</TabsTrigger>
           <TabsTrigger value="safety" data-testid="tab-safety">Safety</TabsTrigger>
@@ -1686,7 +1686,7 @@ export default function ContractorDetails() {
               </Popover>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Arrival Time</Label>
                 <Input
@@ -1811,7 +1811,7 @@ export default function ContractorDetails() {
               {/* Step 1 — Personal Details */}
               {workerWizardStep === 1 && (
                 <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField control={workerForm.control} name="firstName" render={({ field }) => (
                       <FormItem><FormLabel>First Name *</FormLabel><FormControl><Input {...field} data-testid="input-worker-first-name" /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -1819,7 +1819,7 @@ export default function ContractorDetails() {
                       <FormItem><FormLabel>Last Name *</FormLabel><FormControl><Input {...field} data-testid="input-worker-last-name" /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField control={workerForm.control} name="email" render={({ field }) => (
                       <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} data-testid="input-worker-email" /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -1827,7 +1827,7 @@ export default function ContractorDetails() {
                       <FormItem><FormLabel>Phone *</FormLabel><FormControl><Input {...field} placeholder="e.g. 07700 900000" data-testid="input-worker-phone" /></FormControl><FormMessage /></FormItem>
                     )} />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField control={workerForm.control} name="postcode" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Home Postcode</FormLabel>
@@ -1915,7 +1915,7 @@ export default function ContractorDetails() {
                         <p className="text-xs text-gray-500">CDM 2015 / Site policy — required on most construction sites</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <FormField control={workerForm.control} name="cscsCard" render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs">Card Number</FormLabel>

@@ -190,7 +190,7 @@ export default function Billing() {
 
   if (subscriptionLoading || plansLoading) {
     return (
-      <div className="container mx-auto p-6">
+      <div className="container mx-auto p-3 sm:p-6">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-gray-200 rounded w-1/3"></div>
           <div className="h-4 bg-gray-200 rounded w-2/3"></div>
@@ -201,11 +201,11 @@ export default function Billing() {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-7xl">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Billing & Subscription</h1>
+    <div className="container mx-auto p-3 sm:p-6 max-w-7xl">
+      <div className="mb-4 sm:mb-8">
+        <h1 className="text-xl sm:text-3xl font-bold mb-2">Billing & Subscription</h1>
         <p className="text-muted-foreground">
-          Manage your VisiGate Pro subscription, view usage, and access billing information.
+          Manage your TPR-Max subscription, view usage, and access billing information.
         </p>
       </div>
 
@@ -266,7 +266,7 @@ export default function Billing() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <div className="text-sm text-muted-foreground">Billing Cycle</div>
                       <div className="capitalize">{subscription.billingCycle}</div>
@@ -307,7 +307,7 @@ export default function Billing() {
                   <CreditCard className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-medium mb-2">No Active Subscription</h3>
                   <p className="text-muted-foreground mb-4">
-                    Choose a subscription plan to get started with VisiGate Pro.
+                    Choose a subscription plan to get started with TPR-Max.
                   </p>
                   <Button onClick={() => setActiveTab('plans')} data-testid="button-view-plans">
                     View Plans

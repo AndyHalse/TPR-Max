@@ -307,7 +307,7 @@ export default function MeetingRooms() {
 
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="name"
@@ -345,7 +345,7 @@ export default function MeetingRooms() {
                   />
                 </div>
 
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="capacity"
@@ -431,7 +431,7 @@ export default function MeetingRooms() {
                 <div className="space-y-3">
                   <h3 className="text-lg font-semibold">Room Facilities</h3>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="hasProjector"
@@ -743,7 +743,7 @@ export default function MeetingRooms() {
           </DialogHeader>
           {viewBooking && (
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Title</h4>
                   <p className="text-lg font-semibold" data-testid="text-booking-title">{viewBooking.title}</p>
@@ -756,7 +756,7 @@ export default function MeetingRooms() {
 
               <Separator />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Room</h4>
                   <p className="font-medium" data-testid="text-booking-room">
@@ -777,7 +777,7 @@ export default function MeetingRooms() {
 
               <Separator />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Start Time</h4>
                   <p className="font-medium" data-testid="text-booking-start">
