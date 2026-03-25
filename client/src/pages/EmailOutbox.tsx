@@ -292,8 +292,8 @@ export default function EmailOutbox() {
 
       {/* Preview Dialog */}
       <Dialog open={!!previewId} onOpenChange={(open) => !open && setPreviewId(null)}>
-        <DialogContent className="max-w-3xl w-full max-h-[92vh] flex flex-col p-4">
-          <DialogHeader className="flex-shrink-0">
+        <DialogContent className="max-w-3xl w-full max-h-[92vh] overflow-y-auto p-4">
+          <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Mail className="w-4 h-4 text-sky-600" />
               Email Preview
@@ -317,9 +317,9 @@ export default function EmailOutbox() {
               </Button>
             </div>
           ) : previewData ? (
-            <div className="flex flex-col flex-1 min-h-0 space-y-3">
+            <div className="space-y-3 mt-1">
               {/* Meta */}
-              <div className="flex-shrink-0 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 space-y-1 text-sm">
+              <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3 space-y-1 text-sm">
                 <div className="flex items-start gap-2">
                   <span className="text-slate-500 min-w-16">Subject:</span>
                   <span className="font-medium text-slate-800 dark:text-slate-200">{previewData.subject}</span>
@@ -348,17 +348,18 @@ export default function EmailOutbox() {
                 </div>
               </div>
 
-              {/* HTML preview — blob URL used instead of srcdoc for iOS Safari compatibility */}
-              <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-white" style={{ minHeight: "380px" }}>
+              {/* HTML preview */}
+              <div className="border rounded-lg overflow-hidden bg-white" style={{ height: "60vh", minHeight: "320px" }}>
                 {blobUrl ? (
                   <iframe
                     key={blobUrl}
                     src={blobUrl}
-                    style={{ width: "100%", height: "100%", minHeight: "380px", border: "none", display: "block" }}
+                    style={{ width: "100%", height: "100%", border: "none", display: "block" }}
                     title="Email preview"
+                    scrolling="yes"
                   />
                 ) : previewData.htmlBody ? (
-                  <div className="flex items-center justify-center h-full min-h-[380px]">
+                  <div className="flex items-center justify-center h-full">
                     <RefreshCw className="w-5 h-5 animate-spin text-slate-400" />
                   </div>
                 ) : (
