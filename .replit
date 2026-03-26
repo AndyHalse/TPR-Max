@@ -49,3 +49,4 @@ integrations = ["javascript_object_storage:1.0.0", "javascript_websocket:1.0.0",
 
 [userenv.shared]
 USE_PG_SESSIONS = "true"
+SALES_EMAIL = "sales@acssafety.co.uk"

@@ -88,6 +88,9 @@ import thermalImg from "@assets/ID Card printer_1756400844599.png";
 
 export default function MarketingPage() {
   const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [company, setCompany] = useState("");
+  const [phone, setPhone] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -134,17 +137,18 @@ export default function MarketingPage() {
   };
 
   const contactMutation = useMutation({
-    mutationFn: async (email: string) => {
-      const response = await apiRequest("POST", "/api/marketing/contact", {
-        email,
-      });
+    mutationFn: async (data: { name: string; company: string; phone: string; email: string }) => {
+      const response = await apiRequest("POST", "/api/marketing/contact", data);
       return response;
     },
     onSuccess: () => {
       toast({
-        title: "Thank you for your interest!",
-        description: "We'll be in touch with you soon to schedule your demo.",
+        title: "Enquiry received!",
+        description: "Thank you — we'll be in touch shortly to arrange your demo.",
       });
+      setName("");
+      setCompany("");
+      setPhone("");
       setEmail("");
     },
     onError: () => {
@@ -158,8 +162,8 @@ export default function MarketingPage() {
 
   const handleContactSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (email) {
-      contactMutation.mutate(email);
+    if (email && name) {
+      contactMutation.mutate({ name, company, phone, email });
     }
   };
 
@@ -2888,39 +2892,82 @@ export default function MarketingPage() {
           background: `linear-gradient(135deg, #2460A9 0%, #1e4a87 100%)`,
         }}
       >
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl lg:text-5xl font-bold text-white mb-6">
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl lg:text-5xl font-bold text-white mb-4">
             Ready to Transform Your Personnel Management?
           </h2>
           <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-            Join hundreds of companies using TPR Max for complete personnel
-            oversight, compliance management, and emergency preparedness.
+            Fill in your details below and one of our team will be in touch to arrange a personalised demo.
           </p>
 
-          <form onSubmit={handleContactSubmit} className="max-w-md mx-auto">
-            <div className="flex gap-3">
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                className="flex-1 px-4 py-3 rounded-lg border-0 bg-white/90 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-white/50"
-                required
-                data-testid="input-contact-email"
-              />
-              <Button
-                type="submit"
-                variant="secondary"
-                size="lg"
-                className="px-6 bg-white hover:bg-slate-50"
-                style={{ color: "#2460A9" }}
-                disabled={contactMutation.isPending}
-                data-testid="button-contact-submit"
-              >
-                <Mail className="h-4 w-4 mr-2" />
-                {contactMutation.isPending ? "Sending..." : "Get Demo"}
-              </Button>
+          <form onSubmit={handleContactSubmit} className="text-left">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-white/80 text-sm font-medium mb-1">
+                  Full Name <span className="text-red-300">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Jane Smith"
+                  className="w-full px-4 py-3 rounded-lg border-0 bg-white/90 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  required
+                  data-testid="input-contact-name"
+                />
+              </div>
+              <div>
+                <label className="block text-white/80 text-sm font-medium mb-1">
+                  Company Name
+                </label>
+                <input
+                  type="text"
+                  value={company}
+                  onChange={(e) => setCompany(e.target.value)}
+                  placeholder="Acme Ltd"
+                  className="w-full px-4 py-3 rounded-lg border-0 bg-white/90 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  data-testid="input-contact-company"
+                />
+              </div>
+              <div>
+                <label className="block text-white/80 text-sm font-medium mb-1">
+                  Email Address <span className="text-red-300">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="jane@acme.com"
+                  className="w-full px-4 py-3 rounded-lg border-0 bg-white/90 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  required
+                  data-testid="input-contact-email"
+                />
+              </div>
+              <div>
+                <label className="block text-white/80 text-sm font-medium mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+44 7700 900000"
+                  className="w-full px-4 py-3 rounded-lg border-0 bg-white/90 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-white/50"
+                  data-testid="input-contact-phone"
+                />
+              </div>
             </div>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full bg-white hover:bg-slate-50 font-semibold text-base py-3"
+              style={{ color: "#2460A9" }}
+              disabled={contactMutation.isPending}
+              data-testid="button-contact-submit"
+            >
+              <Mail className="h-5 w-5 mr-2" />
+              {contactMutation.isPending ? "Sending Enquiry..." : "Send Enquiry"}
+            </Button>
           </form>
 
         </div>

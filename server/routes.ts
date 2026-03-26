@@ -428,47 +428,86 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
   // Marketing contact endpoint (public, no auth required)
   const marketingContactSchema = z.object({
+    name: z.string().min(1, 'Name is required'),
+    company: z.string().optional().default(''),
+    phone: z.string().optional().default(''),
     email: z.string().email('Please enter a valid email address'),
   });
 
   app.post('/api/marketing/contact', async (req, res) => {
     try {
-      const { email } = marketingContactSchema.parse(req.body);
+      const { name, company, phone, email } = marketingContactSchema.parse(req.body);
       
+      const dateStr = new Date().toLocaleString('en-GB', { timeZone: 'Europe/London' });
+
       // Send notification email to sales team
       await emailService.sendEmail({
-        to: process.env.SALES_EMAIL || 'sales@visigatepro.com',
-        subject: 'New Demo Request - VisiGate Pro',
+        to: process.env.SALES_EMAIL || 'sales@acssafety.co.uk',
+        subject: `New Demo Enquiry - TPR Max (${name})`,
         html: `
-        <h2>New Demo Request</h2>
-        <p>A potential customer has requested a demo of VisiGate Pro:</p>
-        <ul>
-          <li><strong>Email:</strong> ${email}</li>
-          <li><strong>Date:</strong> ${new Date().toLocaleString()}</li>
-          <li><strong>Source:</strong> Marketing Website</li>
-        </ul>
-        <p>Please follow up with this lead as soon as possible.</p>
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #2460A9; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">New Demo Enquiry — TPR Max</h1>
+          </div>
+          <div style="border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; padding: 24px;">
+            <p style="color: #475569; margin-top: 0;">A new enquiry has been received from the TPR Max marketing page:</p>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 10px 0; color: #64748b; font-size: 14px; width: 140px;"><strong>Name</strong></td>
+                <td style="padding: 10px 0; color: #0f172a; font-size: 14px;">${name}</td>
+              </tr>
+              ${company ? `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 10px 0; color: #64748b; font-size: 14px;"><strong>Company</strong></td><td style="padding: 10px 0; color: #0f172a; font-size: 14px;">${company}</td></tr>` : ''}
+              <tr style="border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 10px 0; color: #64748b; font-size: 14px;"><strong>Email</strong></td>
+                <td style="padding: 10px 0; color: #0f172a; font-size: 14px;"><a href="mailto:${email}" style="color: #2460A9;">${email}</a></td>
+              </tr>
+              ${phone ? `<tr style="border-bottom: 1px solid #e2e8f0;"><td style="padding: 10px 0; color: #64748b; font-size: 14px;"><strong>Phone</strong></td><td style="padding: 10px 0; color: #0f172a; font-size: 14px;">${phone}</td></tr>` : ''}
+              <tr>
+                <td style="padding: 10px 0; color: #64748b; font-size: 14px;"><strong>Received</strong></td>
+                <td style="padding: 10px 0; color: #0f172a; font-size: 14px;">${dateStr}</td>
+              </tr>
+            </table>
+            <div style="margin-top: 24px; padding: 16px; background: #f8fafc; border-radius: 6px; border-left: 4px solid #2460A9;">
+              <p style="margin: 0; color: #475569; font-size: 14px;">Please follow up with this lead as soon as possible.</p>
+            </div>
+          </div>
+        </div>
         `,
-        text: `
-        New Demo Request - VisiGate Pro
-        
-        A potential customer has requested a demo:
-        
-        Email: ${email}
-        Date: ${new Date().toLocaleString()}
-        Source: Marketing Website
-        
-        Please follow up with this lead as soon as possible.
-        `
+        text: `New Demo Enquiry - TPR Max\n\nName: ${name}\nCompany: ${company || 'Not provided'}\nEmail: ${email}\nPhone: ${phone || 'Not provided'}\nReceived: ${dateStr}\n\nPlease follow up as soon as possible.`
       });
 
-      console.log(`📧 Marketing contact submitted: ${email}`);
+      // Also send a confirmation email to the enquirer
+      await emailService.sendEmail({
+        to: email,
+        subject: 'Your TPR Max Demo Enquiry — We\'ll Be in Touch',
+        html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #2460A9; padding: 20px 24px; border-radius: 8px 8px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">Thank you, ${name}!</h1>
+          </div>
+          <div style="border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 8px 8px; padding: 24px;">
+            <p style="color: #475569;">We've received your enquiry about TPR Max and one of our team will be in touch shortly to arrange a personalised demo.</p>
+            <p style="color: #475569;">In the meantime, if you have any questions you can reach us at:</p>
+            <ul style="color: #475569;">
+              <li><strong>Phone:</strong> +44 1344 771569</li>
+              <li><strong>Email:</strong> <a href="mailto:sales@acssafety.co.uk" style="color: #2460A9;">sales@acssafety.co.uk</a></li>
+            </ul>
+            <p style="color: #64748b; font-size: 13px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
+              ACS Safety &amp; Security Ltd · Wittas House, Two Rivers, Station Lane, Witney, OX28 4BH
+            </p>
+          </div>
+        </div>
+        `,
+        text: `Thank you ${name}!\n\nWe've received your TPR Max demo enquiry and will be in touch shortly.\n\nACS Safety & Security Ltd\nPhone: +44 1344 771569`
+      });
+
+      console.log(`📧 Marketing enquiry submitted: ${name} <${email}> (${company})`);
       res.status(204).send();
     } catch (error) {
       console.error('Error processing marketing contact:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
-          error: 'Invalid email address',
+          error: 'Please check your details and try again',
           details: error.errors 
         });
       }
