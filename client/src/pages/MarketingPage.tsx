@@ -2923,9 +2923,6 @@ export default function MarketingPage() {
             </div>
           </form>
 
-          <p className="text-white/70 text-sm mt-4">
-            No credit card required • 14-day free trial • Setup in 5 minutes
-          </p>
         </div>
       </section>
 
