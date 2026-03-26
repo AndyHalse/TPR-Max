@@ -1968,7 +1968,13 @@ export const insertWorkerCertificationSchema = createInsertSchema(workerCertific
   updatedAt: true,
 });
 
-export const insertRamsDocumentSchema = createInsertSchema(ramsDocuments).omit({
+export const insertRamsDocumentSchema = createInsertSchema(ramsDocuments, {
+  expiryDate: z.coerce.date(),
+  uploadedAt: z.coerce.date().optional(),
+  reviewedAt: z.coerce.date().optional(),
+  approvedAt: z.coerce.date().optional(),
+  lastAlertSent: z.coerce.date().optional(),
+}).omit({
   id: true,
   uploadedAt: true,
 });
