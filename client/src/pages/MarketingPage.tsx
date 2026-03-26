@@ -68,6 +68,9 @@ import {
   TreeDeciduous,
   Download,
   LogIn,
+  Menu,
+  X,
+  ClipboardCheck,
 } from "lucide-react";
 
 // Import ACS logo and screenshots
@@ -87,6 +90,7 @@ export default function MarketingPage() {
   const [email, setEmail] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const { toast } = useToast();
 
@@ -104,6 +108,7 @@ export default function MarketingPage() {
           "id-printing",
           "contractors",
           "ai-compliance",
+          "rams",
           "emergency",
           "time-attendance",
           "sustainability",
@@ -306,6 +311,20 @@ export default function MarketingPage() {
         ],
         img: reportsAnalyticsImg,
       },
+      {
+        title: "RAMS Document Management",
+        badge: "Risk Assessment & Method Statements",
+        badgeColor: "#ea580c",
+        description: "Streamline contractor safety documentation with a complete Risk Assessment and Method Statement management system. Upload, review, approve, and track all RAMS documents with automated expiry alerts and a full audit trail.",
+        bullets: [
+          "Digital Upload: Contractors submit RAMS documents (PDF, Word, Excel) with drag-and-drop file upload",
+          "Approval Workflow: Site managers review, approve, or reject RAMS documents with comments and full history",
+          "Expiry Tracking: Automated alerts notify contractors and managers when documents are due for review",
+          "Worker Acknowledgements: Digital sign-off ensures every worker has read the RAMS before starting work",
+          "Full Audit Trail: Every action logged with timestamps and user details for complete accountability",
+          "Version Control: Track document revisions with version history, always using the latest approved RAMS",
+        ],
+      },
     ];
 
     const printWindow = window.open("", "_blank");
@@ -494,7 +513,72 @@ export default function MarketingPage() {
                 Sign In
               </Button>
             </div>
+
+            {/* Mobile: Sign In + Hamburger */}
+            <div className="flex md:hidden items-center space-x-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.location.href = "/"}
+                className="border-[#2460A9] text-[#2460A9] hover:bg-[#2460A9] hover:text-white"
+                data-testid="button-sign-in-mobile"
+              >
+                <LogIn className="h-4 w-4 mr-1" />
+                Sign In
+              </Button>
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="p-2 rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+                aria-label="Toggle menu"
+              >
+                {mobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+              </button>
+            </div>
           </div>
+
+          {/* Mobile dropdown menu */}
+          {mobileMenuOpen && (
+            <div className="md:hidden border-t border-slate-200 dark:border-slate-700 py-4 space-y-3">
+              <button
+                onClick={() => { scrollToSection("features"); setMobileMenuOpen(false); }}
+                className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
+              >
+                Features
+              </button>
+              <button
+                onClick={() => { scrollToSection("industries"); setMobileMenuOpen(false); }}
+                className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
+              >
+                Industries
+              </button>
+              <button
+                onClick={() => { scrollToSection("contact"); setMobileMenuOpen(false); }}
+                className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
+              >
+                Contact
+              </button>
+              <div className="px-4 flex flex-col gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => { handleDownloadPdf(); setMobileMenuOpen(false); }}
+                  disabled={isGeneratingPdf}
+                  className="w-full border-[#2460A9] text-[#2460A9] hover:bg-[#2460A9] hover:text-white"
+                >
+                  <Download className="h-4 w-4 mr-1" />
+                  {isGeneratingPdf ? "Generating..." : "Download PDF"}
+                </Button>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  style={{ backgroundColor: "#2460A9" }}
+                  onClick={() => { scrollToSection("contact"); setMobileMenuOpen(false); }}
+                >
+                  Request Demo
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       </nav>
 
@@ -532,9 +616,9 @@ export default function MarketingPage() {
                 </strong>{" "}
                 TPR Max delivers instant emergency accountability when seconds
                 count—know exactly who's on-site during evacuations or
-                emergencies. Plus, powerful features like contractor management,
-                site inductions, room booking, and staff time & attendance make
-                it your complete personnel management solution.
+                emergencies. Plus, powerful features like RAMS document management,
+                contractor compliance, site inductions, room booking, and staff
+                time & attendance make it your complete personnel management solution.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -630,7 +714,7 @@ export default function MarketingPage() {
             className="w-full"
             data-testid="features-tabs"
           >
-            <TabsList className="grid grid-cols-2 md:grid-cols-5 lg:grid-cols-10 w-full mb-8 h-auto p-2 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
+            <TabsList className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 w-full mb-8 h-auto p-2 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
               <TabsTrigger
                 value="dashboard"
                 className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-[#2460A9] transition-all duration-200"
@@ -718,6 +802,14 @@ export default function MarketingPage() {
               >
                 <TrendingUp className="h-4 w-4 mb-1" />
                 Reports
+              </TabsTrigger>
+              <TabsTrigger
+                value="rams"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-orange-600 transition-all duration-200"
+                data-testid="tab-rams"
+              >
+                <ClipboardCheck className="h-4 w-4 mb-1" />
+                RAMS
               </TabsTrigger>
             </TabsList>
 
@@ -1621,6 +1713,120 @@ export default function MarketingPage() {
                     className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
                     data-testid="img-reports-analytics"
                   />
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* RAMS Tab */}
+            <TabsContent
+              value="rams"
+              className="space-y-6"
+              data-testid="content-rams"
+            >
+              <div className="grid lg:grid-cols-2 gap-8 items-center">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-orange-600">
+                      <ClipboardCheck className="h-3 w-3 mr-1" />
+                      Risk Assessment & Method Statements
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      RAMS Document Management
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Streamline contractor safety documentation with a complete Risk Assessment and Method Statement management system. Upload, review, approve, and track all RAMS documents with automated expiry alerts and a full audit trail — ensuring site safety compliance at every step.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Digital Upload:</strong> Contractors submit RAMS documents (PDF, Word, Excel) directly through the portal with drag-and-drop file upload
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Approval Workflow:</strong> Site managers review, approve, or reject RAMS documents with comments — full approval history maintained
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Expiry Tracking:</strong> Automated email alerts notify contractors and managers when RAMS documents are due for review or have expired
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Worker Acknowledgements:</strong> Digital sign-off ensures every worker has read and understood the RAMS before starting work
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Full Audit Trail:</strong> Every action — upload, review, approval, rejection, and acknowledgement — is logged with timestamps and user details
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Version Control:</strong> Track document revisions with version history, ensuring the latest approved RAMS is always in use
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    onClick={() => scrollToSection("contact")}
+                    className="text-white bg-orange-600 hover:bg-orange-700"
+                    data-testid="button-rams-demo"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    See RAMS System Live
+                  </Button>
+                </div>
+
+                <div className="relative">
+                  <div className="rounded-xl shadow-2xl border border-orange-200 dark:border-orange-800 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 p-8">
+                    <div className="text-center mb-6">
+                      <ClipboardCheck className="h-16 w-16 text-orange-600 mx-auto mb-4" />
+                      <h4 className="text-2xl font-bold text-orange-800 dark:text-orange-200">
+                        RAMS Compliance Dashboard
+                      </h4>
+                    </div>
+                    <div className="space-y-3">
+                      {[
+                        { label: "Excavation Method Statement", status: "Approved", color: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300" },
+                        { label: "Electrical Installation RAMS", status: "Pending Review", color: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300" },
+                        { label: "Hot Works Risk Assessment", status: "Approved", color: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300" },
+                        { label: "Scaffolding Erection RAMS", status: "Expiring Soon", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300" },
+                      ].map((doc) => (
+                        <div key={doc.label} className="flex items-center justify-between bg-white/80 dark:bg-slate-800/80 rounded-lg p-3">
+                          <div className="flex items-center space-x-2">
+                            <FileText className="h-4 w-4 text-orange-600 flex-shrink-0" />
+                            <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{doc.label}</span>
+                          </div>
+                          <span className={`text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0 ${doc.color}`}>{doc.status}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-green-600">18</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Approved</div>
+                      </div>
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-yellow-600">4</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Pending</div>
+                      </div>
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-orange-600">2</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Expiring</div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </TabsContent>
