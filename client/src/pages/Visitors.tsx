@@ -1694,17 +1694,17 @@ export default function Visitors() {
                   </Select>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-fixed">Visit Date *</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
                           variant="outline"
-                          className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 text-left justify-start"
+                          className="w-full px-3 py-2 h-10 rounded-xl border border-white/30 bg-white/50 text-left justify-start text-sm"
                         >
-                          <CalendarIcon className="mr-2 h-4 w-4" />
-                          {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                          <CalendarIcon className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{selectedDate ? format(selectedDate, "d MMM yy") : "Pick date"}</span>
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
@@ -1732,7 +1732,7 @@ export default function Visitors() {
                       type="time"
                       value={visitTimeValue}
                       onChange={(e) => handleTimeChange(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                      className="w-full h-10 px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed text-sm"
                     />
                   </div>
                 </div>
