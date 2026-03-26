@@ -323,7 +323,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="max-w-md max-h-[85vh] glass-effect border-white/20 overflow-y-auto" data-testid="add-staff-modal">
+      <DialogContent className="w-[95vw] sm:max-w-md max-h-[90vh] glass-effect border-white/20 overflow-y-auto" data-testid="add-staff-modal">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-fixed">
             {isEditMode ? "Edit Staff Member" : "Add New Staff Member"}
@@ -331,7 +331,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName" className="text-sm font-medium text-fixed">
                 First Name *
@@ -664,7 +664,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                   </Select>
                 </div>
                 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="voiceLanguage" className="text-sm font-medium text-fixed">
                       Voice Language

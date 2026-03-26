@@ -7514,15 +7514,12 @@ ${evacuationPhotosData.length > 0 ? `
       // Add customerId to updates for proper customer isolation
       let updates = insertStaffSchema.partial().parse({ ...req.body, customerId: context.customerId });
       
-      // AUTO-GENERATE Fire Marshal URL if becoming Fire Marshal (CRITICAL for emergency system)
-      if (shouldBeFireMarshal(updates)) {
+      // AUTO-GENERATE Fire Marshal URL only when explicitly enabling the role
+      if (updates.isFireMarshal === true) {
         const existingStaff = await databaseService.getStaffById(context, id);
         if (existingStaff && !existingStaff.fireMarshalUrlId) {
           updates.fireMarshalUrlId = generateFireMarshalUrlId();
-          updates.isFireMarshal = true;
           console.log(`🔥 AUTO-GENERATED Fire Marshal URL for ${existingStaff.firstName} ${existingStaff.lastName}: ${updates.fireMarshalUrlId}`);
-        } else if (existingStaff && existingStaff.fireMarshalUrlId) {
-          updates.isFireMarshal = true;
         }
       }
       
