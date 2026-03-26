@@ -286,7 +286,7 @@ export default function EditContractorWorkerModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="w-5 h-5 text-blue-600" />
@@ -309,7 +309,7 @@ export default function EditContractorWorkerModal({
                 <h3 className="font-semibold text-gray-900">Personal Information</h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="firstName"
@@ -415,7 +415,7 @@ export default function EditContractorWorkerModal({
                 <h3 className="font-semibold text-gray-900">Work Authorization</h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="rightToWork"
@@ -491,7 +491,7 @@ export default function EditContractorWorkerModal({
               {/* CSCS Card */}
               <div className="p-4 border rounded-lg space-y-4">
                 <h4 className="font-medium text-gray-800">CSCS Card</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="cscsCard"
@@ -585,7 +585,7 @@ export default function EditContractorWorkerModal({
                   </Button>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="nvqQualificationId"
@@ -679,7 +679,7 @@ export default function EditContractorWorkerModal({
               {/* Training Certifications */}
               <div className="p-4 border rounded-lg space-y-4">
                 <h4 className="font-medium text-gray-800">Training Certifications</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-3">
                     <FormField
                       control={form.control}
@@ -806,7 +806,7 @@ export default function EditContractorWorkerModal({
                 <h3 className="font-semibold text-gray-900">Site Status & Permissions</h3>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <FormField
                     control={form.control}
@@ -1050,7 +1050,7 @@ export default function EditContractorWorkerModal({
       
       {/* Add New NVQ Qualification Dialog */}
       <Dialog open={showAddQualificationDialog} onOpenChange={setShowAddQualificationDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add New NVQ Qualification</DialogTitle>
             <DialogDescription>

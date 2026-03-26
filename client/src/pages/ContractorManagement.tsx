@@ -877,7 +877,8 @@ export default function ContractorManagement() {
           data-testid="tab-previous-contractors"
         >
           <History className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>Previous Workers</span>
+          <span className="sm:hidden">Prev</span>
+          <span className="hidden sm:inline">Previous Workers</span>
         </Button>
         <Button
           variant={activeTab === "contractors" ? "default" : "outline"}
@@ -886,7 +887,8 @@ export default function ContractorManagement() {
           data-testid="tab-contractors"
         >
           <Building2 className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>Contractors</span>
+          <span className="hidden sm:inline">Contractors</span>
+          <span className="sm:hidden">Companies</span>
         </Button>
         <Button
           variant={activeTab === "walkin" ? "default" : "outline"}
@@ -904,7 +906,8 @@ export default function ContractorManagement() {
           data-testid="tab-pre-booking"
         >
           <CalendarPlus className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>Pre-booking</span>
+          <span className="hidden sm:inline">Pre-booking</span>
+          <span className="sm:hidden">Pre-book</span>
         </Button>
         <Button
           variant={activeTab === "co2" ? "default" : "outline"}
@@ -913,7 +916,8 @@ export default function ContractorManagement() {
           data-testid="tab-co2-reports"
         >
           <Leaf className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>CO2 Reports</span>
+          <span className="hidden sm:inline">CO2 Reports</span>
+          <span className="sm:hidden">CO2</span>
         </Button>
         <Button
           variant={activeTab === "assign-hs" ? "default" : "outline"}
@@ -922,7 +926,8 @@ export default function ContractorManagement() {
           data-testid="tab-assign-hs"
         >
           <Shield className="h-3.5 w-3.5 flex-shrink-0" />
-          <span>H&S Document</span>
+          <span className="hidden sm:inline">H&S Document</span>
+          <span className="sm:hidden">H&S</span>
         </Button>
       </div>
 
@@ -1706,7 +1711,7 @@ export default function ContractorManagement() {
       
       {/* Edit Contractor Company Dialog */}
       <Dialog open={showCompanyEditDialog} onOpenChange={setShowCompanyEditDialog}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="h-5 w-5" />
@@ -1716,7 +1721,7 @@ export default function ContractorManagement() {
               Update contractor company details and service information.
             </DialogDescription>
           </DialogHeader>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Company Name *</label>
               <Input
@@ -1895,7 +1900,7 @@ export default function ContractorManagement() {
       
       {/* Add Contractor Company — 3-step Wizard */}
       <Dialog open={showAddContractorDialog} onOpenChange={(open) => { setShowAddContractorDialog(open); if (!open) resetAddWizard(); }}>
-        <DialogContent className="sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
           {/* Header + Progress */}
           <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold mb-4">
@@ -1919,7 +1924,7 @@ export default function ContractorManagement() {
           {/* Step 1 — Company Details */}
           {addWizardStep === 1 && (
             <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Company Name *</label>
                   <Input value={contractorForm.name} onChange={(e) => setContractorForm({ ...contractorForm, name: e.target.value })} data-testid="input-company-name" />
@@ -2183,7 +2188,7 @@ export default function ContractorManagement() {
       
       {/* Add Worker — 3-step Wizard */}
       <Dialog open={showAddWorkerDialog} onOpenChange={(open) => { setShowAddWorkerDialog(open); if (!open) resetWorkerWizard(); }}>
-        <DialogContent className="sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
           {/* Header + Progress */}
           <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
             <DialogTitle className="flex items-center gap-2 text-lg font-semibold mb-4">
@@ -2206,7 +2211,7 @@ export default function ContractorManagement() {
           {/* Step 1 — Personal Details */}
           {workerWizardStep === 1 && (
             <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-200">First Name *</label>
                   <Input value={workerForm.firstName} onChange={(e) => setWorkerForm({ ...workerForm, firstName: e.target.value })} data-testid="input-worker-firstname" />
@@ -2549,7 +2554,7 @@ export default function ContractorManagement() {
 
       {/* Pre-Book Worker Modal */}
       <Dialog open={!!preBookingWorker} onOpenChange={(open) => !open && setPreBookingWorker(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarPlus className="w-5 h-5 text-indigo-600" />
@@ -2710,7 +2715,7 @@ export default function ContractorManagement() {
 
       {/* Worker Profile Popup */}
       <Dialog open={!!viewingWorker} onOpenChange={(open) => { if (!open) setViewingWorker(null); }}>
-        <DialogContent className="sm:max-w-sm p-0 overflow-hidden rounded-2xl" aria-describedby={undefined}>
+        <DialogContent className="w-[95vw] sm:max-w-sm p-0 overflow-hidden rounded-2xl" aria-describedby={undefined}>
           <DialogTitle className="sr-only">Worker Profile</DialogTitle>
           {viewingWorker && (() => {
             const ww = viewingWorker;
@@ -2905,7 +2910,7 @@ export default function ContractorManagement() {
 
       {/* Host Selection Dialog for Contractor Check-in */}
       <Dialog open={showCheckInHostDialog} onOpenChange={(open) => { if (!open) { setShowCheckInHostDialog(false); setSelectedCheckInHost(''); setCheckInWorkerId(null); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Select Host for {checkInWorkerName}</DialogTitle>
             <DialogDescription>Who is {checkInWorkerName} visiting today?</DialogDescription>
@@ -2955,7 +2960,7 @@ export default function ContractorManagement() {
 
       {/* Contractor Worker QR Pass Dialog */}
       <Dialog open={!!qrPassWorker} onOpenChange={(open) => { if (!open) { setQrPassWorker(null); setQrPassData(null); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <QrCode className="w-5 h-5 text-indigo-600" />
