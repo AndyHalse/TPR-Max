@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { useRef } from "react";
 import {
   FileText,
   Upload,
@@ -28,6 +29,8 @@ import {
   ChevronRight,
   Download,
   X,
+  Paperclip,
+  Loader2,
   Check,
   User,
   Calendar,
@@ -154,6 +157,9 @@ interface UploadDialogProps {
 function UploadDialog({ open, onClose, companies, existingDoc, onSuccess }: UploadDialogProps) {
   const { toast } = useToast();
   const isNewVersion = !!existingDoc;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     companyId: existingDoc?.companyId || "",
@@ -169,9 +175,40 @@ function UploadDialog({ open, onClose, companies, existingDoc, onSuccess }: Uplo
   });
   const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }));
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    let base64: string;
+    try {
+      base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (ev) => resolve((ev.target?.result as string).split(",")[1]);
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+      });
+    } catch {
+      toast({ title: "Error", description: "Could not read the file.", variant: "destructive" });
+      return;
+    }
+    setUploading(true);
+    try {
+      const res = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type });
+      const { objectPath } = await res.json();
+      set("documentUrl", objectPath);
+      setSelectedFileName(file.name);
+      if (!form.documentName) set("documentName", file.name.replace(/\.[^/.]+$/, ""));
+      toast({ title: "File uploaded", description: file.name });
+    } catch {
+      toast({ title: "Upload failed", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
   const mutation = useMutation({
     mutationFn: async () => {
-      if (!form.documentUrl || !form.documentName || !form.expiryDate) throw new Error("Document URL, name and expiry are required");
+      if (!form.documentUrl || !form.documentName || !form.expiryDate) throw new Error("Please upload a document, add a name and set an expiry date");
       const payload = {
         ...form,
         expiryDate: new Date(form.expiryDate).toISOString(),
@@ -227,9 +264,43 @@ function UploadDialog({ open, onClose, companies, existingDoc, onSuccess }: Uplo
           </div>
 
           <div className="space-y-1">
-            <Label>Document URL *</Label>
-            <Input value={form.documentUrl} onChange={e => set("documentUrl", e.target.value)} placeholder="https://... or object storage path" />
-            <p className="text-xs text-slate-500">Paste the URL of the uploaded PDF. Use the Files panel to upload first.</p>
+            <Label>Document File *</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+            {form.documentUrl ? (
+              <div className="flex items-center gap-2 p-3 rounded-lg border border-green-200 bg-green-50">
+                <CheckCircle2 size={16} className="text-green-600 shrink-0" />
+                <span className="text-sm text-green-800 flex-1 truncate">{selectedFileName || "Document uploaded"}</span>
+                <button
+                  type="button"
+                  onClick={() => { set("documentUrl", ""); setSelectedFileName(null); }}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading}
+                className="w-full flex flex-col items-center gap-2 p-5 rounded-lg border-2 border-dashed border-slate-200 hover:border-blue-400 hover:bg-blue-50 transition-colors disabled:opacity-50"
+              >
+                {uploading ? (
+                  <Loader2 size={22} className="text-blue-500 animate-spin" />
+                ) : (
+                  <Paperclip size={22} className="text-slate-400" />
+                )}
+                <span className="text-sm text-slate-500">
+                  {uploading ? "Uploading…" : "Click to upload PDF, Word, Excel or PowerPoint"}
+                </span>
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
