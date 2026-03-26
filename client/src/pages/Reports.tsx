@@ -21,7 +21,8 @@ import {
   UserCheck,
   Printer,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  ExternalLink
 } from "lucide-react";
 import {
   AlertDialog,
@@ -293,7 +294,7 @@ export default function Reports() {
               </Select>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-sm font-medium text-variable">From Date</Label>
                 <Popover>
@@ -500,35 +501,24 @@ export default function Reports() {
             <p className="text-variable text-sm mt-2">Generate your first report to get started</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-white/50">
-                <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Report
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Period
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Stats
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/20">
-                {reports.map((report) => (
-                  <tr key={report.id} className="hover:bg-white/20" data-testid={`report-${report.id}`}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <FileText className="mr-3 text-blue-600" size={16} />
-                        <div>
-                          <div className="text-sm font-medium text-fixed">
+          <>
+            {/* ── Mobile card list (hidden on sm+) ── */}
+            <div className="sm:hidden space-y-3">
+              {reports.map((report) => {
+                const reportUrl = `/api/reports/${report.id}/view`;
+                return (
+                  <div
+                    key={report.id}
+                    className="bg-white/40 dark:bg-white/10 rounded-xl p-4 space-y-3 cursor-pointer active:opacity-70"
+                    onClick={() => window.open(reportUrl, '_blank')}
+                    data-testid={`report-${report.id}`}
+                  >
+                    {/* Title row */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText className="text-blue-600 flex-shrink-0" size={18} />
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-fixed truncate">
                             {formatReportType(report.reportType)}
                           </div>
                           <div className="text-xs text-variable">
@@ -536,80 +526,147 @@ export default function Reports() {
                           </div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
-                      {new Date(report.dateFrom).toLocaleDateString()} - {new Date(report.dateTo).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-variable">
-                        <div>{report.totalVisitors}</div>
-                        <div className="text-xs text-variable">{report.avgDuration}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="space-y-1">
-                        <Badge className={getReportTypeColor(report.reportType)}>
-                          {formatReportType(report.reportType)}
-                        </Badge>
-                        {report.emailSent && (
-                          <div className="flex items-center text-xs text-green-600">
-                            <Mail size={12} className="mr-1" />
-                            Emailed {report.emailSentAt ? new Date(report.emailSentAt).toLocaleDateString() : ""}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex space-x-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEmailReport(report.id)}
-                          disabled={emailReportMutation.isPending}
-                          data-testid={`button-email-report-${report.id}`}
-                        >
-                          <Send size={12} className="mr-1" />
-                          Email
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            const reportUrl = `/api/reports/${report.id}/view`;
-                            window.open(reportUrl, '_blank', 'width=1024,height=768,scrollbars=yes,resizable=yes');
-                          }}
-                          data-testid={`button-view-report-${report.id}`}
-                        >
-                          <FileText size={12} className="mr-1" />
-                          View
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handlePrintReport(report.id)}
-                          className="hover:bg-[var(--background)]"
-                          data-testid={`button-print-report-${report.id}`}
-                        >
-                          <Printer size={12} className="mr-1" />
-                          Print
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => deleteReportMutation.mutate(report.id)}
-                          disabled={deleteReportMutation.isPending}
-                          className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
-                          data-testid={`button-delete-report-${report.id}`}
-                        >
-                          <Trash2 size={12} />
-                        </Button>
-                      </div>
-                    </td>
+                      <ExternalLink size={14} className="text-blue-500 flex-shrink-0 mt-0.5" />
+                    </div>
+                    {/* Period */}
+                    <div className="text-xs text-variable">
+                      {new Date(report.dateFrom).toLocaleDateString()} – {new Date(report.dateTo).toLocaleDateString()}
+                    </div>
+                    {/* Status + email badge */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge className={getReportTypeColor(report.reportType)}>
+                        {formatReportType(report.reportType)}
+                      </Badge>
+                      {report.emailSent && (
+                        <span className="flex items-center text-xs text-green-600">
+                          <Mail size={11} className="mr-1" />
+                          Emailed
+                        </span>
+                      )}
+                    </div>
+                    {/* Action buttons */}
+                    <div className="flex gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-xs"
+                        onClick={() => window.open(reportUrl, '_blank')}
+                        data-testid={`button-view-report-${report.id}`}
+                      >
+                        <ExternalLink size={12} className="mr-1" />
+                        View
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-xs"
+                        onClick={() => handleEmailReport(report.id)}
+                        disabled={emailReportMutation.isPending}
+                        data-testid={`button-email-report-${report.id}`}
+                      >
+                        <Send size={12} className="mr-1" />
+                        Email
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 text-xs"
+                        onClick={() => handlePrintReport(report.id)}
+                        data-testid={`button-print-report-${report.id}`}
+                      >
+                        <Printer size={12} className="mr-1" />
+                        Print
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-red-600 border-red-200 hover:bg-red-50 px-2.5"
+                        onClick={() => deleteReportMutation.mutate(report.id)}
+                        disabled={deleteReportMutation.isPending}
+                        data-testid={`button-delete-report-${report.id}`}
+                      >
+                        <Trash2 size={12} />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Desktop table (hidden below sm) ── */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white/50">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Report</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Period</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Stats</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Actions</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="divide-y divide-white/20">
+                  {reports.map((report) => {
+                    const reportUrl = `/api/reports/${report.id}/view`;
+                    return (
+                      <tr
+                        key={report.id}
+                        className="hover:bg-white/20 cursor-pointer"
+                        onClick={() => window.open(reportUrl, '_blank')}
+                        data-testid={`report-${report.id}`}
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <FileText className="mr-3 text-blue-600" size={16} />
+                            <div>
+                              <div className="text-sm font-medium text-fixed">{formatReportType(report.reportType)}</div>
+                              <div className="text-xs text-variable">Generated {new Date(report.generatedAt).toLocaleDateString()}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-variable">
+                          {new Date(report.dateFrom).toLocaleDateString()} - {new Date(report.dateTo).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-variable">
+                            <div>{report.totalVisitors}</div>
+                            <div className="text-xs text-variable">{report.avgDuration}</div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="space-y-1">
+                            <Badge className={getReportTypeColor(report.reportType)}>{formatReportType(report.reportType)}</Badge>
+                            {report.emailSent && (
+                              <div className="flex items-center text-xs text-green-600">
+                                <Mail size={12} className="mr-1" />
+                                Emailed {report.emailSentAt ? new Date(report.emailSentAt).toLocaleDateString() : ""}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex space-x-2">
+                            <Button size="sm" variant="outline" onClick={() => handleEmailReport(report.id)} disabled={emailReportMutation.isPending} data-testid={`button-email-report-${report.id}`}>
+                              <Send size={12} className="mr-1" />Email
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => window.open(reportUrl, '_blank')} data-testid={`button-view-report-${report.id}`}>
+                              <ExternalLink size={12} className="mr-1" />View
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => handlePrintReport(report.id)} className="hover:bg-[var(--background)]" data-testid={`button-print-report-${report.id}`}>
+                              <Printer size={12} className="mr-1" />Print
+                            </Button>
+                            <Button size="sm" variant="outline" onClick={() => deleteReportMutation.mutate(report.id)} disabled={deleteReportMutation.isPending} className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300" data-testid={`button-delete-report-${report.id}`}>
+                              <Trash2 size={12} />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </GlassCard>
     </div>
