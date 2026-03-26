@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { CloudUpload, Upload, X, Shield, Phone, Copy, AlertCircle } from "lucide-react";
+import { CloudUpload, Upload, X, Shield, Phone, Copy, AlertCircle, Camera } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import type { InsertStaff } from "@shared/schema";
 
@@ -342,7 +342,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 required
                 value={formData.firstName}
                 onChange={(e) => handleInputChange("firstName", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                 placeholder=""
                 data-testid="input-first-name"
               />
@@ -358,7 +358,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 required
                 value={formData.lastName}
                 onChange={(e) => handleInputChange("lastName", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                 placeholder=""
                 data-testid="input-last-name"
               />
@@ -375,7 +375,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               required
               value={formData.email}
               onChange={(e) => handleInputChange("email", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+              className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder=""
               data-testid="input-email"
             />
@@ -386,7 +386,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               Department *
             </Label>
             <Select value={formData.department} onValueChange={(value) => handleInputChange("department", value)}>
-              <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-department">
+              <SelectTrigger className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-department">
                 <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
@@ -417,7 +417,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               type="text"
               value={formData.jobTitle}
               onChange={(e) => handleInputChange("jobTitle", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+              className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="e.g. Site Manager, Engineer"
               data-testid="input-job-title"
             />
@@ -432,7 +432,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               type="text"
               value={formData.employeeId}
               onChange={(e) => handleInputChange("employeeId", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+              className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="Auto-generated if left blank"
               data-testid="input-employee-id"
             />
@@ -447,7 +447,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               type="text"
               value={formData.biostarUserId}
               onChange={(e) => handleInputChange("biostarUserId", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+              className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="Optional - For access control sync"
               data-testid="input-biostar-user-id"
             />
@@ -465,7 +465,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               type="text"
               value={formData.paxtonUserId}
               onChange={(e) => handleInputChange("paxtonUserId", e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+              className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
               placeholder="Optional - For Paxton access control sync"
               data-testid="input-paxton-user-id"
             />
@@ -479,7 +479,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               Access Level *
             </Label>
             <Select value={formData.accessLevel} onValueChange={(value) => handleInputChange("accessLevel", value)}>
-              <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-access-level">
+              <SelectTrigger className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-access-level">
                 <SelectValue placeholder="Select access level" />
               </SelectTrigger>
               <SelectContent>
@@ -495,7 +495,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 Zone / Location
               </Label>
               <Select value={formData.zoneId} onValueChange={(value) => handleInputChange("zoneId", value)}>
-                <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-zone">
+                <SelectTrigger className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-zone">
                   <SelectValue placeholder="Select zone (optional)" />
                 </SelectTrigger>
                 <SelectContent>
@@ -621,7 +621,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 type="tel"
                 value={formData.phoneNumber}
                 onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                 placeholder=""
                 data-testid="input-phone-number"
               />
@@ -653,7 +653,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                     Preferred Notification Method
                   </Label>
                   <Select value={formData.preferredNotificationMethod} onValueChange={(value) => handleInputChange("preferredNotificationMethod", value)}>
-                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-notification-method">
+                    <SelectTrigger className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-notification-method">
                       <SelectValue placeholder="Select notification method" />
                     </SelectTrigger>
                     <SelectContent>
@@ -670,7 +670,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                       Voice Language
                     </Label>
                     <Select value={formData.voiceLanguage} onValueChange={(value) => handleInputChange("voiceLanguage", value)}>
-                      <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-voice-language">
+                      <SelectTrigger className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-voice-language">
                         <SelectValue placeholder="Select language" />
                       </SelectTrigger>
                       <SelectContent>
@@ -688,7 +688,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                       Voice Profile
                     </Label>
                     <Select value={formData.voiceProfile} onValueChange={(value) => handleInputChange("voiceProfile", value)}>
-                      <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-voice-profile">
+                      <SelectTrigger className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed" data-testid="select-voice-profile">
                         <SelectValue placeholder="Select voice" />
                       </SelectTrigger>
                       <SelectContent>
@@ -715,7 +715,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                 type="password"
                 value={formData.password}
                 onChange={(e) => handleInputChange("password", e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
                 placeholder="Enter secure password"
                 data-testid="input-password"
                 required={!isEditMode}
@@ -730,11 +730,29 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             <Label className="text-sm font-medium text-fixed">
               Photo
             </Label>
+            {/* Hidden file inputs */}
+            <input
+              type="file"
+              accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/bmp,image/svg+xml"
+              onChange={handlePhotoUpload}
+              className="hidden"
+              id="staff-photo-upload"
+              disabled={uploading}
+            />
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhotoUpload}
+              className="hidden"
+              id="staff-photo-camera"
+              disabled={uploading}
+            />
             {uploadedPhoto ? (
               <div className="relative border-2 border-white/30 rounded-xl p-4 text-center">
-                <img 
-                  src={uploadedPhoto} 
-                  alt="Staff photo" 
+                <img
+                  src={uploadedPhoto}
+                  alt="Staff photo"
                   className="w-20 h-20 rounded-full mx-auto mb-2 object-cover"
                 />
                 <Button
@@ -747,62 +765,67 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
                   <X size={14} />
                 </Button>
                 <p className="text-sm text-variable">Photo uploaded successfully</p>
+                <div className="flex justify-center gap-3 mt-1">
+                  <label htmlFor="staff-photo-upload" className="cursor-pointer text-xs text-blue-600 hover:underline">Change</label>
+                  <span className="text-xs text-slate-400">·</span>
+                  <label htmlFor="staff-photo-camera" className="cursor-pointer text-xs text-blue-600 hover:underline">Retake</label>
+                </div>
               </div>
             ) : (
-              <div className="border-2 border-dashed border-white/30 rounded-xl p-6 text-center">
-                <input 
-                  type="file" 
-                  accept="image/jpeg,image/jpg,image/png,image/webp,image/gif,image/bmp,image/svg+xml" 
-                  onChange={handlePhotoUpload}
-                  className="hidden" 
-                  id="photo-upload"
-                  disabled={uploading}
-                />
-                <label htmlFor="photo-upload" className="cursor-pointer">
-                  {uploading ? (
-                    <>
-                      <Upload className="mx-auto h-8 w-8 text-blue-500 mb-2 animate-pulse" />
-                      <p className="text-sm text-blue-600">Uploading...</p>
-                    </>
-                  ) : (
-                    <>
-                      <CloudUpload className="mx-auto h-8 w-8 text-variable mb-2" />
-                      <p className="text-sm text-variable">Click to upload photo or drag and drop</p>
-                    </>
-                  )}
-                </label>
+              <div className="border-2 border-dashed border-white/30 rounded-xl p-4">
+                {uploading ? (
+                  <div className="text-center">
+                    <Upload className="mx-auto h-8 w-8 text-blue-500 mb-2 animate-pulse" />
+                    <p className="text-sm text-blue-600">Uploading...</p>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-6">
+                    <label htmlFor="staff-photo-upload" className="flex flex-col items-center gap-1 cursor-pointer group">
+                      <div className="rounded-full p-2 bg-white/40 dark:bg-white/10 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
+                        <CloudUpload className="h-6 w-6 text-variable" />
+                      </div>
+                      <p className="text-xs text-variable">Upload</p>
+                    </label>
+                    <label htmlFor="staff-photo-camera" className="flex flex-col items-center gap-1 cursor-pointer group">
+                      <div className="rounded-full p-2 bg-white/40 dark:bg-white/10 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
+                        <Camera className="h-6 w-6 text-variable" />
+                      </div>
+                      <p className="text-xs text-variable">Take Photo</p>
+                    </label>
+                  </div>
+                )}
               </div>
             )}
           </div>
           
-          <div className="flex gap-3 pt-4">
-            <Button 
-              type="button" 
+          <div className="flex flex-wrap gap-2 pt-4">
+            <Button
+              type="button"
               variant="outline"
               onClick={handleClose}
-              className="flex-1 px-4 py-3 rounded-xl border border-slate-300 text-fixed font-medium hover:bg-slate-50 transition-colors"
+              className="flex-1 min-w-[80px] px-3 py-2 rounded-xl border border-slate-300 text-fixed font-medium hover:bg-slate-50 transition-colors"
               data-testid="button-cancel-add-staff"
             >
               Cancel
             </Button>
             {isEditMode && staffToEdit && (
-              <Button 
+              <Button
                 type="button"
                 variant="outline"
                 onClick={() => setShowTemplateSelect(true)}
-                className="px-4 py-3 rounded-xl border border-blue-300 text-blue-700 font-medium hover:bg-blue-50 transition-colors"
+                className="px-3 py-2 rounded-xl border border-blue-300 text-blue-700 font-medium hover:bg-blue-50 transition-colors text-sm"
                 data-testid="button-print-id-card"
               >
                 Print ID Card
               </Button>
             )}
-            <Button 
+            <Button
               type="submit"
               disabled={staffMutation.isPending || uploading}
-              className="flex-1 gradient-blue text-white px-4 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
+              className="flex-1 min-w-[120px] gradient-blue text-white px-3 py-2 rounded-xl font-medium hover:shadow-lg transition-all duration-300 disabled:opacity-50"
               data-testid="button-submit-staff"
             >
-              {staffMutation.isPending ? (isEditMode ? "Updating..." : "Adding...") : (isEditMode ? "Update Staff Member" : "Add Staff Member")}
+              {staffMutation.isPending ? (isEditMode ? "Updating..." : "Adding...") : (isEditMode ? "Update" : "Add Staff Member")}
             </Button>
           </div>
         </form>
@@ -810,7 +833,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       
       {/* Template Selection Dialog */}
       <Dialog open={showTemplateSelect} onOpenChange={setShowTemplateSelect}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="w-[95vw] sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Select ID Card Template</DialogTitle>
           </DialogHeader>
