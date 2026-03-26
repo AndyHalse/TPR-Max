@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -71,6 +71,8 @@ import {
   Menu,
   X,
   ClipboardCheck,
+  Play,
+  Volume2,
 } from "lucide-react";
 
 // Import ACS logo and screenshots
@@ -94,6 +96,8 @@ export default function MarketingPage() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const { toast } = useToast();
 
@@ -686,6 +690,82 @@ export default function MarketingPage() {
               </div>
               <div className="absolute inset-0 bg-gradient-to-r from-red-600/20 to-orange-600/20 rounded-xl blur-3xl -z-10"></div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Video Section ── */}
+      <section className="py-16 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-800">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <Badge variant="secondary" className="mb-4 text-white" style={{ backgroundColor: "#2460A9" }}>
+              <Play className="h-3 w-3 mr-1" />
+              Product Demo
+            </Badge>
+            <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+              See TPR-Max In{" "}
+              <span style={{ color: "#2460A9" }}>Action</span>
+            </h2>
+            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-2xl mx-auto">
+              From emergency mustering to RAMS compliance — watch how TPR-Max keeps your site safe, compliant, and fully accountable.
+            </p>
+          </div>
+
+          {/* Video player */}
+          <div className="relative rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-700 bg-slate-900 group">
+            <video
+              ref={videoRef}
+              src="/tpr-max-product-animation.mp4"
+              className="w-full aspect-video object-cover"
+              loop
+              muted
+              playsInline
+              onPlay={() => setVideoPlaying(true)}
+              onPause={() => setVideoPlaying(false)}
+            />
+            {/* Custom play/pause overlay */}
+            {!videoPlaying && (
+              <div
+                className="absolute inset-0 flex items-center justify-center bg-slate-900/40 cursor-pointer transition-opacity group-hover:bg-slate-900/30"
+                onClick={() => { videoRef.current?.play(); }}
+              >
+                <div className="w-20 h-20 rounded-full flex items-center justify-center shadow-2xl transition-transform hover:scale-110" style={{ backgroundColor: "#2460A9" }}>
+                  <Play className="h-8 w-8 text-white ml-1" />
+                </div>
+              </div>
+            )}
+            {/* Pause on click when playing */}
+            {videoPlaying && (
+              <div
+                className="absolute inset-0 cursor-pointer opacity-0"
+                onClick={() => { videoRef.current?.pause(); }}
+              />
+            )}
+            {/* Bottom bar */}
+            <div className="absolute bottom-0 left-0 right-0 px-4 py-3 bg-gradient-to-t from-slate-900/80 to-transparent flex items-center justify-between">
+              <div className="flex items-center gap-2 text-white text-xs">
+                <Volume2 className="h-3.5 w-3.5 opacity-70" />
+                <span className="opacity-70">Muted preview — click to play</span>
+              </div>
+              <Badge className="text-white text-xs bg-white/20 border-white/30 hover:bg-white/30">
+                TPR-Max Platform Demo
+              </Badge>
+            </div>
+          </div>
+
+          {/* Feature highlights below video */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-8">
+            {[
+              { icon: Siren, label: "Emergency Mustering", color: "text-red-600" },
+              { icon: ShieldCheck, label: "RAMS Compliance", color: "text-blue-600" },
+              { icon: Users, label: "Contractor Tracking", color: "text-green-600" },
+              { icon: ClipboardCheck, label: "Site Inductions", color: "text-orange-600" },
+            ].map(({ icon: Icon, label, color }) => (
+              <div key={label} className="flex flex-col items-center gap-2 p-4 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-center">
+                <Icon className={`h-6 w-6 ${color}`} />
+                <span className="text-xs font-medium text-slate-700 dark:text-slate-300">{label}</span>
+              </div>
+            ))}
           </div>
         </div>
       </section>
