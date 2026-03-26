@@ -26,6 +26,7 @@ import {
   ChevronRight, Upload, Eye, QrCode, Printer, Download
 } from "lucide-react";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
+import RAMSManagement from "@/components/RAMSManagement";
 import { apiRequest } from "@/lib/queryClient";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
@@ -104,6 +105,17 @@ export default function ContractorDetails() {
   // Company audit trail / notes
   const { data: companyNotes = [], isLoading: notesLoading } = useQuery<any[]>({
     queryKey: [`/api/contractors/${id}/notes`],
+    enabled: !!id,
+  });
+
+  // RAMS docs for this contractor — used to synthesise activity events
+  const { data: ramsDocsRaw = [] } = useQuery<any[]>({
+    queryKey: ["/api/rams", id],
+    queryFn: async () => {
+      const res = await fetch(`/api/rams?companyId=${id}`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
     enabled: !!id,
   });
 
@@ -1266,22 +1278,15 @@ export default function ContractorDetails() {
             </Card>
 
             <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="w-5 h-5" />
-                  RAMs Certification
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                  RAMS Documents
                 </CardTitle>
+                <CardDescription>Risk Assessments & Method Statements — live documents, approvals and acknowledgements for this contractor</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-medium">Risk Assessment & Method Statement</h4>
-                      <p className="text-sm text-muted-foreground">Valid until March 2025</p>
-                    </div>
-                    <Badge variant="outline" className="text-green-600">Valid</Badge>
-                  </div>
-                </div>
+                <RAMSManagement companyId={id} embedded />
               </CardContent>
             </Card>
           </div>
@@ -1304,58 +1309,91 @@ export default function ContractorDetails() {
               <CardDescription>Full audit trail of all actions taken on this contractor company record</CardDescription>
             </CardHeader>
             <CardContent>
-              {notesLoading ? (
-                <div className="text-sm text-muted-foreground py-4 text-center">Loading activity...</div>
-              ) : companyNotes.length === 0 ? (
-                <div className="text-sm text-muted-foreground py-8 text-center border border-dashed rounded-lg">
-                  <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                  <p>No activity recorded yet.</p>
-                  <p className="text-xs mt-1">Actions like adding workers and uploading documents will appear here.</p>
-                </div>
-              ) : (
-                <div className="space-y-0">
-                  {companyNotes.map((note: any, index: number) => {
-                    const changeTypeColors: Record<string, string> = {
-                      company_created: 'bg-green-100 text-green-800 border-green-200',
-                      company_updated: 'bg-blue-100 text-blue-800 border-blue-200',
-                      worker_added: 'bg-purple-100 text-purple-800 border-purple-200',
-                      document_uploaded: 'bg-amber-100 text-amber-800 border-amber-200',
-                      document_replaced: 'bg-orange-100 text-orange-800 border-orange-200',
-                      document_updated: 'bg-sky-100 text-sky-800 border-sky-200',
-                    };
-                    const changeTypeLabels: Record<string, string> = {
-                      company_created: 'Company Created',
-                      company_updated: 'Details Updated',
-                      worker_added: 'Worker Added',
-                      document_uploaded: 'Document Uploaded',
-                      document_replaced: 'Document Replaced',
-                      document_updated: 'Document Updated',
-                    };
-                    const colorClass = changeTypeColors[note.changeType] || 'bg-gray-100 text-gray-800 border-gray-200';
-                    const label = changeTypeLabels[note.changeType] || note.changeType?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
-                    const isLast = index === companyNotes.length - 1;
-                    return (
-                      <div key={note.id} className="flex gap-3 py-3 relative">
-                        {!isLast && <div className="absolute left-[17px] top-9 bottom-0 w-0.5 bg-border" />}
-                        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-muted border flex items-center justify-center mt-0.5">
-                          <FileText className="w-4 h-4 text-muted-foreground" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border ${colorClass}`}>
-                              {label}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {note.changedAt ? new Date(note.changedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' }) : ''}
-                            </span>
+              {(() => {
+                // Synthesise RAMS activity events from RAMS documents
+                const ramsEvents: any[] = [];
+                for (const doc of ramsDocsRaw) {
+                  if (doc.uploadedAt) ramsEvents.push({ id: `rams-upload-${doc.id}`, changeType: 'rams_uploaded', changedAt: doc.uploadedAt, notes: `RAMS document uploaded: "${doc.documentName}" (Ref: ${doc.ramsIdRef})` });
+                  if (doc.approvedAt) ramsEvents.push({ id: `rams-approved-${doc.id}`, changeType: 'rams_approved', changedAt: doc.approvedAt, notes: `RAMS approved: "${doc.documentName}" — approved by ${doc.approvedBy || doc.reviewedBy || 'system'}${doc.reviewNotes ? ` · Notes: ${doc.reviewNotes}` : ''}` });
+                  if (doc.reviewedAt && doc.status === 'rejected') ramsEvents.push({ id: `rams-rejected-${doc.id}`, changeType: 'rams_rejected', changedAt: doc.reviewedAt, notes: `RAMS rejected: "${doc.documentName}"${doc.rejectionReason ? ` — Reason: ${doc.rejectionReason}` : ''}` });
+                  if (doc.previousVersionId && doc.uploadedAt) ramsEvents.push({ id: `rams-version-${doc.id}`, changeType: 'rams_new_version', changedAt: doc.uploadedAt, notes: `New version uploaded for RAMS: "${doc.documentName}" (v${doc.version})` });
+                }
+                // Merge company notes + RAMS events, sorted newest-first
+                const allEvents = [...companyNotes, ...ramsEvents].sort((a, b) => {
+                  const ta = new Date(a.changedAt || 0).getTime();
+                  const tb = new Date(b.changedAt || 0).getTime();
+                  return tb - ta;
+                });
+
+                const changeTypeColors: Record<string, string> = {
+                  company_created: 'bg-green-100 text-green-800 border-green-200',
+                  company_updated: 'bg-blue-100 text-blue-800 border-blue-200',
+                  worker_added: 'bg-purple-100 text-purple-800 border-purple-200',
+                  document_uploaded: 'bg-amber-100 text-amber-800 border-amber-200',
+                  document_replaced: 'bg-orange-100 text-orange-800 border-orange-200',
+                  document_updated: 'bg-sky-100 text-sky-800 border-sky-200',
+                  rams_uploaded: 'bg-blue-100 text-blue-800 border-blue-200',
+                  rams_approved: 'bg-green-100 text-green-800 border-green-200',
+                  rams_rejected: 'bg-red-100 text-red-800 border-red-200',
+                  rams_new_version: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                };
+                const changeTypeLabels: Record<string, string> = {
+                  company_created: 'Company Created',
+                  company_updated: 'Details Updated',
+                  worker_added: 'Worker Added',
+                  document_uploaded: 'Document Uploaded',
+                  document_replaced: 'Document Replaced',
+                  document_updated: 'Document Updated',
+                  rams_uploaded: 'RAMS Uploaded',
+                  rams_approved: 'RAMS Approved',
+                  rams_rejected: 'RAMS Rejected',
+                  rams_new_version: 'RAMS New Version',
+                };
+                const changeTypeIcons: Record<string, JSX.Element> = {
+                  rams_uploaded: <Shield className="w-4 h-4 text-blue-500" />,
+                  rams_approved: <CheckCircle2 className="w-4 h-4 text-green-500" />,
+                  rams_rejected: <XCircle className="w-4 h-4 text-red-500" />,
+                  rams_new_version: <Shield className="w-4 h-4 text-indigo-500" />,
+                };
+
+                if (notesLoading) return <div className="text-sm text-muted-foreground py-4 text-center">Loading activity...</div>;
+                if (allEvents.length === 0) return (
+                  <div className="text-sm text-muted-foreground py-8 text-center border border-dashed rounded-lg">
+                    <Clock className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                    <p>No activity recorded yet.</p>
+                    <p className="text-xs mt-1">Actions like adding workers, uploading documents and RAMS will appear here.</p>
+                  </div>
+                );
+                return (
+                  <div className="space-y-0">
+                    {allEvents.map((event: any, index: number) => {
+                      const colorClass = changeTypeColors[event.changeType] || 'bg-gray-100 text-gray-800 border-gray-200';
+                      const label = changeTypeLabels[event.changeType] || event.changeType?.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+                      const icon = changeTypeIcons[event.changeType] || <FileText className="w-4 h-4 text-muted-foreground" />;
+                      const isLast = index === allEvents.length - 1;
+                      return (
+                        <div key={event.id} className="flex gap-3 py-3 relative">
+                          {!isLast && <div className="absolute left-[17px] top-9 bottom-0 w-0.5 bg-border" />}
+                          <div className="flex-shrink-0 w-9 h-9 rounded-full bg-muted border flex items-center justify-center mt-0.5">
+                            {icon}
                           </div>
-                          <p className="text-sm text-foreground">{note.notes}</p>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide border ${colorClass}`}>
+                                {label}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {event.changedAt ? new Date(event.changedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' }) : ''}
+                              </span>
+                            </div>
+                            <p className="text-sm text-foreground">{event.notes}</p>
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         </TabsContent>

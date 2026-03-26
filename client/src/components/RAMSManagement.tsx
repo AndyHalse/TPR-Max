@@ -151,10 +151,11 @@ interface UploadDialogProps {
   onClose: () => void;
   companies: ContractorCompany[];
   existingDoc?: RamsDoc | null;
+  defaultCompanyId?: string;
   onSuccess: () => void;
 }
 
-function UploadDialog({ open, onClose, companies, existingDoc, onSuccess }: UploadDialogProps) {
+function UploadDialog({ open, onClose, companies, existingDoc, defaultCompanyId, onSuccess }: UploadDialogProps) {
   const { toast } = useToast();
   const isNewVersion = !!existingDoc;
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -162,7 +163,7 @@ function UploadDialog({ open, onClose, companies, existingDoc, onSuccess }: Uplo
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
 
   const [form, setForm] = useState({
-    companyId: existingDoc?.companyId || "",
+    companyId: existingDoc?.companyId || defaultCompanyId || "",
     documentName: existingDoc?.documentName || "",
     documentUrl: "",
     ramsIdRef: existingDoc?.ramsIdRef || `RAMS-${Date.now()}`,
@@ -620,19 +621,32 @@ function DetailDialog({ doc, workers, onClose, onApprove, onReject, onNewVersion
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function RAMSManagement() {
+interface RAMSManagementProps {
+  /** When set, locks the view to this contractor company and hides global controls */
+  companyId?: string;
+  /** Hide the section header (used when embedded inside another page) */
+  embedded?: boolean;
+}
+
+export default function RAMSManagement({ companyId, embedded }: RAMSManagementProps = {}) {
   const { toast } = useToast();
   const [filterStatus, setFilterStatus] = useState("all");
-  const [filterCompany, setFilterCompany] = useState("all");
+  const [filterCompany, setFilterCompany] = useState(companyId || "all");
   const [searchTerm, setSearchTerm] = useState("");
   const [showUpload, setShowUpload] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<RamsDoc | null>(null);
   const [reviewAction, setReviewAction] = useState<"approve" | "reject" | null>(null);
   const [newVersionDoc, setNewVersionDoc] = useState<RamsDoc | null>(null);
 
-  // Data queries
+  // Data queries — when embedded, filter by companyId on the server to avoid fetching all docs
   const { data: docs = [], isLoading } = useQuery<RamsDoc[]>({
-    queryKey: ["/api/rams"],
+    queryKey: companyId ? ["/api/rams", companyId] : ["/api/rams"],
+    queryFn: async () => {
+      const url = companyId ? `/api/rams?companyId=${companyId}` : "/api/rams";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch RAMS docs");
+      return res.json();
+    },
   });
 
   const { data: companies = [] } = useQuery<ContractorCompany[]>({
@@ -677,19 +691,29 @@ export default function RAMSManagement() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-bold text-fixed flex items-center gap-2">
-            <Shield size={20} className="text-blue-600" />
-            RAMS Management
-          </h2>
-          <p className="text-sm text-variable mt-0.5">Risk Assessments & Method Statements — upload, review, track acknowledgements</p>
+      {/* Header — hidden when embedded inside another page */}
+      {!embedded && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-fixed flex items-center gap-2">
+              <Shield size={20} className="text-blue-600" />
+              RAMS Management
+            </h2>
+            <p className="text-sm text-variable mt-0.5">Risk Assessments & Method Statements — upload, review, track acknowledgements</p>
+          </div>
+          <Button onClick={() => setShowUpload(true)} className="gradient-blue text-white gap-2">
+            <Plus size={16} /> Upload RAMS
+          </Button>
         </div>
-        <Button onClick={() => setShowUpload(true)} className="gradient-blue text-white gap-2">
-          <Plus size={16} /> Upload RAMS
-        </Button>
-      </div>
+      )}
+      {embedded && (
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">All RAMS documents for this contractor — upload, review, and track acknowledgements.</p>
+          <Button onClick={() => setShowUpload(true)} size="sm" className="gradient-blue text-white gap-2">
+            <Plus size={14} /> Upload RAMS
+          </Button>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -736,15 +760,17 @@ export default function RAMSManagement() {
             <SelectItem value="expired">Expired</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filterCompany} onValueChange={setFilterCompany}>
-          <SelectTrigger className="h-9 text-sm w-44">
-            <SelectValue placeholder="Company" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Companies</SelectItem>
-            {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {!companyId && (
+          <Select value={filterCompany} onValueChange={setFilterCompany}>
+            <SelectTrigger className="h-9 text-sm w-44">
+              <SelectValue placeholder="Company" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Companies</SelectItem>
+              {companies.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Pending Review Alert */}
@@ -826,8 +852,8 @@ export default function RAMSManagement() {
         </div>
       )}
 
-      {/* Compliance summary by company */}
-      {companies.length > 0 && docs.length > 0 && (
+      {/* Compliance summary by company — hidden in embedded/single-company mode */}
+      {!companyId && companies.length > 0 && docs.length > 0 && (
         <div className="mt-4">
           <h3 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
             <Building2 size={14} /> RAMS Compliance by Company
@@ -861,7 +887,11 @@ export default function RAMSManagement() {
           open
           onClose={() => setShowUpload(false)}
           companies={companies}
-          onSuccess={() => queryClient.invalidateQueries({ queryKey: ["/api/rams"] })}
+          defaultCompanyId={companyId}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["/api/rams"] });
+            if (companyId) queryClient.invalidateQueries({ queryKey: ["/api/rams", companyId] });
+          }}
         />
       )}
 
@@ -871,7 +901,12 @@ export default function RAMSManagement() {
           onClose={() => setNewVersionDoc(null)}
           companies={companies}
           existingDoc={newVersionDoc}
-          onSuccess={() => { setNewVersionDoc(null); queryClient.invalidateQueries({ queryKey: ["/api/rams"] }); }}
+          defaultCompanyId={companyId}
+          onSuccess={() => {
+            setNewVersionDoc(null);
+            queryClient.invalidateQueries({ queryKey: ["/api/rams"] });
+            if (companyId) queryClient.invalidateQueries({ queryKey: ["/api/rams", companyId] });
+          }}
         />
       )}
 
