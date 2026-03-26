@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { UserPlus, Search, UserCheck, UserX, Edit, Trash2, Users, LayoutGrid, LayoutList, CloudUpload, Upload, X, Calendar, CreditCard, QrCode } from "lucide-react";
+import { UserPlus, Search, UserCheck, UserX, Edit, Trash2, Users, LayoutGrid, LayoutList, CloudUpload, Upload, X, Calendar, CreditCard, QrCode, Camera } from "lucide-react";
 import QRScannerModal from "@/components/QRScannerModal";
 
 interface Member {
@@ -75,6 +75,7 @@ export default function Members() {
   const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const { data: members = [], isLoading } = useQuery<Member[]>({
     queryKey: ["/api/members"],
@@ -551,13 +552,33 @@ export default function Members() {
       </div>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingMember ? "Edit Member" : "Add Member"}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label className="text-fixed">Photo</Label>
+              {/* Hidden file inputs — one for gallery, one for camera */}
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
+                onChange={handlePhotoUpload}
+                className="hidden"
+                id="member-photo-upload"
+                ref={photoInputRef}
+                disabled={uploading}
+              />
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handlePhotoUpload}
+                className="hidden"
+                id="member-photo-camera"
+                ref={cameraInputRef}
+                disabled={uploading}
+              />
               {uploadedPhoto ? (
                 <div className="relative text-center">
                   <img
@@ -575,36 +596,44 @@ export default function Members() {
                     <X size={14} />
                   </Button>
                   <p className="text-sm text-variable">Photo uploaded</p>
+                  <div className="flex justify-center gap-2 mt-2">
+                    <label htmlFor="member-photo-upload" className="cursor-pointer text-xs text-blue-600 hover:underline">
+                      Change
+                    </label>
+                    <span className="text-xs text-slate-400">·</span>
+                    <label htmlFor="member-photo-camera" className="cursor-pointer text-xs text-blue-600 hover:underline">
+                      Retake
+                    </label>
+                  </div>
                 </div>
               ) : (
-                <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-4 text-center">
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/jpg,image/png,image/webp,image/gif"
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                    id="member-photo-upload"
-                    ref={photoInputRef}
-                    disabled={uploading}
-                  />
-                  <label htmlFor="member-photo-upload" className="cursor-pointer">
-                    {uploading ? (
-                      <>
-                        <Upload className="mx-auto h-8 w-8 text-blue-500 mb-2 animate-pulse" />
-                        <p className="text-sm text-blue-600">Uploading...</p>
-                      </>
-                    ) : (
-                      <>
-                        <CloudUpload className="mx-auto h-8 w-8 text-variable mb-2" />
-                        <p className="text-sm text-variable">Click to upload photo</p>
-                      </>
-                    )}
-                  </label>
+                <div className="border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl p-4">
+                  {uploading ? (
+                    <div className="text-center">
+                      <Upload className="mx-auto h-8 w-8 text-blue-500 mb-2 animate-pulse" />
+                      <p className="text-sm text-blue-600">Uploading...</p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-6">
+                      <label htmlFor="member-photo-upload" className="flex flex-col items-center gap-1 cursor-pointer group">
+                        <div className="rounded-full p-2 bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
+                          <CloudUpload className="h-6 w-6 text-variable" />
+                        </div>
+                        <p className="text-xs text-variable">Upload</p>
+                      </label>
+                      <label htmlFor="member-photo-camera" className="flex flex-col items-center gap-1 cursor-pointer group">
+                        <div className="rounded-full p-2 bg-slate-100 dark:bg-slate-700 group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
+                          <Camera className="h-6 w-6 text-variable" />
+                        </div>
+                        <p className="text-xs text-variable">Take Photo</p>
+                      </label>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-fixed">First Name *</Label>
                 <Input
@@ -644,7 +673,7 @@ export default function Members() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-fixed">Membership Type</Label>
                 <Select
@@ -683,7 +712,7 @@ export default function Members() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-fixed">Membership Number</Label>
                 <Input
@@ -702,7 +731,7 @@ export default function Members() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-fixed">Join Date</Label>
                 <Input
