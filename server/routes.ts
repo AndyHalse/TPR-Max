@@ -442,7 +442,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
 
       // Send notification email to sales team
       await emailService.sendEmail({
-        to: process.env.SALES_EMAIL || 'sales@acssafety.co.uk',
+        to: process.env.SALES_EMAIL || 'info@acsltd.eu',
         subject: `New Demo Enquiry - TPR Max (${name})`,
         html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
@@ -490,7 +490,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             <p style="color: #475569;">In the meantime, if you have any questions you can reach us at:</p>
             <ul style="color: #475569;">
               <li><strong>Phone:</strong> +44 1344 771569</li>
-              <li><strong>Email:</strong> <a href="mailto:sales@acssafety.co.uk" style="color: #2460A9;">sales@acssafety.co.uk</a></li>
+              <li><strong>Email:</strong> <a href="mailto:info@acsltd.eu" style="color: #2460A9;">info@acsltd.eu</a></li>
             </ul>
             <p style="color: #64748b; font-size: 13px; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e2e8f0;">
               ACS Safety &amp; Security Ltd · Wittas House, Two Rivers, Station Lane, Witney, OX28 4BH
