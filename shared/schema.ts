@@ -1605,7 +1605,7 @@ export const ramsDocuments = pgTable("rams_documents", {
   documentName: text("document_name").notNull(),
   documentUrl: text("document_url").notNull(),
   expiryDate: timestamp("expiry_date").notNull(),
-  status: text("status").notNull().default("valid"), // valid, expired, expiring, pending_review
+  status: text("status").notNull().default("pending_review"), // pending_review, approved, rejected, expired, expiring
   uploadedBy: varchar("uploaded_by").references(() => users.id),
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
   reviewedBy: varchar("reviewed_by").references(() => users.id),
@@ -1614,6 +1614,45 @@ export const ramsDocuments = pgTable("rams_documents", {
   alertDaysBefore: integer("alert_days_before").default(14),
   lastAlertSent: timestamp("last_alert_sent"),
   isActive: boolean("is_active").default(true).notNull(),
+  // Versioning
+  version: integer("version").default(1).notNull(),
+  previousVersionId: varchar("previous_version_id"),
+  // Approval workflow
+  approvedBy: varchar("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  rejectionReason: text("rejection_reason"),
+  // Site / job context
+  jobDescription: text("job_description"),
+  siteLocation: text("site_location"),
+  workCategory: text("work_category"), // excavation, electrical, roofing, confined_space, working_at_height, general
+  // Access control
+  requiredBeforeAccess: boolean("required_before_access").default(true).notNull(),
+});
+
+// RAMS Worker Acknowledgements — workers digitally confirm they have read RAMS
+export const ramsAcknowledgements = pgTable("rams_acknowledgements", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ramsDocumentId: varchar("rams_document_id").references(() => ramsDocuments.id).notNull(),
+  workerId: varchar("worker_id").references(() => contractorWorkers.id).notNull(),
+  companyId: varchar("company_id").references(() => contractorCompanies.id),
+  acknowledgedAt: timestamp("acknowledged_at").defaultNow().notNull(),
+  method: text("method").notNull().default("digital"), // digital, qr_code, paper
+  ipAddress: text("ip_address"),
+  deviceInfo: text("device_info"),
+  signatureData: text("signature_data"), // base64 signature if captured
+});
+
+// RAMS Audit Trail — full immutable log of all RAMS lifecycle events
+export const ramsAuditLog = pgTable("rams_audit_log", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ramsDocumentId: varchar("rams_document_id").references(() => ramsDocuments.id).notNull(),
+  companyId: varchar("company_id").references(() => contractorCompanies.id),
+  action: text("action").notNull(), // uploaded, approved, rejected, new_version, acknowledged, expired, reactivated
+  performedBy: varchar("performed_by"),
+  performedByName: text("performed_by_name"),
+  performedAt: timestamp("performed_at").defaultNow().notNull(),
+  notes: text("notes"),
+  metadata: text("metadata"), // JSON string for extra data
 });
 
 // CO2 Reporting System
@@ -1933,6 +1972,22 @@ export const insertRamsDocumentSchema = createInsertSchema(ramsDocuments).omit({
   id: true,
   uploadedAt: true,
 });
+export type InsertRamsDocument = z.infer<typeof insertRamsDocumentSchema>;
+export type RamsDocument = typeof ramsDocuments.$inferSelect;
+
+export const insertRamsAcknowledgementSchema = createInsertSchema(ramsAcknowledgements).omit({
+  id: true,
+  acknowledgedAt: true,
+});
+export type InsertRamsAcknowledgement = z.infer<typeof insertRamsAcknowledgementSchema>;
+export type RamsAcknowledgement = typeof ramsAcknowledgements.$inferSelect;
+
+export const insertRamsAuditLogSchema = createInsertSchema(ramsAuditLog).omit({
+  id: true,
+  performedAt: true,
+});
+export type InsertRamsAuditLog = z.infer<typeof insertRamsAuditLogSchema>;
+export type RamsAuditLog = typeof ramsAuditLog.$inferSelect;
 
 export const insertCo2RecordSchema = createInsertSchema(co2Records).omit({
   id: true,
@@ -2009,8 +2064,6 @@ export type CardIssue = typeof cardIssues.$inferSelect;
 export type InsertCardIssue = z.infer<typeof insertCardIssueSchema>;
 export type WorkerCertification = typeof workerCertifications.$inferSelect;
 export type InsertWorkerCertification = z.infer<typeof insertWorkerCertificationSchema>;
-export type RamsDocument = typeof ramsDocuments.$inferSelect;
-export type InsertRamsDocument = z.infer<typeof insertRamsDocumentSchema>;
 export type Co2Record = typeof co2Records.$inferSelect;
 export type InsertCo2Record = z.infer<typeof insertCo2RecordSchema>;
 export type LocalLabourRecord = typeof localLabourRecords.$inferSelect;

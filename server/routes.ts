@@ -52,7 +52,12 @@ import {
   type CustomerOnboardingResponse,
   type CustomerOnboardingError,
   evacuations,
-  evacuationAccountability
+  evacuationAccountability,
+  ramsDocuments,
+  ramsAcknowledgements,
+  ramsAuditLog,
+  insertRamsDocumentSchema,
+  insertRamsAcknowledgementSchema,
 } from "@shared/schema";
 import { z } from "zod";
 import path from "path";
@@ -25197,6 +25202,300 @@ This is an automated notification from your visitor management system.`;
     } catch (error: any) {
       console.error("GET /api/compliance/report error:", error);
       res.status(500).json({ error: "Failed to generate compliance report" });
+    }
+  });
+
+  // ============================================================
+  // RAMS MANAGEMENT ROUTES
+  // ============================================================
+
+  // Helper: write an audit log entry
+  async function writeRamsAudit(ramsDocumentId: string, companyId: string | null, action: string, performedBy: string | null, performedByName: string, notes?: string, metadata?: object) {
+    try {
+      await db.insert(ramsAuditLog).values({
+        ramsDocumentId,
+        companyId,
+        action,
+        performedBy,
+        performedByName,
+        notes: notes || null,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+      });
+    } catch (e) {
+      console.error("writeRamsAudit error:", e);
+    }
+  }
+
+  // GET /api/rams — list all RAMS documents (optionally filter by companyId or status)
+  app.get("/api/rams", requireAuth, async (req, res) => {
+    try {
+      const { customerId } = (req as any).user;
+      const { companyId, status } = req.query as Record<string, string>;
+
+      const conditions: any[] = [eq(ramsDocuments.isActive, true)];
+      if (companyId) conditions.push(eq(ramsDocuments.companyId, companyId));
+      if (status) conditions.push(eq(ramsDocuments.status, status));
+
+      const docs = await db.select().from(ramsDocuments)
+        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .orderBy(desc(ramsDocuments.uploadedAt));
+
+      // Attach acknowledgement counts and company info
+      const enriched = await Promise.all(docs.map(async (doc) => {
+        const acks = await db.select().from(ramsAcknowledgements)
+          .where(eq(ramsAcknowledgements.ramsDocumentId, doc.id));
+        return { ...doc, acknowledgementCount: acks.length };
+      }));
+
+      res.json(enriched);
+    } catch (err: any) {
+      console.error("GET /api/rams error:", err);
+      res.status(500).json({ error: "Failed to fetch RAMS documents" });
+    }
+  });
+
+  // POST /api/rams — upload a new RAMS document
+  app.post("/api/rams", requireAuth, async (req, res) => {
+    try {
+      const { customerId, userId, name: userName } = (req as any).user;
+      const parsed = insertRamsDocumentSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid RAMS data", details: parsed.error.flatten() });
+
+      const [created] = await db.insert(ramsDocuments).values({
+        ...parsed.data,
+        uploadedBy: userId,
+        status: "pending_review",
+      }).returning();
+
+      await writeRamsAudit(created.id, created.companyId || null, "uploaded", userId, userName || "System",
+        `RAMS document '${created.documentName}' v${created.version} uploaded`);
+
+      res.status(201).json(created);
+    } catch (err: any) {
+      console.error("POST /api/rams error:", err);
+      res.status(500).json({ error: "Failed to create RAMS document" });
+    }
+  });
+
+  // PUT /api/rams/:id — update a RAMS document (metadata only; use /new-version to upload a new file)
+  app.put("/api/rams/:id", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      const allowed = ["documentName", "jobDescription", "siteLocation", "workCategory", "expiryDate", "alertDaysBefore", "requiredBeforeAccess", "reviewNotes"];
+      const updates: Record<string, any> = {};
+      allowed.forEach((k) => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
+
+      const [updated] = await db.update(ramsDocuments).set(updates).where(eq(ramsDocuments.id, id)).returning();
+      await writeRamsAudit(id, existing.companyId || null, "updated", userId, userName || "System", `Metadata updated`);
+      res.json(updated);
+    } catch (err: any) {
+      console.error("PUT /api/rams/:id error:", err);
+      res.status(500).json({ error: "Failed to update RAMS document" });
+    }
+  });
+
+  // POST /api/rams/:id/approve — approve a RAMS document
+  app.post("/api/rams/:id/approve", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const { notes } = req.body;
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      const [updated] = await db.update(ramsDocuments).set({
+        status: "approved",
+        approvedBy: userId,
+        approvedAt: new Date(),
+        reviewedBy: userId,
+        reviewedAt: new Date(),
+        reviewNotes: notes || null,
+        rejectionReason: null,
+      }).where(eq(ramsDocuments.id, id)).returning();
+
+      await writeRamsAudit(id, existing.companyId || null, "approved", userId, userName || "System",
+        notes || "RAMS document approved for site access", { previousStatus: existing.status });
+
+      res.json(updated);
+    } catch (err: any) {
+      console.error("POST /api/rams/:id/approve error:", err);
+      res.status(500).json({ error: "Failed to approve RAMS document" });
+    }
+  });
+
+  // POST /api/rams/:id/reject — reject a RAMS document
+  app.post("/api/rams/:id/reject", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const { reason } = req.body;
+      if (!reason) return res.status(400).json({ error: "Rejection reason is required" });
+
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      const [updated] = await db.update(ramsDocuments).set({
+        status: "rejected",
+        reviewedBy: userId,
+        reviewedAt: new Date(),
+        rejectionReason: reason,
+      }).where(eq(ramsDocuments.id, id)).returning();
+
+      await writeRamsAudit(id, existing.companyId || null, "rejected", userId, userName || "System",
+        reason, { previousStatus: existing.status });
+
+      res.json(updated);
+    } catch (err: any) {
+      console.error("POST /api/rams/:id/reject error:", err);
+      res.status(500).json({ error: "Failed to reject RAMS document" });
+    }
+  });
+
+  // POST /api/rams/:id/new-version — upload a new version (supersedes current)
+  app.post("/api/rams/:id/new-version", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      // Archive the old version
+      await db.update(ramsDocuments).set({ isActive: false }).where(eq(ramsDocuments.id, id));
+
+      // Create new version
+      const [created] = await db.insert(ramsDocuments).values({
+        companyId: existing.companyId,
+        departmentId: existing.departmentId,
+        ramsIdRef: existing.ramsIdRef,
+        documentName: req.body.documentName || existing.documentName,
+        documentUrl: req.body.documentUrl || existing.documentUrl,
+        expiryDate: req.body.expiryDate ? new Date(req.body.expiryDate) : existing.expiryDate,
+        status: "pending_review",
+        uploadedBy: userId,
+        version: (existing.version || 1) + 1,
+        previousVersionId: id,
+        jobDescription: req.body.jobDescription || existing.jobDescription,
+        siteLocation: req.body.siteLocation || existing.siteLocation,
+        workCategory: req.body.workCategory || existing.workCategory,
+        requiredBeforeAccess: existing.requiredBeforeAccess,
+        alertDaysBefore: existing.alertDaysBefore,
+      }).returning();
+
+      await writeRamsAudit(created.id, created.companyId || null, "new_version", userId, userName || "System",
+        `New version v${created.version} created, superseding v${existing.version}`, { previousVersionId: id });
+
+      res.status(201).json(created);
+    } catch (err: any) {
+      console.error("POST /api/rams/:id/new-version error:", err);
+      res.status(500).json({ error: "Failed to create new RAMS version" });
+    }
+  });
+
+  // DELETE /api/rams/:id — soft-delete (archive) a RAMS document
+  app.delete("/api/rams/:id", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      await db.update(ramsDocuments).set({ isActive: false }).where(eq(ramsDocuments.id, id));
+      await writeRamsAudit(id, existing.companyId || null, "archived", userId, userName || "System", "Document archived");
+
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("DELETE /api/rams/:id error:", err);
+      res.status(500).json({ error: "Failed to archive RAMS document" });
+    }
+  });
+
+  // GET /api/rams/:id/acknowledgements — list worker acknowledgements for a RAMS document
+  app.get("/api/rams/:id/acknowledgements", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const acks = await db.select().from(ramsAcknowledgements)
+        .where(eq(ramsAcknowledgements.ramsDocumentId, id))
+        .orderBy(desc(ramsAcknowledgements.acknowledgedAt));
+      res.json(acks);
+    } catch (err: any) {
+      console.error("GET /api/rams/:id/acknowledgements error:", err);
+      res.status(500).json({ error: "Failed to fetch acknowledgements" });
+    }
+  });
+
+  // POST /api/rams/:id/acknowledge — worker digitally acknowledges a RAMS document
+  app.post("/api/rams/:id/acknowledge", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const { workerId, method, signatureData } = req.body;
+      if (!workerId) return res.status(400).json({ error: "workerId is required" });
+
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      // Prevent duplicate acknowledgement
+      const [alreadyAcked] = await db.select().from(ramsAcknowledgements)
+        .where(and(eq(ramsAcknowledgements.ramsDocumentId, id), eq(ramsAcknowledgements.workerId, workerId)));
+      if (alreadyAcked) return res.status(409).json({ error: "Worker has already acknowledged this RAMS document", acknowledgement: alreadyAcked });
+
+      const [ack] = await db.insert(ramsAcknowledgements).values({
+        ramsDocumentId: id,
+        workerId,
+        companyId: existing.companyId || null,
+        method: method || "digital",
+        ipAddress: req.ip || null,
+        deviceInfo: req.headers["user-agent"] || null,
+        signatureData: signatureData || null,
+      }).returning();
+
+      await writeRamsAudit(id, existing.companyId || null, "acknowledged", workerId, userName || "Worker",
+        `Worker acknowledged RAMS document`, { workerId, method: method || "digital" });
+
+      res.status(201).json(ack);
+    } catch (err: any) {
+      console.error("POST /api/rams/:id/acknowledge error:", err);
+      res.status(500).json({ error: "Failed to record acknowledgement" });
+    }
+  });
+
+  // GET /api/rams/:id/audit — full audit trail for a RAMS document
+  app.get("/api/rams/:id/audit", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const logs = await db.select().from(ramsAuditLog)
+        .where(eq(ramsAuditLog.ramsDocumentId, id))
+        .orderBy(desc(ramsAuditLog.performedAt));
+      res.json(logs);
+    } catch (err: any) {
+      console.error("GET /api/rams/:id/audit error:", err);
+      res.status(500).json({ error: "Failed to fetch audit log" });
+    }
+  });
+
+  // GET /api/rams/:id — single RAMS document with full detail
+  app.get("/api/rams/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [doc] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!doc) return res.status(404).json({ error: "RAMS document not found" });
+
+      const [acks, audit, versions] = await Promise.all([
+        db.select().from(ramsAcknowledgements).where(eq(ramsAcknowledgements.ramsDocumentId, id)).orderBy(desc(ramsAcknowledgements.acknowledgedAt)),
+        db.select().from(ramsAuditLog).where(eq(ramsAuditLog.ramsDocumentId, id)).orderBy(desc(ramsAuditLog.performedAt)).limit(50),
+        doc.previousVersionId
+          ? db.select().from(ramsDocuments).where(eq(ramsDocuments.id, doc.previousVersionId))
+          : Promise.resolve([]),
+      ]);
+
+      res.json({ ...doc, acknowledgements: acks, auditLog: audit, previousVersion: versions[0] || null });
+    } catch (err: any) {
+      console.error("GET /api/rams/:id error:", err);
+      res.status(500).json({ error: "Failed to fetch RAMS document" });
     }
   });
 

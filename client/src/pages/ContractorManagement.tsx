@@ -18,6 +18,7 @@ import ContractorPreBooking from "@/components/ContractorPreBooking";
 import ContractorHSModal from "@/components/ContractorHSModal";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import HSDocumentAssignment from "@/components/HSDocumentAssignment";
+import RAMSManagement from "@/components/RAMSManagement";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
@@ -74,7 +75,7 @@ export default function ContractorManagement() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [showQRScanner, setShowQRScanner] = useState(false);
-  const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors" | "co2" | "assign-hs">("previous");
+  const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors" | "co2" | "assign-hs" | "rams">("previous");
   const [selectedCO2CompanyId, setSelectedCO2CompanyId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -928,6 +929,16 @@ export default function ContractorManagement() {
           <Shield className="h-3.5 w-3.5 flex-shrink-0" />
           <span className="hidden sm:inline">H&S Document</span>
           <span className="sm:hidden">H&S</span>
+        </Button>
+        <Button
+          variant={activeTab === "rams" ? "default" : "outline"}
+          onClick={() => setActiveTab("rams")}
+          className="flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap flex-shrink-0"
+          data-testid="tab-rams"
+        >
+          <FileText className="h-3.5 w-3.5 flex-shrink-0" />
+          <span className="hidden sm:inline">RAMS</span>
+          <span className="sm:hidden">RAMS</span>
         </Button>
       </div>
 
@@ -2500,7 +2511,6 @@ export default function ContractorManagement() {
       {activeTab === "assign-hs" && (
         <HSDocumentAssignment 
           onNavigateToTab={(target) => {
-            // Handle navigation from H&S statistics panels
             switch (target) {
               case 'contractors':
                 setActiveTab('contractors');
@@ -2509,15 +2519,12 @@ export default function ContractorManagement() {
                 setActiveTab('previous');
                 break;
               case 'templates':
-                // For now, stay on assign-hs tab as there's no separate templates tab
-                // Could be extended in the future
                 toast({
                   title: "Document Templates",
                   description: "Use the assignment dialog to view and manage document templates",
                 });
                 break;
               case 'assignments':
-                // Stay on current tab but show info
                 toast({
                   title: "Assignment History",
                   description: "Assignment history is displayed in the current dashboard",
@@ -2528,6 +2535,10 @@ export default function ContractorManagement() {
             }
           }}
         />
+      )}
+
+      {activeTab === "rams" && (
+        <RAMSManagement />
       )}
       
       {/* H&S Acceptance Modal */}
