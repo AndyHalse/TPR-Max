@@ -320,6 +320,13 @@ export default function ContractorManagement() {
   const getContractorLoneWorkerSession = (workerId: string) =>
     activeLoneWorkers.find((s: any) => s.personId === workerId && s.personType === 'contractor');
 
+  const getLoneWorkerCountdown = (session: any): string => {
+    if (!session?.nextDeadline) return 'Lone Worker';
+    const minsLeft = Math.round((new Date(session.nextDeadline).getTime() - Date.now()) / 60000);
+    if (minsLeft < 0) return `${Math.abs(minsLeft)}m overdue`;
+    return `Next: ${minsLeft}m`;
+  };
+
   const generateTestWorkersMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch("/api/contractors/generate-test-workers", {
@@ -1331,7 +1338,7 @@ export default function ContractorManagement() {
                       const lwSession = getContractorLoneWorkerSession(contractor.id);
                       return (
                         <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
-                          {lwSession && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 animate-pulse"><Shield className="h-3 w-3" />Lone Worker</span>}
+                          {lwSession && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 animate-pulse"><Shield className="h-3 w-3" />{getLoneWorkerCountdown(lwSession)}</span>}
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title="Edit"><Edit className="h-3.5 w-3.5" /></Button>
                           {isClear && <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title="Pre-Book"><CalendarPlus className="h-3.5 w-3.5" /></Button>}
                           {lwSession ? (

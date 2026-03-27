@@ -219,6 +219,13 @@ export default function StaffManagement() {
   const getStaffLoneWorkerSession = (staffId: string) =>
     activeLoneWorkers.find((s: any) => s.personId === staffId && s.personType === 'staff');
 
+  const getLoneWorkerCountdown = (session: any): string => {
+    if (!session?.nextDeadline) return 'Lone Worker';
+    const minsLeft = Math.round((new Date(session.nextDeadline).getTime() - Date.now()) / 60000);
+    if (minsLeft < 0) return `${Math.abs(minsLeft)}m overdue`;
+    return `Next: ${minsLeft}m`;
+  };
+
   const getPassBranding = () => {
     const brandColor = companySettings?.backgroundColor || companySettings?.primaryColor || '#2460A9';
     const accentColor = companySettings?.accentColor || brandColor;
@@ -750,7 +757,7 @@ export default function StaffManagement() {
                   )}
                   {getStaffLoneWorkerSession(member.id) && (
                     <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 animate-pulse">
-                      <Shield size={9} />Lone Worker
+                      <Shield size={9} />{getLoneWorkerCountdown(getStaffLoneWorkerSession(member.id))}
                     </span>
                   )}
                   {(member as any).zoneId && (() => {
@@ -898,7 +905,7 @@ export default function StaffManagement() {
                     </span>
                     {getStaffLoneWorkerSession(member.id) && (
                       <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 animate-pulse">
-                        <Shield size={9} />Lone Worker
+                        <Shield size={9} />{getLoneWorkerCountdown(getStaffLoneWorkerSession(member.id))}
                       </span>
                     )}
                     <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-8 w-8 p-0" title="Edit"><Edit size={14} /></Button>

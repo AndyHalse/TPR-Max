@@ -836,20 +836,24 @@ export default function Dashboard() {
           </div>
           <div className="space-y-2">
             {activeLoneWorkers.map((session: any) => {
-              const deadline = new Date(session.nextDeadline);
+              const hasDeadline = !!session.nextDeadline;
+              const deadline = hasDeadline ? new Date(session.nextDeadline) : null;
               const now = new Date();
-              const minsLeft = Math.round((deadline.getTime() - now.getTime()) / 60000);
-              const isOverdue = minsLeft < 0;
+              const minsLeft = deadline ? Math.round((deadline.getTime() - now.getTime()) / 60000) : null;
+              const isOverdue = minsLeft !== null && minsLeft < 0;
               return (
-                <div key={session.id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isOverdue ? 'bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700' : 'bg-white/50 dark:bg-white/10 border border-amber-200/50 dark:border-amber-700/50'}`}>
+                <div key={session.id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${session.escalationLevel > 0 ? 'bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700' : isOverdue ? 'bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700' : 'bg-white/50 dark:bg-white/10 border border-amber-200/50 dark:border-amber-700/50'}`}>
                   <div className="flex items-center gap-2 min-w-0">
-                    <Shield size={14} className={isOverdue ? 'text-red-600' : 'text-amber-600'} />
+                    <Shield size={14} className={session.escalationLevel > 0 ? 'text-red-600' : isOverdue ? 'text-orange-600' : 'text-amber-600'} />
                     <span className="font-medium text-sm text-fixed truncate">{session.personName}</span>
-                    <span className="text-xs text-variable hidden sm:block">({session.personType})</span>
+                    <span className="text-xs text-variable hidden sm:block capitalize">({session.personType})</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isOverdue ? 'bg-red-200 text-red-800 dark:bg-red-800/60 dark:text-red-200' : 'bg-amber-100 text-amber-700 dark:bg-amber-800/60 dark:text-amber-200'}`}>
-                      {isOverdue ? `${Math.abs(minsLeft)}m overdue` : `${minsLeft}m remaining`}
+                    {session.escalationLevel > 0 && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-600 text-white animate-pulse">L{session.escalationLevel} ALERT</span>
+                    )}
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${session.escalationLevel > 0 ? 'bg-red-200 text-red-800 dark:bg-red-800/60 dark:text-red-200' : isOverdue ? 'bg-orange-200 text-orange-800 dark:bg-orange-800/60 dark:text-orange-200' : 'bg-amber-100 text-amber-700 dark:bg-amber-800/60 dark:text-amber-200'}`}>
+                      {session.nextDeadline ? (isOverdue ? `${Math.abs(minsLeft)}m overdue` : `${minsLeft}m left`) : `${session.minutesSinceStart}m on site`}
                     </span>
                   </div>
                 </div>

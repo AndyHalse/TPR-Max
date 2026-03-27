@@ -709,7 +709,8 @@ export default function Reports() {
                   <p className="text-xs text-variable capitalize">{session.personType}</p>
                   <p className="text-xs text-variable">{new Date(session.startedAt).toLocaleString()}</p>
                   {session.endedAt && <p className="text-xs text-variable">Ended: {new Date(session.endedAt).toLocaleString()}</p>}
-                  {session.escalationLevel > 0 && <p className="text-xs text-red-600 font-medium">Escalation level {session.escalationLevel}</p>}
+                  <p className="text-xs text-variable">Check-ins completed: {session.checkInsCompleted ?? 0}</p>
+                  {session.escalationsFired > 0 && <p className="text-xs text-red-600 font-medium">Escalation level {session.escalationsFired}</p>}
                 </div>
               ))}
             </div>
@@ -723,6 +724,7 @@ export default function Reports() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Type</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Started</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Ended</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Check-ins</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Escalation</th>
                   </tr>
@@ -734,6 +736,7 @@ export default function Reports() {
                       <td className="px-4 py-3 text-variable capitalize">{session.personType}</td>
                       <td className="px-4 py-3 text-variable">{new Date(session.startedAt).toLocaleString()}</td>
                       <td className="px-4 py-3 text-variable">{session.endedAt ? new Date(session.endedAt).toLocaleString() : '—'}</td>
+                      <td className="px-4 py-3 text-variable">{session.checkInsCompleted ?? 0}</td>
                       <td className="px-4 py-3">
                         <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${session.status === 'active' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : session.status === 'ended_ok' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
                           {session.status === 'active' ? 'Active' : session.status === 'ended_ok' ? 'Ended OK' : session.status === 'escalated' ? 'Escalated' : session.status}

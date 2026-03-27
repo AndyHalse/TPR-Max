@@ -16,18 +16,18 @@ interface ConfirmResult {
 }
 
 export default function LoneWorkerConfirmation() {
-  const params = useParams<{ token: string }>();
-  const token = params.token;
+  const params = useParams<{ customerId: string; token: string }>();
+  const { customerId, token } = params;
   const [status, setStatus] = useState<Status>('loading');
   const [result, setResult] = useState<ConfirmResult>({});
 
   useEffect(() => {
-    if (!token) {
+    if (!token || !customerId) {
       setStatus('error');
       return;
     }
 
-    fetch(`/api/lone-worker/ok/${token}`)
+    fetch(`/api/lone-worker/ok/${customerId}/${token}`)
       .then(async (res) => {
         const data: ConfirmResult = await res.json();
         if (res.ok && data.success) {

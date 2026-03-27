@@ -7751,7 +7751,26 @@ ${evacuationPhotosData.length > 0 ? `
         personType: 'staff',
         action: 'checkout'
       });
-      
+
+      // Auto-end any active lone worker session on checkout
+      try {
+        const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+        const [activeSession] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
+          .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`)
+          .limit(1);
+        if (activeSession) {
+          await customerDb.update(isolatedSchema.loneWorkerSessions)
+            .set({ status: 'ended_ok', endedAt: new Date(), endedBy: 'checkout' })
+            .where(sql`${isolatedSchema.loneWorkerSessions.id} = ${activeSession.id}`);
+          await customerDb.update(isolatedSchema.staff)
+            .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
+            .where(sql`${isolatedSchema.staff.id} = ${id}`);
+          console.log(`🛡️ Auto-ended lone worker session for staff ${id} on checkout`);
+        }
+      } catch (lwErr) {
+        console.warn('Could not auto-end lone worker session on checkout:', lwErr);
+      }
+
       res.json({ success: true, staff });
     } catch (error) {
       console.error("Error checking out staff:", error);
@@ -19455,6 +19474,25 @@ This is an automated notification from your visitor management system.`;
         action: 'checkout'
       });
 
+      // Auto-end any active lone worker session on checkout
+      try {
+        const contractorLwDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const [activeSession] = await contractorLwDb.select().from(isolatedSchema.loneWorkerSessions)
+          .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${workerId} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`)
+          .limit(1);
+        if (activeSession) {
+          await contractorLwDb.update(isolatedSchema.loneWorkerSessions)
+            .set({ status: 'ended_ok', endedAt: new Date(), endedBy: 'checkout' })
+            .where(sql`${isolatedSchema.loneWorkerSessions.id} = ${activeSession.id}`);
+          await contractorLwDb.update(isolatedSchema.contractorWorkers)
+            .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
+            .where(sql`${isolatedSchema.contractorWorkers.id} = ${workerId}`);
+          console.log(`🛡️ Auto-ended lone worker session for contractor ${workerId} on checkout`);
+        }
+      } catch (lwErr) {
+        console.warn('Could not auto-end lone worker session on contractor checkout:', lwErr);
+      }
+
       res.json({
         success: true,
         worker: updatedWorker,
@@ -25656,7 +25694,7 @@ This is an automated notification from your visitor management system.`;
     settings: any,
     baseUrl: string
   ) {
-    const confirmUrl = `${baseUrl}/lone-worker/ok/${token}`;
+    const confirmUrl = `${baseUrl}/lone-worker/ok/${session.customerId}/${token}`;
     const emailSvc = emailService.forCustomer(session.customerId);
     await emailSvc.sendLoneWorkerWelfareCheck({
       to: session.personEmail || '',
@@ -25678,13 +25716,30 @@ This is an automated notification from your visitor management system.`;
         .from(isolatedSchema.loneWorkerSessions)
         .where(sql`${isolatedSchema.loneWorkerSessions.status} = 'active'`);
 
-      // Augment with time-since and next deadline
+      // Augment with time-since, next deadline and current escalation level
       const now = Date.now();
-      const augmented = sessions.map((s: any) => {
+      const augmented = await Promise.all(sessions.map(async (s: any) => {
+        let nextDeadline: Date | null = null;
+        let escalationLevel = 0;
+        try {
+          if (s.personType === 'staff') {
+            const [person] = await customerDb.select({
+              loneWorkerDeadline: isolatedSchema.staff.loneWorkerDeadline,
+              loneWorkerEscalationLevel: isolatedSchema.staff.loneWorkerEscalationLevel,
+            }).from(isolatedSchema.staff).where(sql`${isolatedSchema.staff.id} = ${s.personId}`);
+            if (person) { nextDeadline = person.loneWorkerDeadline; escalationLevel = person.loneWorkerEscalationLevel || 0; }
+          } else {
+            const [person] = await customerDb.select({
+              loneWorkerDeadline: isolatedSchema.contractorWorkers.loneWorkerDeadline,
+              loneWorkerEscalationLevel: isolatedSchema.contractorWorkers.loneWorkerEscalationLevel,
+            }).from(isolatedSchema.contractorWorkers).where(sql`${isolatedSchema.contractorWorkers.id} = ${s.personId}`);
+            if (person) { nextDeadline = person.loneWorkerDeadline; escalationLevel = person.loneWorkerEscalationLevel || 0; }
+          }
+        } catch {}
         const startMs = new Date(s.startedAt).getTime();
         const minutesSinceStart = Math.floor((now - startMs) / 60000);
-        return { ...s, minutesSinceStart };
-      });
+        return { ...s, minutesSinceStart, nextDeadline, escalationLevel };
+      }));
       res.json(augmented);
     } catch (err: any) {
       console.error('GET /api/lone-worker/active error:', err);
@@ -25840,14 +25895,16 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // GET /api/lone-worker/ok/:token — public confirmation endpoint (no auth required)
-  app.get("/api/lone-worker/ok/:token", async (req, res) => {
+  // GET /api/lone-worker/ok/:customerId/:token — public confirmation endpoint (no auth required)
+  app.get("/api/lone-worker/ok/:customerId/:token", async (req, res) => {
     try {
-      const { token } = req.params;
+      const { customerId, token } = req.params;
       const cryptoMod = await import('crypto');
 
-      // Find the token across all customer databases via shared DB
-      const [tokenRow] = await db
+      // Use the customer-isolated database directly (no shared-db cross-schema lookup)
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+
+      const [tokenRow] = await customerDb
         .select()
         .from(isolatedSchema.loneWorkerTokens)
         .where(sql`${isolatedSchema.loneWorkerTokens.token} = ${token}`)
@@ -25857,11 +25914,9 @@ This is an automated notification from your visitor management system.`;
       if (tokenRow.usedAt) return res.status(400).json({ error: 'This confirmation link has already been used', alreadyUsed: true });
       if (new Date(tokenRow.expiresAt) < new Date()) return res.status(400).json({ error: 'This confirmation link has expired. A new check-in email has been sent.', expired: true });
 
-      // Get the session
-      const [session] = await db.select().from(isolatedSchema.loneWorkerSessions).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${tokenRow.sessionId}`).limit(1);
+      // Get the session from the same customer DB
+      const [session] = await customerDb.select().from(isolatedSchema.loneWorkerSessions).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${tokenRow.sessionId}`).limit(1);
       if (!session || session.status !== 'active') return res.status(400).json({ error: 'Lone worker session is no longer active' });
-
-      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(session.customerId);
       const settings = await getLoneWorkerSettings({ db: customerDb });
       const intervalMins = session.intervalMins;
 
@@ -25900,7 +25955,7 @@ This is an automated notification from your visitor management system.`;
         await emailSvc.sendLoneWorkerWelfareCheck({
           to: session.personEmail,
           workerName: session.personName,
-          confirmUrl: `${baseUrl}/lone-worker/ok/${newToken}`,
+          confirmUrl: `${baseUrl}/lone-worker/ok/${session.customerId}/${newToken}`,
           nextCheckMins: intervalMins,
           companyName: settings?.companyName || 'Your Company',
           siteName: settings?.companyName || 'Site',
