@@ -888,7 +888,6 @@ export default function Visitors() {
 
       const settingsAny = settings as any;
       if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
-        setShowHostSelection(false);
         setPendingCheckinData(previousVisitorData);
         setPendingCheckinType('previous');
         setShowHSModal(true);

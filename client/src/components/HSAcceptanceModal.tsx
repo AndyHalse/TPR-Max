@@ -53,7 +53,7 @@ export default function HSAcceptanceModal({
   const canAccept = hasScrolledToBottom && accepted;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
+    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
       <div className="relative z-10 w-full sm:max-w-2xl bg-white sm:rounded-2xl shadow-2xl flex flex-col max-h-[95vh] sm:max-h-[92vh] rounded-t-2xl">
