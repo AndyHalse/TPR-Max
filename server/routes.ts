@@ -25714,7 +25714,7 @@ This is an automated notification from your visitor management system.`;
       const sessions = await customerDb
         .select()
         .from(isolatedSchema.loneWorkerSessions)
-        .where(sql`${isolatedSchema.loneWorkerSessions.status} = 'active'`);
+        .where(sql`${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`);
 
       // Augment with time-since, next deadline and current escalation level
       const now = Date.now();
@@ -25765,7 +25765,7 @@ This is an automated notification from your visitor management system.`;
 
       // Guard against duplicate active sessions
       const [existingSession] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
-        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`)
+        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`)
         .limit(1);
       if (existingSession) return res.status(409).json({ error: 'An active lone worker session already exists for this person', sessionId: existingSession.id });
 
@@ -25817,7 +25817,7 @@ This is an automated notification from your visitor management system.`;
 
       await customerDb.update(isolatedSchema.loneWorkerSessions)
         .set({ status: 'ended_ok', endedAt: new Date(), endedBy })
-        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`);
+        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`);
 
       await customerDb.update(isolatedSchema.staff)
         .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
@@ -25848,7 +25848,7 @@ This is an automated notification from your visitor management system.`;
 
       // Guard against duplicate active sessions
       const [existingSession] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
-        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`)
+        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`)
         .limit(1);
       if (existingSession) return res.status(409).json({ error: 'An active lone worker session already exists for this person', sessionId: existingSession.id });
 
@@ -25900,7 +25900,7 @@ This is an automated notification from your visitor management system.`;
 
       await customerDb.update(isolatedSchema.loneWorkerSessions)
         .set({ status: 'ended_ok', endedAt: new Date(), endedBy })
-        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`);
+        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`);
 
       await customerDb.update(isolatedSchema.contractorWorkers)
         .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
