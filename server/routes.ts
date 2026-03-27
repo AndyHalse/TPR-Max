@@ -25760,6 +25760,14 @@ This is an automated notification from your visitor management system.`;
       if (!staffMember.isCheckedIn) return res.status(400).json({ error: 'Staff member must be checked in to start lone worker mode' });
 
       const settings = await getLoneWorkerSettings({ db: customerDb });
+      if (!settings?.loneWorkerEnabled) return res.status(400).json({ error: 'Lone Worker Protection is not enabled for this organisation' });
+
+      // Guard against duplicate active sessions
+      const [existingSession] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
+        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`)
+        .limit(1);
+      if (existingSession) return res.status(409).json({ error: 'An active lone worker session already exists for this person', sessionId: existingSession.id });
+
       const intervalMins = settings?.loneWorkerCheckIntervalMins || 30;
       const gracePeriodMins = settings?.loneWorkerGracePeriodMins || 10;
       const deadline = new Date(Date.now() + intervalMins * 60000);
@@ -25834,6 +25842,14 @@ This is an automated notification from your visitor management system.`;
       if (!worker.isCheckedIn) return res.status(400).json({ error: 'Worker must be checked in to start lone worker mode' });
 
       const settings = await getLoneWorkerSettings({ db: customerDb });
+      if (!settings?.loneWorkerEnabled) return res.status(400).json({ error: 'Lone Worker Protection is not enabled for this organisation' });
+
+      // Guard against duplicate active sessions
+      const [existingSession] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
+        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`)
+        .limit(1);
+      if (existingSession) return res.status(409).json({ error: 'An active lone worker session already exists for this person', sessionId: existingSession.id });
+
       const intervalMins = settings?.loneWorkerCheckIntervalMins || 30;
       const gracePeriodMins = settings?.loneWorkerGracePeriodMins || 10;
       const deadline = new Date(Date.now() + intervalMins * 60000);
@@ -25923,11 +25939,11 @@ This is an automated notification from your visitor management system.`;
       // Mark token used
       await customerDb.update(isolatedSchema.loneWorkerTokens).set({ usedAt: new Date() }).where(sql`${isolatedSchema.loneWorkerTokens.id} = ${tokenRow.id}`);
 
-      // Update session: reset escalation, extend deadline, increment checkInsCompleted
+      // Update session: increment checkInsCompleted only — do NOT reset escalationsFired
+      // escalationsFired is a running total for reporting; person-level escalationLevel resets below
       const newDeadline = new Date(Date.now() + intervalMins * 60000);
       await customerDb.update(isolatedSchema.loneWorkerSessions).set({
         checkInsCompleted: (session.checkInsCompleted || 0) + 1,
-        escalationsFired: 0,
       }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
 
       // Update person record

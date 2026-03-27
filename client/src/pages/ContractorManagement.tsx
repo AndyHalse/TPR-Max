@@ -1225,7 +1225,7 @@ export default function ContractorManagement() {
                         const lwSession = getContractorLoneWorkerSession(contractor.id);
                         return lwSession ? (
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title="End lone worker session"><ShieldOff className="h-4 w-4" /></Button>
-                        ) : contractor.isCheckedIn ? (
+                        ) : (contractor.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); startContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={startContractorLoneWorkerMutation.isPending || !contractor.email} title={contractor.email ? "Start lone worker session" : "Worker needs an email address"}><Shield className="h-4 w-4" /></Button>
                         ) : null;
                       })()}
@@ -1343,7 +1343,7 @@ export default function ContractorManagement() {
                           {isClear && <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title="Pre-Book"><CalendarPlus className="h-3.5 w-3.5" /></Button>}
                           {lwSession ? (
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title="End lone worker session"><ShieldOff className="h-3.5 w-3.5" /></Button>
-                          ) : contractor.isCheckedIn ? (
+                          ) : (contractor.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
                             <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); startContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={startContractorLoneWorkerMutation.isPending || !contractor.email} title={contractor.email ? "Start lone worker session" : "Worker needs an email address"}><Shield className="h-3.5 w-3.5" /></Button>
                           ) : null}
                           {!contractor.isCheckedIn ? (
@@ -1370,7 +1370,7 @@ export default function ContractorManagement() {
                           {isClear && <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title="Pre-Book"><CalendarPlus className="h-4 w-4" /></Button>}
                           {lwSession ? (
                             <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title="End lone worker session"><ShieldOff className="h-4 w-4" /></Button>
-                          ) : contractor.isCheckedIn ? (
+                          ) : (contractor.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
                             <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); startContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={startContractorLoneWorkerMutation.isPending || !contractor.email} title={contractor.email ? "Start lone worker session" : "Worker needs an email address"}><Shield className="h-4 w-4" /></Button>
                           ) : null}
                         </div>

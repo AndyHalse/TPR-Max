@@ -814,7 +814,7 @@ export default function StaffManagement() {
                         >
                           <ShieldOff size={15} />
                         </Button>
-                      ) : member.isCheckedIn ? (
+                      ) : (member.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
                         <Button
                           size="sm"
                           variant="ghost"
@@ -914,7 +914,7 @@ export default function StaffManagement() {
                       const lwSession = getStaffLoneWorkerSession(member.id);
                       return lwSession ? (
                         <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="End lone worker session"><ShieldOff size={14} /></Button>
-                      ) : member.isCheckedIn ? (
+                      ) : (member.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
                         <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? "Start lone worker session" : "Staff needs an email address"}><Shield size={14} /></Button>
                       ) : null;
                     })()}
@@ -939,7 +939,7 @@ export default function StaffManagement() {
                       const lwSession = getStaffLoneWorkerSession(member.id);
                       return lwSession ? (
                         <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="End lone worker session"><ShieldOff size={15} /></Button>
-                      ) : member.isCheckedIn ? (
+                      ) : (member.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
                         <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-9 w-9 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? "Start lone worker session" : "Staff needs an email address"}><Shield size={15} /></Button>
                       ) : null;
                     })()}
