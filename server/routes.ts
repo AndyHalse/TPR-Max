@@ -25797,7 +25797,11 @@ This is an automated notification from your visitor management system.`;
 
       if (staffMember.email) {
         const baseUrl = `${req.protocol}://${req.get('host')}`;
-        await sendFirstWelfareEmail(customerDb, { ...session, personEmail: staffMember.email }, token, settings, baseUrl);
+        try {
+          await sendFirstWelfareEmail(customerDb, { ...session, personEmail: staffMember.email }, token, settings, baseUrl);
+        } catch (emailErr: any) {
+          console.error(`🛡️ Lone worker session ${session.id} started but welfare email failed to send:`, emailErr?.message || emailErr);
+        }
       }
 
       res.json({ success: true, session, deadline });
@@ -25880,7 +25884,11 @@ This is an automated notification from your visitor management system.`;
 
       if (worker.email) {
         const baseUrl = `${req.protocol}://${req.get('host')}`;
-        await sendFirstWelfareEmail(customerDb, { ...session, personEmail: worker.email }, token, settings, baseUrl);
+        try {
+          await sendFirstWelfareEmail(customerDb, { ...session, personEmail: worker.email }, token, settings, baseUrl);
+        } catch (emailErr: any) {
+          console.error(`🛡️ Lone worker session ${session.id} started but welfare email failed to send:`, emailErr?.message || emailErr);
+        }
       }
 
       res.json({ success: true, session, deadline });
