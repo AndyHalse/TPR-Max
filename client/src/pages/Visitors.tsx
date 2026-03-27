@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
+import { StaffSearchSelect } from "@/components/StaffSearchSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -1423,23 +1424,14 @@ export default function Visitors() {
                   <Label htmlFor="hostStaffId" className="text-sm font-medium text-fixed">
                     Host Staff Member *
                   </Label>
-                  <select
+                  <StaffSearchSelect
+                    staff={staff ?? []}
                     value={walkInData.hostStaffId}
-                    onChange={(e) => handleWalkInInputChange("hostStaffId", e.target.value)}
-                    data-testid="input-walkin-host"
-                    className={`w-full h-12 px-4 rounded-xl border bg-white/50 text-sm text-foreground focus:outline-none focus:ring-2 appearance-none ${
-                      walkInValidationErrors.hostStaffId
-                        ? 'border-red-500 focus:ring-red-500'
-                        : 'border-white/30 focus:ring-green-500'
-                    }`}
-                  >
-                    <option value="">Select host staff member</option>
-                    {staff?.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.firstName} {member.lastName}{member.department ? ` — ${member.department}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(id) => handleWalkInInputChange("hostStaffId", id)}
+                    placeholder="Search by name or department…"
+                    error={walkInValidationErrors.hostStaffId}
+                    inputClassName="rounded-xl"
+                  />
                 </div>
               </div>
 
@@ -1660,18 +1652,13 @@ export default function Visitors() {
                   <Label htmlFor="hostStaffId" className="text-sm font-medium text-fixed">
                     Host Staff Member *
                   </Label>
-                  <select
+                  <StaffSearchSelect
+                    staff={staff ?? []}
                     value={preBookingData.hostStaffId || ""}
-                    onChange={(e) => setPreBookingData(prev => ({ ...prev, hostStaffId: e.target.value }))}
-                    className="w-full h-12 px-4 rounded-xl border border-white/30 bg-white/50 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
-                  >
-                    <option value="">Select host staff member</option>
-                    {staff?.map((member) => (
-                      <option key={member.id} value={member.id}>
-                        {member.firstName} {member.lastName}{member.department ? ` — ${member.department}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(id) => setPreBookingData(prev => ({ ...prev, hostStaffId: id }))}
+                    placeholder="Search by name or department…"
+                    inputClassName="rounded-xl"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1816,19 +1803,13 @@ export default function Visitors() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-fixed">Host Staff Member *</Label>
-              <select
+              <StaffSearchSelect
+                staff={staff ?? []}
                 value={selectedHostForPrevious}
-                onChange={(e) => setSelectedHostForPrevious(e.target.value)}
-                data-testid="input-host-select"
-                className="w-full h-12 px-3 rounded-xl border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
-              >
-                <option value="">Tap to choose a staff member…</option>
-                {staff?.map((member) => (
-                  <option key={member.id} value={member.id}>
-                    {member.firstName} {member.lastName}{member.department ? ` — ${member.department}` : ''}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedHostForPrevious}
+                placeholder="Search by name or department…"
+                inputClassName="rounded-xl"
+              />
             </div>
             <div className="flex gap-3">
               <Button

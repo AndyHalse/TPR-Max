@@ -4,6 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import GlassCard from "@/components/GlassCard";
+import { StaffSearchSelect } from "@/components/StaffSearchSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -2667,18 +2668,12 @@ export default function ContractorManagement() {
 
             <div className="space-y-2">
               <Label>Host Staff Member *</Label>
-              <select
+              <StaffSearchSelect
+                staff={staffList.filter((s: any) => s.isActive !== false)}
                 value={preBookHost}
-                onChange={(e) => setPreBookHost(e.target.value)}
-                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
-              >
-                <option value="">Select host staff member</option>
-                {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
-                  <option key={staff.id} value={staff.id}>
-                    {staff.firstName} {staff.lastName}{staff.department ? ` — ${staff.department}` : ''}
-                  </option>
-                ))}
-              </select>
+                onChange={setPreBookHost}
+                placeholder="Search by name or department…"
+              />
             </div>
 
             <div className="space-y-2">
@@ -2926,18 +2921,12 @@ export default function ContractorManagement() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Host Staff Member *</Label>
-              <select
+              <StaffSearchSelect
+                staff={staffList.filter((s: any) => s.isActive !== false)}
                 value={selectedCheckInHost}
-                onChange={(e) => setSelectedCheckInHost(e.target.value)}
-                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
-              >
-                <option value="">Select host staff member</option>
-                {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
-                  <option key={staff.id} value={staff.id}>
-                    {staff.firstName} {staff.lastName}{staff.department ? ` — ${staff.department}` : ''}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedCheckInHost}
+                placeholder="Search by name or department…"
+              />
             </div>
           </div>
           <DialogFooter className="gap-2">

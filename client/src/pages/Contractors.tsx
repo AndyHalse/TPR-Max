@@ -4,6 +4,7 @@ import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
+import { StaffSearchSelect } from "@/components/StaffSearchSelect";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -2765,19 +2766,12 @@ export default function Contractors() {
               <Label htmlFor="hostSelection" className="text-sm font-medium text-slate-700">
                 Host Staff Member *
               </Label>
-              <select
+              <StaffSearchSelect
+                staff={staff ?? []}
                 value={selectedHostForWorker}
-                onChange={(e) => setSelectedHostForWorker(e.target.value)}
-                data-testid="button-confirm-host"
-                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
-              >
-                <option value="">Select host staff member</option>
-                {staff?.map((member: any) => (
-                  <option key={member.id} value={member.id}>
-                    {member.firstName} {member.lastName}{member.department ? ` — ${member.department}` : ''}
-                  </option>
-                ))}
-              </select>
+                onChange={setSelectedHostForWorker}
+                placeholder="Search by name or department…"
+              />
             </div>
             <div className="flex gap-3 pt-4">
               <Button
