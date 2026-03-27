@@ -25991,100 +25991,132 @@ This is an automated notification from your visitor management system.`;
   setInterval(async () => {
     try {
       const now = new Date();
-      const activeSessions = await db
-        .select()
-        .from(isolatedSchema.loneWorkerSessions)
-        .where(sql`${isolatedSchema.loneWorkerSessions.status} = 'active'`);
-
-      for (const session of activeSessions) {
+      // Must iterate customer-isolated schemas — global db does not have lone_worker_sessions
+      const allCustomers = await customerDbService.getAllCustomers();
+      for (const customer of allCustomers) {
         try {
-          const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(session.customerId);
-          const settings = await getLoneWorkerSettings({ db: customerDb });
-
-          // Get current person record to check deadline and escalation level
-          let person: any = null;
-          if (session.personType === 'staff') {
-            const [p] = await customerDb.select().from(isolatedSchema.staff).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
-            person = p;
-          } else {
-            const [p] = await customerDb.select().from(isolatedSchema.contractorWorkers).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
-            person = p;
+          const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customer.id);
+          const customerSessions = await customerDb
+            .select()
+            .from(isolatedSchema.loneWorkerSessions)
+            .where(sql`${isolatedSchema.loneWorkerSessions.status} = 'active'`);
+          for (const session of customerSessions) {
+            await processLoneWorkerSession(session, customerDb, now);
           }
-          if (!person || !person.isLoneWorker || !person.loneWorkerDeadline) continue;
-
-          const deadline = new Date(person.loneWorkerDeadline);
-          const msOverdue = now.getTime() - deadline.getTime();
-          if (msOverdue <= 0) continue; // Not overdue yet
-
-          const minsOverdue = Math.floor(msOverdue / 60000);
-          const gracePeriod = session.gracePeriodMins || settings?.loneWorkerGracePeriodMins || 10;
-          const l2Delay = settings?.loneWorkerL2DelayMins || 15;
-          const l3Delay = settings?.loneWorkerL3DelayMins || 30;
-          const currentLevel = person.loneWorkerEscalationLevel || 0;
-
-          const emailSvc = emailService.forCustomer(session.customerId);
-          const escalationOpts = {
-            workerName: session.personName,
-            workerEmail: session.personEmail || '',
-            minutesMissed: minsOverdue,
-            startedAt: new Date(session.startedAt),
-            companyName: settings?.companyName || 'Your Company',
-            siteName: settings?.companyName || 'Site',
-          };
-
-          if (currentLevel < 1 && minsOverdue >= gracePeriod) {
-            // Level 1: send to L1 contact
-            const l1Email = settings?.loneWorkerL1Email;
-            if (l1Email) {
-              await emailSvc.sendLoneWorkerEscalation({ to: l1Email, contactName: settings.loneWorkerL1Name || 'Supervisor', level: 1, ...escalationOpts });
-            }
-            const updateData = { loneWorkerEscalationLevel: 1 };
-            if (session.personType === 'staff') {
-              await customerDb.update(isolatedSchema.staff).set(updateData).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
-            } else {
-              await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
-            }
-            await customerDb.update(isolatedSchema.loneWorkerSessions).set({ escalationsFired: (session.escalationsFired || 0) + 1 }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
-            console.log(`🚨 Lone Worker L1 alert fired for ${session.personName} (${session.customerId})`);
-          } else if (currentLevel < 2 && minsOverdue >= gracePeriod + l2Delay) {
-            // Level 2
-            const l2Email = settings?.loneWorkerL2Email;
-            if (l2Email) {
-              await emailSvc.sendLoneWorkerEscalation({ to: l2Email, contactName: settings.loneWorkerL2Name || 'Manager', level: 2, ...escalationOpts });
-            }
-            const updateData = { loneWorkerEscalationLevel: 2 };
-            if (session.personType === 'staff') {
-              await customerDb.update(isolatedSchema.staff).set(updateData).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
-            } else {
-              await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
-            }
-            await customerDb.update(isolatedSchema.loneWorkerSessions).set({ escalationsFired: (session.escalationsFired || 0) + 1 }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
-            console.log(`🚨 Lone Worker L2 alert fired for ${session.personName} (${session.customerId})`);
-          } else if (currentLevel < 3 && minsOverdue >= gracePeriod + l2Delay + l3Delay) {
-            // Level 3: send to both contacts and mark session escalated
-            const l1Email = settings?.loneWorkerL1Email;
-            const l2Email = settings?.loneWorkerL2Email;
-            if (l1Email) await emailSvc.sendLoneWorkerEscalation({ to: l1Email, contactName: settings.loneWorkerL1Name || 'Supervisor', level: 3, ...escalationOpts });
-            if (l2Email) await emailSvc.sendLoneWorkerEscalation({ to: l2Email, contactName: settings.loneWorkerL2Name || 'Manager', level: 3, ...escalationOpts });
-            const updateData = { loneWorkerEscalationLevel: 3 };
-            if (session.personType === 'staff') {
-              await customerDb.update(isolatedSchema.staff).set(updateData).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
-            } else {
-              await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
-            }
-            await customerDb.update(isolatedSchema.loneWorkerSessions)
-              .set({ status: 'escalated', escalationsFired: (session.escalationsFired || 0) + 1 })
-              .where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
-            console.log(`🚨 Lone Worker L3 EMERGENCY alert fired for ${session.personName} (${session.customerId})`);
-          }
-        } catch (sessionErr: any) {
-          console.warn(`Lone worker cron error for session ${session.id}:`, sessionErr.message?.substring(0, 100));
+        } catch (custErr: any) {
+          console.warn(`Lone worker cron error for customer ${customer.id}:`, custErr.message?.substring(0, 100));
         }
       }
-    } catch (cronErr: any) {
-      console.warn('Lone worker cron job error:', cronErr.message?.substring(0, 100));
+    } catch (err: any) {
+      console.error('Lone worker cron top-level error:', err.message?.substring(0, 100));
     }
   }, 60000);
+
+  async function processLoneWorkerSession(session: any, customerDb: any, now: Date) {
+    try {
+      const settings = await getLoneWorkerSettings({ db: customerDb });
+
+      // Get current person record to check deadline and escalation level
+      let person: any = null;
+      if (session.personType === 'staff') {
+        const [p] = await customerDb.select().from(isolatedSchema.staff).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
+        person = p;
+      } else {
+        const [p] = await customerDb.select().from(isolatedSchema.contractorWorkers).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
+        person = p;
+      }
+      if (!person || !person.isLoneWorker || !person.loneWorkerDeadline) return;
+
+      const deadline = new Date(person.loneWorkerDeadline);
+      const msOverdue = now.getTime() - deadline.getTime();
+      if (msOverdue <= 0) return; // Not overdue yet
+
+      const minsOverdue = Math.floor(msOverdue / 60000);
+      const gracePeriod = session.gracePeriodMins || settings?.loneWorkerGracePeriodMins || 10;
+      const l2Delay = settings?.loneWorkerL2DelayMins || 15;
+      const l3Delay = settings?.loneWorkerL3DelayMins || 30;
+      const currentLevel = person.loneWorkerEscalationLevel || 0;
+
+      const emailSvc = emailService.forCustomer(session.customerId);
+      const escalationOpts = {
+        workerName: session.personName,
+        workerEmail: session.personEmail || '',
+        minutesMissed: minsOverdue,
+        startedAt: new Date(session.startedAt),
+        companyName: settings?.companyName || 'Your Company',
+        siteName: settings?.companyName || 'Site',
+      };
+
+      if (currentLevel < 1 && minsOverdue >= gracePeriod) {
+        // Level 1: send to L1 contact
+        const l1Email = settings?.loneWorkerL1Email;
+        if (l1Email) {
+          await emailSvc.sendLoneWorkerEscalation({ to: l1Email, contactName: settings.loneWorkerL1Name || 'Supervisor', level: 1, ...escalationOpts });
+        }
+        const updateData = { loneWorkerEscalationLevel: 1 };
+        if (session.personType === 'staff') {
+          await customerDb.update(isolatedSchema.staff).set(updateData).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
+        } else {
+          await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
+        }
+        await customerDb.update(isolatedSchema.loneWorkerSessions).set({ escalationsFired: (session.escalationsFired || 0) + 1 }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
+        console.log(`🚨 Lone Worker L1 alert fired for ${session.personName} (${session.customerId})`);
+      } else if (currentLevel < 2 && minsOverdue >= gracePeriod + l2Delay) {
+        // Level 2
+        const l2Email = settings?.loneWorkerL2Email;
+        if (l2Email) {
+          await emailSvc.sendLoneWorkerEscalation({ to: l2Email, contactName: settings.loneWorkerL2Name || 'Manager', level: 2, ...escalationOpts });
+        }
+        const updateData = { loneWorkerEscalationLevel: 2 };
+        if (session.personType === 'staff') {
+          await customerDb.update(isolatedSchema.staff).set(updateData).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
+        } else {
+          await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
+        }
+        await customerDb.update(isolatedSchema.loneWorkerSessions).set({ escalationsFired: (session.escalationsFired || 0) + 1 }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
+        console.log(`🚨 Lone Worker L2 alert fired for ${session.personName} (${session.customerId})`);
+      } else if (currentLevel < 3 && minsOverdue >= gracePeriod + l2Delay + l3Delay) {
+        // Level 3: send to both contacts, mark session escalated, create incident record
+        const l1Email = settings?.loneWorkerL1Email;
+        const l2Email = settings?.loneWorkerL2Email;
+        if (l1Email) await emailSvc.sendLoneWorkerEscalation({ to: l1Email, contactName: settings.loneWorkerL1Name || 'Supervisor', level: 3, ...escalationOpts });
+        if (l2Email) await emailSvc.sendLoneWorkerEscalation({ to: l2Email, contactName: settings.loneWorkerL2Name || 'Manager', level: 3, ...escalationOpts });
+        const updateData = { loneWorkerEscalationLevel: 3 };
+        if (session.personType === 'staff') {
+          await customerDb.update(isolatedSchema.staff).set(updateData).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
+        } else {
+          await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
+        }
+        await customerDb.update(isolatedSchema.loneWorkerSessions)
+          .set({ status: 'escalated', escalationsFired: (session.escalationsFired || 0) + 1 })
+          .where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
+
+        // Create an incident record to document the L3 welfare emergency
+        try {
+          await customerDb.insert(isolatedSchema.incidentReports).values({
+            evacuationId: `lone-worker-${session.id}`,
+            customerId: session.customerId,
+            isDrill: false,
+            activatedBy: 'Lone Worker System (L3 Alert)',
+            startedAt: new Date(session.startedAt),
+            completedAt: now,
+            durationSeconds: Math.floor((now.getTime() - new Date(session.startedAt).getTime()) / 1000),
+            totalOnSite: 1,
+            accountedFor: 0,
+            unaccounted: 1,
+            completionPct: 0,
+          });
+          console.log(`📋 Incident record created for lone worker L3 emergency: ${session.personName}`);
+        } catch (irErr: any) {
+          console.warn('Could not create incident record for lone worker L3:', irErr.message?.substring(0, 100));
+        }
+
+        console.log(`🚨 Lone Worker L3 EMERGENCY alert fired for ${session.personName} (${session.customerId})`);
+      }
+    } catch (sessionErr: any) {
+      console.warn(`Lone worker cron error for session ${session.id}:`, sessionErr.message?.substring(0, 100));
+    }
+  }
 
   const httpServer = existingServer || createServer(app);
   
