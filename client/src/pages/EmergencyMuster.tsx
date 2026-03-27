@@ -1418,70 +1418,65 @@ export default function EmergencyMuster() {
       <div>
         <div>
           <GlassCard className="dark:glass-dark">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-              <h3 className="text-base sm:text-lg font-semibold text-fixed">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <h3 className="text-sm sm:text-base font-semibold text-fixed flex items-center gap-1.5 flex-wrap">
                 Personnel Accountability
                 {selectedZones.size > 0 && (
-                  <span className="ml-2 text-xs font-normal bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-1 rounded-full">
+                  <span className="text-xs font-normal bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full">
                     {selectedZones.size === 1 ? '1 zone' : `${selectedZones.size} zones`}
                     <button onClick={() => setSelectedZones(new Set())} className="ml-1 hover:text-amber-900 dark:hover:text-amber-100" title="Clear zone filter">&times;</button>
                   </span>
                 )}
                 {typeFilter !== 'all' && (
-                  <span className="ml-2 text-xs font-normal bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
+                  <span className="text-xs font-normal bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">
                     {typeFilter === 'staff' ? 'Staff' : typeFilter === 'visitor' ? 'Visitors' : typeFilter === 'contractor' ? 'Contractors' : 'Members'}
                     <button onClick={() => setTypeFilter('all')} className="ml-1 hover:text-blue-900 dark:hover:text-blue-100">&times;</button>
                   </span>
                 )}
               </h3>
-              <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2">
                 {hasActiveEvacuation && (
-                  <Button 
-                    variant="outline" 
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => markAllSafeMutation.mutate()}
                     disabled={markAllSafeMutation.isPending}
                     data-testid="button-mark-all-safe"
-                    className="w-full sm:w-auto text-sm py-2.5 sm:py-2 font-semibold"
+                    className="text-xs h-8 px-3 font-semibold"
                     title={selectedZones.size > 0 ? `Mark all safe in selected zone(s) only` : `Mark all on-site personnel as safe`}
                   >
-                    <CheckCircle className="mr-2 flex-shrink-0" size={16} />
-                    {markAllSafeMutation.isPending
-                      ? "Marking..."
-                      : selectedZones.size > 0
-                        ? `Mark Zone${selectedZones.size > 1 ? 's' : ''} Safe`
-                        : "Mark All Safe"}
+                    <CheckCircle className="mr-1.5 flex-shrink-0" size={13} />
+                    {markAllSafeMutation.isPending ? "Marking..." : selectedZones.size > 0 ? `Mark Zone${selectedZones.size > 1 ? 's' : ''} Safe` : "Mark All Safe"}
                   </Button>
                 )}
                 {accountedFor > 0 && (
                   <Button
                     variant="outline"
+                    size="sm"
                     onClick={() => setShowSafePeople(prev => !prev)}
                     data-testid="button-toggle-safe-people"
-                    className="w-full sm:w-auto text-sm py-2.5 sm:py-2 font-semibold"
+                    className="text-xs h-8 px-3 font-semibold"
                   >
                     {showSafePeople ? (
-                      <><EyeOff className="mr-2 flex-shrink-0" size={16} />Hide Safe ({accountedFor})</>
+                      <><EyeOff className="mr-1.5 flex-shrink-0" size={13} />Hide Safe ({accountedFor})</>
                     ) : (
-                      <><Eye className="mr-2 flex-shrink-0" size={16} />Show Safe ({accountedFor})</>
+                      <><Eye className="mr-1.5 flex-shrink-0" size={13} />Show Safe ({accountedFor})</>
                     )}
                   </Button>
                 )}
               </div>
             </div>
             
-            <div className="mb-4 sm:mb-6">
-              <Label htmlFor="search" className="text-sm font-medium text-variable mb-2 block">
-                Search Personnel
-              </Label>
+            <div className="mb-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-variable" size={16} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-variable" size={15} />
                 <Input
                   id="search"
                   type="text"
                   placeholder="Search by name, department, or company..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                  className="pl-9 py-2 rounded-lg border border-white/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed text-sm"
                   data-testid="input-search-personnel"
                 />
               </div>
@@ -1489,13 +1484,13 @@ export default function EmergencyMuster() {
             
             {/* First-time user hint — only shown when idle and list has people */}
             {!hasActiveEvacuation && filteredList.length > 0 && (
-              <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 text-xs text-blue-700 dark:text-blue-300">
-                <ShieldAlert size={14} className="flex-shrink-0 mt-0.5 text-blue-500" />
-                <p>This list shows everyone currently on-site. When you activate an emergency, <strong>Mark Safe</strong> buttons appear so you can account for each person in real time.</p>
+              <div className="mb-2 flex items-center gap-2 px-2.5 py-1.5 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 text-[11px] text-blue-600 dark:text-blue-400">
+                <ShieldAlert size={12} className="flex-shrink-0 text-blue-500" />
+                <p>Idle view — <strong>Mark Safe</strong> buttons appear when you activate an emergency.</p>
               </div>
             )}
 
-            <div className="space-y-2 sm:space-y-3 max-h-[55vh] sm:max-h-[60vh] overflow-y-auto">
+            <div className="space-y-1.5 max-h-[60vh] sm:max-h-[65vh] overflow-y-auto pr-0.5">
               {filteredList.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                   <Users size={40} className="mb-3 opacity-30" />
@@ -1521,98 +1516,91 @@ export default function EmergencyMuster() {
                 const avatarBg = person.type === 'staff' ? 'bg-purple-500' : person.type === 'visitor' ? 'bg-blue-500' : person.type === 'member' ? 'bg-purple-500' : 'bg-orange-500';
                 const typeBadge = person.type === 'staff' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : person.type === 'visitor' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : person.type === 'member' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
                 const initials = person.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
-                const cardBg = person.accounted ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-white/50 dark:bg-slate-800/50 border-gray-200 dark:border-gray-600';
-
-                const ActionButtons = () => (
-                  <>
-                    {hasActiveEvacuation && (
-                      person.accounted ? (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-safe-${person.id}`}>
-                          <CheckCircle size={11} />Safe
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-unsafe-${person.id}`}>
-                          <XCircle size={11} />Missing
-                        </span>
-                      )
-                    )}
-                    {hasActiveEvacuation && !person.accounted && person.type !== 'member' && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className={`h-9 w-9 p-0 flex-shrink-0 ${person.hasEmail ? 'border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400' : 'border-gray-200 text-gray-300 cursor-not-allowed dark:border-gray-700 dark:text-gray-600'}`}
-                        disabled={!person.hasEmail || emailingPersonId === person.id}
-                        onClick={() => person.hasEmail && emailPersonMutation.mutate({ personId: person.id, personType: person.type })}
-                        title={person.hasEmail ? `Send email reminder to ${person.name}` : 'No email address on file'}
-                        data-testid={`button-email-${person.id}`}
-                      >
-                        {emailingPersonId === person.id ? (
-                          <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>
-                        ) : (
-                          <Mail size={14} />
-                        )}
-                      </Button>
-                    )}
-                    <Button
-                      variant={person.accounted ? "outline" : "default"}
-                      className={`${person.accounted ? "border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400" : "bg-green-600 hover:bg-green-700 text-white"} text-sm font-semibold px-4 py-2 h-9 whitespace-nowrap`}
-                      onClick={() => toggleAccountedStatus(person.id, person.type)}
-                      data-testid={`button-toggle-${person.id}`}
-                    >
-                      {person.accounted ? (
-                        <><XCircle className="mr-1.5" size={14} />Undo</>
-                      ) : (
-                        <><CheckCircle className="mr-1.5" size={14} />Mark Safe</>
-                      )}
-                    </Button>
-                  </>
-                );
+                const cardBg = person.accounted
+                  ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
+                  : 'bg-white/50 dark:bg-slate-800/50 border-gray-200 dark:border-gray-600';
 
                 return (
                   <div
                     key={person.id}
-                    className={`rounded-xl border transition-all ${cardBg}`}
+                    className={`flex items-center gap-2.5 sm:gap-3 px-3 py-2.5 rounded-lg border transition-all ${cardBg}`}
                     data-testid={`person-${person.id}`}
                   >
-                    {/* Info row — always full-width so name is never truncated */}
-                    <div className="flex items-start gap-3 p-3 sm:p-4">
-                      <div className={`w-10 h-10 flex-shrink-0 rounded-full flex items-center justify-center ${avatarBg}`}>
-                        <span className="text-white font-bold text-sm">{initials}</span>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        {/* Name — never truncated */}
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="font-semibold text-fixed text-sm sm:text-base leading-tight">{person.name}</p>
-                          {person.needsEvacuationAssistance && (
-                            <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-400 dark:border-amber-600">
-                              ♿ PEEP
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1 mt-0.5">
-                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${typeBadge}`}>{person.type}</span>
-                          <span className="text-[11px] text-variable">{person.type === 'staff' ? person.department : person.company}</span>
-                        </div>
-                        {(person.location && person.location !== 'Not specified') && (
-                          <p className={`text-[11px] mt-1 flex items-center gap-1 ${!person.accounted ? 'text-red-600 dark:text-red-400 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
-                            <MapPin size={10} className="flex-shrink-0" />Last known: {person.location}
-                          </p>
+                    {/* Avatar */}
+                    <div className={`w-8 h-8 sm:w-9 sm:h-9 flex-shrink-0 rounded-full flex items-center justify-center ${avatarBg}`}>
+                      <span className="text-white font-bold text-xs">{initials}</span>
+                    </div>
+
+                    {/* Info — grows to fill space */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-semibold text-fixed text-sm leading-tight truncate">{person.name}</p>
+                        {person.needsEvacuationAssistance && (
+                          <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-400 dark:border-amber-600">
+                            ♿ PEEP
+                          </span>
                         )}
-                        <p className="text-[10px] text-muted-foreground mt-0.5 flex items-center gap-1">
-                          <Clock size={9} />
-                          {new Date(person.checkedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                        </p>
                       </div>
-                      {/* Desktop-only: action buttons inline with name */}
-                      <div className="hidden sm:flex items-center gap-2 flex-shrink-0 self-center">
-                        <ActionButtons />
+                      <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                        <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold ${typeBadge}`}>{person.type}</span>
+                        <span className="text-[11px] text-variable truncate max-w-[120px] sm:max-w-none">{person.type === 'staff' ? person.department : person.company}</span>
+                        {person.location && person.location !== 'Not specified' && (
+                          <span className={`hidden sm:inline-flex items-center gap-0.5 text-[10px] ${!person.accounted ? 'text-red-500 dark:text-red-400 font-medium' : 'text-gray-400 dark:text-gray-500'}`}>
+                            <MapPin size={9} className="flex-shrink-0" />{person.location}
+                          </span>
+                        )}
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                          <Clock size={9} />{new Date(person.checkedInAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                     </div>
 
-                    {/* Mobile-only: action buttons as a dedicated bottom row */}
-                    <div className="sm:hidden flex items-center justify-end gap-2 px-3 pb-3">
-                      <ActionButtons />
-                    </div>
+                    {/* Actions — always inline, right-aligned */}
+                    {hasActiveEvacuation && (
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        {person.accounted ? (
+                          <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-100 dark:bg-green-900/30 dark:text-green-400 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-safe-${person.id}`}>
+                            <CheckCircle size={11} />Safe
+                          </span>
+                        ) : (
+                          <>
+                            <span className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-100 dark:bg-red-900/30 dark:text-red-400 px-2 py-1 rounded-full whitespace-nowrap" data-testid={`badge-unsafe-${person.id}`}>
+                              <XCircle size={11} />Missing
+                            </span>
+                            {person.type !== 'member' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className={`h-7 w-7 p-0 flex-shrink-0 ${person.hasEmail ? 'border-orange-300 text-orange-600 hover:bg-orange-50 dark:border-orange-700 dark:text-orange-400' : 'border-gray-200 text-gray-300 cursor-not-allowed dark:border-gray-700 dark:text-gray-600'}`}
+                                disabled={!person.hasEmail || emailingPersonId === person.id}
+                                onClick={() => person.hasEmail && emailPersonMutation.mutate({ personId: person.id, personType: person.type })}
+                                title={person.hasEmail ? `Email reminder to ${person.name}` : 'No email on file'}
+                                data-testid={`button-email-${person.id}`}
+                              >
+                                {emailingPersonId === person.id ? (
+                                  <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" /></svg>
+                                ) : (
+                                  <Mail size={12} />
+                                )}
+                              </Button>
+                            )}
+                          </>
+                        )}
+                        <Button
+                          variant={person.accounted ? "outline" : "default"}
+                          size="sm"
+                          className={`${person.accounted ? "border-gray-300 text-gray-600 dark:border-gray-600 dark:text-gray-400 h-7 px-2.5" : "bg-green-600 hover:bg-green-700 text-white h-7 px-2.5 sm:px-3"} text-xs font-semibold whitespace-nowrap`}
+                          onClick={() => toggleAccountedStatus(person.id, person.type)}
+                          data-testid={`button-toggle-${person.id}`}
+                        >
+                          {person.accounted ? (
+                            <><XCircle className="mr-1" size={11} />Undo</>
+                          ) : (
+                            <><CheckCircle className="mr-1" size={11} />Mark Safe</>
+                          )}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
