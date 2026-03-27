@@ -615,21 +615,21 @@ export default function Settings() {
     onSuccess: (data) => {
       if (data.success) {
         toast({
-          title: "Success",
-          description: "Test email sent successfully!",
+          title: "Email Sent",
+          description: "Test email delivered successfully — your SMTP configuration is working.",
         });
       } else {
         toast({
-          title: "Error",
-          description: "Failed to send test email",
+          title: "Email Test Failed",
+          description: data.error || "Failed to send test email. Check your SMTP settings.",
           variant: "destructive",
         });
       }
     },
     onError: () => {
       toast({
-        title: "Error",
-        description: "Failed to send test email",
+        title: "Email Test Failed",
+        description: "Could not reach the server. Please try again.",
         variant: "destructive",
       });
     },

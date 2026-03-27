@@ -13447,30 +13447,112 @@ ${evacuationPhotosData.length > 0 ? `
       
       // Import the simplified database service
       const { simpleDatabaseService } = await import("./simpleDatabaseService");
+      const { CustomerDatabaseService } = await import("./customerDatabase.js");
+      const nodemailer = await import("nodemailer");
       
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
       
-      // Get current SMTP settings and create dynamic email service
-      const settings = await simpleDatabaseService.getCompanySettings(context);
-      const dynamicEmailService = new EmailService(req.customerId);
+      // Fetch the FULL settings row including smtp_password (not stripped)
+      const rawResult = await customerDb.execute(sql`
+        SELECT smtp_host, smtp_port, smtp_security, smtp_username, smtp_password,
+               smtp_from_email, smtp_from_name, smtp_reply_to, smtp_auth_method, smtp_connection_timeout
+        FROM ${sql.identifier(schemaName)}.company_settings LIMIT 1
+      `);
       
-      const success = await dynamicEmailService.sendTestEmail(email);
-      
-      if (success) {
-        // Update last tested timestamp in settings
-        await simpleDatabaseService.updateCompanySettings(context, {
-          smtpLastTested: new Date(),
-          smtpTestEmailSent: true
-        });
+      if (!rawResult.rows || rawResult.rows.length === 0) {
+        return res.json({ success: false, error: "No SMTP settings found. Please configure your email settings first." });
       }
       
-      console.log(`📧 Test email sent FOR CUSTOMER: ${context.customerId}`);
-      res.json({ success });
-    } catch (error) {
-      console.error("Error sending test email:", error);
-      res.status(500).json({ error: "Failed to send test email" });
+      const row = rawResult.rows[0] as any;
+      const smtpHost = row.smtp_host || "";
+      const smtpPort = parseInt(row.smtp_port || "587", 10);
+      const smtpSecurity = row.smtp_security || "STARTTLS";
+      const smtpUsername = row.smtp_username || "";
+      const smtpPassword = row.smtp_password || "";
+      const smtpFromEmail = row.smtp_from_email || smtpUsername;
+      const smtpFromName = row.smtp_from_name || "TPR-Max";
+      const smtpReplyTo = row.smtp_reply_to || smtpFromEmail;
+      const connectionTimeout = parseInt(row.smtp_connection_timeout || "30", 10) * 1000;
+      
+      if (!smtpHost) {
+        return res.json({ success: false, error: "SMTP host is not configured. Please enter your mail server address." });
+      }
+      if (!smtpUsername) {
+        return res.json({ success: false, error: "SMTP username is not configured." });
+      }
+      if (!smtpPassword) {
+        return res.json({ success: false, error: "SMTP password is not configured." });
+      }
+      
+      // Build secure flag based on security setting
+      const secure = smtpSecurity === "SSL/TLS" || smtpPort === 465;
+      const requireTLS = smtpSecurity === "STARTTLS";
+      
+      // Create a dedicated transporter using the customer's actual DB settings
+      const transporter = nodemailer.createTransport({
+        host: smtpHost,
+        port: smtpPort,
+        secure,
+        requireTLS,
+        auth: { user: smtpUsername, pass: smtpPassword },
+        connectionTimeout,
+        greetingTimeout: Math.min(connectionTimeout, 15000),
+        socketTimeout: connectionTimeout,
+        tls: { rejectUnauthorized: false }, // allow self-signed certs in test
+      });
+      
+      // Step 1: verify credentials (catches wrong password, bad host, etc.)
+      try {
+        await transporter.verify();
+      } catch (verifyError: any) {
+        const msg = verifyError?.message || String(verifyError);
+        let friendly = "Connection failed";
+        if (/auth|credential|user|pass|login|535|534|530/i.test(msg)) {
+          friendly = "Authentication failed — check your username and password";
+        } else if (/ECONNREFUSED|connect/i.test(msg)) {
+          friendly = `Cannot connect to ${smtpHost}:${smtpPort} — check the host and port`;
+        } else if (/ENOTFOUND|getaddrinfo/i.test(msg)) {
+          friendly = `Host not found: ${smtpHost} — check the SMTP server address`;
+        } else if (/timeout/i.test(msg)) {
+          friendly = `Connection timed out to ${smtpHost}:${smtpPort}`;
+        } else if (/certificate|TLS|SSL/i.test(msg)) {
+          friendly = "TLS/SSL certificate error — try changing the security setting";
+        }
+        console.error(`📧 SMTP verify failed for customer ${req.customerId}: ${msg}`);
+        return res.json({ success: false, error: friendly });
+      }
+      
+      // Step 2: send the test email
+      try {
+        await transporter.sendMail({
+          from: `${smtpFromName} <${smtpFromEmail}>`,
+          replyTo: smtpReplyTo || smtpFromEmail,
+          to: email,
+          subject: "TPR-Max — Test Email",
+          text: "This is a test email from TPR-Max. Your email configuration is working correctly.",
+          html: "<h2>Test Email</h2><p>Your TPR-Max email configuration is working correctly.</p>",
+        });
+      } catch (sendError: any) {
+        const msg = sendError?.message || String(sendError);
+        console.error(`📧 SMTP send failed for customer ${req.customerId}: ${msg}`);
+        return res.json({ success: false, error: `Connected OK but failed to send: ${msg}` });
+      }
+      
+      // Step 3: stamp the last-tested timestamp
+      await simpleDatabaseService.updateCompanySettings(context, {
+        smtpLastTested: new Date(),
+        smtpTestEmailSent: true
+      });
+      
+      console.log(`📧 Test email sent successfully for customer: ${req.customerId} → ${email}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error in test-email route:", error);
+      res.status(500).json({ success: false, error: error?.message || "Unexpected server error" });
     }
   });
 
