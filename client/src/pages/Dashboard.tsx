@@ -852,8 +852,9 @@ export default function Dashboard() {
                     {session.escalationLevel > 0 && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-600 text-white animate-pulse">L{session.escalationLevel} ALERT</span>
                     )}
+                    <span className="text-xs text-variable hidden sm:block">{session.minutesSinceStart}m ago</span>
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${session.escalationLevel > 0 ? 'bg-red-200 text-red-800 dark:bg-red-800/60 dark:text-red-200' : isOverdue ? 'bg-orange-200 text-orange-800 dark:bg-orange-800/60 dark:text-orange-200' : 'bg-amber-100 text-amber-700 dark:bg-amber-800/60 dark:text-amber-200'}`}>
-                      {session.nextDeadline ? (isOverdue ? `${Math.abs(minsLeft)}m overdue` : `${minsLeft}m left`) : `${session.minutesSinceStart}m on site`}
+                      {minsLeft !== null ? (isOverdue ? `${Math.abs(minsLeft)}m overdue` : `next in ${minsLeft}m`) : 'checking…'}
                     </span>
                   </div>
                 </div>

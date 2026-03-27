@@ -1755,6 +1755,8 @@ export default function Contractors() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {(workers as any[]).length > 0 ? (workers as any[]).map((worker: any) => {
                   const lwSession = getWorkerLoneWorkerSession(worker.id);
+                  const lwMinsLeft = lwSession?.nextDeadline ? Math.round((new Date(lwSession.nextDeadline).getTime() - Date.now()) / 60000) : null;
+                  const lwOverdue = lwMinsLeft !== null && lwMinsLeft < 0;
                   return (
                     <div key={worker.id} className="flex flex-col gap-2">
                       <WorkerCard
@@ -1770,10 +1772,13 @@ export default function Contractors() {
                         hsAssignments={allWorkerHSAssignments[worker.id] || []}
                       />
                       {lwSession ? (
-                        <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-3 py-2">
+                        <div className={`flex items-center justify-between border rounded-xl px-3 py-2 ${lwOverdue ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-700' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-700'}`}>
                           <div className="flex items-center gap-2">
-                            <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                            <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Lone Worker Active</span>
+                            <Shield className={`h-4 w-4 ${lwOverdue ? 'text-orange-600' : 'text-amber-600 dark:text-amber-400'}`} />
+                            <span className={`text-xs font-medium ${lwOverdue ? 'text-orange-700 dark:text-orange-300' : 'text-amber-700 dark:text-amber-300'}`}>Lone Worker</span>
+                            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${lwOverdue ? 'bg-orange-200 text-orange-800 dark:bg-orange-800/60 dark:text-orange-200' : 'bg-amber-100 text-amber-700 dark:bg-amber-800/60 dark:text-amber-200'}`}>
+                              {lwMinsLeft !== null ? (lwOverdue ? `${Math.abs(lwMinsLeft)}m overdue` : `next in ${lwMinsLeft}m`) : `${lwSession.minutesSinceStart ?? 0}m ago`}
+                            </span>
                           </div>
                           <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => endWorkerLoneWorkerMutation.mutate(worker.id)} disabled={endWorkerLoneWorkerMutation.isPending}>
                             <ShieldOff className="h-3.5 w-3.5 mr-1" />End

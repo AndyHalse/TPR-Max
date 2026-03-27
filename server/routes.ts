@@ -7756,7 +7756,7 @@ ${evacuationPhotosData.length > 0 ? `
       try {
         const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
         const [activeSession] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
-          .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`)
+          .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`)
           .limit(1);
         if (activeSession) {
           await customerDb.update(isolatedSchema.loneWorkerSessions)
@@ -19478,7 +19478,7 @@ This is an automated notification from your visitor management system.`;
       try {
         const contractorLwDb = await customerDbService.getCustomerDatabase(context.customerId);
         const [activeSession] = await contractorLwDb.select().from(isolatedSchema.loneWorkerSessions)
-          .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${workerId} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`)
+          .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${workerId} AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`)
           .limit(1);
         if (activeSession) {
           await contractorLwDb.update(isolatedSchema.loneWorkerSessions)
