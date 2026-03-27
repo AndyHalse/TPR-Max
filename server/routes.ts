@@ -25940,12 +25940,13 @@ This is an automated notification from your visitor management system.`;
           if (tokenRow.usedAt) return res.status(400).json({ error: 'This confirmation link has already been used', alreadyUsed: true });
           if (new Date(tokenRow.expiresAt) < new Date()) return res.status(400).json({ error: 'This confirmation link has expired. A new check-in email has been sent.', expired: true });
           const [session] = await customerDb.select().from(isolatedSchema.loneWorkerSessions).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${tokenRow.sessionId}`).limit(1);
-          if (!session || session.status !== 'active') return res.status(400).json({ error: 'Lone worker session is no longer active' });
+          if (!session || (session.status !== 'active' && session.status !== 'escalated')) return res.status(400).json({ error: 'Lone worker session is no longer active', inactive: true });
           const settings = await getLoneWorkerSettings({ db: customerDb });
           const intervalMins = session.intervalMins;
           await customerDb.update(isolatedSchema.loneWorkerTokens).set({ usedAt: new Date() }).where(sql`${isolatedSchema.loneWorkerTokens.id} = ${tokenRow.id}`);
           const newDeadline = new Date(Date.now() + intervalMins * 60000);
-          await customerDb.update(isolatedSchema.loneWorkerSessions).set({ checkInsCompleted: (session.checkInsCompleted || 0) + 1 }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
+          // Reset status to 'active' if the session had escalated (worker confirmed safe)
+          await customerDb.update(isolatedSchema.loneWorkerSessions).set({ checkInsCompleted: (session.checkInsCompleted || 0) + 1, status: 'active' }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
           if (session.personType === 'staff') {
             await customerDb.update(isolatedSchema.staff).set({ loneWorkerDeadline: newDeadline, loneWorkerEscalationLevel: 0 }).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
           } else {
@@ -25993,18 +25994,19 @@ This is an automated notification from your visitor management system.`;
 
       // Get the session from the same customer DB
       const [session] = await customerDb.select().from(isolatedSchema.loneWorkerSessions).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${tokenRow.sessionId}`).limit(1);
-      if (!session || session.status !== 'active') return res.status(400).json({ error: 'Lone worker session is no longer active' });
+      if (!session || (session.status !== 'active' && session.status !== 'escalated')) return res.status(400).json({ error: 'Lone worker session is no longer active', inactive: true });
       const settings = await getLoneWorkerSettings({ db: customerDb });
       const intervalMins = session.intervalMins;
 
       // Mark token used
       await customerDb.update(isolatedSchema.loneWorkerTokens).set({ usedAt: new Date() }).where(sql`${isolatedSchema.loneWorkerTokens.id} = ${tokenRow.id}`);
 
-      // Update session: increment checkInsCompleted only — do NOT reset escalationsFired
+      // Update session: increment checkInsCompleted, reset status to 'active' if it had escalated
       // escalationsFired is a running total for reporting; person-level escalationLevel resets below
       const newDeadline = new Date(Date.now() + intervalMins * 60000);
       await customerDb.update(isolatedSchema.loneWorkerSessions).set({
         checkInsCompleted: (session.checkInsCompleted || 0) + 1,
+        status: 'active',
       }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
 
       // Update person record
