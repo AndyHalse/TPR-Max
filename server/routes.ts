@@ -25758,6 +25758,7 @@ This is an automated notification from your visitor management system.`;
       const [staffMember] = await customerDb.select().from(isolatedSchema.staff).where(sql`${isolatedSchema.staff.id} = ${id}`);
       if (!staffMember) return res.status(404).json({ error: 'Staff member not found' });
       if (!staffMember.isCheckedIn) return res.status(400).json({ error: 'Staff member must be checked in to start lone worker mode' });
+      if (!staffMember.email) return res.status(400).json({ error: 'Staff member must have an email address to use lone worker protection' });
 
       const settings = await getLoneWorkerSettings({ db: customerDb });
       if (!settings?.loneWorkerEnabled) return res.status(400).json({ error: 'Lone Worker Protection is not enabled for this organisation' });
@@ -25815,7 +25816,7 @@ This is an automated notification from your visitor management system.`;
       const endedBy = req.body?.endedBy || 'supervisor';
 
       await customerDb.update(isolatedSchema.loneWorkerSessions)
-        .set({ status: 'ended', endedAt: new Date(), endedBy })
+        .set({ status: 'ended_ok', endedAt: new Date(), endedBy })
         .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`);
 
       await customerDb.update(isolatedSchema.staff)
@@ -25840,6 +25841,7 @@ This is an automated notification from your visitor management system.`;
       const [worker] = await customerDb.select().from(isolatedSchema.contractorWorkers).where(sql`${isolatedSchema.contractorWorkers.id} = ${id}`);
       if (!worker) return res.status(404).json({ error: 'Contractor worker not found' });
       if (!worker.isCheckedIn) return res.status(400).json({ error: 'Worker must be checked in to start lone worker mode' });
+      if (!worker.email) return res.status(400).json({ error: 'Worker must have an email address to use lone worker protection' });
 
       const settings = await getLoneWorkerSettings({ db: customerDb });
       if (!settings?.loneWorkerEnabled) return res.status(400).json({ error: 'Lone Worker Protection is not enabled for this organisation' });
@@ -25897,7 +25899,7 @@ This is an automated notification from your visitor management system.`;
       const endedBy = req.body?.endedBy || 'supervisor';
 
       await customerDb.update(isolatedSchema.loneWorkerSessions)
-        .set({ status: 'ended', endedAt: new Date(), endedBy })
+        .set({ status: 'ended_ok', endedAt: new Date(), endedBy })
         .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`);
 
       await customerDb.update(isolatedSchema.contractorWorkers)

@@ -748,8 +748,8 @@ export default function Reports() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-variable">
-                        {session.escalationLevel > 0 ? (
-                          <span className="text-red-600 font-medium">Level {session.escalationLevel}</span>
+                        {session.escalationsFired > 0 ? (
+                          <span className="text-red-600 font-medium">Level {session.escalationsFired}</span>
                         ) : '—'}
                       </td>
                     </tr>
