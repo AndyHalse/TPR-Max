@@ -59,7 +59,6 @@ export function StaffSearchSelect({
     onChange(id);
     setOpen(false);
     setQuery("");
-    inputRef.current?.blur();
   }
 
   function handleClear() {

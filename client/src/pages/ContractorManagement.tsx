@@ -2553,6 +2553,7 @@ export default function ContractorManagement() {
           onAccept={(worker) => {
             setCheckInWorkerId(worker.id);
             setCheckInWorkerName(`${worker.firstName} ${worker.lastName}`);
+            setSelectedCheckInHost('');
             setShowCheckInHostDialog(true);
             setShowHSModal(false);
             setWorkerForCheckIn(null);
@@ -2565,7 +2566,11 @@ export default function ContractorManagement() {
 
       {/* Pre-Book Worker Modal */}
       <Dialog open={!!preBookingWorker} onOpenChange={(open) => !open && setPreBookingWorker(null)}>
-        <DialogContent className="w-[95vw] sm:max-w-md">
+        <DialogContent
+          className="w-[95vw] sm:max-w-md"
+          onFocusOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CalendarPlus className="w-5 h-5 text-indigo-600" />
@@ -2913,7 +2918,11 @@ export default function ContractorManagement() {
 
       {/* Host Selection Dialog for Contractor Check-in */}
       <Dialog open={showCheckInHostDialog} onOpenChange={(open) => { if (!open) { setShowCheckInHostDialog(false); setSelectedCheckInHost(''); setCheckInWorkerId(null); } }}>
-        <DialogContent className="w-[95vw] sm:max-w-md">
+        <DialogContent
+          className="w-[95vw] sm:max-w-md"
+          onFocusOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Select Host for {checkInWorkerName}</DialogTitle>
             <DialogDescription>Who is {checkInWorkerName} visiting today?</DialogDescription>

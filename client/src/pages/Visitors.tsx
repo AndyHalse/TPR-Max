@@ -820,6 +820,7 @@ export default function Visitors() {
 
   const handlePreviousVisitorSelect = (visitor: Visitor) => {
     setSelectedPreviousVisitor(visitor);
+    setSelectedHostForPrevious("");
     setShowHostSelection(true);
   };
 
@@ -1793,7 +1794,11 @@ export default function Visitors() {
 
       {/* Host Selection Dialog for Previous Visitors */}
       <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
-        <DialogContent className="w-[95vw] max-w-md mx-auto rounded-2xl">
+        <DialogContent
+          className="w-[95vw] max-w-md mx-auto rounded-2xl"
+          onFocusOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="text-base">
               Who is {selectedPreviousVisitor?.firstName} {selectedPreviousVisitor?.lastName} visiting?

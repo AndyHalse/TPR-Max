@@ -690,6 +690,7 @@ export default function Contractors() {
   // Handle contractor check-in (with host selection like visitors)
   const handleWorkerCheckIn = (worker: any) => {
     setSelectedWorkerForCheckIn(worker);
+    setSelectedHostForWorker("");
     setShowHostSelection(true);
   };
   
@@ -2751,7 +2752,11 @@ export default function Contractors() {
 
       {/* Host Selection Dialog for Contractor Check-in (Same as Visitors) */}
       <Dialog open={showHostSelection} onOpenChange={setShowHostSelection}>
-        <DialogContent className="max-w-md">
+        <DialogContent
+          className="max-w-md"
+          onFocusOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>Select Host for {selectedWorkerForCheckIn?.firstName} {selectedWorkerForCheckIn?.lastName}</DialogTitle>
             <DialogDescription>
