@@ -5,7 +5,6 @@ import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -676,39 +675,33 @@ export default function Members() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label className="text-fixed">Membership Type</Label>
-                <Select
+                <select
                   value={formData.membershipType}
-                  onValueChange={(value) => updateField("membershipType", value)}
+                  onChange={(e) => updateField("membershipType", e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="full">Full</SelectItem>
-                    <SelectItem value="associate">Associate</SelectItem>
-                    <SelectItem value="junior">Junior</SelectItem>
-                    <SelectItem value="honorary">Honorary</SelectItem>
-                    <SelectItem value="social">Social</SelectItem>
-                    <SelectItem value="temporary">Temporary</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <option value="">Select type</option>
+                  <option value="full">Full</option>
+                  <option value="associate">Associate</option>
+                  <option value="junior">Junior</option>
+                  <option value="honorary">Honorary</option>
+                  <option value="social">Social</option>
+                  <option value="temporary">Temporary</option>
+                </select>
               </div>
               <div className="space-y-2">
                 <Label className="text-fixed">Membership Status</Label>
-                <Select
+                <select
                   value={formData.membershipStatus}
-                  onValueChange={(value) => updateField("membershipStatus", value)}
+                  onChange={(e) => updateField("membershipStatus", e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
                 >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="expired">Expired</SelectItem>
-                    <SelectItem value="suspended">Suspended</SelectItem>
-                    <SelectItem value="pending">Pending</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <option value="">Select status</option>
+                  <option value="active">Active</option>
+                  <option value="expired">Expired</option>
+                  <option value="suspended">Suspended</option>
+                  <option value="pending">Pending</option>
+                </select>
               </div>
             </div>
 

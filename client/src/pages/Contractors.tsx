@@ -1252,32 +1252,30 @@ export default function Contractors() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Industry</label>
-              <Select
+              <select
                 value={contractorForm.industry}
-                onValueChange={(value) => setContractorForm({ ...contractorForm, industry: value })}
+                onChange={(e) => setContractorForm({ ...contractorForm, industry: e.target.value })}
+                data-testid="select-industry"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger data-testid="select-industry">
-                  <SelectValue placeholder="Select industry" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="construction">Construction</SelectItem>
-                  <SelectItem value="engineering">Engineering</SelectItem>
-                  <SelectItem value="manufacturing">Manufacturing</SelectItem>
-                  <SelectItem value="electrical">Electrical</SelectItem>
-                  <SelectItem value="plumbing">Plumbing & Heating</SelectItem>
-                  <SelectItem value="mechanical">Mechanical</SelectItem>
-                  <SelectItem value="roofing">Roofing</SelectItem>
-                  <SelectItem value="scaffolding">Scaffolding</SelectItem>
-                  <SelectItem value="demolition">Demolition</SelectItem>
-                  <SelectItem value="groundworks">Groundworks</SelectItem>
-                  <SelectItem value="painting">Painting & Decorating</SelectItem>
-                  <SelectItem value="glazing">Glazing</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
-                  <SelectItem value="cleaning">Cleaning & Maintenance</SelectItem>
-                  <SelectItem value="landscaping">Landscaping</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="">Select industry</option>
+                <option value="construction">Construction</option>
+                <option value="engineering">Engineering</option>
+                <option value="manufacturing">Manufacturing</option>
+                <option value="electrical">Electrical</option>
+                <option value="plumbing">Plumbing &amp; Heating</option>
+                <option value="mechanical">Mechanical</option>
+                <option value="roofing">Roofing</option>
+                <option value="scaffolding">Scaffolding</option>
+                <option value="demolition">Demolition</option>
+                <option value="groundworks">Groundworks</option>
+                <option value="painting">Painting &amp; Decorating</option>
+                <option value="glazing">Glazing</option>
+                <option value="security">Security</option>
+                <option value="cleaning">Cleaning &amp; Maintenance</option>
+                <option value="landscaping">Landscaping</option>
+                <option value="other">Other</option>
+              </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">CIS Registration Number</label>
@@ -1290,21 +1288,16 @@ export default function Contractors() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Status</label>
-              <Select
+              <select
                 value={contractorForm.status}
-                onValueChange={(value: "pending" | "approved" | "suspended") => 
-                  setContractorForm({ ...contractorForm, status: value })
-                }
+                onChange={(e) => setContractorForm({ ...contractorForm, status: e.target.value as "pending" | "approved" | "suspended" })}
+                data-testid="select-status"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger data-testid="select-status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="pending">Pending Review</option>
+                <option value="approved">Approved</option>
+                <option value="suspended">Suspended</option>
+              </select>
             </div>
             <div className="col-span-2">
               <h3 className="text-sm font-semibold text-slate-700 mb-2">Compliance Documents Expiry Dates</h3>
@@ -1449,25 +1442,23 @@ export default function Contractors() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Industry</label>
-              <Select
+              <select
                 value={contractorForm.industry}
-                onValueChange={(value) => setContractorForm({ ...contractorForm, industry: value })}
+                onChange={(e) => setContractorForm({ ...contractorForm, industry: e.target.value })}
+                data-testid="select-edit-industry"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger data-testid="select-edit-industry">
-                  <SelectValue placeholder="Select industry" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="construction">Construction</SelectItem>
-                  <SelectItem value="electrical">Electrical</SelectItem>
-                  <SelectItem value="plumbing">Plumbing</SelectItem>
-                  <SelectItem value="roofing">Roofing</SelectItem>
-                  <SelectItem value="landscaping">Landscaping</SelectItem>
-                  <SelectItem value="mechanical">Mechanical</SelectItem>
-                  <SelectItem value="demolition">Demolition</SelectItem>
-                  <SelectItem value="painting">Painting & Decorating</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="">Select industry</option>
+                <option value="construction">Construction</option>
+                <option value="electrical">Electrical</option>
+                <option value="plumbing">Plumbing</option>
+                <option value="roofing">Roofing</option>
+                <option value="landscaping">Landscaping</option>
+                <option value="mechanical">Mechanical</option>
+                <option value="demolition">Demolition</option>
+                <option value="painting">Painting &amp; Decorating</option>
+                <option value="other">Other</option>
+              </select>
             </div>
             <div className="col-span-2 space-y-2">
               <label className="text-sm font-medium text-slate-700">Description</label>
@@ -1927,18 +1918,15 @@ export default function Contractors() {
             
             <div className="space-y-2">
               <Label className="text-sm font-medium">Card Type</Label>
-              <Select
+              <select
                 value={issueCardForm.cardType}
-                onValueChange={(v) => setIssueCardForm(f => ({ ...f, cardType: v, offenceId: '' }))}
+                onChange={(e) => setIssueCardForm(f => ({ ...f, cardType: e.target.value, offenceId: '' }))}
+                data-testid="select-card-type"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger data-testid="select-card-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="yellow">Yellow Card</SelectItem>
-                  <SelectItem value="red">Red Card</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="yellow">Yellow Card</option>
+                <option value="red">Red Card</option>
+              </select>
             </div>
             
             <div className="space-y-2">
@@ -1948,21 +1936,19 @@ export default function Contractors() {
                   No offences configured. Add offences in Settings → Card Offences.
                 </p>
               ) : (
-                <Select
+                <select
                   value={issueCardForm.offenceId}
-                  onValueChange={(v) => setIssueCardForm(f => ({ ...f, offenceId: v }))}
+                  onChange={(e) => setIssueCardForm(f => ({ ...f, offenceId: e.target.value }))}
+                  data-testid="select-offence"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
                 >
-                  <SelectTrigger data-testid="select-offence">
-                    <SelectValue placeholder="Select offence" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {cardOffences
-                      .filter((o: any) => o.cardType === issueCardForm.cardType && o.isActive)
-                      .map((o: any) => (
-                        <SelectItem key={o.id} value={o.id}>{o.offenceName}</SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
+                  <option value="">Select offence</option>
+                  {cardOffences
+                    .filter((o: any) => o.cardType === issueCardForm.cardType && o.isActive)
+                    .map((o: any) => (
+                      <option key={o.id} value={o.id}>{o.offenceName}</option>
+                    ))}
+                </select>
               )}
             </div>
             
@@ -2190,36 +2176,28 @@ export default function Contractors() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="rightToWork">Right to Work Status</Label>
-                  <Select 
-                    value={editWorkerForm.rightToWork} 
-                    onValueChange={(value) => setEditWorkerForm({...editWorkerForm, rightToWork: value})}
+                  <select
+                    value={editWorkerForm.rightToWork}
+                    onChange={(e) => setEditWorkerForm({...editWorkerForm, rightToWork: e.target.value})}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="valid">Valid</SelectItem>
-                      <SelectItem value="expired">Expired</SelectItem>
-                      <SelectItem value="pending">Pending</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <option value="valid">Valid</option>
+                    <option value="expired">Expired</option>
+                    <option value="pending">Pending</option>
+                  </select>
                 </div>
                 <div>
                   <Label htmlFor="cscsStatus">CSCS Status</Label>
-                  <Select 
-                    value={editWorkerForm.cscsStatus} 
-                    onValueChange={(value) => setEditWorkerForm({...editWorkerForm, cscsStatus: value})}
+                  <select
+                    value={editWorkerForm.cscsStatus}
+                    onChange={(e) => setEditWorkerForm({...editWorkerForm, cscsStatus: e.target.value})}
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
                   >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="valid">Valid</SelectItem>
-                      <SelectItem value="expired">Expired</SelectItem>
-                      <SelectItem value="expiring">Expiring</SelectItem>
-                      <SelectItem value="missing">Missing</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    <option value="valid">Valid</option>
+                    <option value="expired">Expired</option>
+                    <option value="expiring">Expiring</option>
+                    <option value="missing">Missing</option>
+                  </select>
                 </div>
               </div>
               <div>
@@ -2640,40 +2618,32 @@ export default function Contractors() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Vehicle Fuel Type *</label>
-              <Select
+              <select
                 value={workerForm.transportMethod}
-                onValueChange={(value: "car_diesel" | "car_petrol" | "electric_car" | "public_transport" | "motorcycle") => 
-                  setWorkerForm({ ...workerForm, transportMethod: value })
-                }
+                onChange={(e) => setWorkerForm({ ...workerForm, transportMethod: e.target.value as "car_diesel" | "car_petrol" | "electric_car" | "public_transport" | "motorcycle" })}
+                data-testid="select-transport-method"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger data-testid="select-transport-method">
-                  <SelectValue placeholder="Select vehicle type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="car_diesel">🚗 Diesel Car</SelectItem>
-                  <SelectItem value="car_petrol">🚗 Petrol Car</SelectItem>
-                  <SelectItem value="electric_car">⚡ Electric Car</SelectItem>
-                  <SelectItem value="motorcycle">🏍️ Motorcycle</SelectItem>
-                  <SelectItem value="public_transport">🚌 Public Transport</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="car_diesel">Diesel Car</option>
+                <option value="car_petrol">Petrol Car</option>
+                <option value="electric_car">Electric Car</option>
+                <option value="motorcycle">Motorcycle</option>
+                <option value="public_transport">Public Transport</option>
+              </select>
               <p className="text-xs text-variable">Required for CO2 emission calculations</p>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Right to Work Status</label>
-              <Select
+              <select
                 value={workerForm.rightToWork}
-                onValueChange={(value) => setWorkerForm({ ...workerForm, rightToWork: value })}
+                onChange={(e) => setWorkerForm({ ...workerForm, rightToWork: e.target.value })}
+                data-testid="select-right-to-work"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger data-testid="select-right-to-work">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="valid">Valid</SelectItem>
-                  <SelectItem value="pending">Pending Verification</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="valid">Valid</option>
+                <option value="pending">Pending Verification</option>
+                <option value="expired">Expired</option>
+              </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">CSCS Card Number</label>
@@ -2686,41 +2656,31 @@ export default function Contractors() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">CSCS Status</label>
-              <Select
+              <select
                 value={workerForm.cscsStatus}
-                onValueChange={(value: "valid" | "expired" | "pending") => 
-                  setWorkerForm({ ...workerForm, cscsStatus: value })
-                }
+                onChange={(e) => setWorkerForm({ ...workerForm, cscsStatus: e.target.value as "valid" | "expired" | "pending" })}
+                data-testid="select-cscs-status"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger data-testid="select-cscs-status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="valid">Valid</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="valid">Valid</option>
+                <option value="expired">Expired</option>
+                <option value="pending">Pending</option>
+              </select>
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">IPAF Status</label>
-              <Select
+              <select
                 value={workerForm.ipafStatus}
-                onValueChange={(value: "none" | "3a" | "3b" | "1+" | "expired") => 
-                  setWorkerForm({ ...workerForm, ipafStatus: value })
-                }
+                onChange={(e) => setWorkerForm({ ...workerForm, ipafStatus: e.target.value as "none" | "3a" | "3b" | "1+" | "expired" })}
+                data-testid="select-ipaf-status"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger data-testid="select-ipaf-status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="3a">3a - Mobile Vertical</SelectItem>
-                  <SelectItem value="3b">3b - Mobile Boom</SelectItem>
-                  <SelectItem value="1+">1+ - Static Vertical</SelectItem>
-                  <SelectItem value="expired">Expired</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="none">None</option>
+                <option value="3a">3a - Mobile Vertical</option>
+                <option value="3b">3b - Mobile Boom</option>
+                <option value="1+">1+ - Static Vertical</option>
+                <option value="expired">Expired</option>
+              </select>
             </div>
             <div className="col-span-2">
               <h3 className="text-sm font-semibold text-slate-700 mb-3">Safety Training & Certifications</h3>
@@ -2805,21 +2765,19 @@ export default function Contractors() {
               <Label htmlFor="hostSelection" className="text-sm font-medium text-slate-700">
                 Host Staff Member *
               </Label>
-              <Select 
-                value={selectedHostForWorker} 
-                onValueChange={setSelectedHostForWorker}
+              <select
+                value={selectedHostForWorker}
+                onChange={(e) => setSelectedHostForWorker(e.target.value)}
+                data-testid="button-confirm-host"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select host staff member" />
-                </SelectTrigger>
-                <SelectContent>
-                  {staff?.map((member: any) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.firstName} {member.lastName} - {member.department}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <option value="">Select host staff member</option>
+                {staff?.map((member: any) => (
+                  <option key={member.id} value={member.id}>
+                    {member.firstName} {member.lastName}{member.department ? ` — ${member.department}` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex gap-3 pt-4">
               <Button

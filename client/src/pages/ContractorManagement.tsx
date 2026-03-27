@@ -1810,30 +1810,26 @@ export default function ContractorManagement() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Industry</label>
-              <Select
+              <select
                 value={contractorForm.industry}
-                onValueChange={(value: string) => 
-                  setContractorForm({ ...contractorForm, industry: value })
-                }
+                onChange={(e) => setContractorForm({ ...contractorForm, industry: e.target.value })}
+                data-testid="select-edit-industry"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger data-testid="select-edit-industry">
-                  <SelectValue placeholder="Select industry" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="construction">Construction</SelectItem>
-                  <SelectItem value="electrical">Electrical</SelectItem>
-                  <SelectItem value="plumbing">Plumbing</SelectItem>
-                  <SelectItem value="hvac">HVAC</SelectItem>
-                  <SelectItem value="roofing">Roofing</SelectItem>
-                  <SelectItem value="painting">Painting</SelectItem>
-                  <SelectItem value="landscaping">Landscaping</SelectItem>
-                  <SelectItem value="security">Security</SelectItem>
-                  <SelectItem value="cleaning">Cleaning</SelectItem>
-                  <SelectItem value="it">IT Services</SelectItem>
-                  <SelectItem value="catering">Catering</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="">Select industry</option>
+                <option value="construction">Construction</option>
+                <option value="electrical">Electrical</option>
+                <option value="plumbing">Plumbing</option>
+                <option value="hvac">HVAC</option>
+                <option value="roofing">Roofing</option>
+                <option value="painting">Painting</option>
+                <option value="landscaping">Landscaping</option>
+                <option value="security">Security</option>
+                <option value="cleaning">Cleaning</option>
+                <option value="it">IT Services</option>
+                <option value="catering">Catering</option>
+                <option value="other">Other</option>
+              </select>
             </div>
             <div className="col-span-2 space-y-2">
               <div className="flex items-center justify-between">
@@ -1864,21 +1860,16 @@ export default function ContractorManagement() {
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Status</label>
-              <Select
+              <select
                 value={contractorForm.status}
-                onValueChange={(value: "pending" | "approved" | "suspended") => 
-                  setContractorForm({ ...contractorForm, status: value })
-                }
+                onChange={(e) => setContractorForm({ ...contractorForm, status: e.target.value as "pending" | "approved" | "suspended" })}
+                data-testid="select-edit-status"
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger data-testid="select-edit-status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending Review</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="pending">Pending Review</option>
+                <option value="approved">Approved</option>
+                <option value="suspended">Suspended</option>
+              </select>
             </div>
           </div>
           <DialogFooter>
@@ -2246,21 +2237,23 @@ export default function ContractorManagement() {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Vehicle / Transport</label>
-                  <Select value={workerForm.transportMethod} onValueChange={(v) => setWorkerForm({ ...workerForm, transportMethod: v })}>
-                    <SelectTrigger data-testid="select-worker-transport"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="car_diesel">Car (Diesel)</SelectItem>
-                      <SelectItem value="car_petrol">Car (Petrol)</SelectItem>
-                      <SelectItem value="electric_car">Electric Car</SelectItem>
-                      <SelectItem value="hybrid_car">Hybrid Car</SelectItem>
-                      <SelectItem value="van_diesel">Van (Diesel)</SelectItem>
-                      <SelectItem value="van_petrol">Van (Petrol)</SelectItem>
-                      <SelectItem value="motorcycle">Motorcycle</SelectItem>
-                      <SelectItem value="public_transport">Public Transport</SelectItem>
-                      <SelectItem value="bicycle">Bicycle</SelectItem>
-                      <SelectItem value="walking">Walking</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <select
+                    value={workerForm.transportMethod}
+                    onChange={(e) => setWorkerForm({ ...workerForm, transportMethod: e.target.value })}
+                    data-testid="select-worker-transport"
+                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+                  >
+                    <option value="car_diesel">Car (Diesel)</option>
+                    <option value="car_petrol">Car (Petrol)</option>
+                    <option value="electric_car">Electric Car</option>
+                    <option value="hybrid_car">Hybrid Car</option>
+                    <option value="van_diesel">Van (Diesel)</option>
+                    <option value="van_petrol">Van (Petrol)</option>
+                    <option value="motorcycle">Motorcycle</option>
+                    <option value="public_transport">Public Transport</option>
+                    <option value="bicycle">Bicycle</option>
+                    <option value="walking">Walking</option>
+                  </select>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Used for CO2 emissions calculations</p>
                 </div>
               </div>
@@ -2282,14 +2275,16 @@ export default function ContractorManagement() {
                     <p className="text-xs text-gray-500 dark:text-gray-400">Immigration Act 2014 — <span className="font-semibold text-red-600">Legally required before work commences</span></p>
                   </div>
                 </div>
-                <Select value={workerForm.rightToWork} onValueChange={(v: "valid" | "expired" | "pending") => setWorkerForm({ ...workerForm, rightToWork: v })}>
-                  <SelectTrigger data-testid="select-right-to-work"><SelectValue placeholder="Select status" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="valid">✅ Valid — check complete</SelectItem>
-                    <SelectItem value="pending">⏳ Pending — check in progress</SelectItem>
-                    <SelectItem value="expired">❌ Expired — requires re-check</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  value={workerForm.rightToWork}
+                  onChange={(e) => setWorkerForm({ ...workerForm, rightToWork: e.target.value as "valid" | "expired" | "pending" })}
+                  data-testid="select-right-to-work"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+                >
+                  <option value="valid">Valid — check complete</option>
+                  <option value="pending">Pending — check in progress</option>
+                  <option value="expired">Expired — requires re-check</option>
+                </select>
                 {workerForm.rightToWork === 'pending' && (
                   <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-xs text-amber-800">
                     Worker cannot be permitted to work unsupervised until Right to Work is confirmed.
@@ -2315,14 +2310,16 @@ export default function ContractorManagement() {
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Status</label>
-                    <Select value={workerForm.cscsStatus} onValueChange={(v: "valid" | "expired" | "pending") => setWorkerForm({ ...workerForm, cscsStatus: v })}>
-                      <SelectTrigger data-testid="select-cscs-status"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="valid">Valid</SelectItem>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="expired">Expired</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={workerForm.cscsStatus}
+                      onChange={(e) => setWorkerForm({ ...workerForm, cscsStatus: e.target.value as "valid" | "expired" | "pending" })}
+                      data-testid="select-cscs-status"
+                      className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+                    >
+                      <option value="valid">Valid</option>
+                      <option value="pending">Pending</option>
+                      <option value="expired">Expired</option>
+                    </select>
                   </div>
                 </div>
               </div>
@@ -2338,16 +2335,18 @@ export default function ContractorManagement() {
                     <p className="text-xs text-gray-500 dark:text-gray-400">PUWER / WAHR 2005 — required for MEWP operation (cherry pickers, scissor lifts)</p>
                   </div>
                 </div>
-                <Select value={workerForm.ipafStatus} onValueChange={(v: "none" | "3a" | "3b" | "1+" | "expired") => setWorkerForm({ ...workerForm, ipafStatus: v })}>
-                  <SelectTrigger data-testid="select-ipaf-status"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Not applicable / not held</SelectItem>
-                    <SelectItem value="3a">3a — Mobile Vertical (scissor lifts)</SelectItem>
-                    <SelectItem value="3b">3b — Mobile Boom (cherry pickers)</SelectItem>
-                    <SelectItem value="1+">1+ — Static Vertical (push-around)</SelectItem>
-                    <SelectItem value="expired">Held but Expired</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  value={workerForm.ipafStatus}
+                  onChange={(e) => setWorkerForm({ ...workerForm, ipafStatus: e.target.value as "none" | "3a" | "3b" | "1+" | "expired" })}
+                  data-testid="select-ipaf-status"
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+                >
+                  <option value="none">Not applicable / not held</option>
+                  <option value="3a">3a — Mobile Vertical (scissor lifts)</option>
+                  <option value="3b">3b — Mobile Boom (cherry pickers)</option>
+                  <option value="1+">1+ — Static Vertical (push-around)</option>
+                  <option value="expired">Held but Expired</option>
+                </select>
               </div>
             </div>
           )}
@@ -2635,53 +2634,51 @@ export default function ContractorManagement() {
               </div>
               <div className="space-y-2">
                 <Label>Duration (hours)</Label>
-                <Select value={preBookDuration} onValueChange={setPreBookDuration}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="2">2 hours</SelectItem>
-                    <SelectItem value="4">4 hours (Half day)</SelectItem>
-                    <SelectItem value="8">8 hours (Full day)</SelectItem>
-                    <SelectItem value="10">10 hours</SelectItem>
-                    <SelectItem value="12">12 hours</SelectItem>
-                  </SelectContent>
-                </Select>
+                <select
+                  value={preBookDuration}
+                  onChange={(e) => setPreBookDuration(e.target.value)}
+                  className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+                >
+                  <option value="2">2 hours</option>
+                  <option value="4">4 hours (Half day)</option>
+                  <option value="8">8 hours (Full day)</option>
+                  <option value="10">10 hours</option>
+                  <option value="12">12 hours</option>
+                </select>
               </div>
             </div>
 
             <div className="space-y-2">
               <Label>Purpose</Label>
-              <Select value={preBookPurpose} onValueChange={setPreBookPurpose}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Site work">Site Work</SelectItem>
-                  <SelectItem value="Maintenance">Maintenance</SelectItem>
-                  <SelectItem value="Installation">Installation</SelectItem>
-                  <SelectItem value="Inspection">Inspection</SelectItem>
-                  <SelectItem value="Repair">Repair</SelectItem>
-                  <SelectItem value="Survey">Survey</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+              <select
+                value={preBookPurpose}
+                onChange={(e) => setPreBookPurpose(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+              >
+                <option value="Site work">Site Work</option>
+                <option value="Maintenance">Maintenance</option>
+                <option value="Installation">Installation</option>
+                <option value="Inspection">Inspection</option>
+                <option value="Repair">Repair</option>
+                <option value="Survey">Survey</option>
+                <option value="Other">Other</option>
+              </select>
             </div>
 
             <div className="space-y-2">
               <Label>Host Staff Member *</Label>
-              <Select value={preBookHost} onValueChange={setPreBookHost}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select host staff member" />
-                </SelectTrigger>
-                <SelectContent>
-                  {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
-                    <SelectItem key={staff.id} value={staff.id}>
-                      {staff.firstName} {staff.lastName}{staff.department ? ` - ${staff.department}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                value={preBookHost}
+                onChange={(e) => setPreBookHost(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+              >
+                <option value="">Select host staff member</option>
+                {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
+                  <option key={staff.id} value={staff.id}>
+                    {staff.firstName} {staff.lastName}{staff.department ? ` — ${staff.department}` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="space-y-2">
@@ -2929,18 +2926,18 @@ export default function ContractorManagement() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Host Staff Member *</Label>
-              <Select value={selectedCheckInHost} onValueChange={setSelectedCheckInHost}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select host staff member" />
-                </SelectTrigger>
-                <SelectContent>
-                  {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
-                    <SelectItem key={staff.id} value={staff.id}>
-                      {staff.firstName} {staff.lastName}{staff.department ? ` - ${staff.department}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select
+                value={selectedCheckInHost}
+                onChange={(e) => setSelectedCheckInHost(e.target.value)}
+                className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+              >
+                <option value="">Select host staff member</option>
+                {staffList.filter((s: any) => s.isActive !== false).map((staff: any) => (
+                  <option key={staff.id} value={staff.id}>
+                    {staff.firstName} {staff.lastName}{staff.department ? ` — ${staff.department}` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <DialogFooter className="gap-2">
