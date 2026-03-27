@@ -557,8 +557,12 @@ export default function ContractorManagement() {
         setShowPassPreview(true);
         
         toast({
-          title: "Success",
-          description: "Contractor checked in successfully! Pass preview will open for printing.",
+          title: "Checked In",
+          description: data.hasEmail
+            ? "E-pass could not be sent — please print the physical pass below."
+            : "Contractor checked in. No email on file — printing physical pass.",
+          variant: data.hasEmail ? "destructive" : "default",
+          duration: 6000,
         });
       }
     },

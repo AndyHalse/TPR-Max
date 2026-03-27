@@ -19178,16 +19178,29 @@ This is an automated notification from your visitor management system.`;
       let ePassSent = false;
       let emailSentSuccessfully = false;
       
-      // Send e-pass if email is available (H&S will be accepted via e-pass link)
+      // Send e-pass if email is available
       if (worker.email) {
         try {
           const { simpleDatabaseService } = await import("./simpleDatabaseService");
           
-          const companySettings = await simpleDatabaseService.getCompanySettings(context);
+          // Retry settings fetch once in case of transient DB pool reconnection
+          let companySettings: any = null;
+          try {
+            companySettings = await simpleDatabaseService.getCompanySettings(context);
+          } catch (settingsErr) {
+            console.warn(`⚠️ First settings fetch failed for e-pass, retrying in 300ms...`, settingsErr);
+            await new Promise(r => setTimeout(r, 300));
+            try {
+              companySettings = await simpleDatabaseService.getCompanySettings(context);
+              console.log(`✅ Settings retry succeeded`);
+            } catch (retryErr) {
+              console.error(`❌ Settings retry also failed — e-pass will be skipped:`, retryErr);
+            }
+          }
           
           // Check if e-Pass is enabled in settings
           if (companySettings?.ePassEnabled) {
-            console.log(`📧 Sending contractor e-pass to ${worker.email} for H&S acceptance and check-in completion`);
+            console.log(`📧 Sending contractor e-pass to ${worker.email}`);
             
             const emailService = new EmailService(req.customerId);
             
@@ -19207,10 +19220,12 @@ This is an automated notification from your visitor management system.`;
               ePassSent = true;
               console.log(`✅ E-Pass sent successfully to contractor ${worker.email}`);
             } else {
-              console.log(`⚠️ Failed to send e-pass to contractor ${worker.email}`);
+              console.log(`⚠️ E-pass send returned false for ${worker.email} — physical pass will be shown`);
             }
+          } else if (companySettings) {
+            console.log(`📧 E-Pass disabled in settings, skipping for ${worker.email}`);
           } else {
-            console.log(`📧 E-Pass is disabled in settings, skipping e-pass for ${worker.email}`);
+            console.error(`❌ Could not load settings — e-pass skipped for ${worker.email}`);
           }
         } catch (emailError) {
           console.error("Failed to send contractor e-pass:", emailError);
