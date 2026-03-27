@@ -293,6 +293,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addIncidentManagerUrlIdMigration,
     addStaffPhoneNumberMigration,
     addUserMenuPermissionsMigration,
+    addLoneWorkerMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1771,6 +1772,96 @@ const addIncidentReportsMigration = {
       console.log(`✅ [025] Created incident_reports table`);
     } catch (err: any) {
       console.log(`⚠️ [025] incident_reports: ${err.message?.substring(0, 120)}`);
+    }
+  }
+};
+
+const addLoneWorkerMigration: Migration = {
+  version: '20260327_033_add_lone_worker_protection',
+  description: 'Add Lone Worker Protection: sessions/tokens tables, lone worker fields on staff/contractor_workers, and config fields on company_settings',
+  async up(db: any) {
+    // 1. New tables
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS lone_worker_sessions (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          customer_id TEXT NOT NULL,
+          person_id TEXT NOT NULL,
+          person_type TEXT NOT NULL,
+          person_name TEXT NOT NULL,
+          person_email TEXT,
+          started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          ended_at TIMESTAMP,
+          interval_mins INTEGER NOT NULL DEFAULT 30,
+          grace_period_mins INTEGER NOT NULL DEFAULT 10,
+          status TEXT NOT NULL DEFAULT 'active',
+          check_ins_completed INTEGER NOT NULL DEFAULT 0,
+          escalations_fired INTEGER NOT NULL DEFAULT 0,
+          ended_by TEXT
+        )
+      `);
+      console.log('✅ [033] Created lone_worker_sessions table');
+    } catch (err: any) {
+      console.log(`⚠️ [033] lone_worker_sessions: ${err.message?.substring(0, 120)}`);
+    }
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS lone_worker_tokens (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          token TEXT NOT NULL UNIQUE,
+          session_id UUID NOT NULL REFERENCES lone_worker_sessions(id),
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          expires_at TIMESTAMP NOT NULL,
+          used_at TIMESTAMP
+        )
+      `);
+      console.log('✅ [033] Created lone_worker_tokens table');
+    } catch (err: any) {
+      console.log(`⚠️ [033] lone_worker_tokens: ${err.message?.substring(0, 120)}`);
+    }
+    // 2. Staff lone worker columns
+    const staffCols = [
+      { name: 'is_lone_worker', def: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'lone_worker_since', def: 'TIMESTAMP' },
+      { name: 'lone_worker_deadline', def: 'TIMESTAMP' },
+      { name: 'lone_worker_escalation_level', def: 'INTEGER DEFAULT 0' },
+    ];
+    for (const col of staffCols) {
+      try {
+        await db.execute(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+        console.log(`✅ [033] staff.${col.name}`);
+      } catch (err: any) {
+        console.log(`⚠️ [033] staff.${col.name}: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    // 3. contractor_workers lone worker columns
+    for (const col of staffCols) {
+      try {
+        await db.execute(`ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+        console.log(`✅ [033] contractor_workers.${col.name}`);
+      } catch (err: any) {
+        console.log(`⚠️ [033] contractor_workers.${col.name}: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    // 4. company_settings lone worker config columns
+    const settingsCols = [
+      { name: 'lone_worker_enabled', def: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'lone_worker_check_interval_mins', def: 'INTEGER DEFAULT 30' },
+      { name: 'lone_worker_grace_period_mins', def: 'INTEGER DEFAULT 10' },
+      { name: 'lone_worker_l1_name', def: 'TEXT DEFAULT \'\'' },
+      { name: 'lone_worker_l1_email', def: 'TEXT DEFAULT \'\'' },
+      { name: 'lone_worker_l2_name', def: 'TEXT DEFAULT \'\'' },
+      { name: 'lone_worker_l2_email', def: 'TEXT DEFAULT \'\'' },
+      { name: 'lone_worker_l2_delay_mins', def: 'INTEGER DEFAULT 15' },
+      { name: 'lone_worker_l3_delay_mins', def: 'INTEGER DEFAULT 30' },
+    ];
+    for (const col of settingsCols) {
+      try {
+        await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+        console.log(`✅ [033] company_settings.${col.name}`);
+      } catch (err: any) {
+        console.log(`⚠️ [033] company_settings.${col.name}: ${err.message?.substring(0, 80)}`);
+      }
     }
   }
 };

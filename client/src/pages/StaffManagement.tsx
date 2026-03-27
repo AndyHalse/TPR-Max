@@ -5,7 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import AddStaffModal from "@/components/AddStaffModal";
-import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera, Wallet, Loader2 } from "lucide-react";
+import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera, Wallet, Loader2, Shield, ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -198,6 +198,26 @@ export default function StaffManagement() {
   const { data: zones = [] } = useQuery<any[]>({ queryKey: ["/api/zones"] });
 
   const { data: companySettings } = useQuery<any>({ queryKey: ['/api/settings'] });
+
+  const { data: activeLoneWorkers = [] } = useQuery<any[]>({
+    queryKey: ['/api/lone-worker/active'],
+    refetchInterval: 30000,
+  });
+
+  const startLoneWorkerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/staff/${id}/lone-worker/start`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/lone-worker/active'] }),
+    onError: () => toast({ title: "Error", description: "Failed to start lone worker session.", variant: "destructive" }),
+  });
+
+  const endLoneWorkerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/staff/${id}/lone-worker/end`, { endedBy: 'supervisor' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/lone-worker/active'] }),
+    onError: () => toast({ title: "Error", description: "Failed to end lone worker session.", variant: "destructive" }),
+  });
+
+  const getStaffLoneWorkerSession = (staffId: string) =>
+    activeLoneWorkers.find((s: any) => s.personId === staffId && s.personType === 'staff');
 
   const getPassBranding = () => {
     const brandColor = companySettings?.backgroundColor || companySettings?.primaryColor || '#2460A9';
@@ -728,6 +748,11 @@ export default function StaffManagement() {
                       🚨 Fire Marshal
                     </span>
                   )}
+                  {getStaffLoneWorkerSession(member.id) && (
+                    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-100 text-amber-800 animate-pulse">
+                      <Shield size={9} />Lone Worker
+                    </span>
+                  )}
                   {(member as any).zoneId && (() => {
                     const zone = zones.find((z: any) => z.id === (member as any).zoneId);
                     return zone ? (
@@ -769,6 +794,32 @@ export default function StaffManagement() {
                     >
                       <QrCode size={15} />
                     </Button>
+                    {(() => {
+                      const lwSession = getStaffLoneWorkerSession(member.id);
+                      return lwSession ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => endLoneWorkerMutation.mutate(member.id)}
+                          disabled={endLoneWorkerMutation.isPending}
+                          className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                          title="End lone worker session"
+                        >
+                          <ShieldOff size={15} />
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => startLoneWorkerMutation.mutate(member.id)}
+                          disabled={startLoneWorkerMutation.isPending || !member.email}
+                          className="h-8 w-8 p-0 text-slate-500 hover:text-green-700 hover:bg-green-50"
+                          title={member.email ? "Start lone worker session" : "Staff needs an email address"}
+                        >
+                          <Shield size={15} />
+                        </Button>
+                      );
+                    })()}
                     <Button 
                       size="sm" 
                       variant="ghost" 
@@ -845,8 +896,21 @@ export default function StaffManagement() {
                     <span className={`inline-flex items-center px-2 py-1 rounded-full text-[10px] font-medium ${member.isCheckedIn ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
                       {member.isCheckedIn ? 'On Site' : 'Off Site'}
                     </span>
+                    {getStaffLoneWorkerSession(member.id) && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 animate-pulse">
+                        <Shield size={9} />Lone Worker
+                      </span>
+                    )}
                     <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-8 w-8 p-0" title="Edit"><Edit size={14} /></Button>
                     <Button size="sm" variant="ghost" onClick={() => setQrPassStaff(member)} className="h-8 w-8 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title="QR Pass"><QrCode size={14} /></Button>
+                    {(() => {
+                      const lwSession = getStaffLoneWorkerSession(member.id);
+                      return lwSession ? (
+                        <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="End lone worker session"><ShieldOff size={14} /></Button>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? "Start lone worker session" : "Staff needs an email address"}><Shield size={14} /></Button>
+                      );
+                    })()}
                     {member.isActive && (
                       !member.isCheckedIn ? (
                         <Button size="sm" variant="outline" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending} className="h-9 px-3 text-green-600 border-green-300 hover:bg-green-50"><UserCheck size={15} className="mr-1" />Check In</Button>
@@ -864,6 +928,14 @@ export default function StaffManagement() {
                   <div className="flex items-center gap-2">
                     <Button size="sm" variant="ghost" onClick={() => setEditingStaff(member)} className="h-9 w-9 p-0" title="Edit"><Edit size={15} /></Button>
                     <Button size="sm" variant="ghost" onClick={() => setQrPassStaff(member)} className="h-9 w-9 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50" title="QR Pass"><QrCode size={15} /></Button>
+                    {(() => {
+                      const lwSession = getStaffLoneWorkerSession(member.id);
+                      return lwSession ? (
+                        <Button size="sm" variant="ghost" onClick={() => endLoneWorkerMutation.mutate(member.id)} disabled={endLoneWorkerMutation.isPending} className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" title="End lone worker session"><ShieldOff size={15} /></Button>
+                      ) : (
+                        <Button size="sm" variant="ghost" onClick={() => startLoneWorkerMutation.mutate(member.id)} disabled={startLoneWorkerMutation.isPending || !member.email} className="h-9 w-9 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" title={member.email ? "Start lone worker session" : "Staff needs an email address"}><Shield size={15} /></Button>
+                      );
+                    })()}
                     {member.isActive && (
                       !member.isCheckedIn ? (
                         <Button size="sm" variant="outline" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending} className="h-9 px-3 font-medium text-green-600 border-green-300 hover:bg-green-50"><UserCheck size={14} className="mr-1" />Check In</Button>

@@ -22,7 +22,8 @@ import {
   Printer,
   Trash2,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  Shield
 } from "lucide-react";
 import {
   AlertDialog,
@@ -47,6 +48,11 @@ export default function Reports() {
   const [emailRecipients, setEmailRecipients] = useState("");
   const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
   const [showStaffSelection, setShowStaffSelection] = useState(false);
+
+  const { data: loneWorkerSessions = [] } = useQuery<any[]>({
+    queryKey: ['/api/lone-worker/sessions'],
+    refetchInterval: 60000,
+  });
 
   const { data: reports, isLoading } = useQuery<Report[]>({
     queryKey: ["/api/reports"],
@@ -663,6 +669,83 @@ export default function Reports() {
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </GlassCard>
+
+      {/* Lone Worker Session Log */}
+      <GlassCard>
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 bg-amber-100 dark:bg-amber-900/40 rounded-xl flex items-center justify-center flex-shrink-0">
+            <Shield className="text-amber-600 dark:text-amber-400" size={18} />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-fixed">Lone Worker Sessions</h3>
+            <p className="text-xs text-variable">{loneWorkerSessions.length} session{loneWorkerSessions.length !== 1 ? 's' : ''} on record</p>
+          </div>
+        </div>
+
+        {loneWorkerSessions.length === 0 ? (
+          <div className="text-center py-8">
+            <Shield className="mx-auto h-10 w-10 text-variable mb-3" />
+            <p className="text-variable">No lone worker sessions recorded yet</p>
+            <p className="text-xs text-variable mt-1">Sessions appear here when staff or contractors are placed under lone worker protection</p>
+          </div>
+        ) : (
+          <>
+            {/* Mobile card list */}
+            <div className="sm:hidden space-y-2">
+              {loneWorkerSessions.map((session: any) => (
+                <div key={session.id} className="bg-white/40 dark:bg-white/10 rounded-xl p-3 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-sm text-fixed">{session.personName}</span>
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${session.status === 'active' ? 'bg-amber-100 text-amber-700' : session.status === 'ended_ok' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      {session.status === 'active' ? 'Active' : session.status === 'ended_ok' ? 'Ended OK' : session.status === 'escalated' ? 'Escalated' : session.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-variable capitalize">{session.personType}</p>
+                  <p className="text-xs text-variable">{new Date(session.startedAt).toLocaleString()}</p>
+                  {session.endedAt && <p className="text-xs text-variable">Ended: {new Date(session.endedAt).toLocaleString()}</p>}
+                  {session.escalationLevel > 0 && <p className="text-xs text-red-600 font-medium">Escalation level {session.escalationLevel}</p>}
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop table */}
+            <div className="hidden sm:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-white/50 dark:bg-white/5">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Person</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Started</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Ended</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-variable uppercase tracking-wider">Escalation</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/20">
+                  {loneWorkerSessions.map((session: any) => (
+                    <tr key={session.id} className="hover:bg-white/20 dark:hover:bg-white/5">
+                      <td className="px-4 py-3 font-medium text-fixed">{session.personName}</td>
+                      <td className="px-4 py-3 text-variable capitalize">{session.personType}</td>
+                      <td className="px-4 py-3 text-variable">{new Date(session.startedAt).toLocaleString()}</td>
+                      <td className="px-4 py-3 text-variable">{session.endedAt ? new Date(session.endedAt).toLocaleString() : '—'}</td>
+                      <td className="px-4 py-3">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${session.status === 'active' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : session.status === 'ended_ok' ? 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' : 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300'}`}>
+                          {session.status === 'active' ? 'Active' : session.status === 'ended_ok' ? 'Ended OK' : session.status === 'escalated' ? 'Escalated' : session.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-variable">
+                        {session.escalationLevel > 0 ? (
+                          <span className="text-red-600 font-medium">Level {session.escalationLevel}</span>
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

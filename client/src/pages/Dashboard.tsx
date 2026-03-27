@@ -188,6 +188,12 @@ export default function Dashboard() {
     enabled: !!currentUser,
   });
 
+  const { data: activeLoneWorkers = [] } = useQuery<any[]>({
+    queryKey: ['/api/lone-worker/active'],
+    refetchInterval: 30000,
+    enabled: !!currentUser,
+  });
+
   const { data: departmentDetails, isLoading: departmentDetailsLoading } = useQuery<{
     department: string;
     staffMembers: Array<{
@@ -810,7 +816,48 @@ export default function Dashboard() {
         </div>
       </div>
 
-
+      {/* Lone Worker Protection Widget */}
+      {activeLoneWorkers.length > 0 && (
+        <GlassCard className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-2 border-amber-200 dark:border-amber-800">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-200 dark:bg-amber-800/50 rounded-xl flex items-center justify-center">
+                <Shield className="text-amber-700 dark:text-amber-300" size={22} />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-amber-800 dark:text-amber-200">Lone Worker Sessions</h3>
+                <p className="text-xs text-amber-600 dark:text-amber-400">{activeLoneWorkers.length} active — welfare checks in progress</p>
+              </div>
+            </div>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-200 dark:bg-amber-800/60 text-amber-800 dark:text-amber-200 rounded-full text-xs font-semibold animate-pulse">
+              <span className="w-1.5 h-1.5 bg-amber-600 rounded-full" />
+              LIVE
+            </span>
+          </div>
+          <div className="space-y-2">
+            {activeLoneWorkers.map((session: any) => {
+              const deadline = new Date(session.nextDeadline);
+              const now = new Date();
+              const minsLeft = Math.round((deadline.getTime() - now.getTime()) / 60000);
+              const isOverdue = minsLeft < 0;
+              return (
+                <div key={session.id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${isOverdue ? 'bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700' : 'bg-white/50 dark:bg-white/10 border border-amber-200/50 dark:border-amber-700/50'}`}>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Shield size={14} className={isOverdue ? 'text-red-600' : 'text-amber-600'} />
+                    <span className="font-medium text-sm text-fixed truncate">{session.personName}</span>
+                    <span className="text-xs text-variable hidden sm:block">({session.personType})</span>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${isOverdue ? 'bg-red-200 text-red-800 dark:bg-red-800/60 dark:text-red-200' : 'bg-amber-100 text-amber-700 dark:bg-amber-800/60 dark:text-amber-200'}`}>
+                      {isOverdue ? `${Math.abs(minsLeft)}m overdue` : `${minsLeft}m remaining`}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </GlassCard>
+      )}
 
       {/* Reception Diary - Comprehensive Operations Overview */}
       <GlassCard className="bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-2 border-indigo-200 dark:border-indigo-800">

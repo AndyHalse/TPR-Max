@@ -57,6 +57,7 @@ import {
   QrCode,
   Printer,
   Download,
+  ShieldOff,
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
@@ -298,6 +299,26 @@ export default function ContractorManagement() {
   const { data: zones = [] } = useQuery<any[]>({
     queryKey: ["/api/zones"],
   });
+
+  const { data: activeLoneWorkers = [] } = useQuery<any[]>({
+    queryKey: ['/api/lone-worker/active'],
+    refetchInterval: 30000,
+  });
+
+  const startContractorLoneWorkerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/contractor-workers/${id}/lone-worker/start`),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/lone-worker/active'] }),
+    onError: () => toast({ title: "Error", description: "Failed to start lone worker session.", variant: "destructive" }),
+  });
+
+  const endContractorLoneWorkerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/contractor-workers/${id}/lone-worker/end`, { endedBy: 'supervisor' }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['/api/lone-worker/active'] }),
+    onError: () => toast({ title: "Error", description: "Failed to end lone worker session.", variant: "destructive" }),
+  });
+
+  const getContractorLoneWorkerSession = (workerId: string) =>
+    activeLoneWorkers.find((s: any) => s.personId === workerId && s.personType === 'contractor');
 
   const generateTestWorkersMutation = useMutation({
     mutationFn: async () => {
@@ -1193,6 +1214,14 @@ export default function ContractorManagement() {
                           </>
                         ) : null;
                       })()}
+                      {(() => {
+                        const lwSession = getContractorLoneWorkerSession(contractor.id);
+                        return lwSession ? (
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title="End lone worker session"><ShieldOff className="h-4 w-4" /></Button>
+                        ) : (
+                          <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); startContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={startContractorLoneWorkerMutation.isPending || !contractor.email} title={contractor.email ? "Start lone worker session" : "Worker needs an email address"}><Shield className="h-4 w-4" /></Button>
+                        );
+                      })()}
                     </div>
                     {!contractor.isCheckedIn ? (() => {
                       const redBanned = contractor.currentCardStatus === 'red';
@@ -1299,10 +1328,17 @@ export default function ContractorManagement() {
                       const redBanned = contractor.currentCardStatus === 'red';
                       const notCleared = redBanned || contractor.rightToWork !== 'valid' || !contractor.inductionCompleted;
                       const blockReason = redBanned ? 'Active site ban (Red Card)' : contractor.rightToWork !== 'valid' ? 'Right to work not verified' : !contractor.inductionCompleted ? 'Site induction not completed' : '';
+                      const lwSession = getContractorLoneWorkerSession(contractor.id);
                       return (
                         <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                          {lwSession && <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-amber-100 text-amber-800 animate-pulse"><Shield className="h-3 w-3" />Lone Worker</span>}
                           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title="Edit"><Edit className="h-3.5 w-3.5" /></Button>
                           {isClear && <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title="Pre-Book"><CalendarPlus className="h-3.5 w-3.5" /></Button>}
+                          {lwSession ? (
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title="End lone worker session"><ShieldOff className="h-3.5 w-3.5" /></Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); startContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={startContractorLoneWorkerMutation.isPending || !contractor.email} title={contractor.email ? "Start lone worker session" : "Worker needs an email address"}><Shield className="h-3.5 w-3.5" /></Button>
+                          )}
                           {!contractor.isCheckedIn ? (
                             <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (notCleared) { toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" }); return; } setWorkerForCheckIn(contractor); setCompanyForCheckIn(contractor.companyName); setShowHSModal(true); }} disabled={checkInMutation.isPending} title={notCleared ? blockReason : 'Check in'} className={`h-9 px-3 ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 border-green-300 hover:bg-green-50'}`}><LogIn className="mr-1 h-4 w-4" />Check In</Button>
                           ) : (
@@ -1319,11 +1355,17 @@ export default function ContractorManagement() {
                     const redBanned = contractor.currentCardStatus === 'red';
                     const notCleared = redBanned || contractor.rightToWork !== 'valid' || !contractor.inductionCompleted;
                     const blockReason = redBanned ? 'Active site ban (Red Card)' : contractor.rightToWork !== 'valid' ? 'Right to work not verified' : !contractor.inductionCompleted ? 'Site induction not completed' : '';
+                    const lwSession = getContractorLoneWorkerSession(contractor.id);
                     return (
                       <div className="sm:hidden flex items-center justify-between gap-2 px-3 pb-3 pt-1" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center gap-1.5">
                           <Button size="sm" variant="ghost" className="h-9 w-9 p-0" onClick={(e) => { e.stopPropagation(); setSelectedWorkerForEdit(contractor); setSelectedWorkerCompanyName(contractor.companyName); setShowContractorEditModal(true); }} title="Edit"><Edit className="h-4 w-4" /></Button>
                           {isClear && <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-indigo-600 hover:bg-indigo-50" onClick={(e) => { e.stopPropagation(); setPreBookingWorker(contractor); setPreBookCompanyName(contractor.companyName); }} title="Pre-Book"><CalendarPlus className="h-4 w-4" /></Button>}
+                          {lwSession ? (
+                            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-amber-600 hover:text-amber-700 hover:bg-amber-50" onClick={(e) => { e.stopPropagation(); endContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={endContractorLoneWorkerMutation.isPending} title="End lone worker session"><ShieldOff className="h-4 w-4" /></Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="h-9 w-9 p-0 text-slate-400 hover:text-green-700 hover:bg-green-50" onClick={(e) => { e.stopPropagation(); startContractorLoneWorkerMutation.mutate(contractor.id); }} disabled={startContractorLoneWorkerMutation.isPending || !contractor.email} title={contractor.email ? "Start lone worker session" : "Worker needs an email address"}><Shield className="h-4 w-4" /></Button>
+                          )}
                         </div>
                         {!contractor.isCheckedIn ? (
                           <Button size="sm" variant="outline" onClick={(e) => { e.stopPropagation(); if (notCleared) { toast({ title: "Cannot Check In", description: blockReason, variant: "destructive" }); return; } setWorkerForCheckIn(contractor); setCompanyForCheckIn(contractor.companyName); setShowHSModal(true); }} disabled={checkInMutation.isPending} title={notCleared ? blockReason : 'Check in'} className={`h-9 px-3 font-medium ${notCleared ? 'text-gray-400 border-gray-200 cursor-not-allowed' : 'text-green-600 border-green-300 hover:bg-green-50'}`}><LogIn className="mr-1 h-4 w-4" />Check In</Button>

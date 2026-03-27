@@ -25635,6 +25635,402 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // LONE WORKER PROTECTION — API Routes
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // Helpers shared across lone worker routes
+  const mintLoneWorkerToken = (crypto: typeof import('crypto')): string => {
+    return crypto.randomBytes(32).toString('hex');
+  };
+
+  async function getLoneWorkerSettings(context: any) {
+    const [settings] = await (context.db || db).select().from(isolatedSchema.companySettings).limit(1);
+    return settings;
+  }
+
+  async function sendFirstWelfareEmail(
+    customerDb: any,
+    session: any,
+    token: string,
+    settings: any,
+    baseUrl: string
+  ) {
+    const confirmUrl = `${baseUrl}/lone-worker/ok/${token}`;
+    const emailSvc = emailService.forCustomer(session.customerId);
+    await emailSvc.sendLoneWorkerWelfareCheck({
+      to: session.personEmail || '',
+      workerName: session.personName,
+      confirmUrl,
+      nextCheckMins: session.intervalMins,
+      companyName: settings?.companyName || 'Your Company',
+      siteName: settings?.companyName || 'Site',
+    });
+  }
+
+  // GET /api/lone-worker/active — list all active lone worker sessions
+  app.get("/api/lone-worker/active", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const sessions = await customerDb
+        .select()
+        .from(isolatedSchema.loneWorkerSessions)
+        .where(sql`${isolatedSchema.loneWorkerSessions.status} = 'active'`);
+
+      // Augment with time-since and next deadline
+      const now = Date.now();
+      const augmented = sessions.map((s: any) => {
+        const startMs = new Date(s.startedAt).getTime();
+        const minutesSinceStart = Math.floor((now - startMs) / 60000);
+        return { ...s, minutesSinceStart };
+      });
+      res.json(augmented);
+    } catch (err: any) {
+      console.error('GET /api/lone-worker/active error:', err);
+      res.status(500).json({ error: 'Failed to fetch active lone workers' });
+    }
+  });
+
+  // POST /api/staff/:id/lone-worker/start
+  app.post("/api/staff/:id/lone-worker/start", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const { id } = req.params;
+      const cryptoMod = await import('crypto');
+
+      const [staffMember] = await customerDb.select().from(isolatedSchema.staff).where(sql`${isolatedSchema.staff.id} = ${id}`);
+      if (!staffMember) return res.status(404).json({ error: 'Staff member not found' });
+      if (!staffMember.isCheckedIn) return res.status(400).json({ error: 'Staff member must be checked in to start lone worker mode' });
+
+      const settings = await getLoneWorkerSettings({ db: customerDb });
+      const intervalMins = settings?.loneWorkerCheckIntervalMins || 30;
+      const gracePeriodMins = settings?.loneWorkerGracePeriodMins || 10;
+      const deadline = new Date(Date.now() + intervalMins * 60000);
+
+      const [session] = await customerDb.insert(isolatedSchema.loneWorkerSessions).values({
+        customerId,
+        personId: id,
+        personType: 'staff',
+        personName: `${staffMember.firstName} ${staffMember.lastName}`,
+        personEmail: staffMember.email || '',
+        intervalMins,
+        gracePeriodMins,
+        status: 'active',
+      }).returning();
+
+      const token = mintLoneWorkerToken(cryptoMod);
+      await customerDb.insert(isolatedSchema.loneWorkerTokens).values({
+        token,
+        sessionId: session.id,
+        expiresAt: new Date(Date.now() + (intervalMins + gracePeriodMins) * 60000),
+      });
+
+      await customerDb.update(isolatedSchema.staff)
+        .set({ isLoneWorker: true, loneWorkerSince: new Date(), loneWorkerDeadline: deadline, loneWorkerEscalationLevel: 0 })
+        .where(sql`${isolatedSchema.staff.id} = ${id}`);
+
+      if (staffMember.email) {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        await sendFirstWelfareEmail(customerDb, { ...session, personEmail: staffMember.email }, token, settings, baseUrl);
+      }
+
+      res.json({ success: true, session, deadline });
+    } catch (err: any) {
+      console.error('POST /api/staff/:id/lone-worker/start error:', err);
+      res.status(500).json({ error: 'Failed to start lone worker session' });
+    }
+  });
+
+  // POST /api/staff/:id/lone-worker/end
+  app.post("/api/staff/:id/lone-worker/end", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const { id } = req.params;
+      const endedBy = req.body?.endedBy || 'supervisor';
+
+      await customerDb.update(isolatedSchema.loneWorkerSessions)
+        .set({ status: 'ended', endedAt: new Date(), endedBy })
+        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`);
+
+      await customerDb.update(isolatedSchema.staff)
+        .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
+        .where(sql`${isolatedSchema.staff.id} = ${id}`);
+
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('POST /api/staff/:id/lone-worker/end error:', err);
+      res.status(500).json({ error: 'Failed to end lone worker session' });
+    }
+  });
+
+  // POST /api/contractor-workers/:id/lone-worker/start
+  app.post("/api/contractor-workers/:id/lone-worker/start", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const { id } = req.params;
+      const cryptoMod = await import('crypto');
+
+      const [worker] = await customerDb.select().from(isolatedSchema.contractorWorkers).where(sql`${isolatedSchema.contractorWorkers.id} = ${id}`);
+      if (!worker) return res.status(404).json({ error: 'Contractor worker not found' });
+      if (!worker.isCheckedIn) return res.status(400).json({ error: 'Worker must be checked in to start lone worker mode' });
+
+      const settings = await getLoneWorkerSettings({ db: customerDb });
+      const intervalMins = settings?.loneWorkerCheckIntervalMins || 30;
+      const gracePeriodMins = settings?.loneWorkerGracePeriodMins || 10;
+      const deadline = new Date(Date.now() + intervalMins * 60000);
+
+      const [session] = await customerDb.insert(isolatedSchema.loneWorkerSessions).values({
+        customerId,
+        personId: id,
+        personType: 'contractor',
+        personName: `${worker.firstName} ${worker.lastName}`,
+        personEmail: worker.email || '',
+        intervalMins,
+        gracePeriodMins,
+        status: 'active',
+      }).returning();
+
+      const token = mintLoneWorkerToken(cryptoMod);
+      await customerDb.insert(isolatedSchema.loneWorkerTokens).values({
+        token,
+        sessionId: session.id,
+        expiresAt: new Date(Date.now() + (intervalMins + gracePeriodMins) * 60000),
+      });
+
+      await customerDb.update(isolatedSchema.contractorWorkers)
+        .set({ isLoneWorker: true, loneWorkerSince: new Date(), loneWorkerDeadline: deadline, loneWorkerEscalationLevel: 0 })
+        .where(sql`${isolatedSchema.contractorWorkers.id} = ${id}`);
+
+      if (worker.email) {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        await sendFirstWelfareEmail(customerDb, { ...session, personEmail: worker.email }, token, settings, baseUrl);
+      }
+
+      res.json({ success: true, session, deadline });
+    } catch (err: any) {
+      console.error('POST /api/contractor-workers/:id/lone-worker/start error:', err);
+      res.status(500).json({ error: 'Failed to start lone worker session' });
+    }
+  });
+
+  // POST /api/contractor-workers/:id/lone-worker/end
+  app.post("/api/contractor-workers/:id/lone-worker/end", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const { id } = req.params;
+      const endedBy = req.body?.endedBy || 'supervisor';
+
+      await customerDb.update(isolatedSchema.loneWorkerSessions)
+        .set({ status: 'ended', endedAt: new Date(), endedBy })
+        .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.status} = 'active'`);
+
+      await customerDb.update(isolatedSchema.contractorWorkers)
+        .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
+        .where(sql`${isolatedSchema.contractorWorkers.id} = ${id}`);
+
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error('POST /api/contractor-workers/:id/lone-worker/end error:', err);
+      res.status(500).json({ error: 'Failed to end lone worker session' });
+    }
+  });
+
+  // GET /api/lone-worker/ok/:token — public confirmation endpoint (no auth required)
+  app.get("/api/lone-worker/ok/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const cryptoMod = await import('crypto');
+
+      // Find the token across all customer databases via shared DB
+      const [tokenRow] = await db
+        .select()
+        .from(isolatedSchema.loneWorkerTokens)
+        .where(sql`${isolatedSchema.loneWorkerTokens.token} = ${token}`)
+        .limit(1);
+
+      if (!tokenRow) return res.status(404).json({ error: 'Token not found or already used' });
+      if (tokenRow.usedAt) return res.status(400).json({ error: 'This confirmation link has already been used', alreadyUsed: true });
+      if (new Date(tokenRow.expiresAt) < new Date()) return res.status(400).json({ error: 'This confirmation link has expired. A new check-in email has been sent.', expired: true });
+
+      // Get the session
+      const [session] = await db.select().from(isolatedSchema.loneWorkerSessions).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${tokenRow.sessionId}`).limit(1);
+      if (!session || session.status !== 'active') return res.status(400).json({ error: 'Lone worker session is no longer active' });
+
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(session.customerId);
+      const settings = await getLoneWorkerSettings({ db: customerDb });
+      const intervalMins = session.intervalMins;
+
+      // Mark token used
+      await customerDb.update(isolatedSchema.loneWorkerTokens).set({ usedAt: new Date() }).where(sql`${isolatedSchema.loneWorkerTokens.id} = ${tokenRow.id}`);
+
+      // Update session: reset escalation, extend deadline, increment checkInsCompleted
+      const newDeadline = new Date(Date.now() + intervalMins * 60000);
+      await customerDb.update(isolatedSchema.loneWorkerSessions).set({
+        checkInsCompleted: (session.checkInsCompleted || 0) + 1,
+        escalationsFired: 0,
+      }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
+
+      // Update person record
+      if (session.personType === 'staff') {
+        await customerDb.update(isolatedSchema.staff)
+          .set({ loneWorkerDeadline: newDeadline, loneWorkerEscalationLevel: 0 })
+          .where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
+      } else {
+        await customerDb.update(isolatedSchema.contractorWorkers)
+          .set({ loneWorkerDeadline: newDeadline, loneWorkerEscalationLevel: 0 })
+          .where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
+      }
+
+      // Mint a new token and send next welfare check email
+      const newToken = mintLoneWorkerToken(cryptoMod);
+      await customerDb.insert(isolatedSchema.loneWorkerTokens).values({
+        token: newToken,
+        sessionId: session.id,
+        expiresAt: new Date(Date.now() + (intervalMins + (settings?.loneWorkerGracePeriodMins || 10)) * 60000),
+      });
+
+      if (session.personEmail) {
+        const baseUrl = `${req.protocol}://${req.get('host')}`;
+        const emailSvc = emailService.forCustomer(session.customerId);
+        await emailSvc.sendLoneWorkerWelfareCheck({
+          to: session.personEmail,
+          workerName: session.personName,
+          confirmUrl: `${baseUrl}/lone-worker/ok/${newToken}`,
+          nextCheckMins: intervalMins,
+          companyName: settings?.companyName || 'Your Company',
+          siteName: settings?.companyName || 'Site',
+        });
+      }
+
+      res.json({ success: true, nextCheckMins: intervalMins, workerName: session.personName, companyName: settings?.companyName || 'Your Company' });
+    } catch (err: any) {
+      console.error('GET /api/lone-worker/ok/:token error:', err);
+      res.status(500).json({ error: 'Failed to process welfare check confirmation' });
+    }
+  });
+
+  // GET /api/lone-worker/sessions — session log for Reports page
+  app.get("/api/lone-worker/sessions", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const sessions = await customerDb
+        .select()
+        .from(isolatedSchema.loneWorkerSessions)
+        .orderBy(sql`${isolatedSchema.loneWorkerSessions.startedAt} DESC`)
+        .limit(200);
+      res.json(sessions);
+    } catch (err: any) {
+      console.error('GET /api/lone-worker/sessions error:', err);
+      res.status(500).json({ error: 'Failed to fetch lone worker sessions' });
+    }
+  });
+
+  // ─── Background Cron: Lone Worker Monitoring ─────────────────────────────
+  // Runs every 60 seconds; checks for overdue sessions and fires escalation emails
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const activeSessions = await db
+        .select()
+        .from(isolatedSchema.loneWorkerSessions)
+        .where(sql`${isolatedSchema.loneWorkerSessions.status} = 'active'`);
+
+      for (const session of activeSessions) {
+        try {
+          const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(session.customerId);
+          const settings = await getLoneWorkerSettings({ db: customerDb });
+
+          // Get current person record to check deadline and escalation level
+          let person: any = null;
+          if (session.personType === 'staff') {
+            const [p] = await customerDb.select().from(isolatedSchema.staff).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
+            person = p;
+          } else {
+            const [p] = await customerDb.select().from(isolatedSchema.contractorWorkers).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
+            person = p;
+          }
+          if (!person || !person.isLoneWorker || !person.loneWorkerDeadline) continue;
+
+          const deadline = new Date(person.loneWorkerDeadline);
+          const msOverdue = now.getTime() - deadline.getTime();
+          if (msOverdue <= 0) continue; // Not overdue yet
+
+          const minsOverdue = Math.floor(msOverdue / 60000);
+          const gracePeriod = session.gracePeriodMins || settings?.loneWorkerGracePeriodMins || 10;
+          const l2Delay = settings?.loneWorkerL2DelayMins || 15;
+          const l3Delay = settings?.loneWorkerL3DelayMins || 30;
+          const currentLevel = person.loneWorkerEscalationLevel || 0;
+
+          const emailSvc = emailService.forCustomer(session.customerId);
+          const escalationOpts = {
+            workerName: session.personName,
+            workerEmail: session.personEmail || '',
+            minutesMissed: minsOverdue,
+            startedAt: new Date(session.startedAt),
+            companyName: settings?.companyName || 'Your Company',
+            siteName: settings?.companyName || 'Site',
+          };
+
+          if (currentLevel < 1 && minsOverdue >= gracePeriod) {
+            // Level 1: send to L1 contact
+            const l1Email = settings?.loneWorkerL1Email;
+            if (l1Email) {
+              await emailSvc.sendLoneWorkerEscalation({ to: l1Email, contactName: settings.loneWorkerL1Name || 'Supervisor', level: 1, ...escalationOpts });
+            }
+            const updateData = { loneWorkerEscalationLevel: 1 };
+            if (session.personType === 'staff') {
+              await customerDb.update(isolatedSchema.staff).set(updateData).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
+            } else {
+              await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
+            }
+            await customerDb.update(isolatedSchema.loneWorkerSessions).set({ escalationsFired: (session.escalationsFired || 0) + 1 }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
+            console.log(`🚨 Lone Worker L1 alert fired for ${session.personName} (${session.customerId})`);
+          } else if (currentLevel < 2 && minsOverdue >= gracePeriod + l2Delay) {
+            // Level 2
+            const l2Email = settings?.loneWorkerL2Email;
+            if (l2Email) {
+              await emailSvc.sendLoneWorkerEscalation({ to: l2Email, contactName: settings.loneWorkerL2Name || 'Manager', level: 2, ...escalationOpts });
+            }
+            const updateData = { loneWorkerEscalationLevel: 2 };
+            if (session.personType === 'staff') {
+              await customerDb.update(isolatedSchema.staff).set(updateData).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
+            } else {
+              await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
+            }
+            await customerDb.update(isolatedSchema.loneWorkerSessions).set({ escalationsFired: (session.escalationsFired || 0) + 1 }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
+            console.log(`🚨 Lone Worker L2 alert fired for ${session.personName} (${session.customerId})`);
+          } else if (currentLevel < 3 && minsOverdue >= gracePeriod + l2Delay + l3Delay) {
+            // Level 3: send to both contacts and mark session escalated
+            const l1Email = settings?.loneWorkerL1Email;
+            const l2Email = settings?.loneWorkerL2Email;
+            if (l1Email) await emailSvc.sendLoneWorkerEscalation({ to: l1Email, contactName: settings.loneWorkerL1Name || 'Supervisor', level: 3, ...escalationOpts });
+            if (l2Email) await emailSvc.sendLoneWorkerEscalation({ to: l2Email, contactName: settings.loneWorkerL2Name || 'Manager', level: 3, ...escalationOpts });
+            const updateData = { loneWorkerEscalationLevel: 3 };
+            if (session.personType === 'staff') {
+              await customerDb.update(isolatedSchema.staff).set(updateData).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
+            } else {
+              await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
+            }
+            await customerDb.update(isolatedSchema.loneWorkerSessions)
+              .set({ status: 'escalated', escalationsFired: (session.escalationsFired || 0) + 1 })
+              .where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
+            console.log(`🚨 Lone Worker L3 EMERGENCY alert fired for ${session.personName} (${session.customerId})`);
+          }
+        } catch (sessionErr: any) {
+          console.warn(`Lone worker cron error for session ${session.id}:`, sessionErr.message?.substring(0, 100));
+        }
+      }
+    } catch (cronErr: any) {
+      console.warn('Lone worker cron job error:', cronErr.message?.substring(0, 100));
+    }
+  }, 60000);
+
   const httpServer = existingServer || createServer(app);
   
   // Initialize WebSocket server for real-time muster updates

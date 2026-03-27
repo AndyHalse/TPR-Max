@@ -3395,6 +3395,102 @@ TPR Max Visitor Management System
     }
   }
 
+  // ─── Lone Worker Protection Emails ───────────────────────────────────────
+
+  async sendLoneWorkerWelfareCheck(opts: {
+    to: string;
+    workerName: string;
+    confirmUrl: string;
+    nextCheckMins: number;
+    companyName: string;
+    siteName: string;
+  }): Promise<boolean> {
+    const { to, workerName, confirmUrl, nextCheckMins, companyName, siteName } = opts;
+    const subject = `Lone Worker Welfare Check — ${companyName}`;
+    const html = `
+      <!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+      <body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 0;">
+          <tr><td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08);">
+              <tr><td style="background:linear-gradient(135deg,#2563eb,#1d4ed8);padding:32px;text-align:center;">
+                <h1 style="color:#ffffff;margin:0;font-size:24px;">🛡️ Lone Worker Check-In</h1>
+                <p style="color:#bfdbfe;margin:8px 0 0;font-size:14px;">${siteName}</p>
+              </td></tr>
+              <tr><td style="padding:32px;">
+                <p style="color:#374151;font-size:16px;margin:0 0 16px;">Hi <strong>${workerName}</strong>,</p>
+                <p style="color:#374151;font-size:15px;margin:0 0 24px;">This is your scheduled lone worker welfare check from <strong>${companyName}</strong>. Please confirm you are safe by clicking the button below.</p>
+                <div style="text-align:center;margin:32px 0;">
+                  <a href="${confirmUrl}" style="background:#16a34a;color:#ffffff;text-decoration:none;padding:16px 40px;border-radius:8px;font-size:18px;font-weight:bold;display:inline-block;">✅ I'm OK — Confirm I'm Safe</a>
+                </div>
+                <div style="background:#fef3c7;border-left:4px solid #f59e0b;padding:16px;border-radius:4px;margin:0 0 24px;">
+                  <p style="color:#92400e;margin:0;font-size:14px;"><strong>⚠️ Important:</strong> If you do not confirm within the grace period, your supervisor will be automatically alerted. Your next check-in will be in <strong>${nextCheckMins} minutes</strong> after confirmation.</p>
+                </div>
+                <p style="color:#6b7280;font-size:13px;margin:0;">If you are in danger or need assistance, please call emergency services (999) immediately and do not use this email link.</p>
+              </td></tr>
+              <tr><td style="background:#f9fafb;padding:20px;text-align:center;border-top:1px solid #e5e7eb;">
+                <p style="color:#9ca3af;font-size:12px;margin:0;">Lone Worker Protection • ${companyName} • ${siteName}</p>
+              </td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </body></html>
+    `;
+    const text = `Lone Worker Welfare Check — ${companyName}\n\nHi ${workerName},\n\nThis is your scheduled lone worker welfare check. Please confirm you are safe by visiting:\n${confirmUrl}\n\nYour next check-in will be in ${nextCheckMins} minutes after confirmation.\n\nIf you are in danger, call 999 immediately.`;
+    return this.sendEmail({ to, subject, html, text, companyName });
+  }
+
+  async sendLoneWorkerEscalation(opts: {
+    to: string;
+    contactName: string;
+    workerName: string;
+    workerEmail: string;
+    level: 1 | 2 | 3;
+    minutesMissed: number;
+    startedAt: Date;
+    companyName: string;
+    siteName: string;
+  }): Promise<boolean> {
+    const { to, contactName, workerName, workerEmail, level, minutesMissed, startedAt, companyName, siteName } = opts;
+    const urgencyLabels = { 1: 'ALERT — Missed Check-In', 2: 'URGENT — Second Missed Check-In', 3: 'EMERGENCY — Lone Worker Uncontactable' };
+    const urgencyColors = { 1: '#f59e0b', 2: '#ef4444', 3: '#7f1d1d' };
+    const subject = `🚨 Lone Worker ${urgencyLabels[level]}: ${workerName} — ${companyName}`;
+    const html = `
+      <!DOCTYPE html><html><head><meta charset="utf-8"></head>
+      <body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;padding:32px 0;">
+          <tr><td align="center">
+            <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08);">
+              <tr><td style="background:${urgencyColors[level]};padding:32px;text-align:center;">
+                <h1 style="color:#ffffff;margin:0;font-size:24px;">🚨 Level ${level} Lone Worker Alert</h1>
+                <p style="color:rgba(255,255,255,0.85);margin:8px 0 0;font-size:14px;">${urgencyLabels[level]}</p>
+              </td></tr>
+              <tr><td style="padding:32px;">
+                <p style="color:#374151;font-size:16px;margin:0 0 16px;">Hi <strong>${contactName}</strong>,</p>
+                <p style="color:#374151;font-size:15px;margin:0 0 24px;"><strong>${workerName}</strong> has missed their lone worker welfare check-in at <strong>${siteName}</strong>.</p>
+                <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;border-radius:8px;padding:20px;margin:0 0 24px;">
+                  <tr><td style="padding:6px 0;"><strong style="color:#374151;">Worker:</strong> <span style="color:#6b7280;">${workerName}</span></td></tr>
+                  <tr><td style="padding:6px 0;"><strong style="color:#374151;">Email:</strong> <span style="color:#6b7280;">${workerEmail}</span></td></tr>
+                  <tr><td style="padding:6px 0;"><strong style="color:#374151;">Site:</strong> <span style="color:#6b7280;">${siteName}</span></td></tr>
+                  <tr><td style="padding:6px 0;"><strong style="color:#374151;">Session started:</strong> <span style="color:#6b7280;">${startedAt.toLocaleString('en-GB')}</span></td></tr>
+                  <tr><td style="padding:6px 0;"><strong style="color:#374151;">Minutes overdue:</strong> <span style="color:#ef4444;font-weight:bold;">${minutesMissed} min</span></td></tr>
+                  <tr><td style="padding:6px 0;"><strong style="color:#374151;">Alert level:</strong> <span style="color:#ef4444;font-weight:bold;">Level ${level}</span></td></tr>
+                </table>
+                ${level === 3 ? `<div style="background:#fef2f2;border:2px solid #ef4444;border-radius:8px;padding:16px;margin-bottom:24px;"><p style="color:#991b1b;font-weight:bold;margin:0;">This is a Level 3 emergency alert. If you cannot reach ${workerName}, consider calling emergency services (999) and their emergency contact immediately.</p></div>` : ''}
+                <p style="color:#6b7280;font-size:13px;">Please attempt to contact <strong>${workerName}</strong> immediately. You can end their lone worker session in the TPR-Max dashboard once contact is made.</p>
+              </td></tr>
+              <tr><td style="background:#f9fafb;padding:20px;text-align:center;border-top:1px solid #e5e7eb;">
+                <p style="color:#9ca3af;font-size:12px;margin:0;">Lone Worker Protection • ${companyName} • Automated Alert</p>
+              </td></tr>
+            </table>
+          </td></tr>
+        </table>
+      </body></html>
+    `;
+    const text = `Level ${level} Lone Worker Alert: ${workerName}\n\n${workerName} has missed their welfare check at ${siteName}.\nEmail: ${workerEmail}\nSession started: ${startedAt.toLocaleString('en-GB')}\nMinutes overdue: ${minutesMissed}\n\nPlease contact them immediately.${level === 3 ? ' Consider calling emergency services (999).' : ''}`;
+    return this.sendEmail({ to, subject, html, text, companyName });
+  }
+
   forCustomer(customerId: string): EmailService {
     return new EmailService(customerId);
   }

@@ -44,6 +44,7 @@ import AcceptInvitation from "@/pages/AcceptInvitation";
 import PlatformAdminLogin from "@/pages/PlatformAdminLogin";
 import PlatformAdminDashboard from "@/pages/PlatformAdminDashboard";
 import IncidentManagerMonitor from "@/pages/IncidentManagerMonitor";
+import LoneWorkerConfirmation from "@/pages/LoneWorkerConfirmation";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -249,7 +250,8 @@ function Router() {
   
   // Check if this is a public route that doesn't need authentication
   const isFireMarshalRoute = window.location.pathname.startsWith('/fire-marshal/');
-  const isPublicRoute = isFireMarshalRoute;
+  const isLoneWorkerOkRoute = window.location.pathname.startsWith('/lone-worker/ok/');
+  const isPublicRoute = isFireMarshalRoute || isLoneWorkerOkRoute;
   
   // Secure authentication - requires valid server session (skip for public routes)
   const { data: user, isLoading, error, isError } = useQuery({
@@ -322,6 +324,7 @@ function Router() {
       <Route path="/kiosk" component={KioskMode} />
       <Route path="/contractor" component={ContractorKiosk} />
       <Route path="/marketing" component={MarketingPage} />
+      <Route path="/lone-worker/ok/:token" component={LoneWorkerConfirmation} />
       <Route path="/induction-preview/:roleType">
         {(params) => {
           const InductionPreview = lazy(() => import("./pages/InductionPreview"));

@@ -48,6 +48,11 @@ export const staff = pgTable("staff", {
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
   inductionCompletedAt: timestamp("induction_completed_at"),
   isActive: boolean("is_active").default(true).notNull(),
+  // Lone Worker Protection
+  isLoneWorker: boolean("is_lone_worker").default(false),
+  loneWorkerSince: timestamp("lone_worker_since"),
+  loneWorkerDeadline: timestamp("lone_worker_deadline"),
+  loneWorkerEscalationLevel: integer("lone_worker_escalation_level").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -514,6 +519,17 @@ export const companySettings = pgTable("company_settings", {
   // Incident Manager Monitor - permanent read-only URL for senior management
   incidentManagerUrlId: text("incident_manager_url_id"),
 
+  // Lone Worker Protection Configuration
+  loneWorkerEnabled: boolean("lone_worker_enabled").default(false),
+  loneWorkerCheckIntervalMins: integer("lone_worker_check_interval_mins").default(30),
+  loneWorkerGracePeriodMins: integer("lone_worker_grace_period_mins").default(10),
+  loneWorkerL1Name: text("lone_worker_l1_name").default(""),
+  loneWorkerL1Email: text("lone_worker_l1_email").default(""),
+  loneWorkerL2Name: text("lone_worker_l2_name").default(""),
+  loneWorkerL2Email: text("lone_worker_l2_email").default(""),
+  loneWorkerL2DelayMins: integer("lone_worker_l2_delay_mins").default(15),
+  loneWorkerL3DelayMins: integer("lone_worker_l3_delay_mins").default(30),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -778,6 +794,11 @@ export const contractorWorkers = pgTable("contractor_workers", {
   currentCardStatus: text("current_card_status").default("pending"), // clear, yellow, red, banned, pending
   isActive: boolean("is_active").default(true).notNull(),
   qrCode: text("qr_code").unique(),
+  // Lone Worker Protection
+  isLoneWorker: boolean("is_lone_worker").default(false),
+  loneWorkerSince: timestamp("lone_worker_since"),
+  loneWorkerDeadline: timestamp("lone_worker_deadline"),
+  loneWorkerEscalationLevel: integer("lone_worker_escalation_level").default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -2050,3 +2071,35 @@ export const incidentReports = pgTable("incident_reports", {
 
 export type IncidentReport = typeof incidentReports.$inferSelect;
 export type InsertMartynLawConfig = typeof martynLawConfig.$inferInsert;
+
+// =====================================================
+// LONE WORKER PROTECTION TABLES
+// =====================================================
+export const loneWorkerSessions = pgTable("lone_worker_sessions", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  customerId: text("customer_id").notNull(),
+  personId: text("person_id").notNull(),
+  personType: text("person_type").notNull(), // "staff" | "contractor"
+  personName: text("person_name").notNull(),
+  personEmail: text("person_email"),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  endedAt: timestamp("ended_at"),
+  intervalMins: integer("interval_mins").notNull().default(30),
+  gracePeriodMins: integer("grace_period_mins").notNull().default(10),
+  status: text("status").notNull().default("active"), // active, ended, escalated
+  checkInsCompleted: integer("check_ins_completed").notNull().default(0),
+  escalationsFired: integer("escalations_fired").notNull().default(0),
+  endedBy: text("ended_by"),
+});
+
+export const loneWorkerTokens = pgTable("lone_worker_tokens", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  token: text("token").notNull().unique(),
+  sessionId: uuid("session_id").notNull().references(() => loneWorkerSessions.id),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+});
+
+export type LoneWorkerSession = typeof loneWorkerSessions.$inferSelect;
+export type LoneWorkerToken = typeof loneWorkerTokens.$inferSelect;
