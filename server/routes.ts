@@ -25956,7 +25956,11 @@ This is an automated notification from your visitor management system.`;
           if (session.personEmail) {
             const baseUrl = `${req.protocol}://${req.get('host')}`;
             const emailSvc = emailService.forCustomer(session.customerId);
-            await emailSvc.sendLoneWorkerWelfareCheck({ to: session.personEmail, workerName: session.personName, confirmUrl: `${baseUrl}/lone-worker/ok/${session.customerId}/${newToken}`, nextCheckMins: intervalMins, companyName: settings?.companyName || 'Your Company', siteName: settings?.companyName || 'Site' });
+            try {
+              await emailSvc.sendLoneWorkerWelfareCheck({ to: session.personEmail, workerName: session.personName, confirmUrl: `${baseUrl}/lone-worker/ok/${session.customerId}/${newToken}`, nextCheckMins: intervalMins, companyName: settings?.companyName || 'Your Company', siteName: settings?.companyName || 'Site' });
+            } catch (emailErr: any) {
+              console.error(`🛡️ Lone worker confirmation for session ${session.id} succeeded but next welfare email failed:`, emailErr?.message || emailErr);
+            }
           }
           return res.json({ success: true, nextCheckMins: intervalMins, workerName: session.personName, companyName: settings?.companyName || 'Your Company' });
         } catch (_) { /* skip failed customer DB and try next */ }
@@ -26025,14 +26029,18 @@ This is an automated notification from your visitor management system.`;
       if (session.personEmail) {
         const baseUrl = `${req.protocol}://${req.get('host')}`;
         const emailSvc = emailService.forCustomer(session.customerId);
-        await emailSvc.sendLoneWorkerWelfareCheck({
-          to: session.personEmail,
-          workerName: session.personName,
-          confirmUrl: `${baseUrl}/lone-worker/ok/${session.customerId}/${newToken}`,
-          nextCheckMins: intervalMins,
-          companyName: settings?.companyName || 'Your Company',
-          siteName: settings?.companyName || 'Site',
-        });
+        try {
+          await emailSvc.sendLoneWorkerWelfareCheck({
+            to: session.personEmail,
+            workerName: session.personName,
+            confirmUrl: `${baseUrl}/lone-worker/ok/${session.customerId}/${newToken}`,
+            nextCheckMins: intervalMins,
+            companyName: settings?.companyName || 'Your Company',
+            siteName: settings?.companyName || 'Site',
+          });
+        } catch (emailErr: any) {
+          console.error(`🛡️ Lone worker confirmation for session ${session.id} succeeded but next welfare email failed:`, emailErr?.message || emailErr);
+        }
       }
 
       res.json({ success: true, nextCheckMins: intervalMins, workerName: session.personName, companyName: settings?.companyName || 'Your Company' });
