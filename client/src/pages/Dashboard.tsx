@@ -841,19 +841,32 @@ export default function Dashboard() {
               const now = new Date();
               const minsLeft = deadline ? Math.round((deadline.getTime() - now.getTime()) / 60000) : null;
               const isOverdue = minsLeft !== null && minsLeft < 0;
+              const isApproaching = minsLeft !== null && minsLeft >= 0 && minsLeft <= 5;
+              const isEscalated = session.escalationLevel > 0;
+              const rowColor = isEscalated
+                ? 'bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700'
+                : (isOverdue || isApproaching)
+                  ? 'bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700'
+                  : 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800';
+              const iconColor = isEscalated ? 'text-red-600' : (isOverdue || isApproaching) ? 'text-amber-600' : 'text-green-600';
+              const badgeColor = isEscalated
+                ? 'bg-red-200 text-red-800 dark:bg-red-800/60 dark:text-red-200'
+                : (isOverdue || isApproaching)
+                  ? 'bg-amber-200 text-amber-800 dark:bg-amber-800/60 dark:text-amber-200'
+                  : 'bg-green-100 text-green-800 dark:bg-green-800/60 dark:text-green-200';
               return (
-                <div key={session.id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${session.escalationLevel > 0 ? 'bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700' : isOverdue ? 'bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700' : 'bg-white/50 dark:bg-white/10 border border-amber-200/50 dark:border-amber-700/50'}`}>
+                <div key={session.id} className={`flex items-center justify-between px-3 py-2 rounded-lg ${rowColor}`}>
                   <div className="flex items-center gap-2 min-w-0">
-                    <Shield size={14} className={session.escalationLevel > 0 ? 'text-red-600' : isOverdue ? 'text-orange-600' : 'text-amber-600'} />
+                    <Shield size={14} className={iconColor} />
                     <span className="font-medium text-sm text-fixed truncate">{session.personName}</span>
                     <span className="text-xs text-variable hidden sm:block capitalize">({session.personType})</span>
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    {session.escalationLevel > 0 && (
+                    {isEscalated && (
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-red-600 text-white animate-pulse">L{session.escalationLevel} ALERT</span>
                     )}
                     <span className="text-xs text-variable hidden sm:block">{session.minutesSinceStart}m ago</span>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${session.escalationLevel > 0 ? 'bg-red-200 text-red-800 dark:bg-red-800/60 dark:text-red-200' : isOverdue ? 'bg-orange-200 text-orange-800 dark:bg-orange-800/60 dark:text-orange-200' : 'bg-amber-100 text-amber-700 dark:bg-amber-800/60 dark:text-amber-200'}`}>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${badgeColor}`}>
                       {minsLeft !== null ? (isOverdue ? `${Math.abs(minsLeft)}m overdue` : `next in ${minsLeft}m`) : 'checking…'}
                     </span>
                   </div>

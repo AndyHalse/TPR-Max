@@ -26143,6 +26143,8 @@ This is an automated notification from your visitor management system.`;
         const l1Email = settings?.loneWorkerL1Email;
         if (l1Email) {
           await emailSvc.sendLoneWorkerEscalation({ to: l1Email, contactName: settings.loneWorkerL1Name || 'Supervisor', level: 1, ...escalationOpts });
+        } else {
+          console.warn(`⚠️ Lone Worker L1 escalation triggered for ${session.personName} (${session.customerId}) but no L1 contact email is configured — alert not sent`);
         }
         const updateData = { loneWorkerEscalationLevel: 1 };
         if (session.personType === 'staff') {
@@ -26157,6 +26159,8 @@ This is an automated notification from your visitor management system.`;
         const l2Email = settings?.loneWorkerL2Email;
         if (l2Email) {
           await emailSvc.sendLoneWorkerEscalation({ to: l2Email, contactName: settings.loneWorkerL2Name || 'Manager', level: 2, ...escalationOpts });
+        } else {
+          console.warn(`⚠️ Lone Worker L2 escalation triggered for ${session.personName} (${session.customerId}) but no L2 contact email is configured — alert not sent`);
         }
         const updateData = { loneWorkerEscalationLevel: 2 };
         if (session.personType === 'staff') {
