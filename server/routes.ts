@@ -25911,6 +25911,53 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // GET /api/lone-worker/ok/:token — token-only alias (no customerId in URL); iterates all customers
+  app.get("/api/lone-worker/ok/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      if (!token || token.length < 20) return res.status(400).json({ error: 'Invalid token' });
+      const cryptoMod = await import('crypto');
+      const allCustomers = await CustomerDatabaseService.getInstance().getAllCustomers();
+      for (const cust of allCustomers) {
+        try {
+          const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(cust.id);
+          const [tokenRow] = await customerDb
+            .select()
+            .from(isolatedSchema.loneWorkerTokens)
+            .where(sql`${isolatedSchema.loneWorkerTokens.token} = ${token}`)
+            .limit(1);
+          if (!tokenRow) continue;
+          if (tokenRow.usedAt) return res.status(400).json({ error: 'This confirmation link has already been used', alreadyUsed: true });
+          if (new Date(tokenRow.expiresAt) < new Date()) return res.status(400).json({ error: 'This confirmation link has expired. A new check-in email has been sent.', expired: true });
+          const [session] = await customerDb.select().from(isolatedSchema.loneWorkerSessions).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${tokenRow.sessionId}`).limit(1);
+          if (!session || session.status !== 'active') return res.status(400).json({ error: 'Lone worker session is no longer active' });
+          const settings = await getLoneWorkerSettings({ db: customerDb });
+          const intervalMins = session.intervalMins;
+          await customerDb.update(isolatedSchema.loneWorkerTokens).set({ usedAt: new Date() }).where(sql`${isolatedSchema.loneWorkerTokens.id} = ${tokenRow.id}`);
+          const newDeadline = new Date(Date.now() + intervalMins * 60000);
+          await customerDb.update(isolatedSchema.loneWorkerSessions).set({ checkInsCompleted: (session.checkInsCompleted || 0) + 1 }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
+          if (session.personType === 'staff') {
+            await customerDb.update(isolatedSchema.staff).set({ loneWorkerDeadline: newDeadline, loneWorkerEscalationLevel: 0 }).where(sql`${isolatedSchema.staff.id} = ${session.personId}`);
+          } else {
+            await customerDb.update(isolatedSchema.contractorWorkers).set({ loneWorkerDeadline: newDeadline, loneWorkerEscalationLevel: 0 }).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
+          }
+          const newToken = mintLoneWorkerToken(cryptoMod);
+          await customerDb.insert(isolatedSchema.loneWorkerTokens).values({ token: newToken, sessionId: session.id, expiresAt: new Date(Date.now() + (intervalMins + (settings?.loneWorkerGracePeriodMins || 10)) * 60000) });
+          if (session.personEmail) {
+            const baseUrl = `${req.protocol}://${req.get('host')}`;
+            const emailSvc = emailService.forCustomer(session.customerId);
+            await emailSvc.sendLoneWorkerWelfareCheck({ to: session.personEmail, workerName: session.personName, confirmUrl: `${baseUrl}/lone-worker/ok/${session.customerId}/${newToken}`, nextCheckMins: intervalMins, companyName: settings?.companyName || 'Your Company', siteName: settings?.companyName || 'Site' });
+          }
+          return res.json({ success: true, nextCheckMins: intervalMins, workerName: session.personName, companyName: settings?.companyName || 'Your Company' });
+        } catch (_) { /* skip failed customer DB and try next */ }
+      }
+      return res.status(404).json({ error: 'Token not found or already used' });
+    } catch (err: any) {
+      console.error('GET /api/lone-worker/ok/:token (alias) error:', err);
+      res.status(500).json({ error: 'Failed to process welfare check confirmation' });
+    }
+  });
+
   // GET /api/lone-worker/ok/:customerId/:token — public confirmation endpoint (no auth required)
   app.get("/api/lone-worker/ok/:customerId/:token", async (req, res) => {
     try {
@@ -25985,17 +26032,27 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // GET /api/lone-worker/sessions — session log for Reports page
+  // GET /api/lone-worker/sessions — session log for Reports page (paginated)
   app.get("/api/lone-worker/sessions", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId!;
       const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
+      const offset = (page - 1) * limit;
+
+      const [{ count }] = await customerDb
+        .select({ count: sql<number>`count(*)::int` })
+        .from(isolatedSchema.loneWorkerSessions);
+
       const sessions = await customerDb
         .select()
         .from(isolatedSchema.loneWorkerSessions)
         .orderBy(sql`${isolatedSchema.loneWorkerSessions.startedAt} DESC`)
-        .limit(200);
-      res.json(sessions);
+        .limit(limit)
+        .offset(offset);
+
+      res.json({ sessions, total: count, page, limit, totalPages: Math.ceil(count / limit) });
     } catch (err: any) {
       console.error('GET /api/lone-worker/sessions error:', err);
       res.status(500).json({ error: 'Failed to fetch lone worker sessions' });

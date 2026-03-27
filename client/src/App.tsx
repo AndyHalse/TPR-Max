@@ -324,6 +324,7 @@ function Router() {
       <Route path="/kiosk" component={KioskMode} />
       <Route path="/contractor" component={ContractorKiosk} />
       <Route path="/marketing" component={MarketingPage} />
+      <Route path="/lone-worker/ok/:token" component={LoneWorkerConfirmation} />
       <Route path="/lone-worker/ok/:customerId/:token" component={LoneWorkerConfirmation} />
       <Route path="/induction-preview/:roleType">
         {(params) => {

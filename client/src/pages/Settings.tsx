@@ -6580,14 +6580,19 @@ export default function Settings() {
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-fixed">Check-in Interval (minutes)</label>
                   <p className="text-xs text-variable">How often a welfare check email is sent</p>
-                  <input
-                    type="number"
-                    min={5}
-                    max={480}
-                    value={currentSettings?.loneWorkerCheckIntervalMins ?? 30}
-                    onChange={(e) => triggerAutoSave('loneWorkerCheckIntervalMins', parseInt(e.target.value) || 30)}
-                    className="w-full h-10 px-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-fixed text-sm"
-                  />
+                  <Select
+                    value={String(currentSettings?.loneWorkerCheckIntervalMins ?? 30)}
+                    onValueChange={(v) => triggerAutoSave('loneWorkerCheckIntervalMins', parseInt(v))}
+                  >
+                    <SelectTrigger className="w-full h-10 border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-fixed text-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {[15, 30, 45, 60, 90, 120].map((mins) => (
+                        <SelectItem key={mins} value={String(mins)}>{mins} minutes</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Grace period */}

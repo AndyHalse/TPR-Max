@@ -49,10 +49,15 @@ export default function Reports() {
   const [selectedStaff, setSelectedStaff] = useState<string[]>([]);
   const [showStaffSelection, setShowStaffSelection] = useState(false);
 
-  const { data: loneWorkerSessions = [] } = useQuery<any[]>({
-    queryKey: ['/api/lone-worker/sessions'],
+  const [loneWorkerPage, setLoneWorkerPage] = useState(1);
+  const LONE_WORKER_LIMIT = 50;
+  const { data: loneWorkerData } = useQuery<any>({
+    queryKey: [`/api/lone-worker/sessions?page=${loneWorkerPage}&limit=${LONE_WORKER_LIMIT}`],
     refetchInterval: 60000,
   });
+  const loneWorkerSessions: any[] = loneWorkerData?.sessions ?? [];
+  const loneWorkerTotal: number = loneWorkerData?.total ?? 0;
+  const loneWorkerTotalPages: number = loneWorkerData?.totalPages ?? 1;
 
   const { data: reports, isLoading } = useQuery<Report[]>({
     queryKey: ["/api/reports"],
@@ -684,7 +689,7 @@ export default function Reports() {
           </div>
           <div>
             <h3 className="text-base font-bold text-fixed">Lone Worker Sessions</h3>
-            <p className="text-xs text-variable">{loneWorkerSessions.length} session{loneWorkerSessions.length !== 1 ? 's' : ''} on record</p>
+            <p className="text-xs text-variable">{loneWorkerTotal} session{loneWorkerTotal !== 1 ? 's' : ''} on record</p>
           </div>
         </div>
 
@@ -752,6 +757,17 @@ export default function Reports() {
                 </tbody>
               </table>
             </div>
+
+            {/* Pagination controls */}
+            {loneWorkerTotalPages > 1 && (
+              <div className="flex items-center justify-between pt-3 border-t border-white/20">
+                <p className="text-xs text-variable">Page {loneWorkerPage} of {loneWorkerTotalPages} ({loneWorkerTotal} total)</p>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setLoneWorkerPage(p => Math.max(1, p - 1))} disabled={loneWorkerPage === 1} className="h-7 px-3 text-xs">Previous</Button>
+                  <Button size="sm" variant="outline" onClick={() => setLoneWorkerPage(p => Math.min(loneWorkerTotalPages, p + 1))} disabled={loneWorkerPage >= loneWorkerTotalPages} className="h-7 px-3 text-xs">Next</Button>
+                </div>
+              </div>
+            )}
           </>
         )}
       </GlassCard>

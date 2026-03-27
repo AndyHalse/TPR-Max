@@ -26,6 +26,7 @@ import {
   Phone, 
   FileText, 
   Shield, 
+  ShieldOff,
   AlertTriangle, 
   CheckCircle, 
   Clock,
@@ -381,6 +382,35 @@ export default function Contractors() {
       return assignments;
     },
   });
+
+  const { data: companySettings } = useQuery<any>({ queryKey: ['/api/settings'] });
+
+  const { data: activeLoneWorkers = [] } = useQuery<any[]>({
+    queryKey: ['/api/lone-worker/active'],
+    refetchInterval: 30000,
+    enabled: !!currentUser,
+  });
+
+  const startWorkerLoneWorkerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/contractor-workers/${id}/lone-worker/start`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/lone-worker/active'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", selectedContractor?.id, "workers", customerId] });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to start lone worker session.", variant: "destructive" }),
+  });
+
+  const endWorkerLoneWorkerMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/contractor-workers/${id}/lone-worker/end`, { endedBy: 'supervisor' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/lone-worker/active'] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", selectedContractor?.id, "workers", customerId] });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to end lone worker session.", variant: "destructive" }),
+  });
+
+  const getWorkerLoneWorkerSession = (workerId: string) =>
+    activeLoneWorkers.find((s: any) => s.personId === workerId && s.personType === 'contractor');
 
   const contractorData = contractors || [];
   const filteredContractors = contractorData.filter((contractor: ContractorCompany) =>
@@ -1723,21 +1753,40 @@ export default function Contractors() {
 
               {/* Workers Grid - Same as Visitor Cards */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {(workers as any[]).length > 0 ? (workers as any[]).map((worker: any) => (
-                  <WorkerCard
-                    key={worker.id}
-                    worker={worker}
-                    onCheckIn={handleWorkerCheckIn}
-                    onCheckOut={handleWorkerCheckOut}
-                    onIssueCard={handleIssueCard}
-                    onViewDetails={() => handleViewWorker(worker)}
-                    onResendHSDocument={handleResendHSDocument}
-                    onResetCard={(workerId) => {
-                      resetCardMutation.mutate(workerId);
-                    }}
-                    hsAssignments={allWorkerHSAssignments[worker.id] || []}
-                  />
-                )) : (
+                {(workers as any[]).length > 0 ? (workers as any[]).map((worker: any) => {
+                  const lwSession = getWorkerLoneWorkerSession(worker.id);
+                  return (
+                    <div key={worker.id} className="flex flex-col gap-2">
+                      <WorkerCard
+                        worker={worker}
+                        onCheckIn={handleWorkerCheckIn}
+                        onCheckOut={handleWorkerCheckOut}
+                        onIssueCard={handleIssueCard}
+                        onViewDetails={() => handleViewWorker(worker)}
+                        onResendHSDocument={handleResendHSDocument}
+                        onResetCard={(workerId) => {
+                          resetCardMutation.mutate(workerId);
+                        }}
+                        hsAssignments={allWorkerHSAssignments[worker.id] || []}
+                      />
+                      {lwSession ? (
+                        <div className="flex items-center justify-between bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <Shield className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                            <span className="text-xs font-medium text-amber-700 dark:text-amber-300">Lone Worker Active</span>
+                          </div>
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => endWorkerLoneWorkerMutation.mutate(worker.id)} disabled={endWorkerLoneWorkerMutation.isPending}>
+                            <ShieldOff className="h-3.5 w-3.5 mr-1" />End
+                          </Button>
+                        </div>
+                      ) : (worker.isCheckedIn && companySettings?.loneWorkerEnabled) ? (
+                        <Button size="sm" variant="outline" className="w-full h-8 text-xs border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-300" onClick={() => startWorkerLoneWorkerMutation.mutate(worker.id)} disabled={startWorkerLoneWorkerMutation.isPending || !worker.email} title={worker.email ? "Start lone worker protection" : "Worker needs an email address"}>
+                          <Shield className="h-3.5 w-3.5 mr-1.5" />Start Lone Worker
+                        </Button>
+                      ) : null}
+                    </div>
+                  );
+                }) : (
                   <div className="col-span-full text-center py-8">
                     <Users className="h-12 w-12 mx-auto mb-4 text-variable" />
                     <p className="text-variable">No workers found for this contractor.</p>
