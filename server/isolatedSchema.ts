@@ -2086,7 +2086,7 @@ export const loneWorkerSessions = pgTable("lone_worker_sessions", {
   endedAt: timestamp("ended_at"),
   intervalMins: integer("interval_mins").notNull().default(30),
   gracePeriodMins: integer("grace_period_mins").notNull().default(10),
-  status: text("status").notNull().default("active"), // active, ended, escalated
+  status: text("status").notNull().default("active"), // active, escalated, ended_ok
   checkInsCompleted: integer("check_ins_completed").notNull().default(0),
   escalationsFired: integer("escalations_fired").notNull().default(0),
   endedBy: text("ended_by"),

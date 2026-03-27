@@ -26079,7 +26079,10 @@ This is an automated notification from your visitor management system.`;
 
   // ─── Background Cron: Lone Worker Monitoring ─────────────────────────────
   // Runs every 60 seconds; checks for overdue sessions and fires escalation emails
-  setInterval(async () => {
+  // Singleton guard: prevents duplicate intervals if registerRoutes is called more than once
+  if (!(globalThis as any).__loneWorkerCronStarted) {
+    (globalThis as any).__loneWorkerCronStarted = true;
+    setInterval(async () => {
     try {
       const now = new Date();
       // Must iterate customer-isolated schemas — global db does not have lone_worker_sessions
@@ -26102,6 +26105,9 @@ This is an automated notification from your visitor management system.`;
       console.error('Lone worker cron top-level error:', err.message?.substring(0, 100));
     }
   }, 60000);
+  } else {
+    console.log('🛡️ Lone Worker cron already running — skipping duplicate registration');
+  }
 
   async function processLoneWorkerSession(session: any, customerDb: any, now: Date) {
     try {
