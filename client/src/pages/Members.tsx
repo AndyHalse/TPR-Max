@@ -405,67 +405,47 @@ export default function Members() {
             )}
           </div>
         ) : viewMode === 'list' ? (
-          <div className="space-y-4">
+          <div className="space-y-2">
             {filteredMembers.map((member) => (
               <div
                 key={member.id}
-                className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50"
+                className="flex items-center gap-2.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50"
               >
-                {/* Info row */}
-                <div className="flex items-start gap-3 px-3 pt-3 pb-1">
-                  {member.photoUrl ? (
-                    <img src={member.photoUrl} alt={`${member.firstName} ${member.lastName}`} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-                      <span className="text-white font-bold text-sm">{member.firstName[0]?.toUpperCase()}{member.lastName[0]?.toUpperCase()}</span>
-                    </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-fixed text-sm leading-tight">{member.firstName} {member.lastName}</p>
-                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                      <Badge className={membershipTypeColors[member.membershipType || "full"]}>{(member.membershipType || "full").toUpperCase()}</Badge>
-                      <Badge className={statusColors[member.membershipStatus || "active"]}>{(member.membershipStatus || "active").toUpperCase()}</Badge>
-                      {member.isCheckedIn ? (
-                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">On Site</Badge>
-                      ) : (
-                        <Badge variant="secondary">Off Site</Badge>
-                      )}
-                    </div>
-                    <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-variable mt-1">
-                      {member.email && <span>{member.email}</span>}
-                      {member.phoneNumber && <span>{member.phoneNumber}</span>}
-                      {member.membershipNumber && <span>No: {member.membershipNumber}</span>}
-                      {member.expiryDate && (
-                        <span className={isExpired(member.expiryDate) ? 'text-red-500 font-medium' : ''}>
-                          Expires: {formatDate(member.expiryDate)}
-                        </span>
-                      )}
-                    </div>
+                {/* Avatar */}
+                {member.photoUrl ? (
+                  <img src={member.photoUrl} alt={`${member.firstName} ${member.lastName}`} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                    <span className="text-white font-bold text-[11px]">{member.firstName[0]?.toUpperCase()}{member.lastName[0]?.toUpperCase()}</span>
                   </div>
-                  {/* Desktop: actions inline */}
-                  <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-                    <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => openEditDialog(member)}><Edit className="h-4 w-4" /></Button>
-                    {member.isCheckedIn ? (
-                      <Button variant="outline" size="sm" className="h-9 px-3 text-red-600 border-red-300 hover:bg-red-50" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending}>
-                        <UserX className="h-4 w-4 mr-1" />Check Out
-                      </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" className="h-9 px-3 text-green-600 border-green-300 hover:bg-green-50" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending}>
-                        <UserCheck className="h-4 w-4 mr-1" />Check In
-                      </Button>
+                )}
+                {/* Name + meta */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="font-semibold text-fixed text-sm leading-tight">{member.firstName} {member.lastName}</span>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${membershipTypeColors[member.membershipType || "full"]}`}>{(member.membershipType || "full").toUpperCase()}</span>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${statusColors[member.membershipStatus || "active"]}`}>{(member.membershipStatus || "active").toUpperCase()}</span>
+                    <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${member.isCheckedIn ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'}`}>{member.isCheckedIn ? 'On Site' : 'Off Site'}</span>
+                  </div>
+                  <div className="flex items-center gap-x-3 text-[11px] text-variable mt-0.5">
+                    {member.membershipNumber && <span>No: {member.membershipNumber}</span>}
+                    {member.expiryDate && (
+                      <span className={isExpired(member.expiryDate) ? 'text-red-500 font-medium' : ''}>
+                        Exp: {formatDate(member.expiryDate)}
+                      </span>
                     )}
                   </div>
                 </div>
-                {/* Mobile: actions as bottom row */}
-                <div className="sm:hidden flex items-center justify-end gap-2 px-3 pb-3 pt-1">
-                  <Button variant="outline" size="sm" className="h-9 w-9 p-0" onClick={() => openEditDialog(member)}><Edit className="h-4 w-4" /></Button>
+                {/* Actions — always inline */}
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <Button variant="outline" size="sm" className="h-8 w-8 p-0" onClick={() => openEditDialog(member)}><Edit className="h-3.5 w-3.5" /></Button>
                   {member.isCheckedIn ? (
-                    <Button variant="outline" size="sm" className="h-9 px-3 font-medium text-red-600 border-red-300 hover:bg-red-50" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending}>
-                      <UserX className="h-4 w-4 mr-1" />Check Out
+                    <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs font-medium text-red-600 border-red-300 hover:bg-red-50" onClick={() => checkOutMutation.mutate(member.id)} disabled={checkOutMutation.isPending}>
+                      <UserX className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Check Out</span>
                     </Button>
                   ) : (
-                    <Button variant="outline" size="sm" className="h-9 px-3 font-medium text-green-600 border-green-300 hover:bg-green-50" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending}>
-                      <UserCheck className="h-4 w-4 mr-1" />Check In
+                    <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs font-medium text-green-600 border-green-300 hover:bg-green-50" onClick={() => checkInMutation.mutate(member.id)} disabled={checkInMutation.isPending}>
+                      <UserCheck className="h-3.5 w-3.5 sm:mr-1" /><span className="hidden sm:inline">Check In</span>
                     </Button>
                   )}
                 </div>
