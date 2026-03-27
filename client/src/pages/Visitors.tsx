@@ -6,7 +6,6 @@ import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -1424,34 +1423,23 @@ export default function Visitors() {
                   <Label htmlFor="hostStaffId" className="text-sm font-medium text-fixed">
                     Host Staff Member *
                   </Label>
-                  <Select 
-                    value={walkInData.hostStaffId} 
-                    onValueChange={(value) => handleWalkInInputChange("hostStaffId", value)}
+                  <select
+                    value={walkInData.hostStaffId}
+                    onChange={(e) => handleWalkInInputChange("hostStaffId", e.target.value)}
+                    data-testid="input-walkin-host"
+                    className={`w-full h-12 px-4 rounded-xl border bg-white/50 text-sm text-foreground focus:outline-none focus:ring-2 appearance-none ${
+                      walkInValidationErrors.hostStaffId
+                        ? 'border-red-500 focus:ring-red-500'
+                        : 'border-white/30 focus:ring-green-500'
+                    }`}
                   >
-                    <SelectTrigger 
-                      className={`w-full px-4 py-3 rounded-xl border bg-white/50 ${
-                        walkInValidationErrors.hostStaffId 
-                          ? 'border-red-500 focus:ring-red-500 ring-red-200' 
-                          : 'border-white/30 focus:ring-green-500'
-                      }`}
-                      data-testid="input-walkin-host"
-                    >
-                      <SelectValue placeholder="Select host staff member" />
-                    </SelectTrigger>
-                    <SelectContent position="popper" className="max-h-64 overflow-y-auto">
-                      {staff?.map((member) => (
-                        <SelectItem key={member.id} value={member.id} className="py-3 text-sm">
-                          <span className="font-medium">{member.firstName} {member.lastName}</span>
-                          {member.department && <span className="text-muted-foreground ml-1">— {member.department}</span>}
-                        </SelectItem>
-                      ))}
-                      {(!staff || staff.length === 0) && (
-                        <SelectItem key="no-staff" value="no-selection" disabled>
-                          No staff members available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                    <option value="">Select host staff member</option>
+                    {staff?.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.firstName} {member.lastName}{member.department ? ` — ${member.department}` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1672,26 +1660,18 @@ export default function Visitors() {
                   <Label htmlFor="hostStaffId" className="text-sm font-medium text-fixed">
                     Host Staff Member *
                   </Label>
-                  <Select 
-                    value={preBookingData.hostStaffId || ""} 
-                    onValueChange={(value) => setPreBookingData(prev => ({ ...prev, hostStaffId: value }))}
+                  <select
+                    value={preBookingData.hostStaffId || ""}
+                    onChange={(e) => setPreBookingData(prev => ({ ...prev, hostStaffId: e.target.value }))}
+                    className="w-full h-12 px-4 rounded-xl border border-white/30 bg-white/50 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 appearance-none"
                   >
-                    <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50">
-                      <SelectValue placeholder="Select host staff member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {staff?.map((member) => (
-                        <SelectItem key={member.id} value={member.id}>
-                          {member.firstName} {member.lastName} - {member.department}
-                        </SelectItem>
-                      ))}
-                      {(!staff || staff.length === 0) && (
-                        <SelectItem key="no-staff" value="no-selection" disabled>
-                          No staff members available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                    <option value="">Select host staff member</option>
+                    {staff?.map((member) => (
+                      <option key={member.id} value={member.id}>
+                        {member.firstName} {member.lastName}{member.department ? ` — ${member.department}` : ''}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -1836,25 +1816,19 @@ export default function Visitors() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label className="text-sm font-medium text-fixed">Host Staff Member *</Label>
-              <Select 
-                value={selectedHostForPrevious} 
-                onValueChange={setSelectedHostForPrevious}
+              <select
+                value={selectedHostForPrevious}
+                onChange={(e) => setSelectedHostForPrevious(e.target.value)}
+                data-testid="input-host-select"
+                className="w-full h-12 px-3 rounded-xl border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
               >
-                <SelectTrigger className="w-full h-12 text-sm" data-testid="input-host-select">
-                  <SelectValue placeholder="Tap to choose a staff member…" />
-                </SelectTrigger>
-                <SelectContent position="popper" className="max-h-64 overflow-y-auto">
-                  {staff?.map((member) => (
-                    <SelectItem key={member.id} value={member.id} className="py-3 text-sm">
-                      <span className="font-medium">{member.firstName} {member.lastName}</span>
-                      {member.department && <span className="text-muted-foreground ml-1">— {member.department}</span>}
-                    </SelectItem>
-                  ))}
-                  {(!staff || staff.length === 0) && (
-                    <SelectItem key="no-staff" value="no-selection" disabled>No staff members available</SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                <option value="">Tap to choose a staff member…</option>
+                {staff?.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.firstName} {member.lastName}{member.department ? ` — ${member.department}` : ''}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex gap-3">
               <Button
