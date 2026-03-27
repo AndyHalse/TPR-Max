@@ -129,15 +129,25 @@ export default function Members() {
       const response = await apiRequest("POST", `/api/members/${id}/check-in`);
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/members"] });
+      const previousMembers = queryClient.getQueryData<any[]>(["/api/members"]);
+      queryClient.setQueryData(["/api/members"], (old: any[] | undefined) =>
+        old?.map(m => m.id === id ? { ...m, isCheckedIn: true, checkedInAt: new Date().toISOString() } : m)
+      );
+      return { previousMembers };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previousMembers) {
+        queryClient.setQueryData(["/api/members"], context.previousMembers);
+      }
+      toast({ title: "Error", description: "Failed to check in member", variant: "destructive" });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
       queryClient.invalidateQueries({ queryKey: ["/api/members/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      toast({ title: "Success", description: "Member checked in successfully" });
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to check in member", variant: "destructive" });
     },
   });
 
@@ -146,15 +156,25 @@ export default function Members() {
       const response = await apiRequest("POST", `/api/members/${id}/check-out`);
       return response.json();
     },
-    onSuccess: () => {
+    onMutate: async (id: string) => {
+      await queryClient.cancelQueries({ queryKey: ["/api/members"] });
+      const previousMembers = queryClient.getQueryData<any[]>(["/api/members"]);
+      queryClient.setQueryData(["/api/members"], (old: any[] | undefined) =>
+        old?.map(m => m.id === id ? { ...m, isCheckedIn: false, checkedInAt: null } : m)
+      );
+      return { previousMembers };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previousMembers) {
+        queryClient.setQueryData(["/api/members"], context.previousMembers);
+      }
+      toast({ title: "Error", description: "Failed to check out member", variant: "destructive" });
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
       queryClient.invalidateQueries({ queryKey: ["/api/members/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      toast({ title: "Success", description: "Member checked out successfully" });
-    },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to check out member", variant: "destructive" });
     },
   });
 

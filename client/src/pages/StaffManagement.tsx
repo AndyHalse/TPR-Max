@@ -73,25 +73,27 @@ export default function StaffManagement() {
     mutationFn: async (id: string) => {
       return apiRequest("POST", `/api/staff/${id}/checkin`, { manual: true });
     },
-    onSuccess: () => {
-      // Invalidate the correct query based on context
-      const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
-      queryClient.invalidateQueries({ queryKey });
+    onMutate: async (id: string) => {
+      const staffQueryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
+      await queryClient.cancelQueries({ queryKey: staffQueryKey });
+      const previousStaff = queryClient.getQueryData<any[]>(staffQueryKey);
+      queryClient.setQueryData(staffQueryKey, (old: any[] | undefined) =>
+        old?.map(s => s.id === id ? { ...s, isCheckedIn: true, checkedInAt: new Date().toISOString() } : s)
+      );
+      return { previousStaff, staffQueryKey };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previousStaff) {
+        queryClient.setQueryData(context.staffQueryKey, context.previousStaff);
+      }
+      toast({ title: "Error", description: "Failed to check in staff member", variant: "destructive" });
+    },
+    onSettled: (_data, _err, _id, context) => {
+      if (context?.staffQueryKey) queryClient.invalidateQueries({ queryKey: context.staffQueryKey });
       queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      toast({
-        title: "Success",
-        description: "Staff member checked in successfully",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to check in staff member",
-        variant: "destructive",
-      });
     },
   });
 
@@ -99,25 +101,27 @@ export default function StaffManagement() {
     mutationFn: async (id: string) => {
       return apiRequest("POST", `/api/staff/${id}/checkout`);
     },
-    onSuccess: () => {
-      // Invalidate the correct query based on context
-      const queryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
-      queryClient.invalidateQueries({ queryKey });
+    onMutate: async (id: string) => {
+      const staffQueryKey = isTenantView ? [`/api/tenants/${slug}/staff`] : ["/api/staff"];
+      await queryClient.cancelQueries({ queryKey: staffQueryKey });
+      const previousStaff = queryClient.getQueryData<any[]>(staffQueryKey);
+      queryClient.setQueryData(staffQueryKey, (old: any[] | undefined) =>
+        old?.map(s => s.id === id ? { ...s, isCheckedIn: false, checkedInAt: null } : s)
+      );
+      return { previousStaff, staffQueryKey };
+    },
+    onError: (_err, _id, context) => {
+      if (context?.previousStaff) {
+        queryClient.setQueryData(context.staffQueryKey, context.previousStaff);
+      }
+      toast({ title: "Error", description: "Failed to check out staff member", variant: "destructive" });
+    },
+    onSettled: (_data, _err, _id, context) => {
+      if (context?.staffQueryKey) queryClient.invalidateQueries({ queryKey: context.staffQueryKey });
       queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      toast({
-        title: "Success",
-        description: "Staff member checked out successfully",
-      });
-    },
-    onError: () => {
-      toast({
-        title: "Error",
-        description: "Failed to check out staff member",
-        variant: "destructive",
-      });
     },
   });
 
