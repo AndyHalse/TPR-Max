@@ -1414,9 +1414,9 @@ export default function EmergencyMuster() {
         </GlassCard>
       )}
 
-      {/* Search and Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
-        <div className="lg:col-span-2 order-2 lg:order-1">
+      {/* Personnel Accountability — full width */}
+      <div>
+        <div>
           <GlassCard className="dark:glass-dark">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
               <h3 className="text-base sm:text-lg font-semibold text-fixed">
@@ -1487,7 +1487,36 @@ export default function EmergencyMuster() {
               </div>
             </div>
             
+            {/* First-time user hint — only shown when idle and list has people */}
+            {!hasActiveEvacuation && filteredList.length > 0 && (
+              <div className="mb-4 flex items-start gap-2 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 text-xs text-blue-700 dark:text-blue-300">
+                <ShieldAlert size={14} className="flex-shrink-0 mt-0.5 text-blue-500" />
+                <p>This list shows everyone currently on-site. When you activate an emergency, <strong>Mark Safe</strong> buttons appear so you can account for each person in real time.</p>
+              </div>
+            )}
+
             <div className="space-y-2 sm:space-y-3 max-h-[55vh] sm:max-h-[60vh] overflow-y-auto">
+              {filteredList.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
+                  <Users size={40} className="mb-3 opacity-30" />
+                  {totalPeople === 0 ? (
+                    <>
+                      <p className="font-medium text-sm">No one is currently on-site</p>
+                      <p className="text-xs mt-1 max-w-xs">Once visitors, staff, or contractors check in, they will appear here ready for emergency roll-call.</p>
+                    </>
+                  ) : !showSafePeople && accountedFor === totalPeople ? (
+                    <>
+                      <p className="font-medium text-sm text-green-600 dark:text-green-400">All personnel are accounted for</p>
+                      <p className="text-xs mt-1">Tap <strong>Show Safe</strong> above to view the full list.</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium text-sm">No results match your search</p>
+                      <p className="text-xs mt-1">Try clearing the search or adjusting your filter.</p>
+                    </>
+                  )}
+                </div>
+              )}
               {filteredList.map((person) => {
                 const avatarBg = person.type === 'staff' ? 'bg-purple-500' : person.type === 'visitor' ? 'bg-blue-500' : person.type === 'member' ? 'bg-purple-500' : 'bg-orange-500';
                 const typeBadge = person.type === 'staff' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : person.type === 'visitor' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : person.type === 'member' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
@@ -1591,173 +1620,7 @@ export default function EmergencyMuster() {
           </GlassCard>
         </div>
         
-        <GlassCard className="dark:glass-dark order-1 lg:order-2">
-          <div className="flex items-center mb-4 sm:mb-6">
-            <Phone className="mr-3 text-blue-600 dark:text-blue-400" size={20} />
-            <h3 className="text-base sm:text-lg font-semibold text-fixed">Emergency Contacts</h3>
-          </div>
-          
-          <div className="space-y-3 sm:space-y-4">
-            <div className="p-3 sm:p-4 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-800">
-              <h4 className="font-medium text-red-800 dark:text-red-200 mb-1 text-sm sm:text-base">Emergency Services</h4>
-              <a href="tel:999" className="text-red-700 dark:text-red-300 text-2xl font-bold hover:underline block">999</a>
-            </div>
-            
-            {fireMarshals.length > 0 ? (
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-medium text-blue-800 dark:text-blue-200">Fire Marshal Links</h4>
-                  <Badge variant="outline" className="text-xs text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-600">
-                    {fireMarshals.length} marshal{fireMarshals.length !== 1 ? 's' : ''}
-                  </Badge>
-                </div>
-                <div className="space-y-3">
-                  {fireMarshals.map((fm: any) => {
-                    const marshalUrl = `${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`;
-                    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(marshalUrl)}&color=1e3a5f&bgcolor=eff6ff`;
-                    const isShowingQr = showQrFor === fm.id;
-                    return (
-                      <div key={fm.id} className="bg-white dark:bg-blue-900/30 rounded-lg p-2.5 border border-blue-200 dark:border-blue-700">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className="text-blue-800 dark:text-blue-200 text-sm font-semibold leading-tight">{fm.firstName} {fm.lastName}</p>
-                            {fm.department && <p className="text-blue-500 dark:text-blue-400 text-xs mt-0.5">{fm.department}</p>}
-                          </div>
-                          <div className="flex gap-1 flex-shrink-0">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className={`h-7 w-7 p-0 ${isShowingQr ? 'bg-blue-100 dark:bg-blue-800/40 text-blue-700 dark:text-blue-300' : ''}`}
-                              title="Show QR Code"
-                              onClick={() => setShowQrFor(isShowingQr ? null : fm.id)}
-                            >
-                              <QrCode size={14} />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0"
-                              title="Copy link"
-                              onClick={() => {
-                                navigator.clipboard.writeText(marshalUrl);
-                                toast({ title: "Copied", description: `Fire Marshal link copied for ${fm.firstName}` });
-                              }}
-                            >
-                              <Copy size={14} />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 w-7 p-0"
-                              title="Open link"
-                              onClick={() => window.open(marshalUrl, '_blank')}
-                            >
-                              <ExternalLink size={14} />
-                            </Button>
-                          </div>
-                        </div>
-                        {isShowingQr && (
-                          <div className="mt-2.5 pt-2.5 border-t border-blue-200 dark:border-blue-700 flex flex-col items-center gap-2">
-                            <img
-                              src={qrUrl}
-                              alt={`QR code for ${fm.firstName} ${fm.lastName}`}
-                              className="w-28 h-28 rounded-lg border border-blue-200 dark:border-blue-600 bg-white"
-                            />
-                            <p className="text-[10px] text-blue-600 dark:text-blue-400 text-center leading-tight">
-                              Scan to open Fire Marshal<br />view on mobile
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">Fire Marshal</h4>
-                <p className="text-blue-700 dark:text-blue-300">Contact Security</p>
-                <p className="text-blue-600 dark:text-blue-400 text-sm">Call Reception</p>
-              </div>
-            )}
-            
-            {/* Zone Sweep Status — in sidebar beneath fire marshal links, during active evacuation */}
-            {hasActiveEvacuation && activeZones.length > 0 && (
-              <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <Footprints size={14} className="text-green-600 dark:text-green-400" />
-                    <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm">Zone Sweep Progress</h4>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{zoneSweeps.length}/{activeZones.length}</span>
-                </div>
-                <div className="space-y-1">
-                  {activeZones.map(zone => {
-                    const sweep = sweptZoneMap.get(zone.id);
-                    return (
-                      <div key={zone.id} className="flex items-center gap-2 text-xs">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
-                        <span className={`flex-1 truncate ${sweep ? 'text-green-700 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>
-                          {zone.name}
-                        </span>
-                        {sweep ? (
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Footprints size={10} className="text-green-600 dark:text-green-400" />
-                            <span className="text-green-600 dark:text-green-400 font-medium">
-                              {new Date(sweep.sweptAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                            {sweep.hasUnaccountedAtTime && (
-                              <span className="text-amber-500" title="Swept with unaccounted people">⚠</span>
-                            )}
-                          </div>
-                        ) : (
-                          <Clock size={10} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
-              <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">Site Contact</h4>
-              {companySettings?.phone ? (
-                <a href={`tel:${companySettings.phone}`} className="text-green-700 dark:text-green-300 text-lg font-bold hover:underline block">
-                  {companySettings.phone}
-                </a>
-              ) : (
-                <>
-                  <p className="text-green-700 dark:text-green-300">Control Room</p>
-                  <p className="text-green-600 dark:text-green-400 text-sm">Call Reception</p>
-                </>
-              )}
-            </div>
-            
-            <a href="tel:999" className="w-full">
-              <Button className="w-full bg-red-600 hover:bg-red-700 text-white border-0" data-testid="button-call-emergency">
-                <Phone className="mr-2" size={16} />
-                Call 999 – Emergency Services
-              </Button>
-            </a>
-            
-            <Button 
-              className="w-full" 
-              variant="outline" 
-              data-testid="button-send-alert"
-              onClick={() => {
-                const subject = "Emergency Muster Activation";
-                const message = `Emergency muster has been activated at ${new Date().toLocaleString()}.\n\nAll on-site personnel must immediately proceed to the designated muster point.\n\nPlease follow your emergency procedures and await further instructions from the Fire Marshal.`;
-                sendAlertMutation.mutate({ subject, message });
-              }}
-              disabled={sendAlertMutation.isPending}
-            >
-              <Mail className="mr-2" size={16} />
-              {sendAlertMutation.isPending ? "Sending..." : "Send Alert Email"}
-            </Button>
-          </div>
-        </GlassCard>
-      </div>
+        </div>
 
       {/* End Evacuation confirmation dialog */}
       {showEndEvacDialog && (
