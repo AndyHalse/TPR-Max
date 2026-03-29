@@ -76,8 +76,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         isFireMarshal: staffToEdit.isFireMarshal || false,
         needsEvacuationAssistance: staffToEdit.needsEvacuationAssistance || false,
         phoneNumber: staffToEdit.phoneNumber || "",
-        memberNumber: (staffToEdit as any).memberNumber || "",
-        barcodeNumber: (staffToEdit as any).barcodeNumber || "",
+        memberNumber: staffToEdit.memberNumber || "",
+        barcodeNumber: staffToEdit.barcodeNumber || "",
         voiceNotificationsEnabled: staffToEdit.voiceNotificationsEnabled || false,
         preferredNotificationMethod: staffToEdit.preferredNotificationMethod || "email",
         voiceLanguage: staffToEdit.voiceLanguage || "en-GB",
@@ -502,7 +502,7 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
 
           <div className="space-y-2">
             <Label htmlFor="barcodeNumber" className="text-sm font-medium text-fixed">
-              Barcode / Card Number
+              QR/Barcode / Card Number
             </Label>
             <Input
               id="barcodeNumber"

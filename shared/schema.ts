@@ -181,6 +181,8 @@ export const staff = pgTable("staff", {
   emergencyTokenExpires: timestamp("emergency_token_expires"), // DEPRECATED: Legacy token expiration
   userId: varchar("user_id").references(() => users.id), // Link to user account
   biostarUserId: text("biostar_user_id").unique(), // Biostar 2 user ID for access control sync
+  memberNumber: text("member_number"), // Member/staff ID number synced from Biostar custom_field_1
+  barcodeNumber: text("barcode_number"), // Access card / QR/Barcode ID synced from Biostar card data
   qrCode: text("qr_code").unique(),
   // Induction tracking
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
