@@ -71,12 +71,20 @@ function parseBiostarError(errorText: string): string {
 function mapBiostarUser(raw: any): BiostarUser {
   const id = raw?.user_id?.id ?? raw?.id ?? String(raw?.user_id ?? '');
 
-  // Extract barcode from first access card (card_id.id is the card/barcode number)
+  // Extract barcode/card number from the cards array.
+  // Biostar 2 stores the actual QR/barcode value in different fields depending on
+  // the API version and card type. We try all known locations in order of preference.
   const cards: any[] = Array.isArray(raw?.cards) ? raw.cards : [];
-  const firstCard = cards.find(c => c?.card_id?.id) ?? cards[0];
-  const barcodeNumber = firstCard?.card_id?.id
-    ? String(firstCard.card_id.id)
-    : (firstCard?.id ? String(firstCard.id) : undefined);
+  if (cards.length > 0) {
+    console.log(`🔍 Biostar card raw data for "${raw?.name}":`, JSON.stringify(cards[0]));
+  }
+  const firstCard = cards.find(c => c?.card_number || c?.card_id?.card_number || c?.uid || (c?.id && String(c.id).length > 4)) ?? cards[0];
+  const barcodeNumber =
+    firstCard?.card_number                           // direct card_number field
+    ?? firstCard?.card_id?.card_number               // nested under card_id
+    ?? firstCard?.uid                                // UID field used by some versions
+    ?? (firstCard?.id && String(firstCard.id).length > 4 ? String(firstCard.id) : undefined) // id only if it looks like a real card number (>4 digits)
+    ?? undefined;
 
   // Member number is stored in custom_field_1 by convention (configurable in Biostar)
   const memberNumber = raw?.custom_field_1 || raw?.member_number || undefined;
