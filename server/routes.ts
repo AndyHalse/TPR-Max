@@ -15720,8 +15720,11 @@ This is an automated notification from your visitor management system.`;
         employeeId: isolatedSchema.staff.employeeId,
       }).from(isolatedSchema.staff);
 
-      const existingBiostarIds = new Set(
-        existingStaff.map(s => s.biostarUserId).filter(Boolean)
+      // Map biostarUserId → staff record id so we can update existing records
+      const biostarIdToStaffId = new Map(
+        existingStaff
+          .filter(s => s.biostarUserId)
+          .map(s => [s.biostarUserId as string, s.id])
       );
       const existingEmails = new Set(
         existingStaff.map(s => s.email?.toLowerCase()).filter(Boolean)
@@ -15731,6 +15734,7 @@ This is an automated notification from your visitor management system.`;
       );
 
       let importedCount = 0;
+      let updatedCount = 0;
       let skippedCount = 0;
       const importErrors: string[] = [];
 
@@ -15741,17 +15745,33 @@ This is an automated notification from your visitor management system.`;
           continue;
         }
 
-        // Skip if already imported (by biostarUserId)
-        if (existingBiostarIds.has(bUser.id)) {
-          skippedCount++;
-          continue;
-        }
-
-        // Split full name → first name + last name
         const nameParts = bUser.name.trim().split(/\s+/);
         const firstName = nameParts[0] || 'Unknown';
         const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
 
+        // --- Update existing Biostar staff record with latest field values ---
+        if (biostarIdToStaffId.has(bUser.id)) {
+          const staffId = biostarIdToStaffId.get(bUser.id)!;
+          const updates: Record<string, any> = {
+            firstName,
+            lastName,
+          };
+          if (bUser.email?.trim()) updates.email = bUser.email.trim().toLowerCase();
+          if (bUser.phone?.trim()) updates.phoneNumber = bUser.phone.trim();
+          if (bUser.department?.trim()) updates.department = bUser.department.trim();
+          if (bUser.barcodeNumber) updates.barcodeNumber = bUser.barcodeNumber;
+          if (bUser.memberNumber) updates.memberNumber = bUser.memberNumber;
+
+          try {
+            await databaseService.updateStaff(context, staffId, updates as any);
+            updatedCount++;
+          } catch (err: any) {
+            console.error(`❌ Biostar: Failed to update staff "${bUser.name}":`, err.message);
+          }
+          continue;
+        }
+
+        // --- Create new staff record ---
         // Build a unique employee ID using the Biostar user ID
         const employeeId = existingEmployeeIds.has(`BSTR-${bUser.id}`)
           ? `BSTR-${bUser.id}-${Date.now()}`
@@ -15773,19 +15793,22 @@ This is an automated notification from your visitor management system.`;
             firstName,
             lastName,
             email,
-            department: "Unassigned",
+            department: bUser.department?.trim() || "Unassigned",
             employeeId,
             accessLevel: "staff",
             biostarUserId: bUser.id,
+            phoneNumber: bUser.phone?.trim() || undefined,
+            barcodeNumber: bUser.barcodeNumber || undefined,
+            memberNumber: bUser.memberNumber || undefined,
             isActive: true,
             isCheckedIn: false,
             isAccountedFor: false,
             needsEvacuationAssistance: false,
             isFireMarshal: false,
             inductionCompleted: false,
-          });
+          } as any);
 
-          existingBiostarIds.add(bUser.id);
+          biostarIdToStaffId.set(bUser.id, ''); // mark as processed
           existingEmails.add(email);
           existingEmployeeIds.add(employeeId);
           importedCount++;
@@ -15797,7 +15820,7 @@ This is an automated notification from your visitor management system.`;
         }
       }
 
-      console.log(`📊 Biostar staff import: ${importedCount} added, ${skippedCount} skipped`);
+      console.log(`📊 Biostar staff import: ${importedCount} added, ${updatedCount} updated, ${skippedCount} skipped`);
 
       // --- Step 2: Get current on-site users from event logs (non-fatal) ---
       let onSiteUsers: any[] = [];
@@ -15819,13 +15842,14 @@ This is an automated notification from your visitor management system.`;
       res.json({
         success: true,
         imported: importedCount,
+        updated: updatedCount,
         skipped: skippedCount,
         errors: importErrors.length > 0 ? importErrors : undefined,
         onSiteCount: onSiteUsers.length,
         onSiteUsers,
         onSiteWarning,
         lastSync: new Date().toISOString(),
-        message: `Sync completed: ${importedCount} new staff imported from Biostar${onSiteWarning ? " (on-site tracking unavailable)" : `, ${onSiteUsers.length} users on-site`}`,
+        message: `Sync completed: ${importedCount} new staff imported, ${updatedCount} updated from Biostar${onSiteWarning ? " (on-site tracking unavailable)" : `, ${onSiteUsers.length} users on-site`}`,
       });
     } catch (error) {
       console.error("❌ Biostar sync failed:", error);

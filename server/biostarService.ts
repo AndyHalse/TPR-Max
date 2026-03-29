@@ -25,6 +25,10 @@ export interface BiostarUser {
   id: string;
   name: string;
   email?: string;
+  phone?: string;
+  department?: string;
+  barcodeNumber?: string;
+  memberNumber?: string;
   photoUrl?: string;
   userGroupId?: string;
   startDateTime?: string;
@@ -66,10 +70,25 @@ function parseBiostarError(errorText: string): string {
 // Biostar 2 Local API wraps the user ID: { "user_id": { "id": "123" } }
 function mapBiostarUser(raw: any): BiostarUser {
   const id = raw?.user_id?.id ?? raw?.id ?? String(raw?.user_id ?? '');
+
+  // Extract barcode from first access card (card_id.id is the card/barcode number)
+  const cards: any[] = Array.isArray(raw?.cards) ? raw.cards : [];
+  const firstCard = cards.find(c => c?.card_id?.id) ?? cards[0];
+  const barcodeNumber = firstCard?.card_id?.id
+    ? String(firstCard.card_id.id)
+    : (firstCard?.id ? String(firstCard.id) : undefined);
+
+  // Member number is stored in custom_field_1 by convention (configurable in Biostar)
+  const memberNumber = raw?.custom_field_1 || raw?.member_number || undefined;
+
   return {
     id,
     name: raw?.name ?? '',
     email: raw?.email || undefined,
+    phone: raw?.phone || raw?.mobile || undefined,
+    department: raw?.user_group?.name || undefined,
+    barcodeNumber: barcodeNumber || undefined,
+    memberNumber: memberNumber ? String(memberNumber) : undefined,
     photoUrl: raw?.photo_url || raw?.photoUrl || undefined,
     userGroupId: raw?.user_group?.id ?? raw?.userGroupId ?? undefined,
     startDateTime: raw?.start_datetime ?? raw?.startDateTime ?? undefined,

@@ -44,6 +44,8 @@ export const staff = pgTable("staff", {
   biostarUserId: text("biostar_user_id"),
   paxtonUserId: text("paxton_user_id"),
   phoneNumber: text("phone_number"),
+  memberNumber: text("member_number"),
+  barcodeNumber: text("barcode_number"),
   // Induction tracking
   inductionCompleted: boolean("induction_completed").default(false).notNull(),
   inductionCompletedAt: timestamp("induction_completed_at"),

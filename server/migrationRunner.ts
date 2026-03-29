@@ -294,6 +294,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addStaffPhoneNumberMigration,
     addUserMenuPermissionsMigration,
     addLoneWorkerMigration,
+    addBiostarStaffFieldsMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1920,6 +1921,25 @@ const addMartynLawMigration = {
       console.log(`✅ [024] Created martyn_law_config table`);
     } catch (err: any) {
       console.log(`⚠️ [024] martyn_law_config: ${err.message?.substring(0, 120)}`);
+    }
+  }
+};
+
+const addBiostarStaffFieldsMigration: Migration = {
+  version: '20260329_034_add_biostar_staff_fields',
+  description: 'Add memberNumber and barcodeNumber fields to staff table for Biostar sync',
+  async up(db: any) {
+    const cols = [
+      { name: 'member_number', def: 'TEXT' },
+      { name: 'barcode_number', def: 'TEXT' },
+    ];
+    for (const col of cols) {
+      try {
+        await db.execute(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+        console.log(`✅ [034] staff.${col.name}`);
+      } catch (err: any) {
+        console.log(`⚠️ [034] staff.${col.name}: ${err.message?.substring(0, 80)}`);
+      }
     }
   }
 };

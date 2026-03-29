@@ -4124,17 +4124,15 @@ export default function Settings() {
                           queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
                         }
                         
-                        const importMsg = result.imported > 0
-                          ? `${result.imported} new staff imported from Biostar.`
-                          : result.imported === 0 ? "No new staff to import." : "";
-                        
-                        const warningMsg = result.onSiteWarning
-                          ? ` Note: ${result.onSiteWarning}`
-                          : "";
+                        const parts: string[] = [];
+                        if (result.imported > 0) parts.push(`${result.imported} new staff imported.`);
+                        if (result.updated > 0) parts.push(`${result.updated} records updated with latest Biostar data.`);
+                        if (result.imported === 0 && result.updated === 0) parts.push("All staff already up to date.");
+                        if (result.onSiteWarning) parts.push(`Note: ${result.onSiteWarning}`);
 
                         toast({
                           title: result.success ? "✅ Sync Successful" : "❌ Sync Failed",
-                          description: (importMsg + warningMsg).trim() || result.message || "",
+                          description: parts.join(" ") || result.message || "",
                           variant: result.success ? "default" : "destructive"
                         });
                       } catch (error: any) {
