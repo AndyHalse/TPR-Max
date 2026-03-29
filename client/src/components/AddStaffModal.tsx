@@ -35,6 +35,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
     isFireMarshal: false,
     needsEvacuationAssistance: false,
     phoneNumber: "",
+    memberNumber: "",
+    barcodeNumber: "",
     voiceNotificationsEnabled: false,
     preferredNotificationMethod: "email",
     voiceLanguage: "en-GB",
@@ -74,6 +76,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         isFireMarshal: staffToEdit.isFireMarshal || false,
         needsEvacuationAssistance: staffToEdit.needsEvacuationAssistance || false,
         phoneNumber: staffToEdit.phoneNumber || "",
+        memberNumber: (staffToEdit as any).memberNumber || "",
+        barcodeNumber: (staffToEdit as any).barcodeNumber || "",
         voiceNotificationsEnabled: staffToEdit.voiceNotificationsEnabled || false,
         preferredNotificationMethod: staffToEdit.preferredNotificationMethod || "email",
         voiceLanguage: staffToEdit.voiceLanguage || "en-GB",
@@ -97,6 +101,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
         isFireMarshal: false,
         needsEvacuationAssistance: false,
         phoneNumber: "",
+        memberNumber: "",
+        barcodeNumber: "",
         voiceNotificationsEnabled: false,
         preferredNotificationMethod: "email",
         voiceLanguage: "en-GB",
@@ -302,6 +308,8 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
       isFireMarshal: formData.isFireMarshal,
       needsEvacuationAssistance: formData.needsEvacuationAssistance,
       phoneNumber: formData.phoneNumber.trim() || null,
+      memberNumber: formData.memberNumber.trim() || null,
+      barcodeNumber: formData.barcodeNumber.trim() || null,
       voiceNotificationsEnabled: formData.voiceNotificationsEnabled,
       preferredNotificationMethod: formData.preferredNotificationMethod,
       voiceLanguage: formData.voiceLanguage,
@@ -473,7 +481,43 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
               Links this staff member to a user in Paxton Net2 access control system
             </p>
           </div>
-          
+
+          <div className="space-y-2">
+            <Label htmlFor="memberNumber" className="text-sm font-medium text-fixed">
+              Member Number
+            </Label>
+            <Input
+              id="memberNumber"
+              type="text"
+              value={formData.memberNumber}
+              onChange={(e) => handleInputChange("memberNumber", e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+              placeholder="e.g. MBR-001"
+              data-testid="input-member-number"
+            />
+            <p className="text-xs text-variable">
+              Member or staff ID number (synced from Biostar custom field)
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="barcodeNumber" className="text-sm font-medium text-fixed">
+              Barcode / Card Number
+            </Label>
+            <Input
+              id="barcodeNumber"
+              type="text"
+              value={formData.barcodeNumber}
+              onChange={(e) => handleInputChange("barcodeNumber", e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+              placeholder="e.g. 1234567890"
+              data-testid="input-barcode-number"
+            />
+            <p className="text-xs text-variable">
+              Access card / barcode number (synced from Biostar card data)
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="accessLevel" className="text-sm font-medium text-fixed">
               Access Level *
