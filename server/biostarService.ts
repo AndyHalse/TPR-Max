@@ -48,6 +48,35 @@ export interface BiostarConnectionStatus {
   databaseId?: string;
 }
 
+// Extract a human-readable error from a Biostar error response body
+function parseBiostarError(errorText: string): string {
+  try {
+    const parsed = JSON.parse(errorText);
+    // Biostar wraps errors in { "Response": { "code": "101", "message": "..." } }
+    if (parsed?.Response?.message) return parsed.Response.message;
+    if (parsed?.message) return parsed.message;
+    if (parsed?.error) return parsed.error;
+  } catch {
+    // not JSON — return raw text trimmed
+  }
+  return errorText.trim() || 'Unknown error';
+}
+
+// Map a raw Biostar API user record to BiostarUser interface.
+// Biostar 2 Local API wraps the user ID: { "user_id": { "id": "123" } }
+function mapBiostarUser(raw: any): BiostarUser {
+  const id = raw?.user_id?.id ?? raw?.id ?? String(raw?.user_id ?? '');
+  return {
+    id,
+    name: raw?.name ?? '',
+    email: raw?.email || undefined,
+    photoUrl: raw?.photo_url || raw?.photoUrl || undefined,
+    userGroupId: raw?.user_group?.id ?? raw?.userGroupId ?? undefined,
+    startDateTime: raw?.start_datetime ?? raw?.startDateTime ?? undefined,
+    expireDateTime: raw?.expire_datetime ?? raw?.expireDateTime ?? undefined,
+  };
+}
+
 class BiostarService {
   private sessionId: string | null = null;
   private sessionExpiry: Date | null = null;
@@ -111,8 +140,9 @@ class BiostarService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        const friendlyMessage = parseBiostarError(errorText);
         console.error(`❌ Biostar login failed: ${response.status} - ${errorText}`);
-        throw new Error(`Login failed: ${response.statusText}`);
+        throw new Error(`Login failed: ${friendlyMessage}`);
       }
 
       // Extract session ID from response headers
@@ -132,6 +162,11 @@ class BiostarService {
       
       if (error.name === 'AbortError') {
         throw new Error('Connection timeout - Biostar server may be unreachable');
+      }
+      
+      // Re-throw without double-wrapping if already a meaningful message
+      if (error.message.startsWith('Login failed:') || error.message.startsWith('Connection timeout')) {
+        throw error;
       }
       
       throw new Error(`Failed to connect to Biostar server: ${error.message}`);
@@ -193,7 +228,8 @@ class BiostarService {
           return this.makeAuthenticatedRequest(config, endpoint, method, body);
         }
         
-        throw new Error(`API request failed: ${response.statusText}`);
+        const friendlyMessage = parseBiostarError(errorText);
+        throw new Error(`API request failed: ${friendlyMessage}`);
       }
 
       const data = await response.json();
@@ -231,14 +267,26 @@ class BiostarService {
   }
 
   /**
-   * Get list of users from Biostar
+   * Get list of all users from Biostar.
+   * Biostar 2 Local API returns users in:
+   *   { UserCollection: { total: N, rows: [ { user_id: { id: "1" }, name: "...", ... } ] } }
+   * Falls back to response.records for older API versions.
    */
   async getUsers(config: BiostarConfig, limit: number = 1000, offset: number = 0): Promise<BiostarUser[]> {
     try {
       const endpoint = `/api/users?limit=${limit}&offset=${offset}`;
       const response = await this.makeAuthenticatedRequest(config, endpoint);
       
-      return response.records || [];
+      // Handle Biostar 2 Local API format: { UserCollection: { rows: [...] } }
+      const rawRows: any[] =
+        response?.UserCollection?.rows ??
+        response?.records ??
+        response?.rows ??
+        [];
+
+      const users = rawRows.map(mapBiostarUser).filter(u => u.id && u.name);
+      console.log(`👥 Biostar: Retrieved ${users.length} users`);
+      return users;
     } catch (error: any) {
       console.error('❌ Failed to fetch Biostar users:', error);
       throw error;

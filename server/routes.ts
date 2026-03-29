@@ -15698,16 +15698,109 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "Missing Biostar connection settings" });
       }
 
-      console.log('🔄 Starting manual Biostar attendance sync...');
-
-      // Get current on-site users from Biostar
-      const onSiteUsers = await biostarService.getCurrentOnSiteUsers({
+      const biostarConfig = {
         serverUrl: settings.biostarServerUrl,
         username: settings.biostarUsername,
         password: settings.biostarPassword,
         databaseId: settings.biostarDatabaseId || "1",
-      });
-      
+      };
+
+      console.log('🔄 Starting manual Biostar sync (attendance + staff import)...');
+
+      // --- Step 1: Get all Biostar users and import any new ones as staff ---
+      const biostarUsers = await biostarService.getUsers(biostarConfig);
+      console.log(`👥 Biostar: ${biostarUsers.length} users fetched for staff import check`);
+
+      // Fetch existing staff to check for duplicates by biostarUserId
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const existingStaff = await db.select({
+        id: isolatedSchema.staff.id,
+        biostarUserId: isolatedSchema.staff.biostarUserId,
+        email: isolatedSchema.staff.email,
+        employeeId: isolatedSchema.staff.employeeId,
+      }).from(isolatedSchema.staff);
+
+      const existingBiostarIds = new Set(
+        existingStaff.map(s => s.biostarUserId).filter(Boolean)
+      );
+      const existingEmails = new Set(
+        existingStaff.map(s => s.email?.toLowerCase()).filter(Boolean)
+      );
+      const existingEmployeeIds = new Set(
+        existingStaff.map(s => s.employeeId).filter(Boolean)
+      );
+
+      let importedCount = 0;
+      let skippedCount = 0;
+      const importErrors: string[] = [];
+
+      for (const bUser of biostarUsers) {
+        // Skip users without a name or ID
+        if (!bUser.id || !bUser.name.trim()) {
+          skippedCount++;
+          continue;
+        }
+
+        // Skip if already imported (by biostarUserId)
+        if (existingBiostarIds.has(bUser.id)) {
+          skippedCount++;
+          continue;
+        }
+
+        // Split full name → first name + last name
+        const nameParts = bUser.name.trim().split(/\s+/);
+        const firstName = nameParts[0] || 'Unknown';
+        const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+        // Build a unique employee ID using the Biostar user ID
+        const employeeId = existingEmployeeIds.has(`BSTR-${bUser.id}`)
+          ? `BSTR-${bUser.id}-${Date.now()}`
+          : `BSTR-${bUser.id}`;
+
+        // Build a unique email — use Biostar email if available and not already taken,
+        // otherwise generate a placeholder so the unique constraint is satisfied
+        let email = bUser.email && bUser.email.trim() && !existingEmails.has(bUser.email.toLowerCase())
+          ? bUser.email.trim().toLowerCase()
+          : `biostar.${bUser.id}@noemail.local`;
+
+        // Ensure placeholder is also unique (edge case: duplicate Biostar IDs)
+        if (existingEmails.has(email)) {
+          email = `biostar.${bUser.id}.${Date.now()}@noemail.local`;
+        }
+
+        try {
+          await databaseService.createStaff(context, {
+            firstName,
+            lastName,
+            email,
+            department: "Unassigned",
+            employeeId,
+            accessLevel: "staff",
+            biostarUserId: bUser.id,
+            isActive: true,
+            isCheckedIn: false,
+            isAccountedFor: false,
+            needsEvacuationAssistance: false,
+            isFireMarshal: false,
+            inductionCompleted: false,
+          });
+
+          existingBiostarIds.add(bUser.id);
+          existingEmails.add(email);
+          existingEmployeeIds.add(employeeId);
+          importedCount++;
+          console.log(`✅ Biostar: Imported staff "${firstName} ${lastName}" (Biostar ID: ${bUser.id})`);
+        } catch (err: any) {
+          console.error(`❌ Biostar: Failed to import user "${bUser.name}":`, err.message);
+          importErrors.push(`${bUser.name}: ${err.message}`);
+          skippedCount++;
+        }
+      }
+
+      console.log(`📊 Biostar staff import: ${importedCount} added, ${skippedCount} skipped`);
+
+      // --- Step 2: Get current on-site users from event logs ---
+      const onSiteUsers = await biostarService.getCurrentOnSiteUsers(biostarConfig);
       console.log(`📊 Biostar sync found ${onSiteUsers.length} users on-site`);
       
       // Update last sync timestamp
@@ -15717,10 +15810,13 @@ This is an automated notification from your visitor management system.`;
 
       res.json({
         success: true,
+        imported: importedCount,
+        skipped: skippedCount,
+        errors: importErrors.length > 0 ? importErrors : undefined,
         onSiteCount: onSiteUsers.length,
         onSiteUsers,
         lastSync: new Date().toISOString(),
-        message: `Sync completed: Found ${onSiteUsers.length} users on-site`
+        message: `Sync completed: ${importedCount} new staff imported from Biostar, ${onSiteUsers.length} users on-site`,
       });
     } catch (error) {
       console.error("❌ Biostar sync failed:", error);

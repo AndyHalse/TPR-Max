@@ -4099,28 +4099,29 @@ export default function Settings() {
                           description: "Fetching attendance data from Biostar 2...",
                         });
                         
-                        const response = await fetch('/api/biostar/sync-now', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' }
-                        });
-                        
+                        const response = await apiRequest("POST", "/api/biostar/sync-now");
                         const result = await response.json();
                         
                         if (result.success) {
-                          // Refresh settings to show new last sync time
+                          // Refresh settings to show new last sync time and staff list
                           queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+                          queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
                         }
+                        
+                        const importMsg = result.imported > 0
+                          ? `${result.imported} new staff imported from Biostar. `
+                          : result.imported === 0 ? "No new staff to import. " : "";
                         
                         toast({
                           title: result.success ? "✅ Sync Successful" : "❌ Sync Failed",
-                          description: result.message,
+                          description: importMsg + (result.message || ""),
                           variant: result.success ? "default" : "destructive"
                         });
-                      } catch (error) {
+                      } catch (error: any) {
                         console.error('Biostar sync error:', error);
                         toast({
                           title: "Sync Error",
-                          description: "Failed to sync attendance data",
+                          description: error?.message || "Failed to sync attendance data",
                           variant: "destructive"
                         });
                       }
