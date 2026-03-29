@@ -78,12 +78,22 @@ function mapBiostarUser(raw: any): BiostarUser {
   if (cards.length > 0) {
     console.log(`🔍 Biostar card raw data for "${raw?.name}":`, JSON.stringify(cards[0]));
   }
-  const firstCard = cards.find(c => c?.card_number || c?.card_id?.card_number || c?.uid || (c?.id && String(c.id).length > 4)) ?? cards[0];
+  // Biostar 2 card structure (confirmed via API inspection):
+  //   { "id": "1", "card_id": "654654654", "display_card_id": "654654654", ... }
+  // card_id is a FLAT STRING (the actual QR/barcode number), NOT a nested object.
+  // id is an internal DB record ID, NOT the card number.
+  const firstCard = cards.find(c =>
+    (typeof c?.card_id === 'string' && c.card_id) ||
+    c?.display_card_id ||
+    c?.card_number ||
+    c?.uid
+  ) ?? cards[0];
   const barcodeNumber =
-    firstCard?.card_number                           // direct card_number field
-    ?? firstCard?.card_id?.card_number               // nested under card_id
-    ?? firstCard?.uid                                // UID field used by some versions
-    ?? (firstCard?.id && String(firstCard.id).length > 4 ? String(firstCard.id) : undefined) // id only if it looks like a real card number (>4 digits)
+    (typeof firstCard?.card_id === 'string' ? firstCard.card_id : undefined)       // flat string card_id (Biostar 2 format)
+    ?? firstCard?.display_card_id                                                    // display_card_id fallback
+    ?? firstCard?.card_number                                                        // direct card_number field
+    ?? firstCard?.uid                                                                // UID field
+    ?? (firstCard?.card_id?.id ? String(firstCard.card_id.id) : undefined)          // nested object format (older API)
     ?? undefined;
 
   // Member number is stored in custom_field_1 by convention (configurable in Biostar)
