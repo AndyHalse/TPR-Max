@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, gte, lte, lt, gt, sql, isNull, inArray } from "drizzle-orm";
+import { eq, and, desc, asc, gte, lte, lt, gt, sql, isNull, inArray, or } from "drizzle-orm";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
 import type {
   Staff,
@@ -111,7 +111,12 @@ export class DatabaseService {
     const staffResult = await db
       .select()
       .from(isolatedSchema.staff)
-      .where(eq(isolatedSchema.staff.qrCode, qrCode))
+      .where(
+        or(
+          eq(isolatedSchema.staff.qrCode, qrCode),
+          eq(isolatedSchema.staff.barcodeNumber, qrCode)
+        )
+      )
       .limit(1);
     
     return staffResult[0];
