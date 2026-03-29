@@ -936,12 +936,28 @@ export default function Settings() {
 
   const pendingUpdatesRef = useRef<Record<string, any>>({});
 
+  // Credential/password fields that should never be auto-saved as empty
+  const CREDENTIAL_FIELDS = new Set([
+    'biostarPassword', 'biostarUsername', 'biostarServerUrl',
+    'paxtonPassword', 'paxtonUsername', 'paxtonServerUrl',
+    'cluePassword', 'clueUsername', 'clueApiKey',
+    'smtpPassword', 'smtpUser',
+    'loneWorkerSmsApiKey',
+  ]);
+
   const triggerAutoSave = (field: string, value: any) => {
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
     
     setFormData(prev => ({ ...prev, [field]: value }));
+
+    // Don't queue a save for credential fields when the value is empty —
+    // the user is likely mid-edit and we don't want to overwrite a saved value
+    if (CREDENTIAL_FIELDS.has(field) && (value === '' || value === null || value === undefined)) {
+      return;
+    }
+
     pendingUpdatesRef.current = { ...pendingUpdatesRef.current, [field]: value };
     
     autoSaveTimeoutRef.current = setTimeout(() => {

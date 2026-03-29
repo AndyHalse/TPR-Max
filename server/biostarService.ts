@@ -129,8 +129,10 @@ class BiostarService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          login_id: config.username,
-          password: config.password,
+          User: {
+            login_id: config.username,
+            password: config.password,
+          },
         }),
         // @ts-ignore - AbortSignal.timeout is available in Node 18+
         signal: AbortSignal.timeout(15000), // 15 second timeout
