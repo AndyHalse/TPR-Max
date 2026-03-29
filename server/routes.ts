@@ -15650,17 +15650,10 @@ This is an automated notification from your visitor management system.`;
       const context = simpleDatabaseService.createCustomerContext(req.user.username, customerId);
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
-      if (!settings?.biostarEnabled) {
+      if (!settings?.biostarServerUrl || !settings?.biostarUsername || !settings?.biostarPassword) {
         return res.status(400).json({ 
           connected: false, 
-          message: "Biostar integration is not enabled in settings" 
-        });
-      }
-
-      if (!settings.biostarServerUrl || !settings.biostarUsername || !settings.biostarPassword) {
-        return res.status(400).json({ 
-          connected: false, 
-          message: "Missing Biostar server URL, username, or password in settings" 
+          message: "Please enter the Biostar server URL, username, and password before testing" 
         });
       }
 

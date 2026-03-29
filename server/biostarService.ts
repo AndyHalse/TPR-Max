@@ -1,4 +1,8 @@
 import fetch from 'node-fetch';
+import https from 'https';
+
+// HTTPS agent that accepts self-signed certificates (Biostar servers often use them)
+const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
 /**
  * Biostar 2 API Service
@@ -101,7 +105,9 @@ class BiostarService {
         }),
         // @ts-ignore - AbortSignal.timeout is available in Node 18+
         signal: AbortSignal.timeout(15000), // 15 second timeout
-      });
+        // Accept self-signed certificates common on on-premise Biostar servers
+        agent: loginUrl.startsWith('https') ? httpsAgent : undefined,
+      } as any);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -164,6 +170,8 @@ class BiostarService {
       },
       // @ts-ignore
       signal: AbortSignal.timeout(30000), // 30 second timeout for API calls
+      // Accept self-signed certificates common on on-premise Biostar servers
+      agent: url.startsWith('https') ? httpsAgent : undefined,
     };
 
     if (body) {
