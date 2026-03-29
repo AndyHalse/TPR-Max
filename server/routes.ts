@@ -15765,6 +15765,7 @@ This is an automated notification from your visitor management system.`;
           try {
             await databaseService.updateStaff(context, staffId, updates as any);
             updatedCount++;
+            console.log(`🔄 Biostar: Updated staff "${bUser.name}" (Biostar ID: ${bUser.id}, Card: ${bUser.barcodeNumber || 'none'}, Member: ${bUser.memberNumber || 'none'})`);
           } catch (err: any) {
             console.error(`❌ Biostar: Failed to update staff "${bUser.name}":`, err.message);
           }
@@ -15812,7 +15813,7 @@ This is an automated notification from your visitor management system.`;
           existingEmails.add(email);
           existingEmployeeIds.add(employeeId);
           importedCount++;
-          console.log(`✅ Biostar: Imported staff "${firstName} ${lastName}" (Biostar ID: ${bUser.id})`);
+          console.log(`✅ Biostar: Imported staff "${firstName} ${lastName}" (Biostar ID: ${bUser.id}, Card: ${bUser.barcodeNumber || 'none'}, Member: ${bUser.memberNumber || 'none'})`);
         } catch (err: any) {
           console.error(`❌ Biostar: Failed to import user "${bUser.name}":`, err.message);
           importErrors.push(`${bUser.name}: ${err.message}`);

@@ -288,17 +288,68 @@ class BiostarService {
   }
 
   /**
-   * Get list of all users from Biostar.
-   * Biostar 2 Local API returns users in:
-   *   { UserCollection: { total: N, rows: [ { user_id: { id: "1" }, name: "...", ... } ] } }
-   * Falls back to response.records for older API versions.
+   * Get list of all users from Biostar with full credential data (cards).
+   *
+   * Biostar 2's GET /api/users list endpoint returns minimal data and often omits
+   * card/credential fields. The POST /api/users/search endpoint with explicit
+   * select_columns is the correct way to get card data including QR/Barcode IDs.
+   *
+   * Falls back to the GET list endpoint if the search endpoint is unavailable.
    */
   async getUsers(config: BiostarConfig, limit: number = 1000, offset: number = 0): Promise<BiostarUser[]> {
+    // --- Primary: POST /api/users/search with explicit columns (includes cards) ---
+    try {
+      const searchBody = {
+        UserCollection: {
+          conditions: [],
+          select_columns: [
+            "user_id",
+            "name",
+            "email",
+            "phone",
+            "user_group",
+            "cards",
+            "custom_field_1",
+            "start_datetime",
+            "expire_datetime",
+          ],
+          limit,
+          offset,
+        },
+      };
+
+      const response = await this.makeAuthenticatedRequest(
+        config,
+        '/api/users/search',
+        'POST',
+        searchBody
+      );
+
+      const rawRows: any[] =
+        response?.UserCollection?.rows ??
+        response?.records ??
+        response?.rows ??
+        [];
+
+      if (rawRows.length > 0) {
+        const users = rawRows.map(mapBiostarUser).filter(u => u.id && u.name);
+        const withCards = users.filter(u => u.barcodeNumber).length;
+        console.log(`👥 Biostar: Retrieved ${users.length} users via search (${withCards} with card/QR data)`);
+        // Log first user's raw card data for diagnostics
+        if (rawRows[0]?.cards) {
+          console.log(`🔍 Biostar: Sample card data for "${rawRows[0].name}":`, JSON.stringify(rawRows[0].cards));
+        }
+        return users;
+      }
+    } catch (searchErr: any) {
+      console.warn(`⚠️ Biostar: Search endpoint unavailable (${searchErr.message}), falling back to GET list`);
+    }
+
+    // --- Fallback: GET /api/users (minimal data, may lack cards) ---
     try {
       const endpoint = `/api/users?limit=${limit}&offset=${offset}`;
       const response = await this.makeAuthenticatedRequest(config, endpoint);
-      
-      // Handle Biostar 2 Local API format: { UserCollection: { rows: [...] } }
+
       const rawRows: any[] =
         response?.UserCollection?.rows ??
         response?.records ??
@@ -306,7 +357,7 @@ class BiostarService {
         [];
 
       const users = rawRows.map(mapBiostarUser).filter(u => u.id && u.name);
-      console.log(`👥 Biostar: Retrieved ${users.length} users`);
+      console.log(`👥 Biostar: Retrieved ${users.length} users via GET list (card data may be incomplete)`);
       return users;
     } catch (error: any) {
       console.error('❌ Failed to fetch Biostar users:', error);
