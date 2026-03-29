@@ -4125,12 +4125,16 @@ export default function Settings() {
                         }
                         
                         const importMsg = result.imported > 0
-                          ? `${result.imported} new staff imported from Biostar. `
-                          : result.imported === 0 ? "No new staff to import. " : "";
+                          ? `${result.imported} new staff imported from Biostar.`
+                          : result.imported === 0 ? "No new staff to import." : "";
                         
+                        const warningMsg = result.onSiteWarning
+                          ? ` Note: ${result.onSiteWarning}`
+                          : "";
+
                         toast({
                           title: result.success ? "✅ Sync Successful" : "❌ Sync Failed",
-                          description: importMsg + (result.message || ""),
+                          description: (importMsg + warningMsg).trim() || result.message || "",
                           variant: result.success ? "default" : "destructive"
                         });
                       } catch (error: any) {

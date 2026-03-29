@@ -15799,10 +15799,18 @@ This is an automated notification from your visitor management system.`;
 
       console.log(`📊 Biostar staff import: ${importedCount} added, ${skippedCount} skipped`);
 
-      // --- Step 2: Get current on-site users from event logs ---
-      const onSiteUsers = await biostarService.getCurrentOnSiteUsers(biostarConfig);
-      console.log(`📊 Biostar sync found ${onSiteUsers.length} users on-site`);
-      
+      // --- Step 2: Get current on-site users from event logs (non-fatal) ---
+      let onSiteUsers: any[] = [];
+      let onSiteWarning: string | undefined;
+      try {
+        onSiteUsers = await biostarService.getCurrentOnSiteUsers(biostarConfig);
+        console.log(`📊 Biostar sync found ${onSiteUsers.length} users on-site`);
+      } catch (onSiteErr: any) {
+        const msg = (onSiteErr as Error).message || String(onSiteErr);
+        console.warn(`⚠️ Biostar on-site tracking unavailable (non-fatal): ${msg}`);
+        onSiteWarning = `On-site tracking unavailable: ${msg}. Staff import still succeeded.`;
+      }
+
       // Update last sync timestamp
       await simpleDatabaseService.updateCompanySettings(context, {
         biostarLastSync: new Date(),
@@ -15815,8 +15823,9 @@ This is an automated notification from your visitor management system.`;
         errors: importErrors.length > 0 ? importErrors : undefined,
         onSiteCount: onSiteUsers.length,
         onSiteUsers,
+        onSiteWarning,
         lastSync: new Date().toISOString(),
-        message: `Sync completed: ${importedCount} new staff imported from Biostar, ${onSiteUsers.length} users on-site`,
+        message: `Sync completed: ${importedCount} new staff imported from Biostar${onSiteWarning ? " (on-site tracking unavailable)" : `, ${onSiteUsers.length} users on-site`}`,
       });
     } catch (error) {
       console.error("❌ Biostar sync failed:", error);
