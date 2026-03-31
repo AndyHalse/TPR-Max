@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Shield, Check, AlertTriangle, ChevronDown, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,41 +24,45 @@ export default function HSAcceptanceModal({
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-
-  // Lock body scroll when modal is open so the page underneath doesn't scroll
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      document.body.style.position = "fixed";
-      document.body.style.width = "100%";
-    }
-    return () => {
-      document.body.style.overflow = "";
-      document.body.style.position = "";
-      document.body.style.width = "";
-    };
-  }, [isOpen]);
+  const touchStartY = useRef(0);
 
   useEffect(() => {
     if (isOpen) {
       setHasScrolledToBottom(false);
       setAccepted(false);
-      // After layout settles, check if content is short enough to not need scrolling
+      // Check after layout settles if content fits without scrolling
       setTimeout(() => {
         const el = contentRef.current;
         if (el && el.scrollHeight <= el.clientHeight + 50) {
           setHasScrolledToBottom(true);
         }
-      }, 150);
+      }, 200);
     }
   }, [isOpen, hsRulesContent]);
 
-  const handleScroll = () => {
+  const checkScrollBottom = useCallback(() => {
     const el = contentRef.current;
     if (!el) return;
     if (el.scrollHeight - el.scrollTop <= el.clientHeight + 50) {
       setHasScrolledToBottom(true);
     }
+  }, []);
+
+  // Manual touch handling so iOS Safari definitely registers scrolls in this div
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const el = contentRef.current;
+    if (!el) return;
+    const touchY = e.touches[0].clientY;
+    const deltaY = touchStartY.current - touchY;
+    el.scrollTop += deltaY;
+    touchStartY.current = touchY;
+    checkScrollBottom();
+    // Prevent the outer page from scrolling
+    e.stopPropagation();
   };
 
   if (!isOpen) return null;
@@ -66,14 +70,21 @@ export default function HSAcceptanceModal({
   const canAccept = hasScrolledToBottom && accepted;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4">
+    <div
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4"
+      // Prevent the backdrop from scrolling the page on iOS
+      onTouchMove={(e) => e.preventDefault()}
+      style={{ touchAction: "none" }}
+    >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-      {/*
-        Mobile: fill the full dynamic viewport (dvh excludes browser chrome/address-bar).
-        Desktop (sm+): auto height up to 92dvh, centred.
-      */}
-      <div className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92dvh]">
+      {/* Modal panel — 100dvh on mobile so nothing is hidden behind browser chrome */}
+      <div
+        className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92dvh]"
+        // Allow touch events to pass through to children normally on the panel itself
+        style={{ touchAction: "pan-y" }}
+        onTouchMove={(e) => e.stopPropagation()}
+      >
 
         {/* Header */}
         <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-red-50 rounded-t-2xl flex-shrink-0">
@@ -101,7 +112,7 @@ export default function HSAcceptanceModal({
               <User className="w-3.5 h-3.5 text-white" />
             </div>
             <p className="text-xs sm:text-base text-white font-semibold leading-snug">
-              <span className="font-bold">{workerName}</span> — please read all rules below before you can check in
+              <span className="font-bold">{workerName}</span> — please read all rules before checking in
             </p>
           </div>
         )}
@@ -115,12 +126,25 @@ export default function HSAcceptanceModal({
           </div>
         )}
 
-        {/* Scrollable content — flex-1 + min-h-0 essential for nested scroll in a flex column */}
+        {/*
+          Scrollable content area.
+          - flex-1 + min-h-0: lets this div take remaining space in the flex column
+          - overflow-y scroll (not auto): forces scroll track to always exist on iOS
+          - touch-action pan-y: tells iOS this element handles vertical touch scroll
+          - onTouchStart/Move: manual touch handling as a fallback for iOS
+        */}
         <div
           ref={contentRef}
-          onScroll={handleScroll}
-          className="flex-1 min-h-0 px-4 sm:px-6 py-3 sm:py-4 overscroll-contain"
-          style={{ overflowY: "scroll", WebkitOverflowScrolling: "touch" } as React.CSSProperties}
+          onScroll={checkScrollBottom}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          className="flex-1 min-h-0 px-4 sm:px-6 py-3 sm:py-4"
+          style={{
+            overflowY: "scroll",
+            overscrollBehavior: "contain",
+            touchAction: "pan-y",
+            WebkitOverflowScrolling: "touch",
+          } as React.CSSProperties}
         >
           <pre className="whitespace-pre-wrap font-sans text-sm sm:text-base text-gray-800 leading-relaxed">
             {hsRulesContent}
@@ -141,7 +165,7 @@ export default function HSAcceptanceModal({
           </div>
         )}
 
-        {/* Acceptance area — padding-bottom accounts for iOS home indicator */}
+        {/* Acceptance area */}
         <div
           className="px-4 sm:px-6 py-3 sm:py-5 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex-shrink-0 space-y-2.5 sm:space-y-4"
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 12px))" }}
