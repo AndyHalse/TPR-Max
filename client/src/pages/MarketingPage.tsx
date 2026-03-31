@@ -87,6 +87,9 @@ import reportsAnalyticsImg from "@assets/Reports & Analytics_1760457443171.png";
 import timeAttendanceImg from "@assets/Time & Attendance Report_1760457443174.png";
 import inductionsImg from "@assets/Inductions _1760457443169.png";
 import thermalImg from "@assets/ID Card printer_1756400844599.png";
+import musterReadinessImg from "@assets/image_1774977346503.png";
+import musterActiveImg from "@assets/image_1774977371147.png";
+import fireMarshalMobileImg from "@assets/image_1774977602704.png";
 
 export default function MarketingPage() {
   const [email, setEmail] = useState("");
@@ -675,21 +678,130 @@ export default function MarketingPage() {
             <div className="relative">
               <div className="relative z-10">
                 <img
-                  src={emergencyMusterImg}
-                  alt="TPR Max Emergency Muster - Real-time emergency evacuation management and accountability system"
-                  className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700"
+                  src={fireMarshalMobileImg}
+                  alt="Fire Marshal using TPR Max on mobile phone during live evacuation"
+                  className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full object-cover"
+                  style={{ maxHeight: "520px", objectPosition: "center top" }}
                 />
                 <div className="absolute -bottom-4 -right-4 bg-red-600 dark:bg-red-700 rounded-lg p-3 shadow-lg border border-red-700 dark:border-red-600">
                   <div className="flex items-center space-x-2">
                     <Siren className="h-4 w-4 text-white animate-pulse" />
                     <span className="text-sm font-medium text-white">
-                      Emergency Ready
+                      No App Download Required
+                    </span>
+                  </div>
+                </div>
+                <div className="absolute -top-4 -left-4 bg-white dark:bg-slate-800 rounded-lg p-3 shadow-lg border border-slate-200 dark:border-slate-600">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></div>
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                      LIVE — Fire Marshal Panel
                     </span>
                   </div>
                 </div>
               </div>
               <div className="absolute inset-0 bg-gradient-to-r from-red-600/20 to-orange-600/20 rounded-xl blur-3xl -z-10"></div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Muster Before & During Section */}
+      <section className="py-16 bg-gradient-to-b from-red-50 to-orange-50 dark:from-slate-900 dark:to-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <Badge className="mb-4 bg-red-600 text-white">
+              <Siren className="h-3 w-3 mr-1" />
+              Real Screens. Real Emergencies.
+            </Badge>
+            <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+              Complete Accountability —{" "}
+              <span className="text-red-600">Before & During</span> an Emergency
+            </h2>
+            <p className="text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              TPR Max keeps your Fire Marshals informed at all times. Pre-loaded with permanent
+              bookmarked links that work instantly — no login, no delay, no app download needed.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-8 items-start mb-12">
+            {/* Readiness screenshot */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-green-500"></div>
+                <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide">Normal Operations — Emergency Readiness</span>
+              </div>
+              <div className="relative">
+                <img
+                  src={musterReadinessImg}
+                  alt="TPR Max Emergency Muster - Readiness view showing Fire Marshal links, zones and on-site counts"
+                  className="rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 w-full"
+                />
+                <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                  <div className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></div>
+                  LIVE
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700">
+                  <div className="text-2xl font-bold text-slate-900 dark:text-white">46</div>
+                  <div className="text-xs text-slate-500">On Site</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700">
+                  <div className="text-2xl font-bold" style={{ color: "#2460A9" }}>6</div>
+                  <div className="text-xs text-slate-500">Zones</div>
+                </div>
+                <div className="bg-white dark:bg-slate-800 rounded-lg p-3 text-center border border-slate-200 dark:border-slate-700">
+                  <div className="text-2xl font-bold text-purple-600">2</div>
+                  <div className="text-xs text-slate-500">Marshals</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Active emergency screenshot */}
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 rounded-full bg-red-600 animate-pulse"></div>
+                <span className="text-sm font-semibold text-red-600 uppercase tracking-wide">Emergency Active — Evacuation in Progress</span>
+              </div>
+              <div className="relative">
+                <img
+                  src={musterActiveImg}
+                  alt="TPR Max Emergency Muster - Active emergency showing zone selection, fire marshal links, and send alert button"
+                  className="rounded-xl shadow-xl border-2 border-red-400 dark:border-red-600 w-full"
+                />
+                <div className="absolute top-3 right-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                  <Siren className="w-3 h-3" />
+                  EMERGENCY
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center border border-red-200 dark:border-red-800">
+                  <div className="text-sm font-semibold text-red-700 dark:text-red-400">Zone Targeting</div>
+                  <div className="text-xs text-slate-500 mt-1">Alert only affected zones</div>
+                </div>
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 text-center border border-red-200 dark:border-red-800">
+                  <div className="text-sm font-semibold text-red-700 dark:text-red-400">One-Tap Alert</div>
+                  <div className="text-xs text-slate-500 mt-1">Email all personnel instantly</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Key muster features */}
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {[
+              { icon: MapPin, title: "Up to 16 Zones", desc: "Colour-coded evacuation zones with interactive floor plan placement", color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/20", border: "border-red-200 dark:border-red-800" },
+              { icon: Smartphone, title: "Fire Marshal Mobile", desc: "Permanent URLs open instantly on any phone — no app, no login required", color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20", border: "border-orange-200 dark:border-orange-800" },
+              { icon: Mail, title: "Targeted Alerts", desc: "Email only personnel in affected zones — plus all Fire Marshals automatically", color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200 dark:border-blue-800" },
+              { icon: UserCheck, title: "Digital Roll-Call", desc: "One-tap mark safe for staff, visitors, contractors and members on-site", color: "text-green-600", bg: "bg-green-50 dark:bg-green-900/20", border: "border-green-200 dark:border-green-800" },
+            ].map(({ icon: Icon, title, desc, color, bg, border }) => (
+              <div key={title} className={`rounded-xl p-5 border ${bg} ${border}`}>
+                <Icon className={`h-6 w-6 ${color} mb-3`} />
+                <div className="font-semibold text-slate-900 dark:text-white text-sm mb-1">{title}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
@@ -1542,20 +1654,32 @@ export default function MarketingPage() {
                   </Button>
                 </div>
 
-                <div className="relative">
-                  <img
-                    src={emergencyMusterImg}
-                    alt="Emergency Muster System - Real-time personnel accountability and evacuation management"
-                    className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
-                    data-testid="img-emergency-muster"
-                  />
-                  <div className="absolute -bottom-4 -right-4 bg-red-600 dark:bg-red-700 rounded-lg p-3 shadow-lg border border-red-700 dark:border-red-600">
-                    <div className="flex items-center space-x-2">
-                      <Siren className="h-4 w-4 text-white animate-pulse" />
-                      <span className="text-sm font-medium text-white">
-                        Emergency Active
-                      </span>
+                <div className="space-y-4">
+                  {/* Readiness state */}
+                  <div className="relative">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+                      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Before — Emergency Readiness</span>
                     </div>
+                    <img
+                      src={musterReadinessImg}
+                      alt="TPR Max Emergency Muster readiness view — Fire Marshal links, zones, on-site counts"
+                      className="rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 w-full"
+                      data-testid="img-emergency-readiness"
+                    />
+                  </div>
+                  {/* Active emergency state */}
+                  <div className="relative">
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></div>
+                      <span className="text-xs font-semibold text-red-600 uppercase tracking-wide">During — Emergency Active</span>
+                    </div>
+                    <img
+                      src={musterActiveImg}
+                      alt="TPR Max Emergency Muster active state — zone selection, alert sending, Fire Marshal view"
+                      className="rounded-xl shadow-xl border-2 border-red-400 dark:border-red-600 w-full"
+                      data-testid="img-emergency-active"
+                    />
                   </div>
                 </div>
               </div>
