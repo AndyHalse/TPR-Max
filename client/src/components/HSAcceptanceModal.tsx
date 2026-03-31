@@ -30,7 +30,6 @@ export default function HSAcceptanceModal({
     if (isOpen) {
       setHasScrolledToBottom(false);
       setAccepted(false);
-      // Check after layout settles if content fits without scrolling
       setTimeout(() => {
         const el = contentRef.current;
         if (el && el.scrollHeight <= el.clientHeight + 50) {
@@ -48,7 +47,6 @@ export default function HSAcceptanceModal({
     }
   }, []);
 
-  // Manual touch handling so iOS Safari definitely registers scrolls in this div
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
   };
@@ -61,7 +59,6 @@ export default function HSAcceptanceModal({
     el.scrollTop += deltaY;
     touchStartY.current = touchY;
     checkScrollBottom();
-    // Prevent the outer page from scrolling
     e.stopPropagation();
   };
 
@@ -69,19 +66,21 @@ export default function HSAcceptanceModal({
 
   const canAccept = hasScrolledToBottom && accepted;
 
+  // Split content into non-empty lines for clean rendering (avoids <pre> iOS scroll issues)
+  const lines = hsRulesContent
+    .split("\n")
+    .map((l) => l.trimEnd());
+
   return (
     <div
       className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4"
-      // Prevent the backdrop from scrolling the page on iOS
       onTouchMove={(e) => e.preventDefault()}
       style={{ touchAction: "none" }}
     >
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-      {/* Modal panel — 100dvh on mobile so nothing is hidden behind browser chrome */}
       <div
         className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92dvh]"
-        // Allow touch events to pass through to children normally on the panel itself
         style={{ touchAction: "pan-y" }}
         onTouchMove={(e) => e.stopPropagation()}
       >
@@ -93,7 +92,9 @@ export default function HSAcceptanceModal({
               <Shield className="text-white w-5 h-5 sm:w-7 sm:h-7" />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-base sm:text-2xl font-bold text-gray-900 leading-tight">Health &amp; Safety Rules</h2>
+              <h2 className="text-base sm:text-2xl font-bold text-gray-900 leading-tight">
+                Health &amp; Safety Rules
+              </h2>
               {companyName && (
                 <p className="text-xs sm:text-sm text-gray-600 truncate">{companyName}</p>
               )}
@@ -126,13 +127,12 @@ export default function HSAcceptanceModal({
           </div>
         )}
 
-        {/*
-          Scrollable content area.
-          - flex-1 + min-h-0: lets this div take remaining space in the flex column
-          - overflow-y scroll (not auto): forces scroll track to always exist on iOS
-          - touch-action pan-y: tells iOS this element handles vertical touch scroll
-          - onTouchStart/Move: manual touch handling as a fallback for iOS
-        */}
+        {/* ── Scrollable content ─────────────────────────────────────────────
+            flex-1 + min-h-0  → takes remaining space in flex column
+            overflowY scroll  → always-active scroll track (iOS ignores "auto" sometimes)
+            touch-action pan-y → tells iOS this element owns vertical swipes
+            onTouchStart/Move → manual scroll drive — bulletproof iOS fallback
+        ──────────────────────────────────────────────────────────────────── */}
         <div
           ref={contentRef}
           onScroll={checkScrollBottom}
@@ -146,9 +146,18 @@ export default function HSAcceptanceModal({
             WebkitOverflowScrolling: "touch",
           } as React.CSSProperties}
         >
-          <pre className="whitespace-pre-wrap font-sans text-sm sm:text-base text-gray-800 leading-relaxed">
-            {hsRulesContent}
-          </pre>
+          {/* Render as block paragraphs — NOT <pre> — so iOS handles touch the same as ContractorHSModal */}
+          <div className="space-y-1">
+            {lines.map((line, i) => {
+              if (line === "") return <div key={i} className="h-2" />;
+              return (
+                <p key={i} className="text-sm sm:text-base text-gray-800 leading-relaxed">
+                  {line}
+                </p>
+              );
+            })}
+          </div>
+
           {!hasScrolledToBottom && (
             <div className="sticky bottom-0 h-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
           )}
