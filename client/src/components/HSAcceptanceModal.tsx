@@ -30,7 +30,6 @@ export default function HSAcceptanceModal({
     if (isOpen) {
       setHasScrolledToBottom(false);
       setAccepted(false);
-      // Check after layout settles whether the content is short enough to skip scrolling
       setTimeout(() => {
         const el = contentRef.current;
         if (el && el.scrollHeight <= el.clientHeight + 50) {
@@ -51,28 +50,30 @@ export default function HSAcceptanceModal({
   if (!isOpen) return null;
 
   const canAccept = hasScrolledToBottom && accepted;
-
-  // Split into lines — avoids <pre> and gives each line a normal block element
   const lines = hsRulesContent.split("\n").map((l) => l.trimEnd());
 
-  // Render into document.body via a Portal so that no ancestor's
-  // overflow / scroll / transform can interfere with position:fixed
   return createPortal(
-    <div
-      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4"
-      style={{ isolation: "isolate" }}
-    >
+    <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-      {/* Modal panel
-          Mobile : h-[100dvh] — fills exactly the visible viewport (dvh excludes browser chrome)
-          Desktop: max-h-[92vh], overflow-hidden so the flex children can't blow past it
-      */}
-      <div className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh] overflow-hidden">
+      {/*
+        CRITICAL LAYOUT NOTE
+        ────────────────────
+        The panel must have a DEFINITE height (not just max-h) so that
+        "flex-1" on the content div actually gets a bounded height and
+        overflow-y-scroll can create a real scroll area.
 
-        {/* ── Header ────────────────────────────────────────────────── */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-red-50 flex-shrink-0">
+        ❌ sm:h-auto sm:max-h-[92vh]  — panel is auto-sized; flex-1 child
+             has no height constraint; overflow-y-scroll has nothing to scroll.
+
+        ✅ h-[100dvh] sm:h-[90vh]     — panel always has a definite height;
+             flex-1 child is bounded; overflow-y-scroll works correctly.
+      */}
+      <div className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[100dvh] sm:h-[90vh]">
+
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-red-50 rounded-t-2xl flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
               <Shield className="text-white w-5 h-5 sm:w-7 sm:h-7" />
@@ -92,7 +93,7 @@ export default function HSAcceptanceModal({
           </div>
         </div>
 
-        {/* ── Worker banner ─────────────────────────────────────────── */}
+        {/* ── Worker banner ───────────────────────────────────────── */}
         {workerName && (
           <div className="px-4 sm:px-6 py-2.5 bg-blue-600 flex-shrink-0 flex items-center gap-3">
             <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
@@ -104,7 +105,7 @@ export default function HSAcceptanceModal({
           </div>
         )}
 
-        {/* ── Instruction banner ────────────────────────────────────── */}
+        {/* ── Instruction banner ──────────────────────────────────── */}
         {!workerName && (
           <div className="px-4 sm:px-6 py-2 bg-blue-50 border-b border-blue-100 flex-shrink-0">
             <p className="text-xs sm:text-sm text-blue-800 font-medium leading-snug">
@@ -113,16 +114,15 @@ export default function HSAcceptanceModal({
           </div>
         )}
 
-        {/* ── Scrollable content ────────────────────────────────────────
-            flex-1 + min-h-0 → takes all remaining space inside the flex column.
-            overflow-y-scroll  → always-visible track (iOS skips "auto" sometimes).
-            The parent panel has overflow-hidden so max-h-[92vh] is enforced and
-            THIS div is the only thing that can grow/scroll.
-        ───────────────────────────────────────────────────────────────── */}
+        {/* ── Scrollable content ──────────────────────────────────────
+            flex-1 + min-h-0: takes all remaining height in the flex column.
+            This ONLY works because the panel has a definite height (sm:h-[90vh]).
+            overflow-y-scroll: always-visible scroll track.
+        ─────────────────────────────────────────────────────────────── */}
         <div
           ref={contentRef}
           onScroll={checkScrollBottom}
-          className="flex-1 min-h-0 px-4 sm:px-6 py-3 sm:py-4 overflow-y-scroll overscroll-contain"
+          className="flex-1 min-h-0 overflow-y-scroll overscroll-contain px-4 sm:px-6 py-3 sm:py-4"
         >
           <div className="space-y-1">
             {lines.map((line, i) => {
@@ -134,13 +134,12 @@ export default function HSAcceptanceModal({
               );
             })}
           </div>
-
           {!hasScrolledToBottom && (
             <div className="sticky bottom-0 h-10 bg-gradient-to-t from-white to-transparent pointer-events-none" />
           )}
         </div>
 
-        {/* ── Scroll prompt ─────────────────────────────────────────── */}
+        {/* ── Scroll prompt ───────────────────────────────────────── */}
         {!hasScrolledToBottom && (
           <div className="px-4 sm:px-6 py-2.5 bg-amber-50 border-t border-amber-200 flex-shrink-0 flex items-center justify-center gap-2">
             <ChevronDown className="w-4 h-4 text-amber-600 animate-bounce flex-shrink-0" />
@@ -151,13 +150,13 @@ export default function HSAcceptanceModal({
           </div>
         )}
 
-        {/* ── Acceptance footer ─────────────────────────────────────── */}
+        {/* ── Acceptance footer ───────────────────────────────────── */}
         <div
           className="px-4 sm:px-6 py-3 sm:py-5 border-t border-gray-200 bg-gray-50 flex-shrink-0 space-y-2.5 sm:space-y-4"
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 12px))" }}
         >
           <div
-            className={`flex items-start gap-3 p-3 sm:p-5 rounded-xl border-2 cursor-pointer transition-all ${
+            className={`flex items-start gap-3 p-3 sm:p-4 rounded-xl border-2 cursor-pointer transition-all ${
               accepted
                 ? "border-green-500 bg-green-50"
                 : hasScrolledToBottom
@@ -187,20 +186,20 @@ export default function HSAcceptanceModal({
             <Button
               variant="outline"
               onClick={() => onDecline && onDecline()}
-              className="flex-1 h-12 sm:h-14 text-sm sm:text-lg border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
+              className="flex-1 h-11 sm:h-14 text-sm sm:text-lg border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
             >
               Cancel
             </Button>
             <Button
               onClick={() => { if (canAccept && onAccept) onAccept(); }}
               disabled={!canAccept}
-              className={`flex-1 h-12 sm:h-14 text-sm sm:text-lg font-bold transition-all ${
+              className={`flex-1 h-11 sm:h-14 text-sm sm:text-lg font-bold transition-all ${
                 canAccept
                   ? "bg-green-600 hover:bg-green-700 text-white shadow-lg"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
             >
-              <Check className="mr-1.5 sm:mr-2 w-4 h-4 sm:w-6 sm:h-6" />
+              <Check className="mr-1.5 sm:mr-2 w-4 h-4 sm:w-5 sm:h-5" />
               Accept &amp; Continue
             </Button>
           </div>

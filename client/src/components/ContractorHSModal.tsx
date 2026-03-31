@@ -97,17 +97,11 @@ export default function ContractorHSModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4"
-      onTouchMove={(e) => e.preventDefault()}
-      style={{ touchAction: "none" }}
-    >
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={handleClose} />
 
       <div
-        className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92dvh]"
-        style={{ touchAction: "pan-y" }}
-        onTouchMove={(e) => e.stopPropagation()}
+        className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[100dvh] sm:h-[90vh]"
       >
 
         {/* Header */}
