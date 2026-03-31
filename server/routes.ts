@@ -19707,16 +19707,21 @@ This is an automated notification from your visitor management system.`;
     const resetCustomerDb = await customerDbService.getCustomerDatabase(resetContext.customerId);
     
     // Get all currently checked-in personnel using customer-isolated queries
-    const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
+    const [currentVisitors, checkedInStaff, checkedInContractors, checkedInMembers] = await Promise.all([
       databaseService.getCurrentVisitors(resetContext),
       databaseService.getCheckedInStaff(resetContext),
-      databaseService.getCheckedInContractors(resetContext)
+      databaseService.getCheckedInContractors(resetContext),
+      resetCustomerDb
+        .select()
+        .from(isolatedSchema.members)
+        .where(and(eq(isolatedSchema.members.isCheckedIn, true), eq(isolatedSchema.members.isActive, true)))
     ]);
     
     const resetCounts = {
       visitorsCheckedOut: 0,
       staffCheckedOut: 0,
-      contractorsCheckedOut: 0
+      contractorsCheckedOut: 0,
+      membersCheckedOut: 0
     };
     
     // Check out all visitors
@@ -19756,6 +19761,18 @@ This is an automated notification from your visitor management system.`;
         console.error(`Failed to check out contractor ${contractor.id}:`, error);
       }
     }
+
+    // Check out all members
+    for (const member of checkedInMembers) {
+      try {
+        await resetCustomerDb.update(isolatedSchema.members)
+          .set({ isCheckedIn: false, checkedOutAt: resetTime })
+          .where(eq(isolatedSchema.members.id, member.id));
+        resetCounts.membersCheckedOut++;
+      } catch (error) {
+        console.error(`Failed to check out member ${member.id}:`, error);
+      }
+    }
     
     // Update settings with last reset time
     try {
@@ -19770,12 +19787,9 @@ This is an automated notification from your visitor management system.`;
     try {
       const settings = await simpleDatabaseService.getCompanySettings(resetContext);
       if (settings?.notifyForgottenCheckouts !== false && settings?.emailReportsEnabled) {
-        const totalCheckedOut = resetCounts.visitorsCheckedOut + resetCounts.staffCheckedOut + resetCounts.contractorsCheckedOut;
+        const totalCheckedOut = resetCounts.visitorsCheckedOut + resetCounts.staffCheckedOut + resetCounts.contractorsCheckedOut + resetCounts.membersCheckedOut;
         if (totalCheckedOut > 0) {
-          const { EmailService } = await import("./emailService");
-          const emailService = new EmailService(req.customerId);
-          
-          const recipients = settings.reportRecipients || [];
+          const recipients: string[] = settings.reportRecipients || [];
           const subject = `Daily Reset ${isManual ? '(Manual)' : '(Automatic)'} - ${totalCheckedOut} Personnel Checked Out`;
           const message = `
             Daily reset completed at ${resetTime.toLocaleString()}
@@ -19784,16 +19798,17 @@ This is an automated notification from your visitor management system.`;
             • Visitors: ${resetCounts.visitorsCheckedOut}
             • Staff: ${resetCounts.staffCheckedOut}
             • Contractors: ${resetCounts.contractorsCheckedOut}
+            • Members: ${resetCounts.membersCheckedOut}
             • Total: ${totalCheckedOut}
             
             Reset type: ${isManual ? 'Manual reset initiated by user' : 'Automatic scheduled reset'}
             
-            This is an automated notification from VisiGate Pro.
+            This is an automated notification from TPR-Max.
           `;
           
           for (const email of recipients) {
             try {
-              await emailService.forCustomer(req.customerId).sendPlainEmail(email, subject, message);
+              await emailService.forCustomer(resetContext.customerId).sendPlainEmail(email, subject, message);
             } catch (error) {
               console.error(`Failed to send reset notification to ${email}:`, error);
             }
@@ -19809,14 +19824,15 @@ This is an automated notification from your visitor management system.`;
       resetTime: resetTime.toISOString(),
       isManual,
       ...resetCounts,
-      totalCheckedOut: resetCounts.visitorsCheckedOut + resetCounts.staffCheckedOut + resetCounts.contractorsCheckedOut
+      totalCheckedOut: resetCounts.visitorsCheckedOut + resetCounts.staffCheckedOut + resetCounts.contractorsCheckedOut + resetCounts.membersCheckedOut
     };
   }
 
   // Daily Reset endpoints
-  app.post("/api/daily-reset/manual", async (req, res) => {
+  app.post("/api/daily-reset/manual", requireAuth, async (req, res) => {
     try {
-      const result = await performDailyReset(true); // manual = true
+      const manualContext = { customerId: req.customerId! };
+      const result = await performDailyReset(true, manualContext);
       res.json(result);
     } catch (error) {
       console.error("Error performing manual daily reset:", error);
@@ -19827,17 +19843,22 @@ This is an automated notification from your visitor management system.`;
   app.post("/api/daily-reset/preview", requireAuth, async (req, res) => {
     try {
       const previewContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
+      const previewDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const [currentVisitors, checkedInStaff, checkedInContractors, checkedInMembers] = await Promise.all([
         databaseService.getCurrentVisitors(previewContext),
         databaseService.getCheckedInStaff(previewContext),
-        databaseService.getCheckedInContractors(previewContext)
+        databaseService.getCheckedInContractors(previewContext),
+        previewDb.select().from(isolatedSchema.members).where(
+          and(eq(isolatedSchema.members.isCheckedIn, true), eq(isolatedSchema.members.isActive, true))
+        )
       ]);
 
       res.json({
         visitorsToCheckOut: currentVisitors.length,
         staffToCheckOut: checkedInStaff.length,
         contractorsToCheckOut: checkedInContractors.length,
-        totalToCheckOut: currentVisitors.length + checkedInStaff.length + checkedInContractors.length
+        membersToCheckOut: checkedInMembers.length,
+        totalToCheckOut: currentVisitors.length + checkedInStaff.length + checkedInContractors.length + checkedInMembers.length
       });
     } catch (error) {
       console.error("Error previewing daily reset:", error);
@@ -20006,10 +20027,14 @@ This is an automated notification from your visitor management system.`;
         return;
       }
       
-      const [currentVisitors, checkedInStaff, checkedInContractors] = await Promise.all([
+      const overnightDb = await customerDbService.getCustomerDatabase(overnightContext.customerId);
+      const [currentVisitors, checkedInStaff, checkedInContractors, checkedInMembers] = await Promise.all([
         databaseService.getCurrentVisitors(overnightContext),
         databaseService.getCheckedInStaff(overnightContext),
-        databaseService.getCheckedInContractors(overnightContext)
+        databaseService.getCheckedInContractors(overnightContext),
+        overnightDb.select().from(isolatedSchema.members).where(
+          and(eq(isolatedSchema.members.isCheckedIn, true), eq(isolatedSchema.members.isActive, true))
+        )
       ]);
       
       const yesterday = new Date();
@@ -20028,16 +20053,17 @@ This is an automated notification from your visitor management system.`;
       const overnightContractors = checkedInContractors.filter(contractor => 
         contractor.checkedInAt && new Date(contractor.checkedInAt) < yesterday
       );
+
+      const overnightMembers = checkedInMembers.filter(member =>
+        member.checkedInAt && new Date(member.checkedInAt) < yesterday
+      );
       
-      const totalOvernight = overnightVisitors.length + overnightStaff.length + overnightContractors.length;
+      const totalOvernight = overnightVisitors.length + overnightStaff.length + overnightContractors.length + overnightMembers.length;
       
       if (totalOvernight === 0) {
         console.log("📧 No overnight check-outs detected - no email sent");
         return;
       }
-      
-      const { EmailService } = await import("./emailService");
-      const emailService = new EmailService(req.customerId);
       
       const subject = `Overnight Check-Out Alert - ${totalOvernight} Personnel Still On-Site`;
       
@@ -20074,6 +20100,15 @@ This is an automated notification from your visitor management system.`;
         });
         message += '\n';
       }
+
+      if (overnightMembers.length > 0) {
+        message += `MEMBERS (${overnightMembers.length}):\n`;
+        overnightMembers.forEach(member => {
+          const checkedInTime = member.checkedInAt ? new Date(member.checkedInAt).toLocaleString() : 'Unknown';
+          message += `• ${member.firstName} ${member.lastName} (${member.membershipType || 'Member'}) - Checked in: ${checkedInTime}\n`;
+        });
+        message += '\n';
+      }
       
       message += `
         RECOMMENDED ACTIONS:
@@ -20084,14 +20119,14 @@ This is an automated notification from your visitor management system.`;
         
         Report generated: ${new Date().toLocaleString()}
         
-        This is an automated notification from VisiGate Pro.
+        This is an automated notification from TPR-Max.
       `;
       
       // Send to all report recipients
       let sentCount = 0;
       for (const email of settings.reportRecipients) {
         try {
-          await emailService.sendPlainEmail(email, subject, message);
+          await emailService.forCustomer(overnightContext.customerId).sendPlainEmail(email, subject, message);
           sentCount++;
         } catch (error) {
           console.error(`Failed to send overnight report to ${email}:`, error);
