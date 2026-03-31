@@ -645,6 +645,8 @@ export class DatabaseService {
       purpose?: string;
       carRegistration?: string;
       hsRulesAcceptanceToken?: string;
+      hsRulesAccepted?: boolean;
+      hsRulesAcceptedAt?: Date;
     }
   ): Promise<Visitor | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
@@ -660,6 +662,8 @@ export class DatabaseService {
         purpose: updates.purpose || '',
         carRegistration: updates.carRegistration,
         hsRulesAcceptanceToken: updates.hsRulesAcceptanceToken,
+        ...(updates.hsRulesAccepted !== undefined ? { hsRulesAccepted: updates.hsRulesAccepted } : {}),
+        ...(updates.hsRulesAcceptedAt !== undefined ? { hsRulesAcceptedAt: updates.hsRulesAcceptedAt } : {}),
         updatedAt: new Date()
       })
       .where(eq(isolatedSchema.visitors.id, id))
