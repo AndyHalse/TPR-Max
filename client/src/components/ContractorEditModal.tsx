@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
-import { Save, X, Clock, CheckCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck } from 'lucide-react';
+import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -953,6 +953,29 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           <span className="font-medium">{visit.purpose}</span>
                         </div>
                       )}
+
+                      <div className="text-sm pt-1 border-t border-gray-100">
+                        <span className="text-variable flex items-center gap-1">
+                          <ShieldCheck size={13} />
+                          H&amp;S Rules:{" "}
+                        </span>
+                        {visit.hsRulesAccepted ? (
+                          <span className="font-medium text-green-700 flex items-center gap-1">
+                            <CheckCircle size={13} className="flex-shrink-0" />
+                            Accepted
+                            {visit.hsRulesAcceptedAt && (
+                              <span className="text-gray-500 font-normal ml-1">
+                                — {format(new Date(visit.hsRulesAcceptedAt), 'dd/MM/yyyy HH:mm')}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="font-medium text-amber-600 flex items-center gap-1">
+                            <XCircle size={13} className="flex-shrink-0" />
+                            Not accepted / Not required at time of visit
+                          </span>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>

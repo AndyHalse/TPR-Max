@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { Visitor, VisitorHistory } from '@shared/schema';
-import { Save, X, Clock, CheckCircle, History } from 'lucide-react';
+import { Save, X, Clock, CheckCircle, XCircle, History, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -383,21 +383,37 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
                         <p className="font-medium">{visit.purpose}</p>
                       </div>
                     )}
+                    <div className="md:col-span-2">
+                      <p className="text-variable flex items-center gap-1">
+                        <ShieldCheck size={13} />
+                        H&amp;S Rules:
+                      </p>
+                      {visit.hsRulesAccepted ? (
+                        <p className="font-medium text-green-700 flex items-center gap-1">
+                          <CheckCircle size={14} className="flex-shrink-0" />
+                          Accepted
+                          {visit.hsRulesAcceptedAt && (
+                            <span className="text-gray-500 font-normal ml-1">
+                              — {format(new Date(visit.hsRulesAcceptedAt), 'dd/MM/yyyy HH:mm')}
+                            </span>
+                          )}
+                        </p>
+                      ) : (
+                        <p className="font-medium text-amber-600 flex items-center gap-1">
+                          <XCircle size={14} className="flex-shrink-0" />
+                          Not accepted / Not required at time of visit
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-2 mt-3">
-                    {visit.inductionCompleted && (
+                  {visit.inductionCompleted && (
+                    <div className="flex gap-2 mt-3">
                       <Badge variant="secondary" className="text-xs">
                         <CheckCircle size={12} className="mr-1" />
                         Induction Completed
                       </Badge>
-                    )}
-                    {visit.hsRulesAccepted && (
-                      <Badge variant="secondary" className="text-xs">
-                        <CheckCircle size={12} className="mr-1" />
-                        H&S Accepted
-                      </Badge>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
