@@ -26223,7 +26223,39 @@ This is an automated notification from your visitor management system.`;
             await processLoneWorkerSession(session, customerDb, now);
           }
         } catch (custErr: any) {
-          console.warn(`Lone worker cron error for customer ${customer.id}:`, custErr.message?.substring(0, 100));
+          if (custErr.message?.includes('does not exist')) {
+            // Missing table — self-heal by creating the tables now so next tick works
+            try {
+              const healDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customer.id);
+              await healDb.execute(sql.raw(`CREATE TABLE IF NOT EXISTS lone_worker_sessions (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                customer_id TEXT NOT NULL,
+                person_id TEXT NOT NULL,
+                person_type TEXT NOT NULL DEFAULT 'staff',
+                person_name TEXT NOT NULL,
+                person_email TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+                ended_at TIMESTAMP,
+                grace_period_mins INTEGER NOT NULL DEFAULT 10,
+                next_check_at TIMESTAMP,
+                escalation_level INTEGER NOT NULL DEFAULT 0
+              )`));
+              await healDb.execute(sql.raw(`CREATE TABLE IF NOT EXISTS lone_worker_tokens (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                token TEXT NOT NULL UNIQUE,
+                session_id UUID NOT NULL,
+                expires_at TIMESTAMP NOT NULL,
+                used_at TIMESTAMP,
+                created_at TIMESTAMP NOT NULL DEFAULT NOW()
+              )`));
+              console.log(`✅ Lone Worker: Self-healed missing tables for customer ${customer.id}`);
+            } catch (healErr: any) {
+              console.warn(`Lone worker self-heal failed for ${customer.id}:`, healErr.message?.substring(0, 80));
+            }
+          } else {
+            console.warn(`Lone worker cron error for customer ${customer.id}:`, custErr.message?.substring(0, 100));
+          }
         }
       }
     } catch (err: any) {

@@ -88,36 +88,48 @@ export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useQuery<Stats>({
     queryKey: ["/api/stats"],
     enabled: !!currentUser,
+    refetchInterval: 30000,
+    refetchOnMount: 'always',
   });
 
   const { data: currentVisitors, isLoading: visitorsLoading } = useQuery<Visitor[]>({
     queryKey: ["/api/visitors/current"],
     enabled: !!currentUser,
+    refetchInterval: 30000,
+    refetchOnMount: 'always',
   });
 
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
     enabled: !!currentUser,
+    refetchOnMount: 'always',
   });
 
   const { data: todayVisitors } = useQuery<Visitor[]>({
     queryKey: ["/api/visitors/today"],
     enabled: !!currentUser,
+    refetchOnMount: 'always',
   });
 
   const { data: checkedInStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff/checked-in"],
     enabled: !!currentUser,
+    refetchInterval: 30000,
+    refetchOnMount: 'always',
   });
 
   const { data: checkedInContractors } = useQuery<any[]>({
     queryKey: ["/api/contractors/checked-in"],
     enabled: !!currentUser,
+    refetchInterval: 30000,
+    refetchOnMount: 'always',
   });
 
   const { data: checkedInMembers } = useQuery<any[]>({
     queryKey: ["/api/members/checked-in"],
     enabled: !!currentUser,
+    refetchInterval: 30000,
+    refetchOnMount: 'always',
   });
 
   const { data: recentActivity, isLoading: activityLoading } = useQuery<Activity[]>({
