@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Shield, Check, AlertTriangle, ChevronDown, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,12 +25,12 @@ export default function HSAcceptanceModal({
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-  const touchStartY = useRef(0);
 
   useEffect(() => {
     if (isOpen) {
       setHasScrolledToBottom(false);
       setAccepted(false);
+      // Check after layout settles whether the content is short enough to skip scrolling
       setTimeout(() => {
         const el = contentRef.current;
         if (el && el.scrollHeight <= el.clientHeight + 50) {
@@ -47,46 +48,31 @@ export default function HSAcceptanceModal({
     }
   }, []);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    const el = contentRef.current;
-    if (!el) return;
-    const touchY = e.touches[0].clientY;
-    const deltaY = touchStartY.current - touchY;
-    el.scrollTop += deltaY;
-    touchStartY.current = touchY;
-    checkScrollBottom();
-    e.stopPropagation();
-  };
-
   if (!isOpen) return null;
 
   const canAccept = hasScrolledToBottom && accepted;
 
-  // Split content into non-empty lines for clean rendering (avoids <pre> iOS scroll issues)
-  const lines = hsRulesContent
-    .split("\n")
-    .map((l) => l.trimEnd());
+  // Split into lines — avoids <pre> and gives each line a normal block element
+  const lines = hsRulesContent.split("\n").map((l) => l.trimEnd());
 
-  return (
+  // Render into document.body via a Portal so that no ancestor's
+  // overflow / scroll / transform can interfere with position:fixed
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center sm:p-4"
-      onTouchMove={(e) => e.preventDefault()}
-      style={{ touchAction: "none" }}
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center sm:p-4"
+      style={{ isolation: "isolate" }}
     >
+      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
 
-      <div
-        className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92dvh]"
-        style={{ touchAction: "pan-y" }}
-        onTouchMove={(e) => e.stopPropagation()}
-      >
+      {/* Modal panel
+          Mobile : h-[100dvh] — fills exactly the visible viewport (dvh excludes browser chrome)
+          Desktop: max-h-[92vh], overflow-hidden so the flex children can't blow past it
+      */}
+      <div className="relative z-10 w-full sm:max-w-2xl bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col h-[100dvh] sm:h-auto sm:max-h-[92vh] overflow-hidden">
 
-        {/* Header */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-red-50 rounded-t-2xl flex-shrink-0">
+        {/* ── Header ────────────────────────────────────────────────── */}
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-red-50 flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 sm:w-14 sm:h-14 bg-orange-500 rounded-full flex items-center justify-center flex-shrink-0">
               <Shield className="text-white w-5 h-5 sm:w-7 sm:h-7" />
@@ -106,7 +92,7 @@ export default function HSAcceptanceModal({
           </div>
         </div>
 
-        {/* Worker name banner */}
+        {/* ── Worker banner ─────────────────────────────────────────── */}
         {workerName && (
           <div className="px-4 sm:px-6 py-2.5 bg-blue-600 flex-shrink-0 flex items-center gap-3">
             <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
@@ -118,7 +104,7 @@ export default function HSAcceptanceModal({
           </div>
         )}
 
-        {/* Instructions banner */}
+        {/* ── Instruction banner ────────────────────────────────────── */}
         {!workerName && (
           <div className="px-4 sm:px-6 py-2 bg-blue-50 border-b border-blue-100 flex-shrink-0">
             <p className="text-xs sm:text-sm text-blue-800 font-medium leading-snug">
@@ -127,26 +113,17 @@ export default function HSAcceptanceModal({
           </div>
         )}
 
-        {/* ── Scrollable content ─────────────────────────────────────────────
-            flex-1 + min-h-0  → takes remaining space in flex column
-            overflowY scroll  → always-active scroll track (iOS ignores "auto" sometimes)
-            touch-action pan-y → tells iOS this element owns vertical swipes
-            onTouchStart/Move → manual scroll drive — bulletproof iOS fallback
-        ──────────────────────────────────────────────────────────────────── */}
+        {/* ── Scrollable content ────────────────────────────────────────
+            flex-1 + min-h-0 → takes all remaining space inside the flex column.
+            overflow-y-scroll  → always-visible track (iOS skips "auto" sometimes).
+            The parent panel has overflow-hidden so max-h-[92vh] is enforced and
+            THIS div is the only thing that can grow/scroll.
+        ───────────────────────────────────────────────────────────────── */}
         <div
           ref={contentRef}
           onScroll={checkScrollBottom}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          className="flex-1 min-h-0 px-4 sm:px-6 py-3 sm:py-4"
-          style={{
-            overflowY: "scroll",
-            overscrollBehavior: "contain",
-            touchAction: "pan-y",
-            WebkitOverflowScrolling: "touch",
-          } as React.CSSProperties}
+          className="flex-1 min-h-0 px-4 sm:px-6 py-3 sm:py-4 overflow-y-scroll overscroll-contain"
         >
-          {/* Render as block paragraphs — NOT <pre> — so iOS handles touch the same as ContractorHSModal */}
           <div className="space-y-1">
             {lines.map((line, i) => {
               if (line === "") return <div key={i} className="h-2" />;
@@ -163,7 +140,7 @@ export default function HSAcceptanceModal({
           )}
         </div>
 
-        {/* Scroll prompt */}
+        {/* ── Scroll prompt ─────────────────────────────────────────── */}
         {!hasScrolledToBottom && (
           <div className="px-4 sm:px-6 py-2.5 bg-amber-50 border-t border-amber-200 flex-shrink-0 flex items-center justify-center gap-2">
             <ChevronDown className="w-4 h-4 text-amber-600 animate-bounce flex-shrink-0" />
@@ -174,9 +151,9 @@ export default function HSAcceptanceModal({
           </div>
         )}
 
-        {/* Acceptance area */}
+        {/* ── Acceptance footer ─────────────────────────────────────── */}
         <div
-          className="px-4 sm:px-6 py-3 sm:py-5 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex-shrink-0 space-y-2.5 sm:space-y-4"
+          className="px-4 sm:px-6 py-3 sm:py-5 border-t border-gray-200 bg-gray-50 flex-shrink-0 space-y-2.5 sm:space-y-4"
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 12px))" }}
         >
           <div
@@ -229,6 +206,7 @@ export default function HSAcceptanceModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
