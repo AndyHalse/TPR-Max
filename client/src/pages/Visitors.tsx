@@ -891,8 +891,13 @@ export default function Visitors() {
       if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
         setPendingCheckinData(previousVisitorData);
         setPendingCheckinType('previous');
-        setShowHSModal(true);
+        // Close the Radix Dialog FIRST — Radix applies overflow:hidden + pointer-events:none
+        // to document.body while any Dialog is open, which blocks scroll in the H&S modal.
+        // We must let Radix clean up those body locks before mounting the H&S modal.
+        setShowHostSelection(false);
+        setTimeout(() => setShowHSModal(true), 150);
       } else {
+        setShowHostSelection(false);
         checkInPreviousVisitorMutation.mutate(previousVisitorData);
       }
     }
