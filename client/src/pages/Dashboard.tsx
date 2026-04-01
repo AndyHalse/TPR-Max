@@ -796,19 +796,21 @@ export default function Dashboard() {
               </div>
             </GlassCard>
 
-            <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('members')}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-variable text-sm font-medium">Members</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-members-onsite">
-                    {stats?.membersOnSite || 0}
-                  </p>
+            {stats?.featureMembers && (
+              <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('members')}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-variable text-sm font-medium">Members</p>
+                    <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-members-onsite">
+                      {stats?.membersOnSite || 0}
+                    </p>
+                  </div>
+                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
+                    <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
+                  </div>
                 </div>
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
-                  <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
-                </div>
-              </div>
-            </GlassCard>
+              </GlassCard>
+            )}
           </div>
 
           <GlassCard hover className="cursor-pointer bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-200 dark:border-emerald-800 lg:w-56 shrink-0" onClick={() => setOpenModal('total-people')}>
