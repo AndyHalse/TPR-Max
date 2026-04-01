@@ -19724,38 +19724,30 @@ This is an automated notification from your visitor management system.`;
       membersCheckedOut: 0
     };
     
-    // Check out all visitors
+    // Check out all visitors (use proper checkout to close history records)
     for (const visitor of currentVisitors) {
       try {
-        await databaseService.updateVisitor(resetContext, visitor.id, {
-          isCheckedIn: false,
-          checkedOutAt: resetTime
-        });
+        await databaseService.checkOutVisitor(resetContext, visitor.id);
         resetCounts.visitorsCheckedOut++;
       } catch (error) {
         console.error(`Failed to check out visitor ${visitor.id}:`, error);
       }
     }
     
-    // Check out all staff
+    // Check out all staff (use proper checkout to close staff sessions)
     for (const staffMember of checkedInStaff) {
       try {
-        await databaseService.updateStaff(resetContext, staffMember.id, {
-          isCheckedIn: false,
-          checkedOutAt: resetTime
-        });
+        await databaseService.checkOutStaff(resetContext, staffMember.id);
         resetCounts.staffCheckedOut++;
       } catch (error) {
         console.error(`Failed to check out staff ${staffMember.id}:`, error);
       }
     }
     
-    // Check out all contractors
+    // Check out all contractors (use proper checkout to close contractor visits)
     for (const contractor of checkedInContractors) {
       try {
-        await resetCustomerDb.update(isolatedSchema.contractorWorkers)
-          .set({ isCheckedIn: false, checkedOutAt: resetTime })
-          .where(eq(isolatedSchema.contractorWorkers.id, contractor.id));
+        await databaseService.checkOutContractorWorker(resetContext, contractor.id);
         resetCounts.contractorsCheckedOut++;
       } catch (error) {
         console.error(`Failed to check out contractor ${contractor.id}:`, error);
@@ -19766,7 +19758,7 @@ This is an automated notification from your visitor management system.`;
     for (const member of checkedInMembers) {
       try {
         await resetCustomerDb.update(isolatedSchema.members)
-          .set({ isCheckedIn: false, checkedOutAt: resetTime })
+          .set({ isCheckedIn: false, checkedOutAt: resetTime, updatedAt: new Date() })
           .where(eq(isolatedSchema.members.id, member.id));
         resetCounts.membersCheckedOut++;
       } catch (error) {
@@ -19877,7 +19869,15 @@ This is an automated notification from your visitor management system.`;
       if (specificCustomerId) {
         customers = [{ id: specificCustomerId }];
       } else {
-        customers = await customerDbService.getAllCustomers();
+        const dbCustomers = await customerDbService.getAllCustomers();
+        // Also include hardcoded customer IDs that are never in the customers table
+        // (e.g. dev-customer-001 = ACS Safety & Security Ltd on production)
+        const hardcodedIds = ['dev-customer-001', 'dev-customer-002', 'test-customer-trial'];
+        const dbIds = new Set(dbCustomers.map((c: { id: string }) => c.id));
+        const extraCustomers = hardcodedIds
+          .filter(id => !dbIds.has(id))
+          .map(id => ({ id }));
+        customers = [...dbCustomers, ...extraCustomers];
       }
 
       for (const customer of customers) {
@@ -19889,7 +19889,18 @@ This is an automated notification from your visitor management system.`;
         }
 
         const context = { customerId: customer.id };
-        const settings = await simpleDatabaseService.getCompanySettings(context);
+        let settings: Awaited<ReturnType<typeof simpleDatabaseService.getCompanySettings>>;
+        try {
+          settings = await simpleDatabaseService.getCompanySettings(context);
+        } catch (err) {
+          console.log(`📅 Skipping daily reset schedule for customer ${customer.id} — no settings found`);
+          continue;
+        }
+
+        if (!settings) {
+          console.log(`📅 Skipping daily reset schedule for customer ${customer.id} — no settings found`);
+          continue;
+        }
 
         if (settings?.enableDailyReset === false) {
           console.log(`📅 Daily reset disabled for customer ${customer.id}`);
