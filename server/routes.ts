@@ -16055,6 +16055,91 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // -----------------------------------------------------------------
+  // BioStar 2 Event Webhook
+  // BioStar 2 "Trigger & Action" can POST card-scan events here.
+  // No session auth required — BioStar cannot send session tokens.
+  // The customerId in the URL scopes the event to the right tenant.
+  // -----------------------------------------------------------------
+  app.post("/api/biostar/webhook/:customerId", async (req, res) => {
+    const { customerId } = req.params;
+    const payload = req.body;
+
+    // Log the raw payload so we can see exactly what BioStar sends
+    console.log(`📡 BioStar Webhook: received event for customer ${customerId}:`, JSON.stringify(payload).slice(0, 500));
+
+    try {
+      if (!customerId) return res.status(400).json({ error: "Missing customerId" });
+
+      // Extract userId and eventTypeCode from BioStar's various payload formats
+      const userId = String(
+        payload?.user_id?.id ?? payload?.user_id ?? payload?.userId ?? ''
+      );
+      const eventTypeCode = String(
+        payload?.event_type_id?.code ?? payload?.event_type_id ?? payload?.eventTypeCode ?? payload?.event_type ?? ''
+      );
+      const eventTime = payload?.datetime ?? payload?.event_time ?? payload?.eventTime ?? new Date().toISOString();
+
+      if (!userId || userId === '0' || !eventTypeCode) {
+        console.warn(`⚠️ BioStar Webhook: insufficient data — userId=${userId}, eventTypeCode=${eventTypeCode}`);
+        return res.json({ ok: false, reason: 'insufficient_data' });
+      }
+
+      const isEntry = biostarService.isEntryEvent(eventTypeCode);
+      const isExit  = biostarService.isExitEvent(eventTypeCode);
+
+      console.log(`📡 BioStar Webhook: userId=${userId} eventCode=${eventTypeCode} entry=${isEntry} exit=${isExit} time=${eventTime}`);
+
+      if (!isEntry && !isExit) {
+        console.log(`📡 BioStar Webhook: event code ${eventTypeCode} is not an entry/exit event — ignoring`);
+        return res.json({ ok: true, action: 'ignored', reason: 'not_entry_or_exit' });
+      }
+
+      const webhookDb = await customerDbService.getCustomerDatabase(customerId);
+      const [staffMember] = await webhookDb
+        .select({ id: isolatedSchema.staff.id, firstName: isolatedSchema.staff.firstName, lastName: isolatedSchema.staff.lastName, isCheckedIn: isolatedSchema.staff.isCheckedIn })
+        .from(isolatedSchema.staff)
+        .where(eq(isolatedSchema.staff.biostarUserId, userId))
+        .limit(1);
+
+      if (!staffMember) {
+        console.warn(`📡 BioStar Webhook: no staff matched biostarUserId=${userId}`);
+        return res.json({ ok: true, action: 'no_match', biostarUserId: userId });
+      }
+
+      const now = new Date();
+      if (isEntry && !staffMember.isCheckedIn) {
+        await webhookDb.update(isolatedSchema.staff)
+          .set({ isCheckedIn: true, checkedInAt: now, checkedOutAt: null, updatedAt: now })
+          .where(eq(isolatedSchema.staff.id, staffMember.id));
+        console.log(`✅ BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} checked IN (event ${eventTypeCode})`);
+        return res.json({ ok: true, action: 'checked_in', staff: `${staffMember.firstName} ${staffMember.lastName}` });
+      } else if (isExit && staffMember.isCheckedIn) {
+        await webhookDb.update(isolatedSchema.staff)
+          .set({ isCheckedIn: false, checkedOutAt: now, updatedAt: now })
+          .where(eq(isolatedSchema.staff.id, staffMember.id));
+        console.log(`✅ BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} checked OUT (event ${eventTypeCode})`);
+        return res.json({ ok: true, action: 'checked_out', staff: `${staffMember.firstName} ${staffMember.lastName}` });
+      } else {
+        console.log(`📡 BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} already in correct state — no update`);
+        return res.json({ ok: true, action: 'no_change', currentState: staffMember.isCheckedIn ? 'checked_in' : 'checked_out' });
+      }
+    } catch (err: any) {
+      console.error(`❌ BioStar Webhook error for ${customerId}:`, err.message);
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  // Also expose the webhook URL in diagnostics
+  app.get("/api/biostar/webhook-url", requireAuth, async (req, res) => {
+    const customerId = req.customerId!;
+    // Build the public-facing URL: use HOST header or a configured base URL
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+    const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+    const webhookUrl = `${proto}://${host}/api/biostar/webhook/${customerId}`;
+    res.json({ webhookUrl, customerId });
+  });
+
   // User invitation endpoints
   app.post("/api/invitations", requireAuth, async (req, res) => {
     try {

@@ -638,11 +638,12 @@ class BiostarService {
       return onSiteUsers;
     }
 
-    // --- Fallback: last_access_time from user records ---
+    // --- Fallback 1: last_access_time from user records ---
     // The event log API returned nothing (0 events or permission denied).
     // Use each user's last_access_time instead; if it's within the last 24 hours
     // the user is considered on-site (valid for single-door / X-Pass 2 setups).
-    console.log('📊 Biostar: Falling back to last_access_time for on-site detection...');
+    // NOTE: confirmed that BioStar 2 v2.x does NOT return last_access_time in user records,
+    // so this fallback silently returns [] when that field is absent.
     try {
       const users = await this.getUsers(config);
       const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
@@ -650,13 +651,9 @@ class BiostarService {
 
       for (const user of users) {
         if (!user.id || user.id === '0') continue;
-        if (!user.lastAccessTime) {
-          console.log(`🔍 Biostar last_access fallback: user "${user.name}" (id=${user.id}) has no lastAccessTime`);
-          continue;
-        }
+        if (!user.lastAccessTime) continue; // field absent in this BioStar version
         const lastAccess = new Date(user.lastAccessTime);
         const isOnSite = lastAccess > cutoff;
-        console.log(`🔍 Biostar last_access fallback: user "${user.name}" (id=${user.id}) lastAccess=${user.lastAccessTime}, isOnSite=${isOnSite}`);
         if (isOnSite) {
           onSiteUsers.push({
             userId: user.id,
@@ -667,12 +664,104 @@ class BiostarService {
         }
       }
 
-      console.log(`📊 Biostar: ${onSiteUsers.length} of ${users.length} users on-site (via last_access_time fallback)`);
-      return onSiteUsers;
+      if (onSiteUsers.length > 0) {
+        console.log(`📊 Biostar: ${onSiteUsers.length} of ${users.length} users on-site (via last_access_time fallback)`);
+        return onSiteUsers;
+      }
     } catch (fallbackErr: any) {
-      console.error(`❌ Biostar: last_access_time fallback also failed: ${fallbackErr.message}`);
-      return [];
+      // silently swallow — will try T&A next
     }
+
+    // --- Fallback 2: Time & Attendance records ---
+    // BioStar 2 T&A module records check-in/check-out per day and may be accessible
+    // even when the Event Log REST endpoint is permission-denied.
+    console.log('📊 Biostar: Trying Time & Attendance API for on-site detection...');
+    try {
+      const taUsers = await this.getTimeAttendanceOnSite(config);
+      if (taUsers.length > 0 || true) { // always log what T&A returns
+        console.log(`📊 Biostar: ${taUsers.length} users on-site (via Time & Attendance API)`);
+        return taUsers;
+      }
+    } catch (taErr: any) {
+      console.warn(`⚠️ Biostar: Time & Attendance API also unavailable: ${taErr.message}`);
+    }
+
+    console.log('📊 Biostar: All on-site detection methods exhausted — returning empty list');
+    return [];
+  }
+
+  /**
+   * Try to determine on-site users using the BioStar 2 Time & Attendance module.
+   * T&A records show check-in/check-out per user per day.
+   * If a user has checked in today but not checked out → they are on-site.
+   */
+  async getTimeAttendanceOnSite(config: BiostarConfig): Promise<{ userId: string; userName: string; lastAccessTime: string; eventCode: string }[]> {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const now = new Date();
+
+    // Format as YYYY-MM-DDTHH:MM:SS for BioStar
+    const startStr = todayStart.toISOString().slice(0, 19);
+    const endStr = now.toISOString().slice(0, 19);
+
+    // Try POST search first (more targeted)
+    const searchBody = {
+      TimeAttendanceCollection: {
+        from: startStr,
+        to: endStr,
+        period_type: '0', // daily
+      }
+    };
+
+    let rows: any[] = [];
+    try {
+      const searchResp = await this.makeAuthenticatedRequest(config, '/api/time_attendance/search', 'POST', searchBody);
+      rows = searchResp?.TimeAttendanceCollection?.rows ?? searchResp?.rows ?? [];
+      console.log(`📅 Biostar T&A: POST /api/time_attendance/search returned ${rows.length} records`);
+      if (rows.length > 0) console.log(`📅 Biostar T&A: Sample record keys:`, Object.keys(rows[0]).join(', '));
+    } catch (searchErr: any) {
+      console.warn(`⚠️ Biostar T&A: POST search failed (${searchErr.message}), trying GET...`);
+      try {
+        const getResp = await this.makeAuthenticatedRequest(config, `/api/time_attendance?from_date=${startStr}&to_date=${endStr}`);
+        rows = getResp?.TimeAttendanceCollection?.rows ?? getResp?.rows ?? [];
+        console.log(`📅 Biostar T&A: GET /api/time_attendance returned ${rows.length} records`);
+        if (rows.length > 0) console.log(`📅 Biostar T&A: Sample record keys:`, Object.keys(rows[0]).join(', '));
+      } catch (getErr: any) {
+        console.warn(`⚠️ Biostar T&A: GET also failed (${getErr.message})`);
+        throw getErr;
+      }
+    }
+
+    // Parse T&A rows: user with checkin_datetime but no checkout_datetime = on-site
+    const onSite: { userId: string; userName: string; lastAccessTime: string; eventCode: string }[] = [];
+    for (const row of rows) {
+      const userId = row?.user_id?.id ?? row?.user_id ?? row?.id;
+      const userName = row?.name ?? row?.user_name ?? `User ${userId}`;
+      const checkin = row?.checkin_datetime ?? row?.check_in ?? row?.start_time;
+      const checkout = row?.checkout_datetime ?? row?.check_out ?? row?.end_time;
+
+      if (!userId || userId === '0' || userId === '1') continue; // skip system/admin
+      if (checkin && !checkout) {
+        // Checked in today, no check-out → on-site
+        onSite.push({ userId: String(userId), userName, lastAccessTime: checkin, eventCode: 'ta_checkin' });
+        console.log(`📅 Biostar T&A: "${userName}" checked in at ${checkin}, no checkout → ON SITE`);
+      } else if (checkin && checkout) {
+        console.log(`📅 Biostar T&A: "${userName}" checked in ${checkin}, checked out ${checkout} → OFF SITE`);
+      }
+    }
+
+    return onSite;
+  }
+
+  /**
+   * Public helpers so the webhook route can check event codes without importing the Set directly.
+   */
+  isEntryEvent(eventTypeCode: string): boolean {
+    return BIOSTAR_ENTRY_EVENT_CODES.has(eventTypeCode);
+  }
+
+  isExitEvent(eventTypeCode: string): boolean {
+    return BIOSTAR_EXIT_EVENT_CODES.has(eventTypeCode);
   }
 
   /**

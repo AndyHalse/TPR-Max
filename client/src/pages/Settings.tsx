@@ -52,6 +52,7 @@ export default function Settings() {
   const [biostarDiag, setBiostarDiag] = useState<any>(null);
   const [biostarDiagLoading, setBiostarDiagLoading] = useState(false);
   const [showBiostarDiag, setShowBiostarDiag] = useState(false);
+  const [biostarWebhookUrl, setBiostarWebhookUrl] = useState<string>("");
   const [editUserForm, setEditUserForm] = useState({ 
     username: "", 
     email: "", 
@@ -4187,9 +4188,14 @@ export default function Settings() {
                     setBiostarDiagLoading(true);
                     setShowBiostarDiag(true);
                     try {
-                      const resp = await fetch('/api/biostar/diagnostics');
-                      const data = await resp.json();
+                      const [diagResp, webhookResp] = await Promise.all([
+                        fetch('/api/biostar/diagnostics'),
+                        fetch('/api/biostar/webhook-url'),
+                      ]);
+                      const data = await diagResp.json();
                       setBiostarDiag(data);
+                      const wh = await webhookResp.json().catch(() => ({}));
+                      if (wh.webhookUrl) setBiostarWebhookUrl(wh.webhookUrl);
                     } catch (e: any) {
                       setBiostarDiag({ error: e.message });
                     } finally {
@@ -4336,25 +4342,61 @@ export default function Settings() {
                   ) : (
                     <div className="space-y-3">
                       {biostarDiag.eventLogError ? (
-                        <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700/40">
-                          <p className="font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-2">
-                            <span>⛔</span> BioStar Event Log Permission Not Enabled
-                          </p>
-                          <p className="text-sm text-red-600 dark:text-red-400 mb-3">
-                            Automatic on-site detection (Entry = On Site, Exit = Off Site) requires the BioStar 2 admin account to have Event Log REST API access. Without this, TPR-Max cannot determine who has swiped in or out.
-                          </p>
-                          <div className="bg-white dark:bg-red-950/40 rounded-lg p-3 mb-3">
-                            <p className="text-xs font-semibold text-red-700 dark:text-red-300 mb-2">How to fix in BioStar 2:</p>
-                            <ol className="text-xs text-red-600 dark:text-red-400 space-y-1 list-decimal list-inside">
-                              <li>Open BioStar 2 and go to <strong>Settings</strong></li>
-                              <li>Select <strong>Account</strong> → <strong>Custom Level</strong></li>
-                              <li>Edit the level used by your admin account</li>
-                              <li>Find the <strong>Monitoring</strong> section</li>
-                              <li>Set <strong>Event Log</strong> to <strong>Allow</strong></li>
-                              <li>Save and click Sync Now in TPR-Max</li>
-                            </ol>
+                        <div className="space-y-3">
+                          {/* Explanation box */}
+                          <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-700/40">
+                            <p className="font-semibold text-amber-800 dark:text-amber-200 mb-2 flex items-center gap-2">
+                              <span>ℹ️</span> BioStar 2 REST API — Event Log Blocked
+                            </p>
+                            <p className="text-sm text-amber-700 dark:text-amber-300">
+                              The BioStar 2 menu permissions (Edit/Read, Read checkboxes) only control what you see in the BioStar web interface. The REST API that TPR-Max uses has a separate, hidden permission layer. Even with all menus fully ticked, the event log API can still return "Permission Denied".
+                            </p>
                           </div>
-                          <p className="text-xs text-red-500 dark:text-red-400 opacity-80">Technical detail: {biostarDiag.eventLogError}</p>
+
+                          {/* Webhook option — recommended */}
+                          <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700/40">
+                            <p className="font-semibold text-green-800 dark:text-green-200 mb-2 flex items-center gap-2">
+                              <span>✅</span> Recommended Fix: Use BioStar 2 "Trigger &amp; Action" (Push Events)
+                            </p>
+                            <p className="text-sm text-green-700 dark:text-green-300 mb-3">
+                              Instead of TPR-Max asking BioStar for events, configure BioStar 2 to <strong>push</strong> each card scan directly to TPR-Max. This bypasses the permission issue entirely and gives instant, real-time updates.
+                            </p>
+                            {biostarWebhookUrl && (
+                              <div className="bg-white dark:bg-green-950/40 rounded-lg p-3 mb-3 border border-green-200 dark:border-green-700/30">
+                                <p className="text-xs font-semibold text-green-800 dark:text-green-200 mb-1">Your TPR-Max Webhook URL:</p>
+                                <code className="text-xs text-green-700 dark:text-green-300 break-all select-all block bg-green-100 dark:bg-green-900/40 px-2 py-1 rounded">{biostarWebhookUrl}</code>
+                                <p className="text-xs text-green-600 dark:text-green-400 mt-1">Copy this URL — you'll need it in BioStar 2.</p>
+                              </div>
+                            )}
+                            <div className="bg-white dark:bg-green-950/40 rounded-lg p-3">
+                              <p className="text-xs font-semibold text-green-800 dark:text-green-200 mb-2">How to set up in BioStar 2:</p>
+                              <ol className="text-xs text-green-700 dark:text-green-300 space-y-1 list-decimal list-inside">
+                                <li>In BioStar 2, go to <strong>Monitoring</strong> → <strong>Trigger &amp; Action</strong></li>
+                                <li>Click <strong>Add</strong> to create a new trigger</li>
+                                <li>Trigger condition: <strong>Event</strong> → select <em>Access Granted</em> (and <em>Exit Granted</em> if you have an exit reader)</li>
+                                <li>Action type: <strong>HTTP Action</strong> (or "Send HTTP Request")</li>
+                                <li>Method: <strong>POST</strong>, URL: paste the webhook URL above</li>
+                                <li>Save — BioStar will now push every card scan to TPR-Max instantly</li>
+                              </ol>
+                            </div>
+                          </div>
+
+                          {/* Alternative: BioStar 2 server settings */}
+                          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700/40">
+                            <p className="font-semibold text-blue-800 dark:text-blue-200 mb-2 flex items-center gap-2">
+                              <span>🔧</span> Alternative: Enable REST API Access in BioStar 2 Settings
+                            </p>
+                            <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                              Some BioStar 2 versions have a separate REST API permission setting separate from the Custom Level menus. Try checking:
+                            </p>
+                            <ul className="text-xs text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
+                              <li>BioStar 2 → <strong>Settings</strong> → <strong>Server</strong> → look for "REST API" or "Event Log API" option</li>
+                              <li>If using BioStar 2 cloud, check if your licence includes API monitoring access</li>
+                              <li>Contact Suprema support and ask about Event Log REST API permissions for your BioStar 2 version</li>
+                            </ul>
+                          </div>
+
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Technical error: {biostarDiag.eventLogError}</p>
                         </div>
                       ) : (
                         <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
