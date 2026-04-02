@@ -394,6 +394,25 @@ class BiostarService {
   }
 
   /**
+   * Try to get last access info from door status endpoint.
+   * GET /api/door returns door state without needing Event Log permissions.
+   */
+  async getDoorStatus(config: BiostarConfig): Promise<any[]> {
+    try {
+      const response = await this.makeAuthenticatedRequest(config, '/api/door');
+      const rows = response?.DoorCollection?.rows ?? response?.rows ?? (Array.isArray(response) ? response : []);
+      console.log(`🚪 Biostar: Got ${rows.length} doors from door status endpoint`);
+      if (rows.length > 0) {
+        console.log(`🚪 Biostar: Door record keys:`, Object.keys(rows[0]).join(', '));
+      }
+      return rows;
+    } catch (err: any) {
+      console.warn(`⚠️ Biostar: Door status endpoint failed: ${err.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Get list of all users from Biostar with full credential data (cards).
    *
    * Strategy (most compatible across Biostar versions):
@@ -460,7 +479,9 @@ class BiostarService {
 
         // Fetch the full individual record which includes cards
         const fullRecord = await this.getUserById(config, userId);
-        const raw = fullRecord ?? listRow; // fall back to list record if detail fetch fails
+        // Merge list row + full record so we preserve any fields from either source
+        // (e.g. last_access_time may be in list response but not individual response)
+        const raw = fullRecord ? { ...listRow, ...fullRecord } : listRow;
         const mapped = mapBiostarUser(raw);
         if (mapped.id && mapped.name) {
           if (mapped.barcodeNumber) {

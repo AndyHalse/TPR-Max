@@ -15993,6 +15993,9 @@ This is an automated notification from your visitor management system.`;
         console.warn(`⚠️ Biostar diagnostics: Event log unavailable - ${evtErr.message}`);
       }
 
+      // Try door status as alternative data source
+      await biostarService.getDoorStatus(diagConfig);
+
       // Fetch on-site determination (falls back to last_access_time automatically)
       const onSiteUsers = await biostarService.getCurrentOnSiteUsers(diagConfig);
       const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));

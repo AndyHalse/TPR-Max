@@ -4122,9 +4122,9 @@ export default function Settings() {
                         const result = await response.json();
                         
                         if (result.success) {
-                          // Refresh settings to show new last sync time and staff list
-                          queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
-                          queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+                          // Force-refetch settings to show new last sync time
+                          await queryClient.refetchQueries({ queryKey: ["/api/settings"] });
+                          await queryClient.refetchQueries({ queryKey: ["/api/staff"] });
                         }
                         
                         const parts: string[] = [];
@@ -4336,12 +4336,25 @@ export default function Settings() {
                   ) : (
                     <div className="space-y-3">
                       {biostarDiag.eventLogError ? (
-                        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
-                          <p className="font-semibold mb-1">Event Log API not available</p>
-                          <p className="mb-2">{biostarDiag.eventLogError}</p>
-                          <p className="text-xs opacity-80">
-                            TPR-Max is using last card scan time from BioStar user records instead. To fix this, enable Event Log access for the admin account in BioStar 2: <strong>Settings → Account → Custom Level → Monitoring → Event Log (Allow)</strong>.
+                        <div className="p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-700/40">
+                          <p className="font-semibold text-red-700 dark:text-red-300 mb-2 flex items-center gap-2">
+                            <span>⛔</span> BioStar Event Log Permission Not Enabled
                           </p>
+                          <p className="text-sm text-red-600 dark:text-red-400 mb-3">
+                            Automatic on-site detection (Entry = On Site, Exit = Off Site) requires the BioStar 2 admin account to have Event Log REST API access. Without this, TPR-Max cannot determine who has swiped in or out.
+                          </p>
+                          <div className="bg-white dark:bg-red-950/40 rounded-lg p-3 mb-3">
+                            <p className="text-xs font-semibold text-red-700 dark:text-red-300 mb-2">How to fix in BioStar 2:</p>
+                            <ol className="text-xs text-red-600 dark:text-red-400 space-y-1 list-decimal list-inside">
+                              <li>Open BioStar 2 and go to <strong>Settings</strong></li>
+                              <li>Select <strong>Account</strong> → <strong>Custom Level</strong></li>
+                              <li>Edit the level used by your admin account</li>
+                              <li>Find the <strong>Monitoring</strong> section</li>
+                              <li>Set <strong>Event Log</strong> to <strong>Allow</strong></li>
+                              <li>Save and click Sync Now in TPR-Max</li>
+                            </ol>
+                          </div>
+                          <p className="text-xs text-red-500 dark:text-red-400 opacity-80">Technical detail: {biostarDiag.eventLogError}</p>
                         </div>
                       ) : (
                         <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
