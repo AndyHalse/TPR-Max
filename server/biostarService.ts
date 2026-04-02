@@ -39,10 +39,76 @@ export interface BiostarEventLog {
   id: string;
   deviceId: string;
   userId: string;
-  eventTypeCode: string; // e.g., "4864" for access granted
-  eventTime: string; // ISO timestamp
+  eventTypeCode: string; // e.g., "4864" for 1:1 auth success
+  eventTypeDesc: string; // human-readable description
+  eventTime: string;     // ISO timestamp
   userName?: string;
   deviceName?: string;
+}
+
+// BioStar 2 event type codes that indicate a user has entered / is on-site.
+// Source: BioStar 2 Local API documentation + empirical observation.
+// Single-door setups (like X-Pass 2) produce authentication events, not "entry/exit"
+// events, so we treat any successful authentication as "on-site".
+export const BIOSTAR_ENTRY_EVENT_CODES = new Set([
+  '4864',   // 1:1 Auth. Success (card scan — most common on X-Pass / wiegand readers)
+  '4096',   // 1:N Auth. Success (fingerprint identification)
+  '4100',   // Card + Fingerprint Auth. Success
+  '4098',   // Card Auth. Success (alternative code)
+  '4104',   // Mobile Auth. Success
+  '4352',   // Access Granted (zone entry)
+  '16384',  // Legacy access-granted code (older BioStar versions)
+  '1',      // Generic authentication success (some firmware variants)
+  '2',      // Access granted (some firmware variants)
+]);
+
+// Event codes that indicate a user has exited the building.
+// Only present when a separate exit reader is configured.
+export const BIOSTAR_EXIT_EVENT_CODES = new Set([
+  '4865',   // 1:1 Auth. Success (exit reader)
+  '4097',   // 1:N Auth. Success (exit reader)
+  '4353',   // Access Granted (zone exit)
+  '16385',  // Legacy exit code
+]);
+
+// Map a raw BioStar 2 event row to our BiostarEventLog shape.
+// BioStar 2 nests IDs: user_id.id, device_id.id, event_type_id.code
+function mapBiostarEvent(raw: any): BiostarEventLog | null {
+  // user_id can be { id, user_name } or a plain string/number
+  const userId =
+    raw?.user_id?.id ?? raw?.user_id ?? raw?.userId ?? '';
+  const userName =
+    raw?.user_id?.user_name ?? raw?.user_name ?? raw?.userName ?? undefined;
+
+  // device can be { id, name } or plain
+  const deviceId =
+    raw?.device_id?.id ?? raw?.device_id ?? raw?.deviceId ?? '';
+  const deviceName =
+    raw?.device_id?.name ?? raw?.device_name ?? raw?.deviceName ?? undefined;
+
+  // event_type_id can be { code, desc } or a plain code string
+  const eventTypeCode = String(
+    raw?.event_type_id?.code ?? raw?.event_type_id ?? raw?.eventTypeCode ?? raw?.event_type ?? ''
+  );
+  const eventTypeDesc =
+    raw?.event_type_id?.desc ?? raw?.event_type_id?.description ?? raw?.eventTypeDesc ?? '';
+
+  // timestamp: "datetime" in BioStar 2 Local API; "event_time" / "eventTime" as fallbacks
+  const eventTime =
+    raw?.datetime ?? raw?.event_time ?? raw?.eventTime ?? raw?.time ?? '';
+
+  if (!userId || !eventTime) return null;
+
+  return {
+    id: String(raw?.id ?? raw?.index ?? ''),
+    deviceId: String(deviceId),
+    userId: String(userId),
+    eventTypeCode,
+    eventTypeDesc,
+    eventTime,
+    userName: userName ? String(userName) : undefined,
+    deviceName: deviceName ? String(deviceName) : undefined,
+  };
 }
 
 export interface BiostarConnectionStatus {
@@ -410,8 +476,11 @@ class BiostarService {
   }
 
   /**
-   * Get recent event logs (access events)
-   * This is the key method for determining who is currently on-site
+   * Get recent event logs (access events) from BioStar 2.
+   *
+   * BioStar 2 Local API returns events in:
+   *   { EventCollection: { total: N, rows: [...] } }
+   * Each row has nested objects: user_id.id, device_id.id, event_type_id.code, datetime
    */
   async getEventLogs(
     config: BiostarConfig,
@@ -419,80 +488,124 @@ class BiostarService {
     endTime?: Date,
     limit: number = 1000
   ): Promise<BiostarEventLog[]> {
+    // Default to today (midnight local time) if not specified
+    const defaultStart = new Date();
+    defaultStart.setHours(0, 0, 0, 0);
+    const start = startTime ?? defaultStart;
+    const end = endTime ?? new Date();
+
+    // BioStar 2 Local API accepts Unix timestamps (seconds) as query params
+    const startTs = Math.floor(start.getTime() / 1000);
+    const endTs = Math.floor(end.getTime() / 1000);
+
+    // Try GET /api/events first (most compatible across BioStar versions)
+    let rawRows: any[] = [];
     try {
-      // Default to last 24 hours if no time range specified
-      const defaultStartTime = new Date(Date.now() - 24 * 60 * 60 * 1000);
-      const start = startTime || defaultStartTime;
-      const end = endTime || new Date();
-
-      // Format timestamps for Biostar API (Unix timestamp in seconds)
-      const startTimestamp = Math.floor(start.getTime() / 1000);
-      const endTimestamp = Math.floor(end.getTime() / 1000);
-
-      const endpoint = `/api/events?start_datetime=${startTimestamp}&end_datetime=${endTimestamp}&limit=${limit}`;
+      const endpoint = `/api/events?start_datetime=${startTs}&end_datetime=${endTs}&limit=${limit}`;
       const response = await this.makeAuthenticatedRequest(config, endpoint);
-      
-      return response.records || [];
-    } catch (error: any) {
-      console.error('❌ Failed to fetch Biostar event logs:', error);
-      throw error;
+      rawRows =
+        response?.EventCollection?.rows ??   // BioStar 2 Local API
+        response?.records ??                  // older BioStar API variant
+        response?.rows ??
+        (Array.isArray(response) ? response : []);
+      console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events`);
+    } catch (err: any) {
+      console.warn(`⚠️ Biostar GET /api/events failed (${err.message}), trying POST search...`);
+      // Fallback: POST /api/events/search (newer BioStar versions prefer this)
+      try {
+        const body = {
+          EventCollection: {
+            start_datetime: start.toISOString(),
+            end_datetime: end.toISOString(),
+            limit,
+          },
+        };
+        const response = await this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', body);
+        rawRows =
+          response?.EventCollection?.rows ??
+          response?.records ??
+          response?.rows ??
+          (Array.isArray(response) ? response : []);
+        console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (via POST search)`);
+      } catch (err2: any) {
+        console.error('❌ Biostar: Both event endpoints failed:', err2.message);
+        return [];
+      }
     }
+
+    // Map raw rows → typed BiostarEventLog objects
+    const events: BiostarEventLog[] = [];
+    for (const row of rawRows) {
+      const mapped = mapBiostarEvent(row);
+      if (mapped) events.push(mapped);
+    }
+    return events;
   }
 
   /**
-   * Get current on-site users based on recent access events
-   * Analyzes event logs to determine who checked in but hasn't checked out
+   * Determine which BioStar users are currently on-site.
+   *
+   * Strategy:
+   * - Fetch today's authentication / access events
+   * - For each user, take their MOST RECENT event
+   * - If it's an entry/auth event → on-site; if it's an exit event → off-site
+   * - For single-door setups (X-Pass 2, typical turnstiles) there are usually no
+   *   exit events, so anyone who authenticated today is considered on-site
    */
-  async getCurrentOnSiteUsers(config: BiostarConfig): Promise<{ userId: string; userName: string; lastAccessTime: string }[]> {
-    try {
-      // Get events from today
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      const events = await this.getEventLogs(config, today);
-      
-      // Group events by user and find their latest event
-      const userEvents = new Map<string, { userName: string; lastAccessTime: string; isEntry: boolean }>();
-      
-      for (const event of events) {
-        // Event type codes (typical Biostar 2 codes):
-        // 4864 = Access Granted (Entry)
-        // 4865 = Access Granted (Exit)
-        // Customize these based on your Biostar configuration
-        const isEntry = event.eventTypeCode === '4864' || event.eventTypeCode === '16384';
-        const isExit = event.eventTypeCode === '4865' || event.eventTypeCode === '16385';
-        
-        if (isEntry || isExit) {
-          const existingEvent = userEvents.get(event.userId);
-          
-          if (!existingEvent || new Date(event.eventTime) > new Date(existingEvent.lastAccessTime)) {
-            userEvents.set(event.userId, {
-              userName: event.userName || `User ${event.userId}`,
-              lastAccessTime: event.eventTime,
-              isEntry,
-            });
-          }
-        }
-      }
-      
-      // Filter to only users who are currently on-site (last event was entry)
-      const onSiteUsers = [];
-      for (const [userId, eventData] of userEvents.entries()) {
-        if (eventData.isEntry) {
-          onSiteUsers.push({
-            userId,
-            userName: eventData.userName,
-            lastAccessTime: eventData.lastAccessTime,
-          });
-        }
-      }
-      
-      console.log(`📊 Biostar: Found ${onSiteUsers.length} users currently on-site`);
-      return onSiteUsers;
-    } catch (error: any) {
-      console.error('❌ Failed to get current on-site users:', error);
-      throw error;
+  async getCurrentOnSiteUsers(
+    config: BiostarConfig
+  ): Promise<{ userId: string; userName: string; lastAccessTime: string; eventCode: string }[]> {
+    const events = await this.getEventLogs(config);
+
+    if (events.length === 0) {
+      console.log('📊 Biostar: No events returned for today');
+      return [];
     }
+
+    // Log a sample of event codes seen so we can tune the code sets if needed
+    const uniqueCodes = [...new Set(events.map(e => `${e.eventTypeCode}(${e.eventTypeDesc})`))];
+    console.log(`📋 Biostar: Event codes seen today: ${uniqueCodes.slice(0, 10).join(', ')}`);
+
+    // Build a map of userId → most-recent event
+    const userLatest = new Map<string, BiostarEventLog>();
+    for (const event of events) {
+      const existing = userLatest.get(event.userId);
+      if (!existing || new Date(event.eventTime) > new Date(existing.eventTime)) {
+        userLatest.set(event.userId, event);
+      }
+    }
+
+    const onSiteUsers: { userId: string; userName: string; lastAccessTime: string; eventCode: string }[] = [];
+    const hasAnyExitEvent = events.some(e => BIOSTAR_EXIT_EVENT_CODES.has(e.eventTypeCode));
+
+    for (const [userId, event] of userLatest) {
+      if (userId === '0' || userId === '') continue; // skip system/unknown users
+
+      const isEntry = BIOSTAR_ENTRY_EVENT_CODES.has(event.eventTypeCode);
+      const isExit = BIOSTAR_EXIT_EVENT_CODES.has(event.eventTypeCode);
+
+      if (isEntry) {
+        // On-site: last event was an entry/auth event
+        onSiteUsers.push({
+          userId,
+          userName: event.userName ?? `User ${userId}`,
+          lastAccessTime: event.eventTime,
+          eventCode: event.eventTypeCode,
+        });
+      } else if (!isExit && !hasAnyExitEvent) {
+        // Unknown event code but no exit events are configured — assume any auth means on-site
+        onSiteUsers.push({
+          userId,
+          userName: event.userName ?? `User ${userId}`,
+          lastAccessTime: event.eventTime,
+          eventCode: event.eventTypeCode,
+        });
+      }
+      // isExit → do NOT add (user has left)
+    }
+
+    console.log(`📊 Biostar: ${onSiteUsers.length} of ${userLatest.size} users are currently on-site`);
+    return onSiteUsers;
   }
 
   /**

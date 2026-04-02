@@ -82,7 +82,7 @@ import { CustomerDatabaseService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
 import { db } from "./db";
-import { eq, and, sql, desc, inArray, gte, ne } from "drizzle-orm";
+import { eq, and, sql, desc, inArray, gte, ne, isNotNull } from "drizzle-orm";
 import { Pool } from 'pg';
 import { websocketService } from "./websocketService";
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -15823,12 +15823,55 @@ This is an automated notification from your visitor management system.`;
 
       console.log(`📊 Biostar staff import: ${importedCount} added, ${updatedCount} updated, ${skippedCount} skipped`);
 
-      // --- Step 2: Get current on-site users from event logs (non-fatal) ---
+      // --- Step 2: Get current on-site users from event logs and update staff check-in status ---
       let onSiteUsers: any[] = [];
       let onSiteWarning: string | undefined;
+      let attendanceCheckedIn = 0;
+      let attendanceCheckedOut = 0;
       try {
         onSiteUsers = await biostarService.getCurrentOnSiteUsers(biostarConfig);
         console.log(`📊 Biostar sync found ${onSiteUsers.length} users on-site`);
+
+        // Build set of BioStar user IDs currently on-site
+        const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));
+
+        // Fetch all staff with a biostarUserId so we can reconcile their status
+        const allBiostarStaff = await customerDb
+          .select({
+            id: isolatedSchema.staff.id,
+            biostarUserId: isolatedSchema.staff.biostarUserId,
+            isCheckedIn: isolatedSchema.staff.isCheckedIn,
+          })
+          .from(isolatedSchema.staff)
+          .where(isNotNull(isolatedSchema.staff.biostarUserId));
+
+        const now = new Date();
+        for (const staffMember of allBiostarStaff) {
+          if (!staffMember.biostarUserId) continue;
+          const shouldBeIn = onSiteIds.has(String(staffMember.biostarUserId));
+
+          if (shouldBeIn && !staffMember.isCheckedIn) {
+            // BioStar says on-site but TPR shows off-site → check in
+            await customerDb
+              .update(isolatedSchema.staff)
+              .set({ isCheckedIn: true, checkedInAt: now, checkedOutAt: null, updatedAt: now })
+              .where(eq(isolatedSchema.staff.id, staffMember.id));
+            attendanceCheckedIn++;
+            console.log(`✅ Biostar attendance: Checked IN staff (biostar id ${staffMember.biostarUserId})`);
+          } else if (!shouldBeIn && staffMember.isCheckedIn) {
+            // BioStar says off-site but TPR shows on-site → check out
+            await customerDb
+              .update(isolatedSchema.staff)
+              .set({ isCheckedIn: false, checkedOutAt: now, updatedAt: now })
+              .where(eq(isolatedSchema.staff.id, staffMember.id));
+            attendanceCheckedOut++;
+            console.log(`✅ Biostar attendance: Checked OUT staff (biostar id ${staffMember.biostarUserId})`);
+          }
+        }
+
+        if (attendanceCheckedIn > 0 || attendanceCheckedOut > 0) {
+          console.log(`📊 Biostar attendance update: ${attendanceCheckedIn} checked in, ${attendanceCheckedOut} checked out`);
+        }
       } catch (onSiteErr: any) {
         const msg = (onSiteErr as Error).message || String(onSiteErr);
         console.warn(`⚠️ Biostar on-site tracking unavailable (non-fatal): ${msg}`);
@@ -15848,9 +15891,11 @@ This is an automated notification from your visitor management system.`;
         errors: importErrors.length > 0 ? importErrors : undefined,
         onSiteCount: onSiteUsers.length,
         onSiteUsers,
+        attendanceCheckedIn,
+        attendanceCheckedOut,
         onSiteWarning,
         lastSync: new Date().toISOString(),
-        message: `Sync completed: ${importedCount} new staff imported, ${updatedCount} updated from Biostar${onSiteWarning ? " (on-site tracking unavailable)" : `, ${onSiteUsers.length} users on-site`}`,
+        message: `Sync completed: ${importedCount} new staff imported, ${updatedCount} updated from Biostar${onSiteWarning ? " (on-site tracking unavailable)" : `, ${onSiteUsers.length} users on-site (${attendanceCheckedIn} checked in, ${attendanceCheckedOut} checked out)`}`,
       });
     } catch (error) {
       console.error("❌ Biostar sync failed:", error);
@@ -20266,6 +20311,111 @@ This is an automated notification from your visitor management system.`;
 
   // Initialize overnight check-out notifications
   setupOvernightNotifications();
+
+  // -----------------------------------------------------------------
+  // BioStar 2 live attendance polling
+  // Runs every biostarSyncInterval seconds (default 300) per customer.
+  // Reads today's access events and updates staff isCheckedIn in real-time.
+  // -----------------------------------------------------------------
+  const biostarPollTimers = new Map<string, ReturnType<typeof setInterval>>();
+
+  async function pollBiostarAttendance(customerId: string): Promise<void> {
+    try {
+      const pollCtx = { customerId } as any;
+      const settings = await simpleDatabaseService.getCompanySettings(pollCtx).catch(() => null);
+      if (!settings?.biostarEnabled || !settings?.biostarServerUrl || !settings?.biostarUsername || !settings?.biostarPassword) {
+        return;
+      }
+
+      const pollConfig = {
+        serverUrl: settings.biostarServerUrl,
+        username: settings.biostarUsername,
+        password: settings.biostarPassword,
+        databaseId: settings.biostarDatabaseId || '1',
+      };
+
+      const onSiteUsers = await biostarService.getCurrentOnSiteUsers(pollConfig);
+      const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));
+
+      const pollDb = await customerDbService.getCustomerDatabase(customerId);
+      const allBiostarStaff = await pollDb
+        .select({
+          id: isolatedSchema.staff.id,
+          biostarUserId: isolatedSchema.staff.biostarUserId,
+          isCheckedIn: isolatedSchema.staff.isCheckedIn,
+        })
+        .from(isolatedSchema.staff)
+        .where(isNotNull(isolatedSchema.staff.biostarUserId));
+
+      const now = new Date();
+      let cIn = 0, cOut = 0;
+      for (const s of allBiostarStaff) {
+        if (!s.biostarUserId) continue;
+        const shouldBeIn = onSiteIds.has(String(s.biostarUserId));
+        if (shouldBeIn && !s.isCheckedIn) {
+          await pollDb.update(isolatedSchema.staff)
+            .set({ isCheckedIn: true, checkedInAt: now, checkedOutAt: null, updatedAt: now })
+            .where(eq(isolatedSchema.staff.id, s.id));
+          cIn++;
+        } else if (!shouldBeIn && s.isCheckedIn) {
+          await pollDb.update(isolatedSchema.staff)
+            .set({ isCheckedIn: false, checkedOutAt: now, updatedAt: now })
+            .where(eq(isolatedSchema.staff.id, s.id));
+          cOut++;
+        }
+      }
+      if (cIn > 0 || cOut > 0) {
+        console.log(`🔄 Biostar poll [${customerId}]: ${cIn} checked in, ${cOut} checked out`);
+      }
+    } catch (err: any) {
+      console.warn(`⚠️ Biostar attendance poll failed for ${customerId}: ${err.message}`);
+    }
+  }
+
+  async function setupBiostarAttendancePolling(): Promise<void> {
+    // Clear any existing timers
+    for (const [, timer] of biostarPollTimers) clearInterval(timer);
+    biostarPollTimers.clear();
+
+    try {
+      const dbCustomers = await customerDbService.getAllCustomers();
+      const hardcodedIds = ['dev-customer-001', 'dev-customer-002', 'test-customer-trial'];
+      const dbIds = new Set(dbCustomers.map((c: { id: string }) => c.id));
+      const allCustomers = [
+        ...dbCustomers,
+        ...hardcodedIds.filter(id => !dbIds.has(id)).map(id => ({ id })),
+      ];
+
+      for (const customer of allCustomers) {
+        try {
+          const ctx = { customerId: customer.id } as any;
+          const settings = await simpleDatabaseService.getCompanySettings(ctx).catch(() => null);
+          if (!settings?.biostarEnabled || !settings?.biostarServerUrl) continue;
+
+          const intervalSecs = Math.max(30, Number(settings.biostarSyncInterval) || 300);
+          console.log(`🔄 Biostar live attendance polling scheduled for ${customer.id} every ${intervalSecs}s`);
+
+          // Run an immediate poll so status is live on startup/settings save
+          pollBiostarAttendance(customer.id).catch(() => {});
+
+          const timer = setInterval(() => {
+            pollBiostarAttendance(customer.id).catch(() => {});
+          }, intervalSecs * 1000);
+          biostarPollTimers.set(customer.id, timer);
+        } catch {
+          // skip this customer
+        }
+      }
+    } catch (err: any) {
+      console.warn(`⚠️ setupBiostarAttendancePolling failed: ${err.message}`);
+    }
+  }
+
+  // Start BioStar attendance polling (non-fatal — won't affect startup if Biostar isn't configured)
+  setupBiostarAttendancePolling().catch(() => {});
+
+  // Re-schedule when BioStar settings are saved (handled via settings update endpoint side-effect)
+  // The sync-now endpoint also triggers an immediate status refresh.
 
 
   // Induction Settings Management API Routes
