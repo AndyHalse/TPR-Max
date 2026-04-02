@@ -488,45 +488,56 @@ class BiostarService {
     endTime?: Date,
     limit: number = 1000
   ): Promise<BiostarEventLog[]> {
-    // Default to today (midnight local time) if not specified
+    // Default: start of today (go back 30 hours to cover any timezone offset between
+    // the Replit server and the BioStar appliance so we never miss same-day events)
     const defaultStart = new Date();
     defaultStart.setHours(0, 0, 0, 0);
+    defaultStart.setTime(defaultStart.getTime() - 2 * 60 * 60 * 1000); // subtract 2h for TZ safety
     const start = startTime ?? defaultStart;
     const end = endTime ?? new Date();
 
-    // BioStar 2 Local API accepts Unix timestamps (seconds) as query params
-    const startTs = Math.floor(start.getTime() / 1000);
-    const endTs = Math.floor(end.getTime() / 1000);
+    // BioStar 2 expects ISO datetime strings, NOT Unix timestamps.
+    // Format: "YYYY-MM-DDTHH:mm:ss" (no milliseconds, no trailing Z)
+    const fmtBiostar = (d: Date) => {
+      const pad = (n: number) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    };
+    const startStr = fmtBiostar(start);
+    const endStr   = fmtBiostar(end);
 
-    // Try GET /api/events first (most compatible across BioStar versions)
+    console.log(`📋 Biostar: Querying events from ${startStr} to ${endStr}`);
+
     let rawRows: any[] = [];
+
+    // Strategy 1: POST /api/events/search (preferred on BioStar 2 v2.8+)
     try {
-      const endpoint = `/api/events?start_datetime=${startTs}&end_datetime=${endTs}&limit=${limit}`;
-      const response = await this.makeAuthenticatedRequest(config, endpoint);
+      const body = {
+        EventCollection: {
+          start_datetime: startStr,
+          end_datetime:   endStr,
+          limit,
+        },
+      };
+      const response = await this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', body);
       rawRows =
-        response?.EventCollection?.rows ??   // BioStar 2 Local API
-        response?.records ??                  // older BioStar API variant
+        response?.EventCollection?.rows ??
+        response?.records ??
         response?.rows ??
         (Array.isArray(response) ? response : []);
-      console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events`);
+      console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST /api/events/search)`);
     } catch (err: any) {
-      console.warn(`⚠️ Biostar GET /api/events failed (${err.message}), trying POST search...`);
-      // Fallback: POST /api/events/search (newer BioStar versions prefer this)
+      console.warn(`⚠️ Biostar POST /api/events/search failed (${err.message}), trying GET...`);
+
+      // Strategy 2: GET /api/events with ISO datetime query params
       try {
-        const body = {
-          EventCollection: {
-            start_datetime: start.toISOString(),
-            end_datetime: end.toISOString(),
-            limit,
-          },
-        };
-        const response = await this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', body);
+        const endpoint = `/api/events?start_datetime=${encodeURIComponent(startStr)}&end_datetime=${encodeURIComponent(endStr)}&limit=${limit}`;
+        const response = await this.makeAuthenticatedRequest(config, endpoint);
         rawRows =
           response?.EventCollection?.rows ??
           response?.records ??
           response?.rows ??
           (Array.isArray(response) ? response : []);
-        console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (via POST search)`);
+        console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events)`);
       } catch (err2: any) {
         console.error('❌ Biostar: Both event endpoints failed:', err2.message);
         return [];
