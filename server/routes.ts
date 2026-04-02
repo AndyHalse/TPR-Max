@@ -15954,6 +15954,92 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // BioStar diagnostics — shows raw events, on-site status, and staff matching
+  app.get("/api/biostar/diagnostics", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId;
+      if (!customerId || !req.user?.username) {
+        return res.status(401).json({ error: "Unauthorised" });
+      }
+
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+
+      if (!settings?.biostarEnabled) {
+        return res.json({ enabled: false, message: "BioStar integration is not enabled" });
+      }
+      if (!settings.biostarServerUrl || !settings.biostarUsername || !settings.biostarPassword) {
+        return res.json({ enabled: true, message: "BioStar connection settings incomplete" });
+      }
+
+      const diagConfig = {
+        serverUrl: settings.biostarServerUrl,
+        username: settings.biostarUsername,
+        password: settings.biostarPassword,
+        databaseId: settings.biostarDatabaseId || "1",
+      };
+
+      // Fetch today's raw events
+      const rawEvents = await biostarService.getEventLogs(diagConfig);
+
+      // Fetch on-site determination
+      const onSiteUsers = await biostarService.getCurrentOnSiteUsers(diagConfig);
+      const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));
+
+      // Fetch all staff with biostarUserId to show matching
+      const diagDb = await customerDbService.getCustomerDatabase(customerId);
+      const allBiostarStaff = await diagDb
+        .select({
+          id: isolatedSchema.staff.id,
+          firstName: isolatedSchema.staff.firstName,
+          lastName: isolatedSchema.staff.lastName,
+          biostarUserId: isolatedSchema.staff.biostarUserId,
+          isCheckedIn: isolatedSchema.staff.isCheckedIn,
+        })
+        .from(isolatedSchema.staff)
+        .where(isNotNull(isolatedSchema.staff.biostarUserId));
+
+      const staffReconciliation = allBiostarStaff.map(s => ({
+        staffId: s.id,
+        name: `${s.firstName} ${s.lastName}`,
+        biostarUserId: s.biostarUserId,
+        currentlyCheckedIn: s.isCheckedIn,
+        biostarSaysOnSite: onSiteIds.has(String(s.biostarUserId)),
+        status: onSiteIds.has(String(s.biostarUserId)) ? "ON-SITE" : "OFF-SITE",
+      }));
+
+      // Unique event codes seen today
+      const eventCodeSummary = rawEvents.reduce<Record<string, { count: number; desc: string }>>((acc, e) => {
+        const key = e.eventTypeCode;
+        if (!acc[key]) acc[key] = { count: 0, desc: e.eventTypeDesc };
+        acc[key].count++;
+        return acc;
+      }, {});
+
+      res.json({
+        enabled: true,
+        lastSync: settings.biostarLastSync?.toISOString() || null,
+        eventCount: rawEvents.length,
+        events: rawEvents.slice(0, 50).map(e => ({
+          id: e.id,
+          time: e.eventTime,
+          userId: e.userId,
+          userName: e.userName,
+          deviceId: e.deviceId,
+          deviceName: e.deviceName,
+          eventCode: e.eventTypeCode,
+          eventDesc: e.eventTypeDesc,
+        })),
+        eventCodeSummary,
+        onSiteUsers,
+        staffReconciliation,
+      });
+    } catch (err: any) {
+      console.error("❌ BioStar diagnostics error:", err);
+      res.status(500).json({ enabled: true, error: err.message });
+    }
+  });
+
   // User invitation endpoints
   app.post("/api/invitations", requireAuth, async (req, res) => {
     try {

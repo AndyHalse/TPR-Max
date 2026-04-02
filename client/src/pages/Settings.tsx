@@ -49,6 +49,9 @@ export default function Settings() {
   });
   const [showEditUserDialog, setShowEditUserDialog] = useState(false);
   const [userToEdit, setUserToEdit] = useState<any>(null);
+  const [biostarDiag, setBiostarDiag] = useState<any>(null);
+  const [biostarDiagLoading, setBiostarDiagLoading] = useState(false);
+  const [showBiostarDiag, setShowBiostarDiag] = useState(false);
   const [editUserForm, setEditUserForm] = useState({ 
     username: "", 
     email: "", 
@@ -4174,9 +4177,171 @@ export default function Settings() {
                     <li>View synced data on the Muster page</li>
                   </ol>
                 </div>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={async () => {
+                    if (showBiostarDiag && biostarDiag) { setShowBiostarDiag(false); return; }
+                    setBiostarDiagLoading(true);
+                    setShowBiostarDiag(true);
+                    try {
+                      const resp = await fetch('/api/biostar/diagnostics');
+                      const data = await resp.json();
+                      setBiostarDiag(data);
+                    } catch (e: any) {
+                      setBiostarDiag({ error: e.message });
+                    } finally {
+                      setBiostarDiagLoading(false);
+                    }
+                  }}
+                >
+                  <Activity className="mr-2" size={16} />
+                  {showBiostarDiag ? "Hide Diagnostics" : "View Live Diagnostics"}
+                </Button>
               </div>
             </GlassCard>
           </div>
+
+          {/* BioStar Diagnostics Panel */}
+          {showBiostarDiag && (
+            <GlassCard>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <Activity className="text-blue-600 dark:text-blue-400" size={20} />
+                  <h3 className="text-base font-semibold text-fixed">BioStar 2 Live Diagnostics</h3>
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  setBiostarDiagLoading(true);
+                  fetch('/api/biostar/diagnostics').then(r => r.json()).then(d => { setBiostarDiag(d); setBiostarDiagLoading(false); }).catch(() => setBiostarDiagLoading(false));
+                }}>
+                  <RefreshCw size={14} className={biostarDiagLoading ? "animate-spin" : ""} />
+                  <span className="ml-1 text-xs">Refresh</span>
+                </Button>
+              </div>
+
+              {biostarDiagLoading && !biostarDiag && (
+                <div className="text-sm text-variable text-center py-6">Loading diagnostics from BioStar 2...</div>
+              )}
+
+              {biostarDiag?.error && (
+                <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-sm text-red-700 dark:text-red-300">
+                  Error: {biostarDiag.error}
+                </div>
+              )}
+
+              {biostarDiag && !biostarDiag.error && (
+                <div className="space-y-5">
+                  {/* Summary row */}
+                  <div className="flex flex-wrap gap-3 text-sm">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <span className="text-blue-600 dark:text-blue-400 font-medium">{biostarDiag.eventCount ?? 0}</span>
+                      <span className="text-variable">events today</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                      <span className="text-green-600 dark:text-green-400 font-medium">{biostarDiag.onSiteUsers?.length ?? 0}</span>
+                      <span className="text-variable">on-site per BioStar</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+                      <span className="text-purple-600 dark:text-purple-400 font-medium">{biostarDiag.staffReconciliation?.length ?? 0}</span>
+                      <span className="text-variable">staff linked to BioStar</span>
+                    </div>
+                  </div>
+
+                  {/* Staff reconciliation */}
+                  {biostarDiag.staffReconciliation?.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-fixed mb-2">Staff Matching</h4>
+                      <div className="overflow-x-auto rounded-lg border border-white/20 dark:border-slate-700/30">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-slate-50 dark:bg-slate-800/50">
+                              <th className="text-left px-3 py-2 text-xs font-medium text-variable">Name</th>
+                              <th className="text-left px-3 py-2 text-xs font-medium text-variable">BioStar ID</th>
+                              <th className="text-left px-3 py-2 text-xs font-medium text-variable">TPR Status</th>
+                              <th className="text-left px-3 py-2 text-xs font-medium text-variable">BioStar Says</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {biostarDiag.staffReconciliation.map((s: any, i: number) => (
+                              <tr key={i} className="border-t border-white/10 dark:border-slate-700/20">
+                                <td className="px-3 py-2 font-medium text-fixed">{s.name}</td>
+                                <td className="px-3 py-2 font-mono text-xs text-variable">{s.biostarUserId}</td>
+                                <td className="px-3 py-2">
+                                  <Badge variant={s.currentlyCheckedIn ? "default" : "secondary"} className={s.currentlyCheckedIn ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" : ""}>
+                                    {s.currentlyCheckedIn ? "On Site" : "Off Site"}
+                                  </Badge>
+                                </td>
+                                <td className="px-3 py-2">
+                                  <Badge variant={s.biostarSaysOnSite ? "default" : "secondary"} className={s.biostarSaysOnSite ? "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" : "bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400"}>
+                                    {s.biostarSaysOnSite ? "ON-SITE" : "OFF-SITE"}
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Event code summary */}
+                  {Object.keys(biostarDiag.eventCodeSummary ?? {}).length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-semibold text-fixed mb-2">Event Codes Seen Today</h4>
+                      <div className="flex flex-wrap gap-2">
+                        {Object.entries(biostarDiag.eventCodeSummary).map(([code, info]: [string, any]) => (
+                          <div key={code} className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-md text-xs">
+                            <span className="font-mono font-bold text-fixed">{code}</span>
+                            <span className="text-variable">{info.desc || "unknown"}</span>
+                            <span className="bg-slate-200 dark:bg-slate-700 text-variable px-1.5 py-0.5 rounded text-xs">×{info.count}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recent events */}
+                  {biostarDiag.events?.length > 0 ? (
+                    <div>
+                      <h4 className="text-sm font-semibold text-fixed mb-2">Recent Events (last {biostarDiag.events.length})</h4>
+                      <div className="overflow-x-auto rounded-lg border border-white/20 dark:border-slate-700/30 max-h-64 overflow-y-auto">
+                        <table className="w-full text-xs">
+                          <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/90">
+                            <tr>
+                              <th className="text-left px-3 py-2 font-medium text-variable">Time</th>
+                              <th className="text-left px-3 py-2 font-medium text-variable">User</th>
+                              <th className="text-left px-3 py-2 font-medium text-variable">Code</th>
+                              <th className="text-left px-3 py-2 font-medium text-variable">Description</th>
+                              <th className="text-left px-3 py-2 font-medium text-variable">Device</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {biostarDiag.events.map((e: any, i: number) => (
+                              <tr key={i} className="border-t border-white/10 dark:border-slate-700/20 hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                <td className="px-3 py-1.5 text-variable whitespace-nowrap">
+                                  {e.time ? new Date(e.time).toLocaleTimeString() : "—"}
+                                </td>
+                                <td className="px-3 py-1.5 font-medium text-fixed">{e.userName || `ID:${e.userId}`}</td>
+                                <td className="px-3 py-1.5 font-mono text-fixed">{e.eventCode}</td>
+                                <td className="px-3 py-1.5 text-variable">{e.eventDesc || "—"}</td>
+                                <td className="px-3 py-1.5 text-variable">{e.deviceName || e.deviceId || "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
+                      No events returned from BioStar for today. Check that the server URL is reachable from the TPR Max server and that BioStar 2 is recording access events.
+                    </div>
+                  )}
+                </div>
+              )}
+            </GlassCard>
+          )}
           </TooltipProvider>
         </TabsContent>
 
