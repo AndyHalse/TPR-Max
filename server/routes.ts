@@ -15836,7 +15836,7 @@ This is an automated notification from your visitor management system.`;
         const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));
 
         // Fetch all staff with a biostarUserId so we can reconcile their status
-        const allBiostarStaff = await customerDb
+        const allBiostarStaff = await db
           .select({
             id: isolatedSchema.staff.id,
             biostarUserId: isolatedSchema.staff.biostarUserId,
@@ -15845,14 +15845,18 @@ This is an automated notification from your visitor management system.`;
           .from(isolatedSchema.staff)
           .where(isNotNull(isolatedSchema.staff.biostarUserId));
 
+        console.log(`👥 Biostar: ${allBiostarStaff.length} staff linked to BioStar, reconciling against ${onSiteIds.size} on-site IDs`);
+
         const now = new Date();
         for (const staffMember of allBiostarStaff) {
           if (!staffMember.biostarUserId) continue;
           const shouldBeIn = onSiteIds.has(String(staffMember.biostarUserId));
 
+          console.log(`🔍 Biostar reconcile: staff biostarId=${staffMember.biostarUserId}, shouldBeIn=${shouldBeIn}, isCheckedIn=${staffMember.isCheckedIn}`);
+
           if (shouldBeIn && !staffMember.isCheckedIn) {
             // BioStar says on-site but TPR shows off-site → check in
-            await customerDb
+            await db
               .update(isolatedSchema.staff)
               .set({ isCheckedIn: true, checkedInAt: now, checkedOutAt: null, updatedAt: now })
               .where(eq(isolatedSchema.staff.id, staffMember.id));
@@ -15860,7 +15864,7 @@ This is an automated notification from your visitor management system.`;
             console.log(`✅ Biostar attendance: Checked IN staff (biostar id ${staffMember.biostarUserId})`);
           } else if (!shouldBeIn && staffMember.isCheckedIn) {
             // BioStar says off-site but TPR shows on-site → check out
-            await customerDb
+            await db
               .update(isolatedSchema.staff)
               .set({ isCheckedIn: false, checkedOutAt: now, updatedAt: now })
               .where(eq(isolatedSchema.staff.id, staffMember.id));
@@ -15941,7 +15945,7 @@ This is an automated notification from your visitor management system.`;
       res.json({
         enabled: true,
         onSiteUsers,
-        lastSync: settings.biostarLastSync?.toISOString() || null,
+        lastSync: settings.biostarLastSync ? String(settings.biostarLastSync) : null,
         message: `Found ${onSiteUsers.length} users on-site`
       });
     } catch (error) {
@@ -16018,7 +16022,7 @@ This is an automated notification from your visitor management system.`;
 
       res.json({
         enabled: true,
-        lastSync: settings.biostarLastSync?.toISOString() || null,
+        lastSync: settings.biostarLastSync ? String(settings.biostarLastSync) : null,
         eventCount: rawEvents.length,
         events: rawEvents.slice(0, 50).map(e => ({
           id: e.id,
