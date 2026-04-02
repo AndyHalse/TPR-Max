@@ -4334,8 +4334,25 @@ export default function Settings() {
                       </div>
                     </div>
                   ) : (
-                    <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
-                      No events returned from BioStar for today. Check that the server URL is reachable from the TPR Max server and that BioStar 2 is recording access events.
+                    <div className="space-y-3">
+                      {biostarDiag.eventLogError ? (
+                        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
+                          <p className="font-semibold mb-1">Event Log API not available</p>
+                          <p className="mb-2">{biostarDiag.eventLogError}</p>
+                          <p className="text-xs opacity-80">
+                            TPR-Max is using last card scan time from BioStar user records instead. To fix this, enable Event Log access for the admin account in BioStar 2: <strong>Settings → Account → Custom Level → Monitoring → Event Log (Allow)</strong>.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
+                          No events returned from BioStar for today. Check that the server URL is reachable from the TPR Max server and that BioStar 2 is recording access events.
+                        </div>
+                      )}
+                      {biostarDiag.onSiteUsers?.length > 0 && (
+                        <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-sm text-green-700 dark:text-green-300">
+                          Using last scan time fallback — {biostarDiag.onSiteUsers.length} user(s) detected on-site from BioStar card records.
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

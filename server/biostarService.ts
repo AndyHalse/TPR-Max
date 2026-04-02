@@ -33,6 +33,7 @@ export interface BiostarUser {
   userGroupId?: string;
   startDateTime?: string;
   expireDateTime?: string;
+  lastAccessTime?: string; // ISO timestamp of last card/fingerprint scan
 }
 
 export interface BiostarEventLog {
@@ -177,6 +178,7 @@ function mapBiostarUser(raw: any): BiostarUser {
     userGroupId: raw?.user_group?.id ?? raw?.userGroupId ?? undefined,
     startDateTime: raw?.start_datetime ?? raw?.startDateTime ?? undefined,
     expireDateTime: raw?.expire_datetime ?? raw?.expireDateTime ?? undefined,
+    lastAccessTime: raw?.last_access_time ?? raw?.lastAccessTime ?? undefined,
   };
 }
 
@@ -408,6 +410,7 @@ class BiostarService {
           select_columns: [
             "user_id", "name", "email", "phone", "user_group",
             "cards", "custom_field_1", "start_datetime", "expire_datetime",
+            "last_access_time",
           ],
           limit,
           offset,
@@ -540,7 +543,7 @@ class BiostarService {
         console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events)`);
       } catch (err2: any) {
         console.error('❌ Biostar: Both event endpoints failed:', err2.message);
-        return [];
+        throw new Error(`Event log unavailable: ${err2.message}`);
       }
     }
 
@@ -556,67 +559,99 @@ class BiostarService {
   /**
    * Determine which BioStar users are currently on-site.
    *
-   * Strategy:
-   * - Fetch today's authentication / access events
+   * Primary strategy:
+   * - Fetch today's authentication / access events via the event log API
    * - For each user, take their MOST RECENT event
    * - If it's an entry/auth event → on-site; if it's an exit event → off-site
-   * - For single-door setups (X-Pass 2, typical turnstiles) there are usually no
-   *   exit events, so anyone who authenticated today is considered on-site
+   *
+   * Fallback (when the event API returns 403/Permission Denied):
+   * - Use each user's `last_access_time` field from the user record
+   * - If last_access_time is within the last 24 hours → on-site
+   * - This bypasses the BioStar 2 event log permission requirement entirely
    */
   async getCurrentOnSiteUsers(
     config: BiostarConfig
   ): Promise<{ userId: string; userName: string; lastAccessTime: string; eventCode: string }[]> {
-    const events = await this.getEventLogs(config);
+    // --- Primary: event log API ---
+    let events: BiostarEventLog[] = [];
+    let eventsAvailable = false;
+    try {
+      events = await this.getEventLogs(config);
+      eventsAvailable = true;
+    } catch (err: any) {
+      console.warn(`⚠️ Biostar: Event log API unavailable (${err.message}), falling back to last_access_time`);
+    }
 
-    if (events.length === 0) {
-      console.log('📊 Biostar: No events returned for today');
+    if (eventsAvailable && events.length > 0) {
+      // Log event codes for diagnostics
+      const uniqueCodes = [...new Set(events.map(e => `${e.eventTypeCode}(${e.eventTypeDesc})`))];
+      console.log(`📋 Biostar: Event codes seen today: ${uniqueCodes.slice(0, 10).join(', ')}`);
+
+      // Build a map of userId → most-recent event
+      const userLatest = new Map<string, BiostarEventLog>();
+      for (const event of events) {
+        const existing = userLatest.get(event.userId);
+        if (!existing || new Date(event.eventTime) > new Date(existing.eventTime)) {
+          userLatest.set(event.userId, event);
+        }
+      }
+
+      const onSiteUsers: { userId: string; userName: string; lastAccessTime: string; eventCode: string }[] = [];
+      const hasAnyExitEvent = events.some(e => BIOSTAR_EXIT_EVENT_CODES.has(e.eventTypeCode));
+
+      for (const [userId, event] of userLatest) {
+        if (userId === '0' || userId === '') continue; // skip system/unknown users
+
+        const isEntry = BIOSTAR_ENTRY_EVENT_CODES.has(event.eventTypeCode);
+        const isExit  = BIOSTAR_EXIT_EVENT_CODES.has(event.eventTypeCode);
+
+        if (isEntry) {
+          onSiteUsers.push({ userId, userName: event.userName ?? `User ${userId}`, lastAccessTime: event.eventTime, eventCode: event.eventTypeCode });
+        } else if (!isExit && !hasAnyExitEvent) {
+          // Unknown event code + no exit readers configured → treat any auth as on-site
+          onSiteUsers.push({ userId, userName: event.userName ?? `User ${userId}`, lastAccessTime: event.eventTime, eventCode: event.eventTypeCode });
+        }
+      }
+
+      console.log(`📊 Biostar: ${onSiteUsers.length} of ${userLatest.size} users on-site (via event log)`);
+      return onSiteUsers;
+    }
+
+    // --- Fallback: last_access_time from user records ---
+    // The event log API returned nothing (0 events or permission denied).
+    // Use each user's last_access_time instead; if it's within the last 24 hours
+    // the user is considered on-site (valid for single-door / X-Pass 2 setups).
+    console.log('📊 Biostar: Falling back to last_access_time for on-site detection...');
+    try {
+      const users = await this.getUsers(config);
+      const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000); // 24 hours ago
+      const onSiteUsers: { userId: string; userName: string; lastAccessTime: string; eventCode: string }[] = [];
+
+      for (const user of users) {
+        if (!user.id || user.id === '0') continue;
+        if (!user.lastAccessTime) {
+          console.log(`🔍 Biostar last_access fallback: user "${user.name}" (id=${user.id}) has no lastAccessTime`);
+          continue;
+        }
+        const lastAccess = new Date(user.lastAccessTime);
+        const isOnSite = lastAccess > cutoff;
+        console.log(`🔍 Biostar last_access fallback: user "${user.name}" (id=${user.id}) lastAccess=${user.lastAccessTime}, isOnSite=${isOnSite}`);
+        if (isOnSite) {
+          onSiteUsers.push({
+            userId: user.id,
+            userName: user.name,
+            lastAccessTime: user.lastAccessTime,
+            eventCode: 'last_access',
+          });
+        }
+      }
+
+      console.log(`📊 Biostar: ${onSiteUsers.length} of ${users.length} users on-site (via last_access_time fallback)`);
+      return onSiteUsers;
+    } catch (fallbackErr: any) {
+      console.error(`❌ Biostar: last_access_time fallback also failed: ${fallbackErr.message}`);
       return [];
     }
-
-    // Log a sample of event codes seen so we can tune the code sets if needed
-    const uniqueCodes = [...new Set(events.map(e => `${e.eventTypeCode}(${e.eventTypeDesc})`))];
-    console.log(`📋 Biostar: Event codes seen today: ${uniqueCodes.slice(0, 10).join(', ')}`);
-
-    // Build a map of userId → most-recent event
-    const userLatest = new Map<string, BiostarEventLog>();
-    for (const event of events) {
-      const existing = userLatest.get(event.userId);
-      if (!existing || new Date(event.eventTime) > new Date(existing.eventTime)) {
-        userLatest.set(event.userId, event);
-      }
-    }
-
-    const onSiteUsers: { userId: string; userName: string; lastAccessTime: string; eventCode: string }[] = [];
-    const hasAnyExitEvent = events.some(e => BIOSTAR_EXIT_EVENT_CODES.has(e.eventTypeCode));
-
-    for (const [userId, event] of userLatest) {
-      if (userId === '0' || userId === '') continue; // skip system/unknown users
-
-      const isEntry = BIOSTAR_ENTRY_EVENT_CODES.has(event.eventTypeCode);
-      const isExit = BIOSTAR_EXIT_EVENT_CODES.has(event.eventTypeCode);
-
-      if (isEntry) {
-        // On-site: last event was an entry/auth event
-        onSiteUsers.push({
-          userId,
-          userName: event.userName ?? `User ${userId}`,
-          lastAccessTime: event.eventTime,
-          eventCode: event.eventTypeCode,
-        });
-      } else if (!isExit && !hasAnyExitEvent) {
-        // Unknown event code but no exit events are configured — assume any auth means on-site
-        onSiteUsers.push({
-          userId,
-          userName: event.userName ?? `User ${userId}`,
-          lastAccessTime: event.eventTime,
-          eventCode: event.eventTypeCode,
-        });
-      }
-      // isExit → do NOT add (user has left)
-    }
-
-    console.log(`📊 Biostar: ${onSiteUsers.length} of ${userLatest.size} users are currently on-site`);
-    return onSiteUsers;
   }
 
   /**

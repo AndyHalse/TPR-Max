@@ -15983,10 +15983,17 @@ This is an automated notification from your visitor management system.`;
         databaseId: settings.biostarDatabaseId || "1",
       };
 
-      // Fetch today's raw events
-      const rawEvents = await biostarService.getEventLogs(diagConfig);
+      // Fetch today's raw events (may fail if event log API not permitted)
+      let rawEvents: any[] = [];
+      let eventLogError: string | null = null;
+      try {
+        rawEvents = await biostarService.getEventLogs(diagConfig);
+      } catch (evtErr: any) {
+        eventLogError = evtErr.message;
+        console.warn(`⚠️ Biostar diagnostics: Event log unavailable - ${evtErr.message}`);
+      }
 
-      // Fetch on-site determination
+      // Fetch on-site determination (falls back to last_access_time automatically)
       const onSiteUsers = await biostarService.getCurrentOnSiteUsers(diagConfig);
       const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));
 
@@ -16023,6 +16030,7 @@ This is an automated notification from your visitor management system.`;
       res.json({
         enabled: true,
         lastSync: settings.biostarLastSync ? String(settings.biostarLastSync) : null,
+        eventLogError,
         eventCount: rawEvents.length,
         events: rawEvents.slice(0, 50).map(e => ({
           id: e.id,
