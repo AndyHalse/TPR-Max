@@ -295,6 +295,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addUserMenuPermissionsMigration,
     addLoneWorkerMigration,
     addBiostarStaffFieldsMigration,
+    addBiostarDevicesMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1940,6 +1941,32 @@ const addBiostarStaffFieldsMigration: Migration = {
       } catch (err: any) {
         console.log(`⚠️ [034] staff.${col.name}: ${err.message?.substring(0, 80)}`);
       }
+    }
+  }
+};
+
+const addBiostarDevicesMigration: Migration = {
+  version: '20260409_035_add_biostar_devices_table',
+  description: 'Create biostar_devices table for device classification (ENTRY/EXIT/ENTRY_EXIT/IGNORE)',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS biostar_devices (
+          id VARCHAR PRIMARY KEY,
+          name TEXT NOT NULL,
+          model TEXT,
+          ip_address TEXT,
+          role TEXT NOT NULL DEFAULT 'ENTRY_EXIT',
+          direction TEXT NOT NULL DEFAULT 'BOTH',
+          site TEXT,
+          building TEXT,
+          synced_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log('✅ [035] biostar_devices table created');
+    } catch (err: any) {
+      console.log(`⚠️ [035] biostar_devices: ${err.message?.substring(0, 80)}`);
     }
   }
 };

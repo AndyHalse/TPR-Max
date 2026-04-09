@@ -53,6 +53,12 @@ export default function Settings() {
   const [biostarDiagLoading, setBiostarDiagLoading] = useState(false);
   const [showBiostarDiag, setShowBiostarDiag] = useState(false);
   const [biostarWebhookUrl, setBiostarWebhookUrl] = useState<string>("");
+  const [biostarDevices, setBiostarDevices] = useState<any[]>([]);
+  const [biostarDevicesLoading, setBiostarDevicesLoading] = useState(false);
+  const [showDeviceConfig, setShowDeviceConfig] = useState(false);
+  const [deviceSaveLoading, setDeviceSaveLoading] = useState<string | null>(null);
+  const [showAddDevice, setShowAddDevice] = useState(false);
+  const [addDeviceForm, setAddDeviceForm] = useState({ id: '', name: '', model: '', role: 'ENTRY_EXIT' });
   const [editUserForm, setEditUserForm] = useState({ 
     username: "", 
     email: "", 
@@ -4414,6 +4420,252 @@ export default function Settings() {
               )}
             </GlassCard>
           )}
+          {/* ── Device Configuration Panel ── */}
+          {currentSettings?.biostarEnabled && (
+            <GlassCard>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                    <svg className="text-blue-600 dark:text-blue-400 w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18" /></svg>
+                  </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-fixed">Device Configuration</h3>
+                    <p className="text-xs text-variable">Classify each reader as Entry, Exit, or Both to drive accurate on-site detection</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    if (showDeviceConfig) { setShowDeviceConfig(false); return; }
+                    setShowDeviceConfig(true);
+                    setBiostarDevicesLoading(true);
+                    try {
+                      const r = await fetch('/api/biostar/devices');
+                      setBiostarDevices(await r.json());
+                    } catch { setBiostarDevices([]); }
+                    finally { setBiostarDevicesLoading(false); }
+                  }}
+                >
+                  {showDeviceConfig ? "Hide" : "Configure Devices"}
+                </Button>
+              </div>
+
+              {showDeviceConfig && (
+                <div className="space-y-4">
+                  {/* Explanation */}
+                  <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-700 dark:text-blue-300">
+                    <strong>How it works:</strong> When a card is scanned, BioStar 2 sends the reader ID to TPR-Max. TPR-Max looks up that reader here:
+                    <ul className="mt-1 ml-4 space-y-0.5 text-xs list-disc">
+                      <li><strong>Entry</strong> — any scan marks the person as On Site</li>
+                      <li><strong>Exit</strong> — any scan marks the person as Off Site</li>
+                      <li><strong>Entry/Exit</strong> — uses the BioStar event code to decide direction</li>
+                      <li><strong>Ignore</strong> — scans on this reader are silently ignored</li>
+                    </ul>
+                  </div>
+
+                  {/* Action bar */}
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={biostarDevicesLoading}
+                      onClick={async () => {
+                        setBiostarDevicesLoading(true);
+                        try {
+                          const r = await fetch('/api/biostar/devices?sync=true');
+                          const data = await r.json();
+                          setBiostarDevices(Array.isArray(data) ? data : []);
+                        } catch { }
+                        finally { setBiostarDevicesLoading(false); }
+                      }}
+                    >
+                      {biostarDevicesLoading ? <span className="animate-spin mr-1">⟳</span> : null}
+                      Sync from BioStar 2
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowAddDevice(v => !v)}
+                    >
+                      + Add Device Manually
+                    </Button>
+                  </div>
+
+                  {/* Add device form */}
+                  {showAddDevice && (
+                    <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-lg border border-gray-200 dark:border-gray-700/40 space-y-3">
+                      <p className="text-sm font-medium text-fixed">Add Reader Manually</p>
+                      <p className="text-xs text-variable">Use this when BioStar 2's device list API is restricted. You can find the device ID in the BioStar 2 device settings or from the webhook logs when a card is scanned.</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="text-xs text-variable mb-1 block">Device ID *</label>
+                          <input
+                            className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600"
+                            placeholder="e.g. 1"
+                            value={addDeviceForm.id}
+                            onChange={e => setAddDeviceForm(f => ({ ...f, id: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-variable mb-1 block">Device Name *</label>
+                          <input
+                            className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600"
+                            placeholder="e.g. Front Door Entry"
+                            value={addDeviceForm.name}
+                            onChange={e => setAddDeviceForm(f => ({ ...f, name: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-variable mb-1 block">Model (optional)</label>
+                          <input
+                            className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600"
+                            placeholder="e.g. X-Station 2"
+                            value={addDeviceForm.model}
+                            onChange={e => setAddDeviceForm(f => ({ ...f, model: e.target.value }))}
+                          />
+                        </div>
+                        <div>
+                          <label className="text-xs text-variable mb-1 block">Role</label>
+                          <select
+                            className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600"
+                            value={addDeviceForm.role}
+                            onChange={e => setAddDeviceForm(f => ({ ...f, role: e.target.value }))}
+                          >
+                            <option value="ENTRY">Entry (marks On Site)</option>
+                            <option value="EXIT">Exit (marks Off Site)</option>
+                            <option value="ENTRY_EXIT">Entry/Exit (auto-detect)</option>
+                            <option value="IGNORE">Ignore</option>
+                          </select>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          disabled={!addDeviceForm.id || !addDeviceForm.name}
+                          onClick={async () => {
+                            if (!addDeviceForm.id || !addDeviceForm.name) return;
+                            try {
+                              const r = await fetch('/api/biostar/devices', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(addDeviceForm),
+                              });
+                              const device = await r.json();
+                              setBiostarDevices(prev => {
+                                const filtered = prev.filter(d => d.id !== device.id);
+                                return [...filtered, device].sort((a, b) => a.name.localeCompare(b.name));
+                              });
+                              setAddDeviceForm({ id: '', name: '', model: '', role: 'ENTRY_EXIT' });
+                              setShowAddDevice(false);
+                            } catch (e: any) {
+                              alert('Failed to add device: ' + e.message);
+                            }
+                          }}
+                        >
+                          Add Device
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => setShowAddDevice(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Device table */}
+                  {biostarDevicesLoading && biostarDevices.length === 0 ? (
+                    <div className="text-sm text-variable text-center py-6">Loading devices...</div>
+                  ) : biostarDevices.length === 0 ? (
+                    <div className="p-4 bg-gray-50 dark:bg-gray-800/30 rounded-lg text-center">
+                      <p className="text-sm text-variable mb-1">No devices configured yet.</p>
+                      <p className="text-xs text-variable opacity-70">Click "Sync from BioStar 2" to pull your reader list, or add them manually. Devices will also appear here automatically when the first card scan arrives via webhook.</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-gray-200 dark:border-gray-700">
+                            <th className="text-left py-2 px-2 text-xs font-semibold text-variable uppercase tracking-wide">Reader Name</th>
+                            <th className="text-left py-2 px-2 text-xs font-semibold text-variable uppercase tracking-wide">Model / IP</th>
+                            <th className="text-left py-2 px-2 text-xs font-semibold text-variable uppercase tracking-wide">Role</th>
+                            <th className="text-left py-2 px-2 text-xs font-semibold text-variable uppercase tracking-wide">Site</th>
+                            <th className="py-2 px-2"></th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {biostarDevices.map((device: any) => (
+                            <tr key={device.id} className="border-b border-gray-100 dark:border-gray-700/40 hover:bg-gray-50 dark:hover:bg-gray-800/30">
+                              <td className="py-2 px-2">
+                                <div className="font-medium text-fixed">{device.name}</div>
+                                <div className="text-xs text-variable opacity-60">ID: {device.id}</div>
+                              </td>
+                              <td className="py-2 px-2 text-variable text-xs">
+                                <div>{device.model || '—'}</div>
+                                <div>{device.ipAddress || ''}</div>
+                              </td>
+                              <td className="py-2 px-2">
+                                <select
+                                  className="border rounded px-2 py-1 text-xs bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600 w-36"
+                                  value={device.role}
+                                  onChange={async (e) => {
+                                    const newRole = e.target.value;
+                                    setBiostarDevices(prev => prev.map(d => d.id === device.id ? { ...d, role: newRole } : d));
+                                    setDeviceSaveLoading(device.id);
+                                    try {
+                                      await fetch(`/api/biostar/devices/${device.id}`, {
+                                        method: 'PATCH',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ role: newRole }),
+                                      });
+                                    } catch { }
+                                    finally { setDeviceSaveLoading(null); }
+                                  }}
+                                >
+                                  <option value="ENTRY">Entry (On Site)</option>
+                                  <option value="EXIT">Exit (Off Site)</option>
+                                  <option value="ENTRY_EXIT">Entry/Exit (auto)</option>
+                                  <option value="IGNORE">Ignore</option>
+                                </select>
+                                {deviceSaveLoading === device.id && <span className="text-xs text-variable ml-1 opacity-60">saving…</span>}
+                              </td>
+                              <td className="py-2 px-2">
+                                <input
+                                  className="border rounded px-2 py-1 text-xs bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600 w-24"
+                                  placeholder="Site name"
+                                  defaultValue={device.site || ''}
+                                  onBlur={async (e) => {
+                                    const site = e.target.value;
+                                    await fetch(`/api/biostar/devices/${device.id}`, {
+                                      method: 'PATCH',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ site }),
+                                    });
+                                  }}
+                                />
+                              </td>
+                              <td className="py-2 px-2 text-right">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-red-500 hover:text-red-700 text-xs h-7 px-2"
+                                  onClick={async () => {
+                                    if (!confirm(`Remove "${device.name}" from device configuration?`)) return;
+                                    await fetch(`/api/biostar/devices/${device.id}`, { method: 'DELETE' });
+                                    setBiostarDevices(prev => prev.filter(d => d.id !== device.id));
+                                  }}
+                                >
+                                  Remove
+                                </Button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+            </GlassCard>
+          )}
+
           </TooltipProvider>
         </TabsContent>
 

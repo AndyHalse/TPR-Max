@@ -119,6 +119,15 @@ export interface BiostarConnectionStatus {
   databaseId?: string;
 }
 
+export interface BiostarDeviceInfo {
+  id: string;
+  name: string;
+  model: string;
+  ipAddress: string;
+  deviceType?: string;
+  status?: string;
+}
+
 // Extract a human-readable error from a Biostar error response body
 function parseBiostarError(errorText: string): string {
   try {
@@ -390,6 +399,33 @@ class BiostarService {
     } catch (err: any) {
       console.warn(`⚠️ Biostar: Could not fetch detail for user ${userId}: ${err.message}`);
       return null;
+    }
+  }
+
+  /**
+   * Fetch the list of physical reader devices from BioStar 2.
+   * BioStar 2 endpoint: GET /api/devices
+   * May return 403 in some permission configurations — silently returns [] in that case.
+   */
+  async getDevices(config: BiostarConfig): Promise<BiostarDeviceInfo[]> {
+    try {
+      const response = await this.makeAuthenticatedRequest(config, '/api/devices');
+      const rows: any[] = response?.DeviceCollection?.rows ?? response?.rows ?? (Array.isArray(response) ? response : []);
+      console.log(`📟 Biostar: Got ${rows.length} devices from /api/devices`);
+      if (rows.length > 0) console.log(`📟 Biostar: Device record keys:`, Object.keys(rows[0]).join(', '));
+
+      return rows.map((r: any) => ({
+        id: String(r?.id ?? r?.device_id?.id ?? r?.device_id ?? ''),
+        name: r?.name ?? r?.device_name ?? `Device ${r?.id ?? '?'}`,
+        model: r?.model_name ?? r?.device_type?.model_name ?? r?.model ?? '',
+        ipAddress: r?.ip_address ?? r?.ip ?? '',
+        deviceType: r?.device_type?.type_name ?? r?.type_name ?? '',
+        status: r?.status ?? '',
+      })).filter(d => d.id && d.id !== '0');
+    } catch (err: any) {
+      // 403 is expected when API permission is restricted — log but don't throw
+      console.warn(`⚠️ Biostar: GET /api/devices failed (${err.message}) — returning empty device list`);
+      return [];
     }
   }
 

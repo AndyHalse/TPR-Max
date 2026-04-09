@@ -2105,3 +2105,27 @@ export const loneWorkerTokens = pgTable("lone_worker_tokens", {
 
 export type LoneWorkerSession = typeof loneWorkerSessions.$inferSelect;
 export type LoneWorkerToken = typeof loneWorkerTokens.$inferSelect;
+
+// =====================================================
+// BIOSTAR 2 DEVICE CONFIGURATION
+// Stores BioStar reader/device metadata + admin-assigned role.
+// Role drives occupancy logic: ENTRY = check in, EXIT = check out.
+// =====================================================
+export const biostarDevices = pgTable("biostar_devices", {
+  id: varchar("id").primaryKey(), // BioStar device ID (e.g. "1", "2")
+  name: text("name").notNull(),
+  model: text("model"),
+  ipAddress: text("ip_address"),
+  // Admin-assigned classification
+  role: text("role").notNull().default("ENTRY_EXIT"), // ENTRY | EXIT | ENTRY_EXIT | IGNORE
+  direction: text("direction").notNull().default("BOTH"), // IN | OUT | BOTH
+  site: text("site"),
+  building: text("building"),
+  // Sync metadata
+  syncedAt: timestamp("synced_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBiostarDeviceSchema = createInsertSchema(biostarDevices).omit({ syncedAt: true, updatedAt: true });
+export type InsertBiostarDevice = z.infer<typeof insertBiostarDeviceSchema>;
+export type BiostarDevice = typeof biostarDevices.$inferSelect;

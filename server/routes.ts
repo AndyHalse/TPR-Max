@@ -16071,9 +16071,15 @@ This is an automated notification from your visitor management system.`;
     try {
       if (!customerId) return res.status(400).json({ error: "Missing customerId" });
 
-      // Extract userId and eventTypeCode from BioStar's various payload formats
+      // Extract userId, deviceId, and eventTypeCode from BioStar's various payload formats
       const userId = String(
         payload?.user_id?.id ?? payload?.user_id ?? payload?.userId ?? ''
+      );
+      const deviceId = String(
+        payload?.device_id?.id ?? payload?.device_id ?? payload?.deviceId ?? ''
+      );
+      const deviceName = String(
+        payload?.device_id?.name ?? payload?.device_name ?? payload?.deviceName ?? ''
       );
       const eventTypeCode = String(
         payload?.event_type_id?.code ?? payload?.event_type_id ?? payload?.eventTypeCode ?? payload?.event_type ?? ''
@@ -16085,17 +16091,59 @@ This is an automated notification from your visitor management system.`;
         return res.json({ ok: false, reason: 'insufficient_data' });
       }
 
-      const isEntry = biostarService.isEntryEvent(eventTypeCode);
-      const isExit  = biostarService.isExitEvent(eventTypeCode);
+      const webhookDb = await customerDbService.getCustomerDatabase(customerId);
 
-      console.log(`📡 BioStar Webhook: userId=${userId} eventCode=${eventTypeCode} entry=${isEntry} exit=${isExit} time=${eventTime}`);
+      // --- Determine entry/exit using device role (preferred) or event code (fallback) ---
+      let isEntry = false;
+      let isExit = false;
+      let detectionMethod = 'event_code';
 
-      if (!isEntry && !isExit) {
-        console.log(`📡 BioStar Webhook: event code ${eventTypeCode} is not an entry/exit event — ignoring`);
-        return res.json({ ok: true, action: 'ignored', reason: 'not_entry_or_exit' });
+      if (deviceId && deviceId !== '0') {
+        // Look up device role from our configured device table
+        const [deviceConfig] = await webhookDb
+          .select()
+          .from(isolatedSchema.biostarDevices)
+          .where(eq(isolatedSchema.biostarDevices.id, deviceId))
+          .limit(1);
+
+        if (deviceConfig) {
+          detectionMethod = 'device_role';
+          if (deviceConfig.role === 'ENTRY') { isEntry = true; }
+          else if (deviceConfig.role === 'EXIT') { isExit = true; }
+          else if (deviceConfig.role === 'ENTRY_EXIT') {
+            // For ENTRY_EXIT devices, fall back to event code to determine direction
+            isEntry = biostarService.isEntryEvent(eventTypeCode);
+            isExit = biostarService.isExitEvent(eventTypeCode);
+            if (!isEntry && !isExit) isEntry = true; // default: treat as entry if code unclear
+          }
+          // IGNORE role: isEntry=false, isExit=false → event is silently dropped
+          console.log(`📡 BioStar Webhook: device "${deviceConfig.name}" (${deviceId}) role=${deviceConfig.role} → entry=${isEntry} exit=${isExit}`);
+        } else {
+          // Unknown device — auto-register it as ENTRY_EXIT so it shows up in the config UI
+          try {
+            await webhookDb
+              .insert(isolatedSchema.biostarDevices)
+              .values({ id: deviceId, name: deviceName || `Device ${deviceId}`, role: 'ENTRY_EXIT', direction: 'BOTH', syncedAt: new Date(), updatedAt: new Date() })
+              .onConflictDoNothing();
+            console.log(`📟 BioStar Webhook: Auto-registered unknown device ${deviceId} ("${deviceName || 'unknown'}") as ENTRY_EXIT`);
+          } catch { /* ignore insert errors */ }
+          // Fall back to event code logic for this event
+          isEntry = biostarService.isEntryEvent(eventTypeCode);
+          isExit = biostarService.isExitEvent(eventTypeCode);
+        }
+      } else {
+        // No deviceId in payload — fall back to event code
+        isEntry = biostarService.isEntryEvent(eventTypeCode);
+        isExit = biostarService.isExitEvent(eventTypeCode);
       }
 
-      const webhookDb = await customerDbService.getCustomerDatabase(customerId);
+      console.log(`📡 BioStar Webhook: userId=${userId} device=${deviceId} eventCode=${eventTypeCode} entry=${isEntry} exit=${isExit} method=${detectionMethod} time=${eventTime}`);
+
+      if (!isEntry && !isExit) {
+        console.log(`📡 BioStar Webhook: event ignored (role=IGNORE or unrecognised code)`);
+        return res.json({ ok: true, action: 'ignored' });
+      }
+
       const [staffMember] = await webhookDb
         .select({ id: isolatedSchema.staff.id, firstName: isolatedSchema.staff.firstName, lastName: isolatedSchema.staff.lastName, isCheckedIn: isolatedSchema.staff.isCheckedIn })
         .from(isolatedSchema.staff)
@@ -16112,13 +16160,13 @@ This is an automated notification from your visitor management system.`;
         await webhookDb.update(isolatedSchema.staff)
           .set({ isCheckedIn: true, checkedInAt: now, checkedOutAt: null, updatedAt: now })
           .where(eq(isolatedSchema.staff.id, staffMember.id));
-        console.log(`✅ BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} checked IN (event ${eventTypeCode})`);
+        console.log(`✅ BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} checked IN (device=${deviceId} event=${eventTypeCode})`);
         return res.json({ ok: true, action: 'checked_in', staff: `${staffMember.firstName} ${staffMember.lastName}` });
       } else if (isExit && staffMember.isCheckedIn) {
         await webhookDb.update(isolatedSchema.staff)
           .set({ isCheckedIn: false, checkedOutAt: now, updatedAt: now })
           .where(eq(isolatedSchema.staff.id, staffMember.id));
-        console.log(`✅ BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} checked OUT (event ${eventTypeCode})`);
+        console.log(`✅ BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} checked OUT (device=${deviceId} event=${eventTypeCode})`);
         return res.json({ ok: true, action: 'checked_out', staff: `${staffMember.firstName} ${staffMember.lastName}` });
       } else {
         console.log(`📡 BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} already in correct state — no update`);
@@ -16138,6 +16186,150 @@ This is an automated notification from your visitor management system.`;
     const host = req.headers['x-forwarded-host'] || req.headers.host || '';
     const webhookUrl = `${proto}://${host}/api/biostar/webhook/${customerId}`;
     res.json({ webhookUrl, customerId });
+  });
+
+  // -----------------------------------------------------------------
+  // BioStar 2 Device Configuration Routes
+  // Allows admin to classify physical readers as ENTRY/EXIT/ENTRY_EXIT/IGNORE.
+  // The role drives occupancy logic — no more guessing from event codes.
+  // -----------------------------------------------------------------
+
+  /**
+   * GET /api/biostar/devices
+   * Returns all configured devices from the local DB.
+   * Pass ?sync=true to first attempt a live sync from BioStar 2's /api/devices endpoint.
+   * BioStar IDs seen in webhook events are also auto-registered as ENTRY_EXIT if unknown.
+   */
+  app.get("/api/biostar/devices", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const devicesDb = await customerDbService.getCustomerDatabase(customerId);
+
+      if (req.query.sync === 'true') {
+        // Try to pull device list from BioStar 2
+        const context = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
+        const settings = await simpleDatabaseService.getCompanySettings(context);
+
+        if (settings?.biostarEnabled && settings?.biostarServerUrl && settings?.biostarUsername && settings?.biostarPassword) {
+          const bsConfig = {
+            serverUrl: settings.biostarServerUrl,
+            username: settings.biostarUsername,
+            password: settings.biostarPassword,
+            databaseId: settings.biostarDatabaseId || '1',
+          };
+
+          const bsDevices = await biostarService.getDevices(bsConfig);
+          if (bsDevices.length > 0) {
+            const now = new Date();
+            for (const d of bsDevices) {
+              await devicesDb
+                .insert(isolatedSchema.biostarDevices)
+                .values({
+                  id: d.id,
+                  name: d.name,
+                  model: d.model || null,
+                  ipAddress: d.ipAddress || null,
+                  role: 'ENTRY_EXIT',
+                  direction: 'BOTH',
+                  syncedAt: now,
+                  updatedAt: now,
+                })
+                .onConflictDoUpdate({
+                  target: isolatedSchema.biostarDevices.id,
+                  set: {
+                    name: d.name,
+                    model: d.model || null,
+                    ipAddress: d.ipAddress || null,
+                    syncedAt: now,
+                  },
+                });
+            }
+            console.log(`📟 Biostar: Synced ${bsDevices.length} devices for ${customerId}`);
+          }
+        }
+      }
+
+      const devices = await devicesDb.select().from(isolatedSchema.biostarDevices).orderBy(isolatedSchema.biostarDevices.name);
+      res.json(devices);
+    } catch (err: any) {
+      console.error('❌ GET /api/biostar/devices error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * POST /api/biostar/devices
+   * Manually register a device by ID + name when BioStar device API is blocked.
+   */
+  app.post("/api/biostar/devices", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const { id, name, model, ipAddress, role, direction, site, building } = req.body;
+      if (!id || !name) return res.status(400).json({ error: 'id and name are required' });
+
+      const devicesDb = await customerDbService.getCustomerDatabase(customerId);
+      const now = new Date();
+      await devicesDb
+        .insert(isolatedSchema.biostarDevices)
+        .values({ id: String(id), name, model: model || null, ipAddress: ipAddress || null, role: role || 'ENTRY_EXIT', direction: direction || 'BOTH', site: site || null, building: building || null, syncedAt: now, updatedAt: now })
+        .onConflictDoUpdate({
+          target: isolatedSchema.biostarDevices.id,
+          set: { name, model: model || null, ipAddress: ipAddress || null, role: role || 'ENTRY_EXIT', direction: direction || 'BOTH', site: site || null, building: building || null, updatedAt: now },
+        });
+      const [device] = await devicesDb.select().from(isolatedSchema.biostarDevices).where(eq(isolatedSchema.biostarDevices.id, String(id)));
+      res.json(device);
+    } catch (err: any) {
+      console.error('❌ POST /api/biostar/devices error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * PATCH /api/biostar/devices/:deviceId
+   * Update a device's role, direction, site, building, or name.
+   */
+  app.patch("/api/biostar/devices/:deviceId", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const { deviceId } = req.params;
+      const { role, direction, site, building, name } = req.body;
+
+      const validRoles = ['ENTRY', 'EXIT', 'ENTRY_EXIT', 'IGNORE'];
+      if (role && !validRoles.includes(role)) return res.status(400).json({ error: `role must be one of: ${validRoles.join(', ')}` });
+
+      const devicesDb = await customerDbService.getCustomerDatabase(customerId);
+      const updateData: any = { updatedAt: new Date() };
+      if (role !== undefined) updateData.role = role;
+      if (direction !== undefined) updateData.direction = direction;
+      if (site !== undefined) updateData.site = site;
+      if (building !== undefined) updateData.building = building;
+      if (name !== undefined) updateData.name = name;
+
+      await devicesDb.update(isolatedSchema.biostarDevices).set(updateData).where(eq(isolatedSchema.biostarDevices.id, deviceId));
+      const [device] = await devicesDb.select().from(isolatedSchema.biostarDevices).where(eq(isolatedSchema.biostarDevices.id, deviceId));
+      if (!device) return res.status(404).json({ error: 'Device not found' });
+      console.log(`📟 Biostar device ${deviceId} (${device.name}) updated: role=${device.role}`);
+      res.json(device);
+    } catch (err: any) {
+      console.error('❌ PATCH /api/biostar/devices error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  /**
+   * DELETE /api/biostar/devices/:deviceId
+   * Remove a device from the configuration.
+   */
+  app.delete("/api/biostar/devices/:deviceId", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const { deviceId } = req.params;
+      const devicesDb = await customerDbService.getCustomerDatabase(customerId);
+      await devicesDb.delete(isolatedSchema.biostarDevices).where(eq(isolatedSchema.biostarDevices.id, deviceId));
+      res.json({ ok: true });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // User invitation endpoints

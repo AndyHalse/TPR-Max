@@ -1,0 +1,250 @@
+You are building a production-ready access control integration and evacuation mustering system called **TPR Max**, integrating with **Suprema BioStar 2 API**.
+
+## 🎯 Objective
+
+Create a backend + frontend system that:
+
+1. Pulls all configured devices from BioStar 2
+2. Allows an admin to classify devices as:
+
+   * ENTRY
+   * EXIT
+   * ENTRY_EXIT
+   * IGNORE
+3. Uses access events to calculate real-time occupancy (who is on-site)
+4. Outputs a live “mustering list” of all personnel currently inside a building/site
+
+---
+
+## ⚙️ Tech Stack
+
+* Backend: Node.js (Express)
+* Frontend: React (simple admin dashboard)
+* Database: PostgreSQL (or SQLite if simpler)
+* API Integration: Suprema BioStar 2 REST API
+* Auth: simple session-based login for now
+
+---
+
+## 🔌 BioStar Integration Requirements
+
+### 1. Authentication
+
+* Implement login to BioStar API
+* Store session token/cookie
+* Auto-refresh session
+
+### 2. Get Devices
+
+Endpoint:
+GET /api/devices
+
+Store in DB:
+
+* id
+* name
+* model
+* ip_address
+* site_id (optional)
+* created_at
+
+---
+
+## 🏢 Device Configuration UI (/settings/devices)
+
+Create a settings page where admin can:
+
+### View all devices:
+
+Table columns:
+
+* Device Name
+* Model
+* IP Address
+* Role (dropdown)
+* Direction (optional)
+* Site / Building
+
+### Role dropdown options:
+
+* ENTRY
+* EXIT
+* ENTRY_EXIT
+* IGNORE
+
+### Save configuration to DB:
+
+Table: devices_config
+
+Fields:
+
+* device_id
+* role
+* site
+* building
+* direction (IN / OUT / BOTH)
+
+---
+
+## 📡 Event Processing Engine
+
+### Fetch events from BioStar:
+
+GET /api/events
+
+Poll every 5–10 seconds OR implement webhook if possible
+
+Store events:
+Table: access_events
+
+* event_id
+* user_id
+* device_id
+* timestamp
+* event_type
+
+---
+
+## 🧮 Occupancy Logic
+
+Create a service that maintains a live table:
+
+Table: occupancy_status
+
+* user_id
+* status (IN / OUT)
+* last_seen
+* last_device_id
+* site
+
+### Logic:
+
+IF device.role == ENTRY → mark user IN
+IF device.role == EXIT → mark user OUT
+IF device.role == ENTRY_EXIT → determine direction if possible
+
+Always update:
+
+* last_seen timestamp
+* last device used
+
+---
+
+## 👥 Muster List API
+
+Create endpoint:
+
+GET /api/muster
+
+Returns:
+
+* All users where status == IN
+
+Include:
+
+* user_id
+* name
+* last_seen
+* location (site/building)
+* last_device
+
+---
+
+## 🧾 Users Sync
+
+Fetch users from BioStar:
+GET /api/users
+
+Store:
+
+* user_id
+* name
+* card number (if available)
+* department (optional)
+
+---
+
+## 🖥️ Frontend (React)
+
+### Pages:
+
+#### 1. /settings/devices
+
+* Table of devices
+* Dropdown to assign ENTRY / EXIT
+* Save button
+
+#### 2. /muster
+
+* Live updating list (auto refresh every 5–10s)
+* Columns:
+
+  * Name
+  * Status (IN)
+  * Last Seen
+  * Location
+
+Add:
+
+* Search
+* Filter by site
+
+---
+
+## 🚨 Emergency Mode
+
+Add a button:
+“Start Evacuation”
+
+When clicked:
+
+* Freeze current occupancy snapshot
+* Save to:
+  Table: muster_sessions
+
+Fields:
+
+* session_id
+* timestamp
+* users_expected (JSON)
+
+---
+
+## ⚠️ Edge Case Handling
+
+Implement:
+
+1. Duplicate swipes → ignore within 5 seconds
+2. Missing exit → auto reset after configurable hours
+3. Unknown device → log but ignore
+4. Offline devices → flag in UI
+
+---
+
+## 🔐 Bonus (if time permits)
+
+* WebSocket for real-time updates instead of polling
+* Role-based access (admin vs operator)
+* Audit log
+
+---
+
+## 📦 Deliverables
+
+* Fully working backend (Express)
+* React frontend
+* Database schema + migrations
+* Clear README with setup instructions
+* Example .env file
+
+---
+
+## 🎯 Goal
+
+A working system where:
+
+* Devices are classified as ENTRY/EXIT
+* Events update occupancy in real time
+* Muster screen shows exactly who is on-site
+
+Focus on clean, modular, production-ready code.
