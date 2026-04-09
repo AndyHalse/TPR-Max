@@ -422,8 +422,10 @@ class BiostarService {
 
       return rows.map((r: any) => {
         // BioStar 2 stores IP in `lan.ip_address`, group in `device_group_id.name`, type in `device_type_id.type_name`
-        const ip = r?.lan?.ip_address ?? r?.lan?.ip ?? r?.ip_address ?? r?.ip ?? '';
-        const group = r?.device_group_id?.name ?? r?.device_group?.name ?? r?.group_name ?? r?.device_group ?? '';
+        // Fallback: extract IP from device name e.g. "BioEntryW 543231711 (192.168.1.247)"
+        const nameIpMatch = (r?.name ?? '').match(/\((\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\)/);
+        const ip = r?.lan?.ip_address ?? r?.lan?.ip ?? r?.ip_address ?? r?.ip ?? nameIpMatch?.[1] ?? '';
+        const group = r?.device_group_id?.name ?? r?.device_group?.name ?? r?.group_name ?? (typeof r?.device_group === 'string' ? r.device_group : '');
         const model = r?.device_type_id?.type_name ?? r?.model_name ?? r?.device_type?.model_name ?? r?.model ?? '';
         return {
           id: String(r?.id ?? r?.device_id?.id ?? r?.device_id ?? ''),

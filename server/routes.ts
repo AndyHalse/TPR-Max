@@ -2,6 +2,33 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+
+// ── BioStar 2 Live Event Log ────────────────────────────────────────────────
+// In-memory ring buffer: stores the last 200 webhook events per customer.
+// Events are visible via GET /api/biostar/webhook-log for the Live Log UI.
+const BIOSTAR_LOG_MAX = 200;
+interface BiostarLiveEvent {
+  id: string;                   // UUID
+  ts: string;                   // ISO datetime
+  customerId: string;
+  userId: string;
+  userName?: string;
+  deviceId: string;
+  deviceName: string;
+  deviceRole?: string;          // ENTRY | EXIT | ENTRY_EXIT | IGNORE
+  eventCode: string;
+  action: string;               // checked_in | checked_out | ignored | no_match | no_change
+  rawPayload?: any;
+}
+const biostarLiveLog = new Map<string, BiostarLiveEvent[]>();
+
+function pushBiostarEvent(customerId: string, event: BiostarLiveEvent) {
+  if (!biostarLiveLog.has(customerId)) biostarLiveLog.set(customerId, []);
+  const log = biostarLiveLog.get(customerId)!;
+  log.unshift(event); // newest first
+  if (log.length > BIOSTAR_LOG_MAX) log.splice(BIOSTAR_LOG_MAX);
+}
+// ────────────────────────────────────────────────────────────────────────────
 import { storage } from "./storage";
 import { databaseService } from "./databaseService";
 import { simpleDatabaseService } from "./simpleDatabaseService";
@@ -16088,6 +16115,7 @@ This is an automated notification from your visitor management system.`;
 
       if (!userId || userId === '0' || !eventTypeCode) {
         console.warn(`⚠️ BioStar Webhook: insufficient data — userId=${userId}, eventTypeCode=${eventTypeCode}`);
+        pushBiostarEvent(customerId, { id: crypto.randomUUID(), ts: new Date().toISOString(), customerId, userId: userId || '?', deviceId: deviceId || '?', deviceName: deviceName || 'Unknown', eventCode: eventTypeCode || '?', action: 'insufficient_data' });
         return res.json({ ok: false, reason: 'insufficient_data' });
       }
 
@@ -16139,8 +16167,27 @@ This is an automated notification from your visitor management system.`;
 
       console.log(`📡 BioStar Webhook: userId=${userId} device=${deviceId} eventCode=${eventTypeCode} entry=${isEntry} exit=${isExit} method=${detectionMethod} time=${eventTime}`);
 
+      // Helper: build and push a live log event
+      const deviceRole = (() => {
+        // Re-check device config for role to include in log
+        return undefined; // Will be looked up below if needed
+      })();
+      const makeLogEvent = (action: string, userName?: string, role?: string): BiostarLiveEvent => ({
+        id: crypto.randomUUID(),
+        ts: eventTime || new Date().toISOString(),
+        customerId,
+        userId,
+        userName,
+        deviceId,
+        deviceName,
+        deviceRole: role,
+        eventCode: eventTypeCode,
+        action,
+      });
+
       if (!isEntry && !isExit) {
         console.log(`📡 BioStar Webhook: event ignored (role=IGNORE or unrecognised code)`);
+        pushBiostarEvent(customerId, makeLogEvent('ignored'));
         return res.json({ ok: true, action: 'ignored' });
       }
 
@@ -16152,24 +16199,29 @@ This is an automated notification from your visitor management system.`;
 
       if (!staffMember) {
         console.warn(`📡 BioStar Webhook: no staff matched biostarUserId=${userId}`);
+        pushBiostarEvent(customerId, makeLogEvent('no_match'));
         return res.json({ ok: true, action: 'no_match', biostarUserId: userId });
       }
 
+      const staffName = `${staffMember.firstName} ${staffMember.lastName}`;
       const now = new Date();
       if (isEntry && !staffMember.isCheckedIn) {
         await webhookDb.update(isolatedSchema.staff)
           .set({ isCheckedIn: true, checkedInAt: now, checkedOutAt: null, updatedAt: now })
           .where(eq(isolatedSchema.staff.id, staffMember.id));
-        console.log(`✅ BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} checked IN (device=${deviceId} event=${eventTypeCode})`);
-        return res.json({ ok: true, action: 'checked_in', staff: `${staffMember.firstName} ${staffMember.lastName}` });
+        console.log(`✅ BioStar Webhook: ${staffName} checked IN (device=${deviceId} event=${eventTypeCode})`);
+        pushBiostarEvent(customerId, makeLogEvent('checked_in', staffName));
+        return res.json({ ok: true, action: 'checked_in', staff: staffName });
       } else if (isExit && staffMember.isCheckedIn) {
         await webhookDb.update(isolatedSchema.staff)
           .set({ isCheckedIn: false, checkedOutAt: now, updatedAt: now })
           .where(eq(isolatedSchema.staff.id, staffMember.id));
-        console.log(`✅ BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} checked OUT (device=${deviceId} event=${eventTypeCode})`);
-        return res.json({ ok: true, action: 'checked_out', staff: `${staffMember.firstName} ${staffMember.lastName}` });
+        console.log(`✅ BioStar Webhook: ${staffName} checked OUT (device=${deviceId} event=${eventTypeCode})`);
+        pushBiostarEvent(customerId, makeLogEvent('checked_out', staffName));
+        return res.json({ ok: true, action: 'checked_out', staff: staffName });
       } else {
-        console.log(`📡 BioStar Webhook: ${staffMember.firstName} ${staffMember.lastName} already in correct state — no update`);
+        console.log(`📡 BioStar Webhook: ${staffName} already in correct state — no update`);
+        pushBiostarEvent(customerId, makeLogEvent('no_change', staffName));
         return res.json({ ok: true, action: 'no_change', currentState: staffMember.isCheckedIn ? 'checked_in' : 'checked_out' });
       }
     } catch (err: any) {
@@ -16186,6 +16238,22 @@ This is an automated notification from your visitor management system.`;
     const host = req.headers['x-forwarded-host'] || req.headers.host || '';
     const webhookUrl = `${proto}://${host}/api/biostar/webhook/${customerId}`;
     res.json({ webhookUrl, customerId });
+  });
+
+  /**
+   * GET /api/biostar/webhook-log
+   * Returns recent webhook events from the in-memory ring buffer.
+   * Used by the Live Log panel in the Device Configuration UI.
+   * ?limit=N  — max events to return (default 50, max 200)
+   * ?clear=true — clear the log after returning it
+   */
+  app.get("/api/biostar/webhook-log", requireAuth, async (req, res) => {
+    const customerId = req.customerId!;
+    const limit = Math.min(Number(req.query.limit) || 50, BIOSTAR_LOG_MAX);
+    const clear = req.query.clear === 'true';
+    const events = (biostarLiveLog.get(customerId) || []).slice(0, limit);
+    if (clear) biostarLiveLog.set(customerId, []);
+    res.json({ events, total: biostarLiveLog.get(customerId)?.length ?? 0 });
   });
 
   // -----------------------------------------------------------------

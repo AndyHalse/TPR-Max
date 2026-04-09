@@ -59,6 +59,10 @@ export default function Settings() {
   const [deviceSaveLoading, setDeviceSaveLoading] = useState<string | null>(null);
   const [showAddDevice, setShowAddDevice] = useState(false);
   const [addDeviceForm, setAddDeviceForm] = useState({ id: '', name: '', deviceAddress: '', deviceGroup: '', role: 'ENTRY_EXIT' });
+  const [showLiveLog, setShowLiveLog] = useState(false);
+  const [liveLogEvents, setLiveLogEvents] = useState<any[]>([]);
+  const [liveLogPaused, setLiveLogPaused] = useState(false);
+  const liveLogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [editUserForm, setEditUserForm] = useState({ 
     username: "", 
     email: "", 
@@ -4490,6 +4494,32 @@ export default function Settings() {
                     >
                       + Add Device Manually
                     </Button>
+                    <Button
+                      variant={showLiveLog ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => {
+                        const next = !showLiveLog;
+                        setShowLiveLog(next);
+                        setLiveLogPaused(false);
+                        if (next) {
+                          const poll = async () => {
+                            try {
+                              const r = await fetch('/api/biostar/webhook-log?limit=100');
+                              const d = await r.json();
+                              setLiveLogEvents(d.events || []);
+                            } catch {}
+                          };
+                          poll();
+                          if (liveLogTimerRef.current) clearInterval(liveLogTimerRef.current);
+                          liveLogTimerRef.current = setInterval(poll, 2000);
+                        } else {
+                          if (liveLogTimerRef.current) { clearInterval(liveLogTimerRef.current); liveLogTimerRef.current = null; }
+                        }
+                      }}
+                    >
+                      <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${showLiveLog ? 'bg-red-400 animate-pulse' : 'bg-gray-400'}`} />
+                      Live Log
+                    </Button>
                   </div>
 
                   {/* Add device form */}
@@ -4655,6 +4685,105 @@ export default function Settings() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+
+                  {/* ── Live Log Panel ── */}
+                  {showLiveLog && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse inline-block" />
+                          <span className="text-sm font-medium text-fixed">Live Webhook Log</span>
+                          <span className="text-xs text-variable opacity-60">— events received from BioStar 2 in real time</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7 px-2"
+                            onClick={() => {
+                              if (!liveLogPaused) {
+                                // Pause: stop the interval
+                                if (liveLogTimerRef.current) { clearInterval(liveLogTimerRef.current); liveLogTimerRef.current = null; }
+                                setLiveLogPaused(true);
+                              } else {
+                                // Resume: restart the interval
+                                setLiveLogPaused(false);
+                                const poll = async () => {
+                                  try {
+                                    const r = await fetch('/api/biostar/webhook-log?limit=100');
+                                    const d = await r.json();
+                                    setLiveLogEvents(d.events || []);
+                                  } catch {}
+                                };
+                                poll();
+                                if (liveLogTimerRef.current) clearInterval(liveLogTimerRef.current);
+                                liveLogTimerRef.current = setInterval(poll, 2000);
+                              }
+                            }}
+                          >
+                            {liveLogPaused ? '▶ Resume' : '⏸ Pause'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7 px-2 text-red-500"
+                            onClick={async () => {
+                              await fetch('/api/biostar/webhook-log?clear=true');
+                              setLiveLogEvents([]);
+                            }}
+                          >
+                            Clear
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div className="bg-gray-900 dark:bg-black rounded-lg overflow-hidden" style={{ height: 260 }}>
+                        {liveLogEvents.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm gap-2">
+                            <span className="text-2xl">📡</span>
+                            <p>Waiting for BioStar 2 events…</p>
+                            <p className="text-xs opacity-60">Scan a card on any reader to see it appear here</p>
+                          </div>
+                        ) : (
+                          <div className="overflow-y-auto h-full p-2 font-mono text-xs space-y-0.5">
+                            {liveLogEvents.map((ev: any) => {
+                              const actionColor: Record<string, string> = {
+                                checked_in: 'text-green-400',
+                                checked_out: 'text-blue-400',
+                                ignored: 'text-gray-500',
+                                no_match: 'text-amber-400',
+                                no_change: 'text-gray-400',
+                                insufficient_data: 'text-red-400',
+                              };
+                              const actionLabel: Record<string, string> = {
+                                checked_in: '✅ CHECKED IN',
+                                checked_out: '🚪 CHECKED OUT',
+                                ignored: '🚫 IGNORED',
+                                no_match: '❓ NO MATCH',
+                                no_change: '↔ NO CHANGE',
+                                insufficient_data: '⚠ BAD DATA',
+                              };
+                              const t = new Date(ev.ts);
+                              const timeStr = t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                              return (
+                                <div key={ev.id} className="flex gap-2 items-baseline leading-5 hover:bg-white/5 px-1 rounded">
+                                  <span className="text-gray-600 shrink-0 w-16">{timeStr}</span>
+                                  <span className={`shrink-0 w-28 ${actionColor[ev.action] ?? 'text-gray-300'}`}>
+                                    {actionLabel[ev.action] ?? ev.action.toUpperCase()}
+                                  </span>
+                                  <span className="text-gray-200 truncate">{ev.userName || `BioStar User ${ev.userId}`}</span>
+                                  <span className="text-gray-500 shrink-0">→</span>
+                                  <span className="text-gray-400 truncate">{ev.deviceName || `Device ${ev.deviceId}`}</span>
+                                  <span className="text-gray-600 shrink-0">code:{ev.eventCode}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-xs text-variable opacity-50">Polling every 2 seconds · Last 100 events · Clears on server restart</p>
                     </div>
                   )}
                 </div>
