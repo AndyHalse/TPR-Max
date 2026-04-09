@@ -16253,7 +16253,35 @@ This is an automated notification from your visitor management system.`;
     const clear = req.query.clear === 'true';
     const events = (biostarLiveLog.get(customerId) || []).slice(0, limit);
     if (clear) biostarLiveLog.set(customerId, []);
-    res.json({ events, total: biostarLiveLog.get(customerId)?.length ?? 0 });
+    res.json({ events, total: biostarLiveLog.get(customerId)?.length ?? 0, customerId });
+  });
+
+  /**
+   * POST /api/biostar/webhook-log/test
+   * Injects a synthetic test event into the ring buffer so the Live Log UI
+   * can be verified without waiting for a real BioStar 2 webhook call.
+   */
+  app.post("/api/biostar/webhook-log/test", requireAuth, async (req, res) => {
+    const customerId = req.customerId!;
+    const actions: Array<'checked_in' | 'checked_out' | 'ignored' | 'no_match'> = ['checked_in', 'checked_out', 'ignored', 'no_match'];
+    const action = actions[Math.floor(Math.random() * actions.length)];
+    const testNames = ['Alice Test', 'Bob Demo', 'Carol Sample', 'David Trial'];
+    const testDevices = ['Front Door Reader', 'Rear Exit Gate', 'Server Room', 'Reception'];
+    const testEvent: BiostarLiveEvent = {
+      id: crypto.randomUUID(),
+      ts: new Date().toISOString(),
+      customerId,
+      userId: 'test-' + Math.floor(Math.random() * 9000 + 1000),
+      userName: testNames[Math.floor(Math.random() * testNames.length)],
+      deviceId: 'test-device-' + Math.floor(Math.random() * 4 + 1),
+      deviceName: testDevices[Math.floor(Math.random() * testDevices.length)],
+      deviceRole: 'ENTRY_EXIT',
+      eventCode: '1',
+      action,
+    };
+    pushBiostarEvent(customerId, testEvent);
+    console.log(`🧪 BioStar Live Log: test event injected for ${customerId} → action=${action}`);
+    res.json({ ok: true, event: testEvent });
   });
 
   // -----------------------------------------------------------------
