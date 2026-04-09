@@ -20993,6 +20993,8 @@ This is an automated notification from your visitor management system.`;
     // Clear any existing timers
     for (const [, timer] of biostarPollTimers) clearInterval(timer);
     biostarPollTimers.clear();
+    // Stop any existing WebSocket monitor (single-instance — the new config will restart it)
+    biostarService.stopWebSocketMonitor();
 
     try {
       const dbCustomers = await customerDbService.getAllCustomers();
@@ -21009,6 +21011,13 @@ This is an automated notification from your visitor management system.`;
           const settings = await simpleDatabaseService.getCompanySettings(ctx).catch(() => null);
           if (!settings?.biostarEnabled || !settings?.biostarServerUrl) continue;
 
+          const wsConfig = {
+            serverUrl: settings.biostarServerUrl,
+            username: settings.biostarUsername,
+            password: settings.biostarPassword,
+            databaseId: settings.biostarDatabaseId || '1',
+          };
+
           const intervalSecs = Math.max(30, Number(settings.biostarSyncInterval) || 300);
           console.log(`🔄 Biostar live attendance polling scheduled for ${customer.id} every ${intervalSecs}s`);
 
@@ -21019,6 +21028,104 @@ This is an automated notification from your visitor management system.`;
             pollBiostarAttendance(customer.id).catch(() => {});
           }, intervalSecs * 1000);
           biostarPollTimers.set(customer.id, timer);
+
+          // ─────────────────────────────────────────────────────────────────────
+          // Start the BioStar 2 WebSocket monitor for real-time event streaming.
+          // Events arrive instantly on card scan, supplementing the REST poller.
+          // Note: biostarService is a singleton — the last customer's config wins
+          // for multi-tenant deployments (acceptable for single-BioStar setups).
+          // ─────────────────────────────────────────────────────────────────────
+          const wsCustomerId = customer.id; // capture for closure
+          biostarService.startWebSocketMonitor(wsConfig, wsCustomerId, async (raw: any) => {
+            try {
+              // Parse fields from the raw WebSocket event (same nested format as REST events)
+              const userId = String(
+                raw?.user_id?.user_id ?? raw?.user_id?.id ?? raw?.user_id ?? ''
+              );
+              const deviceId = String(
+                raw?.device_id?.id ?? raw?.device_id ?? ''
+              );
+              const deviceName = String(
+                raw?.device_id?.name ?? raw?.device_name ?? ''
+              );
+              const eventTypeCode = String(
+                raw?.event_type_id?.code ?? raw?.event_type_id ?? ''
+              );
+              const eventTime = raw?.datetime ?? raw?.server_datetime ?? new Date().toISOString();
+
+              if (!userId || userId === '0' || !eventTypeCode) return;
+
+              const wsDb = await customerDbService.getCustomerDatabase(wsCustomerId);
+
+              // Determine entry/exit using device role (same logic as webhook handler)
+              let isEntry = false;
+              let isExit = false;
+
+              if (deviceId && deviceId !== '0') {
+                const [deviceConfig] = await wsDb
+                  .select()
+                  .from(isolatedSchema.biostarDevices)
+                  .where(eq(isolatedSchema.biostarDevices.id, deviceId))
+                  .limit(1);
+
+                if (deviceConfig) {
+                  if (deviceConfig.role === 'ENTRY') { isEntry = true; }
+                  else if (deviceConfig.role === 'EXIT') { isExit = true; }
+                  else if (deviceConfig.role === 'ENTRY_EXIT') {
+                    isEntry = biostarService.isEntryEvent(eventTypeCode);
+                    isExit = biostarService.isExitEvent(eventTypeCode);
+                    if (!isEntry && !isExit) isEntry = true;
+                  }
+                  // IGNORE: both remain false
+                } else {
+                  // Auto-register unknown device
+                  await wsDb.insert(isolatedSchema.biostarDevices)
+                    .values({ id: deviceId, name: deviceName || `Device ${deviceId}`, role: 'ENTRY_EXIT', direction: 'BOTH', syncedAt: new Date(), updatedAt: new Date() })
+                    .onConflictDoNothing();
+                  isEntry = biostarService.isEntryEvent(eventTypeCode);
+                  isExit = biostarService.isExitEvent(eventTypeCode);
+                }
+              } else {
+                isEntry = biostarService.isEntryEvent(eventTypeCode);
+                isExit = biostarService.isExitEvent(eventTypeCode);
+              }
+
+              if (!isEntry && !isExit) return;
+
+              const [staffMember] = await wsDb
+                .select({ id: isolatedSchema.staff.id, firstName: isolatedSchema.staff.firstName, lastName: isolatedSchema.staff.lastName, isCheckedIn: isolatedSchema.staff.isCheckedIn })
+                .from(isolatedSchema.staff)
+                .where(eq(isolatedSchema.staff.biostarUserId, userId))
+                .limit(1);
+
+              if (!staffMember) {
+                pushBiostarEvent(wsCustomerId, { id: crypto.randomUUID(), ts: eventTime, customerId: wsCustomerId, userId, deviceId, deviceName, eventCode: eventTypeCode, action: 'no_match' });
+                return;
+              }
+
+              const now = new Date();
+              const staffName = `${staffMember.firstName} ${staffMember.lastName}`.trim();
+
+              if (isEntry) {
+                await wsDb.update(isolatedSchema.staff)
+                  .set({ isCheckedIn: true, checkedInAt: now, checkedOutAt: null, updatedAt: now })
+                  .where(eq(isolatedSchema.staff.id, staffMember.id));
+                console.log(`✅ BioStar WS [${wsCustomerId}]: ${staffName} checked IN (device=${deviceId})`);
+                pushBiostarEvent(wsCustomerId, { id: crypto.randomUUID(), ts: eventTime, customerId: wsCustomerId, userId, userName: staffName, deviceId, deviceName, eventCode: eventTypeCode, action: 'checked_in' });
+              } else if (isExit) {
+                await wsDb.update(isolatedSchema.staff)
+                  .set({ isCheckedIn: false, checkedOutAt: now, updatedAt: now })
+                  .where(eq(isolatedSchema.staff.id, staffMember.id));
+                console.log(`🚪 BioStar WS [${wsCustomerId}]: ${staffName} checked OUT (device=${deviceId})`);
+                pushBiostarEvent(wsCustomerId, { id: crypto.randomUUID(), ts: eventTime, customerId: wsCustomerId, userId, userName: staffName, deviceId, deviceName, eventCode: eventTypeCode, action: 'checked_out' });
+              }
+            } catch (wsEvtErr: any) {
+              console.warn(`⚠️ BioStar WS event handler [${wsCustomerId}]: ${wsEvtErr.message}`);
+            }
+          }).catch((wsStartErr: any) => {
+            console.warn(`⚠️ BioStar WS [${wsCustomerId}]: failed to start monitor — ${wsStartErr.message}`);
+          });
+
         } catch {
           // skip this customer
         }

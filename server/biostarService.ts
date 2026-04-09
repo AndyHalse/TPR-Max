@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import https from 'https';
+import WebSocket from 'ws';
 
 // HTTPS agent that accepts self-signed certificates (Biostar servers often use them)
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
@@ -48,38 +49,74 @@ export interface BiostarEventLog {
 }
 
 // BioStar 2 event type codes that indicate a user has entered / is on-site.
-// Source: BioStar 2 Local API documentation + empirical observation.
-// Single-door setups (like X-Pass 2) produce authentication events, not "entry/exit"
-// events, so we treat any successful authentication as "on-site".
+//
+// BioStar 2 Local API uses two event code ranges depending on version:
+//
+//   Old range (0x1xxx / 0x4xxx):  used by older BioStar 2 firmware and the legacy API
+//   New range (0x5xxx):           used by BioStar 2 v2.7.10+ New Local API
+//                                 0x5000 = Wiegand/card auth success
+//                                 0x5100 = Card auth success
+//                                 0x5200 = Fingerprint auth success
+//                                 0x5300 = Face auth success
+//                                 0x5400 = PIN auth success
+//                                 0x5500 = Mobile auth success
+//
+// For single-door setups (X-Pass 2, BioStation, etc.) with no separate exit reader,
+// ALL successful authentication events are treated as "entry / on-site".
+// Direction is determined by the device role (ENTRY/EXIT) when that data is available.
 export const BIOSTAR_ENTRY_EVENT_CODES = new Set([
-  '4864',   // 1:1 Auth. Success (card scan — most common on X-Pass / wiegand readers)
-  '4096',   // 1:N Auth. Success (fingerprint identification)
-  '4100',   // Card + Fingerprint Auth. Success
-  '4098',   // Card Auth. Success (alternative code)
-  '4104',   // Mobile Auth. Success
-  '4352',   // Access Granted (zone entry)
-  '16384',  // Legacy access-granted code (older BioStar versions)
+  // ── New Local API range (v2.7.10+, 0x5xxx) ─────────────────────────────
+  '20480',  // 0x5000 — Wiegand / card auth success
+  '20736',  // 0x5100 — Card auth success (most common with X-Pass 2)
+  '20992',  // 0x5200 — Fingerprint auth success
+  '21248',  // 0x5300 — Face auth success
+  '21504',  // 0x5400 — PIN auth success
+  '21760',  // 0x5500 — Mobile auth success
+
+  // ── Old Local API range (legacy firmware, 0x1xxx / 0x4xxx) ─────────────
+  '4864',   // 0x1300 — Card 1:N auth success
+  '4865',   // 0x1301 — Card 1:1 auth success (also seen on entry-only readers)
+  '4866',   // 0x1302 — Card + PIN auth success
+  '4867',   // 0x1303 — Card + Fingerprint auth success
+  '4096',   // 0x1000 — Fingerprint 1:N auth success
+  '4098',   // 0x1002 — Card auth success (alternative)
+  '4100',   // 0x1004 — Card + Fingerprint auth success
+  '4102',   // 0x1006 — Card + PIN + Fingerprint auth success
+  '4104',   // 0x1008 — Mobile auth success
+  '4352',   // 0x1100 — Access granted (zone entry)
+  '16384',  // 0x4000 — Legacy access-granted (older BioStar versions)
+
   '1',      // Generic authentication success (some firmware variants)
   '2',      // Access granted (some firmware variants)
 ]);
 
-// Event codes that indicate a user has exited the building.
-// Only present when a separate exit reader is configured.
+// Event codes that specifically indicate an EXIT event.
+// These are only meaningful when a SEPARATE exit reader is configured.
+// If a device is marked as ENTRY in device roles, ignore these exit codes.
+// Note: 4865 removed from exit-only — it's a valid entry code on entry-only readers.
 export const BIOSTAR_EXIT_EVENT_CODES = new Set([
-  '4865',   // 1:1 Auth. Success (exit reader)
-  '4097',   // 1:N Auth. Success (exit reader)
-  '4353',   // Access Granted (zone exit)
-  '16385',  // Legacy exit code
+  // ── New Local API range (0x6xxx) ────────────────────────────────────────
+  '24576',  // 0x6000 — Exit authentication success (Wiegand)
+  '24832',  // 0x6100 — Exit card auth success
+  '25088',  // 0x6200 — Exit fingerprint auth success
+  '25344',  // 0x6300 — Exit face auth success
+
+  // ── Old Local API range ─────────────────────────────────────────────────
+  '4097',   // 0x1001 — 1:N Auth. Success on exit reader
+  '4353',   // 0x1101 — Access granted (zone exit)
+  '16385',  // 0x4001 — Legacy exit code
 ]);
 
 // Map a raw BioStar 2 event row to our BiostarEventLog shape.
-// BioStar 2 nests IDs: user_id.id, device_id.id, event_type_id.code
+// BioStar 2 nests IDs: user_id.id (old API) or user_id.user_id (new API v2.7.10+)
 function mapBiostarEvent(raw: any): BiostarEventLog | null {
-  // user_id can be { id, user_name } or a plain string/number
+  // New Local API (v2.7.10+): user_id = { user_id: "2", user_name: "John" }
+  // Old Local API:             user_id = { id: "2",      user_name: "John" }
+  // Webhook payload:           user_id = { id: "2" } or plain string
   const userId =
-    raw?.user_id?.id ?? raw?.user_id ?? raw?.userId ?? '';
+    raw?.user_id?.user_id ?? raw?.user_id?.id ?? raw?.userId ?? (typeof raw?.user_id === 'string' || typeof raw?.user_id === 'number' ? raw?.user_id : '') ?? '';
   const userName =
-    raw?.user_id?.user_name ?? raw?.user_name ?? raw?.userName ?? undefined;
+    raw?.user_id?.user_name ?? raw?.user_id?.name ?? raw?.user_name ?? raw?.userName ?? undefined;
 
   // device can be { id, name } or plain
   const deviceId =
@@ -815,6 +852,56 @@ class BiostarService {
 
     let rawRows: any[] = [];
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Strategy 0: POST /api/events/search with NEW "Query" format (BioStar 2 v2.7.10+)
+    //
+    // BioStar 2 v2.7.10 introduced a completely new Local API that replaces the old
+    // EventCollection format.  The key differences:
+    //   • Uses "Query" wrapper with a "conditions" array (not "EventCollection" with filter arrays)
+    //   • Datetime values MUST be full UTC ISO-8601 with milliseconds + Z suffix
+    //     e.g. "2024-01-15T08:00:00.000Z"  (NOT "2024-01-15T08:00:00")
+    //   • operator 3 = BETWEEN
+    //
+    // Reference: https://support.supremainc.com/en/support/solutions/articles/24000072557
+    // ─────────────────────────────────────────────────────────────────────────────
+    try {
+      const queryBody = {
+        Query: {
+          limit,
+          conditions: [
+            {
+              column: 'datetime',
+              operator: 3, // BETWEEN
+              values: [start.toISOString(), end.toISOString()],
+            },
+          ],
+          orders: [{ column: 'datetime', descending: true }],
+        },
+      };
+      const resp0 = await this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', queryBody);
+      rawRows =
+        resp0?.EventCollection?.rows ??
+        resp0?.rows ??
+        (Array.isArray(resp0) ? resp0 : []);
+      console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST Query v2.7.10+ format)`);
+    } catch (err0: any) {
+      console.warn(`⚠️ Biostar Strategy 0 (Query v2.7.10+ format) failed: ${err0.message}`);
+    }
+
+    // If Strategy 0 returned rows, map and return immediately
+    if (rawRows.length > 0) {
+      const events0: BiostarEventLog[] = [];
+      for (const row of rawRows) {
+        const mapped = mapBiostarEvent(row);
+        if (mapped) events0.push(mapped);
+      }
+      return events0;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Legacy strategies (BioStar 2 older versions that use EventCollection format)
+    // ─────────────────────────────────────────────────────────────────────────────
+
     // BioStar 2 /api/events/search requires filter arrays for each dimension.
     // Without them the server returns HTTP 500 / code 1000 "Something wrong with server".
     // id:"-1" is the BioStar 2 wildcard for "all items" (no filter).
@@ -953,6 +1040,10 @@ class BiostarService {
           userLatest.set(event.userId, event);
         }
       }
+
+      // Diagnostic: log distinct user IDs found in today's events
+      const distinctUserIds = [...userLatest.keys()].filter(id => id && id !== '0');
+      console.log(`📋 Biostar: Distinct user IDs in events (${distinctUserIds.length}): ${distinctUserIds.slice(0, 10).join(', ')}`);
 
       const onSiteUsers: { userId: string; userName: string; lastAccessTime: string; eventCode: string }[] = [];
       const hasAnyExitEvent = events.some(e => BIOSTAR_EXIT_EVENT_CODES.has(e.eventTypeCode));
@@ -1099,6 +1190,154 @@ class BiostarService {
 
   isExitEvent(eventTypeCode: string): boolean {
     return BIOSTAR_EXIT_EVENT_CODES.has(eventTypeCode);
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // WebSocket Real-Time Event Monitor
+  //
+  // BioStar 2 streams access events over a persistent WebSocket connection.
+  // This is Suprema's recommended approach for real-time monitoring vs REST polling.
+  //
+  // URL:  wss://<server>/wsapi/events/subscribe
+  // Auth: bs-session-id header + Cookie from the REST login session
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  private wsSocket: WebSocket | null = null;
+  private wsReconnectTimer: NodeJS.Timeout | null = null;
+  private wsOnEvent: ((raw: any) => void) | null = null;
+  private wsConfig: BiostarConfig | null = null;
+  private wsShouldRun = false;
+  private wsCustomerId = '';
+  // Alternate URL paths to try when the primary one returns 403
+  private readonly WS_PATHS = ['/wsapi/events/subscribe', '/wsapi', '/api/events/subscribe'];
+  private wsPathIndex = 0;
+  private wsGot403 = false;
+
+  /**
+   * Start a persistent WebSocket connection to receive real-time BioStar 2 events.
+   * Reconnects automatically on disconnect.
+   * @param config     BioStar server credentials
+   * @param customerId Tenant ID for logging
+   * @param onEvent    Callback invoked with each raw event object
+   */
+  async startWebSocketMonitor(
+    config: BiostarConfig,
+    customerId: string,
+    onEvent: (raw: any) => void,
+  ): Promise<void> {
+    this.stopWebSocketMonitor();
+    this.wsConfig = config;
+    this.wsOnEvent = onEvent;
+    this.wsCustomerId = customerId;
+    this.wsShouldRun = true;
+    this.wsPathIndex = 0;   // Start with the first known path
+    this.wsGot403 = false;
+    await this.wsDoConnect();
+  }
+
+  /** Stop the WebSocket monitor and cancel any pending reconnect. */
+  stopWebSocketMonitor(): void {
+    this.wsShouldRun = false;
+    if (this.wsReconnectTimer) {
+      clearTimeout(this.wsReconnectTimer);
+      this.wsReconnectTimer = null;
+    }
+    if (this.wsSocket) {
+      this.wsSocket.removeAllListeners();
+      this.wsSocket.close();
+      this.wsSocket = null;
+    }
+  }
+
+  /** Returns true when the WebSocket is open and receiving events. */
+  isWebSocketConnected(): boolean {
+    return this.wsSocket?.readyState === WebSocket.OPEN;
+  }
+
+  private async wsDoConnect(): Promise<void> {
+    if (!this.wsShouldRun || !this.wsConfig) return;
+
+    try {
+      await this.ensureAuthenticated(this.wsConfig);
+
+      const serverUrl = this.normalizeServerUrl(this.wsConfig.serverUrl);
+      // Convert https → wss, http → ws, keep the port
+      const wsBase = serverUrl
+        .replace(/^https:\/\//, 'wss://')
+        .replace(/^http:\/\//, 'ws://');
+
+      // BioStar 2 WebSocket endpoint — cycle through known paths until one works.
+      // Known paths: /wsapi/events/subscribe, /wsapi, /api/events/subscribe
+      const wsPath = this.WS_PATHS[this.wsPathIndex % this.WS_PATHS.length];
+      const wsUrl = `${wsBase}${wsPath}`;
+
+      // BioStar 2 requires the session to be sent BOTH as a custom header
+      // AND as a browser-style Cookie.  Explicitly include bs-session-id in
+      // the Cookie string even if it was not in the Set-Cookie response.
+      const cookieHeader = [
+        `bs-session-id=${this.sessionId!}`,
+        ...(this.sessionCookies ? [this.sessionCookies] : []),
+      ].join('; ');
+
+      console.log(`🔌 BioStar WS [${this.wsCustomerId}]: connecting to ${wsUrl}`);
+
+      this.wsSocket = new (WebSocket as any)(wsUrl, {
+        headers: {
+          'bs-session-id': this.sessionId!,
+          'Cookie': cookieHeader,
+          'Origin': serverUrl,
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        rejectUnauthorized: false,
+      });
+
+      this.wsSocket!.on('open', () => {
+        console.log(
+          `✅ BioStar WS [${this.wsCustomerId}]: connected — streaming real-time events`,
+        );
+      });
+
+      this.wsSocket!.on('message', (data: any) => {
+        try {
+          const raw = JSON.parse(data.toString());
+          this.wsOnEvent?.(raw);
+        } catch {
+          // Non-JSON ping/keepalive frames — ignore
+        }
+      });
+
+      this.wsSocket!.on('error', (err: any) => {
+        const msg: string = err.message ?? String(err);
+        if (msg.includes('403')) {
+          // Try the next known path on the next reconnect
+          this.wsGot403 = true;
+          this.wsPathIndex = (this.wsPathIndex + 1) % this.WS_PATHS.length;
+          console.warn(
+            `⚠️ BioStar WS [${this.wsCustomerId}]: 403 on ${wsPath} — will try ${this.WS_PATHS[this.wsPathIndex]} next`,
+          );
+        } else {
+          console.warn(`⚠️ BioStar WS [${this.wsCustomerId}]: ${msg}`);
+        }
+      });
+
+      this.wsSocket!.on('close', (code: number) => {
+        console.log(
+          `🔌 BioStar WS [${this.wsCustomerId}]: disconnected (code=${code}) — reconnecting in 30 s`,
+        );
+        this.wsSocket = null;
+        if (this.wsShouldRun) {
+          this.wsReconnectTimer = setTimeout(() => this.wsDoConnect(), 30_000);
+        }
+      });
+    } catch (err: any) {
+      console.warn(
+        `⚠️ BioStar WS [${this.wsCustomerId}]: connection failed (${err.message}) — retrying in 60 s`,
+      );
+      if (this.wsShouldRun) {
+        this.wsReconnectTimer = setTimeout(() => this.wsDoConnect(), 60_000);
+      }
+    }
   }
 
   /**
