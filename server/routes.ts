@@ -4187,6 +4187,186 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     }
   });
 
+  // QR-code muster mark-safe — Fire Marshal scans any staff/visitor/contractor badge
+  // POST /api/emergency/qr-mark-safe
+  // Auth: X-Fire-Marshal-Id header (same as mark-safe)
+  app.post("/api/emergency/qr-mark-safe", async (req, res) => {
+    try {
+      const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
+      if (!fireMarshalId) {
+        return res.status(401).json({ success: false, message: "Fire Marshal authentication required" });
+      }
+      const marshal = await databaseService.findFireMarshalByUrlId(fireMarshalId);
+      if (!marshal) {
+        return res.status(401).json({ success: false, message: "Invalid Fire Marshal link" });
+      }
+
+      const { qrData, marshalName: providedMarshalName } = req.body;
+      if (!qrData) {
+        return res.status(400).json({ success: false, message: "QR code data is required" });
+      }
+
+      const customerId = marshal.customerId;
+      const marshalName = providedMarshalName || `${marshal.marshal.firstName} ${marshal.marshal.lastName}`;
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
+      const context = simpleDatabaseService.createCustomerContext(marshal.marshal.firstName, customerId);
+
+      // Identify the person from the QR code
+      let personId: string | null = null;
+      let personName: string | null = null;
+      let personType: string | null = null;
+
+      // 1. Try staff
+      const staffMatch = await databaseService.getStaffByQrCode(context, qrData);
+      if (staffMatch) {
+        personId = staffMatch.id;
+        personName = `${staffMatch.firstName} ${staffMatch.lastName}`;
+        personType = 'staff';
+      }
+
+      // 2. Try visitors
+      if (!personId) {
+        const visitorMatch = await databaseService.getVisitorByQrCode(context, qrData);
+        if (visitorMatch) {
+          personId = visitorMatch.id;
+          personName = `${visitorMatch.firstName} ${visitorMatch.lastName}`;
+          personType = 'visitor';
+        }
+      }
+
+      // 3. Try contractor workers (by qrCode field)
+      if (!personId) {
+        const [workerMatch] = await customerDb
+          .select()
+          .from(isolatedSchema.contractorWorkers)
+          .where(eq(isolatedSchema.contractorWorkers.qrCode, qrData))
+          .limit(1);
+        if (workerMatch) {
+          personId = workerMatch.id;
+          personName = `${workerMatch.firstName} ${workerMatch.lastName}`;
+          personType = 'contractor';
+        }
+      }
+
+      // 4. Try pre-booking QR (visitors arriving via pre-booked QR)
+      if (!personId) {
+        const lookupCode = qrData.startsWith('PRE-') ? qrData.replace('PRE-', '') : qrData;
+        const [pb] = await customerDb
+          .select()
+          .from(isolatedSchema.preBookings)
+          .where(eq(isolatedSchema.preBookings.qrCode, lookupCode))
+          .limit(1);
+        if (pb && pb.visitorId) {
+          personId = pb.visitorId;
+          personName = `${pb.visitorFirstName} ${pb.visitorLastName}`;
+          personType = 'visitor';
+        }
+      }
+
+      if (!personId || !personName) {
+        return res.json({ success: false, message: "QR code not recognised. This badge is not in the system." });
+      }
+
+      // Find the active evacuation for this customer
+      const [activeEvac] = await db
+        .select()
+        .from(evacuations)
+        .where(and(
+          eq(evacuations.customerId, customerId as any),
+          eq(evacuations.status, 'active')
+        ))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+
+      if (!activeEvac) {
+        return res.json({
+          success: false,
+          personName,
+          personType,
+          message: "No active evacuation. Start an evacuation first."
+        });
+      }
+
+      const evacuationId = activeEvac.evacuationId;
+      const customerIdFinal = activeEvac.customerId;
+
+      // Check if already accounted for
+      const [existing] = await db
+        .select()
+        .from(evacuationAccountability)
+        .where(and(
+          eq(evacuationAccountability.evacuationId, evacuationId),
+          eq(evacuationAccountability.personId, personId),
+          eq(evacuationAccountability.customerId, customerIdFinal as any)
+        ))
+        .limit(1);
+
+      if (existing?.isAccountedFor) {
+        return res.json({
+          success: true,
+          alreadySafe: true,
+          personName,
+          personType,
+          personId,
+          message: `${personName} is already marked safe.`
+        });
+      }
+
+      // Mark safe — update existing record or insert if not yet in the accountability table
+      const updateResult = await db
+        .update(evacuationAccountability)
+        .set({ isAccountedFor: true, accountedBy: marshalName, accountedAt: new Date(), musterPoint: 'QR Scan', updatedAt: new Date() })
+        .where(and(
+          eq(evacuationAccountability.evacuationId, evacuationId),
+          eq(evacuationAccountability.personId, personId),
+          eq(evacuationAccountability.customerId, customerIdFinal as any)
+        ))
+        .returning();
+
+      if (updateResult.length === 0) {
+        // Late arrival — create accountability record on the spot
+        await db.insert(evacuationAccountability).values({
+          evacuationId,
+          customerId: customerIdFinal || '',
+          personId,
+          personType: personType as any,
+          personName,
+          isAccountedFor: true,
+          accountedBy: marshalName,
+          accountedAt: new Date(),
+          musterPoint: 'QR Scan',
+        } as any);
+      }
+
+      // Refresh the accounted-for count on the evacuation
+      const [{ count: accountedCount }] = await db
+        .select({ count: sql<number>`count(*)::int` })
+        .from(evacuationAccountability)
+        .where(and(
+          eq(evacuationAccountability.evacuationId, evacuationId),
+          eq(evacuationAccountability.isAccountedFor, true)
+        ));
+      await db.update(evacuations)
+        .set({ totalAccountedFor: accountedCount, updatedAt: new Date() })
+        .where(eq(evacuations.evacuationId, evacuationId));
+
+      // Broadcast WS update so all Fire Marshal screens refresh instantly
+      websocketService.broadcastMusterUpdate(customerId, evacuationId, {
+        personId,
+        personName,
+        personType: personType as any,
+        isAccountedFor: true,
+        musterPoint: 'QR Scan'
+      });
+
+      console.log(`📷 QR mark-safe: ${personName} (${personType}) by ${marshalName}`);
+      return res.json({ success: true, personName, personType, personId, evacuationId, message: `${personName} marked safe.` });
+    } catch (error) {
+      console.error("❌ QR mark-safe error:", error);
+      res.status(500).json({ success: false, message: "Failed to process QR scan." });
+    }
+  });
+
   // Unmark a person as safe (Fire Marshal URL auth — mirrors mark-safe pattern)
   app.post("/api/emergency/unmark-safe/:personId", async (req, res) => {
     try {

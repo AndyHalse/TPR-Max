@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import MusterQRScanner from "@/components/MusterQRScanner";
 import { 
   Shield, 
   Users, 
@@ -27,6 +28,8 @@ import {
   Camera,
   X,
   Send,
+  QrCode,
+  List,
 } from "lucide-react";
 
 interface PersonOnSite {
@@ -105,6 +108,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [authError, setAuthError] = useState<string | null>(null);
   const [wsConnected, setWsConnected] = useState(false);
   const [showSafePeople, setShowSafePeople] = useState(false);
+  const [scanMode, setScanMode] = useState<'manual' | 'qr'>('manual');
   const [evacuationDetails, setEvacuationDetails] = useState<EvacuationDetails | null>(null);
   const [marshalZoneId, setMarshalZoneId] = useState<string | null>(null);
   const [showZoneSweep, setShowZoneSweep] = useState(false);
@@ -1022,101 +1026,147 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
         </div>
       )}
 
-      {/* Search */}
-      <div className="px-4 pb-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search people..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 bg-white"
-            data-testid="input-search-mobile"
-          />
-        </div>
-      </div>
-
-      {/* People List */}
-      <div className="px-4 space-y-3">
-        {isLoadingPersonnel && filteredPeople.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin opacity-50" />
-            <p>Loading personnel...</p>
+      {/* Scan mode toggle — only during an active emergency */}
+      {isEmergencyActive && (
+        <div className="px-4 pb-3">
+          <div className="flex gap-2 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+            <button
+              onClick={() => setScanMode('manual')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                scanMode === 'manual'
+                  ? 'bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white'
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}
+              data-testid="toggle-manual-mode"
+            >
+              <List className="h-4 w-4" />
+              Manual List
+            </button>
+            <button
+              onClick={() => setScanMode('qr')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                scanMode === 'qr'
+                  ? 'bg-green-600 shadow text-white'
+                  : 'text-gray-500 dark:text-gray-400'
+              }`}
+              data-testid="toggle-qr-mode"
+            >
+              <QrCode className="h-4 w-4" />
+              QR Scan
+            </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {filteredPeople.map((person) => (
-          <Card
-            key={person.id}
-            className={`overflow-hidden transition-all ${
-              person.isAccountedFor
-                ? 'border-green-300 bg-green-50/50 opacity-70'
-                : 'border-red-300 bg-white shadow-md'
-            }`}
-          >
-            <div className="p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <span className="font-bold text-base">{person.name}</span>
-                    {person.isAccountedFor && (
-                      <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-xs">✓ SAFE</Badge>
+      {/* QR Scanner — takes over the list area */}
+      {isEmergencyActive && scanMode === 'qr' ? (
+        <MusterQRScanner
+          urlId={urlId}
+          marshalName={marshalName || marshalInfo?.name || 'Fire Marshal'}
+          onSwitchToManual={() => setScanMode('manual')}
+          onPersonMarkedSafe={(personId, personName) => {
+            queryClient.invalidateQueries({ queryKey: ['/api/emergency/accountability'] });
+          }}
+        />
+      ) : (
+        <>
+          {/* Search */}
+          <div className="px-4 pb-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search people..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 bg-white"
+                data-testid="input-search-mobile"
+              />
+            </div>
+          </div>
+
+          {/* People List */}
+          <div className="px-4 space-y-3">
+            {isLoadingPersonnel && filteredPeople.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                <RefreshCw className="h-8 w-8 mx-auto mb-2 animate-spin opacity-50" />
+                <p>Loading personnel...</p>
+              </div>
+            )}
+
+            {filteredPeople.map((person) => (
+              <Card
+                key={person.id}
+                className={`overflow-hidden transition-all ${
+                  person.isAccountedFor
+                    ? 'border-green-300 bg-green-50/50 opacity-70'
+                    : 'border-red-300 bg-white shadow-md'
+                }`}
+              >
+                <div className="p-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                        <span className="font-bold text-base">{person.name}</span>
+                        {person.isAccountedFor && (
+                          <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-xs">✓ SAFE</Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500">
+                        <Badge variant="secondary" className={`text-xs ${
+                          person.type === 'member' ? 'bg-purple-100 text-purple-800' :
+                          person.type === 'contractor' ? 'bg-yellow-100 text-yellow-800' :
+                          person.type === 'staff' ? 'bg-blue-100 text-blue-800' :
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {person.type.charAt(0).toUpperCase() + person.type.slice(1)}
+                        </Badge>
+                        <span>{person.department || person.company}</span>
+                      </div>
+                      {person.isAccountedFor && person.accountedBy && (
+                        <p className="text-[11px] text-green-600 mt-0.5">Confirmed by {person.accountedBy}</p>
+                      )}
+                    </div>
+                    {/* Mark Safe button — for unaccounted people */}
+                    {!person.isAccountedFor && (
+                      <Button
+                        className="bg-green-600 hover:bg-green-700 text-white font-bold h-12 px-4 flex-shrink-0 text-sm"
+                        onClick={() => {
+                          if (!marshalName) {
+                            toast({ title: "Name Required", description: "Please enter your name first", variant: "destructive" });
+                            return;
+                          }
+                          markSafeMutation.mutate({ personId: person.id });
+                        }}
+                        disabled={!marshalName}
+                        data-testid={`button-mark-safe-mobile-${person.id}`}
+                      >
+                        <><CheckCircle2 className="h-4 w-4 mr-1" />Safe</>
+                      </Button>
+                    )}
+                    {/* Unmark button — only visible when safe people are revealed */}
+                    {person.isAccountedFor && showSafePeople && (
+                      <Button
+                        variant="outline"
+                        className="border-red-300 text-red-600 hover:bg-red-50 font-semibold h-10 px-3 flex-shrink-0 text-sm"
+                        onClick={() => unmarkSafeMutation.mutate({ personId: person.id })}
+                        data-testid={`button-unmark-safe-mobile-${person.id}`}
+                      >
+                        <XCircle className="h-4 w-4 mr-1" />Unmark
+                      </Button>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 flex-wrap text-xs text-gray-500">
-                    <Badge variant="secondary" className={`text-xs ${
-                      person.type === 'member' ? 'bg-purple-100 text-purple-800' :
-                      person.type === 'contractor' ? 'bg-yellow-100 text-yellow-800' :
-                      person.type === 'staff' ? 'bg-blue-100 text-blue-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {person.type.charAt(0).toUpperCase() + person.type.slice(1)}
-                    </Badge>
-                    <span>{person.department || person.company}</span>
-                  </div>
-                  {person.isAccountedFor && person.accountedBy && (
-                    <p className="text-[11px] text-green-600 mt-0.5">Confirmed by {person.accountedBy}</p>
-                  )}
                 </div>
-                {/* Mark Safe button — for unaccounted people */}
-                {!person.isAccountedFor && (
-                  <Button
-                    className="bg-green-600 hover:bg-green-700 text-white font-bold h-12 px-4 flex-shrink-0 text-sm"
-                    onClick={() => {
-                      if (!marshalName) {
-                        toast({ title: "Name Required", description: "Please enter your name first", variant: "destructive" });
-                        return;
-                      }
-                      markSafeMutation.mutate({ personId: person.id });
-                    }}
-                    disabled={!marshalName}
-                    data-testid={`button-mark-safe-mobile-${person.id}`}
-                  >
-                    <><CheckCircle2 className="h-4 w-4 mr-1" />Safe</>
-                  </Button>
-                )}
-                {/* Unmark button — only visible when safe people are revealed */}
-                {person.isAccountedFor && showSafePeople && (
-                  <Button
-                    variant="outline"
-                    className="border-red-300 text-red-600 hover:bg-red-50 font-semibold h-10 px-3 flex-shrink-0 text-sm"
-                    onClick={() => unmarkSafeMutation.mutate({ personId: person.id })}
-                    data-testid={`button-unmark-safe-mobile-${person.id}`}
-                  >
-                    <XCircle className="h-4 w-4 mr-1" />Unmark
-                  </Button>
-                )}
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+              </Card>
+            ))}
+          </div>
 
-      {filteredPeople.length === 0 && !isLoadingPersonnel && (
-        <div className="text-center py-8 text-gray-500">
-          <AlertTriangle className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>{searchQuery ? 'No people found matching your search' : 'No unaccounted personnel'}</p>
-        </div>
+          {filteredPeople.length === 0 && !isLoadingPersonnel && (
+            <div className="text-center py-8 text-gray-500">
+              <AlertTriangle className="h-12 w-12 mx-auto mb-2 opacity-50" />
+              <p>{searchQuery ? 'No people found matching your search' : 'No unaccounted personnel'}</p>
+            </div>
+          )}
+        </>
       )}
 
       {/* Admin-only notice — Fire Marshals cannot end the emergency */}
