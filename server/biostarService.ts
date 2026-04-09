@@ -1248,6 +1248,7 @@ class BiostarService {
 
   private wsSocket: WebSocket | null = null;
   private wsReconnectTimer: NodeJS.Timeout | null = null;
+  private wsPingTimer: NodeJS.Timeout | null = null;
   private wsOnEvent: ((raw: any) => void) | null = null;
   private wsConfig: BiostarConfig | null = null;
   private wsShouldRun = false;
@@ -1285,6 +1286,10 @@ class BiostarService {
     if (this.wsReconnectTimer) {
       clearTimeout(this.wsReconnectTimer);
       this.wsReconnectTimer = null;
+    }
+    if (this.wsPingTimer) {
+      clearInterval(this.wsPingTimer);
+      this.wsPingTimer = null;
     }
     if (this.wsSocket) {
       this.wsSocket.removeAllListeners();
@@ -1340,11 +1345,60 @@ class BiostarService {
         console.log(
           `✅ BioStar WS [${this.wsCustomerId}]: connected — streaming real-time events`,
         );
+        // BioStar 2 New Local API requires an event-filter subscription message
+        // immediately after the WS handshake.  Without it the server stays silent.
+        // Sending empty arrays means "subscribe to ALL events for all zones/doors/devices".
+        // We try the documented v2.7.10+ format first; older firmware uses a different key.
+        const subscribeMsg = JSON.stringify({
+          // New Local API (v2.7.10+)
+          filter: {
+            zone_id:        { ids: [] },
+            door_id:        { ids: [] },
+            device_id:      { ids: [] },
+            user_group_id:  { ids: [] },
+            event_type_id:  { ids: [] },
+          },
+        });
+        try {
+          this.wsSocket!.send(subscribeMsg);
+          console.log(`📤 BioStar WS [${this.wsCustomerId}]: subscription filter sent`);
+        } catch (sendErr: any) {
+          console.warn(`⚠️ BioStar WS [${this.wsCustomerId}]: could not send subscription: ${sendErr.message}`);
+        }
+
+        // Also send the older event-subscribe format some BioStar versions use
+        const legacySubscribeMsg = JSON.stringify({
+          event: 'subscribe',
+          filter: { zone_id: [], door_id: [], device_id: [], user_group_id: [], event_type_id: [] },
+        });
+        try {
+          this.wsSocket!.send(legacySubscribeMsg);
+        } catch { /* ignore — we already logged above if it fails */ }
+
+        // Start a keepalive ping every 25 seconds so the server doesn't time out the connection.
+        // BioStar closes idle WS connections after ~30 s of silence.
+        if (this.wsPingTimer) clearInterval(this.wsPingTimer);
+        this.wsPingTimer = setInterval(() => {
+          if (this.wsSocket?.readyState === WebSocket.OPEN) {
+            try {
+              this.wsSocket.ping();
+            } catch { /* ignore */ }
+          } else {
+            if (this.wsPingTimer) { clearInterval(this.wsPingTimer); this.wsPingTimer = null; }
+          }
+        }, 25_000);
       });
 
+      let wsMessageCount = 0;
       this.wsSocket!.on('message', (data: any) => {
         try {
-          const raw = JSON.parse(data.toString());
+          const text = data.toString();
+          wsMessageCount++;
+          // Log first 5 messages verbatim so we can see what BioStar is actually sending
+          if (wsMessageCount <= 5) {
+            console.log(`📨 BioStar WS [${this.wsCustomerId}] msg#${wsMessageCount}:`, text.slice(0, 300));
+          }
+          const raw = JSON.parse(text);
           this.wsOnEvent?.(raw);
         } catch {
           // Non-JSON ping/keepalive frames — ignore
@@ -1366,12 +1420,16 @@ class BiostarService {
       });
 
       this.wsSocket!.on('close', (code: number) => {
+        // If we got a 403 (known-wrong path), retry immediately with the next path.
+        // For any other disconnection, wait 30 s to avoid rapid reconnect storms.
+        const delayMs = this.wsGot403 ? 3_000 : 30_000;
         console.log(
-          `🔌 BioStar WS [${this.wsCustomerId}]: disconnected (code=${code}) — reconnecting in 30 s`,
+          `🔌 BioStar WS [${this.wsCustomerId}]: disconnected (code=${code}) — reconnecting in ${delayMs / 1000} s`,
         );
         this.wsSocket = null;
+        this.wsGot403 = false;   // reset for the next connection attempt
         if (this.wsShouldRun) {
-          this.wsReconnectTimer = setTimeout(() => this.wsDoConnect(), 30_000);
+          this.wsReconnectTimer = setTimeout(() => this.wsDoConnect(), delayMs);
         }
       });
     } catch (err: any) {

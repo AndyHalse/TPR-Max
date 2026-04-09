@@ -21044,7 +21044,11 @@ This is an automated notification from your visitor management system.`;
             databaseId: settings.biostarDatabaseId || '1',
           };
 
-          const intervalSecs = Math.max(30, Number(settings.biostarSyncInterval) || 300);
+          // Clamp between 30 s and 60 s regardless of what is stored in the DB.
+          // The WebSocket handles real-time delivery; this poll is just a safety net
+          // so there is no need for intervals longer than 60 seconds.
+          const rawInterval = Number(settings.biostarSyncInterval) || 30;
+          const intervalSecs = Math.min(Math.max(30, rawInterval), 60);
           console.log(`🔄 Biostar live attendance polling scheduled for ${customer.id} every ${intervalSecs}s`);
 
           // Run an immediate poll so status is live on startup/settings save
