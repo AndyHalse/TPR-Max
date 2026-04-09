@@ -59,14 +59,11 @@ export default function Settings() {
   const [deviceSaveLoading, setDeviceSaveLoading] = useState<string | null>(null);
   const [showAddDevice, setShowAddDevice] = useState(false);
   const [addDeviceForm, setAddDeviceForm] = useState({ id: '', name: '', deviceAddress: '', deviceGroup: '', role: 'ENTRY_EXIT' });
-  const [showLiveLog, setShowLiveLog] = useState(false);
-  const [liveLogEvents, setLiveLogEvents] = useState<any[]>([]);
-  const [liveLogPaused, setLiveLogPaused] = useState(false);
-  const [liveLogError, setLiveLogError] = useState<string | null>(null);
-  const [liveLogLoading, setLiveLogLoading] = useState(false);
-  const [liveLogStrategy, setLiveLogStrategy] = useState<string | null>(null);
-  const [liveLogDate, setLiveLogDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
-  const liveLogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showScanActivity, setShowScanActivity] = useState(false);
+  const [scanActivityData, setScanActivityData] = useState<any[]>([]);
+  const [scanActivityLoading, setScanActivityLoading] = useState(false);
+  const [scanActivityError, setScanActivityError] = useState<string | null>(null);
+  const scanActivityTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [editUserForm, setEditUserForm] = useState({ 
     username: "", 
     email: "", 
@@ -4499,40 +4496,36 @@ export default function Settings() {
                       + Add Device Manually
                     </Button>
                     <Button
-                      variant={showLiveLog ? "default" : "outline"}
+                      variant={showScanActivity ? "default" : "outline"}
                       size="sm"
                       onClick={() => {
-                        const next = !showLiveLog;
-                        setShowLiveLog(next);
-                        setLiveLogPaused(false);
+                        const next = !showScanActivity;
+                        setShowScanActivity(next);
                         if (next) {
-                          const today = new Date().toISOString().slice(0, 10);
-                          const poll = async (date?: string) => {
-                            setLiveLogLoading(true);
-                            setLiveLogError(null);
+                          const poll = async () => {
+                            setScanActivityLoading(true);
+                            setScanActivityError(null);
                             try {
-                              const dateParam = date ?? today;
-                              const r = await fetch(`/api/biostar/live-events?limit=500&date=${dateParam}`);
+                              const r = await fetch('/api/biostar/scan-activity');
                               const d = await r.json();
-                              setLiveLogEvents(d.events || []);
-                              setLiveLogError(d.error || null);
-                              setLiveLogStrategy(d.strategy || null);
+                              setScanActivityData(d.users || []);
+                              setScanActivityError(d.error || null);
                             } catch (e: any) {
-                              setLiveLogError(e.message);
+                              setScanActivityError(e.message);
                             } finally {
-                              setLiveLogLoading(false);
+                              setScanActivityLoading(false);
                             }
                           };
-                          poll(today);
-                          if (liveLogTimerRef.current) clearInterval(liveLogTimerRef.current);
-                          liveLogTimerRef.current = setInterval(() => poll(today), 30000);
+                          poll();
+                          if (scanActivityTimerRef.current) clearInterval(scanActivityTimerRef.current);
+                          scanActivityTimerRef.current = setInterval(poll, 60000);
                         } else {
-                          if (liveLogTimerRef.current) { clearInterval(liveLogTimerRef.current); liveLogTimerRef.current = null; }
+                          if (scanActivityTimerRef.current) { clearInterval(scanActivityTimerRef.current); scanActivityTimerRef.current = null; }
                         }
                       }}
                     >
-                      <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${showLiveLog ? 'bg-red-400 animate-pulse' : 'bg-gray-400'}`} />
-                      Live Log
+                      <span className={`inline-block w-2 h-2 rounded-full mr-1.5 ${showScanActivity ? 'bg-green-400 animate-pulse' : 'bg-gray-400'}`} />
+                      Scan Activity
                     </Button>
                   </div>
 
@@ -4702,147 +4695,113 @@ export default function Settings() {
                     </div>
                   )}
 
-                  {/* ── Live Log Panel ── */}
-                  {showLiveLog && (
+                  {/* ── Scan Activity Panel ── */}
+                  {showScanActivity && (
                     <div className="space-y-2">
-                      {/* Controls bar */}
+                      {/* Header bar */}
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`w-2 h-2 rounded-full shrink-0 ${liveLogLoading ? 'bg-yellow-400 animate-pulse' : liveLogPaused ? 'bg-gray-400' : 'bg-red-400 animate-pulse'}`} />
-                        <span className="text-sm font-medium text-fixed">Event Log</span>
-                        {/* Date selector */}
-                        <input
-                          type="date"
-                          value={liveLogDate}
-                          max={new Date().toISOString().slice(0, 10)}
-                          onChange={(e) => setLiveLogDate(e.target.value)}
-                          className="h-7 px-2 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-variable"
-                        />
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${scanActivityLoading ? 'bg-yellow-400 animate-pulse' : 'bg-green-400 animate-pulse'}`} />
+                        <span className="text-sm font-medium text-fixed">Scan Activity</span>
+                        <span className="text-xs text-variable opacity-60">— last scan per BioStar user, linked to staff records</span>
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="text-xs h-7 px-2"
-                          disabled={liveLogLoading}
+                          className="text-xs h-7 px-2 ml-auto"
+                          disabled={scanActivityLoading}
                           onClick={async () => {
-                            setLiveLogLoading(true);
-                            setLiveLogError(null);
+                            setScanActivityLoading(true);
+                            setScanActivityError(null);
                             try {
-                              const r = await fetch(`/api/biostar/live-events?limit=500&date=${liveLogDate}`);
+                              const r = await fetch('/api/biostar/scan-activity');
                               const d = await r.json();
-                              setLiveLogEvents(d.events || []);
-                              setLiveLogError(d.error || null);
-                              setLiveLogStrategy(d.strategy || null);
-                            } catch (e: any) { setLiveLogError(e.message); }
-                            finally { setLiveLogLoading(false); }
+                              setScanActivityData(d.users || []);
+                              setScanActivityError(d.error || null);
+                            } catch (e: any) { setScanActivityError(e.message); }
+                            finally { setScanActivityLoading(false); }
                           }}
                         >
-                          {liveLogLoading ? '⏳ Loading…' : '↻ Load'}
+                          {scanActivityLoading ? '⏳ Refreshing…' : '↻ Refresh'}
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-xs h-7 px-2"
-                          onClick={() => {
-                            const today = new Date().toISOString().slice(0, 10);
-                            setLiveLogDate(today);
-                            if (!liveLogPaused) {
-                              if (liveLogTimerRef.current) { clearInterval(liveLogTimerRef.current); liveLogTimerRef.current = null; }
-                              setLiveLogPaused(true);
-                            } else {
-                              setLiveLogPaused(false);
-                              const poll = async () => {
-                                setLiveLogLoading(true);
-                                setLiveLogError(null);
-                                try {
-                                  const r = await fetch(`/api/biostar/live-events?limit=500&date=${today}`);
-                                  const d = await r.json();
-                                  setLiveLogEvents(d.events || []);
-                                  setLiveLogError(d.error || null);
-                                  setLiveLogStrategy(d.strategy || null);
-                                } catch {}
-                                finally { setLiveLogLoading(false); }
-                              };
-                              poll();
-                              if (liveLogTimerRef.current) clearInterval(liveLogTimerRef.current);
-                              liveLogTimerRef.current = setInterval(poll, 30000);
-                            }
-                          }}
-                        >
-                          {liveLogPaused ? '▶ Auto-refresh' : '⏸ Pause'}
-                        </Button>
-                        {liveLogEvents.length > 0 && (
-                          <span className="ml-auto text-xs text-variable opacity-60">{liveLogEvents.length} events</span>
-                        )}
                       </div>
 
-                      {/* Error / permission guidance */}
-                      {liveLogError && (
+                      {scanActivityError && (
                         <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300">
                           <span className="mt-0.5 shrink-0">⚠️</span>
-                          <div className="space-y-1 min-w-0">
-                            <p className="font-medium">BioStar 2 Event Log not available</p>
-                            <p className="opacity-80 leading-relaxed">{liveLogError}</p>
-                          </div>
+                          <p className="leading-relaxed">{scanActivityError}</p>
                         </div>
                       )}
 
-                      {/* Strategy indicator (debug) */}
-                      {liveLogStrategy && !liveLogError && (
-                        <p className="text-[10px] text-variable opacity-40">Via: {liveLogStrategy}</p>
-                      )}
-
-                      {/* Event table */}
-                      <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700/40" style={{ height: 340 }}>
-                        <div className="flex bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px] font-semibold text-variable uppercase tracking-wide border-b border-gray-200 dark:border-gray-700/40">
-                          <span className="w-36 shrink-0">Date / Time</span>
-                          <span className="w-32 shrink-0">Door</span>
-                          <span className="w-32 shrink-0">Device</span>
-                          <span className="w-32 shrink-0">User</span>
-                          <span className="flex-1">Event</span>
+                      {/* Table */}
+                      <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700/40">
+                        {/* Header */}
+                        <div className="grid grid-cols-[2fr_2fr_2fr_1fr_1fr] bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-[10px] font-semibold text-variable uppercase tracking-wide border-b border-gray-200 dark:border-gray-700/40 gap-2">
+                          <span>BioStar User</span>
+                          <span>Linked Staff Member</span>
+                          <span>Last Scan (BioStar)</span>
+                          <span>TPR-Max Status</span>
+                          <span>Last Update</span>
                         </div>
-                        {liveLogLoading && liveLogEvents.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center h-[calc(100%-28px)] text-gray-400 text-sm gap-2 bg-white dark:bg-gray-900">
-                            <span className="text-2xl animate-spin">⏳</span>
-                            <p>Fetching from BioStar 2…</p>
+                        {scanActivityLoading && scanActivityData.length === 0 ? (
+                          <div className="flex items-center justify-center py-8 text-gray-400 text-sm gap-2 bg-white dark:bg-gray-900">
+                            <span className="animate-spin text-lg">⟳</span>
+                            <span>Loading from BioStar 2…</span>
                           </div>
-                        ) : liveLogEvents.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center h-[calc(100%-28px)] text-gray-400 text-sm gap-2 bg-white dark:bg-gray-900">
-                            <span className="text-2xl">📋</span>
-                            <p>{liveLogError ? 'Could not load events — see error above' : 'No events for this date'}</p>
-                            <p className="text-xs opacity-60">Select a date and click "↻ Load"</p>
+                        ) : scanActivityData.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center py-8 text-gray-400 text-sm gap-1 bg-white dark:bg-gray-900">
+                            <span className="text-2xl">👤</span>
+                            <p>No BioStar users found</p>
                           </div>
                         ) : (
-                          <div className="overflow-y-auto h-[calc(100%-28px)] bg-white dark:bg-gray-900">
-                            {liveLogEvents.map((ev: any, idx: number) => {
-                              const userId = ev?.user_id?.id ?? ev?.user_id ?? ev?.userId ?? '';
-                              const userName = ev?.user_id?.user_name ?? ev?.user_name ?? ev?.userName ?? '';
-                              const userGroup = ev?.user_group_id?.name ?? ev?.user_group ?? '';
-                              const deviceId = ev?.device_id?.id ?? ev?.device_id ?? ev?.deviceId ?? '';
-                              const deviceName = ev?.device_id?.name ?? ev?.device_name ?? ev?.deviceName ?? (deviceId ? `Device ${deviceId}` : '—');
-                              const doorName = ev?.door_id?.name ?? ev?.door_name ?? ev?.door ?? '';
-                              const eventDesc = ev?.event_type_id?.desc ?? ev?.event_type_id?.description ?? ev?.eventTypeDesc ?? ev?.event_desc ?? ev?.event ?? '';
-                              const eventCode = String(ev?.event_type_id?.code ?? ev?.event_type_id ?? ev?.eventTypeCode ?? '');
-                              const rawTime = ev?.datetime ?? ev?.event_time ?? ev?.eventTime ?? ev?.time ?? '';
-                              const t = rawTime ? new Date(rawTime) : null;
-                              const dateStr = t ? t.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
-                              const timeStr = t ? t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+                          <div className="overflow-y-auto max-h-80 bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800/40">
+                            {scanActivityData.map((row: any, idx: number) => {
+                              const lastScan = row.lastAccessTime ? new Date(row.lastAccessTime) : null;
+                              const lastUpdate = row.isCheckedIn
+                                ? (row.checkedInAt ? new Date(row.checkedInAt) : null)
+                                : (row.checkedOutAt ? new Date(row.checkedOutAt) : null);
 
-                              const isDenied = eventDesc?.toLowerCase().includes('denied') || eventDesc?.toLowerCase().includes('fail') || eventDesc?.toLowerCase().includes('invalid');
-                              const isAuth = ['4864','4096','4352','4098','4100','4104'].includes(eventCode) || eventDesc?.toLowerCase().includes('success');
-                              const isSystem = !userName && (eventDesc?.toLowerCase().includes('lock') || eventDesc?.toLowerCase().includes('unlock'));
-                              const rowBg = idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/30';
-                              const eventColor = isDenied ? 'text-red-600 dark:text-red-400' : isAuth ? 'text-green-700 dark:text-green-400' : isSystem ? 'text-blue-600 dark:text-blue-400' : 'text-variable';
-                              const displayUser = userName || (userId && userId !== '0' ? `ID ${userId}` : '—');
+                              const fmtTime = (d: Date | null) => {
+                                if (!d) return '—';
+                                const now = new Date();
+                                const diffMs = now.getTime() - d.getTime();
+                                const diffMin = Math.floor(diffMs / 60000);
+                                if (diffMin < 1) return 'just now';
+                                if (diffMin < 60) return `${diffMin}m ago`;
+                                const diffH = Math.floor(diffMin / 60);
+                                if (diffH < 24) return `${diffH}h ago`;
+                                return d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }) + ' ' +
+                                  d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+                              };
+
+                              const statusColor = !row.linked
+                                ? 'text-gray-400'
+                                : row.isCheckedIn
+                                  ? 'text-green-600 dark:text-green-400 font-medium'
+                                  : 'text-gray-500 dark:text-gray-400';
+
+                              const rowBg = idx % 2 === 0 ? '' : 'bg-gray-50 dark:bg-gray-800/20';
 
                               return (
-                                <div key={ev.id ?? idx} className={`flex px-2 py-1 text-xs border-b border-gray-100 dark:border-gray-800/40 hover:bg-blue-50 dark:hover:bg-blue-900/10 ${rowBg}`}>
-                                  <span className="w-36 shrink-0 text-variable opacity-80 font-mono">{dateStr} {timeStr}</span>
-                                  <span className="w-32 shrink-0 text-variable truncate pr-1" title={doorName}>{doorName || '—'}</span>
-                                  <span className="w-32 shrink-0 text-variable truncate pr-1" title={deviceName}>{deviceName}</span>
-                                  <span className="w-32 shrink-0 text-variable truncate pr-1" title={`${displayUser}${userGroup ? ` (${userGroup})` : ''}`}>
-                                    {displayUser}
+                                <div key={row.biostarUserId} className={`grid grid-cols-[2fr_2fr_2fr_1fr_1fr] px-3 py-2 text-xs gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/10 ${rowBg}`}>
+                                  {/* BioStar user */}
+                                  <span className="text-fixed font-medium truncate" title={`ID: ${row.biostarUserId}`}>
+                                    {row.biostarName || `User ${row.biostarUserId}`}
+                                    <span className="ml-1 text-[10px] text-variable opacity-40">#{row.biostarUserId}</span>
                                   </span>
-                                  <span className={`flex-1 truncate ${eventColor}`} title={eventDesc}>
-                                    {eventDesc || (eventCode ? `Event ${eventCode}` : '—')}
+                                  {/* Linked staff */}
+                                  <span className={`truncate ${row.linked ? 'text-fixed' : 'text-gray-400 italic'}`}>
+                                    {row.linked ? row.staffName : 'Not linked'}
+                                  </span>
+                                  {/* Last scan time */}
+                                  <span className="text-variable" title={lastScan?.toLocaleString('en-GB') ?? ''}>
+                                    {fmtTime(lastScan)}
+                                  </span>
+                                  {/* TPR-Max status */}
+                                  <span className={statusColor}>
+                                    {!row.linked ? '—' : row.isCheckedIn ? '✓ On-Site' : 'Off-Site'}
+                                  </span>
+                                  {/* Last update */}
+                                  <span className="text-variable opacity-70" title={lastUpdate?.toLocaleString('en-GB') ?? ''}>
+                                    {fmtTime(lastUpdate)}
                                   </span>
                                 </div>
                               );
@@ -4851,8 +4810,12 @@ export default function Settings() {
                         )}
                       </div>
                       <p className="text-xs text-variable opacity-50">
-                        {liveLogPaused ? 'Auto-refresh paused' : 'Auto-refresh every 30 seconds'} · Up to 500 events per day · Mirrors BioStar 2 Event Log
-                        {liveLogPaused && <span className="ml-2 text-amber-500">● Paused</span>}
+                        Auto-refreshes every 60 seconds · Shows all BioStar 2 users and their last card scan ·
+                        {scanActivityData.filter((r: any) => !r.linked).length > 0 && (
+                          <span className="text-amber-500 ml-1">
+                            {scanActivityData.filter((r: any) => !r.linked).length} user(s) not linked to a staff record
+                          </span>
+                        )}
                       </p>
                     </div>
                   )}

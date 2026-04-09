@@ -15985,6 +15985,76 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // BioStar Scan Activity — shows each BioStar user's last scan time and linked staff record.
+  // Uses the /api/users endpoint (confirmed working) rather than event logs.
+  app.get("/api/biostar/scan-activity", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId;
+      if (!customerId || !req.user?.username) return res.status(401).json({ error: "Unauthorised" });
+
+      const context = simpleDatabaseService.createCustomerContext(req.user.username, customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+      if (!settings?.biostarEnabled) return res.json({ users: [], error: "BioStar 2 integration is not enabled." });
+
+      const diagConfig: BiostarConfig = {
+        serverUrl:  settings.biostarServerUrl  ?? '',
+        username:   settings.biostarUsername   ?? '',
+        password:   settings.biostarPassword   ?? '',
+        useHttps:   true,
+        verifySSL:  false,
+      };
+
+      // Fetch all BioStar users (includes lastAccessTime)
+      const biostarUsers = await biostarService.getUsers(diagConfig);
+
+      // Fetch all staff that have a biostarUserId so we can cross-reference
+      const db = await customerDbService.getCustomerDatabase(customerId);
+      const staffList = await db
+        .select({
+          id:            isolatedSchema.staff.id,
+          firstName:     isolatedSchema.staff.firstName,
+          lastName:      isolatedSchema.staff.lastName,
+          biostarUserId: isolatedSchema.staff.biostarUserId,
+          isCheckedIn:   isolatedSchema.staff.isCheckedIn,
+          checkedInAt:   isolatedSchema.staff.checkedInAt,
+          checkedOutAt:  isolatedSchema.staff.checkedOutAt,
+        })
+        .from(isolatedSchema.staff)
+        .where(isNotNull(isolatedSchema.staff.biostarUserId));
+
+      // Build lookup: biostarUserId → staff record
+      const staffByBiostarId = new Map(staffList.map(s => [String(s.biostarUserId), s]));
+
+      // Merge BioStar users with staff records, sorted by lastAccessTime desc
+      const rows = biostarUsers
+        .map(u => {
+          const staff = staffByBiostarId.get(String(u.id));
+          return {
+            biostarUserId:  u.id,
+            biostarName:    u.name,
+            lastAccessTime: u.lastAccessTime ?? null,
+            staffId:        staff?.id ?? null,
+            staffName:      staff ? `${staff.firstName} ${staff.lastName}` : null,
+            isCheckedIn:    staff?.isCheckedIn ?? null,
+            checkedInAt:    staff?.checkedInAt ?? null,
+            checkedOutAt:   staff?.checkedOutAt ?? null,
+            linked:         !!staff,
+          };
+        })
+        .sort((a, b) => {
+          if (!a.lastAccessTime && !b.lastAccessTime) return 0;
+          if (!a.lastAccessTime) return 1;
+          if (!b.lastAccessTime) return -1;
+          return new Date(b.lastAccessTime).getTime() - new Date(a.lastAccessTime).getTime();
+        });
+
+      res.json({ users: rows, total: rows.length });
+    } catch (err: any) {
+      console.error("❌ BioStar scan-activity error:", err);
+      res.status(500).json({ users: [], error: err.message });
+    }
+  });
+
   // BioStar diagnostics — shows raw events, on-site status, and staff matching
   app.get("/api/biostar/diagnostics", requireAuth, async (req, res) => {
     try {
