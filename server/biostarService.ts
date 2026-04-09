@@ -1091,6 +1091,8 @@ class BiostarService {
         const role = deviceRoles[String(event.deviceId)] ?? 'ENTRY_EXIT';
         const direction = BiostarService.resolveEventDirection(event.eventTypeCode, role);
 
+        console.log(`🔎 Biostar direction: user=${userId}(${event.userName}) device=${event.deviceId} code=${event.eventTypeCode} role=${role} → ${direction ?? 'null(non-auth)'}`);
+
         if (direction === 'ENTRY') {
           onSiteUsers.push({
             userId,
