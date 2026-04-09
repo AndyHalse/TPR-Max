@@ -296,6 +296,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addLoneWorkerMigration,
     addBiostarStaffFieldsMigration,
     addBiostarDevicesMigration,
+    addBiostarDeviceGroupAddressMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1968,5 +1969,24 @@ const addBiostarDevicesMigration: Migration = {
     } catch (err: any) {
       console.log(`⚠️ [035] biostar_devices: ${err.message?.substring(0, 80)}`);
     }
+  }
+};
+
+const addBiostarDeviceGroupAddressMigration: Migration = {
+  version: '20260409_036_biostar_devices_add_group_address',
+  description: 'Add device_address and device_group columns to biostar_devices',
+  async up(db: any) {
+    const cols = [
+      `ALTER TABLE biostar_devices ADD COLUMN IF NOT EXISTS device_address TEXT`,
+      `ALTER TABLE biostar_devices ADD COLUMN IF NOT EXISTS device_group TEXT`,
+    ];
+    for (const colSql of cols) {
+      try {
+        await db.execute(colSql);
+      } catch (err: any) {
+        console.log(`⚠️ [036] ${err.message?.substring(0, 80)}`);
+      }
+    }
+    console.log('✅ [036] biostar_devices device_address + device_group columns ensured');
   }
 };

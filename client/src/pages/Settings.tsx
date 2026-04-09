@@ -58,7 +58,7 @@ export default function Settings() {
   const [showDeviceConfig, setShowDeviceConfig] = useState(false);
   const [deviceSaveLoading, setDeviceSaveLoading] = useState<string | null>(null);
   const [showAddDevice, setShowAddDevice] = useState(false);
-  const [addDeviceForm, setAddDeviceForm] = useState({ id: '', name: '', model: '', role: 'ENTRY_EXIT' });
+  const [addDeviceForm, setAddDeviceForm] = useState({ id: '', name: '', deviceAddress: '', deviceGroup: '', role: 'ENTRY_EXIT' });
   const [editUserForm, setEditUserForm] = useState({ 
     username: "", 
     email: "", 
@@ -4502,7 +4502,7 @@ export default function Settings() {
                           <label className="text-xs text-variable mb-1 block">Device ID *</label>
                           <input
                             className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600"
-                            placeholder="e.g. 1"
+                            placeholder="e.g. 543231711"
                             value={addDeviceForm.id}
                             onChange={e => setAddDeviceForm(f => ({ ...f, id: e.target.value }))}
                           />
@@ -4517,15 +4517,24 @@ export default function Settings() {
                           />
                         </div>
                         <div>
-                          <label className="text-xs text-variable mb-1 block">Model (optional)</label>
+                          <label className="text-xs text-variable mb-1 block">Device Address (optional)</label>
                           <input
-                            className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600"
-                            placeholder="e.g. X-Station 2"
-                            value={addDeviceForm.model}
-                            onChange={e => setAddDeviceForm(f => ({ ...f, model: e.target.value }))}
+                            className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600 font-mono"
+                            placeholder="e.g. 192.168.1.247"
+                            value={addDeviceForm.deviceAddress}
+                            onChange={e => setAddDeviceForm(f => ({ ...f, deviceAddress: e.target.value }))}
                           />
                         </div>
                         <div>
+                          <label className="text-xs text-variable mb-1 block">Group (optional)</label>
+                          <input
+                            className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600"
+                            placeholder="e.g. All Devices"
+                            value={addDeviceForm.deviceGroup}
+                            onChange={e => setAddDeviceForm(f => ({ ...f, deviceGroup: e.target.value }))}
+                          />
+                        </div>
+                        <div className="col-span-2">
                           <label className="text-xs text-variable mb-1 block">Role</label>
                           <select
                             className="w-full border rounded px-2 py-1.5 text-sm bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600"
@@ -4584,9 +4593,9 @@ export default function Settings() {
                         <thead>
                           <tr className="border-b border-gray-200 dark:border-gray-700">
                             <th className="text-left py-2 px-2 text-xs font-semibold text-variable uppercase tracking-wide">Reader Name</th>
-                            <th className="text-left py-2 px-2 text-xs font-semibold text-variable uppercase tracking-wide">Model / IP</th>
+                            <th className="text-left py-2 px-2 text-xs font-semibold text-variable uppercase tracking-wide">Device Address</th>
+                            <th className="text-left py-2 px-2 text-xs font-semibold text-variable uppercase tracking-wide">Group</th>
                             <th className="text-left py-2 px-2 text-xs font-semibold text-variable uppercase tracking-wide">Role</th>
-                            <th className="text-left py-2 px-2 text-xs font-semibold text-variable uppercase tracking-wide">Site</th>
                             <th className="py-2 px-2"></th>
                           </tr>
                         </thead>
@@ -4597,9 +4606,11 @@ export default function Settings() {
                                 <div className="font-medium text-fixed">{device.name}</div>
                                 <div className="text-xs text-variable opacity-60">ID: {device.id}</div>
                               </td>
+                              <td className="py-2 px-2 text-variable text-xs font-mono">
+                                {device.deviceAddress || device.ipAddress || '—'}
+                              </td>
                               <td className="py-2 px-2 text-variable text-xs">
-                                <div>{device.model || '—'}</div>
-                                <div>{device.ipAddress || ''}</div>
+                                {device.deviceGroup || '—'}
                               </td>
                               <td className="py-2 px-2">
                                 <select
@@ -4625,21 +4636,6 @@ export default function Settings() {
                                   <option value="IGNORE">Ignore</option>
                                 </select>
                                 {deviceSaveLoading === device.id && <span className="text-xs text-variable ml-1 opacity-60">saving…</span>}
-                              </td>
-                              <td className="py-2 px-2">
-                                <input
-                                  className="border rounded px-2 py-1 text-xs bg-white dark:bg-gray-800 text-fixed border-gray-300 dark:border-gray-600 w-24"
-                                  placeholder="Site name"
-                                  defaultValue={device.site || ''}
-                                  onBlur={async (e) => {
-                                    const site = e.target.value;
-                                    await fetch(`/api/biostar/devices/${device.id}`, {
-                                      method: 'PATCH',
-                                      headers: { 'Content-Type': 'application/json' },
-                                      body: JSON.stringify({ site }),
-                                    });
-                                  }}
-                                />
                               </td>
                               <td className="py-2 px-2 text-right">
                                 <Button

@@ -2116,11 +2116,11 @@ export const biostarDevices = pgTable("biostar_devices", {
   name: text("name").notNull(),
   model: text("model"),
   ipAddress: text("ip_address"),
+  deviceAddress: text("device_address"), // Human-readable address from BioStar (may differ from ip_address)
+  deviceGroup: text("device_group"),    // Group name from BioStar device groups
   // Admin-assigned classification
   role: text("role").notNull().default("ENTRY_EXIT"), // ENTRY | EXIT | ENTRY_EXIT | IGNORE
   direction: text("direction").notNull().default("BOTH"), // IN | OUT | BOTH
-  site: text("site"),
-  building: text("building"),
   // Sync metadata
   syncedAt: timestamp("synced_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

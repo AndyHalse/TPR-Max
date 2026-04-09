@@ -16229,6 +16229,8 @@ This is an automated notification from your visitor management system.`;
                   name: d.name,
                   model: d.model || null,
                   ipAddress: d.ipAddress || null,
+                  deviceAddress: d.deviceAddress || d.ipAddress || null,
+                  deviceGroup: d.deviceGroup || null,
                   role: 'ENTRY_EXIT',
                   direction: 'BOTH',
                   syncedAt: now,
@@ -16240,6 +16242,8 @@ This is an automated notification from your visitor management system.`;
                     name: d.name,
                     model: d.model || null,
                     ipAddress: d.ipAddress || null,
+                    deviceAddress: d.deviceAddress || d.ipAddress || null,
+                    deviceGroup: d.deviceGroup || null,
                     syncedAt: now,
                   },
                 });
@@ -16264,17 +16268,18 @@ This is an automated notification from your visitor management system.`;
   app.post("/api/biostar/devices", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId!;
-      const { id, name, model, ipAddress, role, direction, site, building } = req.body;
+      const { id, name, deviceAddress, ipAddress, deviceGroup, role, direction } = req.body;
       if (!id || !name) return res.status(400).json({ error: 'id and name are required' });
 
       const devicesDb = await customerDbService.getCustomerDatabase(customerId);
       const now = new Date();
+      const addr = deviceAddress || ipAddress || null;
       await devicesDb
         .insert(isolatedSchema.biostarDevices)
-        .values({ id: String(id), name, model: model || null, ipAddress: ipAddress || null, role: role || 'ENTRY_EXIT', direction: direction || 'BOTH', site: site || null, building: building || null, syncedAt: now, updatedAt: now })
+        .values({ id: String(id), name, ipAddress: addr, deviceAddress: addr, deviceGroup: deviceGroup || null, role: role || 'ENTRY_EXIT', direction: direction || 'BOTH', syncedAt: now, updatedAt: now })
         .onConflictDoUpdate({
           target: isolatedSchema.biostarDevices.id,
-          set: { name, model: model || null, ipAddress: ipAddress || null, role: role || 'ENTRY_EXIT', direction: direction || 'BOTH', site: site || null, building: building || null, updatedAt: now },
+          set: { name, ipAddress: addr, deviceAddress: addr, deviceGroup: deviceGroup || null, role: role || 'ENTRY_EXIT', direction: direction || 'BOTH', updatedAt: now },
         });
       const [device] = await devicesDb.select().from(isolatedSchema.biostarDevices).where(eq(isolatedSchema.biostarDevices.id, String(id)));
       res.json(device);
@@ -16292,7 +16297,7 @@ This is an automated notification from your visitor management system.`;
     try {
       const customerId = req.customerId!;
       const { deviceId } = req.params;
-      const { role, direction, site, building, name } = req.body;
+      const { role, direction, name, deviceGroup, deviceAddress } = req.body;
 
       const validRoles = ['ENTRY', 'EXIT', 'ENTRY_EXIT', 'IGNORE'];
       if (role && !validRoles.includes(role)) return res.status(400).json({ error: `role must be one of: ${validRoles.join(', ')}` });
@@ -16301,9 +16306,9 @@ This is an automated notification from your visitor management system.`;
       const updateData: any = { updatedAt: new Date() };
       if (role !== undefined) updateData.role = role;
       if (direction !== undefined) updateData.direction = direction;
-      if (site !== undefined) updateData.site = site;
-      if (building !== undefined) updateData.building = building;
       if (name !== undefined) updateData.name = name;
+      if (deviceGroup !== undefined) updateData.deviceGroup = deviceGroup;
+      if (deviceAddress !== undefined) updateData.deviceAddress = deviceAddress;
 
       await devicesDb.update(isolatedSchema.biostarDevices).set(updateData).where(eq(isolatedSchema.biostarDevices.id, deviceId));
       const [device] = await devicesDb.select().from(isolatedSchema.biostarDevices).where(eq(isolatedSchema.biostarDevices.id, deviceId));

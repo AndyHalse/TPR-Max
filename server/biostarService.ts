@@ -124,6 +124,8 @@ export interface BiostarDeviceInfo {
   name: string;
   model: string;
   ipAddress: string;
+  deviceAddress?: string;
+  deviceGroup?: string;
   deviceType?: string;
   status?: string;
 }
@@ -412,16 +414,28 @@ class BiostarService {
       const response = await this.makeAuthenticatedRequest(config, '/api/devices');
       const rows: any[] = response?.DeviceCollection?.rows ?? response?.rows ?? (Array.isArray(response) ? response : []);
       console.log(`📟 Biostar: Got ${rows.length} devices from /api/devices`);
-      if (rows.length > 0) console.log(`📟 Biostar: Device record keys:`, Object.keys(rows[0]).join(', '));
+      if (rows.length > 0) {
+        console.log(`📟 Biostar: Device record keys:`, Object.keys(rows[0]).join(', '));
+        const r0 = rows[0];
+        console.log(`📟 Biostar: Sample device - group:`, JSON.stringify(r0?.device_group_id), `lan:`, JSON.stringify(r0?.lan), `type:`, JSON.stringify(r0?.device_type_id));
+      }
 
-      return rows.map((r: any) => ({
-        id: String(r?.id ?? r?.device_id?.id ?? r?.device_id ?? ''),
-        name: r?.name ?? r?.device_name ?? `Device ${r?.id ?? '?'}`,
-        model: r?.model_name ?? r?.device_type?.model_name ?? r?.model ?? '',
-        ipAddress: r?.ip_address ?? r?.ip ?? '',
-        deviceType: r?.device_type?.type_name ?? r?.type_name ?? '',
-        status: r?.status ?? '',
-      })).filter(d => d.id && d.id !== '0');
+      return rows.map((r: any) => {
+        // BioStar 2 stores IP in `lan.ip_address`, group in `device_group_id.name`, type in `device_type_id.type_name`
+        const ip = r?.lan?.ip_address ?? r?.lan?.ip ?? r?.ip_address ?? r?.ip ?? '';
+        const group = r?.device_group_id?.name ?? r?.device_group?.name ?? r?.group_name ?? r?.device_group ?? '';
+        const model = r?.device_type_id?.type_name ?? r?.model_name ?? r?.device_type?.model_name ?? r?.model ?? '';
+        return {
+          id: String(r?.id ?? r?.device_id?.id ?? r?.device_id ?? ''),
+          name: r?.name ?? r?.device_name ?? `Device ${r?.id ?? '?'}`,
+          model,
+          ipAddress: ip,
+          deviceAddress: ip,
+          deviceGroup: group,
+          deviceType: r?.device_type_id?.type_name ?? r?.device_type?.type_name ?? r?.type_name ?? '',
+          status: r?.status ?? '',
+        };
+      }).filter(d => d.id && d.id !== '0');
     } catch (err: any) {
       // 403 is expected when API permission is restricted — log but don't throw
       console.warn(`⚠️ Biostar: GET /api/devices failed (${err.message}) — returning empty device list`);
