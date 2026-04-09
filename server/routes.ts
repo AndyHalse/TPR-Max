@@ -15856,7 +15856,14 @@ This is an automated notification from your visitor management system.`;
       let attendanceCheckedIn = 0;
       let attendanceCheckedOut = 0;
       try {
-        onSiteUsers = await biostarService.getCurrentOnSiteUsers(biostarConfig);
+        // Load device roles so direction detection works correctly
+        const syncDeviceRows = await db
+          .select({ id: isolatedSchema.biostarDevices.id, role: isolatedSchema.biostarDevices.role })
+          .from(isolatedSchema.biostarDevices);
+        const syncDeviceRoles: Record<string, string> = Object.fromEntries(
+          syncDeviceRows.map(d => [String(d.id), d.role])
+        );
+        onSiteUsers = await biostarService.getCurrentOnSiteUsers(biostarConfig, syncDeviceRoles);
         console.log(`📊 Biostar sync found ${onSiteUsers.length} users on-site`);
 
         // Build set of BioStar user IDs currently on-site
@@ -16099,12 +16106,20 @@ This is an automated notification from your visitor management system.`;
       // Try door status as alternative data source
       await biostarService.getDoorStatus(diagConfig);
 
-      // Fetch on-site determination (falls back to last_access_time automatically)
-      const onSiteUsers = await biostarService.getCurrentOnSiteUsers(diagConfig);
-      const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));
-
       // Fetch all staff with biostarUserId to show matching
       const diagDb = await customerDbService.getCustomerDatabase(customerId);
+
+      // Load device roles for accurate direction detection in diagnostics too
+      const diagDeviceRows = await diagDb
+        .select({ id: isolatedSchema.biostarDevices.id, role: isolatedSchema.biostarDevices.role })
+        .from(isolatedSchema.biostarDevices);
+      const diagDeviceRoles: Record<string, string> = Object.fromEntries(
+        diagDeviceRows.map(d => [String(d.id), d.role])
+      );
+
+      // Fetch on-site determination (falls back to last_access_time automatically)
+      const onSiteUsers = await biostarService.getCurrentOnSiteUsers(diagConfig, diagDeviceRoles);
+      const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));
       const allBiostarStaff = await diagDb
         .select({
           id: isolatedSchema.staff.id,
@@ -20951,10 +20966,21 @@ This is an automated notification from your visitor management system.`;
         databaseId: settings.biostarDatabaseId || '1',
       };
 
-      const onSiteUsers = await biostarService.getCurrentOnSiteUsers(pollConfig);
-      const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));
-
       const pollDb = await customerDbService.getCustomerDatabase(customerId);
+
+      // Load admin-assigned device roles from the biostar_devices table.
+      // These determine whether a reader is ENTRY, EXIT, ENTRY_EXIT or IGNORE.
+      // Without this, direction is inferred from event code alone, which is
+      // unreliable when the same card-auth code appears on both door sides.
+      const deviceRowsForRoles = await pollDb
+        .select({ id: isolatedSchema.biostarDevices.id, role: isolatedSchema.biostarDevices.role })
+        .from(isolatedSchema.biostarDevices);
+      const deviceRoles: Record<string, string> = Object.fromEntries(
+        deviceRowsForRoles.map(d => [String(d.id), d.role])
+      );
+
+      const onSiteUsers = await biostarService.getCurrentOnSiteUsers(pollConfig, deviceRoles);
+      const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));
       const allBiostarStaff = await pollDb
         .select({
           id: isolatedSchema.staff.id,
@@ -21069,14 +21095,17 @@ This is an automated notification from your visitor management system.`;
                   .limit(1);
 
                 if (deviceConfig) {
-                  if (deviceConfig.role === 'ENTRY') { isEntry = true; }
-                  else if (deviceConfig.role === 'EXIT') { isExit = true; }
-                  else if (deviceConfig.role === 'ENTRY_EXIT') {
+                  if (deviceConfig.role === 'ENTRY') {
+                    // Only count if it's actually an auth event (not a relay/door-open)
+                    isEntry = biostarService.isEntryEvent(eventTypeCode) || biostarService.isExitEvent(eventTypeCode);
+                  } else if (deviceConfig.role === 'EXIT') {
+                    isExit = biostarService.isEntryEvent(eventTypeCode) || biostarService.isExitEvent(eventTypeCode);
+                  } else if (deviceConfig.role === 'ENTRY_EXIT') {
+                    // Use event code for direction; non-auth codes remain false (skipped below)
                     isEntry = biostarService.isEntryEvent(eventTypeCode);
                     isExit = biostarService.isExitEvent(eventTypeCode);
-                    if (!isEntry && !isExit) isEntry = true;
                   }
-                  // IGNORE: both remain false
+                  // IGNORE: both remain false — event is discarded
                 } else {
                   // Auto-register unknown device
                   await wsDb.insert(isolatedSchema.biostarDevices)

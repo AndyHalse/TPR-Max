@@ -1002,21 +1002,44 @@ class BiostarService {
   }
 
   /**
-   * Determine which BioStar users are currently on-site.
+   * Determine the on-site direction for a single event given its device role.
    *
-   * Primary strategy:
-   * - Fetch today's authentication / access events via the event log API
-   * - For each user, take their MOST RECENT event
-   * - If it's an entry/auth event → on-site; if it's an exit event → off-site
-   *
-   * Fallback (when the event API returns 403/Permission Denied):
-   * - Use each user's `last_access_time` field from the user record
-   * - If last_access_time is within the last 24 hours → on-site
-   * - This bypasses the BioStar 2 event log permission requirement entirely
+   * @param eventTypeCode  BioStar event code (as string)
+   * @param deviceRole     ENTRY | EXIT | ENTRY_EXIT | IGNORE (from biostarDevices table)
+   * @returns 'ENTRY' | 'EXIT' | 'IGNORE' | null  (null = event is not an auth event at all)
    */
+  static resolveEventDirection(
+    eventTypeCode: string,
+    deviceRole: string,
+  ): 'ENTRY' | 'EXIT' | 'IGNORE' | null {
+    const isKnownEntry = BIOSTAR_ENTRY_EVENT_CODES.has(eventTypeCode);
+    const isKnownExit  = BIOSTAR_EXIT_EVENT_CODES.has(eventTypeCode);
+
+    // If the event code is not any kind of auth event, skip it entirely.
+    // This eliminates door-open, schedule, admin, and zone events from the
+    // on-site calculation — they are NOT card/fingerprint/face scans.
+    if (!isKnownEntry && !isKnownExit) return null;
+
+    // Device role takes priority over event code for direction
+    switch (deviceRole.toUpperCase()) {
+      case 'ENTRY': return 'ENTRY';           // admin marked this reader as entry-only
+      case 'EXIT':  return 'EXIT';            // admin marked this reader as exit-only
+      case 'IGNORE': return 'IGNORE';         // admin told us to ignore this reader
+      case 'ENTRY_EXIT':
+      default:
+        // Dual-purpose reader — use the event code to determine direction
+        if (isKnownExit) return 'EXIT';
+        return 'ENTRY';   // auth success on ENTRY_EXIT device → assume entry
+    }
+  }
+
   async getCurrentOnSiteUsers(
-    config: BiostarConfig
-  ): Promise<{ userId: string; userName: string; lastAccessTime: string; eventCode: string }[]> {
+    config: BiostarConfig,
+    // deviceRoles maps BioStar device ID → admin-assigned role (ENTRY/EXIT/ENTRY_EXIT/IGNORE).
+    // Populated by pollBiostarAttendance from the biostar_devices table.
+    // When omitted every device is treated as ENTRY_EXIT (code-based detection).
+    deviceRoles: Record<string, string> = {},
+  ): Promise<{ userId: string; userName: string; lastAccessTime: string; eventCode: string; deviceId: string }[]> {
     // --- Primary: event log API ---
     let events: BiostarEventLog[] = [];
     let eventsAvailable = false;
@@ -1028,41 +1051,59 @@ class BiostarService {
     }
 
     if (eventsAvailable && events.length > 0) {
-      // Log event codes for diagnostics
+      // Log ALL distinct event codes today so the admin can see what's happening
       const uniqueCodes = [...new Set(events.map(e => `${e.eventTypeCode}(${e.eventTypeDesc})`))];
       console.log(`📋 Biostar: Event codes seen today: ${uniqueCodes.slice(0, 10).join(', ')}`);
 
-      // Build a map of userId → most-recent event
+      // ── Step 1: Filter to ONLY authentication events ──────────────────────
+      // BioStar generates many non-auth events (door-open relay, zone events,
+      // schedule unlock, admin user-management events, etc.) that carry a
+      // user_id but are NOT card / fingerprint / face scans.
+      // We MUST discard them or every admin action inflates the on-site count.
+      const authEvents = events.filter(e =>
+        BIOSTAR_ENTRY_EVENT_CODES.has(e.eventTypeCode) ||
+        BIOSTAR_EXIT_EVENT_CODES.has(e.eventTypeCode)
+      );
+
+      console.log(`📋 Biostar: ${authEvents.length} auth events (of ${events.length} total) after filtering`);
+
+      // ── Step 2: Most-recent AUTH event per user ───────────────────────────
       const userLatest = new Map<string, BiostarEventLog>();
-      for (const event of events) {
+      for (const event of authEvents) {
+        if (!event.userId || event.userId === '0') continue;
         const existing = userLatest.get(event.userId);
         if (!existing || new Date(event.eventTime) > new Date(existing.eventTime)) {
           userLatest.set(event.userId, event);
         }
       }
 
-      // Diagnostic: log distinct user IDs found in today's events
-      const distinctUserIds = [...userLatest.keys()].filter(id => id && id !== '0');
-      console.log(`📋 Biostar: Distinct user IDs in events (${distinctUserIds.length}): ${distinctUserIds.slice(0, 10).join(', ')}`);
+      console.log(`📋 Biostar: Distinct users with auth events today: ${userLatest.size} — IDs: ${[...userLatest.keys()].slice(0, 10).join(', ')}`);
 
-      const onSiteUsers: { userId: string; userName: string; lastAccessTime: string; eventCode: string }[] = [];
-      const hasAnyExitEvent = events.some(e => BIOSTAR_EXIT_EVENT_CODES.has(e.eventTypeCode));
+      // ── Step 3: Determine direction via device role ───────────────────────
+      // Device role (from biostar_devices table) takes precedence over event code.
+      // ENTRY reader  → always a check-in
+      // EXIT reader   → always a check-out
+      // ENTRY_EXIT    → use event code (entry codes = in, exit codes = out)
+      // IGNORE        → skip
+      const onSiteUsers: { userId: string; userName: string; lastAccessTime: string; eventCode: string; deviceId: string }[] = [];
 
       for (const [userId, event] of userLatest) {
-        if (userId === '0' || userId === '') continue; // skip system/unknown users
+        const role = deviceRoles[String(event.deviceId)] ?? 'ENTRY_EXIT';
+        const direction = BiostarService.resolveEventDirection(event.eventTypeCode, role);
 
-        const isEntry = BIOSTAR_ENTRY_EVENT_CODES.has(event.eventTypeCode);
-        const isExit  = BIOSTAR_EXIT_EVENT_CODES.has(event.eventTypeCode);
-
-        if (isEntry) {
-          onSiteUsers.push({ userId, userName: event.userName ?? `User ${userId}`, lastAccessTime: event.eventTime, eventCode: event.eventTypeCode });
-        } else if (!isExit && !hasAnyExitEvent) {
-          // Unknown event code + no exit readers configured → treat any auth as on-site
-          onSiteUsers.push({ userId, userName: event.userName ?? `User ${userId}`, lastAccessTime: event.eventTime, eventCode: event.eventTypeCode });
+        if (direction === 'ENTRY') {
+          onSiteUsers.push({
+            userId,
+            userName: event.userName ?? `User ${userId}`,
+            lastAccessTime: event.eventTime,
+            eventCode: event.eventTypeCode,
+            deviceId: event.deviceId,
+          });
         }
+        // EXIT / IGNORE / null → user not on-site, don't push
       }
 
-      console.log(`📊 Biostar: ${onSiteUsers.length} of ${userLatest.size} users on-site (via event log)`);
+      console.log(`📊 Biostar: ${onSiteUsers.length} of ${userLatest.size} users on-site (via auth event log + device roles)`);
       return onSiteUsers;
     }
 
@@ -1088,6 +1129,7 @@ class BiostarService {
             userName: user.name,
             lastAccessTime: user.lastAccessTime,
             eventCode: 'last_access',
+            deviceId: '',
           });
         }
       }
@@ -1123,7 +1165,7 @@ class BiostarService {
    * T&A records show check-in/check-out per user per day.
    * If a user has checked in today but not checked out → they are on-site.
    */
-  async getTimeAttendanceOnSite(config: BiostarConfig): Promise<{ userId: string; userName: string; lastAccessTime: string; eventCode: string }[]> {
+  async getTimeAttendanceOnSite(config: BiostarConfig): Promise<{ userId: string; userName: string; lastAccessTime: string; eventCode: string; deviceId: string }[]> {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
     const now = new Date();
@@ -1171,7 +1213,7 @@ class BiostarService {
       if (!userId || userId === '0' || userId === '1') continue; // skip system/admin
       if (checkin && !checkout) {
         // Checked in today, no check-out → on-site
-        onSite.push({ userId: String(userId), userName, lastAccessTime: checkin, eventCode: 'ta_checkin' });
+        onSite.push({ userId: String(userId), userName, lastAccessTime: checkin, eventCode: 'ta_checkin', deviceId: '' });
         console.log(`📅 Biostar T&A: "${userName}" checked in at ${checkin}, no checkout → ON SITE`);
       } else if (checkin && checkout) {
         console.log(`📅 Biostar T&A: "${userName}" checked in ${checkin}, checked out ${checkout} → OFF SITE`);
