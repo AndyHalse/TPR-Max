@@ -16257,6 +16257,46 @@ This is an automated notification from your visitor management system.`;
   });
 
   /**
+   * GET /api/biostar/live-events
+   * Polls BioStar 2's own Event Log API and returns the last N events.
+   * Cached for 15 seconds to avoid hammering BioStar's API.
+   * This mirrors the "Event Log" / "Real-time Log" panel in BioStar 2 UI.
+   */
+  const liveEventCache = new Map<string, { ts: number; rows: any[] }>();
+  app.get("/api/biostar/live-events", requireAuth, async (req, res) => {
+    const customerId = req.customerId!;
+    const limit = Math.min(Number(req.query.limit) || 50, 200);
+
+    // Return cached data if fresh (<15s old)
+    const cached = liveEventCache.get(customerId);
+    if (cached && Date.now() - cached.ts < 15000) {
+      return res.json({ events: cached.rows, source: 'cache', cachedAt: new Date(cached.ts).toISOString() });
+    }
+
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+      if (!settings?.biostarEnabled || !settings?.biostarServerUrl || !settings?.biostarUsername || !settings?.biostarPassword) {
+        return res.json({ events: [], error: 'BioStar 2 not configured' });
+      }
+      const config = {
+        serverUrl: settings.biostarServerUrl,
+        username: settings.biostarUsername,
+        password: settings.biostarPassword,
+        databaseId: settings.biostarDatabaseId || '1',
+      };
+      const rows = await biostarService.getLiveEventLog(config, limit);
+      liveEventCache.set(customerId, { ts: Date.now(), rows });
+      res.json({ events: rows, source: 'live', fetchedAt: new Date().toISOString() });
+    } catch (err: any) {
+      console.error(`❌ BioStar live-events error: ${err.message}`);
+      const stale = liveEventCache.get(customerId);
+      if (stale) return res.json({ events: stale.rows, source: 'stale_cache', error: err.message });
+      res.json({ events: [], error: err.message });
+    }
+  });
+
+  /**
    * POST /api/biostar/webhook-log/test
    * Injects a synthetic test event into the ring buffer so the Live Log UI
    * can be verified without waiting for a real BioStar 2 webhook call.

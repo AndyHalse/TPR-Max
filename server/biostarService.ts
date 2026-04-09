@@ -552,6 +552,85 @@ class BiostarService {
   }
 
   /**
+   * getLiveEventLog — fetches the most recent N events from BioStar 2 for the Live Log panel.
+   * Tries multiple body/endpoint strategies because BioStar 2 API versions differ:
+   *   v2.6-: GET /api/events?limit=N
+   *   v2.7+: POST /api/events/search with EventCollection body
+   *   v2.8+: POST with conditions array
+   * Returns raw rows so the caller can format them for display.
+   */
+  async getLiveEventLog(
+    config: BiostarConfig,
+    limit: number = 50
+  ): Promise<any[]> {
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fmtLocal = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+    const now = new Date();
+    const from = new Date(now.getTime() - 24 * 60 * 60 * 1000); // last 24h
+
+    // Strategies to try in order
+    const strategies: Array<{ label: string; fn: () => Promise<any> }> = [
+      {
+        label: 'POST /api/events/search (compact)',
+        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+          EventCollection: { limit, offset: 0, order_desc: true },
+        }),
+      },
+      {
+        label: 'POST /api/events/search (with dates)',
+        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+          EventCollection: {
+            start_datetime: fmtLocal(from),
+            end_datetime: fmtLocal(now),
+            limit,
+            offset: 0,
+            order_desc: true,
+          },
+        }),
+      },
+      {
+        label: 'POST /api/events/search (flat body)',
+        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+          limit,
+          order_dir: 'desc',
+        }),
+      },
+      {
+        label: `GET /api/events?limit=${limit}`,
+        fn: () => this.makeAuthenticatedRequest(config, `/api/events?limit=${limit}&order_dir=desc`),
+      },
+      {
+        label: `GET /api/events with dates`,
+        fn: () => this.makeAuthenticatedRequest(
+          config,
+          `/api/events?start_datetime=${encodeURIComponent(fmtLocal(from))}&end_datetime=${encodeURIComponent(fmtLocal(now))}&limit=${limit}`
+        ),
+      },
+    ];
+
+    for (const strategy of strategies) {
+      try {
+        const response = await strategy.fn();
+        const rows: any[] =
+          response?.EventCollection?.rows ??
+          response?.rows ??
+          response?.records ??
+          (Array.isArray(response) ? response : []);
+        if (rows.length > 0 || response?.EventCollection?.total === 0) {
+          console.log(`📋 BioStar Live Log: got ${rows.length} events via "${strategy.label}"`);
+          return rows;
+        }
+        // Empty but no error — try next strategy for a richer response
+        console.log(`📋 BioStar Live Log: "${strategy.label}" returned 0 rows, trying next...`);
+      } catch (err: any) {
+        console.warn(`⚠️ BioStar Live Log: "${strategy.label}" failed: ${err.message}`);
+      }
+    }
+    return [];
+  }
+
+  /**
    * Get recent event logs (access events) from BioStar 2.
    *
    * BioStar 2 Local API returns events in:

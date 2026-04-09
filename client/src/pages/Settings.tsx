@@ -62,7 +62,6 @@ export default function Settings() {
   const [showLiveLog, setShowLiveLog] = useState(false);
   const [liveLogEvents, setLiveLogEvents] = useState<any[]>([]);
   const [liveLogPaused, setLiveLogPaused] = useState(false);
-  const [liveLogCustomerId, setLiveLogCustomerId] = useState<string>('');
   const liveLogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [editUserForm, setEditUserForm] = useState({ 
     username: "", 
@@ -4505,15 +4504,14 @@ export default function Settings() {
                         if (next) {
                           const poll = async () => {
                             try {
-                              const r = await fetch('/api/biostar/webhook-log?limit=100');
+                              const r = await fetch('/api/biostar/live-events?limit=50');
                               const d = await r.json();
                               setLiveLogEvents(d.events || []);
-                              if (d.customerId) setLiveLogCustomerId(d.customerId);
                             } catch {}
                           };
                           poll();
                           if (liveLogTimerRef.current) clearInterval(liveLogTimerRef.current);
-                          liveLogTimerRef.current = setInterval(poll, 2000);
+                          liveLogTimerRef.current = setInterval(poll, 15000);
                         } else {
                           if (liveLogTimerRef.current) { clearInterval(liveLogTimerRef.current); liveLogTimerRef.current = null; }
                         }
@@ -4693,35 +4691,26 @@ export default function Settings() {
                   {/* ── Live Log Panel ── */}
                   {showLiveLog && (
                     <div className="space-y-2">
-
-                      {/* Webhook URL info box */}
-                      <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/40 text-xs text-blue-800 dark:text-blue-300">
-                        <span className="mt-0.5 shrink-0">ℹ️</span>
-                        <div className="space-y-0.5 min-w-0">
-                          <p className="font-medium">Configure this webhook URL in BioStar 2 to receive live events:</p>
-                          <code className="block bg-blue-100 dark:bg-blue-900/40 px-2 py-1 rounded font-mono text-blue-900 dark:text-blue-200 break-all select-all">
-                            {window.location.origin}/api/biostar/webhook/{liveLogCustomerId || '…'}
-                          </code>
-                          <p className="opacity-70">In BioStar 2 → Settings → Server → Event → Webhook URL. Use the test button below to verify this panel is working.</p>
-                        </div>
-                      </div>
-
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse inline-block" />
-                          <span className="text-sm font-medium text-fixed">Live Webhook Log</span>
-                          <span className="text-xs text-variable opacity-60">— events received from BioStar 2 in real time</span>
+                          <span className={`w-2 h-2 rounded-full inline-block ${liveLogPaused ? 'bg-gray-400' : 'bg-red-400 animate-pulse'}`} />
+                          <span className="text-sm font-medium text-fixed">Event Log</span>
+                          <span className="text-xs text-variable opacity-60">— mirroring BioStar 2 Event Log in real time</span>
                         </div>
                         <div className="flex gap-2">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            className="text-xs h-7 px-2 border-dashed"
+                            className="text-xs h-7 px-2"
                             onClick={async () => {
-                              await fetch('/api/biostar/webhook-log/test', { method: 'POST' });
+                              try {
+                                const r = await fetch('/api/biostar/live-events?limit=50');
+                                const d = await r.json();
+                                setLiveLogEvents(d.events || []);
+                              } catch {}
                             }}
                           >
-                            ⚡ Test Event
+                            ↻ Refresh
                           </Button>
                           <Button
                             variant="ghost"
@@ -4735,81 +4724,85 @@ export default function Settings() {
                                 setLiveLogPaused(false);
                                 const poll = async () => {
                                   try {
-                                    const r = await fetch('/api/biostar/webhook-log?limit=100');
+                                    const r = await fetch('/api/biostar/live-events?limit=50');
                                     const d = await r.json();
                                     setLiveLogEvents(d.events || []);
-                                    if (d.customerId) setLiveLogCustomerId(d.customerId);
                                   } catch {}
                                 };
                                 poll();
                                 if (liveLogTimerRef.current) clearInterval(liveLogTimerRef.current);
-                                liveLogTimerRef.current = setInterval(poll, 2000);
+                                liveLogTimerRef.current = setInterval(poll, 15000);
                               }
                             }}
                           >
                             {liveLogPaused ? '▶ Resume' : '⏸ Pause'}
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7 px-2 text-red-500"
-                            onClick={async () => {
-                              await fetch('/api/biostar/webhook-log?clear=true');
-                              setLiveLogEvents([]);
-                            }}
-                          >
-                            Clear
-                          </Button>
                         </div>
                       </div>
 
-                      <div className="bg-gray-900 dark:bg-black rounded-lg overflow-hidden" style={{ height: 260 }}>
+                      <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700/40" style={{ height: 300 }}>
+                        {/* Header row */}
+                        <div className="flex bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px] font-semibold text-variable uppercase tracking-wide border-b border-gray-200 dark:border-gray-700/40">
+                          <span className="w-36 shrink-0">Date / Time</span>
+                          <span className="w-36 shrink-0">Device</span>
+                          <span className="w-28 shrink-0">User</span>
+                          <span className="flex-1">Event</span>
+                        </div>
                         {liveLogEvents.length === 0 ? (
-                          <div className="flex flex-col items-center justify-center h-full text-gray-500 text-sm gap-2">
-                            <span className="text-2xl">📡</span>
-                            <p>Waiting for BioStar 2 events…</p>
-                            <p className="text-xs opacity-60">Click "⚡ Test Event" to verify this panel is working, or scan a card on any reader</p>
+                          <div className="flex flex-col items-center justify-center h-[calc(100%-28px)] text-gray-400 text-sm gap-2 bg-white dark:bg-gray-900">
+                            <span className="text-2xl">📋</span>
+                            <p>No events loaded yet</p>
+                            <p className="text-xs opacity-60">Click "↻ Refresh" to pull from BioStar 2 Event Log</p>
                           </div>
                         ) : (
-                          <div className="overflow-y-auto h-full p-2 font-mono text-xs space-y-0.5">
-                            {liveLogEvents.map((ev: any) => {
-                              const actionColor: Record<string, string> = {
-                                checked_in: 'text-green-400',
-                                checked_out: 'text-blue-400',
-                                ignored: 'text-gray-500',
-                                no_match: 'text-amber-400',
-                                no_change: 'text-gray-400',
-                                insufficient_data: 'text-red-400',
-                              };
-                              const actionLabel: Record<string, string> = {
-                                checked_in: '✅ IN',
-                                checked_out: '🚪 OUT',
-                                ignored: '🚫 IGN',
-                                no_match: '❓ NOMATCH',
-                                no_change: '↔ SAME',
-                                insufficient_data: '⚠ BADDATA',
-                              };
-                              const t = new Date(ev.ts);
-                              const timeStr = t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                          <div className="overflow-y-auto h-[calc(100%-28px)] bg-white dark:bg-gray-900">
+                            {liveLogEvents.map((ev: any, idx: number) => {
+                              const userId = ev?.user_id?.id ?? ev?.user_id ?? ev?.userId ?? '';
+                              const userName = ev?.user_id?.user_name ?? ev?.user_name ?? ev?.userName ?? '';
+                              const deviceId = ev?.device_id?.id ?? ev?.device_id ?? ev?.deviceId ?? '';
+                              const deviceName = ev?.device_id?.name ?? ev?.device_name ?? ev?.deviceName ?? `Device ${deviceId}`;
+                              const doorName = ev?.door_id?.name ?? ev?.door_name ?? ev?.door ?? '';
+                              const eventDesc = ev?.event_type_id?.desc ?? ev?.event_type_id?.description ?? ev?.eventTypeDesc ?? ev?.event_desc ?? ev?.event ?? '';
+                              const eventCode = String(ev?.event_type_id?.code ?? ev?.event_type_id ?? ev?.eventTypeCode ?? '');
+                              const rawTime = ev?.datetime ?? ev?.event_time ?? ev?.eventTime ?? ev?.time ?? '';
+                              const t = rawTime ? new Date(rawTime) : null;
+                              const dateStr = t ? t.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
+                              const timeStr = t ? t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
+
+                              // Colour-code by event type
+                              const isAuth = eventCode === '1' || eventCode === '4352' || eventCode === '4096' || eventCode === '4864';
+                              const isDenied = eventDesc?.toLowerCase().includes('denied') || eventDesc?.toLowerCase().includes('fail');
+                              const rowBg = idx % 2 === 0 ? '' : 'bg-gray-50 dark:bg-gray-800/30';
+                              const eventColor = isDenied ? 'text-red-600 dark:text-red-400' : isAuth ? 'text-green-700 dark:text-green-400' : 'text-variable';
+
+                              const displayUser = userName
+                                ? (userId ? `${userName}` : userName)
+                                : (userId ? `User ${userId}` : '—');
+
                               return (
-                                <div key={ev.id} className="flex gap-2 items-baseline leading-5 hover:bg-white/5 px-1 rounded">
-                                  <span className="text-gray-500 shrink-0 w-16">{timeStr}</span>
-                                  <span className={`shrink-0 w-20 font-semibold ${actionColor[ev.action] ?? 'text-gray-300'}`}>
-                                    {actionLabel[ev.action] ?? ev.action.toUpperCase()}
+                                <div key={ev.id ?? idx} className={`flex px-2 py-1 text-xs border-b border-gray-100 dark:border-gray-800/40 hover:bg-blue-50 dark:hover:bg-blue-900/10 ${rowBg}`}>
+                                  <span className="w-36 shrink-0 text-variable opacity-80 font-mono">
+                                    {dateStr} {timeStr}
                                   </span>
-                                  <span className="text-gray-200 truncate min-w-0">{ev.userName || `User ${ev.userId}`}</span>
-                                  <span className="text-gray-600 shrink-0">→</span>
-                                  <span className="text-gray-400 truncate min-w-0">{ev.deviceName || `Device ${ev.deviceId}`}</span>
-                                  {ev.userId?.startsWith('test-') && (
-                                    <span className="text-yellow-600 shrink-0 text-[10px]">[TEST]</span>
-                                  )}
+                                  <span className="w-36 shrink-0 text-variable truncate pr-1" title={deviceName}>
+                                    {doorName || deviceName || '—'}
+                                  </span>
+                                  <span className="w-28 shrink-0 text-variable truncate pr-1" title={displayUser}>
+                                    {displayUser}
+                                  </span>
+                                  <span className={`flex-1 truncate ${eventColor}`} title={eventDesc}>
+                                    {eventDesc || `Code ${eventCode}` || '—'}
+                                  </span>
                                 </div>
                               );
                             })}
                           </div>
                         )}
                       </div>
-                      <p className="text-xs text-variable opacity-50">Polling every 2 seconds · Last 100 events · Clears on server restart</p>
+                      <p className="text-xs text-variable opacity-50">
+                        Auto-refresh every 15 seconds · Last 50 events · Mirrors BioStar 2 Event Log
+                        {liveLogPaused && <span className="ml-2 text-amber-500">● Paused</span>}
+                      </p>
                     </div>
                   )}
                 </div>
