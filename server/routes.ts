@@ -16265,11 +16265,24 @@ This is an automated notification from your visitor management system.`;
   const liveEventCache = new Map<string, { ts: number; rows: any[] }>();
   app.get("/api/biostar/live-events", requireAuth, async (req, res) => {
     const customerId = req.customerId!;
-    const limit = Math.min(Number(req.query.limit) || 50, 200);
+    const limit = Math.min(Number(req.query.limit) || 200, 1000);
 
-    // Return cached data if fresh (<15s old)
-    const cached = liveEventCache.get(customerId);
-    if (cached && Date.now() - cached.ts < 15000) {
+    // Optional date param: "YYYY-MM-DD" → fetch that specific day; default = today
+    let fromDate: Date | undefined;
+    let toDate: Date | undefined;
+    if (req.query.date && typeof req.query.date === 'string') {
+      const d = new Date(req.query.date + 'T00:00:00');
+      if (!isNaN(d.getTime())) {
+        fromDate = d;
+        toDate = new Date(req.query.date + 'T23:59:59');
+      }
+    }
+
+    // Cache key includes the date so different days don't collide
+    const cacheKey = `${customerId}:${req.query.date ?? 'today'}`;
+    const cached = liveEventCache.get(cacheKey);
+    // Only use cache for today's (live) requests; skip for historical dates
+    if (!req.query.date && cached && Date.now() - cached.ts < 15000) {
       return res.json({ events: cached.rows, source: 'cache', cachedAt: new Date(cached.ts).toISOString() });
     }
 
@@ -16285,12 +16298,21 @@ This is an automated notification from your visitor management system.`;
         password: settings.biostarPassword,
         databaseId: settings.biostarDatabaseId || '1',
       };
-      const rows = await biostarService.getLiveEventLog(config, limit);
-      liveEventCache.set(customerId, { ts: Date.now(), rows });
-      res.json({ events: rows, source: 'live', fetchedAt: new Date().toISOString() });
+      const result = await biostarService.getLiveEventLog(config, limit, fromDate, toDate);
+      if (!req.query.date) {
+        liveEventCache.set(cacheKey, { ts: Date.now(), rows: result.rows });
+      }
+      res.json({
+        events: result.rows,
+        total: result.rows.length,
+        strategy: result.strategy,
+        error: result.error,
+        source: 'live',
+        fetchedAt: new Date().toISOString(),
+      });
     } catch (err: any) {
       console.error(`❌ BioStar live-events error: ${err.message}`);
-      const stale = liveEventCache.get(customerId);
+      const stale = liveEventCache.get(cacheKey);
       if (stale) return res.json({ events: stale.rows, source: 'stale_cache', error: err.message });
       res.json({ events: [], error: err.message });
     }

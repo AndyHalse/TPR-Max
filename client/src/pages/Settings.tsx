@@ -62,6 +62,10 @@ export default function Settings() {
   const [showLiveLog, setShowLiveLog] = useState(false);
   const [liveLogEvents, setLiveLogEvents] = useState<any[]>([]);
   const [liveLogPaused, setLiveLogPaused] = useState(false);
+  const [liveLogError, setLiveLogError] = useState<string | null>(null);
+  const [liveLogLoading, setLiveLogLoading] = useState(false);
+  const [liveLogStrategy, setLiveLogStrategy] = useState<string | null>(null);
+  const [liveLogDate, setLiveLogDate] = useState<string>(() => new Date().toISOString().slice(0, 10));
   const liveLogTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [editUserForm, setEditUserForm] = useState({ 
     username: "", 
@@ -4502,16 +4506,26 @@ export default function Settings() {
                         setShowLiveLog(next);
                         setLiveLogPaused(false);
                         if (next) {
-                          const poll = async () => {
+                          const today = new Date().toISOString().slice(0, 10);
+                          const poll = async (date?: string) => {
+                            setLiveLogLoading(true);
+                            setLiveLogError(null);
                             try {
-                              const r = await fetch('/api/biostar/live-events?limit=50');
+                              const dateParam = date ?? today;
+                              const r = await fetch(`/api/biostar/live-events?limit=500&date=${dateParam}`);
                               const d = await r.json();
                               setLiveLogEvents(d.events || []);
-                            } catch {}
+                              setLiveLogError(d.error || null);
+                              setLiveLogStrategy(d.strategy || null);
+                            } catch (e: any) {
+                              setLiveLogError(e.message);
+                            } finally {
+                              setLiveLogLoading(false);
+                            }
                           };
-                          poll();
+                          poll(today);
                           if (liveLogTimerRef.current) clearInterval(liveLogTimerRef.current);
-                          liveLogTimerRef.current = setInterval(poll, 15000);
+                          liveLogTimerRef.current = setInterval(() => poll(today), 30000);
                         } else {
                           if (liveLogTimerRef.current) { clearInterval(liveLogTimerRef.current); liveLogTimerRef.current = null; }
                         }
@@ -4691,76 +4705,122 @@ export default function Settings() {
                   {/* ── Live Log Panel ── */}
                   {showLiveLog && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className={`w-2 h-2 rounded-full inline-block ${liveLogPaused ? 'bg-gray-400' : 'bg-red-400 animate-pulse'}`} />
-                          <span className="text-sm font-medium text-fixed">Event Log</span>
-                          <span className="text-xs text-variable opacity-60">— mirroring BioStar 2 Event Log in real time</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7 px-2"
-                            onClick={async () => {
-                              try {
-                                const r = await fetch('/api/biostar/live-events?limit=50');
-                                const d = await r.json();
-                                setLiveLogEvents(d.events || []);
-                              } catch {}
-                            }}
-                          >
-                            ↻ Refresh
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="text-xs h-7 px-2"
-                            onClick={() => {
-                              if (!liveLogPaused) {
-                                if (liveLogTimerRef.current) { clearInterval(liveLogTimerRef.current); liveLogTimerRef.current = null; }
-                                setLiveLogPaused(true);
-                              } else {
-                                setLiveLogPaused(false);
-                                const poll = async () => {
-                                  try {
-                                    const r = await fetch('/api/biostar/live-events?limit=50');
-                                    const d = await r.json();
-                                    setLiveLogEvents(d.events || []);
-                                  } catch {}
-                                };
-                                poll();
-                                if (liveLogTimerRef.current) clearInterval(liveLogTimerRef.current);
-                                liveLogTimerRef.current = setInterval(poll, 15000);
-                              }
-                            }}
-                          >
-                            {liveLogPaused ? '▶ Resume' : '⏸ Pause'}
-                          </Button>
-                        </div>
+                      {/* Controls bar */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className={`w-2 h-2 rounded-full shrink-0 ${liveLogLoading ? 'bg-yellow-400 animate-pulse' : liveLogPaused ? 'bg-gray-400' : 'bg-red-400 animate-pulse'}`} />
+                        <span className="text-sm font-medium text-fixed">Event Log</span>
+                        {/* Date selector */}
+                        <input
+                          type="date"
+                          value={liveLogDate}
+                          max={new Date().toISOString().slice(0, 10)}
+                          onChange={(e) => setLiveLogDate(e.target.value)}
+                          className="h-7 px-2 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-variable"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          disabled={liveLogLoading}
+                          onClick={async () => {
+                            setLiveLogLoading(true);
+                            setLiveLogError(null);
+                            try {
+                              const r = await fetch(`/api/biostar/live-events?limit=500&date=${liveLogDate}`);
+                              const d = await r.json();
+                              setLiveLogEvents(d.events || []);
+                              setLiveLogError(d.error || null);
+                              setLiveLogStrategy(d.strategy || null);
+                            } catch (e: any) { setLiveLogError(e.message); }
+                            finally { setLiveLogLoading(false); }
+                          }}
+                        >
+                          {liveLogLoading ? '⏳ Loading…' : '↻ Load'}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          onClick={() => {
+                            const today = new Date().toISOString().slice(0, 10);
+                            setLiveLogDate(today);
+                            if (!liveLogPaused) {
+                              if (liveLogTimerRef.current) { clearInterval(liveLogTimerRef.current); liveLogTimerRef.current = null; }
+                              setLiveLogPaused(true);
+                            } else {
+                              setLiveLogPaused(false);
+                              const poll = async () => {
+                                setLiveLogLoading(true);
+                                setLiveLogError(null);
+                                try {
+                                  const r = await fetch(`/api/biostar/live-events?limit=500&date=${today}`);
+                                  const d = await r.json();
+                                  setLiveLogEvents(d.events || []);
+                                  setLiveLogError(d.error || null);
+                                  setLiveLogStrategy(d.strategy || null);
+                                } catch {}
+                                finally { setLiveLogLoading(false); }
+                              };
+                              poll();
+                              if (liveLogTimerRef.current) clearInterval(liveLogTimerRef.current);
+                              liveLogTimerRef.current = setInterval(poll, 30000);
+                            }
+                          }}
+                        >
+                          {liveLogPaused ? '▶ Auto-refresh' : '⏸ Pause'}
+                        </Button>
+                        {liveLogEvents.length > 0 && (
+                          <span className="ml-auto text-xs text-variable opacity-60">{liveLogEvents.length} events</span>
+                        )}
                       </div>
 
-                      <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700/40" style={{ height: 300 }}>
-                        {/* Header row */}
+                      {/* Error / permission guidance */}
+                      {liveLogError && (
+                        <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300">
+                          <span className="mt-0.5 shrink-0">⚠️</span>
+                          <div className="space-y-1 min-w-0">
+                            <p className="font-medium">BioStar 2 Event API returned an error</p>
+                            <p className="opacity-80">{liveLogError}</p>
+                            <p className="opacity-60 mt-1">
+                              To fix: open BioStar 2 → Settings → Operator → select the API user → ensure "Monitoring" privilege is enabled. Or log in to BioStar 2 as an Administrator before connecting.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Strategy indicator (debug) */}
+                      {liveLogStrategy && !liveLogError && (
+                        <p className="text-[10px] text-variable opacity-40">Via: {liveLogStrategy}</p>
+                      )}
+
+                      {/* Event table */}
+                      <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700/40" style={{ height: 340 }}>
                         <div className="flex bg-gray-100 dark:bg-gray-800 px-2 py-1 text-[10px] font-semibold text-variable uppercase tracking-wide border-b border-gray-200 dark:border-gray-700/40">
                           <span className="w-36 shrink-0">Date / Time</span>
-                          <span className="w-36 shrink-0">Device</span>
-                          <span className="w-28 shrink-0">User</span>
+                          <span className="w-32 shrink-0">Door</span>
+                          <span className="w-32 shrink-0">Device</span>
+                          <span className="w-32 shrink-0">User</span>
                           <span className="flex-1">Event</span>
                         </div>
-                        {liveLogEvents.length === 0 ? (
+                        {liveLogLoading && liveLogEvents.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center h-[calc(100%-28px)] text-gray-400 text-sm gap-2 bg-white dark:bg-gray-900">
+                            <span className="text-2xl animate-spin">⏳</span>
+                            <p>Fetching from BioStar 2…</p>
+                          </div>
+                        ) : liveLogEvents.length === 0 ? (
                           <div className="flex flex-col items-center justify-center h-[calc(100%-28px)] text-gray-400 text-sm gap-2 bg-white dark:bg-gray-900">
                             <span className="text-2xl">📋</span>
-                            <p>No events loaded yet</p>
-                            <p className="text-xs opacity-60">Click "↻ Refresh" to pull from BioStar 2 Event Log</p>
+                            <p>{liveLogError ? 'Could not load events — see error above' : 'No events for this date'}</p>
+                            <p className="text-xs opacity-60">Select a date and click "↻ Load"</p>
                           </div>
                         ) : (
                           <div className="overflow-y-auto h-[calc(100%-28px)] bg-white dark:bg-gray-900">
                             {liveLogEvents.map((ev: any, idx: number) => {
                               const userId = ev?.user_id?.id ?? ev?.user_id ?? ev?.userId ?? '';
                               const userName = ev?.user_id?.user_name ?? ev?.user_name ?? ev?.userName ?? '';
+                              const userGroup = ev?.user_group_id?.name ?? ev?.user_group ?? '';
                               const deviceId = ev?.device_id?.id ?? ev?.device_id ?? ev?.deviceId ?? '';
-                              const deviceName = ev?.device_id?.name ?? ev?.device_name ?? ev?.deviceName ?? `Device ${deviceId}`;
+                              const deviceName = ev?.device_id?.name ?? ev?.device_name ?? ev?.deviceName ?? (deviceId ? `Device ${deviceId}` : '—');
                               const doorName = ev?.door_id?.name ?? ev?.door_name ?? ev?.door ?? '';
                               const eventDesc = ev?.event_type_id?.desc ?? ev?.event_type_id?.description ?? ev?.eventTypeDesc ?? ev?.event_desc ?? ev?.event ?? '';
                               const eventCode = String(ev?.event_type_id?.code ?? ev?.event_type_id ?? ev?.eventTypeCode ?? '');
@@ -4769,29 +4829,23 @@ export default function Settings() {
                               const dateStr = t ? t.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '—';
                               const timeStr = t ? t.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '—';
 
-                              // Colour-code by event type
-                              const isAuth = eventCode === '1' || eventCode === '4352' || eventCode === '4096' || eventCode === '4864';
-                              const isDenied = eventDesc?.toLowerCase().includes('denied') || eventDesc?.toLowerCase().includes('fail');
-                              const rowBg = idx % 2 === 0 ? '' : 'bg-gray-50 dark:bg-gray-800/30';
-                              const eventColor = isDenied ? 'text-red-600 dark:text-red-400' : isAuth ? 'text-green-700 dark:text-green-400' : 'text-variable';
-
-                              const displayUser = userName
-                                ? (userId ? `${userName}` : userName)
-                                : (userId ? `User ${userId}` : '—');
+                              const isDenied = eventDesc?.toLowerCase().includes('denied') || eventDesc?.toLowerCase().includes('fail') || eventDesc?.toLowerCase().includes('invalid');
+                              const isAuth = ['4864','4096','4352','4098','4100','4104'].includes(eventCode) || eventDesc?.toLowerCase().includes('success');
+                              const isSystem = !userName && (eventDesc?.toLowerCase().includes('lock') || eventDesc?.toLowerCase().includes('unlock'));
+                              const rowBg = idx % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/30';
+                              const eventColor = isDenied ? 'text-red-600 dark:text-red-400' : isAuth ? 'text-green-700 dark:text-green-400' : isSystem ? 'text-blue-600 dark:text-blue-400' : 'text-variable';
+                              const displayUser = userName || (userId && userId !== '0' ? `ID ${userId}` : '—');
 
                               return (
                                 <div key={ev.id ?? idx} className={`flex px-2 py-1 text-xs border-b border-gray-100 dark:border-gray-800/40 hover:bg-blue-50 dark:hover:bg-blue-900/10 ${rowBg}`}>
-                                  <span className="w-36 shrink-0 text-variable opacity-80 font-mono">
-                                    {dateStr} {timeStr}
-                                  </span>
-                                  <span className="w-36 shrink-0 text-variable truncate pr-1" title={deviceName}>
-                                    {doorName || deviceName || '—'}
-                                  </span>
-                                  <span className="w-28 shrink-0 text-variable truncate pr-1" title={displayUser}>
+                                  <span className="w-36 shrink-0 text-variable opacity-80 font-mono">{dateStr} {timeStr}</span>
+                                  <span className="w-32 shrink-0 text-variable truncate pr-1" title={doorName}>{doorName || '—'}</span>
+                                  <span className="w-32 shrink-0 text-variable truncate pr-1" title={deviceName}>{deviceName}</span>
+                                  <span className="w-32 shrink-0 text-variable truncate pr-1" title={`${displayUser}${userGroup ? ` (${userGroup})` : ''}`}>
                                     {displayUser}
                                   </span>
                                   <span className={`flex-1 truncate ${eventColor}`} title={eventDesc}>
-                                    {eventDesc || `Code ${eventCode}` || '—'}
+                                    {eventDesc || (eventCode ? `Event ${eventCode}` : '—')}
                                   </span>
                                 </div>
                               );
@@ -4800,7 +4854,7 @@ export default function Settings() {
                         )}
                       </div>
                       <p className="text-xs text-variable opacity-50">
-                        Auto-refresh every 15 seconds · Last 50 events · Mirrors BioStar 2 Event Log
+                        {liveLogPaused ? 'Auto-refresh paused' : 'Auto-refresh every 30 seconds'} · Up to 500 events per day · Mirrors BioStar 2 Event Log
                         {liveLogPaused && <span className="ml-2 text-amber-500">● Paused</span>}
                       </p>
                     </div>

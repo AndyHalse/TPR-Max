@@ -561,73 +561,127 @@ class BiostarService {
    */
   async getLiveEventLog(
     config: BiostarConfig,
-    limit: number = 50
-  ): Promise<any[]> {
+    limit: number = 200,
+    fromDate?: Date,
+    toDate?: Date
+  ): Promise<{ rows: any[]; strategy?: string; error?: string }> {
     const pad = (n: number) => String(n).padStart(2, '0');
-    const fmtLocal = (d: Date) =>
+    // BioStar 2 accepts both "YYYY-MM-DDTHH:mm:ss" and "YYYY-MM-DD HH:mm:ss"
+    const fmtT = (d: Date) =>
       `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-    const now = new Date();
-    const from = new Date(now.getTime() - 24 * 60 * 60 * 1000); // last 24h
+    const fmtSp = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 
-    // Strategies to try in order
+    const now = toDate ?? new Date();
+    // Default: start of today in server local time
+    const todayStart = fromDate ?? (() => {
+      const d = new Date(now);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    })();
+
+    const errors: string[] = [];
+
+    // Helper to extract row array from any BioStar response shape
+    const extractRows = (r: any): any[] =>
+      r?.EventCollection?.rows ??
+      r?.rows ??
+      r?.records ??
+      (Array.isArray(r) ? r : []);
+
+    // Strategies — ordered from most standard to most permissive.
+    // BioStar 2 v2.8+ prefers POST /api/events/search.
+    // Earlier versions use GET /api/events.
+    // Some versions need space instead of T in datetime strings.
+    // "code 1000" = invalid param → try removing optional fields.
     const strategies: Array<{ label: string; fn: () => Promise<any> }> = [
+      // 1. Standard POST with T-format dates (recommended for v2.8+)
       {
-        label: 'POST /api/events/search (compact)',
-        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
-          EventCollection: { limit, offset: 0, order_desc: true },
-        }),
-      },
-      {
-        label: 'POST /api/events/search (with dates)',
+        label: 'POST /api/events/search {start_datetime,end_datetime,limit,offset}',
         fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
           EventCollection: {
-            start_datetime: fmtLocal(from),
-            end_datetime: fmtLocal(now),
+            start_datetime: fmtT(todayStart),
+            end_datetime:   fmtT(now),
             limit,
             offset: 0,
-            order_desc: true,
           },
         }),
       },
+      // 2. Same but with space separator (some BioStar versions require this)
       {
-        label: 'POST /api/events/search (flat body)',
+        label: 'POST /api/events/search (space-separated datetime)',
         fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
-          limit,
-          order_dir: 'desc',
+          EventCollection: {
+            start_datetime: fmtSp(todayStart),
+            end_datetime:   fmtSp(now),
+            limit,
+            offset: 0,
+          },
         }),
       },
+      // 3. POST without dates (just limit — some installations reject date filters)
       {
-        label: `GET /api/events?limit=${limit}`,
-        fn: () => this.makeAuthenticatedRequest(config, `/api/events?limit=${limit}&order_dir=desc`),
+        label: 'POST /api/events/search {limit,offset} (no dates)',
+        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+          EventCollection: { limit, offset: 0 },
+        }),
       },
+      // 4. POST with from_datetime / to_datetime (alternative field names)
       {
-        label: `GET /api/events with dates`,
+        label: 'POST /api/events/search {from_datetime,to_datetime}',
+        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+          EventCollection: {
+            from_datetime: fmtT(todayStart),
+            to_datetime:   fmtT(now),
+            limit,
+            offset: 0,
+          },
+        }),
+      },
+      // 5. GET with date query params (v2.6/v2.7 style)
+      {
+        label: `GET /api/events?start_datetime=...&limit=${limit}`,
         fn: () => this.makeAuthenticatedRequest(
           config,
-          `/api/events?start_datetime=${encodeURIComponent(fmtLocal(from))}&end_datetime=${encodeURIComponent(fmtLocal(now))}&limit=${limit}`
+          `/api/events?start_datetime=${encodeURIComponent(fmtT(todayStart))}&end_datetime=${encodeURIComponent(fmtT(now))}&limit=${limit}`
         ),
+      },
+      // 6. GET with just limit (no date filter — widest net)
+      {
+        label: `GET /api/events?limit=${limit}`,
+        fn: () => this.makeAuthenticatedRequest(config, `/api/events?limit=${limit}`),
       },
     ];
 
     for (const strategy of strategies) {
       try {
         const response = await strategy.fn();
-        const rows: any[] =
-          response?.EventCollection?.rows ??
-          response?.rows ??
-          response?.records ??
-          (Array.isArray(response) ? response : []);
-        if (rows.length > 0 || response?.EventCollection?.total === 0) {
-          console.log(`📋 BioStar Live Log: got ${rows.length} events via "${strategy.label}"`);
-          return rows;
+        const rows = extractRows(response);
+        if (rows.length > 0) {
+          console.log(`📋 BioStar Live Log: ✅ ${rows.length} events via "${strategy.label}"`);
+          return { rows, strategy: strategy.label };
         }
-        // Empty but no error — try next strategy for a richer response
-        console.log(`📋 BioStar Live Log: "${strategy.label}" returned 0 rows, trying next...`);
+        if (response?.EventCollection?.total === 0) {
+          console.log(`📋 BioStar Live Log: 0 total events for period (confirmed by "${strategy.label}")`);
+          return { rows: [], strategy: strategy.label };
+        }
+        console.log(`📋 BioStar Live Log: "${strategy.label}" returned 0 rows`);
       } catch (err: any) {
-        console.warn(`⚠️ BioStar Live Log: "${strategy.label}" failed: ${err.message}`);
+        const msg = err.message ?? String(err);
+        errors.push(`${strategy.label}: ${msg}`);
+        console.warn(`⚠️ BioStar Live Log: "${strategy.label}" failed: ${msg}`);
       }
     }
-    return [];
+
+    // All strategies failed — return empty with consolidated error
+    const errSummary = errors.join(' | ');
+    console.error(`❌ BioStar Live Log: all strategies failed. Errors: ${errSummary}`);
+    return {
+      rows: [],
+      error: errors.length
+        ? `BioStar 2 event API blocked. Errors: ${errors.slice(0, 2).join(' | ')}. Ensure the BioStar 2 API user has "Monitoring" role permissions.`
+        : 'No events returned by any BioStar 2 API strategy.',
+    };
   }
 
   /**
