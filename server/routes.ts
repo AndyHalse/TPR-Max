@@ -16025,27 +16025,33 @@ This is an automated notification from your visitor management system.`;
       // Build lookup: biostarUserId → staff record
       const staffByBiostarId = new Map(staffList.map(s => [String(s.biostarUserId), s]));
 
-      // Merge BioStar users with staff records, sorted by lastAccessTime desc
+      // Merge BioStar users with staff records, sorted by lastWebhookTime desc
       const rows = biostarUsers
         .map(u => {
           const staff = staffByBiostarId.get(String(u.id));
+          // lastWebhookTime = most recent time a webhook event was received for this person
+          const checkedInMs  = staff?.checkedInAt  ? new Date(staff.checkedInAt).getTime()  : 0;
+          const checkedOutMs = staff?.checkedOutAt ? new Date(staff.checkedOutAt).getTime() : 0;
+          const lastWebhookMs = Math.max(checkedInMs, checkedOutMs);
           return {
-            biostarUserId:  u.id,
-            biostarName:    u.name,
-            lastAccessTime: u.lastAccessTime ?? null,
-            staffId:        staff?.id ?? null,
-            staffName:      staff ? `${staff.firstName} ${staff.lastName}` : null,
-            isCheckedIn:    staff?.isCheckedIn ?? null,
-            checkedInAt:    staff?.checkedInAt ?? null,
-            checkedOutAt:   staff?.checkedOutAt ?? null,
-            linked:         !!staff,
+            biostarUserId:   u.id,
+            biostarName:     u.name,
+            lastAccessTime:  u.lastAccessTime ?? null,
+            lastWebhookTime: lastWebhookMs > 0 ? new Date(lastWebhookMs).toISOString() : null,
+            staffId:         staff?.id ?? null,
+            staffName:       staff ? `${staff.firstName} ${staff.lastName}` : null,
+            isCheckedIn:     staff?.isCheckedIn ?? null,
+            checkedInAt:     staff?.checkedInAt ?? null,
+            checkedOutAt:    staff?.checkedOutAt ?? null,
+            linked:          !!staff,
           };
         })
         .sort((a, b) => {
-          if (!a.lastAccessTime && !b.lastAccessTime) return 0;
-          if (!a.lastAccessTime) return 1;
-          if (!b.lastAccessTime) return -1;
-          return new Date(b.lastAccessTime).getTime() - new Date(a.lastAccessTime).getTime();
+          // Sort by most recent webhook activity first; unactioned users go to the bottom
+          if (!a.lastWebhookTime && !b.lastWebhookTime) return 0;
+          if (!a.lastWebhookTime) return 1;
+          if (!b.lastWebhookTime) return -1;
+          return new Date(b.lastWebhookTime).getTime() - new Date(a.lastWebhookTime).getTime();
         });
 
       res.json({ users: rows, total: rows.length });

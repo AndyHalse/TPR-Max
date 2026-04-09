@@ -4446,8 +4446,13 @@ export default function Settings() {
                     setShowDeviceConfig(true);
                     setBiostarDevicesLoading(true);
                     try {
-                      const r = await fetch('/api/biostar/devices');
-                      setBiostarDevices(await r.json());
+                      const [devResp, whResp] = await Promise.all([
+                        fetch('/api/biostar/devices'),
+                        fetch('/api/biostar/webhook-url'),
+                      ]);
+                      setBiostarDevices(await devResp.json());
+                      const wh = await whResp.json().catch(() => ({}));
+                      if (wh.webhookUrl) setBiostarWebhookUrl(wh.webhookUrl);
                     } catch { setBiostarDevices([]); }
                     finally { setBiostarDevicesLoading(false); }
                   }}
@@ -4467,6 +4472,53 @@ export default function Settings() {
                       <li><strong>Entry/Exit</strong> — uses the BioStar event code to decide direction</li>
                       <li><strong>Ignore</strong> — scans on this reader are silently ignored</li>
                     </ul>
+                  </div>
+
+                  {/* ── Webhook / Trigger & Action setup — always visible ── */}
+                  <div className="p-4 rounded-lg border-2 border-amber-300 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/25 space-y-3">
+                    <div className="flex items-start gap-2">
+                      <span className="text-amber-500 mt-0.5 text-base shrink-0">⚠️</span>
+                      <div>
+                        <p className="text-sm font-semibold text-amber-800 dark:text-amber-200">BioStar 2 Trigger &amp; Action required</p>
+                        <p className="text-xs text-amber-700 dark:text-amber-300 mt-0.5">
+                          TPR-Max cannot read the BioStar 2 event log directly — the REST API is restricted on this installation. BioStar 2 must be configured to <strong>push</strong> each card scan to TPR-Max using Trigger &amp; Action. Until this is done, no on-site status will update automatically.
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Webhook URL */}
+                    <div className="bg-white dark:bg-gray-900/60 rounded-lg p-3 border border-amber-200 dark:border-amber-700/40">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-xs font-semibold text-amber-800 dark:text-amber-200">Your TPR-Max Webhook URL</p>
+                        {biostarWebhookUrl && (
+                          <button
+                            className="text-xs font-medium text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 px-2 py-0.5 rounded border border-amber-300 dark:border-amber-600 hover:bg-amber-100 dark:hover:bg-amber-800/40 transition-colors"
+                            onClick={() => { navigator.clipboard.writeText(biostarWebhookUrl); }}
+                          >
+                            Copy
+                          </button>
+                        )}
+                      </div>
+                      {biostarWebhookUrl ? (
+                        <code className="block w-full text-xs font-mono break-all select-all bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200 px-2 py-1.5 rounded border border-amber-200 dark:border-amber-800/40">
+                          {biostarWebhookUrl}
+                        </code>
+                      ) : (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 italic">Loading URL…</p>
+                      )}
+                    </div>
+
+                    {/* Setup steps */}
+                    <div className="bg-white dark:bg-gray-900/60 rounded-lg p-3 border border-amber-200 dark:border-amber-700/40">
+                      <p className="text-xs font-semibold text-amber-800 dark:text-amber-200 mb-2">How to configure in BioStar 2:</p>
+                      <ol className="text-xs text-amber-700 dark:text-amber-300 space-y-1.5 list-decimal list-inside">
+                        <li>In BioStar 2, go to <strong>Monitoring</strong> → <strong>Trigger &amp; Action</strong></li>
+                        <li>Click <strong>Add</strong> — set Trigger to <strong>Event</strong> → <em>Authentication Success</em> (all devices / all users)</li>
+                        <li>Set Action to <strong>HTTP Action</strong> (or "Send HTTP Request"): method <strong>POST</strong>, paste the URL above</li>
+                        <li>Save and enable the rule — BioStar 2 will now push every card scan to TPR-Max instantly</li>
+                        <li>Test by scanning any reader — the Scan Activity panel will update within seconds</li>
+                      </ol>
+                    </div>
                   </div>
 
                   {/* Action bar */}
@@ -4734,12 +4786,11 @@ export default function Settings() {
                       {/* Table */}
                       <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700/40">
                         {/* Header */}
-                        <div className="grid grid-cols-[2fr_2fr_2fr_1fr_1fr] bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-[10px] font-semibold text-variable uppercase tracking-wide border-b border-gray-200 dark:border-gray-700/40 gap-2">
+                        <div className="grid grid-cols-[2fr_2fr_2fr_1fr] bg-gray-100 dark:bg-gray-800 px-3 py-1.5 text-[10px] font-semibold text-variable uppercase tracking-wide border-b border-gray-200 dark:border-gray-700/40 gap-2">
                           <span>BioStar User</span>
                           <span>Linked Staff Member</span>
-                          <span>Last Scan (BioStar)</span>
+                          <span title="Time of last webhook event received from BioStar 2 Trigger &amp; Action">Last Event (Webhook)</span>
                           <span>TPR-Max Status</span>
-                          <span>Last Update</span>
                         </div>
                         {scanActivityLoading && scanActivityData.length === 0 ? (
                           <div className="flex items-center justify-center py-8 text-gray-400 text-sm gap-2 bg-white dark:bg-gray-900">
@@ -4754,10 +4805,8 @@ export default function Settings() {
                         ) : (
                           <div className="overflow-y-auto max-h-80 bg-white dark:bg-gray-900 divide-y divide-gray-100 dark:divide-gray-800/40">
                             {scanActivityData.map((row: any, idx: number) => {
-                              const lastScan = row.lastAccessTime ? new Date(row.lastAccessTime) : null;
-                              const lastUpdate = row.isCheckedIn
-                                ? (row.checkedInAt ? new Date(row.checkedInAt) : null)
-                                : (row.checkedOutAt ? new Date(row.checkedOutAt) : null);
+                              // lastWebhookTime = most recent check-in or check-out driven by a webhook event
+                              const lastEvent = row.lastWebhookTime ? new Date(row.lastWebhookTime) : null;
 
                               const fmtTime = (d: Date | null) => {
                                 if (!d) return '—';
@@ -4781,7 +4830,7 @@ export default function Settings() {
                               const rowBg = idx % 2 === 0 ? '' : 'bg-gray-50 dark:bg-gray-800/20';
 
                               return (
-                                <div key={row.biostarUserId} className={`grid grid-cols-[2fr_2fr_2fr_1fr_1fr] px-3 py-2 text-xs gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/10 ${rowBg}`}>
+                                <div key={row.biostarUserId} className={`grid grid-cols-[2fr_2fr_2fr_1fr] px-3 py-2 text-xs gap-2 hover:bg-blue-50 dark:hover:bg-blue-900/10 ${rowBg}`}>
                                   {/* BioStar user */}
                                   <span className="text-fixed font-medium truncate" title={`ID: ${row.biostarUserId}`}>
                                     {row.biostarName || `User ${row.biostarUserId}`}
@@ -4791,17 +4840,13 @@ export default function Settings() {
                                   <span className={`truncate ${row.linked ? 'text-fixed' : 'text-gray-400 italic'}`}>
                                     {row.linked ? row.staffName : 'Not linked'}
                                   </span>
-                                  {/* Last scan time */}
-                                  <span className="text-variable" title={lastScan?.toLocaleString('en-GB') ?? ''}>
-                                    {fmtTime(lastScan)}
+                                  {/* Last webhook event time */}
+                                  <span className={lastEvent ? 'text-variable' : 'text-gray-300 dark:text-gray-600'} title={lastEvent?.toLocaleString('en-GB') ?? 'No webhook events received yet'}>
+                                    {fmtTime(lastEvent)}
                                   </span>
                                   {/* TPR-Max status */}
                                   <span className={statusColor}>
                                     {!row.linked ? '—' : row.isCheckedIn ? '✓ On-Site' : 'Off-Site'}
-                                  </span>
-                                  {/* Last update */}
-                                  <span className="text-variable opacity-70" title={lastUpdate?.toLocaleString('en-GB') ?? ''}>
-                                    {fmtTime(lastUpdate)}
                                   </span>
                                 </div>
                               );
@@ -4810,11 +4855,14 @@ export default function Settings() {
                         )}
                       </div>
                       <p className="text-xs text-variable opacity-50">
-                        Auto-refreshes every 60 seconds · Shows all BioStar 2 users and their last card scan ·
+                        Auto-refreshes every 60 seconds · "Last Event" shows time of last Trigger &amp; Action webhook received ·
                         {scanActivityData.filter((r: any) => !r.linked).length > 0 && (
                           <span className="text-amber-500 ml-1">
                             {scanActivityData.filter((r: any) => !r.linked).length} user(s) not linked to a staff record
                           </span>
+                        )}
+                        {scanActivityData.length > 0 && scanActivityData.every((r: any) => !r.lastWebhookTime) && (
+                          <span className="text-amber-500 ml-1">· No webhook events received yet — configure Trigger &amp; Action above</span>
                         )}
                       </p>
                     </div>
