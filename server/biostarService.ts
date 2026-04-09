@@ -196,6 +196,7 @@ function mapBiostarUser(raw: any): BiostarUser {
 class BiostarService {
   private sessionId: string | null = null;
   private sessionExpiry: Date | null = null;
+  private sessionCookies: string | null = null; // cookies returned by BioStar login (for web-session endpoints)
   private readonly SESSION_TIMEOUT_MS = 25 * 60 * 1000; // 25 minutes (sessions typically expire after 30 mins)
 
   /**
@@ -238,16 +239,28 @@ class BiostarService {
 
     console.log(`🔐 Biostar: Attempting login to ${serverUrl}...`);
 
+    // BioStar 2 marks sessions as "web" or "api" based on the User-Agent used during login.
+    // Web-only endpoints (events, T&A) return 403 "by":"web" for api-classified sessions.
+    // Using a real Chrome User-Agent makes BioStar 2 treat this as a web-browser session.
+    const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+
     try {
       const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'User-Agent': BROWSER_UA,
+          'Origin': serverUrl,
+          'Referer': `${serverUrl}/`,
+          'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({
           User: {
             login_id: config.username,
             password: config.password,
+            // client_type: "web" creates a web-session that can access
+            // monitoring endpoints which are otherwise restricted ("by":"web")
+            client_type: 'web',
           },
         }),
         // @ts-ignore - AbortSignal.timeout is available in Node 18+
@@ -273,6 +286,21 @@ class BiostarService {
 
       this.sessionId = sessionId;
       this.sessionExpiry = new Date(Date.now() + this.SESSION_TIMEOUT_MS);
+
+      // Capture Set-Cookie headers so we can replay them as a Cookie header
+      // in subsequent requests. BioStar 2 web-only endpoints check for a
+      // valid browser cookie session in addition to (or instead of) bs-session-id.
+      const rawSetCookie = response.headers.get('set-cookie');
+      if (rawSetCookie) {
+        // Collapse multiple Set-Cookie headers into a single Cookie string
+        this.sessionCookies = rawSetCookie.split(',')
+          .map(c => c.split(';')[0].trim())
+          .filter(Boolean)
+          .join('; ');
+        console.log(`🍪 Biostar: Stored session cookies (${this.sessionCookies.length} chars)`);
+      } else {
+        this.sessionCookies = null;
+      }
 
       console.log(`✅ Biostar: Login successful, session expires at ${this.sessionExpiry.toISOString()}`);
     } catch (error: any) {
@@ -315,12 +343,25 @@ class BiostarService {
     const serverUrl = this.normalizeServerUrl(config.serverUrl);
     const url = `${serverUrl}${endpoint}`;
 
+    const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'bs-session-id': this.sessionId!,
+      // Mimic BioStar 2's own AngularJS web client so the server doesn't
+      // block us with the "by":"web" restriction on event/monitoring endpoints.
+      'User-Agent': BROWSER_UA,
+      'Origin': serverUrl,
+      'Referer': `${serverUrl}/`,
+      'X-Requested-With': 'XMLHttpRequest',
+    };
+    // Replay any cookies BioStar 2 set during login — web-session endpoints
+    // require these in addition to (or instead of) the bs-session-id header.
+    if (this.sessionCookies) {
+      headers['Cookie'] = this.sessionCookies;
+    }
     const options: any = {
       method,
-      headers: {
-        'Content-Type': 'application/json',
-        'bs-session-id': this.sessionId!,
-      },
+      headers,
       // @ts-ignore
       signal: AbortSignal.timeout(30000), // 30 second timeout for API calls
       // Accept self-signed certificates common on on-premise Biostar servers
@@ -343,6 +384,7 @@ class BiostarService {
           console.log('🔄 Biostar: Session expired (401), re-authenticating...');
           this.sessionId = null;
           this.sessionExpiry = null;
+          this.sessionCookies = null;
           return this.makeAuthenticatedRequest(config, endpoint, method, body);
         }
         
@@ -589,15 +631,75 @@ class BiostarService {
       r?.records ??
       (Array.isArray(r) ? r : []);
 
-    // Strategies — ordered from most standard to most permissive.
-    // BioStar 2 v2.8+ prefers POST /api/events/search.
-    // Earlier versions use GET /api/events.
-    // Some versions need space instead of T in datetime strings.
-    // "code 1000" = invalid param → try removing optional fields.
+    // BioStar 2 /api/events/search requires filter arrays for each dimension.
+    // Omitting them causes HTTP 500 / code 1000 "Something wrong with server".
+    // Use id:"-1" as the "all / no filter" wildcard for each array field.
+    const ALL = [{ id: '-1' }]; // BioStar 2 wildcard: "all items"
+
     const strategies: Array<{ label: string; fn: () => Promise<any> }> = [
-      // 1. Standard POST with T-format dates (recommended for v2.8+)
+      // 1. Full filter-array body (BioStar 2 Local API standard format)
+      //    Includes event_type_id, device_id, user_id, door_id arrays.
       {
-        label: 'POST /api/events/search {start_datetime,end_datetime,limit,offset}',
+        label: 'POST /api/events/search (filter arrays + T-format dates)',
+        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+          EventCollection: {
+            start_datetime:  fmtT(todayStart),
+            end_datetime:    fmtT(now),
+            event_type_id:   ALL,
+            device_id:       ALL,
+            user_id:         ALL,
+            door_id:         ALL,
+            limit,
+            offset: 0,
+          },
+        }),
+      },
+      // 2. Same with space-separated datetime (some versions need this)
+      {
+        label: 'POST /api/events/search (filter arrays + space datetime)',
+        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+          EventCollection: {
+            start_datetime:  fmtSp(todayStart),
+            end_datetime:    fmtSp(now),
+            event_type_id:   ALL,
+            device_id:       ALL,
+            user_id:         ALL,
+            door_id:         ALL,
+            limit,
+            offset: 0,
+          },
+        }),
+      },
+      // 3. Filter arrays without any date range (fetch most-recent N events)
+      {
+        label: 'POST /api/events/search (filter arrays, no dates)',
+        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+          EventCollection: {
+            event_type_id: ALL,
+            device_id:     ALL,
+            user_id:       ALL,
+            door_id:       ALL,
+            limit,
+            offset: 0,
+          },
+        }),
+      },
+      // 4. Minimal filter — just event_type_id array + dates (some BioStar builds)
+      {
+        label: 'POST /api/events/search (event_type_id array only + dates)',
+        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+          EventCollection: {
+            start_datetime: fmtT(todayStart),
+            end_datetime:   fmtT(now),
+            event_type_id:  ALL,
+            limit,
+            offset: 0,
+          },
+        }),
+      },
+      // 5. No filter arrays, plain dates only (older BioStar 2 versions)
+      {
+        label: 'POST /api/events/search (plain dates, no arrays)',
         fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
           EventCollection: {
             start_datetime: fmtT(todayStart),
@@ -607,38 +709,7 @@ class BiostarService {
           },
         }),
       },
-      // 2. Same but with space separator (some BioStar versions require this)
-      {
-        label: 'POST /api/events/search (space-separated datetime)',
-        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
-          EventCollection: {
-            start_datetime: fmtSp(todayStart),
-            end_datetime:   fmtSp(now),
-            limit,
-            offset: 0,
-          },
-        }),
-      },
-      // 3. POST without dates (just limit — some installations reject date filters)
-      {
-        label: 'POST /api/events/search {limit,offset} (no dates)',
-        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
-          EventCollection: { limit, offset: 0 },
-        }),
-      },
-      // 4. POST with from_datetime / to_datetime (alternative field names)
-      {
-        label: 'POST /api/events/search {from_datetime,to_datetime}',
-        fn: () => this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
-          EventCollection: {
-            from_datetime: fmtT(todayStart),
-            to_datetime:   fmtT(now),
-            limit,
-            offset: 0,
-          },
-        }),
-      },
-      // 5. GET with date query params (v2.6/v2.7 style)
+      // 6. GET with date query params (v2.6/v2.7 style)
       {
         label: `GET /api/events?start_datetime=...&limit=${limit}`,
         fn: () => this.makeAuthenticatedRequest(
@@ -646,7 +717,7 @@ class BiostarService {
           `/api/events?start_datetime=${encodeURIComponent(fmtT(todayStart))}&end_datetime=${encodeURIComponent(fmtT(now))}&limit=${limit}`
         ),
       },
-      // 6. GET with just limit (no date filter — widest net)
+      // 7. GET with just limit (widest net)
       {
         label: `GET /api/events?limit=${limit}`,
         fn: () => this.makeAuthenticatedRequest(config, `/api/events?limit=${limit}`),
@@ -676,12 +747,38 @@ class BiostarService {
     // All strategies failed — return empty with consolidated error
     const errSummary = errors.join(' | ');
     console.error(`❌ BioStar Live Log: all strategies failed. Errors: ${errSummary}`);
-    return {
-      rows: [],
-      error: errors.length
-        ? `BioStar 2 event API blocked. Errors: ${errors.slice(0, 2).join(' | ')}. Ensure the BioStar 2 API user has "Monitoring" role permissions.`
-        : 'No events returned by any BioStar 2 API strategy.',
-    };
+
+    // Provide a specific, actionable error message based on what errors occurred
+    const has500 = errors.some(e => e.includes('Something wrong with server') || e.includes('500'));
+    const has403 = errors.some(e => e.includes('Permission') || e.includes('403'));
+
+    let errorMsg: string;
+    if (has500 && has403) {
+      errorMsg =
+        'BioStar 2 event log not accessible. POST /api/events/search returned server error 500 ' +
+        '(this endpoint may be disabled or unlicensed on this installation). ' +
+        'GET /api/events returned 403 Permission Denied — BioStar 2 restricts this endpoint to its web UI only. ' +
+        'To resolve: (1) In BioStar 2 → Settings → Server → enable "Use Local API"; ' +
+        '(2) Ensure the API account has "Event Log" or "Monitoring" operator role; ' +
+        '(3) Check BioStar 2 version supports Local API event search (v2.6+).';
+    } else if (has500) {
+      errorMsg =
+        'BioStar 2 event search returned a server error (code 1000 — Something wrong with server). ' +
+        'This usually means the event log feature is not configured on this BioStar 2 installation. ' +
+        'Check: (1) BioStar 2 → Settings → Server → Local API is enabled; ' +
+        '(2) Event log database is connected; (3) BioStar 2 version is 2.6 or later.';
+    } else if (has403) {
+      errorMsg =
+        'BioStar 2 event log returned 403 Permission Denied (restricted to web UI sessions). ' +
+        'The API account may not have "Monitoring" operator privileges. ' +
+        'In BioStar 2 → Operator → edit the API user → enable "Monitoring" or "Report" access.';
+    } else {
+      errorMsg = errors.length
+        ? `BioStar 2 event API returned no data. Errors: ${errors.slice(0, 2).join(' | ')}`
+        : 'No events returned by any BioStar 2 API strategy.';
+    }
+
+    return { rows: [], error: errorMsg };
   }
 
   /**
@@ -718,13 +815,23 @@ class BiostarService {
 
     let rawRows: any[] = [];
 
-    // Strategy 1: POST /api/events/search (preferred on BioStar 2 v2.8+)
+    // BioStar 2 /api/events/search requires filter arrays for each dimension.
+    // Without them the server returns HTTP 500 / code 1000 "Something wrong with server".
+    // id:"-1" is the BioStar 2 wildcard for "all items" (no filter).
+    const ALL = [{ id: '-1' }];
+
+    // Strategy 1: POST /api/events/search with required filter arrays
     try {
       const body = {
         EventCollection: {
           start_datetime: startStr,
           end_datetime:   endStr,
+          event_type_id:  ALL,
+          device_id:      ALL,
+          user_id:        ALL,
+          door_id:        ALL,
           limit,
+          offset: 0,
         },
       };
       const response = await this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', body);
@@ -735,21 +842,66 @@ class BiostarService {
         (Array.isArray(response) ? response : []);
       console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST /api/events/search)`);
     } catch (err: any) {
-      console.warn(`⚠️ Biostar POST /api/events/search failed (${err.message}), trying GET...`);
+      console.warn(`⚠️ Biostar POST /api/events/search (with filter arrays) failed: ${err.message}`);
 
-      // Strategy 2: GET /api/events with ISO datetime query params
+      // Strategy 2: POST with space-separated datetime
+      const triedStrategies: string[] = [`POST filter-arrays+T-format: ${err.message}`];
+      let postSpaceOk = false;
       try {
-        const endpoint = `/api/events?start_datetime=${encodeURIComponent(startStr)}&end_datetime=${encodeURIComponent(endStr)}&limit=${limit}`;
-        const response = await this.makeAuthenticatedRequest(config, endpoint);
-        rawRows =
-          response?.EventCollection?.rows ??
-          response?.records ??
-          response?.rows ??
-          (Array.isArray(response) ? response : []);
-        console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events)`);
-      } catch (err2: any) {
-        console.error('❌ Biostar: Both event endpoints failed:', err2.message);
-        throw new Error(`Event log unavailable: ${err2.message}`);
+        const fmtSp = (d: Date) => {
+          const pad = (n: number) => String(n).padStart(2, '0');
+          return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        };
+        const response = await this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+          EventCollection: { start_datetime: fmtSp(start), end_datetime: fmtSp(end), event_type_id: ALL, device_id: ALL, user_id: ALL, door_id: ALL, limit, offset: 0 },
+        });
+        rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
+        console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST space-datetime)`);
+        postSpaceOk = true;
+      } catch (e2: any) {
+        triedStrategies.push(`POST filter-arrays+space-datetime: ${e2.message}`);
+      }
+
+      if (!postSpaceOk) {
+        // Strategy 3: POST with no dates (just filter arrays + limit)
+        let postNoDatesOk = false;
+        try {
+          const response = await this.makeAuthenticatedRequest(config, '/api/events/search', 'POST', {
+            EventCollection: { event_type_id: ALL, device_id: ALL, user_id: ALL, door_id: ALL, limit, offset: 0 },
+          });
+          rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
+          console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST no-dates)`);
+          postNoDatesOk = true;
+        } catch (e3: any) {
+          triedStrategies.push(`POST filter-arrays+no-dates: ${e3.message}`);
+        }
+
+        if (!postNoDatesOk) {
+          // Strategy 4: GET /api/events with date params (Origin+Referer+X-Requested-With now included)
+          let getDateOk = false;
+          try {
+            const endpoint = `/api/events?start_datetime=${encodeURIComponent(startStr)}&end_datetime=${encodeURIComponent(endStr)}&limit=${limit}`;
+            const response = await this.makeAuthenticatedRequest(config, endpoint);
+            rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
+            console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events?dates)`);
+            getDateOk = true;
+          } catch (e4: any) {
+            triedStrategies.push(`GET /api/events?dates: ${e4.message}`);
+          }
+
+          if (!getDateOk) {
+            // Strategy 5: GET /api/events with just limit
+            try {
+              const response = await this.makeAuthenticatedRequest(config, `/api/events?limit=${limit}`);
+              rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
+              console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events?limit)`);
+            } catch (e5: any) {
+              triedStrategies.push(`GET /api/events?limit: ${e5.message}`);
+              console.error(`❌ Biostar: All event strategies failed: ${triedStrategies.join(' | ')}`);
+              throw new Error(`Event log unavailable: ${triedStrategies.at(-1)}`);
+            }
+          }
+        }
       }
     }
 

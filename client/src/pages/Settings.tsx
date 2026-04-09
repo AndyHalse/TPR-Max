@@ -4779,11 +4779,8 @@ export default function Settings() {
                         <div className="flex items-start gap-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/40 text-xs text-amber-800 dark:text-amber-300">
                           <span className="mt-0.5 shrink-0">⚠️</span>
                           <div className="space-y-1 min-w-0">
-                            <p className="font-medium">BioStar 2 Event API returned an error</p>
-                            <p className="opacity-80">{liveLogError}</p>
-                            <p className="opacity-60 mt-1">
-                              To fix: open BioStar 2 → Settings → Operator → select the API user → ensure "Monitoring" privilege is enabled. Or log in to BioStar 2 as an Administrator before connecting.
-                            </p>
+                            <p className="font-medium">BioStar 2 Event Log not available</p>
+                            <p className="opacity-80 leading-relaxed">{liveLogError}</p>
                           </div>
                         </div>
                       )}
