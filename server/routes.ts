@@ -28072,11 +28072,14 @@ This is an automated notification from your visitor management system.`;
 
           for (const wo of workOrders) {
             if (wo.status === "completed" || wo.status === "overdue" || wo.status === "cancelled") {
-              // Check for missing cert: completed 48h+ ago but no cert uploaded
+              // Check for missing cert: completed 48+ hours ago but no cert uploaded.
+              // completedDate is date-only text so we compare calendar days conservatively:
+              // alert when completedDate is at least 2 days before today (>= 48 calendar hours)
               if (wo.status === "completed" && wo.requiresCertificate && !wo.certificateUploadedAt && wo.completedDate) {
-                const completedAt = new Date(wo.completedDate);
-                const hoursElapsed = (Date.now() - completedAt.getTime()) / 3600000;
-                if (hoursElapsed >= 48) missingCertWOs.push(wo);
+                const completedDay = new Date(wo.completedDate + "T00:00:00Z");
+                const msDiff = today.getTime() - completedDay.getTime();
+                const daysDiff = msDiff / (1000 * 60 * 60 * 24);
+                if (daysDiff >= 2) missingCertWOs.push(wo);
               }
               continue;
             }

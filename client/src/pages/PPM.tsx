@@ -999,9 +999,9 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
     try {
       const b64 = await fileToBase64(file);
       const uploadRes = await apiRequest("POST", "/api/objects/upload", { data: b64, mimeType: file.type });
-      const { url } = await uploadRes.json();
+      const { objectPath } = await uploadRes.json();
       await apiRequest("POST", `/api/ppm/work-orders/${selectedWO.id}/documents`, {
-        fileName: file.name, fileUrl: url, fileType: docFileType, uploadedBy: "admin",
+        fileName: file.name, fileUrl: objectPath, fileType: docFileType, uploadedBy: "admin",
       });
       refetchDocs();
       if (docFileType === "certificate") {
