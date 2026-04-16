@@ -7,6 +7,23 @@ import bcrypt from 'bcryptjs';
 // In-memory ring buffer: stores the last 200 webhook events per customer.
 // Events are visible via GET /api/biostar/webhook-log for the Live Log UI.
 const BIOSTAR_LOG_MAX = 200;
+
+// In-memory cache: PPM access_token → { customerId, expiresAt }
+// Avoids full cross-tenant scans on every public contractor request.
+// Entries are evicted on token rotation (write operations) and on expiry.
+const ppmTokenCache = new Map<string, { customerId: string; expiresAt: Date }>();
+function ppmTokenCacheGet(token: string): string | null {
+  const entry = ppmTokenCache.get(token);
+  if (!entry) return null;
+  if (new Date() > entry.expiresAt) { ppmTokenCache.delete(token); return null; }
+  return entry.customerId;
+}
+function ppmTokenCacheSet(token: string, customerId: string, expiresAt: Date) {
+  ppmTokenCache.set(token, { customerId, expiresAt });
+}
+function ppmTokenCacheEvict(token: string) {
+  ppmTokenCache.delete(token);
+}
 interface BiostarLiveEvent {
   id: string;                   // UUID
   ts: string;                   // ISO datetime
@@ -28019,32 +28036,55 @@ This is an automated notification from your visitor management system.`;
     try {
       const { token } = req.params;
       if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
-      // Search all customer schemas for this token
+
+      // Helper: resolve work order from a known customer (used by both cache-hit and scan paths)
+      const resolveFromCustomer = async (customerId: string) => {
+        const custDb = await customerDbService.getCustomerDatabase(customerId);
+        const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+          .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
+        if (!wo) return null;
+        // Enforce token expiry
+        if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) {
+          return { expired: true as const };
+        }
+        const docs = await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
+          .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, wo.id))
+          .orderBy(isolatedSchema.ppmWorkOrderDocuments.createdAt);
+        let asset = null;
+        if (wo.assetId) {
+          const [assetRow] = await custDb.select().from(isolatedSchema.ppmAssets)
+            .where(eq(isolatedSchema.ppmAssets.id, wo.assetId));
+          asset = assetRow ?? null;
+        }
+        // Strip internal/sensitive fields from public response
+        const { accessToken: _t, accessTokenExpiresAt: _e, overdueAlertedAt: _o, missingCertAlertedAt: _m, ...safeWo } = wo;
+        // Populate cache so subsequent requests skip the full scan
+        if (wo.accessTokenExpiresAt) ppmTokenCacheSet(token, customerId, new Date(wo.accessTokenExpiresAt));
+        return { workOrder: safeWo, documents: docs, asset };
+      };
+
+      // Fast path: cache hit avoids cross-tenant scan
+      const cachedCustomerId = ppmTokenCacheGet(token);
+      if (cachedCustomerId) {
+        try {
+          const result = await resolveFromCustomer(cachedCustomerId);
+          if (result && result !== null && !("expired" in result)) return res.json(result);
+          if (result && "expired" in result) {
+            return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
+          }
+          // Cache stale — fall through to full scan
+          ppmTokenCacheEvict(token);
+        } catch { /* fall through to full scan */ }
+      }
+
+      // Slow path: iterate all tenants (cache miss or stale)
       const allCustomers = await customerDbService.getAllCustomers();
       for (const customer of allCustomers) {
         try {
-          const custDb = await customerDbService.getCustomerDatabase(customer.id);
-          const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
-            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
-          if (wo) {
-            // Enforce token expiry
-            if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) {
-              return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
-            }
-            const docs = await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
-              .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, wo.id))
-              .orderBy(isolatedSchema.ppmWorkOrderDocuments.createdAt);
-            // Include asset details for the mobile contractor view
-            let asset = null;
-            if (wo.assetId) {
-              const [assetRow] = await custDb.select().from(isolatedSchema.ppmAssets)
-                .where(eq(isolatedSchema.ppmAssets.id, wo.assetId));
-              asset = assetRow ?? null;
-            }
-            // Strip internal/sensitive fields from public response — caller already has the token
-            const { accessToken: _t, accessTokenExpiresAt: _e, overdueAlertedAt: _o, missingCertAlertedAt: _m, ...safeWo } = wo;
-            return res.json({ workOrder: safeWo, documents: docs, asset });
-          }
+          const result = await resolveFromCustomer(customer.id);
+          if (!result) continue;
+          if ("expired" in result) return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
+          return res.json(result);
         } catch { /* skip this customer and try next */ }
       }
       res.status(404).json({ error: "Work order not found" });
@@ -28065,32 +28105,50 @@ This is an automated notification from your visitor management system.`;
       const allowedStatuses = ["in_progress", "completed"];
       if (status && !allowedStatuses.includes(status)) return res.status(400).json({ error: "Invalid status" });
 
+      const performUpdate = async (customerId: string) => {
+        const custDb = await customerDbService.getCustomerDatabase(customerId);
+        const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+          .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
+        if (!wo) return null;
+        if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) return { expired: true as const };
+        const updates: Record<string, unknown> = {};
+        if (status) updates.status = status;
+        if (completionNotes !== undefined) updates.completionNotes = completionNotes;
+        if (status === "completed") updates.completedDate = new Date().toISOString().split("T")[0];
+        const nextToken = randomBytes(24).toString("hex");
+        const nextExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+        updates.accessToken = nextToken;
+        updates.accessTokenExpiresAt = nextExpiresAt;
+        const [updated] = await custDb.update(isolatedSchema.ppmWorkOrders)
+          .set(updates)
+          .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id))
+          .returning();
+        // Evict old token, cache the new one
+        ppmTokenCacheEvict(token);
+        ppmTokenCacheSet(nextToken, customerId, nextExpiresAt);
+        const { accessToken: _t, accessTokenExpiresAt: _e, ...safeUpdated } = updated;
+        return { ...safeUpdated, nextToken };
+      };
+
+      // Fast path: cache hit
+      const cachedCustomerId = ppmTokenCacheGet(token);
+      if (cachedCustomerId) {
+        try {
+          const result = await performUpdate(cachedCustomerId);
+          if (result && !("expired" in result)) return res.json(result);
+          if (result && "expired" in result) return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
+          ppmTokenCacheEvict(token);
+        } catch { /* fall through to full scan */ }
+      }
+
+      // Slow path: iterate all tenants
       const allCustomers = await customerDbService.getAllCustomers();
       for (const customer of allCustomers) {
         try {
-          const custDb = await customerDbService.getCustomerDatabase(customer.id);
-          const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
-            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
-          if (wo) {
-            if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) {
-              return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
-            }
-            const updates: Record<string, unknown> = {};
-            if (status) updates.status = status;
-            if (completionNotes !== undefined) updates.completionNotes = completionNotes;
-            if (status === "completed") updates.completedDate = new Date().toISOString().split("T")[0];
-            // Rotate access token on every write (rolling token — invalidates prior link after first use)
-            const nextToken = randomBytes(24).toString("hex");
-            updates.accessToken = nextToken;
-            updates.accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
-            const [updated] = await custDb.update(isolatedSchema.ppmWorkOrders)
-              .set(updates)
-              .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id))
-              .returning();
-            // Return nextToken so the mobile app can update its session token
-            const { accessToken: _t, accessTokenExpiresAt: _e, ...safeUpdated } = updated;
-            return res.json({ ...safeUpdated, nextToken });
-          }
+          const result = await performUpdate(customer.id);
+          if (!result) continue;
+          if ("expired" in result) return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
+          return res.json(result);
         } catch { /* skip */ }
       }
       res.status(404).json({ error: "Work order not found" });
@@ -28175,11 +28233,16 @@ This is an automated notification from your visitor management system.`;
             }
             // Rotate access token (rolling token — invalidates prior link after each write)
             const nextToken = randomBytes(24).toString("hex");
+            const nextExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
             woUpdates.accessToken = nextToken;
-            woUpdates.accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+            woUpdates.accessTokenExpiresAt = nextExpiresAt;
             await custDb.update(isolatedSchema.ppmWorkOrders)
               .set(woUpdates)
               .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
+
+            // Evict old token from cache, prime cache with new token
+            ppmTokenCacheEvict(token);
+            ppmTokenCacheSet(nextToken, customer.id, nextExpiresAt);
 
             return res.json({ document: doc, nextToken });
           }
