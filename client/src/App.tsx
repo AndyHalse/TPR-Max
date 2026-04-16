@@ -30,6 +30,7 @@ import IncidentMonitor from "@/pages/IncidentMonitor";
 import MartynLaw from "@/pages/MartynLaw";
 import IncidentReports from "@/pages/IncidentReports";
 import PPM from "@/pages/PPM";
+import PPMWorkOrderMobile from "@/pages/PPMWorkOrderMobile";
 import InductionSettings from "@/pages/InductionSettings";
 import EmailOutbox from "@/pages/EmailOutbox";
 import MeetingRooms from "@/pages/MeetingRooms";
@@ -175,6 +176,14 @@ function Router() {
     const token = window.location.pathname.split('/hs-document/')[1];
     if (token) {
       return <HSDocumentAcceptance token={token} />;
+    }
+  }
+
+  // PPM Work Order contractor mobile view - public route with access token
+  if (window.location.pathname.startsWith('/ppm/work-order/')) {
+    const token = window.location.pathname.split('/ppm/work-order/')[1];
+    if (token) {
+      return <PPMWorkOrderMobile token={token} />;
     }
   }
   

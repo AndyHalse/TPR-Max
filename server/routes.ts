@@ -27710,6 +27710,408 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // ── PPM Work Orders ──────────────────────────────────────────────────────────
+
+  // GET /api/ppm/work-orders — list all work orders for customer
+  app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
+    try {
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders).orderBy(isolatedSchema.ppmWorkOrders.createdAt);
+      res.json(rows);
+    } catch (error: unknown) {
+      console.error("GET /api/ppm/work-orders", error);
+      res.status(500).json({ error: "Failed to fetch PPM work orders" });
+    }
+  });
+
+  // POST /api/ppm/work-orders — create a new work order
+  app.post("/api/ppm/work-orders", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const crypto = await import("crypto");
+      const accessToken = crypto.default.randomBytes(24).toString("hex");
+      const parsed = isolatedSchema.insertPpmWorkOrderSchema.parse({ ...req.body, accessToken });
+      const [row] = await custDb.insert(isolatedSchema.ppmWorkOrders).values(parsed).returning();
+      res.json(row);
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/work-orders", error);
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create PPM work order" });
+    }
+  });
+
+  // PUT /api/ppm/work-orders/:id — update a work order
+  app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const { id } = req.params;
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const updates: Record<string, unknown> = { ...req.body };
+      delete updates.id;
+      delete updates.createdAt;
+      delete updates.accessToken;
+      if (updates.status === "completed" && !updates.completedDate) {
+        updates.completedDate = new Date().toISOString().split("T")[0];
+      }
+      const [row] = await custDb.update(isolatedSchema.ppmWorkOrders).set(updates).where(eq(isolatedSchema.ppmWorkOrders.id, id)).returning();
+      res.json(row);
+    } catch (error: unknown) {
+      console.error("PUT /api/ppm/work-orders/:id", error);
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update PPM work order" });
+    }
+  });
+
+  // DELETE /api/ppm/work-orders/:id — delete a work order
+  app.delete("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const { id } = req.params;
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      await custDb.delete(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+      res.json({ success: true });
+    } catch (error: unknown) {
+      console.error("DELETE /api/ppm/work-orders/:id", error);
+      res.status(500).json({ error: "Failed to delete PPM work order" });
+    }
+  });
+
+  // POST /api/ppm/work-orders/:id/assign — assign contractor and send email
+  app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const { id } = req.params;
+      const { contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, assignedEmail } = req.body;
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+      if (!wo) return res.status(404).json({ error: "Work order not found" });
+
+      const [updated] = await custDb.update(isolatedSchema.ppmWorkOrders)
+        .set({ contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, assignedEmail })
+        .where(eq(isolatedSchema.ppmWorkOrders.id, id))
+        .returning();
+
+      // Send notification email to the assigned contractor
+      if (assignedEmail && wo.accessToken) {
+        try {
+          const settingsRows = await custDb.execute(`SELECT company_name, email, phone, address FROM company_settings LIMIT 1`);
+          const settings = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+          const companyName = (settings?.company_name as string) || "TPR-Max";
+          const baseUrl = process.env.REPLIT_DOMAINS
+            ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+            : (process.env.PUBLIC_URL || process.env.BASE_URL || "http://localhost:5000");
+          const workOrderUrl = `${baseUrl}/ppm/work-order/${wo.accessToken}`;
+          const recipientName = contractorWorkerName || contractorCompanyName || "Contractor";
+          const emailSvc = new EmailService(context.customerId);
+          await emailSvc.sendEmail({
+            to: assignedEmail,
+            subject: `PPM Work Order Assigned: ${wo.title}`,
+            companyName,
+            html: `
+              <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f6f6f6;margin:0;padding:20px">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+                <div style="background:#1d4ed8;color:#fff;padding:24px 28px">
+                  <h1 style="margin:0;font-size:20px">PPM Work Order Assigned</h1>
+                  <p style="margin:6px 0 0;opacity:.85;font-size:14px">${companyName}</p>
+                </div>
+                <div style="padding:28px">
+                  <p style="font-size:16px;color:#1f2937">Hello ${recipientName},</p>
+                  <p style="color:#374151">You have been assigned a Planned Preventative Maintenance work order.</p>
+                  <div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:16px;margin:20px 0">
+                    <p style="margin:0 0 8px;font-weight:600;color:#0c4a6e;font-size:15px">${wo.title}</p>
+                    ${wo.description ? `<p style="margin:0 0 8px;color:#374151;font-size:14px">${wo.description}</p>` : ""}
+                    ${wo.dueDate ? `<p style="margin:0;color:#374151;font-size:14px"><strong>Due:</strong> ${new Date(wo.dueDate).toLocaleDateString("en-GB", { day:"2-digit", month:"short", year:"numeric" })}</p>` : ""}
+                  </div>
+                  <div style="text-align:center;margin:28px 0">
+                    <a href="${workOrderUrl}" style="background:#1d4ed8;color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-weight:600;font-size:15px;display:inline-block">View Work Order</a>
+                  </div>
+                  <p style="color:#6b7280;font-size:13px">Use the button above to view details, update status, add notes and upload service documents. The link works on mobile and desktop.</p>
+                </div>
+                <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 28px;text-align:center">
+                  <p style="margin:0;color:#9ca3af;font-size:12px">This email was sent by ${companyName} via TPR-Max PPM system.</p>
+                </div>
+              </div>
+              </body></html>
+            `,
+            text: `PPM Work Order Assigned: ${wo.title}\n\nHello ${recipientName},\n\nYou have been assigned a PPM work order.\n\nTitle: ${wo.title}\n${wo.description ? `Description: ${wo.description}\n` : ""}${wo.dueDate ? `Due: ${wo.dueDate}\n` : ""}\nView your work order at:\n${workOrderUrl}\n\n${companyName}`,
+          });
+        } catch (emailErr) {
+          console.error("PPM work order assignment email failed:", emailErr);
+        }
+      }
+      res.json(updated);
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/work-orders/:id/assign", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to assign contractor" });
+    }
+  });
+
+  // GET /api/ppm/work-orders/:id/documents — list documents for a work order
+  app.get("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const docs = await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
+        .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, id))
+        .orderBy(isolatedSchema.ppmWorkOrderDocuments.createdAt);
+      res.json(docs);
+    } catch (error: unknown) {
+      console.error("GET /api/ppm/work-orders/:id/documents", error);
+      res.status(500).json({ error: "Failed to fetch documents" });
+    }
+  });
+
+  // POST /api/ppm/work-orders/:id/documents — upload a document (admin side, base64)
+  app.post("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { fileName, fileUrl, fileType, uploadedBy } = req.body;
+      if (!fileName || !fileUrl) return res.status(400).json({ error: "fileName and fileUrl required" });
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [doc] = await custDb.insert(isolatedSchema.ppmWorkOrderDocuments)
+        .values({ workOrderId: id, fileName, fileUrl, fileType: fileType || "other", uploadedBy: uploadedBy || req.user!.username })
+        .returning();
+      // If this looks like a certificate, mark work order as having cert uploaded
+      if (fileType === "certificate") {
+        await custDb.update(isolatedSchema.ppmWorkOrders)
+          .set({ certificateUploadedAt: new Date() })
+          .where(eq(isolatedSchema.ppmWorkOrders.id, id));
+      }
+      res.json(doc);
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/work-orders/:id/documents", error);
+      res.status(500).json({ error: "Failed to upload document" });
+    }
+  });
+
+  // DELETE /api/ppm/work-orders/:id/documents/:docId — remove a document
+  app.delete("/api/ppm/work-orders/:id/documents/:docId", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const { docId } = req.params;
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      await custDb.delete(isolatedSchema.ppmWorkOrderDocuments).where(eq(isolatedSchema.ppmWorkOrderDocuments.id, docId));
+      res.json({ success: true });
+    } catch (error: unknown) {
+      console.error("DELETE /api/ppm/work-orders/:id/documents/:docId", error);
+      res.status(500).json({ error: "Failed to delete document" });
+    }
+  });
+
+  // ── PPM Public Work Order (Contractor Mobile View) ──────────────────────────
+
+  // GET /api/ppm/work-order/public/:token — contractor fetches their work order
+  app.get("/api/ppm/work-order/public/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+      // Search all customer schemas for this token
+      const allCustomers = await customerDbService.getAllCustomers();
+      for (const customer of allCustomers) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+          const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
+          if (wo) {
+            const docs = await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
+              .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, wo.id))
+              .orderBy(isolatedSchema.ppmWorkOrderDocuments.createdAt);
+            return res.json({ workOrder: wo, documents: docs });
+          }
+        } catch { /* skip this customer and try next */ }
+      }
+      res.status(404).json({ error: "Work order not found" });
+    } catch (error: unknown) {
+      console.error("GET /api/ppm/work-order/public/:token", error);
+      res.status(500).json({ error: "Failed to fetch work order" });
+    }
+  });
+
+  // PUT /api/ppm/work-order/public/:token — contractor updates status / completion notes
+  app.put("/api/ppm/work-order/public/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+      const { status, completionNotes } = req.body;
+      const allowedStatuses = ["in_progress", "completed"];
+      if (status && !allowedStatuses.includes(status)) return res.status(400).json({ error: "Invalid status" });
+
+      const allCustomers = await customerDbService.getAllCustomers();
+      for (const customer of allCustomers) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+          const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
+          if (wo) {
+            const updates: Record<string, unknown> = {};
+            if (status) updates.status = status;
+            if (completionNotes !== undefined) updates.completionNotes = completionNotes;
+            if (status === "completed") updates.completedDate = new Date().toISOString().split("T")[0];
+            const [updated] = await custDb.update(isolatedSchema.ppmWorkOrders)
+              .set(updates)
+              .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id))
+              .returning();
+            return res.json(updated);
+          }
+        } catch { /* skip */ }
+      }
+      res.status(404).json({ error: "Work order not found" });
+    } catch (error: unknown) {
+      console.error("PUT /api/ppm/work-order/public/:token", error);
+      res.status(500).json({ error: "Failed to update work order" });
+    }
+  });
+
+  // POST /api/ppm/work-order/public/:token/documents — contractor uploads a file
+  app.post("/api/ppm/work-order/public/:token/documents", async (req, res) => {
+    try {
+      const { token } = req.params;
+      if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+      const { fileName, fileUrl, fileType } = req.body;
+      if (!fileName || !fileUrl) return res.status(400).json({ error: "fileName and fileUrl required" });
+
+      const allCustomers = await customerDbService.getAllCustomers();
+      for (const customer of allCustomers) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+          const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
+          if (wo) {
+            const [doc] = await custDb.insert(isolatedSchema.ppmWorkOrderDocuments)
+              .values({ workOrderId: wo.id, fileName, fileUrl, fileType: fileType || "other", uploadedBy: "contractor" })
+              .returning();
+            if (fileType === "certificate") {
+              await custDb.update(isolatedSchema.ppmWorkOrders)
+                .set({ certificateUploadedAt: new Date() })
+                .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
+            }
+            return res.json(doc);
+          }
+        } catch { /* skip */ }
+      }
+      res.status(404).json({ error: "Work order not found" });
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/work-order/public/:token/documents", error);
+      res.status(500).json({ error: "Failed to upload document" });
+    }
+  });
+
+  // ── PPM Daily Alert Cron ──────────────────────────────────────────────────────
+  // Runs at 07:00 Europe/London every day:
+  //  (a) marks work orders overdue when past due date and not completed
+  //  (b) alerts admin + contractor when completed work order has no cert after 48h
+  cron.schedule("0 7 * * *", async () => {
+    try {
+      console.log("🔧 [PPM Cron] Running daily PPM alert check…");
+      const allCustomers = await customerDbService.getAllCustomers();
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      for (const customer of allCustomers) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+          const workOrders = await custDb.select().from(isolatedSchema.ppmWorkOrders);
+          const overdueIds: string[] = [];
+          const missingCertWOs: (typeof workOrders[0])[] = [];
+
+          for (const wo of workOrders) {
+            if (wo.status === "completed" || wo.status === "overdue" || wo.status === "cancelled") {
+              // Check for missing cert: completed 48h+ ago but no cert uploaded
+              if (wo.status === "completed" && wo.requiresCertificate && !wo.certificateUploadedAt && wo.completedDate) {
+                const completedAt = new Date(wo.completedDate);
+                const hoursElapsed = (Date.now() - completedAt.getTime()) / 3600000;
+                if (hoursElapsed >= 48) missingCertWOs.push(wo);
+              }
+              continue;
+            }
+            if (wo.dueDate) {
+              const due = new Date(wo.dueDate); due.setHours(0, 0, 0, 0);
+              if (due < today) overdueIds.push(wo.id);
+            }
+          }
+
+          // Batch-mark overdue
+          if (overdueIds.length > 0) {
+            for (const woId of overdueIds) {
+              await custDb.update(isolatedSchema.ppmWorkOrders)
+                .set({ status: "overdue" })
+                .where(eq(isolatedSchema.ppmWorkOrders.id, woId));
+            }
+            console.log(`✅ [PPM Cron] Marked ${overdueIds.length} work orders overdue for customer ${customer.id}`);
+          }
+
+          // Get settings for email
+          const settingsRows = await custDb.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
+          const settings = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+          const companyName = (settings?.company_name as string) || "TPR-Max";
+          const adminEmail = settings?.email as string | undefined;
+          const emailSvc = new EmailService(customer.id);
+
+          // Alert admin about newly-overdue work orders
+          if (overdueIds.length > 0 && adminEmail) {
+            const overdueWOs = workOrders.filter(w => overdueIds.includes(w.id));
+            await emailSvc.sendEmail({
+              to: adminEmail,
+              subject: `PPM Alert: ${overdueIds.length} Overdue Work Order${overdueIds.length > 1 ? "s" : ""}`,
+              companyName,
+              html: `
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+                  <div style="background:#dc2626;color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                    <h2 style="margin:0">PPM Overdue Alert — ${companyName}</h2>
+                  </div>
+                  <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+                    <p>${overdueIds.length} PPM work order${overdueIds.length > 1 ? "s have" : " has"} become overdue:</p>
+                    <ul style="padding-left:20px">
+                      ${overdueWOs.map(w => `<li><strong>${w.title}</strong>${w.dueDate ? ` — was due ${w.dueDate}` : ""}</li>`).join("")}
+                    </ul>
+                    <p>Please log in to TPR-Max to review and take action.</p>
+                  </div>
+                </div>
+              `,
+              text: `PPM Overdue Alert\n\n${overdueIds.length} work order(s) are overdue:\n${overdueWOs.map(w => `- ${w.title}${w.dueDate ? ` (due ${w.dueDate})` : ""}`).join("\n")}\n\nPlease log in to review.`,
+            });
+          }
+
+          // Alert for missing certificates
+          for (const wo of missingCertWOs) {
+            const recipients = [adminEmail, wo.assignedEmail].filter((e): e is string => !!e);
+            for (const email of recipients) {
+              await emailSvc.sendEmail({
+                to: email,
+                subject: `PPM Certificate Missing: ${wo.title}`,
+                companyName,
+                html: `
+                  <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+                    <div style="background:#d97706;color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                      <h2 style="margin:0">PPM Certificate Required — ${companyName}</h2>
+                    </div>
+                    <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+                      <p>The following PPM work order was completed more than 48 hours ago but no service certificate has been uploaded:</p>
+                      <p><strong>${wo.title}</strong>${wo.completedDate ? ` — completed ${wo.completedDate}` : ""}</p>
+                      <p>Please upload the relevant certificate as soon as possible.</p>
+                    </div>
+                  </div>
+                `,
+                text: `PPM Certificate Missing: ${wo.title}\n\nThis work order was completed more than 48 hours ago but no service certificate has been uploaded.\n\nPlease upload the certificate.`,
+              });
+            }
+          }
+        } catch (custErr) {
+          console.error(`[PPM Cron] Error processing customer ${customer.id}:`, custErr);
+        }
+      }
+      console.log("✅ [PPM Cron] Daily check complete");
+    } catch (error: unknown) {
+      console.error("❌ [PPM Cron] Fatal error:", error);
+    }
+  }, { timezone: "Europe/London" });
+
   // ── End PPM routes ──────────────────────────────────────────────────────────
 
   const httpServer = existingServer || createServer(app);

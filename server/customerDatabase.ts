@@ -401,6 +401,47 @@ export class CustomerDatabaseService {
       console.warn(`⚠️ PPM tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Ensure PPM Work Order tables exist (Task #9 migration)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".ppm_work_orders (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          schedule_id VARCHAR REFERENCES "${schemaName}".ppm_schedules(id) ON DELETE SET NULL,
+          asset_id VARCHAR REFERENCES "${schemaName}".ppm_assets(id) ON DELETE SET NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          status TEXT NOT NULL DEFAULT 'scheduled',
+          contractor_company_id VARCHAR,
+          contractor_company_name TEXT,
+          contractor_worker_id VARCHAR,
+          contractor_worker_name TEXT,
+          assigned_email TEXT,
+          due_date TEXT,
+          completed_date TEXT,
+          notes TEXT,
+          completion_notes TEXT,
+          access_token VARCHAR,
+          requires_certificate BOOLEAN DEFAULT false,
+          certificate_uploaded_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".ppm_work_order_documents (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          work_order_id VARCHAR NOT NULL REFERENCES "${schemaName}".ppm_work_orders(id) ON DELETE CASCADE,
+          file_name TEXT NOT NULL,
+          file_url TEXT NOT NULL,
+          file_type TEXT,
+          uploaded_by TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log(`✅ PPM work order tables ensured for ${schemaName}`);
+    } catch (err: any) {
+      console.warn(`⚠️ PPM work order tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure admin user exists in this customer schema (critical for production)
     try {
       await this.ensureAdminUserExists(customerId, db);

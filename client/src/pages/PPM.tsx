@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -10,10 +10,13 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wrench, Plus, Edit, Trash2, Building2, ClipboardList, CalendarClock,
-  CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen
+  CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
+  ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
+  Download, Upload, Mail, RefreshCw, Eye,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -60,6 +63,53 @@ interface PpmSchedule {
   notes?: string | null;
 }
 
+interface PpmWorkOrder {
+  id: string;
+  scheduleId?: string | null;
+  assetId?: string | null;
+  title: string;
+  description?: string | null;
+  status: string;
+  contractorCompanyId?: string | null;
+  contractorCompanyName?: string | null;
+  contractorWorkerId?: string | null;
+  contractorWorkerName?: string | null;
+  assignedEmail?: string | null;
+  dueDate?: string | null;
+  completedDate?: string | null;
+  notes?: string | null;
+  completionNotes?: string | null;
+  accessToken?: string | null;
+  requiresCertificate?: boolean | null;
+  certificateUploadedAt?: string | null;
+  createdAt?: string | null;
+}
+
+interface PpmWorkOrderDocument {
+  id: string;
+  workOrderId: string;
+  fileName: string;
+  fileUrl: string;
+  fileType?: string | null;
+  uploadedBy?: string | null;
+  createdAt?: string | null;
+}
+
+interface ContractorCompany {
+  id: string;
+  name: string;
+  email?: string | null;
+  contactEmail?: string | null;
+}
+
+interface ContractorWorker {
+  id: string;
+  companyId: string;
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const ASSET_CATEGORIES = [
@@ -88,12 +138,14 @@ const COMMON_REGULATIONS = [
   "Other / Custom",
 ];
 
+const WO_STATUSES = [
+  { value: "scheduled", label: "Scheduled", classes: "bg-blue-100 text-blue-800 border-blue-200" },
+  { value: "in_progress", label: "In Progress", classes: "bg-amber-100 text-amber-800 border-amber-200" },
+  { value: "completed", label: "Completed", classes: "bg-green-100 text-green-800 border-green-200" },
+  { value: "overdue", label: "Overdue", classes: "bg-red-100 text-red-800 border-red-200" },
+];
+
 // ─── Schedule Status Derivation ───────────────────────────────────────────────
-// Classify a schedule for display purposes based on nextDueDate:
-//   overdue   → nextDueDate < today
-//   due_soon  → 0–7 days away
-//   upcoming  → > 7 days away
-// Completed/cancelled retain their persisted status.
 
 type DerivedStatus = "overdue" | "due_soon" | "upcoming" | "completed" | "cancelled";
 
@@ -122,6 +174,15 @@ function StatusBadge({ status }: { status: DerivedStatus }) {
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.classes}`}>
       <Icon className="h-3 w-3" />{cfg.label}
+    </span>
+  );
+}
+
+function WOStatusBadge({ status }: { status: string }) {
+  const cfg = WO_STATUSES.find(s => s.value === status) ?? { label: status, classes: "bg-gray-100 text-gray-700 border-gray-200" };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.classes}`}>
+      {cfg.label}
     </span>
   );
 }
@@ -159,6 +220,59 @@ function clientCalcNextDueDate(startDate: string, frequency: string, customDays:
     default: break;
   }
   return d.toISOString().split("T")[0];
+}
+
+// Convert file to base64 for upload
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+// ─── Dashboard Summary Strip ──────────────────────────────────────────────────
+
+function DashboardSummary({ onWorkOrdersClick }: { onWorkOrdersClick: (filter?: string) => void }) {
+  const { data: schedules = [] } = useQuery<PpmSchedule[]>({ queryKey: ["/api/ppm/schedules"] });
+  const { data: workOrders = [] } = useQuery<PpmWorkOrder[]>({ queryKey: ["/api/ppm/work-orders"] });
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+
+  const activeSchedules = schedules.filter(s => s.status !== "cancelled" && s.status !== "completed").length;
+  const dueThisMonth = schedules.filter(s => {
+    if (s.status === "cancelled" || s.status === "completed") return false;
+    const due = new Date(s.nextDueDate);
+    return due >= today && due <= endOfMonth;
+  }).length;
+  const overdueWOs = workOrders.filter(w => w.status === "overdue").length;
+  const awaitingCerts = workOrders.filter(w =>
+    w.status === "completed" && w.requiresCertificate && !w.certificateUploadedAt
+  ).length;
+
+  const stats = [
+    { label: "Active Schedules", value: activeSchedules, color: "text-foreground", onClick: undefined },
+    { label: "Due This Month", value: dueThisMonth, color: dueThisMonth > 0 ? "text-amber-600" : "text-foreground", onClick: undefined },
+    { label: "Overdue Work Orders", value: overdueWOs, color: overdueWOs > 0 ? "text-red-600" : "text-foreground", onClick: () => onWorkOrdersClick("overdue") },
+    { label: "Awaiting Certificates", value: awaitingCerts, color: awaitingCerts > 0 ? "text-amber-600" : "text-foreground", onClick: () => onWorkOrdersClick("completed") },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {stats.map(s => (
+        <GlassCard
+          key={s.label}
+          className={`p-4 text-center ${s.onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+          onClick={s.onClick}
+        >
+          <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
+          <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+        </GlassCard>
+      ))}
+    </div>
+  );
 }
 
 // ─── Assets Tab ──────────────────────────────────────────────────────────────
@@ -360,7 +474,6 @@ function TemplatesTab() {
     else createMutation.mutate(payload);
   }
   const isBusy = createMutation.isPending || updateMutation.isPending;
-
   const checkItems = (t: PpmTemplate) => { try { return JSON.parse(t.checklist ?? "[]"); } catch { return []; } };
 
   return (
@@ -539,7 +652,6 @@ function SchedulesTab() {
     onError: (error: unknown) => toastError(error, toast),
   });
 
-  // Auto-calculate nextDueDate from startDate + frequency when creating a new schedule
   useEffect(() => {
     if (!editing && form.startDate && form.frequency) {
       const calculated = clientCalcNextDueDate(form.startDate, form.frequency, form.customDays);
@@ -574,16 +686,12 @@ function SchedulesTab() {
     else createMutation.mutate(payload);
   }
   const isBusy = createMutation.isPending || updateMutation.isPending;
-
   const assetName = (id: string) => assets.find(a => a.id === id)?.name ?? id;
 
-  // Classify schedules for display
   const enriched = schedules.map(s => ({ ...s, derived: deriveStatus(s) }));
   const overdue = enriched.filter(s => s.derived === "overdue").length;
   const dueSoon = enriched.filter(s => s.derived === "due_soon").length;
   const upcoming = enriched.filter(s => s.derived === "upcoming").length;
-
-  // Sort: overdue first, then due_soon, then upcoming, then completed/cancelled
   const order: Record<DerivedStatus, number> = { overdue: 0, due_soon: 1, upcoming: 2, completed: 3, cancelled: 4 };
   const sorted = [...enriched].sort((a, b) => order[a.derived] - order[b.derived]);
 
@@ -746,9 +854,572 @@ function SchedulesTab() {
   );
 }
 
+// ─── Work Orders Tab ──────────────────────────────────────────────────────────
+
+function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }) {
+  const { toast } = useToast();
+
+  // Filters
+  const [filterStatus, setFilterStatus] = useState(initialStatusFilter || "all");
+  const [filterAsset, setFilterAsset] = useState("all");
+  const [filterContractor, setFilterContractor] = useState("");
+  const [filterDateFrom, setFilterDateFrom] = useState("");
+  const [filterDateTo, setFilterDateTo] = useState("");
+
+  // Dialogs/sheets
+  const [showCreate, setShowCreate] = useState(false);
+  const [selectedWO, setSelectedWO] = useState<PpmWorkOrder | null>(null);
+  const [showDetail, setShowDetail] = useState(false);
+
+  // Create form
+  const emptyWOForm = () => ({
+    title: "", description: "", assetId: "", scheduleId: "", dueDate: "", notes: "",
+    requiresCertificate: false, status: "scheduled",
+  });
+  const [woForm, setWoForm] = useState(emptyWOForm());
+
+  // Assign contractor form (in detail sheet)
+  const [assignForm, setAssignForm] = useState({
+    contractorCompanyId: "", contractorCompanyName: "", contractorWorkerId: "",
+    contractorWorkerName: "", assignedEmail: "",
+  });
+  const [selectedCompanyIdForWorkers, setSelectedCompanyIdForWorkers] = useState("");
+
+  // Document upload
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [docFileType, setDocFileType] = useState("other");
+
+  // Data queries
+  const { data: workOrders = [], isLoading: woLoading } = useQuery<PpmWorkOrder[]>({ queryKey: ["/api/ppm/work-orders"] });
+  const { data: assets = [] } = useQuery<PpmAsset[]>({ queryKey: ["/api/ppm/assets"] });
+  const { data: schedules = [] } = useQuery<PpmSchedule[]>({ queryKey: ["/api/ppm/schedules"] });
+  const { data: contractors = [] } = useQuery<ContractorCompany[]>({ queryKey: ["/api/contractors"] });
+  const { data: companyWorkers = [] } = useQuery<ContractorWorker[]>({
+    queryKey: ["/api/contractors", selectedCompanyIdForWorkers, "workers"],
+    enabled: !!selectedCompanyIdForWorkers,
+    queryFn: async () => {
+      const res = await fetch(`/api/contractors/${selectedCompanyIdForWorkers}/workers`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+  const { data: woDocs = [], refetch: refetchDocs } = useQuery<PpmWorkOrderDocument[]>({
+    queryKey: ["/api/ppm/work-orders", selectedWO?.id, "documents"],
+    enabled: !!selectedWO?.id,
+    queryFn: async () => {
+      if (!selectedWO?.id) return [];
+      const res = await fetch(`/api/ppm/work-orders/${selectedWO.id}/documents`, { credentials: "include" });
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const createWOMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/work-orders", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
+      setShowCreate(false);
+      setWoForm(emptyWOForm());
+      toast({ title: "Work order created" });
+    },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
+  const updateWOMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/work-orders/${id}`, data),
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
+      const updated = workOrders.find(w => w.id === vars.id);
+      if (updated) setSelectedWO({ ...updated, ...vars.data } as PpmWorkOrder);
+      toast({ title: "Work order updated" });
+    },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
+  const deleteWOMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/work-orders/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
+      setShowDetail(false);
+      setSelectedWO(null);
+      toast({ title: "Work order deleted" });
+    },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("POST", `/api/ppm/work-orders/${id}/assign`, data),
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
+      res.json().then((updated: PpmWorkOrder) => setSelectedWO(updated)).catch(() => {});
+      toast({ title: "Contractor assigned", description: "Notification email sent." });
+    },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
+  const deleteDocMutation = useMutation({
+    mutationFn: ({ woId, docId }: { woId: string; docId: string }) => apiRequest("DELETE", `/api/ppm/work-orders/${woId}/documents/${docId}`),
+    onSuccess: () => { refetchDocs(); toast({ title: "Document removed" }); },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
+  // Apply filters
+  const filtered = workOrders.filter(w => {
+    if (filterStatus !== "all" && w.status !== filterStatus) return false;
+    if (filterAsset !== "all" && w.assetId !== filterAsset) return false;
+    if (filterContractor && !(w.contractorCompanyName?.toLowerCase().includes(filterContractor.toLowerCase()) || w.contractorWorkerName?.toLowerCase().includes(filterContractor.toLowerCase()))) return false;
+    if (filterDateFrom && w.dueDate && w.dueDate < filterDateFrom) return false;
+    if (filterDateTo && w.dueDate && w.dueDate > filterDateTo) return false;
+    return true;
+  });
+
+  const statusOrder: Record<string, number> = { overdue: 0, in_progress: 1, scheduled: 2, completed: 3 };
+  const sortedWOs = [...filtered].sort((a, b) => (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5));
+
+  function openDetail(wo: PpmWorkOrder) {
+    setSelectedWO(wo);
+    setAssignForm({
+      contractorCompanyId: wo.contractorCompanyId ?? "",
+      contractorCompanyName: wo.contractorCompanyName ?? "",
+      contractorWorkerId: wo.contractorWorkerId ?? "",
+      contractorWorkerName: wo.contractorWorkerName ?? "",
+      assignedEmail: wo.assignedEmail ?? "",
+    });
+    setSelectedCompanyIdForWorkers(wo.contractorCompanyId ?? "");
+    setShowDetail(true);
+  }
+
+  async function handleDocUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !selectedWO) return;
+    setUploadingDoc(true);
+    try {
+      const b64 = await fileToBase64(file);
+      const uploadRes = await apiRequest("POST", "/api/objects/upload", { data: b64, mimeType: file.type });
+      const { url } = await uploadRes.json();
+      await apiRequest("POST", `/api/ppm/work-orders/${selectedWO.id}/documents`, {
+        fileName: file.name, fileUrl: url, fileType: docFileType, uploadedBy: "admin",
+      });
+      refetchDocs();
+      if (docFileType === "certificate") {
+        queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
+      }
+      toast({ title: "Document uploaded" });
+    } catch (err) {
+      toastError(err, toast);
+    } finally {
+      setUploadingDoc(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  const assetName = (id?: string | null) => assets.find(a => a.id === id)?.name ?? "—";
+  const hasCertAlert = (w: PpmWorkOrder) => w.status === "completed" && w.requiresCertificate && !w.certificateUploadedAt;
+
+  return (
+    <div className="space-y-4">
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-muted-foreground">Track work order lifecycle from creation to completion and certificate upload.</p>
+        <Button size="sm" onClick={() => { setWoForm(emptyWOForm()); setShowCreate(true); }}>
+          <Plus className="h-4 w-4 mr-1" />New Work Order
+        </Button>
+      </div>
+
+      {/* Filters */}
+      <GlassCard className="p-3">
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
+            <Filter className="h-3 w-3" />Filters:
+          </div>
+          <Select value={filterStatus} onValueChange={setFilterStatus}>
+            <SelectTrigger className="h-8 w-36 text-xs"><SelectValue placeholder="All statuses" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {WO_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterAsset} onValueChange={setFilterAsset}>
+            <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="All assets" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Assets</SelectItem>
+              {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Input
+            className="h-8 w-40 text-xs"
+            placeholder="Contractor search…"
+            value={filterContractor}
+            onChange={e => setFilterContractor(e.target.value)}
+          />
+          <div className="flex items-center gap-1">
+            <Input type="date" className="h-8 w-32 text-xs" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+            <span className="text-xs text-muted-foreground">to</span>
+            <Input type="date" className="h-8 w-32 text-xs" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
+          </div>
+          {(filterStatus !== "all" || filterAsset !== "all" || filterContractor || filterDateFrom || filterDateTo) && (
+            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterStatus("all"); setFilterAsset("all"); setFilterContractor(""); setFilterDateFrom(""); setFilterDateTo(""); }}>
+              <X className="h-3 w-3 mr-1" />Clear
+            </Button>
+          )}
+        </div>
+      </GlassCard>
+
+      {/* Table */}
+      {woLoading ? (
+        <div className="text-center py-10 text-muted-foreground">Loading work orders…</div>
+      ) : sortedWOs.length === 0 ? (
+        <div className="text-center py-16">
+          <ClipboardCheck className="h-10 w-10 mx-auto mb-3 opacity-30" />
+          <p className="text-muted-foreground">{workOrders.length === 0 ? "No work orders yet. Create one to get started." : "No work orders match the current filters."}</p>
+        </div>
+      ) : (
+        <div className="rounded-lg border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/50 text-xs text-muted-foreground">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium">Title</th>
+                <th className="text-left px-3 py-2 font-medium hidden md:table-cell">Asset</th>
+                <th className="text-left px-3 py-2 font-medium">Status</th>
+                <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Due</th>
+                <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Contractor</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {sortedWOs.map(wo => (
+                <tr key={wo.id} className={`hover:bg-muted/30 cursor-pointer ${wo.status === "overdue" ? "bg-red-50/50 dark:bg-red-950/20" : ""}`} onClick={() => openDetail(wo)}>
+                  <td className="px-3 py-2.5">
+                    <div className="font-medium truncate max-w-[200px]">{wo.title}</div>
+                    {hasCertAlert(wo) && (
+                      <span className="text-xs text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Certificate missing</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{assetName(wo.assetId)}</td>
+                  <td className="px-3 py-2.5"><WOStatusBadge status={wo.status} /></td>
+                  <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{fmtDate(wo.dueDate)}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground hidden lg:table-cell truncate max-w-[150px]">
+                    {wo.contractorWorkerName || wo.contractorCompanyName || "—"}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={e => { e.stopPropagation(); openDetail(wo); }}>
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Create Work Order Dialog */}
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>New Work Order</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Title *</Label>
+              <Input value={woForm.title} onChange={e => setWoForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Annual boiler service" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Asset</Label>
+                <Select value={woForm.assetId || "_none"} onValueChange={v => setWoForm(f => ({ ...f, assetId: v === "_none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— None —</SelectItem>
+                    {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Schedule (optional)</Label>
+                <Select value={woForm.scheduleId || "_none"} onValueChange={v => setWoForm(f => ({ ...f, scheduleId: v === "_none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Link to schedule" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— None —</SelectItem>
+                    {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Due Date</Label>
+                <Input type="date" value={woForm.dueDate} onChange={e => setWoForm(f => ({ ...f, dueDate: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select value={woForm.status} onValueChange={v => setWoForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {WO_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={woForm.description} onChange={e => setWoForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Scope of work…" />
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Textarea value={woForm.notes} onChange={e => setWoForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="reqCert" checked={woForm.requiresCertificate} onChange={e => setWoForm(f => ({ ...f, requiresCertificate: e.target.checked }))} className="h-4 w-4" />
+              <Label htmlFor="reqCert" className="font-normal cursor-pointer">Requires service certificate upload</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+            <Button onClick={() => createWOMutation.mutate({ ...woForm, assetId: woForm.assetId || null, scheduleId: woForm.scheduleId || null })} disabled={!woForm.title || createWOMutation.isPending}>
+              {createWOMutation.isPending ? "Creating…" : "Create Work Order"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Work Order Detail Sheet */}
+      <Sheet open={showDetail} onOpenChange={setShowDetail}>
+        <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
+          {selectedWO && (
+            <>
+              <SheetHeader className="mb-4">
+                <SheetTitle className="flex items-center gap-2">
+                  <ClipboardCheck className="h-5 w-5" />
+                  {selectedWO.title}
+                </SheetTitle>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <WOStatusBadge status={selectedWO.status} />
+                  {hasCertAlert(selectedWO) && (
+                    <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                      <AlertTriangle className="h-3 w-3" />Certificate missing
+                    </span>
+                  )}
+                </div>
+              </SheetHeader>
+
+              <div className="space-y-5">
+                {/* Details */}
+                <div className="space-y-2 text-sm">
+                  {selectedWO.description && <p className="text-muted-foreground">{selectedWO.description}</p>}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                    <span className="text-muted-foreground">Asset</span><span>{assetName(selectedWO.assetId)}</span>
+                    <span className="text-muted-foreground">Due Date</span><span>{fmtDate(selectedWO.dueDate)}</span>
+                    <span className="text-muted-foreground">Completed</span><span>{fmtDate(selectedWO.completedDate)}</span>
+                    {selectedWO.requiresCertificate && (
+                      <>
+                        <span className="text-muted-foreground">Certificate</span>
+                        <span>{selectedWO.certificateUploadedAt ? `Uploaded ${fmtDate(selectedWO.certificateUploadedAt)}` : "Not yet uploaded"}</span>
+                      </>
+                    )}
+                  </div>
+                  {selectedWO.notes && <p className="text-xs text-muted-foreground italic border-l-2 pl-2">{selectedWO.notes}</p>}
+                  {selectedWO.completionNotes && (
+                    <div className="rounded bg-green-50 border border-green-200 p-2">
+                      <p className="text-xs font-medium text-green-800">Completion Notes</p>
+                      <p className="text-xs text-green-700 mt-1">{selectedWO.completionNotes}</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Change Status */}
+                <div className="space-y-2 border-t pt-4">
+                  <p className="text-sm font-semibold">Change Status</p>
+                  <div className="flex flex-wrap gap-2">
+                    {WO_STATUSES.map(s => (
+                      <Button
+                        key={s.value}
+                        size="sm"
+                        variant={selectedWO.status === s.value ? "default" : "outline"}
+                        className="h-7 text-xs"
+                        disabled={selectedWO.status === s.value || updateWOMutation.isPending}
+                        onClick={() => updateWOMutation.mutate({ id: selectedWO.id, data: { status: s.value } })}
+                      >
+                        {s.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Assign Contractor */}
+                <div className="space-y-2 border-t pt-4">
+                  <p className="text-sm font-semibold flex items-center gap-1.5"><HardHat className="h-4 w-4" />Assign Contractor</p>
+                  <div className="space-y-2">
+                    <div>
+                      <Label className="text-xs">Company</Label>
+                      <Select
+                        value={assignForm.contractorCompanyId || "_none"}
+                        onValueChange={v => {
+                          const co = contractors.find(c => c.id === v);
+                          setAssignForm(f => ({
+                            ...f,
+                            contractorCompanyId: v === "_none" ? "" : v,
+                            contractorCompanyName: co?.name ?? "",
+                            assignedEmail: co?.contactEmail ?? co?.email ?? f.assignedEmail,
+                            contractorWorkerId: "",
+                            contractorWorkerName: "",
+                          }));
+                          setSelectedCompanyIdForWorkers(v === "_none" ? "" : v);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select company" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">— None —</SelectItem>
+                          {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {assignForm.contractorCompanyId && (
+                      <div>
+                        <Label className="text-xs">Worker (optional)</Label>
+                        <Select
+                          value={assignForm.contractorWorkerId || "_none"}
+                          onValueChange={v => {
+                            const w = companyWorkers.find(w => w.id === v);
+                            setAssignForm(f => ({
+                              ...f,
+                              contractorWorkerId: v === "_none" ? "" : v,
+                              contractorWorkerName: w ? `${w.firstName} ${w.lastName}` : "",
+                              assignedEmail: w?.email ?? f.assignedEmail,
+                            }));
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select worker" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="_none">— Company only —</SelectItem>
+                            {companyWorkers.map(w => <SelectItem key={w.id} value={w.id}>{w.firstName} {w.lastName}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-xs">Notification Email</Label>
+                      <Input
+                        className="h-8 text-xs"
+                        type="email"
+                        placeholder="contractor@example.com"
+                        value={assignForm.assignedEmail}
+                        onChange={e => setAssignForm(f => ({ ...f, assignedEmail: e.target.value }))}
+                      />
+                    </div>
+                    <Button
+                      size="sm"
+                      className="w-full"
+                      disabled={!assignForm.contractorCompanyId || assignMutation.isPending}
+                      onClick={() => assignMutation.mutate({ id: selectedWO.id, data: assignForm })}
+                    >
+                      <Mail className="h-3.5 w-3.5 mr-1.5" />
+                      {assignMutation.isPending ? "Assigning…" : "Assign & Send Email"}
+                    </Button>
+                    {selectedWO.accessToken && (
+                      <p className="text-xs text-muted-foreground">
+                        Contractor link:{" "}
+                        <a
+                          href={`/ppm/work-order/${selectedWO.accessToken}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary underline underline-offset-2"
+                        >
+                          /ppm/work-order/{selectedWO.accessToken.slice(0, 8)}…
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Documents */}
+                <div className="space-y-2 border-t pt-4">
+                  <p className="text-sm font-semibold flex items-center gap-1.5"><FileText className="h-4 w-4" />Documents</p>
+                  {woDocs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No documents uploaded yet.</p>
+                  ) : (
+                    <div className="space-y-1">
+                      {woDocs.map(doc => (
+                        <div key={doc.id} className="flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-xs">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="truncate font-medium">{doc.fileName}</span>
+                            {doc.fileType && doc.fileType !== "other" && (
+                              <Badge variant="secondary" className="text-xs shrink-0">{doc.fileType}</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                              <Download className="h-3.5 w-3.5" />
+                            </a>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                              onClick={() => { if (confirm("Delete this document?")) deleteDocMutation.mutate({ woId: selectedWO.id, docId: doc.id }); }}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Upload */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <Select value={docFileType} onValueChange={setDocFileType}>
+                      <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="certificate">Certificate</SelectItem>
+                        <SelectItem value="report">Report</SelectItem>
+                        <SelectItem value="photo">Photo</SelectItem>
+                        <SelectItem value="other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 text-xs flex-1"
+                      disabled={uploadingDoc}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      {uploadingDoc ? <RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
+                      {uploadingDoc ? "Uploading…" : "Upload Document"}
+                    </Button>
+                    <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleDocUpload} />
+                  </div>
+                </div>
+
+                {/* Delete */}
+                <div className="border-t pt-4">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive w-full"
+                    disabled={deleteWOMutation.isPending}
+                    onClick={() => { if (confirm("Delete this work order and all its documents?")) deleteWOMutation.mutate(selectedWO.id); }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                    {deleteWOMutation.isPending ? "Deleting…" : "Delete Work Order"}
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
+  );
+}
+
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PPM() {
+  const [activeTab, setActiveTab] = useState("assets");
+  const [woStatusFilter, setWoStatusFilter] = useState<string | undefined>(undefined);
+
+  function handleSummaryClick(filter?: string) {
+    setWoStatusFilter(filter);
+    setActiveTab("work-orders");
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
@@ -757,11 +1428,13 @@ export default function PPM() {
         </div>
         <div>
           <h1 className="text-2xl font-bold">Planned Preventative Maintenance</h1>
-          <p className="text-sm text-muted-foreground">Manage assets, maintenance templates and schedules for your property.</p>
+          <p className="text-sm text-muted-foreground">Manage assets, maintenance templates, schedules and work orders.</p>
         </div>
       </div>
 
-      <Tabs defaultValue="assets">
+      <DashboardSummary onWorkOrdersClick={handleSummaryClick} />
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="assets" className="flex items-center gap-1.5">
             <Building2 className="h-4 w-4" />Assets
@@ -772,10 +1445,16 @@ export default function PPM() {
           <TabsTrigger value="schedules" className="flex items-center gap-1.5">
             <CalendarClock className="h-4 w-4" />Schedules
           </TabsTrigger>
+          <TabsTrigger value="work-orders" className="flex items-center gap-1.5">
+            <ClipboardCheck className="h-4 w-4" />Work Orders
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="assets" className="mt-4"><AssetsTab /></TabsContent>
         <TabsContent value="templates" className="mt-4"><TemplatesTab /></TabsContent>
         <TabsContent value="schedules" className="mt-4"><SchedulesTab /></TabsContent>
+        <TabsContent value="work-orders" className="mt-4">
+          <WorkOrdersTab key={woStatusFilter ?? "none"} initialStatusFilter={woStatusFilter} />
+        </TabsContent>
       </Tabs>
     </div>
   );

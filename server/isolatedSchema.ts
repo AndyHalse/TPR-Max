@@ -2188,4 +2188,47 @@ export const ppmSchedules = pgTable("ppm_schedules", {
 export const insertPpmScheduleSchema = createInsertSchema(ppmSchedules).omit({ id: true, createdAt: true });
 export type InsertPpmSchedule = z.infer<typeof insertPpmScheduleSchema>;
 export type PpmSchedule = typeof ppmSchedules.$inferSelect;
+
+// ── PPM Work Orders ───────────────────────────────────────────────────────────
+
+export const ppmWorkOrders = pgTable("ppm_work_orders", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  scheduleId: varchar("schedule_id").references(() => ppmSchedules.id, { onDelete: "set null" }),
+  assetId: varchar("asset_id").references(() => ppmAssets.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").notNull().default("scheduled"), // scheduled | in_progress | completed | overdue
+  contractorCompanyId: varchar("contractor_company_id"),
+  contractorCompanyName: text("contractor_company_name"),
+  contractorWorkerId: varchar("contractor_worker_id"),
+  contractorWorkerName: text("contractor_worker_name"),
+  assignedEmail: text("assigned_email"),
+  dueDate: text("due_date"),
+  completedDate: text("completed_date"),
+  notes: text("notes"),
+  completionNotes: text("completion_notes"),
+  accessToken: varchar("access_token"),
+  requiresCertificate: boolean("requires_certificate").default(false),
+  certificateUploadedAt: timestamp("certificate_uploaded_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPpmWorkOrderSchema = createInsertSchema(ppmWorkOrders).omit({ id: true, createdAt: true });
+export type InsertPpmWorkOrder = z.infer<typeof insertPpmWorkOrderSchema>;
+export type PpmWorkOrder = typeof ppmWorkOrders.$inferSelect;
+
+export const ppmWorkOrderDocuments = pgTable("ppm_work_order_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workOrderId: varchar("work_order_id").notNull().references(() => ppmWorkOrders.id, { onDelete: "cascade" }),
+  fileName: text("file_name").notNull(),
+  fileUrl: text("file_url").notNull(),
+  fileType: text("file_type"),
+  uploadedBy: text("uploaded_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPpmWorkOrderDocumentSchema = createInsertSchema(ppmWorkOrderDocuments).omit({ id: true, createdAt: true });
+export type InsertPpmWorkOrderDocument = z.infer<typeof insertPpmWorkOrderDocumentSchema>;
+export type PpmWorkOrderDocument = typeof ppmWorkOrderDocuments.$inferSelect;
+
 export type BiostarDevice = typeof biostarDevices.$inferSelect;
