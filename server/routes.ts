@@ -28187,8 +28187,13 @@ This is an automated notification from your visitor management system.`;
         return res.status(413).json({ error: "File too large. Maximum upload size is 10 MB." });
       }
 
+      // Fast path: if token is cached, try that customer first (avoids full cross-tenant scan)
+      const cachedFilesCustomerId = ppmTokenCacheGet(token);
       const allCustomers = await customerDbService.getAllCustomers();
-      for (const customer of allCustomers) {
+      const orderedCustomers = cachedFilesCustomerId
+        ? [{ id: cachedFilesCustomerId }, ...allCustomers.filter(c => c.id !== cachedFilesCustomerId)]
+        : allCustomers;
+      for (const customer of orderedCustomers) {
         try {
           const custDb = await customerDbService.getCustomerDatabase(customer.id);
           const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
