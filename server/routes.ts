@@ -27962,11 +27962,7 @@ This is an automated notification from your visitor management system.`;
       }
       const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      // Enforce max 5 documents per work order
-      const existing = await custDb.select({ id: isolatedSchema.ppmWorkOrderDocuments.id })
-        .from(isolatedSchema.ppmWorkOrderDocuments)
-        .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, id));
-      if (existing.length >= 5) return res.status(400).json({ error: "Maximum of 5 documents allowed per work order" });
+      // No document count cap on admin uploads — admins may attach additional documents beyond what contractors upload
       const [doc] = await custDb.insert(isolatedSchema.ppmWorkOrderDocuments)
         .values({ workOrderId: id, fileName, fileUrl, fileType: fileType || "other", uploadedBy: uploadedBy || req.user!.username })
         .returning();
