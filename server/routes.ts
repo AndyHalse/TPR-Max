@@ -28026,6 +28026,8 @@ This is an automated notification from your visitor management system.`;
   });
 
   // PUT /api/ppm/work-order/public/:token — contractor updates status / completion notes
+  // Token is rotated on every write (rolling token semantics: original email link is single-use,
+  // subsequent operations use the nextToken returned in the response).
   app.put("/api/ppm/work-order/public/:token", async (req, res) => {
     try {
       const { token } = req.params;
@@ -28048,11 +28050,17 @@ This is an automated notification from your visitor management system.`;
             if (status) updates.status = status;
             if (completionNotes !== undefined) updates.completionNotes = completionNotes;
             if (status === "completed") updates.completedDate = new Date().toISOString().split("T")[0];
+            // Rotate access token on every write (rolling token — invalidates prior link after first use)
+            const nextToken = randomBytes(24).toString("hex");
+            updates.accessToken = nextToken;
+            updates.accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
             const [updated] = await custDb.update(isolatedSchema.ppmWorkOrders)
               .set(updates)
               .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id))
               .returning();
-            return res.json(updated);
+            // Return nextToken so the mobile app can update its session token
+            const { accessToken: _t, accessTokenExpiresAt: _e, ...safeUpdated } = updated;
+            return res.json({ ...safeUpdated, nextToken });
           }
         } catch { /* skip */ }
       }
@@ -28060,6 +28068,98 @@ This is an automated notification from your visitor management system.`;
     } catch (error: unknown) {
       console.error("PUT /api/ppm/work-order/public/:token", error);
       res.status(500).json({ error: "Failed to update work order" });
+    }
+  });
+
+  // POST /api/ppm/work-order/public/:token/files — atomic contractor file upload + document record creation
+  // Combines upload and document linking in a single request to prevent orphan objects.
+  // Also rotates the access token after successful upload (rolling token).
+  app.post("/api/ppm/work-order/public/:token/files", async (req, res) => {
+    try {
+      const { token } = req.params;
+      if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+      const { data, mimeType, fileName, fileType } = req.body;
+      if (!data || !mimeType || !fileName) return res.status(400).json({ error: "Missing required fields: data, mimeType, fileName" });
+
+      // Enforce MIME-type allowlist
+      const ALLOWED_MIME_TYPES = new Set([
+        "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif",
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ]);
+      if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+        return res.status(415).json({ error: "File type not permitted. Allowed: images, PDF, Word, Excel." });
+      }
+
+      // Enforce 10 MB file size limit
+      const MAX_BASE64_BYTES = 14 * 1024 * 1024;
+      if (typeof data !== "string" || Buffer.byteLength(data, "utf8") > MAX_BASE64_BYTES) {
+        return res.status(413).json({ error: "File too large. Maximum upload size is 10 MB." });
+      }
+
+      const allCustomers = await customerDbService.getAllCustomers();
+      for (const customer of allCustomers) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+          const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
+          if (wo) {
+            // Check token expiry
+            if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) {
+              return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
+            }
+            // Pre-flight: enforce max 5 documents before any storage write
+            const existing = await custDb.select({ id: isolatedSchema.ppmWorkOrderDocuments.id })
+              .from(isolatedSchema.ppmWorkOrderDocuments)
+              .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, wo.id));
+            if (existing.length >= 5) {
+              return res.status(400).json({ error: "Maximum of 5 documents allowed per work order" });
+            }
+
+            // Upload file to object storage
+            const buffer = Buffer.from(data, "base64");
+            const objectStorageService = new ObjectStorageService();
+            const privateObjectDir = objectStorageService.getPrivateObjectDir();
+            const objectId = randomUUID();
+            const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+            const parts = fullPath.slice(1).split("/");
+            const bucketName = parts[0];
+            const objectName = parts.slice(1).join("/");
+            const bucket = objectStorageClient.bucket(bucketName);
+            const fileObj = bucket.file(objectName);
+            await fileObj.save(buffer, { contentType: mimeType, resumable: false });
+            const objectPath = `/objects/uploads/${objectId}`;
+
+            // Atomically create document record
+            const resolvedFileType = fileType || "other";
+            const [doc] = await custDb.insert(isolatedSchema.ppmWorkOrderDocuments)
+              .values({ workOrderId: wo.id, fileName, fileUrl: objectPath, fileType: resolvedFileType, uploadedBy: "contractor" })
+              .returning();
+
+            // If certificate, mark certificateUploadedAt
+            const woUpdates: Record<string, unknown> = {};
+            if (resolvedFileType === "certificate") {
+              woUpdates.certificateUploadedAt = new Date();
+            }
+            // Rotate access token (rolling token — invalidates prior link after each write)
+            const nextToken = randomBytes(24).toString("hex");
+            woUpdates.accessToken = nextToken;
+            woUpdates.accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+            await custDb.update(isolatedSchema.ppmWorkOrders)
+              .set(woUpdates)
+              .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
+
+            return res.json({ document: doc, nextToken });
+          }
+        } catch { /* skip */ }
+      }
+      res.status(404).json({ error: "Work order not found" });
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/work-order/public/:token/files", error);
+      res.status(500).json({ error: "Failed to upload file" });
     }
   });
 

@@ -78,6 +78,9 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
 
+  // currentToken starts as the URL token. After each write, the server returns a rotated
+  // nextToken so the original email link becomes single-use (rolling token semantics).
+  const [currentToken, setCurrentToken] = useState(token);
   const [completionNotes, setCompletionNotes] = useState("");
   const [fileType, setFileType] = useState("certificate");
   const [uploading, setUploading] = useState(false);
@@ -85,9 +88,9 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
   const [updateMsg, setUpdateMsg] = useState("");
 
   const { data, isLoading, error } = useQuery<{ workOrder: WorkOrder; documents: WODocument[]; asset: Asset | null }>({
-    queryKey: ["/api/ppm/work-order/public", token],
+    queryKey: ["/api/ppm/work-order/public", currentToken],
     queryFn: async () => {
-      const res = await fetch(`/api/ppm/work-order/public/${token}`);
+      const res = await fetch(`/api/ppm/work-order/public/${currentToken}`);
       if (!res.ok) throw new Error((await res.json())?.error ?? "Work order not found");
       return res.json();
     },
@@ -100,7 +103,7 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
 
   const updateMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
-      const res = await fetch(`/api/ppm/work-order/public/${token}`, {
+      const res = await fetch(`/api/ppm/work-order/public/${currentToken}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -108,8 +111,14 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
       if (!res.ok) throw new Error((await res.json())?.error ?? "Update failed");
       return res.json();
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", token] });
+    onSuccess: (result: { nextToken?: string }) => {
+      // Adopt the rotated token so subsequent requests use the new session token
+      if (result.nextToken) {
+        setCurrentToken(result.nextToken);
+        qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", result.nextToken] });
+      } else {
+        qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", currentToken] });
+      }
       setUpdateMsg("Status updated successfully.");
       setTimeout(() => setUpdateMsg(""), 3000);
     },
@@ -123,21 +132,24 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
     setUploadError("");
     try {
       const b64 = await fileToBase64(file);
-      // Upload via the token-authenticated public endpoint (no session cookie required)
-      const upRes = await fetch(`/api/ppm/work-order/public/${token}/upload`, {
+      // Atomic upload+document in a single request via the /files endpoint
+      const res = await fetch(`/api/ppm/work-order/public/${currentToken}/files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ data: b64, mimeType: file.type }),
+        body: JSON.stringify({ data: b64, mimeType: file.type, fileName: file.name, fileType }),
       });
-      if (!upRes.ok) throw new Error("File upload failed");
-      const { objectPath } = await upRes.json();
-      const docRes = await fetch(`/api/ppm/work-order/public/${token}/documents`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, fileUrl: objectPath, fileType }),
-      });
-      if (!docRes.ok) throw new Error("Could not save document");
-      qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", token] });
+      if (!res.ok) {
+        const { error: errMsg } = await res.json().catch(() => ({ error: "Upload failed" }));
+        throw new Error(errMsg ?? "Upload failed");
+      }
+      const { nextToken } = await res.json();
+      // Adopt the rotated token returned by the server
+      if (nextToken) {
+        setCurrentToken(nextToken);
+        qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", nextToken] });
+      } else {
+        qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", currentToken] });
+      }
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : "Upload failed");
     } finally {
