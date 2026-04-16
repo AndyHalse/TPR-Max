@@ -27791,13 +27791,16 @@ This is an automated notification from your visitor management system.`;
       const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
       if (!wo) return res.status(404).json({ error: "Work order not found" });
 
+      // Rotate access token on every assignment/reassignment so old recipients lose access
+      const newAccessToken = randomBytes(24).toString("hex");
+
       const [updated] = await custDb.update(isolatedSchema.ppmWorkOrders)
-        .set({ contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, assignedEmail })
+        .set({ contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, assignedEmail, accessToken: newAccessToken })
         .where(eq(isolatedSchema.ppmWorkOrders.id, id))
         .returning();
 
       // Send notification email to the assigned contractor
-      if (assignedEmail && wo.accessToken) {
+      if (assignedEmail) {
         try {
           const settingsRows = await custDb.execute(`SELECT company_name, email, phone, address FROM company_settings LIMIT 1`);
           const settings = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
@@ -27805,7 +27808,7 @@ This is an automated notification from your visitor management system.`;
           const baseUrl = process.env.REPLIT_DOMAINS
             ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
             : (process.env.PUBLIC_URL || process.env.BASE_URL || "http://localhost:5000");
-          const workOrderUrl = `${baseUrl}/ppm/work-order/${wo.accessToken}`;
+          const workOrderUrl = `${baseUrl}/ppm/work-order/${newAccessToken}`;
           const recipientName = contractorWorkerName || contractorCompanyName || "Contractor";
           const emailSvc = new EmailService(context.customerId);
           await emailSvc.sendEmail({
@@ -27970,6 +27973,48 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // POST /api/ppm/work-order/public/:token/upload — contractor uploads file to object storage (no auth required)
+  app.post("/api/ppm/work-order/public/:token/upload", async (req, res) => {
+    try {
+      const { token } = req.params;
+      if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+      const { data, mimeType } = req.body;
+      if (!data || !mimeType) return res.status(400).json({ error: "Missing data or mimeType" });
+
+      // Validate token against any customer schema
+      let tokenValid = false;
+      const allCustomers = await customerDbService.getAllCustomers();
+      for (const customer of allCustomers) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+          const [wo] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
+            .from(isolatedSchema.ppmWorkOrders)
+            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
+          if (wo) { tokenValid = true; break; }
+        } catch { /* skip */ }
+      }
+      if (!tokenValid) return res.status(403).json({ error: "Invalid or expired access token" });
+
+      // Upload file to object storage
+      const buffer = Buffer.from(data, "base64");
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const objectId = randomUUID();
+      const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+      const parts = fullPath.slice(1).split("/");
+      const bucketName = parts[0];
+      const objectName = parts.slice(1).join("/");
+      const bucket = objectStorageClient.bucket(bucketName);
+      const fileObj = bucket.file(objectName);
+      await fileObj.save(buffer, { contentType: mimeType, resumable: false });
+      const objectPath = `/objects/uploads/${objectId}`;
+      return res.json({ objectPath });
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/work-order/public/:token/upload", error);
+      res.status(500).json({ error: "Failed to upload file" });
+    }
+  });
+
   // POST /api/ppm/work-order/public/:token/documents — contractor uploads a file
   app.post("/api/ppm/work-order/public/:token/documents", async (req, res) => {
     try {
@@ -28101,6 +28146,61 @@ This is an automated notification from your visitor management system.`;
                 text: `PPM Certificate Missing: ${wo.title}\n\nThis work order was completed more than 48 hours ago but no service certificate has been uploaded.\n\nPlease upload the certificate.`,
               });
             }
+          }
+
+          // ── Auto-generate work orders from due schedules ─────────────────────
+          // Idempotent: keyed by scheduleId + nextDueDate to avoid duplicates
+          const schedules = await custDb.select().from(isolatedSchema.ppmSchedules)
+            .where(eq(isolatedSchema.ppmSchedules.status, "scheduled"));
+          const todayStr = today.toISOString().split("T")[0];
+          let generatedCount = 0;
+
+          function advanceDueDate(currentDue: string, frequency: string, customDays: number | null): string {
+            const d = new Date(currentDue);
+            switch (frequency) {
+              case "weekly":    d.setDate(d.getDate() + 7); break;
+              case "monthly":   d.setMonth(d.getMonth() + 1); break;
+              case "quarterly": d.setMonth(d.getMonth() + 3); break;
+              case "biannual":
+              case "semi-annual":
+              case "biannually": d.setMonth(d.getMonth() + 6); break;
+              case "annual":
+              case "annually":
+              case "yearly":    d.setFullYear(d.getFullYear() + 1); break;
+              case "custom":    d.setDate(d.getDate() + (customDays ?? 30)); break;
+              default:          d.setMonth(d.getMonth() + 1); break;
+            }
+            return d.toISOString().split("T")[0];
+          }
+
+          for (const schedule of schedules) {
+            if (!schedule.nextDueDate || schedule.nextDueDate > todayStr) continue;
+            // Check for existing work order for this schedule+due date (idempotent)
+            const [existing] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
+              .from(isolatedSchema.ppmWorkOrders)
+              .where(eq(isolatedSchema.ppmWorkOrders.scheduleId, schedule.id));
+            // Only create if no work order exists for this schedule (one active WO per schedule)
+            if (existing) continue;
+            const woToken = randomBytes(24).toString("hex");
+            await custDb.insert(isolatedSchema.ppmWorkOrders).values({
+              scheduleId: schedule.id,
+              assetId: schedule.assetId,
+              title: schedule.title,
+              description: schedule.notes ?? undefined,
+              status: "scheduled",
+              dueDate: schedule.nextDueDate,
+              accessToken: woToken,
+            });
+            // Advance the schedule's nextDueDate
+            const nextDue = advanceDueDate(schedule.nextDueDate, schedule.frequency, schedule.customDays ?? null);
+            await custDb.update(isolatedSchema.ppmSchedules)
+              .set({ nextDueDate: nextDue })
+              .where(eq(isolatedSchema.ppmSchedules.id, schedule.id));
+            generatedCount++;
+          }
+
+          if (generatedCount > 0) {
+            console.log(`✅ [PPM Cron] Generated ${generatedCount} work orders from schedules for customer ${customer.id}`);
           }
         } catch (custErr) {
           console.error(`[PPM Cron] Error processing customer ${customer.id}:`, custErr);

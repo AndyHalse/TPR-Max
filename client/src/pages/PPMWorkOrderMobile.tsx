@@ -112,18 +112,18 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
     setUploadError("");
     try {
       const b64 = await fileToBase64(file);
-      // Upload to object storage via the existing /api/objects/upload endpoint
-      const upRes = await fetch("/api/objects/upload", {
+      // Upload via the token-authenticated public endpoint (no session cookie required)
+      const upRes = await fetch(`/api/ppm/work-order/public/${token}/upload`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ data: b64, mimeType: file.type }),
       });
       if (!upRes.ok) throw new Error("File upload failed");
-      const { url } = await upRes.json();
+      const { objectPath } = await upRes.json();
       const docRes = await fetch(`/api/ppm/work-order/public/${token}/documents`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileName: file.name, fileUrl: url, fileType }),
+        body: JSON.stringify({ fileName: file.name, fileUrl: objectPath, fileType }),
       });
       if (!docRes.ok) throw new Error("Could not save document");
       qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", token] });
