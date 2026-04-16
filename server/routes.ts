@@ -27663,7 +27663,7 @@ This is an automated notification from your visitor management system.`;
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     try {
       const body = req.body;
-      const nextDueDate = body.nextDueDate || calcNextDueDate(body.startDate, body.frequency, body.customDays);
+      const nextDueDate = calcNextDueDate(body.startDate, body.frequency, body.customDays);
       const parsed = isolatedSchema.insertPpmScheduleSchema.parse({ ...body, nextDueDate });
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -27680,8 +27680,8 @@ This is an automated notification from your visitor management system.`;
     try {
       const { id } = req.params;
       const body = req.body;
-      // Recalculate nextDueDate if startDate or frequency changed
-      if (body.startDate && body.frequency && !body.nextDueDate) {
+      // Backend is authoritative: always recalculate nextDueDate from startDate + frequency
+      if (body.startDate && body.frequency) {
         body.nextDueDate = calcNextDueDate(body.startDate, body.frequency, body.customDays);
       }
       const parsed = isolatedSchema.insertPpmScheduleSchema.partial().parse(body);

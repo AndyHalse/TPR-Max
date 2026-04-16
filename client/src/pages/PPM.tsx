@@ -63,8 +63,8 @@ interface PpmSchedule {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const ASSET_CATEGORIES = [
-  "HVAC", "Fire & Safety", "Electrical", "Plumbing", "Lifts & Hoists",
-  "Roofing", "Security", "Gas", "Water Hygiene", "General",
+  "Electrical", "Mechanical", "Fire Safety", "HVAC", "Plumbing",
+  "Lifts & Hoists", "Gas", "Water Hygiene", "Security", "Other",
 ];
 
 const FREQUENCIES = [
