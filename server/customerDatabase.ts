@@ -437,6 +437,11 @@ export class CustomerDatabaseService {
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
+      // Add accessTokenExpiresAt column if missing (added in Task #9 update)
+      await pool.query(`
+        ALTER TABLE IF EXISTS "${schemaName}".ppm_work_orders
+        ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMP
+      `);
       console.log(`✅ PPM work order tables ensured for ${schemaName}`);
     } catch (err: any) {
       console.warn(`⚠️ PPM work order tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

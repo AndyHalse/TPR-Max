@@ -24,6 +24,16 @@ interface WorkOrder {
   certificateUploadedAt?: string | null;
 }
 
+interface Asset {
+  id: string;
+  name: string;
+  assetRef?: string | null;
+  category?: string | null;
+  location?: string | null;
+  manufacturer?: string | null;
+  modelNumber?: string | null;
+}
+
 interface WODocument {
   id: string;
   fileName: string;
@@ -74,7 +84,7 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
   const [uploadError, setUploadError] = useState("");
   const [updateMsg, setUpdateMsg] = useState("");
 
-  const { data, isLoading, error } = useQuery<{ workOrder: WorkOrder; documents: WODocument[] }>({
+  const { data, isLoading, error } = useQuery<{ workOrder: WorkOrder; documents: WODocument[]; asset: Asset | null }>({
     queryKey: ["/api/ppm/work-order/public", token],
     queryFn: async () => {
       const res = await fetch(`/api/ppm/work-order/public/${token}`);
@@ -86,6 +96,7 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
 
   const wo = data?.workOrder;
   const docs = data?.documents ?? [];
+  const asset = data?.asset ?? null;
 
   const updateMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
@@ -183,6 +194,23 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
       </div>
 
       <div className="max-w-lg mx-auto px-4 py-5 space-y-5">
+
+        {/* Asset info */}
+        {asset && (
+          <div className="bg-white rounded-xl shadow-sm border p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Building2 className="h-4 w-4 text-blue-500" />
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Asset</p>
+            </div>
+            <p className="font-semibold text-slate-900">{asset.name}</p>
+            {asset.assetRef && <p className="text-xs text-slate-500 mt-0.5">Ref: {asset.assetRef}</p>}
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-600">
+              {asset.category && <span className="flex items-center gap-1"><span className="text-xs text-slate-400">Category:</span> {asset.category}</span>}
+              {asset.location && <span className="flex items-center gap-1"><span className="text-xs text-slate-400">Location:</span> {asset.location}</span>}
+              {asset.manufacturer && <span className="flex items-center gap-1"><span className="text-xs text-slate-400">Manufacturer:</span> {asset.manufacturer}</span>}
+            </div>
+          </div>
+        )}
 
         {/* Key info */}
         <div className="bg-white rounded-xl shadow-sm border p-4 space-y-3">

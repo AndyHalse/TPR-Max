@@ -27732,9 +27732,9 @@ This is an automated notification from your visitor management system.`;
       if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
       const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const crypto = await import("crypto");
-      const accessToken = crypto.default.randomBytes(24).toString("hex");
-      const parsed = isolatedSchema.insertPpmWorkOrderSchema.parse({ ...req.body, accessToken });
+      const accessToken = randomBytes(24).toString("hex");
+      const accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
+      const parsed = isolatedSchema.insertPpmWorkOrderSchema.parse({ ...req.body, accessToken, accessTokenExpiresAt });
       const [row] = await custDb.insert(isolatedSchema.ppmWorkOrders).values(parsed).returning();
       res.json(row);
     } catch (error: unknown) {
@@ -27794,9 +27794,10 @@ This is an automated notification from your visitor management system.`;
 
       // Rotate access token on every assignment/reassignment so old recipients lose access
       const newAccessToken = randomBytes(24).toString("hex");
+      const newTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days from now
 
       const [updated] = await custDb.update(isolatedSchema.ppmWorkOrders)
-        .set({ contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, assignedEmail, accessToken: newAccessToken })
+        .set({ contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, assignedEmail, accessToken: newAccessToken, accessTokenExpiresAt: newTokenExpiresAt })
         .where(eq(isolatedSchema.ppmWorkOrders.id, id))
         .returning();
 
@@ -27932,10 +27933,21 @@ This is an automated notification from your visitor management system.`;
           const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
             .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
           if (wo) {
+            // Enforce token expiry
+            if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) {
+              return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
+            }
             const docs = await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
               .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, wo.id))
               .orderBy(isolatedSchema.ppmWorkOrderDocuments.createdAt);
-            return res.json({ workOrder: wo, documents: docs });
+            // Include asset details for the mobile contractor view
+            let asset = null;
+            if (wo.assetId) {
+              const [assetRow] = await custDb.select().from(isolatedSchema.ppmAssets)
+                .where(eq(isolatedSchema.ppmAssets.id, wo.assetId));
+              asset = assetRow ?? null;
+            }
+            return res.json({ workOrder: wo, documents: docs, asset });
           }
         } catch { /* skip this customer and try next */ }
       }
@@ -27962,6 +27974,9 @@ This is an automated notification from your visitor management system.`;
           const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
             .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
           if (wo) {
+            if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) {
+              return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
+            }
             const updates: Record<string, unknown> = {};
             if (status) updates.status = status;
             if (completionNotes !== undefined) updates.completionNotes = completionNotes;
@@ -27989,16 +28004,22 @@ This is an automated notification from your visitor management system.`;
       const { data, mimeType } = req.body;
       if (!data || !mimeType) return res.status(400).json({ error: "Missing data or mimeType" });
 
-      // Validate token against any customer schema
+      // Validate token against any customer schema and check expiry
       let tokenValid = false;
       const allCustomers = await customerDbService.getAllCustomers();
       for (const customer of allCustomers) {
         try {
           const custDb = await customerDbService.getCustomerDatabase(customer.id);
-          const [wo] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
+          const [wo] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id, accessTokenExpiresAt: isolatedSchema.ppmWorkOrders.accessTokenExpiresAt })
             .from(isolatedSchema.ppmWorkOrders)
             .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
-          if (wo) { tokenValid = true; break; }
+          if (wo) {
+            if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) {
+              return res.status(410).json({ error: "This work order link has expired." });
+            }
+            tokenValid = true;
+            break;
+          }
         } catch { /* skip */ }
       }
       if (!tokenValid) return res.status(403).json({ error: "Invalid or expired access token" });
@@ -28204,6 +28225,7 @@ This is an automated notification from your visitor management system.`;
               ));
             if (existing) continue;
             const woToken = randomBytes(24).toString("hex");
+            const woTokenExpiry = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
             await custDb.insert(isolatedSchema.ppmWorkOrders).values({
               scheduleId: schedule.id,
               assetId: schedule.assetId,
@@ -28212,6 +28234,7 @@ This is an automated notification from your visitor management system.`;
               status: "scheduled",
               dueDate: schedule.nextDueDate,
               accessToken: woToken,
+              accessTokenExpiresAt: woTokenExpiry,
             });
             // Advance the schedule's nextDueDate
             const nextDue = advanceDueDate(schedule.nextDueDate, schedule.frequency, schedule.customDays ?? null);

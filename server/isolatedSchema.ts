@@ -2208,6 +2208,7 @@ export const ppmWorkOrders = pgTable("ppm_work_orders", {
   notes: text("notes"),
   completionNotes: text("completion_notes"),
   accessToken: varchar("access_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"), // Token expiry — set on create/reassignment
   requiresCertificate: boolean("requires_certificate").default(false),
   certificateUploadedAt: timestamp("certificate_uploaded_at"),
   createdAt: timestamp("created_at").defaultNow(),
