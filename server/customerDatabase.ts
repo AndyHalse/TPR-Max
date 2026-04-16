@@ -451,6 +451,12 @@ export class CustomerDatabaseService {
         ALTER TABLE IF EXISTS "${schemaName}".ppm_work_orders
         ADD COLUMN IF NOT EXISTS missing_cert_alerted_at TIMESTAMP
       `);
+      // Index access_token for efficient public token lookup (avoids full-table scan per request)
+      await pool.query(`
+        CREATE INDEX IF NOT EXISTS idx_ppm_work_orders_access_token
+        ON "${schemaName}".ppm_work_orders (access_token)
+        WHERE access_token IS NOT NULL
+      `);
       console.log(`✅ PPM work order tables ensured for ${schemaName}`);
     } catch (err: any) {
       console.warn(`⚠️ PPM work order tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
