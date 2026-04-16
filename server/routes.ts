@@ -27712,9 +27712,10 @@ This is an automated notification from your visitor management system.`;
 
   // ── PPM Work Orders ──────────────────────────────────────────────────────────
 
-  // GET /api/ppm/work-orders — list all work orders for customer
+  // GET /api/ppm/work-orders — list all work orders for customer (admin only; accessToken omitted for safety)
   app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
     try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
       const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders).orderBy(isolatedSchema.ppmWorkOrders.createdAt);
@@ -27854,9 +27855,10 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // GET /api/ppm/work-orders/:id/documents — list documents for a work order
+  // GET /api/ppm/work-orders/:id/documents — list documents for a work order (admin only)
   app.get("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => {
     try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
       const { id } = req.params;
       const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -27870,9 +27872,10 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // POST /api/ppm/work-orders/:id/documents — upload a document (admin side, base64)
+  // POST /api/ppm/work-orders/:id/documents — upload a document (admin only)
   app.post("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => {
     try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
       const { id } = req.params;
       const { fileName, fileUrl, fileType, uploadedBy } = req.body;
       if (!fileName || !fileUrl) return res.status(400).json({ error: "fileName and fileUrl required" });
@@ -28050,10 +28053,12 @@ This is an automated notification from your visitor management system.`;
   });
 
   // ── PPM Daily Alert Cron ──────────────────────────────────────────────────────
-  // Runs at 07:00 Europe/London every day:
+  // Runs at configurable hour (PPM_ALERT_HOUR env var, default 7) Europe/London every day:
   //  (a) marks work orders overdue when past due date and not completed
   //  (b) alerts admin + contractor when completed work order has no cert after 48h
-  cron.schedule("0 7 * * *", async () => {
+  //  (c) auto-generates work orders from schedules that have reached their next due date
+  const ppmAlertHour = parseInt(process.env.PPM_ALERT_HOUR ?? "7", 10);
+  cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
     try {
       console.log("🔧 [PPM Cron] Running daily PPM alert check…");
       const allCustomers = await customerDbService.getAllCustomers();
@@ -28175,11 +28180,13 @@ This is an automated notification from your visitor management system.`;
 
           for (const schedule of schedules) {
             if (!schedule.nextDueDate || schedule.nextDueDate > todayStr) continue;
-            // Check for existing work order for this schedule+due date (idempotent)
+            // Check by (scheduleId, dueDate) so recurring schedules generate a new WO each cycle
             const [existing] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
               .from(isolatedSchema.ppmWorkOrders)
-              .where(eq(isolatedSchema.ppmWorkOrders.scheduleId, schedule.id));
-            // Only create if no work order exists for this schedule (one active WO per schedule)
+              .where(and(
+                eq(isolatedSchema.ppmWorkOrders.scheduleId, schedule.id),
+                eq(isolatedSchema.ppmWorkOrders.dueDate, schedule.nextDueDate)
+              ));
             if (existing) continue;
             const woToken = randomBytes(24).toString("hex");
             await custDb.insert(isolatedSchema.ppmWorkOrders).values({

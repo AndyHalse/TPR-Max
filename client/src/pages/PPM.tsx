@@ -256,7 +256,7 @@ function DashboardSummary({ onWorkOrdersClick }: { onWorkOrdersClick: (filter?: 
     { label: "Active Schedules", value: activeSchedules, color: "text-foreground", onClick: undefined },
     { label: "Due This Month", value: dueThisMonth, color: dueThisMonth > 0 ? "text-amber-600" : "text-foreground", onClick: undefined },
     { label: "Overdue Work Orders", value: overdueWOs, color: overdueWOs > 0 ? "text-red-600" : "text-foreground", onClick: () => onWorkOrdersClick("overdue") },
-    { label: "Awaiting Certificates", value: awaitingCerts, color: awaitingCerts > 0 ? "text-amber-600" : "text-foreground", onClick: () => onWorkOrdersClick("completed") },
+    { label: "Awaiting Certificates", value: awaitingCerts, color: awaitingCerts > 0 ? "text-amber-600" : "text-foreground", onClick: () => onWorkOrdersClick("awaiting-cert") },
   ];
 
   return (
@@ -966,7 +966,9 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
 
   // Apply filters
   const filtered = workOrders.filter(w => {
-    if (filterStatus !== "all" && w.status !== filterStatus) return false;
+    if (filterStatus === "awaiting-cert") {
+      if (!(w.status === "completed" && w.requiresCertificate && !w.certificateUploadedAt)) return false;
+    } else if (filterStatus !== "all" && w.status !== filterStatus) return false;
     if (filterAsset !== "all" && w.assetId !== filterAsset) return false;
     if (filterContractor && !(w.contractorCompanyName?.toLowerCase().includes(filterContractor.toLowerCase()) || w.contractorWorkerName?.toLowerCase().includes(filterContractor.toLowerCase()))) return false;
     if (filterDateFrom && w.dueDate && w.dueDate < filterDateFrom) return false;
@@ -1038,6 +1040,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
             <SelectContent>
               <SelectItem value="all">All Statuses</SelectItem>
               {WO_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+              <SelectItem value="awaiting-cert">Awaiting Certificate</SelectItem>
             </SelectContent>
           </Select>
           <Select value={filterAsset} onValueChange={setFilterAsset}>
