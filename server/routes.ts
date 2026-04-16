@@ -28387,7 +28387,7 @@ This is an automated notification from your visitor management system.`;
 
           // Alert for missing certificates (only those not yet alerted; missingCertAlertedAt guards re-send)
           for (const wo of missingCertWOs) {
-            const recipients = [adminEmail, wo.assignedEmail].filter((e): e is string => !!e);
+            const recipients = [...new Set([adminEmail, wo.assignedEmail].filter((e): e is string => !!e))];
             for (const email of recipients) {
               await emailSvc.sendEmail({
                 to: email,
