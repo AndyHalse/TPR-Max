@@ -28110,6 +28110,27 @@ This is an automated notification from your visitor management system.`;
       }
       if (!tokenValid) return res.status(403).json({ error: "Invalid or expired access token" });
 
+      // Pre-flight: enforce 5-document cap before accepting storage upload to prevent orphan-object abuse
+      let docCountBlocked = false;
+      for (const customer of allCustomers) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+          const [wo] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
+            .from(isolatedSchema.ppmWorkOrders)
+            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
+          if (wo) {
+            const existing = await custDb.select({ id: isolatedSchema.ppmWorkOrderDocuments.id })
+              .from(isolatedSchema.ppmWorkOrderDocuments)
+              .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, wo.id));
+            if (existing.length >= 5) { docCountBlocked = true; }
+            break;
+          }
+        } catch { /* skip */ }
+      }
+      if (docCountBlocked) {
+        return res.status(400).json({ error: "Maximum of 5 documents allowed per work order" });
+      }
+
       // Upload file to object storage
       const buffer = Buffer.from(data, "base64");
       const objectStorageService = new ObjectStorageService();
