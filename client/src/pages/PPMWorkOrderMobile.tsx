@@ -115,6 +115,8 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
       // Adopt the rotated token so subsequent requests use the new session token
       if (result.nextToken) {
         setCurrentToken(result.nextToken);
+        // Update the browser URL so a page refresh still works with the new token
+        window.history.replaceState(null, "", `/ppm/work-order/${result.nextToken}`);
         qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", result.nextToken] });
       } else {
         qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", currentToken] });
@@ -146,6 +148,8 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
       // Adopt the rotated token returned by the server
       if (nextToken) {
         setCurrentToken(nextToken);
+        // Update browser URL so a page refresh still works with the new token
+        window.history.replaceState(null, "", `/ppm/work-order/${nextToken}`);
         qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", nextToken] });
       } else {
         qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", currentToken] });
