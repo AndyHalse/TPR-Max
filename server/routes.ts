@@ -27939,9 +27939,19 @@ This is an automated notification from your visitor management system.`;
   app.delete("/api/ppm/work-orders/:id/documents/:docId", requireAuth, async (req, res) => {
     try {
       if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
-      const { docId } = req.params;
+      const { id, docId } = req.params;
       const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      // Verify docId belongs to this work order to prevent accidental cross-WO deletes
+      const [doc] = await custDb.select({ id: isolatedSchema.ppmWorkOrderDocuments.id })
+        .from(isolatedSchema.ppmWorkOrderDocuments)
+        .where(
+          and(
+            eq(isolatedSchema.ppmWorkOrderDocuments.id, docId),
+            eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, id)
+          )
+        );
+      if (!doc) return res.status(404).json({ error: "Document not found on this work order" });
       await custDb.delete(isolatedSchema.ppmWorkOrderDocuments).where(eq(isolatedSchema.ppmWorkOrderDocuments.id, docId));
       res.json({ success: true });
     } catch (error: unknown) {
