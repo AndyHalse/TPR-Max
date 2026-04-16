@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -143,6 +143,24 @@ function freqLabel(f: string) {
   return FREQUENCIES.find(x => x.value === f)?.label ?? f;
 }
 
+function toastError(error: unknown, toast: ReturnType<typeof useToast>["toast"]) {
+  toast({ title: "Error", description: error instanceof Error ? error.message : "An unexpected error occurred", variant: "destructive" });
+}
+
+function clientCalcNextDueDate(startDate: string, frequency: string, customDays: string): string {
+  if (!startDate || !frequency) return "";
+  const d = new Date(startDate);
+  switch (frequency) {
+    case "weekly":    d.setDate(d.getDate() + 7); break;
+    case "monthly":   d.setMonth(d.getMonth() + 1); break;
+    case "quarterly": d.setMonth(d.getMonth() + 3); break;
+    case "annual":    d.setFullYear(d.getFullYear() + 1); break;
+    case "custom":    d.setDate(d.getDate() + (parseInt(customDays) || 30)); break;
+    default: break;
+  }
+  return d.toISOString().split("T")[0];
+}
+
 // ─── Assets Tab ──────────────────────────────────────────────────────────────
 
 function AssetsTab() {
@@ -158,19 +176,19 @@ function AssetsTab() {
   const { data: assets = [], isLoading } = useQuery<PpmAsset[]>({ queryKey: ["/api/ppm/assets"] });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/ppm/assets", data),
+    mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/assets", data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); setOpen(false); toast({ title: "Asset created" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (error: unknown) => toastError(error, toast),
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PUT", `/api/ppm/assets/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/assets/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); setOpen(false); toast({ title: "Asset updated" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (error: unknown) => toastError(error, toast),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/assets/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); toast({ title: "Asset deleted" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (error: unknown) => toastError(error, toast),
   });
 
   function openNew() { setEditing(null); setForm(emptyForm()); setOpen(true); }
@@ -312,19 +330,19 @@ function TemplatesTab() {
   const { data: templates = [], isLoading } = useQuery<PpmTemplate[]>({ queryKey: ["/api/ppm/templates"] });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/ppm/templates", data),
+    mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/templates", data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); setOpen(false); toast({ title: "Template created" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (error: unknown) => toastError(error, toast),
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PUT", `/api/ppm/templates/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/templates/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); setOpen(false); toast({ title: "Template updated" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (error: unknown) => toastError(error, toast),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/templates/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); toast({ title: "Template deleted" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (error: unknown) => toastError(error, toast),
   });
 
   function openNew() { setEditing(null); setForm(emptyForm()); setOpen(true); }
@@ -506,20 +524,28 @@ function SchedulesTab() {
   const { data: templates = [] } = useQuery<PpmTemplate[]>({ queryKey: ["/api/ppm/templates"] });
 
   const createMutation = useMutation({
-    mutationFn: (data: any) => apiRequest("POST", "/api/ppm/schedules", data),
+    mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/schedules", data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); setOpen(false); toast({ title: "Schedule created" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (error: unknown) => toastError(error, toast),
   });
   const updateMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PUT", `/api/ppm/schedules/${id}`, data),
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/schedules/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); setOpen(false); toast({ title: "Schedule updated" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (error: unknown) => toastError(error, toast),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/schedules/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); toast({ title: "Schedule deleted" }); },
-    onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
+    onError: (error: unknown) => toastError(error, toast),
   });
+
+  // Auto-calculate nextDueDate from startDate + frequency when creating a new schedule
+  useEffect(() => {
+    if (!editing && form.startDate && form.frequency) {
+      const calculated = clientCalcNextDueDate(form.startDate, form.frequency, form.customDays);
+      setForm(f => ({ ...f, nextDueDate: calculated }));
+    }
+  }, [form.startDate, form.frequency, form.customDays, editing]);
 
   function openNew() { setEditing(null); setForm(emptyForm()); setOpen(true); }
   function openEdit(s: PpmSchedule) {
@@ -676,8 +702,9 @@ function SchedulesTab() {
                 <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
               </div>
               <div>
-                <Label>Next Due Date</Label>
-                <Input type="date" value={form.nextDueDate} onChange={e => setForm(f => ({ ...f, nextDueDate: e.target.value }))} placeholder="Auto-calculated if left blank" />
+                <Label>Next Due Date {!editing && <span className="text-xs text-muted-foreground">(auto-calculated)</span>}</Label>
+                <Input type="date" value={form.nextDueDate} onChange={e => setForm(f => ({ ...f, nextDueDate: e.target.value }))} />
+                {!editing && form.nextDueDate && <p className="text-xs text-muted-foreground mt-1">Calculated from start date + frequency. Override if needed.</p>}
               </div>
               <div>
                 <Label>Last Completed</Label>
