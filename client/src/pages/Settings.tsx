@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical, HardHat, AlertTriangle, Wand2, ScrollText } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical, HardHat, AlertTriangle, Wand2, ScrollText, Wrench } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment, Report } from "@shared/schema";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -7159,6 +7159,24 @@ export default function Settings() {
                     checked={currentSettings?.featureMartynLaw !== false}
                     onCheckedChange={(checked) => handleInputChange("featureMartynLaw", checked)}
                     data-testid="toggle-martyn-law"
+                  />
+                </div>
+
+                {/* PPM */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-slate-100 rounded-lg">
+                      <Wrench className="w-5 h-5 text-slate-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Planned Preventative Maintenance (PPM)</h4>
+                      <p className="text-xs text-variable">Asset registry, maintenance templates & scheduling for facilities management</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featurePPM === true}
+                    onCheckedChange={(checked) => handleInputChange("featurePPM", checked)}
+                    data-testid="toggle-ppm"
                   />
                 </div>
               </div>

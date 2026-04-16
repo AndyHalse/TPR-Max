@@ -27509,6 +27509,200 @@ This is an automated notification from your visitor management system.`;
     }
   }
 
+  // ── PPM (Planned Preventative Maintenance) routes ───────────────────────────
+
+  // Helper: calculate nextDueDate from startDate + frequency
+  function calcNextDueDate(startDate: string, frequency: string, customDays?: number | null): string {
+    const d = new Date(startDate);
+    if (isNaN(d.getTime())) return startDate;
+    switch (frequency) {
+      case "weekly":    d.setDate(d.getDate() + 7); break;
+      case "monthly":   d.setMonth(d.getMonth() + 1); break;
+      case "quarterly": d.setMonth(d.getMonth() + 3); break;
+      case "annual":    d.setFullYear(d.getFullYear() + 1); break;
+      case "custom":    d.setDate(d.getDate() + (customDays ?? 30)); break;
+      default:          d.setMonth(d.getMonth() + 1); break;
+    }
+    return d.toISOString().split('T')[0];
+  }
+
+  // PPM Assets
+  app.get("/api/ppm/assets", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const rows = await custDb.select().from(isolatedSchema.ppmAssets).orderBy(isolatedSchema.ppmAssets.name);
+      res.json(rows);
+    } catch (e: any) {
+      console.error("GET /api/ppm/assets", e);
+      res.status(500).json({ error: "Failed to fetch PPM assets" });
+    }
+  });
+
+  app.post("/api/ppm/assets", requireAuth, async (req, res) => {
+    try {
+      const parsed = isolatedSchema.insertPpmAssetSchema.parse(req.body);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [row] = await custDb.insert(isolatedSchema.ppmAssets).values(parsed).returning();
+      res.status(201).json(row);
+    } catch (e: any) {
+      console.error("POST /api/ppm/assets", e);
+      res.status(400).json({ error: e.message || "Failed to create PPM asset" });
+    }
+  });
+
+  app.put("/api/ppm/assets/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const parsed = isolatedSchema.insertPpmAssetSchema.partial().parse(req.body);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [row] = await custDb.update(isolatedSchema.ppmAssets).set(parsed).where(eq(isolatedSchema.ppmAssets.id, id)).returning();
+      if (!row) return res.status(404).json({ error: "Asset not found" });
+      res.json(row);
+    } catch (e: any) {
+      console.error("PUT /api/ppm/assets/:id", e);
+      res.status(400).json({ error: e.message || "Failed to update PPM asset" });
+    }
+  });
+
+  app.delete("/api/ppm/assets/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      await custDb.delete(isolatedSchema.ppmAssets).where(eq(isolatedSchema.ppmAssets.id, id));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error("DELETE /api/ppm/assets/:id", e);
+      res.status(500).json({ error: "Failed to delete PPM asset" });
+    }
+  });
+
+  // PPM Templates
+  app.get("/api/ppm/templates", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const rows = await custDb.select().from(isolatedSchema.ppmTemplates).orderBy(isolatedSchema.ppmTemplates.name);
+      res.json(rows);
+    } catch (e: any) {
+      console.error("GET /api/ppm/templates", e);
+      res.status(500).json({ error: "Failed to fetch PPM templates" });
+    }
+  });
+
+  app.post("/api/ppm/templates", requireAuth, async (req, res) => {
+    try {
+      const parsed = isolatedSchema.insertPpmTemplateSchema.parse(req.body);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [row] = await custDb.insert(isolatedSchema.ppmTemplates).values(parsed).returning();
+      res.status(201).json(row);
+    } catch (e: any) {
+      console.error("POST /api/ppm/templates", e);
+      res.status(400).json({ error: e.message || "Failed to create PPM template" });
+    }
+  });
+
+  app.put("/api/ppm/templates/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const parsed = isolatedSchema.insertPpmTemplateSchema.partial().parse(req.body);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [row] = await custDb.update(isolatedSchema.ppmTemplates).set(parsed).where(eq(isolatedSchema.ppmTemplates.id, id)).returning();
+      if (!row) return res.status(404).json({ error: "Template not found" });
+      res.json(row);
+    } catch (e: any) {
+      console.error("PUT /api/ppm/templates/:id", e);
+      res.status(400).json({ error: e.message || "Failed to update PPM template" });
+    }
+  });
+
+  app.delete("/api/ppm/templates/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      await custDb.delete(isolatedSchema.ppmTemplates).where(eq(isolatedSchema.ppmTemplates.id, id));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error("DELETE /api/ppm/templates/:id", e);
+      res.status(500).json({ error: "Failed to delete PPM template" });
+    }
+  });
+
+  // PPM Schedules
+  app.get("/api/ppm/schedules", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const rows = await custDb.select().from(isolatedSchema.ppmSchedules).orderBy(isolatedSchema.ppmSchedules.nextDueDate);
+      // Compute overdue status at query time
+      const today = new Date().toISOString().split('T')[0];
+      const enriched = rows.map(r => ({
+        ...r,
+        status: r.status !== "completed" && r.status !== "cancelled" && r.nextDueDate < today ? "overdue" : r.status,
+      }));
+      res.json(enriched);
+    } catch (e: any) {
+      console.error("GET /api/ppm/schedules", e);
+      res.status(500).json({ error: "Failed to fetch PPM schedules" });
+    }
+  });
+
+  app.post("/api/ppm/schedules", requireAuth, async (req, res) => {
+    try {
+      const body = req.body;
+      const nextDueDate = body.nextDueDate || calcNextDueDate(body.startDate, body.frequency, body.customDays);
+      const parsed = isolatedSchema.insertPpmScheduleSchema.parse({ ...body, nextDueDate });
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [row] = await custDb.insert(isolatedSchema.ppmSchedules).values(parsed).returning();
+      res.status(201).json(row);
+    } catch (e: any) {
+      console.error("POST /api/ppm/schedules", e);
+      res.status(400).json({ error: e.message || "Failed to create PPM schedule" });
+    }
+  });
+
+  app.put("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const body = req.body;
+      // Recalculate nextDueDate if startDate or frequency changed
+      if (body.startDate && body.frequency && !body.nextDueDate) {
+        body.nextDueDate = calcNextDueDate(body.startDate, body.frequency, body.customDays);
+      }
+      const parsed = isolatedSchema.insertPpmScheduleSchema.partial().parse(body);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [row] = await custDb.update(isolatedSchema.ppmSchedules).set(parsed).where(eq(isolatedSchema.ppmSchedules.id, id)).returning();
+      if (!row) return res.status(404).json({ error: "Schedule not found" });
+      res.json(row);
+    } catch (e: any) {
+      console.error("PUT /api/ppm/schedules/:id", e);
+      res.status(400).json({ error: e.message || "Failed to update PPM schedule" });
+    }
+  });
+
+  app.delete("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      await custDb.delete(isolatedSchema.ppmSchedules).where(eq(isolatedSchema.ppmSchedules.id, id));
+      res.json({ success: true });
+    } catch (e: any) {
+      console.error("DELETE /api/ppm/schedules/:id", e);
+      res.status(500).json({ error: "Failed to delete PPM schedule" });
+    }
+  });
+
+  // ── End PPM routes ──────────────────────────────────────────────────────────
+
   const httpServer = existingServer || createServer(app);
   
   // Initialize WebSocket server for real-time muster updates

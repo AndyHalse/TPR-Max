@@ -486,6 +486,7 @@ export const companySettings = pgTable("company_settings", {
   featureEmailOutbox: boolean("feature_email_outbox").default(true),
   featureMartynLaw: boolean("feature_martyn_law").default(true),
   featureIncidentReports: boolean("feature_incident_reports").default(true),
+  featurePPM: boolean("feature_ppm").default(false),
   
   // Zones configuration
   zonesEnabled: boolean("zones_enabled").default(false),
@@ -2128,4 +2129,61 @@ export const biostarDevices = pgTable("biostar_devices", {
 
 export const insertBiostarDeviceSchema = createInsertSchema(biostarDevices).omit({ syncedAt: true, updatedAt: true });
 export type InsertBiostarDevice = z.infer<typeof insertBiostarDeviceSchema>;
+
+// ── PPM (Planned Preventative Maintenance) ───────────────────────────────────
+
+export const ppmAssets = pgTable("ppm_assets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  assetRef: text("asset_ref"),           // Internal reference / asset tag
+  category: text("category"),            // e.g. HVAC, Fire, Electrical, Plumbing
+  location: text("location"),            // e.g. Floor 2 / Room 201
+  manufacturer: text("manufacturer"),
+  modelNumber: text("model_number"),
+  serialNumber: text("serial_number"),
+  installDate: text("install_date"),     // ISO date string
+  notes: text("notes"),
+  status: text("status").notNull().default("active"), // active | decommissioned
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPpmAssetSchema = createInsertSchema(ppmAssets).omit({ id: true, createdAt: true });
+export type InsertPpmAsset = z.infer<typeof insertPpmAssetSchema>;
+export type PpmAsset = typeof ppmAssets.$inferSelect;
+
+export const ppmTemplates = pgTable("ppm_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category"),            // matches asset categories
+  frequency: text("frequency").notNull().default("monthly"), // weekly | monthly | quarterly | annual | custom
+  customDays: integer("custom_days"),    // only used when frequency = custom
+  estimatedHours: text("estimated_hours"), // e.g. "2.5"
+  checklist: text("checklist"),          // JSON array of checklist items stored as text
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPpmTemplateSchema = createInsertSchema(ppmTemplates).omit({ id: true, createdAt: true });
+export type InsertPpmTemplate = z.infer<typeof insertPpmTemplateSchema>;
+export type PpmTemplate = typeof ppmTemplates.$inferSelect;
+
+export const ppmSchedules = pgTable("ppm_schedules", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assetId: varchar("asset_id").notNull().references(() => ppmAssets.id, { onDelete: "cascade" }),
+  templateId: varchar("template_id").references(() => ppmTemplates.id, { onDelete: "set null" }),
+  title: text("title").notNull(),        // Copy of template name or custom title
+  frequency: text("frequency").notNull().default("monthly"),
+  customDays: integer("custom_days"),
+  startDate: text("start_date").notNull(), // ISO date string
+  nextDueDate: text("next_due_date").notNull(), // Calculated from startDate + frequency
+  lastCompletedDate: text("last_completed_date"),
+  assignedTo: text("assigned_to"),       // Contractor/engineer name or company
+  status: text("status").notNull().default("scheduled"), // scheduled | overdue | completed | cancelled
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPpmScheduleSchema = createInsertSchema(ppmSchedules).omit({ id: true, createdAt: true });
+export type InsertPpmSchedule = z.infer<typeof insertPpmScheduleSchema>;
+export type PpmSchedule = typeof ppmSchedules.$inferSelect;
 export type BiostarDevice = typeof biostarDevices.$inferSelect;

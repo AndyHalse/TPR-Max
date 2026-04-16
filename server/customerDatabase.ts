@@ -337,6 +337,66 @@ export class CustomerDatabaseService {
       console.warn(`⚠️ zone_sweeps table ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Ensure feature_ppm column exists in company_settings (PPM module migration)
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_ppm BOOLEAN DEFAULT false`);
+    } catch (err: any) {
+      console.warn(`⚠️ feature_ppm column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // Ensure PPM tables exist (PPM module migration)
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".ppm_assets (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          asset_ref TEXT,
+          category TEXT,
+          location TEXT,
+          manufacturer TEXT,
+          model_number TEXT,
+          serial_number TEXT,
+          install_date TEXT,
+          notes TEXT,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".ppm_templates (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          description TEXT,
+          category TEXT,
+          frequency TEXT NOT NULL DEFAULT 'monthly',
+          custom_days INTEGER,
+          estimated_hours TEXT,
+          checklist TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".ppm_schedules (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          asset_id VARCHAR NOT NULL REFERENCES "${schemaName}".ppm_assets(id) ON DELETE CASCADE,
+          template_id VARCHAR REFERENCES "${schemaName}".ppm_templates(id) ON DELETE SET NULL,
+          title TEXT NOT NULL,
+          frequency TEXT NOT NULL DEFAULT 'monthly',
+          custom_days INTEGER,
+          start_date TEXT NOT NULL,
+          next_due_date TEXT NOT NULL,
+          last_completed_date TEXT,
+          assigned_to TEXT,
+          status TEXT NOT NULL DEFAULT 'scheduled',
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log(`✅ PPM tables ensured for ${schemaName}`);
+    } catch (err: any) {
+      console.warn(`⚠️ PPM tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure admin user exists in this customer schema (critical for production)
     try {
       await this.ensureAdminUserExists(customerId, db);

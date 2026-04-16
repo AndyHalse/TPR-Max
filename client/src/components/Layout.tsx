@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
@@ -212,6 +212,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/time-attendance", icon: Clock, label: "T&A Report", featureKey: "featureTimeAttendance", defaultOn: true },
     { path: "/muster", icon: ListChecks, label: "Muster List", alwaysVisible: true },
     { path: "/incident-reports", icon: ScrollText, label: "Incident Reports", featureKey: "featureIncidentReports", defaultOn: true },
+    { path: "/ppm", icon: Wrench, label: "PPM", featureKey: "featurePPM", defaultOn: false },
     { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw" },
     { path: "/reports", icon: FileText, label: "Reports", alwaysVisible: true },
     { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings", defaultOn: true },
