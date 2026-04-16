@@ -79,7 +79,6 @@ interface PpmWorkOrder {
   completedDate?: string | null;
   notes?: string | null;
   completionNotes?: string | null;
-  accessToken?: string | null;
   requiresCertificate?: boolean | null;
   certificateUploadedAt?: string | null;
   createdAt?: string | null;
@@ -869,6 +868,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   // Dialogs/sheets
   const [showCreate, setShowCreate] = useState(false);
   const [selectedWO, setSelectedWO] = useState<PpmWorkOrder | null>(null);
+  const [contractorLink, setContractorLink] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
 
   // Create form
@@ -979,8 +979,9 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   const statusOrder: Record<string, number> = { overdue: 0, in_progress: 1, scheduled: 2, completed: 3 };
   const sortedWOs = [...filtered].sort((a, b) => (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5));
 
-  function openDetail(wo: PpmWorkOrder) {
+  async function openDetail(wo: PpmWorkOrder) {
     setSelectedWO(wo);
+    setContractorLink(null);
     setAssignForm({
       contractorCompanyId: wo.contractorCompanyId ?? "",
       contractorCompanyName: wo.contractorCompanyName ?? "",
@@ -990,6 +991,14 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
     });
     setSelectedCompanyIdForWorkers(wo.contractorCompanyId ?? "");
     setShowDetail(true);
+    // Fetch contractor link separately so the token is never part of the list payload
+    try {
+      const res = await fetch(`/api/ppm/work-orders/${wo.id}/token`, { credentials: "include" });
+      if (res.ok) {
+        const data = await res.json();
+        setContractorLink(data.contractorUrl ?? null);
+      }
+    } catch { /* non-critical — link simply won't be shown */ }
   }
 
   async function handleDocUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -1316,16 +1325,16 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                       <Mail className="h-3.5 w-3.5 mr-1.5" />
                       {assignMutation.isPending ? "Assigning…" : "Assign & Send Email"}
                     </Button>
-                    {selectedWO.accessToken && (
+                    {contractorLink && (
                       <p className="text-xs text-muted-foreground">
                         Contractor link:{" "}
                         <a
-                          href={`/ppm/work-order/${selectedWO.accessToken}`}
+                          href={contractorLink}
                           target="_blank"
                           rel="noreferrer"
                           className="text-primary underline underline-offset-2"
                         >
-                          /ppm/work-order/{selectedWO.accessToken.slice(0, 8)}…
+                          {contractorLink.replace(/^https?:\/\/[^/]+/, "").slice(0, 28)}…
                         </a>
                       </p>
                     )}

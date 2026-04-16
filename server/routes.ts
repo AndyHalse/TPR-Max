@@ -27712,17 +27712,45 @@ This is an automated notification from your visitor management system.`;
 
   // ── PPM Work Orders ──────────────────────────────────────────────────────────
 
-  // GET /api/ppm/work-orders — list all work orders for customer (admin only; accessToken omitted for safety)
+  // GET /api/ppm/work-orders — list all work orders for customer (admin only; tokens omitted from list)
   app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
     try {
       if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
       const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders).orderBy(isolatedSchema.ppmWorkOrders.createdAt);
-      res.json(rows);
+      // Omit bearer token fields from list payload; use GET /api/ppm/work-orders/:id/token to get link
+      const sanitized = rows.map(({ accessToken: _t, accessTokenExpiresAt: _e, ...rest }) => rest);
+      res.json(sanitized);
     } catch (error: unknown) {
       console.error("GET /api/ppm/work-orders", error);
       res.status(500).json({ error: "Failed to fetch PPM work orders" });
+    }
+  });
+
+  // GET /api/ppm/work-orders/:id/token — return the contractor link for a specific work order (admin only)
+  app.get("/api/ppm/work-orders/:id/token", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const { id } = req.params;
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [wo] = await custDb.select({
+        accessToken: isolatedSchema.ppmWorkOrders.accessToken,
+        accessTokenExpiresAt: isolatedSchema.ppmWorkOrders.accessTokenExpiresAt,
+      }).from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+      if (!wo) return res.status(404).json({ error: "Work order not found" });
+      const baseUrl = process.env.REPLIT_DOMAINS
+        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+        : (process.env.PUBLIC_URL || process.env.BASE_URL || "http://localhost:5000");
+      res.json({
+        accessToken: wo.accessToken,
+        accessTokenExpiresAt: wo.accessTokenExpiresAt,
+        contractorUrl: wo.accessToken ? `${baseUrl}/ppm/work-order/${wo.accessToken}` : null,
+      });
+    } catch (error: unknown) {
+      console.error("GET /api/ppm/work-orders/:id/token", error);
+      res.status(500).json({ error: "Failed to fetch work order token" });
     }
   });
 
@@ -28059,6 +28087,10 @@ This is an automated notification from your visitor management system.`;
           const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
             .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
           if (wo) {
+            // Enforce token expiry before allowing any write
+            if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) {
+              return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
+            }
             // Enforce max 5 documents per work order server-side
             const existingDocs = await custDb.select({ id: isolatedSchema.ppmWorkOrderDocuments.id })
               .from(isolatedSchema.ppmWorkOrderDocuments)
