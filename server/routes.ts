@@ -27908,6 +27908,10 @@ This is an automated notification from your visitor management system.`;
       const { id } = req.params;
       const { fileName, fileUrl, fileType, uploadedBy } = req.body;
       if (!fileName || !fileUrl) return res.status(400).json({ error: "fileName and fileUrl required" });
+      // Only allow paths produced by the object storage upload endpoint
+      if (typeof fileUrl !== "string" || !fileUrl.startsWith("/objects/")) {
+        return res.status(400).json({ error: "Invalid file URL — must be an object storage path" });
+      }
       const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       // Enforce max 5 documents per work order
@@ -28079,6 +28083,10 @@ This is an automated notification from your visitor management system.`;
       if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
       const { fileName, fileUrl, fileType } = req.body;
       if (!fileName || !fileUrl) return res.status(400).json({ error: "fileName and fileUrl required" });
+      // Only allow paths produced by the object storage upload endpoint to prevent link injection
+      if (typeof fileUrl !== "string" || !fileUrl.startsWith("/objects/")) {
+        return res.status(400).json({ error: "Invalid file URL — must be an object storage path" });
+      }
 
       const allCustomers = await customerDbService.getAllCustomers();
       for (const customer of allCustomers) {
