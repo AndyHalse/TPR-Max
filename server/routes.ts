@@ -27824,6 +27824,33 @@ This is an automated notification from your visitor management system.`;
       const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
       if (!wo) return res.status(404).json({ error: "Work order not found" });
 
+      // Validate contractor IDs against the contractors tables to prevent inconsistent assignment metadata
+      if (contractorCompanyId) {
+        const [company] = await custDb.select({ id: isolatedSchema.contractorCompanies.id })
+          .from(isolatedSchema.contractorCompanies)
+          .where(eq(isolatedSchema.contractorCompanies.id, contractorCompanyId));
+        if (!company) return res.status(400).json({ error: "Contractor company not found" });
+      }
+      if (contractorWorkerId) {
+        const workerQuery = custDb.select({ id: isolatedSchema.contractorWorkers.id })
+          .from(isolatedSchema.contractorWorkers)
+          .where(eq(isolatedSchema.contractorWorkers.id, contractorWorkerId));
+        const [worker] = await workerQuery;
+        if (!worker) return res.status(400).json({ error: "Contractor worker not found" });
+        // If both company and worker are provided, verify the worker belongs to the company
+        if (contractorCompanyId) {
+          const [workerWithCompany] = await custDb.select({ id: isolatedSchema.contractorWorkers.id })
+            .from(isolatedSchema.contractorWorkers)
+            .where(
+              and(
+                eq(isolatedSchema.contractorWorkers.id, contractorWorkerId),
+                eq(isolatedSchema.contractorWorkers.companyId, contractorCompanyId)
+              )
+            );
+          if (!workerWithCompany) return res.status(400).json({ error: "Contractor worker does not belong to the selected company" });
+        }
+      }
+
       // Rotate access token on every assignment/reassignment so old recipients lose access
       const newAccessToken = randomBytes(24).toString("hex");
       const newTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days from now
