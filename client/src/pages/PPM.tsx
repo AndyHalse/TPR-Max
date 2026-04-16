@@ -949,11 +949,20 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   });
 
   const assignMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("POST", `/api/ppm/work-orders/${id}/assign`, data),
-    onSuccess: (res) => {
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
+      const res = await apiRequest("POST", `/api/ppm/work-orders/${id}/assign`, data);
+      return res.json() as Promise<PpmWorkOrder & { notificationSent: boolean }>;
+    },
+    onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
-      res.json().then((updated: PpmWorkOrder) => setSelectedWO(updated)).catch(() => {});
-      toast({ title: "Contractor assigned", description: "Notification email sent." });
+      setSelectedWO(updated);
+      if (updated.notificationSent) {
+        toast({ title: "Contractor assigned", description: "Notification email sent to contractor." });
+      } else if (updated.assignedEmail) {
+        toast({ title: "Contractor assigned", description: "Assignment saved but email delivery failed. Check server logs.", variant: "destructive" });
+      } else {
+        toast({ title: "Contractor assigned", description: "No email address provided — assignment saved without notification." });
+      }
     },
     onError: (error: unknown) => toastError(error, toast),
   });
@@ -1342,7 +1351,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                       onClick={() => assignMutation.mutate({ id: selectedWO.id, data: assignForm })}
                     >
                       <Mail className="h-3.5 w-3.5 mr-1.5" />
-                      {assignMutation.isPending ? "Assigning…" : "Assign & Send Email"}
+                      {assignMutation.isPending ? "Assigning…" : assignForm.assignedEmail ? "Assign & Notify" : "Assign (No Email)"}
                     </Button>
                     {contractorLink && (
                       <p className="text-xs text-muted-foreground">
