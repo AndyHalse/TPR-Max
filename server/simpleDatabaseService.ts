@@ -85,7 +85,20 @@ export class SimpleDatabaseService {
         const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
         mapped[camelKey] = value;
       }
-      
+
+      // The camelCase regex cannot handle columns whose DB name uses only lowercase
+      // abbreviations (e.g. feature_ppm → featurePpm, not featurePPM).
+      // Apply explicit overrides for known acronym columns.
+      const ACRONYM_RENAMES: Record<string, string> = {
+        featurePpm: 'featurePPM',
+      };
+      for (const [from, to] of Object.entries(ACRONYM_RENAMES)) {
+        if (from in mapped) {
+          mapped[to] = mapped[from];
+          delete mapped[from];
+        }
+      }
+
       const { smtpPassword, ...sanitizedSettings } = mapped;
       
       return sanitizedSettings as CompanySettings;
