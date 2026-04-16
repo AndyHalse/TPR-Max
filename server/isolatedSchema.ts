@@ -2211,6 +2211,8 @@ export const ppmWorkOrders = pgTable("ppm_work_orders", {
   accessTokenExpiresAt: timestamp("access_token_expires_at"), // Token expiry — set on create/reassignment
   requiresCertificate: boolean("requires_certificate").default(false),
   certificateUploadedAt: timestamp("certificate_uploaded_at"),
+  overdueAlertedAt: timestamp("overdue_alerted_at"),         // Set when overdue alert email sent; prevents daily re-send
+  missingCertAlertedAt: timestamp("missing_cert_alerted_at"), // Set when missing-cert alert sent; prevents daily re-send
   createdAt: timestamp("created_at").defaultNow(),
 });
 

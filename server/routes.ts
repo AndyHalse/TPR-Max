@@ -27785,6 +27785,10 @@ This is an automated notification from your visitor management system.`;
       if (updates.status === "completed" && !updates.completedDate) {
         updates.completedDate = new Date().toISOString().split("T")[0];
       }
+      // If status is being reset away from overdue, clear the alert flag so a future overdue triggers a new alert
+      if (updates.status && updates.status !== "overdue") {
+        updates.overdueAlertedAt = null;
+      }
       const [row] = await custDb.update(isolatedSchema.ppmWorkOrders).set(updates).where(eq(isolatedSchema.ppmWorkOrders.id, id)).returning();
       res.json(row);
     } catch (error: unknown) {
@@ -28174,10 +28178,10 @@ This is an automated notification from your visitor management system.`;
 
           for (const wo of workOrders) {
             if (wo.status === "completed" || wo.status === "overdue" || wo.status === "cancelled") {
-              // Check for missing cert: completed 48+ hours ago but no cert uploaded.
+              // Check for missing cert: completed 48+ hours ago but no cert uploaded AND alert not yet sent.
               // completedDate is date-only text so we compare calendar days conservatively:
               // alert when completedDate is at least 2 days before today (>= 48 calendar hours)
-              if (wo.status === "completed" && wo.requiresCertificate && !wo.certificateUploadedAt && wo.completedDate) {
+              if (wo.status === "completed" && wo.requiresCertificate && !wo.certificateUploadedAt && wo.completedDate && !wo.missingCertAlertedAt) {
                 const completedDay = new Date(wo.completedDate + "T00:00:00Z");
                 const msDiff = today.getTime() - completedDay.getTime();
                 const daysDiff = msDiff / (1000 * 60 * 60 * 24);
@@ -28208,12 +28212,12 @@ This is an automated notification from your visitor management system.`;
           const adminEmail = settings?.email as string | undefined;
           const emailSvc = new EmailService(customer.id);
 
-          // Alert admin about newly-overdue work orders
-          if (overdueIds.length > 0 && adminEmail) {
-            const overdueWOs = workOrders.filter(w => overdueIds.includes(w.id));
+          // Alert admin about newly-overdue work orders (only those not yet alerted)
+          const newlyAlertedOverdue = workOrders.filter(w => overdueIds.includes(w.id) && !w.overdueAlertedAt);
+          if (newlyAlertedOverdue.length > 0 && adminEmail) {
             await emailSvc.sendEmail({
               to: adminEmail,
-              subject: `PPM Alert: ${overdueIds.length} Overdue Work Order${overdueIds.length > 1 ? "s" : ""}`,
+              subject: `PPM Alert: ${newlyAlertedOverdue.length} Overdue Work Order${newlyAlertedOverdue.length > 1 ? "s" : ""}`,
               companyName,
               html: `
                 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
@@ -28221,19 +28225,25 @@ This is an automated notification from your visitor management system.`;
                     <h2 style="margin:0">PPM Overdue Alert — ${companyName}</h2>
                   </div>
                   <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
-                    <p>${overdueIds.length} PPM work order${overdueIds.length > 1 ? "s have" : " has"} become overdue:</p>
+                    <p>${newlyAlertedOverdue.length} PPM work order${newlyAlertedOverdue.length > 1 ? "s have" : " has"} become overdue:</p>
                     <ul style="padding-left:20px">
-                      ${overdueWOs.map(w => `<li><strong>${w.title}</strong>${w.dueDate ? ` — was due ${w.dueDate}` : ""}</li>`).join("")}
+                      ${newlyAlertedOverdue.map(w => `<li><strong>${w.title}</strong>${w.dueDate ? ` — was due ${w.dueDate}` : ""}</li>`).join("")}
                     </ul>
                     <p>Please log in to TPR-Max to review and take action.</p>
                   </div>
                 </div>
               `,
-              text: `PPM Overdue Alert\n\n${overdueIds.length} work order(s) are overdue:\n${overdueWOs.map(w => `- ${w.title}${w.dueDate ? ` (due ${w.dueDate})` : ""}`).join("\n")}\n\nPlease log in to review.`,
+              text: `PPM Overdue Alert\n\n${newlyAlertedOverdue.length} work order(s) are overdue:\n${newlyAlertedOverdue.map(w => `- ${w.title}${w.dueDate ? ` (due ${w.dueDate})` : ""}`).join("\n")}\n\nPlease log in to review.`,
             });
+            // Mark as alerted so we don't resend tomorrow unless status resets
+            for (const wo of newlyAlertedOverdue) {
+              await custDb.update(isolatedSchema.ppmWorkOrders)
+                .set({ overdueAlertedAt: new Date() })
+                .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
+            }
           }
 
-          // Alert for missing certificates
+          // Alert for missing certificates (only those not yet alerted; missingCertAlertedAt guards re-send)
           for (const wo of missingCertWOs) {
             const recipients = [adminEmail, wo.assignedEmail].filter((e): e is string => !!e);
             for (const email of recipients) {
@@ -28256,6 +28266,10 @@ This is an automated notification from your visitor management system.`;
                 text: `PPM Certificate Missing: ${wo.title}\n\nThis work order was completed more than 48 hours ago but no service certificate has been uploaded.\n\nPlease upload the certificate.`,
               });
             }
+            // Mark alert as sent so it is not repeated daily
+            await custDb.update(isolatedSchema.ppmWorkOrders)
+              .set({ missingCertAlertedAt: new Date() })
+              .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
           }
 
           // ── Auto-generate work orders from due schedules ─────────────────────

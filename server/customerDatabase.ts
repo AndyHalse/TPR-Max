@@ -442,6 +442,15 @@ export class CustomerDatabaseService {
         ALTER TABLE IF EXISTS "${schemaName}".ppm_work_orders
         ADD COLUMN IF NOT EXISTS access_token_expires_at TIMESTAMP
       `);
+      // Add alert deduplication columns (prevent repeated daily alert emails)
+      await pool.query(`
+        ALTER TABLE IF EXISTS "${schemaName}".ppm_work_orders
+        ADD COLUMN IF NOT EXISTS overdue_alerted_at TIMESTAMP
+      `);
+      await pool.query(`
+        ALTER TABLE IF EXISTS "${schemaName}".ppm_work_orders
+        ADD COLUMN IF NOT EXISTS missing_cert_alerted_at TIMESTAMP
+      `);
       console.log(`✅ PPM work order tables ensured for ${schemaName}`);
     } catch (err: any) {
       console.warn(`⚠️ PPM work order tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
