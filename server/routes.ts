@@ -24,6 +24,24 @@ function ppmTokenCacheSet(token: string, customerId: string, expiresAt: Date) {
 function ppmTokenCacheEvict(token: string) {
   ppmTokenCache.delete(token);
 }
+
+// Simple in-memory rate limiter for public PPM contractor endpoints.
+// Limits each IP to PPM_RATE_LIMIT requests per PPM_RATE_WINDOW_MS milliseconds.
+// Unknown/abusive tokens will hit the slow cross-tenant scan, so rate-limiting
+// them here prevents scan-based denial-of-service from a single IP.
+const PPM_RATE_LIMIT = parseInt(process.env.PPM_RATE_LIMIT ?? "60", 10);   // requests per window
+const PPM_RATE_WINDOW_MS = parseInt(process.env.PPM_RATE_WINDOW_MS ?? "60000", 10); // 1 minute
+const ppmRateMap = new Map<string, { count: number; resetAt: number }>();
+function ppmRateLimitCheck(ip: string): boolean {
+  const now = Date.now();
+  const entry = ppmRateMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    ppmRateMap.set(ip, { count: 1, resetAt: now + PPM_RATE_WINDOW_MS });
+    return true; // allowed
+  }
+  entry.count++;
+  return entry.count <= PPM_RATE_LIMIT;
+}
 interface BiostarLiveEvent {
   id: string;                   // UUID
   ts: string;                   // ISO datetime
@@ -27877,7 +27895,8 @@ This is an automated notification from your visitor management system.`;
         .where(eq(isolatedSchema.ppmWorkOrders.id, id))
         .returning();
 
-      // Send notification email to the assigned contractor
+      // Send notification email to the assigned contractor (only if email provided — explicit no-notification semantics if omitted)
+      let notificationSent = false;
       if (assignedEmail) {
         try {
           const settingsRows = await custDb.execute(`SELECT company_name, email, phone, address FROM company_settings LIMIT 1`);
@@ -27921,11 +27940,13 @@ This is an automated notification from your visitor management system.`;
             `,
             text: `PPM Work Order Assigned: ${wo.title}\n\nHello ${recipientName},\n\nYou have been assigned a PPM work order.\n\nTitle: ${wo.title}\n${wo.description ? `Description: ${wo.description}\n` : ""}${wo.dueDate ? `Due: ${wo.dueDate}\n` : ""}\nView your work order at:\n${workOrderUrl}\n\n${companyName}`,
           });
+          notificationSent = true;
         } catch (emailErr) {
           console.error("PPM work order assignment email failed:", emailErr);
         }
       }
-      res.json(updated);
+      // Return explicit notificationSent flag so UI/callers know whether email was dispatched
+      res.json({ ...updated, notificationSent });
     } catch (error: unknown) {
       console.error("POST /api/ppm/work-orders/:id/assign", error);
       res.status(500).json({ error: error instanceof Error ? error.message : "Failed to assign contractor" });
@@ -28032,6 +28053,8 @@ This is an automated notification from your visitor management system.`;
     try {
       const { token } = req.params;
       if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+      const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
+      if (!ppmRateLimitCheck(clientIp)) return res.status(429).json({ error: "Too many requests. Please try again later." });
 
       // Helper: resolve work order from a known customer (used by both cache-hit and scan paths)
       const resolveFromCustomer = async (customerId: string) => {
@@ -28097,6 +28120,8 @@ This is an automated notification from your visitor management system.`;
     try {
       const { token } = req.params;
       if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+      const clientIpPut = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
+      if (!ppmRateLimitCheck(clientIpPut)) return res.status(429).json({ error: "Too many requests. Please try again later." });
       const { status, completionNotes } = req.body;
       const allowedStatuses = ["in_progress", "completed"];
       if (status && !allowedStatuses.includes(status)) return res.status(400).json({ error: "Invalid status" });
@@ -28161,6 +28186,8 @@ This is an automated notification from your visitor management system.`;
     try {
       const { token } = req.params;
       if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+      const clientIpFiles = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
+      if (!ppmRateLimitCheck(clientIpFiles)) return res.status(429).json({ error: "Too many requests. Please try again later." });
       const { data, mimeType, fileName, fileType } = req.body;
       if (!data || !mimeType || !fileName) return res.status(400).json({ error: "Missing required fields: data, mimeType, fileName" });
 
