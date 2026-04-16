@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -964,13 +964,27 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
     onError: (error: unknown) => toastError(error, toast),
   });
 
+  // Derive unique contractor companies from loaded work orders for structured dropdown
+  const contractorOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const opts: { value: string; label: string }[] = [];
+    workOrders.forEach(w => {
+      const key = w.contractorCompanyId ?? w.contractorCompanyName ?? "";
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        opts.push({ value: w.contractorCompanyName ?? key, label: w.contractorCompanyName ?? key });
+      }
+    });
+    return opts.sort((a, b) => a.label.localeCompare(b.label));
+  }, [workOrders]);
+
   // Apply filters
   const filtered = workOrders.filter(w => {
     if (filterStatus === "awaiting-cert") {
       if (!(w.status === "completed" && w.requiresCertificate && !w.certificateUploadedAt)) return false;
     } else if (filterStatus !== "all" && w.status !== filterStatus) return false;
     if (filterAsset !== "all" && w.assetId !== filterAsset) return false;
-    if (filterContractor && !(w.contractorCompanyName?.toLowerCase().includes(filterContractor.toLowerCase()) || w.contractorWorkerName?.toLowerCase().includes(filterContractor.toLowerCase()))) return false;
+    if (filterContractor && filterContractor !== "all" && w.contractorCompanyName !== filterContractor) return false;
     if (filterDateFrom && w.dueDate && w.dueDate < filterDateFrom) return false;
     if (filterDateTo && w.dueDate && w.dueDate > filterDateTo) return false;
     return true;
@@ -1059,12 +1073,17 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
               {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Input
-            className="h-8 w-40 text-xs"
-            placeholder="Contractor search…"
-            value={filterContractor}
-            onChange={e => setFilterContractor(e.target.value)}
-          />
+          <Select value={filterContractor || "all"} onValueChange={v => setFilterContractor(v === "all" ? "" : v)}>
+            <SelectTrigger className="h-8 w-44 text-xs">
+              <SelectValue placeholder="All contractors" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All contractors</SelectItem>
+              {contractorOptions.map(opt => (
+                <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="flex items-center gap-1">
             <Input type="date" className="h-8 w-32 text-xs" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
             <span className="text-xs text-muted-foreground">to</span>
