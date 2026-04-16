@@ -563,8 +563,9 @@ function SchedulesTab() {
     setForm(f => ({ ...f, templateId, title: t.name, frequency: t.frequency, customDays: t.customDays?.toString() ?? "" }));
   }
   function handleSubmit() {
-    const payload: any = {
-      ...form, templateId: form.templateId || null,
+    const payload: Record<string, unknown> = {
+      ...form,
+      templateId: form.templateId || null,
       customDays: form.customDays ? parseInt(form.customDays) : null,
       lastCompletedDate: form.lastCompletedDate || null,
       nextDueDate: form.nextDueDate || undefined,

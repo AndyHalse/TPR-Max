@@ -27534,7 +27534,7 @@ This is an automated notification from your visitor management system.`;
       const rows = await custDb.select().from(isolatedSchema.ppmAssets).orderBy(isolatedSchema.ppmAssets.name);
       res.json(rows);
     } catch (error: unknown) {
-      console.error("GET /api/ppm/assets", e);
+      console.error("GET /api/ppm/assets", error);
       res.status(500).json({ error: "Failed to fetch PPM assets" });
     }
   });
@@ -27591,7 +27591,7 @@ This is an automated notification from your visitor management system.`;
       const rows = await custDb.select().from(isolatedSchema.ppmTemplates).orderBy(isolatedSchema.ppmTemplates.name);
       res.json(rows);
     } catch (error: unknown) {
-      console.error("GET /api/ppm/templates", e);
+      console.error("GET /api/ppm/templates", error);
       res.status(500).json({ error: "Failed to fetch PPM templates" });
     }
   });
@@ -27654,7 +27654,7 @@ This is an automated notification from your visitor management system.`;
       }));
       res.json(enriched);
     } catch (error: unknown) {
-      console.error("GET /api/ppm/schedules", e);
+      console.error("GET /api/ppm/schedules", error);
       res.status(500).json({ error: "Failed to fetch PPM schedules" });
     }
   });
