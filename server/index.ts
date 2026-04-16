@@ -256,7 +256,14 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/lone-worker') ||
         req.originalUrl.startsWith('/api/card-offences') ||
         req.originalUrl.startsWith('/api/system') ||
-        req.originalUrl.startsWith('/api/contractor-workers')) {
+        req.originalUrl.startsWith('/api/contractor-workers') ||
+        req.originalUrl.startsWith('/api/ppm') ||
+        req.originalUrl.startsWith('/api/ai') ||
+        req.originalUrl.startsWith('/api/stripe') ||
+        req.originalUrl.startsWith('/api/billing') ||
+        req.originalUrl.startsWith('/api/voice-notifications') ||
+        req.originalUrl.startsWith('/api/backups') ||
+        req.originalUrl.startsWith('/api/uk-hs')) {
       console.log(`✅ CSRF EXEMPTION: Core functionality endpoint`);
       return next();
     }
