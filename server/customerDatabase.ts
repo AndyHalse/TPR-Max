@@ -368,6 +368,8 @@ export class CustomerDatabaseService {
           name TEXT NOT NULL,
           description TEXT,
           category TEXT,
+          type TEXT NOT NULL DEFAULT 'non-statutory',
+          regulation_reference TEXT,
           frequency TEXT NOT NULL DEFAULT 'monthly',
           custom_days INTEGER,
           estimated_hours TEXT,
@@ -375,6 +377,8 @@ export class CustomerDatabaseService {
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
+      await pool.query(`ALTER TABLE "${schemaName}".ppm_templates ADD COLUMN IF NOT EXISTS type TEXT NOT NULL DEFAULT 'non-statutory'`);
+      await pool.query(`ALTER TABLE "${schemaName}".ppm_templates ADD COLUMN IF NOT EXISTS regulation_reference TEXT`);
       await pool.query(`
         CREATE TABLE IF NOT EXISTS "${schemaName}".ppm_schedules (
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),

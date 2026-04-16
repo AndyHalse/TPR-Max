@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { useToast } from "@/hooks/use-toast";
 import {
   Wrench, Plus, Edit, Trash2, Building2, ClipboardList, CalendarClock,
-  CheckCircle2, AlertTriangle, Clock, Package
+  CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -30,7 +30,6 @@ interface PpmAsset {
   installDate?: string | null;
   notes?: string | null;
   status: string;
-  createdAt?: string | null;
 }
 
 interface PpmTemplate {
@@ -38,11 +37,12 @@ interface PpmTemplate {
   name: string;
   description?: string | null;
   category?: string | null;
+  type: string;
+  regulationReference?: string | null;
   frequency: string;
   customDays?: number | null;
   estimatedHours?: string | null;
   checklist?: string | null;
-  createdAt?: string | null;
 }
 
 interface PpmSchedule {
@@ -58,27 +58,79 @@ interface PpmSchedule {
   assignedTo?: string | null;
   status: string;
   notes?: string | null;
-  createdAt?: string | null;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const CATEGORIES = ["HVAC", "Fire & Safety", "Electrical", "Plumbing", "Lifts & Hoists", "Roofing", "Security", "General"];
+const ASSET_CATEGORIES = [
+  "HVAC", "Fire & Safety", "Electrical", "Plumbing", "Lifts & Hoists",
+  "Roofing", "Security", "Gas", "Water Hygiene", "General",
+];
+
 const FREQUENCIES = [
-  { value: "weekly", label: "Weekly" },
+  { value: "weekly", label: "Weekly (7 days)" },
   { value: "monthly", label: "Monthly" },
-  { value: "quarterly", label: "Quarterly" },
+  { value: "quarterly", label: "Quarterly (3 months)" },
   { value: "annual", label: "Annual" },
   { value: "custom", label: "Custom (days)" },
 ];
-const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  active: { label: "Active", color: "bg-green-100 text-green-800" },
-  decommissioned: { label: "Decommissioned", color: "bg-gray-100 text-gray-600" },
-  scheduled: { label: "Scheduled", color: "bg-blue-100 text-blue-800" },
-  overdue: { label: "Overdue", color: "bg-red-100 text-red-800" },
-  completed: { label: "Completed", color: "bg-green-100 text-green-800" },
-  cancelled: { label: "Cancelled", color: "bg-gray-100 text-gray-600" },
+
+const COMMON_REGULATIONS = [
+  "BS 5839 (Fire detection & alarm systems)",
+  "BS 7671 (Electrical installations – IET Wiring Regs)",
+  "BS 9251 (Fire suppression systems)",
+  "LOLER (Lifting Operations & Lifting Equipment Regs 1998)",
+  "PSSR (Pressure Systems Safety Regs 2000)",
+  "L8 / HSG274 (Legionella control)",
+  "Gas Safety (Installation & Use) Regs 1998",
+  "Building Regs Part B (Fire safety)",
+  "COSHH (Control of Substances Hazardous to Health)",
+  "Other / Custom",
+];
+
+// ─── Schedule Status Derivation ───────────────────────────────────────────────
+// Classify a schedule for display purposes based on nextDueDate:
+//   overdue   → nextDueDate < today
+//   due_soon  → 0–7 days away
+//   upcoming  → > 7 days away
+// Completed/cancelled retain their persisted status.
+
+type DerivedStatus = "overdue" | "due_soon" | "upcoming" | "completed" | "cancelled";
+
+function deriveStatus(s: PpmSchedule): DerivedStatus {
+  if (s.status === "completed") return "completed";
+  if (s.status === "cancelled") return "cancelled";
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const due = new Date(s.nextDueDate); due.setHours(0, 0, 0, 0);
+  const daysAway = Math.round((due.getTime() - today.getTime()) / 86400000);
+  if (daysAway < 0) return "overdue";
+  if (daysAway <= 7) return "due_soon";
+  return "upcoming";
+}
+
+const STATUS_CONFIG: Record<DerivedStatus, { label: string; classes: string; icon: typeof AlertTriangle }> = {
+  overdue:   { label: "Overdue",   classes: "bg-red-100 text-red-800 border-red-200",    icon: AlertTriangle },
+  due_soon:  { label: "Due Soon",  classes: "bg-amber-100 text-amber-800 border-amber-200", icon: Clock },
+  upcoming:  { label: "Upcoming",  classes: "bg-green-100 text-green-800 border-green-200", icon: CheckCircle2 },
+  completed: { label: "Completed", classes: "bg-blue-100 text-blue-800 border-blue-200",   icon: CheckCircle2 },
+  cancelled: { label: "Cancelled", classes: "bg-gray-100 text-gray-600 border-gray-200",   icon: Clock },
 };
+
+function StatusBadge({ status }: { status: DerivedStatus }) {
+  const cfg = STATUS_CONFIG[status];
+  const Icon = cfg.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.classes}`}>
+      <Icon className="h-3 w-3" />{cfg.label}
+    </span>
+  );
+}
+
+function AssetStatusBadge({ status }: { status: string }) {
+  return status === "active"
+    ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Active</span>
+    : <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">Decommissioned</span>;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -87,9 +139,8 @@ function fmtDate(d?: string | null) {
   return new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const cfg = STATUS_LABELS[status] ?? { label: status, color: "bg-gray-100 text-gray-700" };
-  return <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}>{cfg.label}</span>;
+function freqLabel(f: string) {
+  return FREQUENCIES.find(x => x.value === f)?.label ?? f;
 }
 
 // ─── Assets Tab ──────────────────────────────────────────────────────────────
@@ -111,13 +162,11 @@ function AssetsTab() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); setOpen(false); toast({ title: "Asset created" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PUT", `/api/ppm/assets/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); setOpen(false); toast({ title: "Asset updated" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/assets/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); toast({ title: "Asset deleted" }); },
@@ -127,27 +176,21 @@ function AssetsTab() {
   function openNew() { setEditing(null); setForm(emptyForm()); setOpen(true); }
   function openEdit(a: PpmAsset) {
     setEditing(a);
-    setForm({
-      name: a.name, assetRef: a.assetRef ?? "", category: a.category ?? "",
-      location: a.location ?? "", manufacturer: a.manufacturer ?? "",
-      modelNumber: a.modelNumber ?? "", serialNumber: a.serialNumber ?? "",
-      installDate: a.installDate ?? "", notes: a.notes ?? "", status: a.status,
-    });
+    setForm({ name: a.name, assetRef: a.assetRef ?? "", category: a.category ?? "", location: a.location ?? "",
+      manufacturer: a.manufacturer ?? "", modelNumber: a.modelNumber ?? "", serialNumber: a.serialNumber ?? "",
+      installDate: a.installDate ?? "", notes: a.notes ?? "", status: a.status });
     setOpen(true);
   }
-
   function handleSubmit() {
-    const payload = { ...form };
-    if (editing) updateMutation.mutate({ id: editing.id, data: payload });
-    else createMutation.mutate(payload);
+    if (editing) updateMutation.mutate({ id: editing.id, data: form });
+    else createMutation.mutate(form);
   }
-
   const isBusy = createMutation.isPending || updateMutation.isPending;
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Register and track physical assets requiring maintenance.</p>
+        <p className="text-sm text-muted-foreground">Register and track all physical assets that require maintenance.</p>
         <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />Add Asset</Button>
       </div>
 
@@ -167,7 +210,7 @@ function AssetsTab() {
                   <p className="font-semibold text-sm truncate">{a.name}</p>
                   {a.assetRef && <p className="text-xs text-muted-foreground">Ref: {a.assetRef}</p>}
                 </div>
-                <StatusBadge status={a.status} />
+                <AssetStatusBadge status={a.status} />
               </div>
               {a.category && <p className="text-xs"><span className="text-muted-foreground">Category:</span> {a.category}</p>}
               {a.location && <p className="text-xs"><span className="text-muted-foreground">Location:</span> {a.location}</p>}
@@ -175,7 +218,7 @@ function AssetsTab() {
               {a.serialNumber && <p className="text-xs"><span className="text-muted-foreground">Serial:</span> {a.serialNumber}</p>}
               <div className="flex gap-2 pt-1">
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(a)}><Edit className="h-3 w-3 mr-1" />Edit</Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this asset?")) deleteMutation.mutate(a.id); }}>
+                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this asset? Any associated schedules will also be deleted.")) deleteMutation.mutate(a.id); }}>
                   <Trash2 className="h-3 w-3 mr-1" />Delete
                 </Button>
               </div>
@@ -186,9 +229,7 @@ function AssetsTab() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit Asset" : "New Asset"}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? "Edit Asset" : "New Asset"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2">
@@ -201,10 +242,11 @@ function AssetsTab() {
               </div>
               <div>
                 <Label>Category</Label>
-                <Select value={form.category || ""} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
+                <Select value={form.category || "_none"} onValueChange={v => setForm(f => ({ ...f, category: v === "_none" ? "" : v }))}>
                   <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    <SelectItem value="_none">— None —</SelectItem>
+                    {ASSET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -246,9 +288,7 @@ function AssetsTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={!form.name || isBusy}>
-              {isBusy ? "Saving…" : editing ? "Update" : "Create"}
-            </Button>
+            <Button onClick={handleSubmit} disabled={!form.name || isBusy}>{isBusy ? "Saving…" : editing ? "Update" : "Create"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -263,8 +303,9 @@ function TemplatesTab() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PpmTemplate | null>(null);
   const emptyForm = () => ({
-    name: "", description: "", category: "", frequency: "monthly",
-    customDays: "", estimatedHours: "", checklist: "",
+    name: "", description: "", category: "", type: "non-statutory",
+    regulationReference: "", frequency: "monthly", customDays: "",
+    estimatedHours: "", checklist: "",
   });
   const [form, setForm] = useState(emptyForm());
 
@@ -275,13 +316,11 @@ function TemplatesTab() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); setOpen(false); toast({ title: "Template created" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PUT", `/api/ppm/templates/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); setOpen(false); toast({ title: "Template updated" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/templates/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] }); toast({ title: "Template deleted" }); },
@@ -291,29 +330,25 @@ function TemplatesTab() {
   function openNew() { setEditing(null); setForm(emptyForm()); setOpen(true); }
   function openEdit(t: PpmTemplate) {
     setEditing(t);
-    setForm({
-      name: t.name, description: t.description ?? "", category: t.category ?? "",
+    setForm({ name: t.name, description: t.description ?? "", category: t.category ?? "",
+      type: t.type || "non-statutory", regulationReference: t.regulationReference ?? "",
       frequency: t.frequency, customDays: t.customDays?.toString() ?? "",
-      estimatedHours: t.estimatedHours ?? "", checklist: t.checklist ?? "",
-    });
+      estimatedHours: t.estimatedHours ?? "", checklist: t.checklist ?? "" });
     setOpen(true);
   }
-
   function handleSubmit() {
-    const payload = {
-      ...form,
-      customDays: form.customDays ? parseInt(form.customDays) : null,
-    };
+    const payload = { ...form, customDays: form.customDays ? parseInt(form.customDays) : null };
     if (editing) updateMutation.mutate({ id: editing.id, data: payload });
     else createMutation.mutate(payload);
   }
-
   const isBusy = createMutation.isPending || updateMutation.isPending;
+
+  const checkItems = (t: PpmTemplate) => { try { return JSON.parse(t.checklist ?? "[]"); } catch { return []; } };
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Reusable maintenance task templates to apply to any asset.</p>
+        <p className="text-sm text-muted-foreground">Reusable maintenance task templates with statutory classification and checklist items.</p>
         <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />Add Template</Button>
       </div>
 
@@ -327,18 +362,32 @@ function TemplatesTab() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {templates.map(t => {
-            const freq = FREQUENCIES.find(f => f.value === t.frequency)?.label ?? t.frequency;
-            const checkItems = (() => { try { return JSON.parse(t.checklist ?? "[]"); } catch { return []; } })();
+            const items = checkItems(t);
+            const isStatutory = t.type === "statutory";
             return (
               <GlassCard key={t.id} className="p-4 space-y-2">
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold text-sm truncate">{t.name}</p>
-                  <Badge variant="secondary" className="text-xs shrink-0">{freq}</Badge>
+                  <Badge variant="secondary" className="text-xs shrink-0">{freqLabel(t.frequency)}</Badge>
                 </div>
+                <div className="flex items-center gap-1.5">
+                  {isStatutory ? (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 border border-purple-200 font-medium">
+                      <ShieldCheck className="h-3 w-3" />Statutory
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                      Non-statutory
+                    </span>
+                  )}
+                </div>
+                {t.regulationReference && (
+                  <p className="text-xs flex items-start gap-1"><BookOpen className="h-3 w-3 mt-0.5 text-muted-foreground shrink-0" /><span className="text-muted-foreground">{t.regulationReference}</span></p>
+                )}
                 {t.description && <p className="text-xs text-muted-foreground line-clamp-2">{t.description}</p>}
                 {t.category && <p className="text-xs"><span className="text-muted-foreground">Category:</span> {t.category}</p>}
                 {t.estimatedHours && <p className="text-xs"><span className="text-muted-foreground">Est. time:</span> {t.estimatedHours}h</p>}
-                {checkItems.length > 0 && <p className="text-xs text-muted-foreground">{checkItems.length} checklist item{checkItems.length !== 1 ? "s" : ""}</p>}
+                {items.length > 0 && <p className="text-xs text-muted-foreground">{items.length} checklist item{items.length !== 1 ? "s" : ""}</p>}
                 <div className="flex gap-2 pt-1">
                   <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(t)}><Edit className="h-3 w-3 mr-1" />Edit</Button>
                   <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this template?")) deleteMutation.mutate(t.id); }}>
@@ -353,9 +402,7 @@ function TemplatesTab() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit Template" : "New Template"}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? "Edit Template" : "New Template"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Template Name *</Label>
@@ -363,14 +410,40 @@ function TemplatesTab() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <Label>Category</Label>
-                <Select value={form.category || ""} onValueChange={v => setForm(f => ({ ...f, category: v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                <Label>Type *</Label>
+                <Select value={form.type} onValueChange={v => setForm(f => ({ ...f, type: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                    <SelectItem value="statutory">Statutory (legally required)</SelectItem>
+                    <SelectItem value="non-statutory">Non-statutory (best practice)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              <div>
+                <Label>Category</Label>
+                <Select value={form.category || "_none"} onValueChange={v => setForm(f => ({ ...f, category: v === "_none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— None —</SelectItem>
+                    {ASSET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            {form.type === "statutory" && (
+              <div>
+                <Label>Regulation / Standard Reference</Label>
+                <Select value={form.regulationReference || "_custom"} onValueChange={v => setForm(f => ({ ...f, regulationReference: v === "_custom" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select or type below" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_custom">Type custom reference…</SelectItem>
+                    {COMMON_REGULATIONS.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input className="mt-1.5" value={form.regulationReference} onChange={e => setForm(f => ({ ...f, regulationReference: e.target.value }))} placeholder="e.g. BS 5839" />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Frequency *</Label>
                 <Select value={form.frequency} onValueChange={v => setForm(f => ({ ...f, frequency: v }))}>
@@ -399,10 +472,7 @@ function TemplatesTab() {
               <Label>Checklist Items (one per line)</Label>
               <Textarea
                 value={(() => { try { const arr = JSON.parse(form.checklist || "[]"); return arr.join("\n"); } catch { return form.checklist; } })()}
-                onChange={e => {
-                  const lines = e.target.value.split("\n").map(l => l.trim()).filter(Boolean);
-                  setForm(f => ({ ...f, checklist: JSON.stringify(lines) }));
-                }}
+                onChange={e => { const lines = e.target.value.split("\n").map(l => l.trim()).filter(Boolean); setForm(f => ({ ...f, checklist: JSON.stringify(lines) })); }}
                 rows={4}
                 placeholder={"Check filters\nInspect belts\nRecord readings"}
               />
@@ -410,9 +480,7 @@ function TemplatesTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={!form.name || isBusy}>
-              {isBusy ? "Saving…" : editing ? "Update" : "Create"}
-            </Button>
+            <Button onClick={handleSubmit} disabled={!form.name || isBusy}>{isBusy ? "Saving…" : editing ? "Update" : "Create"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -442,13 +510,11 @@ function SchedulesTab() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); setOpen(false); toast({ title: "Schedule created" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PUT", `/api/ppm/schedules/${id}`, data),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); setOpen(false); toast({ title: "Schedule updated" }); },
     onError: (e: any) => toast({ title: "Error", description: e.message, variant: "destructive" }),
   });
-
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/schedules/${id}`),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] }); toast({ title: "Schedule deleted" }); },
@@ -458,26 +524,21 @@ function SchedulesTab() {
   function openNew() { setEditing(null); setForm(emptyForm()); setOpen(true); }
   function openEdit(s: PpmSchedule) {
     setEditing(s);
-    setForm({
-      assetId: s.assetId, templateId: s.templateId ?? "", title: s.title,
+    setForm({ assetId: s.assetId, templateId: s.templateId ?? "", title: s.title,
       frequency: s.frequency, customDays: s.customDays?.toString() ?? "",
       startDate: s.startDate, nextDueDate: s.nextDueDate,
       lastCompletedDate: s.lastCompletedDate ?? "", assignedTo: s.assignedTo ?? "",
-      status: s.status, notes: s.notes ?? "",
-    });
+      status: s.status, notes: s.notes ?? "" });
     setOpen(true);
   }
-
   function applyTemplate(templateId: string) {
     const t = templates.find(t => t.id === templateId);
     if (!t) return;
     setForm(f => ({ ...f, templateId, title: t.name, frequency: t.frequency, customDays: t.customDays?.toString() ?? "" }));
   }
-
   function handleSubmit() {
     const payload: any = {
-      ...form,
-      templateId: form.templateId || null,
+      ...form, templateId: form.templateId || null,
       customDays: form.customDays ? parseInt(form.customDays) : null,
       lastCompletedDate: form.lastCompletedDate || null,
       nextDueDate: form.nextDueDate || undefined,
@@ -485,43 +546,42 @@ function SchedulesTab() {
     if (editing) updateMutation.mutate({ id: editing.id, data: payload });
     else createMutation.mutate(payload);
   }
-
   const isBusy = createMutation.isPending || updateMutation.isPending;
 
   const assetName = (id: string) => assets.find(a => a.id === id)?.name ?? id;
 
-  const overdue = schedules.filter(s => s.status === "overdue").length;
-  const dueSoon = schedules.filter(s => {
-    if (s.status !== "scheduled") return false;
-    const days = (new Date(s.nextDueDate).getTime() - Date.now()) / 86400000;
-    return days >= 0 && days <= 30;
-  }).length;
+  // Classify schedules for display
+  const enriched = schedules.map(s => ({ ...s, derived: deriveStatus(s) }));
+  const overdue = enriched.filter(s => s.derived === "overdue").length;
+  const dueSoon = enriched.filter(s => s.derived === "due_soon").length;
+  const upcoming = enriched.filter(s => s.derived === "upcoming").length;
+
+  // Sort: overdue first, then due_soon, then upcoming, then completed/cancelled
+  const order: Record<DerivedStatus, number> = { overdue: 0, due_soon: 1, upcoming: 2, completed: 3, cancelled: 4 };
+  const sorted = [...enriched].sort((a, b) => order[a.derived] - order[b.derived]);
 
   return (
     <div className="space-y-4">
-      {/* Summary strip */}
       {schedules.length > 0 && (
         <div className="grid grid-cols-3 gap-3">
           <GlassCard className="p-3 text-center">
-            <p className="text-2xl font-bold">{schedules.length}</p>
-            <p className="text-xs text-muted-foreground">Total Schedules</p>
-          </GlassCard>
-          <GlassCard className="p-3 text-center">
             <p className={`text-2xl font-bold ${overdue > 0 ? "text-red-600" : ""}`}>{overdue}</p>
-            <p className="text-xs text-muted-foreground">Overdue</p>
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><AlertTriangle className="h-3 w-3" />Overdue</p>
           </GlassCard>
           <GlassCard className="p-3 text-center">
-            <p className="text-2xl font-bold text-amber-600">{dueSoon}</p>
-            <p className="text-xs text-muted-foreground">Due within 30 days</p>
+            <p className={`text-2xl font-bold ${dueSoon > 0 ? "text-amber-600" : ""}`}>{dueSoon}</p>
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><Clock className="h-3 w-3" />Due within 7 days</p>
+          </GlassCard>
+          <GlassCard className="p-3 text-center">
+            <p className="text-2xl font-bold text-green-600">{upcoming}</p>
+            <p className="text-xs text-muted-foreground flex items-center justify-center gap-1"><CheckCircle2 className="h-3 w-3" />Upcoming</p>
           </GlassCard>
         </div>
       )}
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">Maintenance schedules linked to specific assets.</p>
-        <Button onClick={openNew} size="sm" disabled={assets.length === 0}>
-          <Plus className="h-4 w-4 mr-1" />Add Schedule
-        </Button>
+        <p className="text-sm text-muted-foreground">Maintenance schedules linked to specific assets. Statuses auto-refresh daily.</p>
+        <Button onClick={openNew} size="sm" disabled={assets.length === 0}><Plus className="h-4 w-4 mr-1" />Add Schedule</Button>
       </div>
 
       {assets.length === 0 && (
@@ -539,29 +599,20 @@ function SchedulesTab() {
         </div>
       ) : (
         <div className="space-y-2">
-          {schedules.map(s => (
-            <GlassCard key={s.id} className="p-4">
+          {sorted.map(s => (
+            <GlassCard key={s.id} className={`p-4 border-l-4 ${s.derived === "overdue" ? "border-l-red-500" : s.derived === "due_soon" ? "border-l-amber-500" : s.derived === "upcoming" ? "border-l-green-500" : "border-l-gray-300"}`}>
               <div className="flex items-start gap-3">
-                <div className="mt-0.5">
-                  {s.status === "overdue" ? (
-                    <AlertTriangle className="h-4 w-4 text-red-500" />
-                  ) : s.status === "completed" ? (
-                    <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  ) : (
-                    <Clock className="h-4 w-4 text-blue-500" />
-                  )}
-                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-semibold text-sm">{s.title}</p>
-                    <StatusBadge status={s.status} />
+                    <StatusBadge status={s.derived} />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Asset: {assetName(s.assetId)}</p>
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground mt-0.5">Asset: <span className="text-foreground">{assetName(s.assetId)}</span></p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1 text-xs text-muted-foreground">
                     <span>Next due: <span className="text-foreground font-medium">{fmtDate(s.nextDueDate)}</span></span>
                     {s.lastCompletedDate && <span>Last done: {fmtDate(s.lastCompletedDate)}</span>}
                     {s.assignedTo && <span>Assigned: {s.assignedTo}</span>}
-                    <span>Frequency: {FREQUENCIES.find(f => f.value === s.frequency)?.label ?? s.frequency}</span>
+                    <span>Frequency: {freqLabel(s.frequency)}</span>
                   </div>
                   {s.notes && <p className="text-xs text-muted-foreground mt-1 italic">{s.notes}</p>}
                 </div>
@@ -579,9 +630,7 @@ function SchedulesTab() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing ? "Edit Schedule" : "New Schedule"}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{editing ? "Edit Schedule" : "New Schedule"}</DialogTitle></DialogHeader>
           <div className="space-y-3">
             <div>
               <Label>Asset *</Label>
@@ -593,12 +642,12 @@ function SchedulesTab() {
               </Select>
             </div>
             <div>
-              <Label>Apply Template (optional)</Label>
-              <Select value={form.templateId || ""} onValueChange={v => { if (v) applyTemplate(v); else setForm(f => ({ ...f, templateId: "" })); }}>
+              <Label>Apply Template (optional — prefills title & frequency)</Label>
+              <Select value={form.templateId || "_none"} onValueChange={v => { if (v !== "_none") applyTemplate(v); else setForm(f => ({ ...f, templateId: "" })); }}>
                 <SelectTrigger><SelectValue placeholder="Select template to prefill" /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">— None —</SelectItem>
-                  {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  <SelectItem value="_none">— None —</SelectItem>
+                  {templates.map(t => <SelectItem key={t.id} value={t.id}>{t.name} ({t.type === "statutory" ? "Statutory" : "Non-statutory"})</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -628,7 +677,7 @@ function SchedulesTab() {
               </div>
               <div>
                 <Label>Next Due Date</Label>
-                <Input type="date" value={form.nextDueDate} onChange={e => setForm(f => ({ ...f, nextDueDate: e.target.value }))} placeholder="Auto-calculated" />
+                <Input type="date" value={form.nextDueDate} onChange={e => setForm(f => ({ ...f, nextDueDate: e.target.value }))} placeholder="Auto-calculated if left blank" />
               </div>
               <div>
                 <Label>Last Completed</Label>
@@ -646,7 +695,6 @@ function SchedulesTab() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="scheduled">Scheduled</SelectItem>
-                    <SelectItem value="overdue">Overdue</SelectItem>
                     <SelectItem value="completed">Completed</SelectItem>
                     <SelectItem value="cancelled">Cancelled</SelectItem>
                   </SelectContent>
@@ -675,14 +723,13 @@ function SchedulesTab() {
 export default function PPM() {
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <div className="p-2 rounded-lg bg-primary/10">
           <Wrench className="h-6 w-6 text-primary" />
         </div>
         <div>
           <h1 className="text-2xl font-bold">Planned Preventative Maintenance</h1>
-          <p className="text-sm text-muted-foreground">Manage assets, templates, and scheduled maintenance for your property.</p>
+          <p className="text-sm text-muted-foreground">Manage assets, maintenance templates and schedules for your property.</p>
         </div>
       </div>
 
@@ -698,16 +745,9 @@ export default function PPM() {
             <CalendarClock className="h-4 w-4" />Schedules
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="assets" className="mt-4">
-          <AssetsTab />
-        </TabsContent>
-        <TabsContent value="templates" className="mt-4">
-          <TemplatesTab />
-        </TabsContent>
-        <TabsContent value="schedules" className="mt-4">
-          <SchedulesTab />
-        </TabsContent>
+        <TabsContent value="assets" className="mt-4"><AssetsTab /></TabsContent>
+        <TabsContent value="templates" className="mt-4"><TemplatesTab /></TabsContent>
+        <TabsContent value="schedules" className="mt-4"><SchedulesTab /></TabsContent>
       </Tabs>
     </div>
   );

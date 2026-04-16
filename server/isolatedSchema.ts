@@ -2156,6 +2156,8 @@ export const ppmTemplates = pgTable("ppm_templates", {
   name: text("name").notNull(),
   description: text("description"),
   category: text("category"),            // matches asset categories
+  type: text("type").notNull().default("non-statutory"), // statutory | non-statutory
+  regulationReference: text("regulation_reference"), // e.g. BS 5839, BS 7671, LOLER
   frequency: text("frequency").notNull().default("monthly"), // weekly | monthly | quarterly | annual | custom
   customDays: integer("custom_days"),    // only used when frequency = custom
   estimatedHours: text("estimated_hours"), // e.g. "2.5"
