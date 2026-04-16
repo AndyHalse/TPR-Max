@@ -27956,7 +27956,28 @@ This is an automated notification from your visitor management system.`;
           )
         );
       if (!doc) return res.status(404).json({ error: "Document not found on this work order" });
+      // Fetch the doc's fileType before deleting so we know whether to recheck certificateUploadedAt
+      const [fullDoc] = await custDb.select({ fileType: isolatedSchema.ppmWorkOrderDocuments.fileType })
+        .from(isolatedSchema.ppmWorkOrderDocuments)
+        .where(eq(isolatedSchema.ppmWorkOrderDocuments.id, docId));
       await custDb.delete(isolatedSchema.ppmWorkOrderDocuments).where(eq(isolatedSchema.ppmWorkOrderDocuments.id, docId));
+      // If the deleted doc was a certificate, recheck remaining docs and clear certificateUploadedAt if none remain
+      if (fullDoc?.fileType === "certificate") {
+        const remaining = await custDb.select({ id: isolatedSchema.ppmWorkOrderDocuments.id })
+          .from(isolatedSchema.ppmWorkOrderDocuments)
+          .where(
+            and(
+              eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, id),
+              eq(isolatedSchema.ppmWorkOrderDocuments.fileType, "certificate")
+            )
+          );
+        if (remaining.length === 0) {
+          // Clear both certificateUploadedAt and missingCertAlertedAt so the cron can fire a fresh alert
+          await custDb.update(isolatedSchema.ppmWorkOrders)
+            .set({ certificateUploadedAt: null, missingCertAlertedAt: null })
+            .where(eq(isolatedSchema.ppmWorkOrders.id, id));
+        }
+      }
       res.json({ success: true });
     } catch (error: unknown) {
       console.error("DELETE /api/ppm/work-orders/:id/documents/:docId", error);
