@@ -28036,6 +28036,25 @@ This is an automated notification from your visitor management system.`;
       const { data, mimeType } = req.body;
       if (!data || !mimeType) return res.status(400).json({ error: "Missing data or mimeType" });
 
+      // Enforce mime-type allowlist (images and document formats only)
+      const ALLOWED_MIME_TYPES = new Set([
+        "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif",
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      ]);
+      if (!ALLOWED_MIME_TYPES.has(mimeType)) {
+        return res.status(415).json({ error: "File type not permitted. Allowed: images, PDF, Word, Excel." });
+      }
+
+      // Enforce 10 MB file size limit (base64 overhead ≈ 1.37×; limit string to ~14 MB)
+      const MAX_BASE64_BYTES = 14 * 1024 * 1024;
+      if (typeof data !== "string" || Buffer.byteLength(data, "utf8") > MAX_BASE64_BYTES) {
+        return res.status(413).json({ error: "File too large. Maximum upload size is 10 MB." });
+      }
+
       // Validate token against any customer schema and check expiry
       let tokenValid = false;
       const allCustomers = await customerDbService.getAllCustomers();
