@@ -28014,7 +28014,9 @@ This is an automated notification from your visitor management system.`;
                 .where(eq(isolatedSchema.ppmAssets.id, wo.assetId));
               asset = assetRow ?? null;
             }
-            return res.json({ workOrder: wo, documents: docs, asset });
+            // Strip internal/sensitive fields from public response — caller already has the token
+            const { accessToken: _t, accessTokenExpiresAt: _e, overdueAlertedAt: _o, missingCertAlertedAt: _m, ...safeWo } = wo;
+            return res.json({ workOrder: safeWo, documents: docs, asset });
           }
         } catch { /* skip this customer and try next */ }
       }
@@ -28163,141 +28165,15 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // POST /api/ppm/work-order/public/:token/upload — contractor uploads file to object storage (no auth required)
-  app.post("/api/ppm/work-order/public/:token/upload", async (req, res) => {
-    try {
-      const { token } = req.params;
-      if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
-      const { data, mimeType } = req.body;
-      if (!data || !mimeType) return res.status(400).json({ error: "Missing data or mimeType" });
-
-      // Enforce mime-type allowlist (images and document formats only)
-      const ALLOWED_MIME_TYPES = new Set([
-        "image/jpeg", "image/png", "image/gif", "image/webp", "image/heic", "image/heif",
-        "application/pdf",
-        "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.ms-excel",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      ]);
-      if (!ALLOWED_MIME_TYPES.has(mimeType)) {
-        return res.status(415).json({ error: "File type not permitted. Allowed: images, PDF, Word, Excel." });
-      }
-
-      // Enforce 10 MB file size limit (base64 overhead ≈ 1.37×; limit string to ~14 MB)
-      const MAX_BASE64_BYTES = 14 * 1024 * 1024;
-      if (typeof data !== "string" || Buffer.byteLength(data, "utf8") > MAX_BASE64_BYTES) {
-        return res.status(413).json({ error: "File too large. Maximum upload size is 10 MB." });
-      }
-
-      // Validate token against any customer schema and check expiry
-      let tokenValid = false;
-      const allCustomers = await customerDbService.getAllCustomers();
-      for (const customer of allCustomers) {
-        try {
-          const custDb = await customerDbService.getCustomerDatabase(customer.id);
-          const [wo] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id, accessTokenExpiresAt: isolatedSchema.ppmWorkOrders.accessTokenExpiresAt })
-            .from(isolatedSchema.ppmWorkOrders)
-            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
-          if (wo) {
-            if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) {
-              return res.status(410).json({ error: "This work order link has expired." });
-            }
-            tokenValid = true;
-            break;
-          }
-        } catch { /* skip */ }
-      }
-      if (!tokenValid) return res.status(403).json({ error: "Invalid or expired access token" });
-
-      // Pre-flight: enforce 5-document cap before accepting storage upload to prevent orphan-object abuse
-      let docCountBlocked = false;
-      for (const customer of allCustomers) {
-        try {
-          const custDb = await customerDbService.getCustomerDatabase(customer.id);
-          const [wo] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
-            .from(isolatedSchema.ppmWorkOrders)
-            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
-          if (wo) {
-            const existing = await custDb.select({ id: isolatedSchema.ppmWorkOrderDocuments.id })
-              .from(isolatedSchema.ppmWorkOrderDocuments)
-              .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, wo.id));
-            if (existing.length >= 5) { docCountBlocked = true; }
-            break;
-          }
-        } catch { /* skip */ }
-      }
-      if (docCountBlocked) {
-        return res.status(400).json({ error: "Maximum of 5 documents allowed per work order" });
-      }
-
-      // Upload file to object storage
-      const buffer = Buffer.from(data, "base64");
-      const objectStorageService = new ObjectStorageService();
-      const privateObjectDir = objectStorageService.getPrivateObjectDir();
-      const objectId = randomUUID();
-      const fullPath = `${privateObjectDir}/uploads/${objectId}`;
-      const parts = fullPath.slice(1).split("/");
-      const bucketName = parts[0];
-      const objectName = parts.slice(1).join("/");
-      const bucket = objectStorageClient.bucket(bucketName);
-      const fileObj = bucket.file(objectName);
-      await fileObj.save(buffer, { contentType: mimeType, resumable: false });
-      const objectPath = `/objects/uploads/${objectId}`;
-      return res.json({ objectPath });
-    } catch (error: unknown) {
-      console.error("POST /api/ppm/work-order/public/:token/upload", error);
-      res.status(500).json({ error: "Failed to upload file" });
-    }
+  // DEPRECATED: Use POST /api/ppm/work-order/public/:token/files instead (atomic upload+document).
+  // Retained as 410 Gone to prevent two-step orphan-object flow from any cached clients.
+  app.post("/api/ppm/work-order/public/:token/upload", (_req, res) => {
+    res.status(410).json({ error: "This endpoint is deprecated. Use POST /api/ppm/work-order/public/:token/files for atomic upload." });
   });
 
-  // POST /api/ppm/work-order/public/:token/documents — contractor uploads a file
-  app.post("/api/ppm/work-order/public/:token/documents", async (req, res) => {
-    try {
-      const { token } = req.params;
-      if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
-      const { fileName, fileUrl, fileType } = req.body;
-      if (!fileName || !fileUrl) return res.status(400).json({ error: "fileName and fileUrl required" });
-      // Only allow paths produced by the object storage upload endpoint to prevent link injection
-      if (typeof fileUrl !== "string" || !fileUrl.startsWith("/objects/")) {
-        return res.status(400).json({ error: "Invalid file URL — must be an object storage path" });
-      }
-
-      const allCustomers = await customerDbService.getAllCustomers();
-      for (const customer of allCustomers) {
-        try {
-          const custDb = await customerDbService.getCustomerDatabase(customer.id);
-          const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
-            .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
-          if (wo) {
-            // Enforce token expiry before allowing any write
-            if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) {
-              return res.status(410).json({ error: "This work order link has expired. Please contact your administrator for a new link." });
-            }
-            // Enforce max 5 documents per work order server-side
-            const existingDocs = await custDb.select({ id: isolatedSchema.ppmWorkOrderDocuments.id })
-              .from(isolatedSchema.ppmWorkOrderDocuments)
-              .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, wo.id));
-            if (existingDocs.length >= 5) {
-              return res.status(400).json({ error: "Maximum of 5 documents allowed per work order" });
-            }
-            const [doc] = await custDb.insert(isolatedSchema.ppmWorkOrderDocuments)
-              .values({ workOrderId: wo.id, fileName, fileUrl, fileType: fileType || "other", uploadedBy: "contractor" })
-              .returning();
-            if (fileType === "certificate") {
-              await custDb.update(isolatedSchema.ppmWorkOrders)
-                .set({ certificateUploadedAt: new Date() })
-                .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
-            }
-            return res.json(doc);
-          }
-        } catch { /* skip */ }
-      }
-      res.status(404).json({ error: "Work order not found" });
-    } catch (error: unknown) {
-      console.error("POST /api/ppm/work-order/public/:token/documents", error);
-      res.status(500).json({ error: "Failed to upload document" });
-    }
+  // DEPRECATED: Use POST /api/ppm/work-order/public/:token/files instead (atomic upload+document).
+  app.post("/api/ppm/work-order/public/:token/documents", (_req, res) => {
+    res.status(410).json({ error: "This endpoint is deprecated. Use POST /api/ppm/work-order/public/:token/files for atomic upload." });
   });
 
   // ── PPM Daily Alert Cron ──────────────────────────────────────────────────────
