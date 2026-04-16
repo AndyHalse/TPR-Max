@@ -16,7 +16,7 @@ import {
   Wrench, Plus, Edit, Trash2, Building2, ClipboardList, CalendarClock,
   CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
-  Download, Upload, Mail, RefreshCw, Eye,
+  Download, Upload, Mail, RefreshCw, Eye, Sparkles,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1452,6 +1452,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function PPM() {
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("assets");
   const [woStatusFilter, setWoStatusFilter] = useState<string | undefined>(undefined);
 
@@ -1460,16 +1461,53 @@ export default function PPM() {
     setActiveTab("work-orders");
   }
 
+  const { data: assets = [] } = useQuery<PpmAsset[]>({ queryKey: ["/api/ppm/assets"] });
+  const { data: templates = [] } = useQuery<PpmTemplate[]>({ queryKey: ["/api/ppm/templates"] });
+  const isEmpty = assets.length === 0 && templates.length === 0;
+
+  const demoDataMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/ppm/demo-data").then(r => r.json()),
+    onSuccess: (result: { assetsCreated: number; templatesCreated: number; message: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
+      setActiveTab("assets");
+      toast({
+        title: "Demo data loaded",
+        description: result.message,
+      });
+    },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
+  function handleLoadDemo() {
+    if (!isEmpty && !confirm("Demo data will be added alongside your existing data. Continue?")) return;
+    demoDataMutation.mutate();
+  }
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="p-2 rounded-lg bg-primary/10">
-          <Wrench className="h-6 w-6 text-primary" />
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-lg bg-primary/10">
+            <Wrench className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold">Planned Preventative Maintenance</h1>
+            <p className="text-sm text-muted-foreground">Manage assets, maintenance templates, schedules and work orders.</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-2xl font-bold">Planned Preventative Maintenance</h1>
-          <p className="text-sm text-muted-foreground">Manage assets, maintenance templates, schedules and work orders.</p>
-        </div>
+        <Button
+          variant={isEmpty ? "default" : "outline"}
+          size="sm"
+          onClick={handleLoadDemo}
+          disabled={demoDataMutation.isPending}
+          className={`shrink-0 gap-1.5 ${isEmpty ? "animate-pulse" : ""}`}
+        >
+          <Sparkles className="h-4 w-4" />
+          {demoDataMutation.isPending ? "Loading…" : "Load Demo Data"}
+        </Button>
       </div>
 
       <DashboardSummary onWorkOrdersClick={handleSummaryClick} />

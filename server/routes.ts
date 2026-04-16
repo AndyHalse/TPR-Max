@@ -28046,6 +28046,131 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // ── PPM Demo Data ───────────────────────────────────────────────────────────
+  // POST /api/ppm/demo-data — seed typical UK facility PPM assets + templates
+
+  app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      // ── Demo assets ─────────────────────────────────────────────────────────
+      const DEMO_ASSETS = [
+        { name: "Air Handling Unit 1",             assetRef: "AHU-001", category: "HVAC",         location: "Plant Room 1",         manufacturer: "Daikin",        status: "active" },
+        { name: "Fire Alarm Panel – Main Building", assetRef: "FAP-001", category: "Fire Safety",  location: "Main Reception",       manufacturer: "Honeywell",     status: "active" },
+        { name: "Emergency Lighting System",        assetRef: "EL-001",  category: "Fire Safety",  location: "All Floors",           manufacturer: "Safescape",     status: "active" },
+        { name: "Gas Boiler – Plant Room",          assetRef: "BLR-001", category: "Mechanical",   location: "Plant Room 1",         manufacturer: "Worcester Bosch", status: "active" },
+        { name: "Access Control System",            assetRef: "ACS-001", category: "Security",     location: "Main Entrance",        manufacturer: "Honeywell",     status: "active" },
+        { name: "Passenger Lift – Block A",         assetRef: "LFT-001", category: "Mechanical",   location: "Block A – All Floors", manufacturer: "Schindler",     status: "active" },
+        { name: "Sprinkler System – Warehouse",     assetRef: "SPR-001", category: "Fire Safety",  location: "Warehouse",            manufacturer: "Viking",        status: "active" },
+        { name: "Electrical Distribution Board",    assetRef: "EDB-001", category: "Electrical",   location: "Sub-Station",          manufacturer: "Schneider Electric", status: "active" },
+      ];
+
+      // ── Demo templates ───────────────────────────────────────────────────────
+      const DEMO_TEMPLATES = [
+        {
+          name: "Monthly HVAC Filter Check",
+          description: "Inspect, clean and replace HVAC filters. Record pressure readings across filter bank.",
+          category: "HVAC", type: "non-statutory", frequency: "monthly",
+          estimatedHours: "2",
+          checklist: JSON.stringify(["Visually inspect filter condition","Check pressure differential across filters","Replace filters if pressure drop exceeds specification","Clean filter housing","Record readings in maintenance log","Check unit for unusual noise or vibration"]),
+        },
+        {
+          name: "Annual Fire Alarm Full Test",
+          description: "Full annual test of fire alarm system in accordance with BS 5839-1. All detectors, call points and sounders tested.",
+          category: "Fire Safety", type: "statutory", regulationReference: "BS 5839-1", frequency: "annual",
+          estimatedHours: "4",
+          checklist: JSON.stringify(["Notify building occupants and fire service before testing","Test all manual call points","Test all smoke detectors using aerosol","Test all heat detectors","Verify all sounders operate at required decibel level","Test all visual alarm devices","Check fire alarm panel for faults","Test remote signalling to alarm receiving centre","Complete fire alarm record log","Issue test certificate"]),
+        },
+        {
+          name: "Monthly Emergency Lighting Functional Test",
+          description: "Monthly function test of emergency lighting in accordance with BS 5266-1.",
+          category: "Fire Safety", type: "statutory", regulationReference: "BS 5266-1", frequency: "monthly",
+          estimatedHours: "1",
+          checklist: JSON.stringify(["Simulate mains failure for each emergency light","Confirm each luminaire illuminates","Check for damaged or missing luminaires","Check battery charging indicators","Record results in emergency lighting log"]),
+        },
+        {
+          name: "Annual Boiler Service & Gas Safety Check",
+          description: "Annual service and gas safety inspection by a Gas Safe registered engineer.",
+          category: "Mechanical", type: "statutory", regulationReference: "Gas Safety (Installation & Use) Regulations 1998", frequency: "annual",
+          estimatedHours: "3",
+          checklist: JSON.stringify(["Inspect burner and heat exchanger","Clean all flue ways","Check gas pressure and flow rate","Test safety controls and thermostats","Check ventilation is adequate","Inspect all gas connections for leaks","Record flue gas analysis","Issue Gas Safe certificate"]),
+        },
+        {
+          name: "Annual Lift Thorough Examination",
+          description: "Thorough examination of passenger lift by a competent person in accordance with LOLER.",
+          category: "Mechanical", type: "statutory", regulationReference: "LOLER 1998", frequency: "custom", customDays: 183,
+          estimatedHours: "4",
+          checklist: JSON.stringify(["Check all safety devices and buffers","Inspect ropes/belts and terminations","Test overload device","Test emergency brake","Check car and landing door interlocks","Inspect pit and overhead equipment","Test emergency communications","Complete LOLER thorough examination report"]),
+        },
+        {
+          name: "Quarterly Sprinkler System Inspection",
+          description: "Quarterly inspection and flow test of wet pipe sprinkler system to BS EN 12845.",
+          category: "Fire Safety", type: "statutory", regulationReference: "BS EN 12845", frequency: "quarterly",
+          estimatedHours: "2",
+          checklist: JSON.stringify(["Inspect all visible sprinkler heads for damage or obstruction","Check water supply pressure and flow","Test alarm valve flow switch","Check anti-freeze levels (if applicable)","Inspect and test main stop valve","Check all gauges and indicators","Record results and report defects"]),
+        },
+        {
+          name: "Fixed Wiring Inspection & Testing (EICR)",
+          description: "Electrical Installation Condition Report (EICR) in accordance with BS 7671. Carried out by a qualified electrician.",
+          category: "Electrical", type: "statutory", regulationReference: "BS 7671 / IET Wiring Regulations", frequency: "custom", customDays: 1825,
+          estimatedHours: "8",
+          checklist: JSON.stringify(["Inspect distribution boards and consumer units","Test all circuits for continuity","Insulation resistance testing","Polarity checks","Earth fault loop impedance testing","RCD operation tests","Inspect all visible wiring and accessories","Produce EICR certificate"]),
+        },
+        {
+          name: "Monthly Access Control System Check",
+          description: "Monthly operational check of access control system, readers and barriers.",
+          category: "Security", type: "non-statutory", frequency: "monthly",
+          estimatedHours: "1.5",
+          checklist: JSON.stringify(["Test all card readers for correct operation","Check barrier / door operation","Verify audit trail logging is active","Check backup battery health","Test door held-open alarms","Review access levels for leavers","Update firmware if required"]),
+        },
+      ];
+
+      // Insert assets (skip if name already exists)
+      let assetsCreated = 0;
+      const assetIdMap: Record<string, string> = {};
+      for (const a of DEMO_ASSETS) {
+        const existing = await custDb.select({ id: isolatedSchema.ppmAssets.id })
+          .from(isolatedSchema.ppmAssets)
+          .where(eq(isolatedSchema.ppmAssets.name, a.name))
+          .limit(1);
+        if (existing[0]) {
+          assetIdMap[a.name] = existing[0].id;
+        } else {
+          const [inserted] = await custDb.insert(isolatedSchema.ppmAssets).values(a as any).returning({ id: isolatedSchema.ppmAssets.id });
+          assetIdMap[a.name] = inserted.id;
+          assetsCreated++;
+        }
+      }
+
+      // Insert templates (skip if name already exists)
+      let templatesCreated = 0;
+      for (const t of DEMO_TEMPLATES) {
+        const existing = await custDb.select({ id: isolatedSchema.ppmTemplates.id })
+          .from(isolatedSchema.ppmTemplates)
+          .where(eq(isolatedSchema.ppmTemplates.name, t.name))
+          .limit(1);
+        if (!existing[0]) {
+          await custDb.insert(isolatedSchema.ppmTemplates).values(t as any);
+          templatesCreated++;
+        }
+      }
+
+      res.json({
+        success: true,
+        assetsCreated,
+        templatesCreated,
+        message: assetsCreated === 0 && templatesCreated === 0
+          ? "Demo data already loaded — no duplicates created."
+          : `Created ${assetsCreated} asset${assetsCreated !== 1 ? "s" : ""} and ${templatesCreated} template${templatesCreated !== 1 ? "s" : ""}.`,
+      });
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/demo-data", error);
+      res.status(500).json({ error: error instanceof Error ? error.message : "Failed to load demo data" });
+    }
+  });
+
   // ── PPM Public Work Order (Contractor Mobile View) ──────────────────────────
 
   // GET /api/ppm/work-order/public/:token — contractor fetches their work order
