@@ -1007,6 +1007,31 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
 
             {addStep === 2 && (
               <div className="space-y-4">
+                {/* Notifiability banner — calculated from step 1 inputs */}
+                {(() => {
+                  const days = parseInt(form.estimatedDays) || 0;
+                  const peak = parseInt(form.peakWorkers) || 0;
+                  const persons = parseInt(form.personDays) || 0;
+                  const notifiable = isNotifiable({ estimatedDays: days, peakWorkers: peak, personDays: persons });
+                  const daysThreshold = days > 30 && peak > 20;
+                  const personDaysThreshold = persons > 500;
+                  return (
+                    <div className={`flex items-start gap-3 rounded-lg p-3 border ${notifiable ? "bg-amber-50 border-amber-300 dark:bg-amber-950/30 dark:border-amber-700" : "bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700"}`}>
+                      <span className={`text-2xl font-extrabold leading-none ${notifiable ? "text-amber-600" : "text-green-600"}`}>{notifiable ? "YES" : "NO"}</span>
+                      <div>
+                        <p className={`text-sm font-semibold ${notifiable ? "text-amber-800 dark:text-amber-300" : "text-green-800 dark:text-green-300"}`}>
+                          {notifiable ? "This project IS notifiable to the HSE (CDM 2015 Reg 6)" : "This project is NOT notifiable to the HSE"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {notifiable
+                            ? `Notification required — ${daysThreshold ? `${days} working days with ${peak} peak workers` : ""}${daysThreshold && personDaysThreshold ? "; " : ""}${personDaysThreshold ? `${persons} person-days` : ""}. An F10 notice must be submitted to the HSE before work starts.`
+                            : "Below the notifiable threshold (>30 working days with >20 simultaneous workers, or >500 person-days). No F10 required."}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* S1 — F10 */}
                 <div className="rounded-md border border-border p-3 space-y-2">
                   <h4 className="font-medium text-sm flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-600" />1. F10 HSE Notification</h4>
@@ -1658,7 +1683,7 @@ export default function ContractorManagement() {
 
   const updateCdmAccreditationsMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return await apiRequest("PATCH", `/api/contractors/${id}/cdm`, data);
+      return await apiRequest("PATCH", `/api/contractors/${id}`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });

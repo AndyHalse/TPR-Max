@@ -17727,6 +17727,48 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // PATCH /api/contractors/:id — partial update supporting CDM/accreditation fields
+  app.patch("/api/contractors/:id", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const db = await customerDbService.getCustomerDatabase(req.customerId!);
+
+      // Build field map for both regular and CDM fields
+      const fieldMap: Record<string, any> = {};
+      if (updates.name !== undefined) fieldMap.companyName = updates.name;
+      if (updates.email !== undefined) fieldMap.contactEmail = updates.email;
+      if (updates.phone !== undefined) fieldMap.contactPhone = updates.phone || null;
+      if (updates.address !== undefined) fieldMap.address = updates.address;
+      if (updates.postcode !== undefined) fieldMap.postcode = updates.postcode;
+      if (updates.website !== undefined) fieldMap.website = updates.website;
+      if (updates.description !== undefined) fieldMap.description = updates.description;
+      if (updates.industry !== undefined) fieldMap.industry = updates.industry;
+      if (updates.status !== undefined) fieldMap.status = updates.status;
+      // CDM / accreditation fields
+      if (updates.cdmRole !== undefined) fieldMap.cdmRole = updates.cdmRole;
+      if (updates.constructionlineGrade !== undefined) fieldMap.constructionlineGrade = updates.constructionlineGrade;
+      if (updates.chasCertified !== undefined) fieldMap.chasCertified = Boolean(updates.chasCertified);
+      if (updates.smasAccredited !== undefined) fieldMap.smasAccredited = Boolean(updates.smasAccredited);
+      if (updates.otherAccreditations !== undefined) fieldMap.otherAccreditations = updates.otherAccreditations;
+      if (updates.pdProfessionalBody !== undefined) fieldMap.pdProfessionalBody = updates.pdProfessionalBody;
+
+      if (Object.keys(fieldMap).length === 0) return res.status(400).json({ error: "No valid fields provided" });
+
+      const [updated] = await db.update(isolatedSchema.contractorCompanies)
+        .set(fieldMap)
+        .where(eq(isolatedSchema.contractorCompanies.id, id))
+        .returning();
+
+      if (!updated) return res.status(404).json({ error: "Contractor not found" });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error patching contractor:", error);
+      res.status(500).json({ error: "Failed to update contractor" });
+    }
+  });
+
   // Generate test workers for all contractor companies
   app.post("/api/contractors/generate-test-workers", requireAuth, async (req, res) => {
     try {
