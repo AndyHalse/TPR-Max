@@ -2250,6 +2250,9 @@ export const cdmProjects = pgTable("cdm_projects", {
   location: text("location"),
   clientName: text("client_name"),
   contractorRole: text("contractor_role").notNull().default("contractor"), // principal_contractor | principal_designer | contractor | designer
+  // Duty holder references
+  principalContractorId: varchar("principal_contractor_id").references(() => contractorCompanies.id),
+  principalDesignerName: text("principal_designer_name"),
   status: text("status").notNull().default("planning"), // planning | active | complete | cancelled
   startDate: text("start_date"),
   endDate: text("end_date"),

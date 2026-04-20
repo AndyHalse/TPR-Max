@@ -73,7 +73,7 @@ import {
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
 import QRScannerModal from "@/components/QRScannerModal";
 
-// Extended type for list view with computed fields
+// Extended type for list view with computed fields + CDM fields returned from isolatedSchema
 type ExtendedContractorCompany = ContractorCompany & {
   workersCount?: number;
   documentsStatus?: Record<string, string>;
@@ -81,6 +81,13 @@ type ExtendedContractorCompany = ContractorCompany & {
   hasYellowCard?: boolean;
   serviceType?: string;
   contactEmail?: string;
+  // CDM 2015 fields (from isolatedSchema contractor_companies)
+  cdmRole?: string | null;
+  constructionlineGrade?: string | null;
+  smasAccredited?: boolean | null;
+  otherAccreditations?: string | null;
+  pdProfessionalBody?: string | null;
+  chasCertified?: boolean | null; // already in shared schema but repeated for clarity
 };
 
 // ── ContractorPPMTab ──────────────────────────────────────────────────────────
@@ -279,6 +286,8 @@ type CdmProject = {
   location?: string | null;
   clientName?: string | null;
   contractorRole: string;
+  principalContractorId?: string | null;
+  principalDesignerName?: string | null;
   status: string;
   startDate?: string | null;
   endDate?: string | null;
@@ -1305,6 +1314,14 @@ export default function ContractorManagement() {
     enabled: !!currentUser,
   });
 
+  // Lightweight CDM projects query for header-level F10 overdue count
+  const { data: allCdmProjects = [] } = useQuery<CdmProject[]>({
+    queryKey: ["/api/cdm/projects", customerId],
+    enabled: !!currentUser,
+    refetchInterval: 60000,
+  });
+  const headerF10OverdueCount = allCdmProjects.filter(isF10Overdue).length;
+
   const { data: allWorkers = [], refetch: refetchWorkers } = useQuery<ContractorWorker[]>({
     queryKey: ["/api/contractors/workers/all", customerId],
     enabled: activeTab === "previous" && !!customerId,
@@ -1564,11 +1581,11 @@ export default function ContractorManagement() {
         }
       });
       setCdmAccreditationForm({
-        cdmRole: (contractorToEdit as any).cdmRole ?? "",
-        constructionlineGrade: (contractorToEdit as any).constructionlineGrade ?? "",
-        smasAccredited: (contractorToEdit as any).smasAccredited ?? false,
-        otherAccreditations: (contractorToEdit as any).otherAccreditations ?? "",
-        pdProfessionalBody: (contractorToEdit as any).pdProfessionalBody ?? "",
+        cdmRole: contractorToEdit.cdmRole ?? "",
+        constructionlineGrade: contractorToEdit.constructionlineGrade ?? "",
+        smasAccredited: contractorToEdit.smasAccredited ?? false,
+        otherAccreditations: contractorToEdit.otherAccreditations ?? "",
+        pdProfessionalBody: contractorToEdit.pdProfessionalBody ?? "",
       });
       setShowCompanyEditDialog(true);
     }
@@ -1921,6 +1938,16 @@ export default function ContractorManagement() {
         <div className="flex items-center gap-3">
           <HardHat className="h-8 w-8 text-orange-600" />
           <h1 className="text-xl sm:text-3xl font-bold text-slate-800 dark:text-slate-100">Contractor Management</h1>
+          {headerF10OverdueCount > 0 && (
+            <span
+              className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-xs font-semibold cursor-pointer hover:bg-red-200 transition-colors"
+              title={`${headerF10OverdueCount} CDM project${headerF10OverdueCount > 1 ? "s" : ""} with overdue F10 notification`}
+              onClick={() => setActiveTab("cdm")}
+            >
+              <AlertTriangle className="h-3 w-3" />
+              {headerF10OverdueCount} F10 overdue
+            </span>
+          )}
         </div>
         <Button
           onClick={() => setShowQRScanner(true)}
@@ -2606,6 +2633,34 @@ export default function ContractorManagement() {
                           </Badge>
                         );
                       })()}
+
+                      {/* CDM duty role badge */}
+                      {company.cdmRole && (
+                        <Badge className="bg-purple-100 text-purple-800 text-xs" title="CDM duty holder role">
+                          CDM: {company.cdmRole.replace(/_/g, ' ')}
+                        </Badge>
+                      )}
+
+                      {/* Constructionline grade badge */}
+                      {company.constructionlineGrade && company.constructionlineGrade !== "not_registered" && (
+                        <Badge className="bg-indigo-100 text-indigo-800 text-xs" title="Constructionline grade">
+                          CL {company.constructionlineGrade}
+                        </Badge>
+                      )}
+
+                      {/* CHAS certified badge */}
+                      {company.chasCertified && (
+                        <Badge className="bg-teal-100 text-teal-800 text-xs" title="CHAS accredited">
+                          CHAS
+                        </Badge>
+                      )}
+
+                      {/* SMAS accredited badge */}
+                      {company.smasAccredited && (
+                        <Badge className="bg-cyan-100 text-cyan-800 text-xs" title="SMAS accredited">
+                          SMAS
+                        </Badge>
+                      )}
                     </div>
 
                     {/* Finish setup link if onboarding incomplete */}
@@ -2717,6 +2772,17 @@ export default function ContractorManagement() {
                               </Badge>
                             );
                           })()}
+                          {/* CDM accreditation badges */}
+                          {company.cdmRole && (
+                            <Badge className="bg-purple-100 text-purple-800 text-xs" title="CDM duty holder role">
+                              CDM: {company.cdmRole.replace(/_/g, ' ')}
+                            </Badge>
+                          )}
+                          {company.constructionlineGrade && company.constructionlineGrade !== "not_registered" && (
+                            <Badge className="bg-indigo-100 text-indigo-800 text-xs">CL {company.constructionlineGrade}</Badge>
+                          )}
+                          {company.chasCertified && <Badge className="bg-teal-100 text-teal-800 text-xs">CHAS</Badge>}
+                          {company.smasAccredited && <Badge className="bg-cyan-100 text-cyan-800 text-xs">SMAS</Badge>}
                           {(company as any).onboardingCompleted === false && (
                             <span className="text-xs text-amber-600 font-medium flex items-center gap-1 cursor-pointer hover:underline" onClick={() => handleViewContractorDetails(company.id)}>
                               <Zap className="w-3 h-3" /> Finish setup

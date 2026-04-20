@@ -28652,6 +28652,8 @@ This is an automated notification from your visitor management system.`;
         location: data.location || null,
         clientName: data.clientName || null,
         contractorRole: data.contractorRole || "contractor",
+        principalContractorId: data.principalContractorId || null,
+        principalDesignerName: data.principalDesignerName || null,
         status: data.status || "planning",
         startDate: data.startDate || null,
         endDate: data.endDate || null,
@@ -28698,6 +28700,8 @@ This is an automated notification from your visitor management system.`;
       if (data.location !== undefined) updates.location = data.location;
       if (data.clientName !== undefined) updates.clientName = data.clientName;
       if (data.contractorRole !== undefined) updates.contractorRole = data.contractorRole;
+      if (data.principalContractorId !== undefined) updates.principalContractorId = data.principalContractorId;
+      if (data.principalDesignerName !== undefined) updates.principalDesignerName = data.principalDesignerName;
       if (data.status !== undefined) updates.status = data.status;
       if (data.startDate !== undefined) updates.startDate = data.startDate;
       if (data.endDate !== undefined) updates.endDate = data.endDate;

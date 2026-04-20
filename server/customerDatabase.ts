@@ -478,6 +478,8 @@ export class CustomerDatabaseService {
           location TEXT,
           client_name TEXT,
           contractor_role TEXT NOT NULL DEFAULT 'contractor',
+          principal_contractor_id VARCHAR REFERENCES "${schemaName}".contractor_companies(id),
+          principal_designer_name TEXT,
           status TEXT NOT NULL DEFAULT 'planning',
           start_date TEXT,
           end_date TEXT,
@@ -506,6 +508,9 @@ export class CustomerDatabaseService {
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
+      // Add duty-holder columns to existing cdm_projects tables (idempotent)
+      await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS principal_contractor_id VARCHAR REFERENCES "${schemaName}".contractor_companies(id)`);
+      await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS principal_designer_name TEXT`);
       console.log(`✅ CDM 2015 tables/columns ensured for ${schemaName}`);
     } catch (err: any) {
       console.warn(`⚠️ CDM 2015 migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
