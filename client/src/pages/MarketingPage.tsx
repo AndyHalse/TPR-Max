@@ -73,6 +73,9 @@ import {
   ClipboardCheck,
   Play,
   Volume2,
+  Wrench,
+  CalendarClock,
+  CalendarCheck,
 } from "lucide-react";
 
 // Import ACS logo and screenshots
@@ -628,8 +631,9 @@ export default function MarketingPage() {
                 TPR Max delivers instant emergency accountability when seconds
                 count—know exactly who's on-site during evacuations or
                 emergencies. Plus, powerful features like RAMS document management,
-                contractor compliance, site inductions, room booking, and staff
-                time & attendance make it your complete personnel management solution.
+                contractor compliance, planned preventative maintenance (PPM),
+                site inductions, room booking, and staff time & attendance make
+                it your complete personnel management solution.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -899,8 +903,9 @@ export default function MarketingPage() {
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
               Life-saving emergency accountability is just the beginning.
               Discover how TPR Max combines critical Health & Safety mustering
-              with contractor management, site inductions, room booking, and
-              staff time & attendance in one complete platform.
+              with contractor management, planned preventative maintenance, site
+              inductions, room booking, and staff time & attendance in one
+              complete platform.
             </p>
           </div>
 
@@ -1006,6 +1011,14 @@ export default function MarketingPage() {
               >
                 <ClipboardCheck className="h-4 w-4 mb-1" />
                 RAMS
+              </TabsTrigger>
+              <TabsTrigger
+                value="ppm"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-emerald-600 transition-all duration-200"
+                data-testid="tab-ppm"
+              >
+                <Wrench className="h-4 w-4 mb-1" />
+                PPM
               </TabsTrigger>
             </TabsList>
 
@@ -2032,6 +2045,127 @@ export default function MarketingPage() {
                       <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
                         <div className="text-2xl font-bold text-orange-600">2</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400">Expiring</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* PPM Tab */}
+            <TabsContent
+              value="ppm"
+              className="space-y-6"
+              data-testid="content-ppm"
+            >
+              <div className="grid lg:grid-cols-2 gap-8 items-center">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-emerald-600">
+                      <Wrench className="h-3 w-3 mr-1" />
+                      Planned Preventative Maintenance
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Keep Your Site Compliant &amp; Your Assets Running
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Manage every statutory and non-statutory maintenance task from one place. Schedule inspections, generate work orders, assign contractors, and maintain a complete audit trail — so you're always ready for a compliance audit.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Statutory Compliance Built-In:</strong> Pre-loaded UK regulation references (BS 5839, BS 5266, LOLER, Gas Safe, BS 7671) on every template
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Automated Work Orders:</strong> Schedules automatically generate work orders at the right time — never miss a service interval again
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Contractor Assignment:</strong> Assign work orders to contractors with a secure mobile QR link — contractors complete checklists on their phone, no app install needed
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Asset Register:</strong> Track every asset by location, category, manufacturer and service history with a full maintenance log
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Overdue Alerts:</strong> Dashboard flags overdue and upcoming work orders so nothing slips through the cracks
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Document Attachments:</strong> Upload certificates, photos, and inspection reports directly to completed work orders
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    onClick={() => scrollToSection("contact")}
+                    className="text-white bg-emerald-600 hover:bg-emerald-700"
+                    data-testid="button-ppm-demo"
+                  >
+                    <CalendarClock className="h-4 w-4 mr-2" />
+                    See PPM System Live
+                  </Button>
+                </div>
+
+                <div className="relative">
+                  <div className="rounded-xl shadow-2xl border border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 p-8">
+                    <div className="text-center mb-6">
+                      <Wrench className="h-16 w-16 text-emerald-600 mx-auto mb-4" />
+                      <h4 className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">
+                        PPM Work Order Dashboard
+                      </h4>
+                    </div>
+
+                    {/* Work order list mockup */}
+                    <div className="space-y-3">
+                      {[
+                        { label: "Annual Fire Alarm Full Test", ref: "BS 5839-1", status: "Overdue", color: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300" },
+                        { label: "Monthly Emergency Lighting Test", ref: "BS 5266-1", status: "Due Today", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300" },
+                        { label: "Lift Thorough Examination", ref: "LOLER 1998", status: "Scheduled", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" },
+                        { label: "Annual Boiler Gas Safety", ref: "Gas Safe Regs", status: "Completed", color: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300" },
+                      ].map((wo) => (
+                        <div key={wo.label} className="flex items-center justify-between bg-white/80 dark:bg-slate-800/80 rounded-lg p-3">
+                          <div className="flex-1 min-w-0 mr-2">
+                            <div className="flex items-center space-x-2">
+                              <CalendarCheck className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{wo.label}</span>
+                            </div>
+                            <p className="text-xs text-slate-400 ml-6">{wo.ref}</p>
+                          </div>
+                          <span className={`text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0 ${wo.color}`}>{wo.status}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Summary counts */}
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-red-600">3</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Overdue</div>
+                      </div>
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-blue-600">12</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Scheduled</div>
+                      </div>
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-green-600">47</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Completed</div>
                       </div>
                     </div>
                   </div>
