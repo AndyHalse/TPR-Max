@@ -1156,6 +1156,13 @@ export const contractorCompanies = pgTable("contractor_companies", {
   onboardingCompleted: boolean("onboarding_completed").default(false),
   portalAccessEnabled: boolean("portal_access_enabled").default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  // CDM 2015 duty-holder and accreditation fields
+  cdmRole: text("cdm_role"), // principal_contractor | principal_designer | contractor | designer | client
+  constructionlineGrade: text("constructionline_grade"), // not_registered | registered | silver | gold | platinum
+  chasCertified: boolean("chas_certified").default(false),
+  smasAccredited: boolean("smas_accredited").default(false),
+  otherAccreditations: text("other_accreditations"),
+  pdProfessionalBody: text("pd_professional_body"),
 });
 
 // Help System Tables for comprehensive customer support

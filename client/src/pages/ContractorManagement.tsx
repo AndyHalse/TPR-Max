@@ -73,7 +73,10 @@ import {
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
 import QRScannerModal from "@/components/QRScannerModal";
 
-// Extended type for list view with computed fields + CDM fields returned from isolatedSchema
+// Extended type for list view with computed fields
+// CDM 2015 fields (cdmRole, constructionlineGrade, chasCertified, smasAccredited,
+// otherAccreditations, pdProfessionalBody) are now in the base ContractorCompany type
+// from shared/schema.ts, so no extra declarations are needed here.
 type ExtendedContractorCompany = ContractorCompany & {
   workersCount?: number;
   documentsStatus?: Record<string, string>;
@@ -81,13 +84,6 @@ type ExtendedContractorCompany = ContractorCompany & {
   hasYellowCard?: boolean;
   serviceType?: string;
   contactEmail?: string;
-  // CDM 2015 fields (from isolatedSchema contractor_companies)
-  cdmRole?: string | null;
-  constructionlineGrade?: string | null;
-  smasAccredited?: boolean | null;
-  otherAccreditations?: string | null;
-  pdProfessionalBody?: string | null;
-  chasCertified?: boolean | null; // already in shared schema but repeated for clarity
 };
 
 // ── ContractorPPMTab ──────────────────────────────────────────────────────────
@@ -370,6 +366,9 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [addStep, setAddStep] = useState(1);
   const [editingProject, setEditingProject] = useState<CdmProject | null>(null);
+  // Inline section editing state — tracks which section is being edited and its edits
+  const [editingSection, setEditingSection] = useState<string | null>(null);
+  const [sectionDraft, setSectionDraft] = useState<Record<string, any>>({});
 
   const emptyForm = {
     companyId: "",
@@ -378,6 +377,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     location: "",
     clientName: "",
     contractorRole: "contractor",
+    principalDesignerName: "",
     status: "planning",
     startDate: "",
     endDate: "",
@@ -428,7 +428,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      const res = await apiRequest("PUT", `/api/cdm/projects/${id}`, data);
+      const res = await apiRequest("PATCH", `/api/cdm/projects/${id}`, data);
       return await res.json();
     },
     onSuccess: (updated) => {
@@ -472,6 +472,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
       location: p.location ?? "",
       clientName: p.clientName ?? "",
       contractorRole: p.contractorRole,
+      principalDesignerName: p.principalDesignerName ?? "",
       status: p.status,
       startDate: p.startDate ?? "",
       endDate: p.endDate ?? "",
@@ -623,76 +624,262 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                       {p.personDays && <div><span className="text-muted-foreground text-xs">Person-Days:</span><p className="font-medium">{p.personDays}</p></div>}
                     </div>
 
-                    {/* Five compliance sections */}
+                    {/* Five compliance sections — inline editable */}
                     <div className="space-y-2">
                       <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Compliance Sections</p>
 
                       {/* S1 — F10 */}
-                      <div className="rounded-md border border-border p-3 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5 text-amber-600" />1. F10 HSE Notification</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.f10Status === "submitted" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.f10Status === "pending" ? "bg-amber-100 text-amber-700" : notifiable ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>
-                            {p.f10Status === "submitted" ? "Submitted" : p.f10Status === "pending" ? "Pending" : notifiable ? "Required — Not Submitted" : "Not Required"}
-                          </span>
-                        </div>
-                        {p.f10Status === "submitted" && <p className="text-xs text-muted-foreground">Submitted: {p.f10Date ?? "—"}{p.f10Reference ? ` · Ref: ${p.f10Reference}` : ""}</p>}
-                        {overdue && <p className="text-xs text-red-600 font-medium flex items-center gap-1"><AlertTriangle className="h-3 w-3" />F10 overdue — project has started</p>}
-                        {p.f10Notes && <p className="text-xs text-muted-foreground italic">"{p.f10Notes}"</p>}
-                      </div>
+                      {(() => {
+                        const sec = "f10";
+                        const isEditing = editingSection === `${p.id}-${sec}`;
+                        const draft = sectionDraft;
+                        return (
+                          <div className="rounded-md border border-border p-3 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5 text-amber-600" />1. F10 HSE Notification</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.f10Status === "submitted" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.f10Status === "pending" ? "bg-amber-100 text-amber-700" : notifiable ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+                                  {p.f10Status === "submitted" ? "Submitted" : p.f10Status === "pending" ? "Pending" : notifiable ? "Required — Not Submitted" : "Not Required"}
+                                </span>
+                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ f10Status: p.f10Status ?? "not_required", f10Date: p.f10Date ?? "", f10Reference: p.f10Reference ?? "", f10Notes: p.f10Notes ?? "" }); }}>
+                                  {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
+                                </Button>
+                              </div>
+                            </div>
+                            {!isEditing && (
+                              <>
+                                {p.f10Status === "submitted" && <p className="text-xs text-muted-foreground">Submitted: {p.f10Date ?? "—"}{p.f10Reference ? ` · Ref: ${p.f10Reference}` : ""}</p>}
+                                {overdue && <p className="text-xs text-red-600 font-medium flex items-center gap-1"><AlertTriangle className="h-3 w-3" />F10 overdue — project has started</p>}
+                                {p.f10Notes && <p className="text-xs text-muted-foreground italic">"{p.f10Notes}"</p>}
+                              </>
+                            )}
+                            {isEditing && (
+                              <div className="space-y-2 pt-1">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div><label className="text-xs text-muted-foreground">Status</label>
+                                    <select className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.f10Status} onChange={e => setSectionDraft({...draft, f10Status: e.target.value})}>
+                                      <option value="not_required">Not Required</option>
+                                      <option value="pending">Pending</option>
+                                      <option value="submitted">Submitted</option>
+                                    </select>
+                                  </div>
+                                  <div><label className="text-xs text-muted-foreground">Date Submitted</label>
+                                    <input type="date" className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.f10Date} onChange={e => setSectionDraft({...draft, f10Date: e.target.value})} />
+                                  </div>
+                                </div>
+                                <div><label className="text-xs text-muted-foreground">HSE Reference</label>
+                                  <input className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.f10Reference} onChange={e => setSectionDraft({...draft, f10Reference: e.target.value})} placeholder="F10 reference number" />
+                                </div>
+                                <div><label className="text-xs text-muted-foreground">Notes</label>
+                                  <textarea className="w-full px-2 py-1 rounded border border-input bg-background text-xs resize-none" rows={2} value={draft.f10Notes} onChange={e => setSectionDraft({...draft, f10Notes: e.target.value})} />
+                                </div>
+                                <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: { f10Status: draft.f10Status, f10Date: draft.f10Date || null, f10Reference: draft.f10Reference || null, f10Notes: draft.f10Notes || null } }); setEditingSection(null); }}>
+                                  {updateMutation.isPending ? "Saving…" : "Save Section"}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* S2 — CPP */}
-                      <div className="rounded-md border border-border p-3 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-blue-600" />2. Construction Phase Plan</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.cppStatus === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.cppStatus === "in_progress" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                            {p.cppStatus === "approved" ? "Approved" : p.cppStatus === "in_progress" ? "In Progress" : "Not Prepared"}
-                          </span>
-                        </div>
-                        {p.cppDate && <p className="text-xs text-muted-foreground">Date: {p.cppDate}</p>}
-                        {p.cppNotes && <p className="text-xs text-muted-foreground italic">"{p.cppNotes}"</p>}
-                      </div>
+                      {(() => {
+                        const sec = "cpp";
+                        const isEditing = editingSection === `${p.id}-${sec}`;
+                        const draft = sectionDraft;
+                        return (
+                          <div className="rounded-md border border-border p-3 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-blue-600" />2. Construction Phase Plan</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.cppStatus === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.cppStatus === "in_progress" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                                  {p.cppStatus === "approved" ? "Approved" : p.cppStatus === "in_progress" ? "In Progress" : "Not Prepared"}
+                                </span>
+                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ cppStatus: p.cppStatus ?? "not_prepared", cppDate: p.cppDate ?? "", cppNotes: p.cppNotes ?? "" }); }}>
+                                  {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
+                                </Button>
+                              </div>
+                            </div>
+                            {!isEditing && (
+                              <>
+                                {p.cppDate && <p className="text-xs text-muted-foreground">Date: {p.cppDate}</p>}
+                                {p.cppNotes && <p className="text-xs text-muted-foreground italic">"{p.cppNotes}"</p>}
+                              </>
+                            )}
+                            {isEditing && (
+                              <div className="space-y-2 pt-1">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div><label className="text-xs text-muted-foreground">Status</label>
+                                    <select className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.cppStatus} onChange={e => setSectionDraft({...draft, cppStatus: e.target.value})}>
+                                      <option value="not_prepared">Not Prepared</option>
+                                      <option value="in_progress">In Progress</option>
+                                      <option value="approved">Approved</option>
+                                    </select>
+                                  </div>
+                                  <div><label className="text-xs text-muted-foreground">Date Approved</label>
+                                    <input type="date" className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.cppDate} onChange={e => setSectionDraft({...draft, cppDate: e.target.value})} />
+                                  </div>
+                                </div>
+                                <div><label className="text-xs text-muted-foreground">Notes</label>
+                                  <textarea className="w-full px-2 py-1 rounded border border-input bg-background text-xs resize-none" rows={2} value={draft.cppNotes} onChange={e => setSectionDraft({...draft, cppNotes: e.target.value})} />
+                                </div>
+                                <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: { cppStatus: draft.cppStatus, cppDate: draft.cppDate || null, cppNotes: draft.cppNotes || null } }); setEditingSection(null); }}>
+                                  {updateMutation.isPending ? "Saving…" : "Save Section"}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* S3 — PCI */}
-                      <div className="rounded-md border border-border p-3 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-purple-600" />3. Pre-Construction Information</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.pciStatus === "distributed" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.pciStatus === "prepared" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                            {p.pciStatus === "distributed" ? "Distributed" : p.pciStatus === "prepared" ? "Prepared" : "Not Prepared"}
-                          </span>
-                        </div>
-                        {p.pciDate && <p className="text-xs text-muted-foreground">Date: {p.pciDate}</p>}
-                        {p.pciNotes && <p className="text-xs text-muted-foreground italic">"{p.pciNotes}"</p>}
-                      </div>
+                      {(() => {
+                        const sec = "pci";
+                        const isEditing = editingSection === `${p.id}-${sec}`;
+                        const draft = sectionDraft;
+                        return (
+                          <div className="rounded-md border border-border p-3 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-purple-600" />3. Pre-Construction Information</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.pciStatus === "distributed" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.pciStatus === "prepared" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                                  {p.pciStatus === "distributed" ? "Distributed" : p.pciStatus === "prepared" ? "Prepared" : "Not Prepared"}
+                                </span>
+                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ pciStatus: p.pciStatus ?? "not_prepared", pciDate: p.pciDate ?? "", pciNotes: p.pciNotes ?? "" }); }}>
+                                  {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
+                                </Button>
+                              </div>
+                            </div>
+                            {!isEditing && (
+                              <>
+                                {p.pciDate && <p className="text-xs text-muted-foreground">Date: {p.pciDate}</p>}
+                                {p.pciNotes && <p className="text-xs text-muted-foreground italic">"{p.pciNotes}"</p>}
+                              </>
+                            )}
+                            {isEditing && (
+                              <div className="space-y-2 pt-1">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div><label className="text-xs text-muted-foreground">Status</label>
+                                    <select className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.pciStatus} onChange={e => setSectionDraft({...draft, pciStatus: e.target.value})}>
+                                      <option value="not_prepared">Not Prepared</option>
+                                      <option value="prepared">Prepared</option>
+                                      <option value="distributed">Distributed</option>
+                                    </select>
+                                  </div>
+                                  <div><label className="text-xs text-muted-foreground">Date Distributed</label>
+                                    <input type="date" className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.pciDate} onChange={e => setSectionDraft({...draft, pciDate: e.target.value})} />
+                                  </div>
+                                </div>
+                                <div><label className="text-xs text-muted-foreground">Notes</label>
+                                  <textarea className="w-full px-2 py-1 rounded border border-input bg-background text-xs resize-none" rows={2} value={draft.pciNotes} onChange={e => setSectionDraft({...draft, pciNotes: e.target.value})} />
+                                </div>
+                                <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: { pciStatus: draft.pciStatus, pciDate: draft.pciDate || null, pciNotes: draft.pciNotes || null } }); setEditingSection(null); }}>
+                                  {updateMutation.isPending ? "Saving…" : "Save Section"}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* S4 — HSF */}
-                      <div className="rounded-md border border-border p-3 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-indigo-600" />4. Health & Safety File</span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(p.hsfStatus === "complete" || p.hsfStatus === "handed_over") ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.hsfStatus === "in_progress" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
-                            {p.hsfStatus === "handed_over" ? "Handed Over" : p.hsfStatus === "complete" ? "Complete" : p.hsfStatus === "in_progress" ? "In Progress" : "Not Started"}
-                          </span>
-                        </div>
-                        {p.hsfDate && <p className="text-xs text-muted-foreground">Date: {p.hsfDate}</p>}
-                        {p.hsfNotes && <p className="text-xs text-muted-foreground italic">"{p.hsfNotes}"</p>}
-                      </div>
+                      {(() => {
+                        const sec = "hsf";
+                        const isEditing = editingSection === `${p.id}-${sec}`;
+                        const draft = sectionDraft;
+                        return (
+                          <div className="rounded-md border border-border p-3 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-indigo-600" />4. Health & Safety File</span>
+                              <div className="flex items-center gap-1.5">
+                                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(p.hsfStatus === "complete" || p.hsfStatus === "handed_over") ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.hsfStatus === "in_progress" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                                  {p.hsfStatus === "handed_over" ? "Handed Over" : p.hsfStatus === "complete" ? "Complete" : p.hsfStatus === "in_progress" ? "In Progress" : "Not Started"}
+                                </span>
+                                <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ hsfStatus: p.hsfStatus ?? "not_started", hsfDate: p.hsfDate ?? "", hsfNotes: p.hsfNotes ?? "" }); }}>
+                                  {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
+                                </Button>
+                              </div>
+                            </div>
+                            {!isEditing && (
+                              <>
+                                {p.hsfDate && <p className="text-xs text-muted-foreground">Date: {p.hsfDate}</p>}
+                                {p.hsfNotes && <p className="text-xs text-muted-foreground italic">"{p.hsfNotes}"</p>}
+                              </>
+                            )}
+                            {isEditing && (
+                              <div className="space-y-2 pt-1">
+                                <div className="grid grid-cols-2 gap-2">
+                                  <div><label className="text-xs text-muted-foreground">Status</label>
+                                    <select className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.hsfStatus} onChange={e => setSectionDraft({...draft, hsfStatus: e.target.value})}>
+                                      <option value="not_started">Not Started</option>
+                                      <option value="in_progress">In Progress</option>
+                                      <option value="complete">Complete</option>
+                                      <option value="handed_over">Handed Over</option>
+                                    </select>
+                                  </div>
+                                  <div><label className="text-xs text-muted-foreground">Date Completed</label>
+                                    <input type="date" className="w-full h-8 px-2 rounded border border-input bg-background text-xs" value={draft.hsfDate} onChange={e => setSectionDraft({...draft, hsfDate: e.target.value})} />
+                                  </div>
+                                </div>
+                                <div><label className="text-xs text-muted-foreground">Notes</label>
+                                  <textarea className="w-full px-2 py-1 rounded border border-input bg-background text-xs resize-none" rows={2} value={draft.hsfNotes} onChange={e => setSectionDraft({...draft, hsfNotes: e.target.value})} />
+                                </div>
+                                <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: { hsfStatus: draft.hsfStatus, hsfDate: draft.hsfDate || null, hsfNotes: draft.hsfNotes || null } }); setEditingSection(null); }}>
+                                  {updateMutation.isPending ? "Saving…" : "Save Section"}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
 
                       {/* S5 — Welfare */}
-                      <div className="rounded-md border border-border p-3 space-y-2">
-                        <span className="text-xs font-semibold flex items-center gap-1.5"><CheckSquareIcon className="h-3.5 w-3.5 text-green-600" />5. Welfare Provisions (CDM Reg 25)</span>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                          {[
-                            { key: "welfareToilets", label: "Toilets", val: p.welfareToilets },
-                            { key: "welfareWashing", label: "Washing", val: p.welfareWashing },
-                            { key: "welfareRestArea", label: "Rest Area", val: p.welfareRestArea },
-                            { key: "welfareDrinkingWater", label: "Drinking Water", val: p.welfareDrinkingWater },
-                            { key: "welfareChanging", label: "Changing Facilities", val: p.welfareChanging },
-                          ].map(w => (
-                            <span key={w.key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${w.val ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-muted text-muted-foreground"}`}>
-                              {w.val ? <CheckCircle className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}{w.label}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
+                      {(() => {
+                        const sec = "welfare";
+                        const isEditing = editingSection === `${p.id}-${sec}`;
+                        const draft = sectionDraft;
+                        const welfareItems = [
+                          { key: "welfareToilets", label: "Toilets", val: p.welfareToilets },
+                          { key: "welfareWashing", label: "Washing", val: p.welfareWashing },
+                          { key: "welfareRestArea", label: "Rest Area", val: p.welfareRestArea },
+                          { key: "welfareDrinkingWater", label: "Drinking Water", val: p.welfareDrinkingWater },
+                          { key: "welfareChanging", label: "Changing Facilities", val: p.welfareChanging },
+                        ];
+                        return (
+                          <div className="rounded-md border border-border p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold flex items-center gap-1.5"><CheckSquareIcon className="h-3.5 w-3.5 text-green-600" />5. Welfare Provisions (CDM Reg 25)</span>
+                              <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ welfareToilets: p.welfareToilets ?? false, welfareWashing: p.welfareWashing ?? false, welfareRestArea: p.welfareRestArea ?? false, welfareDrinkingWater: p.welfareDrinkingWater ?? false, welfareChanging: p.welfareChanging ?? false }); }}>
+                                {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
+                              </Button>
+                            </div>
+                            {!isEditing && (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                                {welfareItems.map(w => (
+                                  <span key={w.key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${w.val ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-muted text-muted-foreground"}`}>
+                                    {w.val ? <CheckCircle className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}{w.label}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {isEditing && (
+                              <div className="space-y-2 pt-1">
+                                <div className="grid grid-cols-2 gap-2">
+                                  {welfareItems.map(w => (
+                                    <label key={w.key} className="flex items-center gap-2 text-xs cursor-pointer">
+                                      <input type="checkbox" checked={!!draft[w.key]} onChange={e => setSectionDraft({...draft, [w.key]: e.target.checked})} className="rounded" />
+                                      {w.label}
+                                    </label>
+                                  ))}
+                                </div>
+                                <Button size="sm" className="h-7 text-xs" disabled={updateMutation.isPending} onClick={() => { updateMutation.mutate({ id: p.id, data: { welfareToilets: draft.welfareToilets, welfareWashing: draft.welfareWashing, welfareRestArea: draft.welfareRestArea, welfareDrinkingWater: draft.welfareDrinkingWater, welfareChanging: draft.welfareChanging } }); setEditingSection(null); }}>
+                                  {updateMutation.isPending ? "Saving…" : "Save Section"}
+                                </Button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Notes */}
@@ -766,6 +953,10 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Client Name</label>
                   <Input value={form.clientName} onChange={e => setForm({ ...form, clientName: e.target.value })} placeholder="e.g. ABC Holdings Ltd" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Principal Designer Name</label>
+                  <Input value={form.principalDesignerName} onChange={e => setForm({ ...form, principalDesignerName: e.target.value })} placeholder="Name of the appointed Principal Designer" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Location</label>
@@ -968,6 +1159,10 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Client Name</label>
                 <Input value={form.clientName} onChange={e => setForm({ ...form, clientName: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Principal Designer Name</label>
+                <Input value={form.principalDesignerName} onChange={e => setForm({ ...form, principalDesignerName: e.target.value })} placeholder="Name of the appointed Principal Designer" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Location</label>
@@ -1462,7 +1657,7 @@ export default function ContractorManagement() {
 
   const updateCdmAccreditationsMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      return await apiRequest("PUT", `/api/cdm/contractor/${id}/accreditations`, data);
+      return await apiRequest("PATCH", `/api/contractors/${id}/cdm`, data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });

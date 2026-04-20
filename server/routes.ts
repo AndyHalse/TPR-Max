@@ -28754,6 +28754,83 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // PATCH update CDM project — alias for PUT (same handler, required by API contract)
+  app.patch("/api/cdm/projects/:id", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+    try {
+      const { id } = req.params;
+      const db = await customerDbService.getCustomerDatabase(req.customerId!);
+      const data = req.body;
+      const updates: Record<string, any> = {};
+      if (data.title !== undefined) updates.title = data.title;
+      if (data.description !== undefined) updates.description = data.description;
+      if (data.location !== undefined) updates.location = data.location;
+      if (data.clientName !== undefined) updates.clientName = data.clientName;
+      if (data.contractorRole !== undefined) updates.contractorRole = data.contractorRole;
+      if (data.principalContractorId !== undefined) updates.principalContractorId = data.principalContractorId;
+      if (data.principalDesignerName !== undefined) updates.principalDesignerName = data.principalDesignerName;
+      if (data.status !== undefined) updates.status = data.status;
+      if (data.startDate !== undefined) updates.startDate = data.startDate;
+      if (data.endDate !== undefined) updates.endDate = data.endDate;
+      if (data.estimatedDays !== undefined) updates.estimatedDays = data.estimatedDays ? parseInt(data.estimatedDays) : null;
+      if (data.peakWorkers !== undefined) updates.peakWorkers = data.peakWorkers ? parseInt(data.peakWorkers) : null;
+      if (data.personDays !== undefined) updates.personDays = data.personDays ? parseInt(data.personDays) : null;
+      if (data.isNotifiable !== undefined) updates.isNotifiable = data.isNotifiable;
+      if (data.f10Status !== undefined) updates.f10Status = data.f10Status;
+      if (data.f10Date !== undefined) updates.f10Date = data.f10Date;
+      if (data.f10Reference !== undefined) updates.f10Reference = data.f10Reference;
+      if (data.f10Notes !== undefined) updates.f10Notes = data.f10Notes;
+      if (data.cppStatus !== undefined) updates.cppStatus = data.cppStatus;
+      if (data.cppDate !== undefined) updates.cppDate = data.cppDate;
+      if (data.cppNotes !== undefined) updates.cppNotes = data.cppNotes;
+      if (data.pciStatus !== undefined) updates.pciStatus = data.pciStatus;
+      if (data.pciDate !== undefined) updates.pciDate = data.pciDate;
+      if (data.pciNotes !== undefined) updates.pciNotes = data.pciNotes;
+      if (data.hsfStatus !== undefined) updates.hsfStatus = data.hsfStatus;
+      if (data.hsfDate !== undefined) updates.hsfDate = data.hsfDate;
+      if (data.hsfNotes !== undefined) updates.hsfNotes = data.hsfNotes;
+      if (data.welfareToilets !== undefined) updates.welfareToilets = data.welfareToilets;
+      if (data.welfareWashing !== undefined) updates.welfareWashing = data.welfareWashing;
+      if (data.welfareRestArea !== undefined) updates.welfareRestArea = data.welfareRestArea;
+      if (data.welfareDrinkingWater !== undefined) updates.welfareDrinkingWater = data.welfareDrinkingWater;
+      if (data.welfareChanging !== undefined) updates.welfareChanging = data.welfareChanging;
+      if (data.notes !== undefined) updates.notes = data.notes;
+      if (Object.keys(updates).length === 0) return res.status(400).json({ error: "No fields to update" });
+      const [project] = await db.update(isolatedSchema.cdmProjects).set(updates).where(eq(isolatedSchema.cdmProjects.id, id)).returning();
+      if (!project) return res.status(404).json({ error: "CDM project not found" });
+      res.json(project);
+    } catch (error) {
+      console.error("Error updating CDM project (PATCH):", error);
+      res.status(500).json({ error: "Failed to update CDM project" });
+    }
+  });
+
+  // PATCH update contractor CDM fields — extends /api/contractors/:id for CDM/accreditation fields
+  app.patch("/api/contractors/:id/cdm", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+    try {
+      const { id } = req.params;
+      const db = await customerDbService.getCustomerDatabase(req.customerId!);
+      const data = req.body;
+      const updates: Record<string, any> = {};
+      if (data.cdmRole !== undefined) updates.cdmRole = data.cdmRole;
+      if (data.constructionlineGrade !== undefined) updates.constructionlineGrade = data.constructionlineGrade;
+      if (data.smasAccredited !== undefined) updates.smasAccredited = data.smasAccredited;
+      if (data.otherAccreditations !== undefined) updates.otherAccreditations = data.otherAccreditations;
+      if (data.pdProfessionalBody !== undefined) updates.pdProfessionalBody = data.pdProfessionalBody;
+      if (Object.keys(updates).length === 0) return res.status(400).json({ error: "No CDM fields provided" });
+      const [company] = await db.update(isolatedSchema.contractorCompanies)
+        .set(updates)
+        .where(eq(isolatedSchema.contractorCompanies.id, id))
+        .returning();
+      if (!company) return res.status(404).json({ error: "Contractor company not found" });
+      res.json(company);
+    } catch (error) {
+      console.error("Error updating contractor CDM fields:", error);
+      res.status(500).json({ error: "Failed to update contractor CDM fields" });
+    }
+  });
+
   // PUT update contractor company CDM/accreditation fields (admin only)
   app.put("/api/cdm/contractor/:id/accreditations", requireAuth, async (req, res) => {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
