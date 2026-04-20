@@ -462,6 +462,47 @@ export class CustomerDatabaseService {
       console.warn(`⚠️ PPM work order tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Ensure CDM 2015 columns on contractor_companies and cdm_projects table
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS cdm_role TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS constructionline_accredited BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS constructionline_number TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS constructionline_expiry TIMESTAMP`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS smas_accredited BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS smas_number TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS smas_expiry TIMESTAMP`);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".cdm_projects (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          company_id VARCHAR NOT NULL REFERENCES "${schemaName}".contractor_companies(id) ON DELETE CASCADE,
+          title TEXT NOT NULL,
+          description TEXT,
+          location TEXT,
+          client_name TEXT,
+          contractor_role TEXT NOT NULL DEFAULT 'contractor',
+          status TEXT NOT NULL DEFAULT 'planned',
+          start_date TEXT,
+          end_date TEXT,
+          estimated_days INTEGER,
+          peak_workers INTEGER,
+          person_days INTEGER,
+          f10_notification_required BOOLEAN DEFAULT false,
+          f10_submitted_date TEXT,
+          f10_reference TEXT,
+          construction_phase_plan_url TEXT,
+          construction_phase_plan_date TEXT,
+          pre_construction_info_url TEXT,
+          health_safety_file_url TEXT,
+          welfare_provisions TEXT,
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      console.log(`✅ CDM 2015 tables/columns ensured for ${schemaName}`);
+    } catch (err: any) {
+      console.warn(`⚠️ CDM 2015 migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure admin user exists in this customer schema (critical for production)
     try {
       await this.ensureAdminUserExists(customerId, db);

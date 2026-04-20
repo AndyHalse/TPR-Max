@@ -702,6 +702,14 @@ export const contractorCompanies = pgTable("contractor_companies", {
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  // CDM 2015 — Construction Design & Management
+  cdmRole: text("cdm_role"), // principal_contractor | principal_designer | contractor | designer | client | none
+  constructionlineAccredited: boolean("constructionline_accredited").default(false),
+  constructionlineNumber: text("constructionline_number"),
+  constructionlineExpiry: timestamp("constructionline_expiry"),
+  smasAccredited: boolean("smas_accredited").default(false),
+  smasNumber: text("smas_number"),
+  smasExpiry: timestamp("smas_expiry"),
 });
 
 // Contractor Workers
@@ -2233,5 +2241,41 @@ export const ppmWorkOrderDocuments = pgTable("ppm_work_order_documents", {
 export const insertPpmWorkOrderDocumentSchema = createInsertSchema(ppmWorkOrderDocuments).omit({ id: true, createdAt: true });
 export type InsertPpmWorkOrderDocument = z.infer<typeof insertPpmWorkOrderDocumentSchema>;
 export type PpmWorkOrderDocument = typeof ppmWorkOrderDocuments.$inferSelect;
+
+// ── CDM 2015 — Construction Design & Management Projects ──────────────────────
+
+export const cdmProjects = pgTable("cdm_projects", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  companyId: varchar("company_id").notNull().references(() => contractorCompanies.id, { onDelete: "cascade" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  location: text("location"),
+  clientName: text("client_name"),
+  contractorRole: text("contractor_role").notNull().default("contractor"), // principal_contractor | principal_designer | contractor | designer
+  status: text("status").notNull().default("planned"), // planned | active | complete | on_hold
+  startDate: text("start_date"),
+  endDate: text("end_date"),
+  estimatedDays: integer("estimated_days"),
+  peakWorkers: integer("peak_workers"),
+  personDays: integer("person_days"),
+  // F10 notification
+  f10NotificationRequired: boolean("f10_notification_required").default(false),
+  f10SubmittedDate: text("f10_submitted_date"),
+  f10Reference: text("f10_reference"),
+  // Key documents
+  constructionPhasePlanUrl: text("construction_phase_plan_url"),
+  constructionPhasePlanDate: text("construction_phase_plan_date"),
+  preConstructionInfoUrl: text("pre_construction_info_url"),
+  healthSafetyFileUrl: text("health_safety_file_url"),
+  // Welfare provisions checklist (JSON array of provision keys)
+  welfareProvisions: text("welfare_provisions"), // JSON: ["toilets","washing","rest_area","drinking_water","first_aid","lighting"]
+  // Notes
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCdmProjectSchema = createInsertSchema(cdmProjects).omit({ id: true, createdAt: true });
+export type InsertCdmProject = z.infer<typeof insertCdmProjectSchema>;
+export type CdmProject = typeof cdmProjects.$inferSelect;
 
 export type BiostarDevice = typeof biostarDevices.$inferSelect;

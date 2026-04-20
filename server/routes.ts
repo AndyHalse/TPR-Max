@@ -28601,6 +28601,160 @@ This is an automated notification from your visitor management system.`;
     }
   }, { timezone: "Europe/London" });
 
+  // ── CDM 2015 Routes ──────────────────────────────────────────────────────────
+
+  // GET all CDM projects for a contractor company
+  app.get("/api/cdm/projects", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.query;
+      const db = await customerDbService.getCustomerDatabase(req.customerId!);
+      let projects: any[];
+      if (companyId) {
+        projects = await db.select().from(isolatedSchema.cdmProjects)
+          .where(eq(isolatedSchema.cdmProjects.companyId, companyId as string))
+          .orderBy(isolatedSchema.cdmProjects.createdAt);
+      } else {
+        projects = await db.select().from(isolatedSchema.cdmProjects)
+          .orderBy(isolatedSchema.cdmProjects.createdAt);
+      }
+      res.json(projects);
+    } catch (error) {
+      console.error("Error fetching CDM projects:", error);
+      res.status(500).json({ error: "Failed to fetch CDM projects" });
+    }
+  });
+
+  // GET single CDM project
+  app.get("/api/cdm/projects/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const db = await customerDbService.getCustomerDatabase(req.customerId!);
+      const [project] = await db.select().from(isolatedSchema.cdmProjects)
+        .where(eq(isolatedSchema.cdmProjects.id, id));
+      if (!project) return res.status(404).json({ error: "CDM project not found" });
+      res.json(project);
+    } catch (error) {
+      console.error("Error fetching CDM project:", error);
+      res.status(500).json({ error: "Failed to fetch CDM project" });
+    }
+  });
+
+  // POST create CDM project
+  app.post("/api/cdm/projects", requireAuth, async (req, res) => {
+    try {
+      const db = await customerDbService.getCustomerDatabase(req.customerId!);
+      const data = req.body;
+      const [project] = await db.insert(isolatedSchema.cdmProjects).values({
+        companyId: data.companyId,
+        title: data.title,
+        description: data.description || null,
+        location: data.location || null,
+        clientName: data.clientName || null,
+        contractorRole: data.contractorRole || "contractor",
+        status: data.status || "planned",
+        startDate: data.startDate || null,
+        endDate: data.endDate || null,
+        estimatedDays: data.estimatedDays ? parseInt(data.estimatedDays) : null,
+        peakWorkers: data.peakWorkers ? parseInt(data.peakWorkers) : null,
+        personDays: data.personDays ? parseInt(data.personDays) : null,
+        f10NotificationRequired: data.f10NotificationRequired || false,
+        f10SubmittedDate: data.f10SubmittedDate || null,
+        f10Reference: data.f10Reference || null,
+        constructionPhasePlanUrl: data.constructionPhasePlanUrl || null,
+        constructionPhasePlanDate: data.constructionPhasePlanDate || null,
+        preConstructionInfoUrl: data.preConstructionInfoUrl || null,
+        healthSafetyFileUrl: data.healthSafetyFileUrl || null,
+        welfareProvisions: data.welfareProvisions ? JSON.stringify(data.welfareProvisions) : null,
+        notes: data.notes || null,
+      }).returning();
+      res.json(project);
+    } catch (error) {
+      console.error("Error creating CDM project:", error);
+      res.status(500).json({ error: "Failed to create CDM project" });
+    }
+  });
+
+  // PUT update CDM project
+  app.put("/api/cdm/projects/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const db = await customerDbService.getCustomerDatabase(req.customerId!);
+      const data = req.body;
+      const updates: Record<string, any> = {};
+      if (data.title !== undefined) updates.title = data.title;
+      if (data.description !== undefined) updates.description = data.description;
+      if (data.location !== undefined) updates.location = data.location;
+      if (data.clientName !== undefined) updates.clientName = data.clientName;
+      if (data.contractorRole !== undefined) updates.contractorRole = data.contractorRole;
+      if (data.status !== undefined) updates.status = data.status;
+      if (data.startDate !== undefined) updates.startDate = data.startDate;
+      if (data.endDate !== undefined) updates.endDate = data.endDate;
+      if (data.estimatedDays !== undefined) updates.estimatedDays = data.estimatedDays ? parseInt(data.estimatedDays) : null;
+      if (data.peakWorkers !== undefined) updates.peakWorkers = data.peakWorkers ? parseInt(data.peakWorkers) : null;
+      if (data.personDays !== undefined) updates.personDays = data.personDays ? parseInt(data.personDays) : null;
+      if (data.f10NotificationRequired !== undefined) updates.f10NotificationRequired = data.f10NotificationRequired;
+      if (data.f10SubmittedDate !== undefined) updates.f10SubmittedDate = data.f10SubmittedDate;
+      if (data.f10Reference !== undefined) updates.f10Reference = data.f10Reference;
+      if (data.constructionPhasePlanUrl !== undefined) updates.constructionPhasePlanUrl = data.constructionPhasePlanUrl;
+      if (data.constructionPhasePlanDate !== undefined) updates.constructionPhasePlanDate = data.constructionPhasePlanDate;
+      if (data.preConstructionInfoUrl !== undefined) updates.preConstructionInfoUrl = data.preConstructionInfoUrl;
+      if (data.healthSafetyFileUrl !== undefined) updates.healthSafetyFileUrl = data.healthSafetyFileUrl;
+      if (data.welfareProvisions !== undefined) updates.welfareProvisions = Array.isArray(data.welfareProvisions) ? JSON.stringify(data.welfareProvisions) : data.welfareProvisions;
+      if (data.notes !== undefined) updates.notes = data.notes;
+      const [project] = await db.update(isolatedSchema.cdmProjects)
+        .set(updates)
+        .where(eq(isolatedSchema.cdmProjects.id, id))
+        .returning();
+      if (!project) return res.status(404).json({ error: "CDM project not found" });
+      res.json(project);
+    } catch (error) {
+      console.error("Error updating CDM project:", error);
+      res.status(500).json({ error: "Failed to update CDM project" });
+    }
+  });
+
+  // DELETE CDM project
+  app.delete("/api/cdm/projects/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const db = await customerDbService.getCustomerDatabase(req.customerId!);
+      await db.delete(isolatedSchema.cdmProjects)
+        .where(eq(isolatedSchema.cdmProjects.id, id));
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting CDM project:", error);
+      res.status(500).json({ error: "Failed to delete CDM project" });
+    }
+  });
+
+  // PUT update contractor company CDM/accreditation fields
+  app.put("/api/cdm/contractor/:id/accreditations", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const db = await customerDbService.getCustomerDatabase(req.customerId!);
+      const data = req.body;
+      const updates: Record<string, any> = {};
+      if (data.cdmRole !== undefined) updates.cdmRole = data.cdmRole;
+      if (data.constructionlineAccredited !== undefined) updates.constructionlineAccredited = data.constructionlineAccredited;
+      if (data.constructionlineNumber !== undefined) updates.constructionlineNumber = data.constructionlineNumber;
+      if (data.constructionlineExpiry !== undefined) updates.constructionlineExpiry = data.constructionlineExpiry ? new Date(data.constructionlineExpiry) : null;
+      if (data.smasAccredited !== undefined) updates.smasAccredited = data.smasAccredited;
+      if (data.smasNumber !== undefined) updates.smasNumber = data.smasNumber;
+      if (data.smasExpiry !== undefined) updates.smasExpiry = data.smasExpiry ? new Date(data.smasExpiry) : null;
+      const [company] = await db.update(isolatedSchema.contractorCompanies)
+        .set(updates)
+        .where(eq(isolatedSchema.contractorCompanies.id, id))
+        .returning();
+      if (!company) return res.status(404).json({ error: "Contractor company not found" });
+      res.json(company);
+    } catch (error) {
+      console.error("Error updating CDM accreditations:", error);
+      res.status(500).json({ error: "Failed to update CDM accreditations" });
+    }
+  });
+
+  // ── End CDM routes ──────────────────────────────────────────────────────────
+
   // ── End PPM routes ──────────────────────────────────────────────────────────
 
   const httpServer = existingServer || createServer(app);

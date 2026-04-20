@@ -61,6 +61,13 @@ import {
   Wrench,
   CalendarDays,
   ExternalLink,
+  HardHat as HardHatIcon,
+  ClipboardList,
+  AlertCircle,
+  ChevronDown,
+  CheckSquare as CheckSquareIcon,
+  Globe,
+  MapPin,
 } from "lucide-react";
 
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
@@ -262,11 +269,694 @@ function ContractorPPMTab() {
   );
 }
 
+// ── CDM 2015 Project Register ─────────────────────────────────────────────────
+
+type CdmProject = {
+  id: string;
+  companyId: string;
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  clientName?: string | null;
+  contractorRole: string;
+  status: string;
+  startDate?: string | null;
+  endDate?: string | null;
+  estimatedDays?: number | null;
+  peakWorkers?: number | null;
+  personDays?: number | null;
+  f10NotificationRequired?: boolean | null;
+  f10SubmittedDate?: string | null;
+  f10Reference?: string | null;
+  constructionPhasePlanUrl?: string | null;
+  constructionPhasePlanDate?: string | null;
+  preConstructionInfoUrl?: string | null;
+  healthSafetyFileUrl?: string | null;
+  welfareProvisions?: string | null;
+  notes?: string | null;
+  createdAt?: string | null;
+};
+
+const CDM_ROLE_LABELS: Record<string, string> = {
+  principal_contractor: "Principal Contractor",
+  principal_designer: "Principal Designer",
+  contractor: "Contractor",
+  designer: "Designer",
+};
+
+const CDM_STATUS_BADGE: Record<string, { label: string; className: string }> = {
+  planned:   { label: "Planned",   className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" },
+  active:    { label: "Active",    className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
+  on_hold:   { label: "On Hold",   className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
+  complete:  { label: "Complete",  className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+};
+
+const WELFARE_OPTIONS = [
+  { key: "toilets", label: "Toilets" },
+  { key: "washing", label: "Washing Facilities" },
+  { key: "rest_area", label: "Rest Area / Canteen" },
+  { key: "drinking_water", label: "Drinking Water" },
+  { key: "first_aid", label: "First Aid" },
+  { key: "lighting", label: "Adequate Lighting" },
+  { key: "changing", label: "Changing Facilities" },
+  { key: "drying", label: "Drying Facilities" },
+];
+
+function isF10Required(p: CdmProject): boolean {
+  const daysOk = (p.estimatedDays ?? 0) > 30 && (p.peakWorkers ?? 0) > 20;
+  const personDaysOk = (p.personDays ?? 0) > 500;
+  return daysOk || personDaysOk;
+}
+
+function isProjectOverdue(p: CdmProject): boolean {
+  if (!p.endDate || p.status === "complete") return false;
+  return new Date(p.endDate) < new Date();
+}
+
+function ContractorCDMTab({ companies }: { companies: any[] }) {
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [selectedProject, setSelectedProject] = useState<CdmProject | null>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [addStep, setAddStep] = useState(1);
+  const [editingProject, setEditingProject] = useState<CdmProject | null>(null);
+
+  const emptyForm = {
+    companyId: "",
+    title: "",
+    description: "",
+    location: "",
+    clientName: "",
+    contractorRole: "contractor",
+    status: "planned",
+    startDate: "",
+    endDate: "",
+    estimatedDays: "",
+    peakWorkers: "",
+    personDays: "",
+    f10NotificationRequired: false,
+    f10SubmittedDate: "",
+    f10Reference: "",
+    constructionPhasePlanUrl: "",
+    constructionPhasePlanDate: "",
+    preConstructionInfoUrl: "",
+    healthSafetyFileUrl: "",
+    welfareProvisions: [] as string[],
+    notes: "",
+  };
+
+  const [form, setForm] = useState(emptyForm);
+
+  const { data: allProjects = [], isLoading } = useQuery<CdmProject[]>({
+    queryKey: ["/api/cdm/projects"],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/cdm/projects", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects"] });
+      setShowAddDialog(false);
+      setAddStep(1);
+      setForm(emptyForm);
+      toast({ title: "CDM Project created" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to create CDM project", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      const res = await apiRequest("PUT", `/api/cdm/projects/${id}`, data);
+      return await res.json();
+    },
+    onSuccess: (updated) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects"] });
+      setSelectedProject(updated);
+      setEditingProject(null);
+      toast({ title: "CDM Project updated" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to update CDM project", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => apiRequest("DELETE", `/api/cdm/projects/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/cdm/projects"] });
+      setSelectedProject(null);
+      toast({ title: "CDM Project deleted" });
+    },
+    onError: () => toast({ title: "Error", description: "Failed to delete CDM project", variant: "destructive" }),
+  });
+
+  const filtered = allProjects.filter(p => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      p.title.toLowerCase().includes(q) ||
+      (p.clientName ?? "").toLowerCase().includes(q) ||
+      (p.location ?? "").toLowerCase().includes(q)
+    );
+  });
+
+  const totalActive = allProjects.filter(p => p.status === "active").length;
+  const totalF10 = allProjects.filter(p => p.f10NotificationRequired || isF10Required(p)).length;
+  const totalOverdue = allProjects.filter(isProjectOverdue).length;
+
+  const openEdit = (p: CdmProject) => {
+    const welfareArr: string[] = (() => {
+      try { return JSON.parse(p.welfareProvisions ?? "[]"); } catch { return []; }
+    })();
+    setForm({
+      companyId: p.companyId,
+      title: p.title,
+      description: p.description ?? "",
+      location: p.location ?? "",
+      clientName: p.clientName ?? "",
+      contractorRole: p.contractorRole,
+      status: p.status,
+      startDate: p.startDate ?? "",
+      endDate: p.endDate ?? "",
+      estimatedDays: p.estimatedDays?.toString() ?? "",
+      peakWorkers: p.peakWorkers?.toString() ?? "",
+      personDays: p.personDays?.toString() ?? "",
+      f10NotificationRequired: p.f10NotificationRequired ?? false,
+      f10SubmittedDate: p.f10SubmittedDate ?? "",
+      f10Reference: p.f10Reference ?? "",
+      constructionPhasePlanUrl: p.constructionPhasePlanUrl ?? "",
+      constructionPhasePlanDate: p.constructionPhasePlanDate ?? "",
+      preConstructionInfoUrl: p.preConstructionInfoUrl ?? "",
+      healthSafetyFileUrl: p.healthSafetyFileUrl ?? "",
+      welfareProvisions: welfareArr,
+      notes: p.notes ?? "",
+    });
+    setEditingProject(p);
+  };
+
+  if (isLoading) return <GlassCard className="p-8 text-center text-muted-foreground">Loading CDM projects…</GlassCard>;
+
+  return (
+    <div className="space-y-4">
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        {[
+          { label: "Total Projects", value: allProjects.length, color: "text-slate-700 dark:text-slate-200" },
+          { label: "Active", value: totalActive, color: "text-green-700 dark:text-green-400" },
+          { label: "F10 Required", value: totalF10, color: "text-amber-700 dark:text-amber-400" },
+          { label: "Overdue", value: totalOverdue, color: "text-red-700 dark:text-red-400" },
+        ].map(s => (
+          <GlassCard key={s.label} className="p-4 text-center">
+            <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+            <p className="text-xs text-muted-foreground mt-1">{s.label}</p>
+          </GlassCard>
+        ))}
+      </div>
+
+      {/* Header row */}
+      <GlassCard className="p-4">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <HardHatIcon className="h-5 w-5 text-amber-600" />
+              <h3 className="font-semibold text-fixed">CDM 2015 Project Register</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">Construction Design & Management Regulations 2015</p>
+          </div>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <input
+                className="w-full h-8 pl-8 pr-3 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                placeholder="Search projects…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <Button size="sm" onClick={() => { setForm(emptyForm); setAddStep(1); setShowAddDialog(true); }} className="bg-amber-600 hover:bg-amber-700 text-white whitespace-nowrap">
+              <Plus className="h-3.5 w-3.5 mr-1" />Add Project
+            </Button>
+          </div>
+        </div>
+      </GlassCard>
+
+      {/* Project list */}
+      {filtered.length === 0 ? (
+        <GlassCard className="p-12 text-center">
+          <HardHatIcon className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm font-medium text-muted-foreground">
+            {search ? "No projects match your search." : "No CDM projects recorded yet."}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">Add a project to start tracking CDM 2015 compliance.</p>
+        </GlassCard>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map(p => {
+            const badge = CDM_STATUS_BADGE[p.status] ?? { label: p.status, className: "bg-gray-100 text-gray-700" };
+            const overdue = isProjectOverdue(p);
+            const f10Req = p.f10NotificationRequired || isF10Required(p);
+            const companyName = companies.find(c => c.id === p.companyId)?.name ?? "Unknown Company";
+            return (
+              <GlassCard
+                key={p.id}
+                className={`p-4 cursor-pointer hover:shadow-md transition-shadow ${overdue ? "border-red-300 dark:border-red-700" : ""}`}
+                onClick={() => setSelectedProject(selectedProject?.id === p.id ? null : p)}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-fixed">{p.title}</span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>{badge.label}</span>
+                      {f10Req && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          <AlertCircle className="h-3 w-3" />F10
+                        </span>
+                      )}
+                      {overdue && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                          <AlertTriangle className="h-3 w-3" />Overdue
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{companyName}</span>
+                      {p.location && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{p.location}</span>}
+                      {p.clientName && <span className="flex items-center gap-1"><User className="h-3 w-3" />Client: {p.clientName}</span>}
+                      <span className="flex items-center gap-1"><HardHatIcon className="h-3 w-3" />{CDM_ROLE_LABELS[p.contractorRole] ?? p.contractorRole}</span>
+                      {p.startDate && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />Start: {p.startDate}</span>}
+                      {p.endDate && <span className={`flex items-center gap-1 ${overdue ? "text-red-600 font-medium" : ""}`}><CalendarDays className="h-3 w-3" />End: {p.endDate}</span>}
+                    </div>
+                  </div>
+                  <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform mt-0.5 ${selectedProject?.id === p.id ? "rotate-180" : ""}`} />
+                </div>
+
+                {/* Expanded detail panel */}
+                {selectedProject?.id === p.id && (
+                  <div className="mt-4 pt-4 border-t border-border space-y-4" onClick={e => e.stopPropagation()}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
+                      {p.estimatedDays && <div><span className="text-muted-foreground text-xs">Duration:</span><p className="font-medium">{p.estimatedDays} days</p></div>}
+                      {p.peakWorkers && <div><span className="text-muted-foreground text-xs">Peak Workers:</span><p className="font-medium">{p.peakWorkers}</p></div>}
+                      {p.personDays && <div><span className="text-muted-foreground text-xs">Person-Days:</span><p className="font-medium">{p.personDays}</p></div>}
+                    </div>
+
+                    {/* F10 Section */}
+                    {(p.f10NotificationRequired || isF10Required(p)) && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 space-y-1">
+                        <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5" />F10 Notification Required</p>
+                        {p.f10SubmittedDate ? (
+                          <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Submitted: {p.f10SubmittedDate}{p.f10Reference ? ` — Ref: ${p.f10Reference}` : ""}</p>
+                        ) : (
+                          <p className="text-xs text-red-600 dark:text-red-400 font-medium">⚠ Not yet submitted to HSE</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Key Documents */}
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Key Documents</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {[
+                          { label: "Construction Phase Plan", url: p.constructionPhasePlanUrl, date: p.constructionPhasePlanDate },
+                          { label: "Pre-Construction Information", url: p.preConstructionInfoUrl, date: null },
+                          { label: "H&S File", url: p.healthSafetyFileUrl, date: null },
+                        ].map(doc => (
+                          <div key={doc.label} className="flex items-center gap-2 text-xs">
+                            {doc.url ? (
+                              <>
+                                <CheckCircle className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
+                                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">{doc.label}{doc.date ? ` (${doc.date})` : ""}</a>
+                              </>
+                            ) : (
+                              <>
+                                <AlertCircle className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
+                                <span className="text-muted-foreground">{doc.label}</span>
+                              </>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Welfare Provisions */}
+                    {p.welfareProvisions && (() => {
+                      try {
+                        const provisions: string[] = JSON.parse(p.welfareProvisions);
+                        if (provisions.length > 0) return (
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Welfare Provisions</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {WELFARE_OPTIONS.map(opt => (
+                                <span key={opt.key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${provisions.includes(opt.key) ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-muted text-muted-foreground line-through"}`}>
+                                  {provisions.includes(opt.key) ? <CheckCircle className="h-3 w-3" /> : null}{opt.label}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      } catch {}
+                      return null;
+                    })()}
+
+                    {/* Notes */}
+                    {p.notes && (
+                      <div className="text-xs text-muted-foreground bg-muted/40 rounded p-2">
+                        <span className="font-semibold">Notes: </span>{p.notes}
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Button size="sm" variant="outline" onClick={() => openEdit(p)} className="text-xs">
+                        <Edit className="h-3.5 w-3.5 mr-1" />Edit Project
+                      </Button>
+                      <Button size="sm" variant="outline" className="text-xs text-red-600 border-red-300 hover:bg-red-50 dark:hover:bg-red-950"
+                        onClick={() => { if (window.confirm(`Delete project "${p.title}"?`)) deleteMutation.mutate(p.id); }}>
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </GlassCard>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add Project Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={(open) => { setShowAddDialog(open); if (!open) { setAddStep(1); setForm(emptyForm); } }}>
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
+          <div className="flex-shrink-0 px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold mb-3">
+              <HardHatIcon className="h-5 w-5 text-amber-600" />Add CDM Project
+            </DialogTitle>
+            <div className="flex items-center gap-0">
+              {[{ n: 1, label: "Project Details" }, { n: 2, label: "F10 & Documents" }].map((s, i) => (
+                <div key={s.n} className={`flex items-center ${i === 0 ? 'flex-1' : ''}`}>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${addStep >= s.n ? 'bg-amber-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'}`}>{addStep > s.n ? '✓' : s.n}</div>
+                    <span className={`text-xs font-medium hidden sm:inline transition-colors ${addStep >= s.n ? 'text-amber-700 dark:text-amber-400' : 'text-gray-400 dark:text-gray-500'}`}>{s.label}</span>
+                  </div>
+                  {i === 0 && <div className={`flex-1 h-0.5 mx-2 transition-colors ${addStep > 1 ? 'bg-amber-600' : 'bg-gray-200 dark:bg-gray-700'}`} />}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4">
+            {addStep === 1 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-sm font-medium">Project Title *</label>
+                  <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} placeholder="e.g. Office Block Extension" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Contractor Company *</label>
+                  <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.companyId} onChange={e => setForm({ ...form, companyId: e.target.value })}>
+                    <option value="">Select company…</option>
+                    {companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">CDM Role</label>
+                  <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.contractorRole} onChange={e => setForm({ ...form, contractorRole: e.target.value })}>
+                    <option value="contractor">Contractor</option>
+                    <option value="principal_contractor">Principal Contractor</option>
+                    <option value="principal_designer">Principal Designer</option>
+                    <option value="designer">Designer</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Client Name</label>
+                  <Input value={form.clientName} onChange={e => setForm({ ...form, clientName: e.target.value })} placeholder="e.g. ABC Holdings Ltd" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Location</label>
+                  <Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. London, EC1A 1BB" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Status</label>
+                  <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                    <option value="planned">Planned</option>
+                    <option value="active">Active</option>
+                    <option value="on_hold">On Hold</option>
+                    <option value="complete">Complete</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Start Date</label>
+                  <Input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">End Date</label>
+                  <Input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Estimated Days</label>
+                  <Input type="number" min="0" value={form.estimatedDays} onChange={e => setForm({ ...form, estimatedDays: e.target.value })} placeholder="30" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Peak Workers on Site</label>
+                  <Input type="number" min="0" value={form.peakWorkers} onChange={e => setForm({ ...form, peakWorkers: e.target.value })} placeholder="20" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Estimated Person-Days</label>
+                  <Input type="number" min="0" value={form.personDays} onChange={e => setForm({ ...form, personDays: e.target.value })} placeholder="500" />
+                </div>
+                <div className="col-span-2 space-y-1.5">
+                  <label className="text-sm font-medium">Description</label>
+                  <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Brief project description…" />
+                </div>
+                {/* F10 auto-detection hint */}
+                {isF10Required({ ...form, estimatedDays: form.estimatedDays ? parseInt(form.estimatedDays) : 0, peakWorkers: form.peakWorkers ? parseInt(form.peakWorkers) : 0, personDays: form.personDays ? parseInt(form.personDays) : 0, f10NotificationRequired: false } as any) && (
+                  <div className="col-span-2 rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+                    <span><strong>F10 notification required</strong> — This project exceeds HSE thresholds ({">"} 30 days with {">"} 20 workers, or {">"} 500 person-days). Notify the HSE before construction starts.</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {addStep === 2 && (
+              <div className="space-y-5">
+                {/* F10 Section */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-600" />F10 HSE Notification</h4>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={form.f10NotificationRequired} onChange={e => setForm({ ...form, f10NotificationRequired: e.target.checked })} className="h-4 w-4" />
+                    <span className="text-sm">F10 notification required for this project</span>
+                  </label>
+                  {form.f10NotificationRequired && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium">Date Submitted</label>
+                        <Input type="date" value={form.f10SubmittedDate} onChange={e => setForm({ ...form, f10SubmittedDate: e.target.value })} />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-xs font-medium">HSE Reference</label>
+                        <Input value={form.f10Reference} onChange={e => setForm({ ...form, f10Reference: e.target.value })} placeholder="F10 reference number" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Key Documents */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-blue-600" />Key CDM Documents (URLs)</h4>
+                  <div className="space-y-2">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Construction Phase Plan URL</label>
+                      <div className="flex gap-2">
+                        <Input value={form.constructionPhasePlanUrl} onChange={e => setForm({ ...form, constructionPhasePlanUrl: e.target.value })} placeholder="https://…" />
+                        <Input type="date" className="w-36 flex-shrink-0" value={form.constructionPhasePlanDate} onChange={e => setForm({ ...form, constructionPhasePlanDate: e.target.value })} title="Plan date" />
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Pre-Construction Information URL</label>
+                      <Input value={form.preConstructionInfoUrl} onChange={e => setForm({ ...form, preConstructionInfoUrl: e.target.value })} placeholder="https://…" />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Health & Safety File URL</label>
+                      <Input value={form.healthSafetyFileUrl} onChange={e => setForm({ ...form, healthSafetyFileUrl: e.target.value })} placeholder="https://…" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Welfare Provisions */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-sm flex items-center gap-2"><CheckSquareIcon className="h-4 w-4 text-green-600" />Welfare Provisions (CDM Reg 25)</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {WELFARE_OPTIONS.map(opt => (
+                      <label key={opt.key} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input type="checkbox"
+                          checked={form.welfareProvisions.includes(opt.key)}
+                          onChange={e => setForm({ ...form, welfareProvisions: e.target.checked ? [...form.welfareProvisions, opt.key] : form.welfareProvisions.filter(k => k !== opt.key) })}
+                          className="h-4 w-4"
+                        />
+                        {opt.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Notes</label>
+                  <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Any additional CDM notes…" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex-shrink-0 px-6 py-4 border-t flex justify-between">
+            <Button variant="outline" onClick={() => { if (addStep === 1) { setShowAddDialog(false); setForm(emptyForm); } else setAddStep(1); }}>
+              {addStep === 1 ? "Cancel" : "Back"}
+            </Button>
+            {addStep === 1 ? (
+              <Button onClick={() => setAddStep(2)} disabled={!form.title || !form.companyId} className="bg-amber-600 hover:bg-amber-700 text-white">
+                Next: F10 & Documents
+              </Button>
+            ) : (
+              <Button onClick={() => createMutation.mutate(form)} disabled={createMutation.isPending} className="bg-amber-600 hover:bg-amber-700 text-white">
+                {createMutation.isPending ? "Creating…" : "Create CDM Project"}
+              </Button>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={!!editingProject} onOpenChange={(open) => { if (!open) setEditingProject(null); }}>
+        <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><HardHatIcon className="h-5 w-5 text-amber-600" />Edit CDM Project</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 pt-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-sm font-medium">Project Title *</label>
+                <Input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">CDM Role</label>
+                <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.contractorRole} onChange={e => setForm({ ...form, contractorRole: e.target.value })}>
+                  <option value="contractor">Contractor</option>
+                  <option value="principal_contractor">Principal Contractor</option>
+                  <option value="principal_designer">Principal Designer</option>
+                  <option value="designer">Designer</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Status</label>
+                <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
+                  <option value="planned">Planned</option>
+                  <option value="active">Active</option>
+                  <option value="on_hold">On Hold</option>
+                  <option value="complete">Complete</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Client Name</label>
+                <Input value={form.clientName} onChange={e => setForm({ ...form, clientName: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Location</label>
+                <Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Start Date</label>
+                <Input type="date" value={form.startDate} onChange={e => setForm({ ...form, startDate: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">End Date</label>
+                <Input type="date" value={form.endDate} onChange={e => setForm({ ...form, endDate: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Est. Days</label>
+                <Input type="number" min="0" value={form.estimatedDays} onChange={e => setForm({ ...form, estimatedDays: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Peak Workers</label>
+                <Input type="number" min="0" value={form.peakWorkers} onChange={e => setForm({ ...form, peakWorkers: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Person-Days</label>
+                <Input type="number" min="0" value={form.personDays} onChange={e => setForm({ ...form, personDays: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.f10NotificationRequired} onChange={e => setForm({ ...form, f10NotificationRequired: e.target.checked })} className="h-4 w-4" />
+                <span className="text-sm font-medium">F10 notification required</span>
+              </label>
+              {form.f10NotificationRequired && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium">Date Submitted</label>
+                    <Input type="date" value={form.f10SubmittedDate} onChange={e => setForm({ ...form, f10SubmittedDate: e.target.value })} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium">HSE Reference</label>
+                    <Input value={form.f10Reference} onChange={e => setForm({ ...form, f10Reference: e.target.value })} />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Construction Phase Plan URL</label>
+              <div className="flex gap-2">
+                <Input value={form.constructionPhasePlanUrl} onChange={e => setForm({ ...form, constructionPhasePlanUrl: e.target.value })} placeholder="https://…" />
+                <Input type="date" className="w-36 flex-shrink-0" value={form.constructionPhasePlanDate} onChange={e => setForm({ ...form, constructionPhasePlanDate: e.target.value })} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Pre-Construction Information URL</label>
+              <Input value={form.preConstructionInfoUrl} onChange={e => setForm({ ...form, preConstructionInfoUrl: e.target.value })} placeholder="https://…" />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Health & Safety File URL</label>
+              <Input value={form.healthSafetyFileUrl} onChange={e => setForm({ ...form, healthSafetyFileUrl: e.target.value })} placeholder="https://…" />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Welfare Provisions</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {WELFARE_OPTIONS.map(opt => (
+                  <label key={opt.key} className="flex items-center gap-2 cursor-pointer text-sm">
+                    <input type="checkbox"
+                      checked={form.welfareProvisions.includes(opt.key)}
+                      onChange={e => setForm({ ...form, welfareProvisions: e.target.checked ? [...form.welfareProvisions, opt.key] : form.welfareProvisions.filter(k => k !== opt.key) })}
+                      className="h-4 w-4"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Notes</label>
+              <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setEditingProject(null)}>Cancel</Button>
+            <Button onClick={() => editingProject && updateMutation.mutate({ id: editingProject.id, data: form })} disabled={updateMutation.isPending || !form.title} className="bg-amber-600 hover:bg-amber-700 text-white">
+              {updateMutation.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 export default function ContractorManagement() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const [showQRScanner, setShowQRScanner] = useState(false);
-  const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors" | "co2" | "assign-hs" | "rams" | "ppm">("previous");
+  const [activeTab, setActiveTab] = useState<"previous" | "walkin" | "prebook" | "contractors" | "co2" | "assign-hs" | "rams" | "ppm" | "cdm">("previous");
   const [selectedCO2CompanyId, setSelectedCO2CompanyId] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -302,6 +992,15 @@ export default function ContractorManagement() {
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<ContractorCompany | null>(null);
   const [showHSModal, setShowHSModal] = useState(false);
+  const [cdmAccreditationForm, setCdmAccreditationForm] = useState({
+    cdmRole: "" as string,
+    constructionlineAccredited: false,
+    constructionlineNumber: "",
+    constructionlineExpiry: "",
+    smasAccredited: false,
+    smasNumber: "",
+    smasExpiry: "",
+  });
   const [workerForCheckIn, setWorkerForCheckIn] = useState<ContractorWorker | null>(null);
   const [companyForCheckIn, setCompanyForCheckIn] = useState<string>("");
   const [preBookingWorker, setPreBookingWorker] = useState<ContractorWorker | null>(null);
@@ -614,6 +1313,15 @@ export default function ContractorManagement() {
     },
   });
 
+  const updateCdmAccreditationsMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return await apiRequest("PUT", `/api/cdm/contractor/${id}/accreditations`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+    },
+  });
+
   // Create worker mutation
   const createWorkerMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -724,6 +1432,15 @@ export default function ContractorManagement() {
           email: contractorToEdit.email || "",
           phone: (contractorToEdit as any).contactPhone || contractorToEdit.phone || "",
         }
+      });
+      setCdmAccreditationForm({
+        cdmRole: (contractorToEdit as any).cdmRole ?? "",
+        constructionlineAccredited: (contractorToEdit as any).constructionlineAccredited ?? false,
+        constructionlineNumber: (contractorToEdit as any).constructionlineNumber ?? "",
+        constructionlineExpiry: (contractorToEdit as any).constructionlineExpiry ? new Date((contractorToEdit as any).constructionlineExpiry).toISOString().slice(0, 10) : "",
+        smasAccredited: (contractorToEdit as any).smasAccredited ?? false,
+        smasNumber: (contractorToEdit as any).smasNumber ?? "",
+        smasExpiry: (contractorToEdit as any).smasExpiry ? new Date((contractorToEdit as any).smasExpiry).toISOString().slice(0, 10) : "",
       });
       setShowCompanyEditDialog(true);
     }
@@ -1170,6 +1887,15 @@ export default function ContractorManagement() {
         >
           <Wrench className="h-3.5 w-3.5 flex-shrink-0" />
           <span>PPM</span>
+        </Button>
+        <Button
+          variant={activeTab === "cdm" ? "default" : "outline"}
+          onClick={() => setActiveTab("cdm")}
+          className="flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap flex-shrink-0"
+          data-testid="tab-cdm"
+        >
+          <HardHatIcon className="h-3.5 w-3.5 flex-shrink-0" />
+          <span>CDM 2015</span>
         </Button>
       </div>
 
@@ -2124,6 +2850,58 @@ export default function ContractorManagement() {
               </select>
             </div>
           </div>
+
+          {/* CDM 2015 & Accreditations */}
+          <div className="border-t pt-4 mt-2">
+            <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2 mb-3">
+              <HardHatIcon className="h-4 w-4 text-amber-600" />CDM 2015 & Accreditations
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">CDM Duty Holder Role</label>
+                <select
+                  value={cdmAccreditationForm.cdmRole}
+                  onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, cdmRole: e.target.value })}
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+                >
+                  <option value="">Not specified</option>
+                  <option value="principal_contractor">Principal Contractor</option>
+                  <option value="principal_designer">Principal Designer</option>
+                  <option value="contractor">Contractor</option>
+                  <option value="designer">Designer</option>
+                  <option value="client">Client</option>
+                </select>
+              </div>
+              <div className="space-y-1.5" />
+              {/* Constructionline */}
+              <div className="col-span-2 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <input type="checkbox" className="h-4 w-4" checked={cdmAccreditationForm.constructionlineAccredited} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, constructionlineAccredited: e.target.checked })} />
+                  Constructionline Accredited
+                </label>
+                {cdmAccreditationForm.constructionlineAccredited && (
+                  <div className="grid grid-cols-2 gap-2 pl-6">
+                    <div className="space-y-1"><label className="text-xs text-muted-foreground">Membership No.</label><Input className="h-8 text-xs" value={cdmAccreditationForm.constructionlineNumber} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, constructionlineNumber: e.target.value })} placeholder="CL-000000" /></div>
+                    <div className="space-y-1"><label className="text-xs text-muted-foreground">Expiry Date</label><Input type="date" className="h-8 text-xs" value={cdmAccreditationForm.constructionlineExpiry} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, constructionlineExpiry: e.target.value })} /></div>
+                  </div>
+                )}
+              </div>
+              {/* SMAS */}
+              <div className="col-span-2 space-y-2">
+                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <input type="checkbox" className="h-4 w-4" checked={cdmAccreditationForm.smasAccredited} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, smasAccredited: e.target.checked })} />
+                  SMAS Worksafe Accredited
+                </label>
+                {cdmAccreditationForm.smasAccredited && (
+                  <div className="grid grid-cols-2 gap-2 pl-6">
+                    <div className="space-y-1"><label className="text-xs text-muted-foreground">Membership No.</label><Input className="h-8 text-xs" value={cdmAccreditationForm.smasNumber} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, smasNumber: e.target.value })} placeholder="SMAS-000000" /></div>
+                    <div className="space-y-1"><label className="text-xs text-muted-foreground">Expiry Date</label><Input type="date" className="h-8 text-xs" value={cdmAccreditationForm.smasExpiry} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, smasExpiry: e.target.value })} /></div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
           <DialogFooter>
             <Button 
               variant="outline" 
@@ -2135,11 +2913,8 @@ export default function ContractorManagement() {
             <Button 
               onClick={() => {
                 if (selectedContractor) {
-                  console.log('🔍 Updating contractor with form data:', contractorForm);
-                  updateContractorMutation.mutate({
-                    id: selectedContractor.id,
-                    data: contractorForm
-                  });
+                  updateContractorMutation.mutate({ id: selectedContractor.id, data: contractorForm });
+                  updateCdmAccreditationsMutation.mutate({ id: selectedContractor.id, data: cdmAccreditationForm });
                 }
               }}
               disabled={!contractorForm.name || !contractorForm.email || !contractorForm.contactFirstName || !contractorForm.contactLastName || updateContractorMutation.isPending}
@@ -2794,6 +3569,10 @@ export default function ContractorManagement() {
 
       {activeTab === "ppm" && (
         <ContractorPPMTab />
+      )}
+
+      {activeTab === "cdm" && (
+        <ContractorCDMTab companies={companies} />
       )}
       
       {/* H&S Acceptance Modal */}
