@@ -1331,6 +1331,7 @@ export default function ContractorManagement() {
   const [cdmAccreditationForm, setCdmAccreditationForm] = useState({
     cdmRole: "" as string,
     constructionlineGrade: "" as string, // not_registered | registered | silver | gold | platinum
+    chasCertified: false,
     smasAccredited: false,
     otherAccreditations: "",
     pdProfessionalBody: "",
@@ -1778,6 +1779,7 @@ export default function ContractorManagement() {
       setCdmAccreditationForm({
         cdmRole: contractorToEdit.cdmRole ?? "",
         constructionlineGrade: contractorToEdit.constructionlineGrade ?? "",
+        chasCertified: contractorToEdit.chasCertified ?? false,
         smasAccredited: contractorToEdit.smasAccredited ?? false,
         otherAccreditations: contractorToEdit.otherAccreditations ?? "",
         pdProfessionalBody: contractorToEdit.pdProfessionalBody ?? "",
@@ -3275,6 +3277,14 @@ export default function ContractorManagement() {
                   <option value="gold">Gold</option>
                   <option value="platinum">Platinum</option>
                 </select>
+              </div>
+              {/* CHAS Accreditation */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">CHAS</label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm h-9 border border-input rounded-md px-3">
+                  <input type="checkbox" className="h-4 w-4" checked={cdmAccreditationForm.chasCertified} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, chasCertified: e.target.checked })} />
+                  CHAS Certified
+                </label>
               </div>
               {/* SMAS Worksafe */}
               <div className="space-y-1.5">

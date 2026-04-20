@@ -28605,6 +28605,7 @@ This is an automated notification from your visitor management system.`;
 
   // GET all CDM projects for a contractor company
   app.get("/api/cdm/projects", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     try {
       const { companyId } = req.query;
       const db = await customerDbService.getCustomerDatabase(req.customerId!);
@@ -28626,6 +28627,7 @@ This is an automated notification from your visitor management system.`;
 
   // GET single CDM project
   app.get("/api/cdm/projects/:id", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     try {
       const { id } = req.params;
       const db = await customerDbService.getCustomerDatabase(req.customerId!);
@@ -28815,6 +28817,7 @@ This is an automated notification from your visitor management system.`;
       const updates: Record<string, any> = {};
       if (data.cdmRole !== undefined) updates.cdmRole = data.cdmRole;
       if (data.constructionlineGrade !== undefined) updates.constructionlineGrade = data.constructionlineGrade;
+      if (data.chasCertified !== undefined) updates.chasCertified = data.chasCertified;
       if (data.smasAccredited !== undefined) updates.smasAccredited = data.smasAccredited;
       if (data.otherAccreditations !== undefined) updates.otherAccreditations = data.otherAccreditations;
       if (data.pdProfessionalBody !== undefined) updates.pdProfessionalBody = data.pdProfessionalBody;

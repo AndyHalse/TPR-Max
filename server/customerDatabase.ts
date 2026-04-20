@@ -464,6 +464,7 @@ export class CustomerDatabaseService {
 
     // Ensure CDM 2015 columns on contractor_companies and cdm_projects table
     try {
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS chas_certified BOOLEAN DEFAULT false`);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS cdm_role TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS constructionline_grade TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS smas_accredited BOOLEAN DEFAULT false`);
