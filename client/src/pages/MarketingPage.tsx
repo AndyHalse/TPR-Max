@@ -339,6 +339,21 @@ export default function MarketingPage() {
           "Version Control: Track document revisions with version history, always using the latest approved RAMS",
         ],
       },
+      {
+        title: "CDM 2015 Construction Compliance",
+        badge: "CDM 2015 Regulations",
+        badgeColor: "#7c3aed",
+        description: "Full Construction Design & Management Regulations 2015 compliance built into your contractor management workflow. Manage duty-holder roles, track HSE F10 notifications, and maintain a complete project register with five-section compliance scoring across every construction project.",
+        bullets: [
+          "F10 HSE Notifications: Track notification status (pending/submitted) with HSE reference numbers and overdue alerts on the dashboard",
+          "Notifiability Calculator: Automatic YES/NO threshold determination — flags projects exceeding 30 working days (>20 workers) or 500 person-days",
+          "Five-Section Compliance Scoring: F10 · Construction Phase Plan · Pre-Construction Information · Health & Safety File · Welfare Arrangements — each section independently tracked with status, dates, and notes",
+          "Duty-Holder Register: Assign Principal Contractor and Principal Designer roles; record professional body memberships (RIBA, ARB, ICE, CIOB)",
+          "Contractor Accreditation Badges: Constructionline grade (Registered/Silver/Gold/Platinum), CHAS certification, and SMAS Worksafe status visible on every contractor profile",
+          "CDM Role Assignment: Mark contractors as Principal Contractor, Principal Designer, Contractor, or Designer directly on their company profile",
+          "Overdue F10 Indicator: Live badge in the header counts notifiable projects missing an F10 submission — clickable to jump straight to the CDM register",
+        ],
+      },
     ];
 
     const printWindow = window.open("", "_blank");
@@ -631,9 +646,9 @@ export default function MarketingPage() {
                 TPR Max delivers instant emergency accountability when seconds
                 count—know exactly who's on-site during evacuations or
                 emergencies. Plus, powerful features like RAMS document management,
-                contractor compliance, planned preventative maintenance (PPM),
-                site inductions, room booking, and staff time & attendance make
-                it your complete personnel management solution.
+                contractor compliance with CDM 2015 support, planned preventative
+                maintenance (PPM), site inductions, room booking, and staff time
+                & attendance make it your complete personnel management solution.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
@@ -903,9 +918,9 @@ export default function MarketingPage() {
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
               Life-saving emergency accountability is just the beginning.
               Discover how TPR Max combines critical Health & Safety mustering
-              with contractor management, planned preventative maintenance, site
-              inductions, room booking, and staff time & attendance in one
-              complete platform.
+              with contractor management, CDM 2015 compliance, planned preventative
+              maintenance, site inductions, room booking, and staff time &
+              attendance in one complete platform.
             </p>
           </div>
 
@@ -1019,6 +1034,14 @@ export default function MarketingPage() {
               >
                 <Wrench className="h-4 w-4 mb-1" />
                 PPM
+              </TabsTrigger>
+              <TabsTrigger
+                value="cdm"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-purple-600 transition-all duration-200"
+                data-testid="tab-cdm"
+              >
+                <Building2 className="h-4 w-4 mb-1" />
+                CDM 2015
               </TabsTrigger>
             </TabsList>
 
@@ -1436,7 +1459,7 @@ export default function MarketingPage() {
                       Enterprise Contractor Management
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Comprehensive contractor oversight with worker tracking, certification management, and compliance verification. Ensure all contractors meet safety requirements while maintaining complete audit trails for insurance and legal purposes.
+                      Comprehensive contractor oversight with worker tracking, certification management, and compliance verification — including full CDM 2015 Construction Design & Management Regulations support. Ensure all contractors meet safety and legal requirements while maintaining complete audit trails.
                     </p>
                   </div>
 
@@ -1474,7 +1497,7 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Environmental Impact:</strong> Detailed emissions analysis per worker, route optimization recommendations, and sustainability scoring
+                        <strong>CDM 2015 Compliance:</strong> Full duty-holder assignment, F10 HSE notifications, notifiability calculator, and five-section compliance scoring for construction projects
                       </span>
                     </div>
                   </div>
@@ -2166,6 +2189,128 @@ export default function MarketingPage() {
                       <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
                         <div className="text-2xl font-bold text-green-600">47</div>
                         <div className="text-xs text-slate-500 dark:text-slate-400">Completed</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* CDM 2015 Tab */}
+            <TabsContent
+              value="cdm"
+              className="space-y-6"
+              data-testid="content-cdm"
+            >
+              <div className="grid lg:grid-cols-2 gap-8 items-center">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-purple-600">
+                      <Building2 className="h-3 w-3 mr-1" />
+                      CDM 2015 Regulations
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Construction Design & Management Compliance
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Built-in CDM 2015 compliance for construction projects — from duty-holder assignment and F10 HSE notifications through to five-section project compliance scoring. Everything you need to stay legally compliant under the Construction Design & Management Regulations 2015.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>F10 HSE Notifications:</strong> Track notification status with HSE reference numbers; overdue F10 badge alerts the duty-holder instantly
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Notifiability Calculator:</strong> Automatic YES/NO threshold — flags projects over 30 working days (&gt;20 workers) or 500 person-days before work begins
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Five-Section Compliance Scoring:</strong> F10 · Construction Phase Plan · Pre-Construction Information · Health & Safety File · Welfare — each tracked independently
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Duty-Holder Assignment:</strong> Designate Principal Contractor and Principal Designer with professional body credentials (RIBA, ARB, ICE, CIOB)
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Accreditation Badges:</strong> CHAS certified, SMAS Worksafe, and Constructionline grade (Registered/Silver/Gold/Platinum) displayed on every contractor profile
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>CDM Project Register:</strong> Full project lifecycle from planning through to completion with inline section editing, compliance ring indicator, and audit-ready records
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    onClick={() => scrollToSection("contact")}
+                    className="text-white bg-purple-600 hover:bg-purple-700"
+                    data-testid="button-cdm-demo"
+                  >
+                    <FileCheck className="h-4 w-4 mr-2" />
+                    See CDM Compliance Live
+                  </Button>
+                </div>
+
+                <div className="relative">
+                  <div className="rounded-xl shadow-2xl border border-purple-200 dark:border-purple-800 bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/30 dark:to-violet-900/30 p-8">
+                    <div className="text-center mb-6">
+                      <Building2 className="h-16 w-16 text-purple-600 mx-auto mb-4" />
+                      <h4 className="text-2xl font-bold text-purple-800 dark:text-purple-200">
+                        CDM Project Register
+                      </h4>
+                    </div>
+
+                    {/* CDM project compliance mockup */}
+                    <div className="space-y-3">
+                      {[
+                        { section: "F10 HSE Notification", status: "Submitted", ref: "F10/2024/08742", color: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300" },
+                        { section: "Construction Phase Plan", status: "Approved", ref: "CPP Rev 3", color: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300" },
+                        { section: "Pre-Construction Info", status: "Pending", ref: "PCI draft", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300" },
+                        { section: "Health & Safety File", status: "Not Started", ref: "—", color: "bg-slate-100 text-slate-500 dark:bg-slate-700/50 dark:text-slate-400" },
+                        { section: "Welfare Arrangements", status: "Complete", ref: "Welfare plan v1", color: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300" },
+                      ].map((item) => (
+                        <div key={item.section} className="flex items-center justify-between bg-white/80 dark:bg-slate-800/80 rounded-lg p-3">
+                          <div className="flex-1 min-w-0 mr-2">
+                            <div className="flex items-center space-x-2">
+                              <ShieldCheck className="h-4 w-4 text-purple-600 flex-shrink-0" />
+                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{item.section}</span>
+                            </div>
+                            <p className="text-xs text-slate-400 ml-6">{item.ref}</p>
+                          </div>
+                          <span className={`text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0 ${item.color}`}>{item.status}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Compliance score */}
+                    <div className="grid grid-cols-3 gap-3 mt-4">
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-green-600">3/5</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Sections Done</div>
+                      </div>
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-purple-600">60%</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Compliance</div>
+                      </div>
+                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
+                        <div className="text-2xl font-bold text-amber-600">YES</div>
+                        <div className="text-xs text-slate-500 dark:text-slate-400">Notifiable</div>
                       </div>
                     </div>
                   </div>
