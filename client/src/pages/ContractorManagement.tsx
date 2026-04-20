@@ -285,14 +285,29 @@ type CdmProject = {
   estimatedDays?: number | null;
   peakWorkers?: number | null;
   personDays?: number | null;
-  f10NotificationRequired?: boolean | null;
-  f10SubmittedDate?: string | null;
+  // Section 1 — F10
+  f10Status: string;
+  f10Date?: string | null;
   f10Reference?: string | null;
-  constructionPhasePlanUrl?: string | null;
-  constructionPhasePlanDate?: string | null;
-  preConstructionInfoUrl?: string | null;
-  healthSafetyFileUrl?: string | null;
-  welfareProvisions?: string | null;
+  f10Notes?: string | null;
+  // Section 2 — CPP
+  cppStatus: string;
+  cppDate?: string | null;
+  cppNotes?: string | null;
+  // Section 3 — PCI
+  pciStatus: string;
+  pciDate?: string | null;
+  pciNotes?: string | null;
+  // Section 4 — HSF
+  hsfStatus: string;
+  hsfDate?: string | null;
+  hsfNotes?: string | null;
+  // Section 5 — Welfare
+  welfareToilets?: boolean | null;
+  welfareWashing?: boolean | null;
+  welfareRestArea?: boolean | null;
+  welfareDrinkingWater?: boolean | null;
+  welfareChanging?: boolean | null;
   notes?: string | null;
   createdAt?: string | null;
 };
@@ -302,35 +317,41 @@ const CDM_ROLE_LABELS: Record<string, string> = {
   principal_designer: "Principal Designer",
   contractor: "Contractor",
   designer: "Designer",
+  client: "Client",
 };
 
 const CDM_STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  planned:   { label: "Planned",   className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" },
+  planning:  { label: "Planning",  className: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300" },
   active:    { label: "Active",    className: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" },
-  on_hold:   { label: "On Hold",   className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
   complete:  { label: "Complete",  className: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300" },
+  cancelled: { label: "Cancelled", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
 };
 
-const WELFARE_OPTIONS = [
-  { key: "toilets", label: "Toilets" },
-  { key: "washing", label: "Washing Facilities" },
-  { key: "rest_area", label: "Rest Area / Canteen" },
-  { key: "drinking_water", label: "Drinking Water" },
-  { key: "first_aid", label: "First Aid" },
-  { key: "lighting", label: "Adequate Lighting" },
-  { key: "changing", label: "Changing Facilities" },
-  { key: "drying", label: "Drying Facilities" },
-];
-
-function isF10Required(p: CdmProject): boolean {
+/** Returns true when the project is notifiable under CDM 2015 Reg 6 */
+function isNotifiable(p: { estimatedDays?: number | null; peakWorkers?: number | null; personDays?: number | null }): boolean {
   const daysOk = (p.estimatedDays ?? 0) > 30 && (p.peakWorkers ?? 0) > 20;
   const personDaysOk = (p.personDays ?? 0) > 500;
   return daysOk || personDaysOk;
 }
 
-function isProjectOverdue(p: CdmProject): boolean {
-  if (!p.endDate || p.status === "complete") return false;
-  return new Date(p.endDate) < new Date();
+/** F10 overdue = notifiable project, F10 not yet submitted, and start date is in the past */
+function isF10Overdue(p: CdmProject): boolean {
+  if (!isNotifiable(p)) return false;
+  if (p.f10Status === "submitted") return false;
+  if (!p.startDate) return false;
+  return new Date(p.startDate) < new Date();
+}
+
+/** Compliance score: how many of the 5 sections are fully green */
+function complianceScore(p: CdmProject): number {
+  let score = 0;
+  if (!isNotifiable(p) || p.f10Status === "submitted") score++;
+  if (p.cppStatus === "approved") score++;
+  if (p.pciStatus === "distributed") score++;
+  if (p.hsfStatus === "complete" || p.hsfStatus === "handed_over") score++;
+  const welfareAll = p.welfareToilets && p.welfareWashing && p.welfareRestArea && p.welfareDrinkingWater && p.welfareChanging;
+  if (welfareAll) score++;
+  return score;
 }
 
 function ContractorCDMTab({ companies }: { companies: any[] }) {
@@ -348,20 +369,30 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     location: "",
     clientName: "",
     contractorRole: "contractor",
-    status: "planned",
+    status: "planning",
     startDate: "",
     endDate: "",
     estimatedDays: "",
     peakWorkers: "",
     personDays: "",
-    f10NotificationRequired: false,
-    f10SubmittedDate: "",
+    f10Status: "not_required",
+    f10Date: "",
     f10Reference: "",
-    constructionPhasePlanUrl: "",
-    constructionPhasePlanDate: "",
-    preConstructionInfoUrl: "",
-    healthSafetyFileUrl: "",
-    welfareProvisions: [] as string[],
+    f10Notes: "",
+    cppStatus: "not_prepared",
+    cppDate: "",
+    cppNotes: "",
+    pciStatus: "not_prepared",
+    pciDate: "",
+    pciNotes: "",
+    hsfStatus: "not_started",
+    hsfDate: "",
+    hsfNotes: "",
+    welfareToilets: false,
+    welfareWashing: false,
+    welfareRestArea: false,
+    welfareDrinkingWater: false,
+    welfareChanging: false,
     notes: "",
   };
 
@@ -421,13 +452,10 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   });
 
   const totalActive = allProjects.filter(p => p.status === "active").length;
-  const totalF10 = allProjects.filter(p => p.f10NotificationRequired || isF10Required(p)).length;
-  const totalOverdue = allProjects.filter(isProjectOverdue).length;
+  const totalF10 = allProjects.filter(p => isNotifiable(p)).length;
+  const totalOverdue = allProjects.filter(isF10Overdue).length;
 
   const openEdit = (p: CdmProject) => {
-    const welfareArr: string[] = (() => {
-      try { return JSON.parse(p.welfareProvisions ?? "[]"); } catch { return []; }
-    })();
     setForm({
       companyId: p.companyId,
       title: p.title,
@@ -441,14 +469,24 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
       estimatedDays: p.estimatedDays?.toString() ?? "",
       peakWorkers: p.peakWorkers?.toString() ?? "",
       personDays: p.personDays?.toString() ?? "",
-      f10NotificationRequired: p.f10NotificationRequired ?? false,
-      f10SubmittedDate: p.f10SubmittedDate ?? "",
+      f10Status: p.f10Status ?? "not_required",
+      f10Date: p.f10Date ?? "",
       f10Reference: p.f10Reference ?? "",
-      constructionPhasePlanUrl: p.constructionPhasePlanUrl ?? "",
-      constructionPhasePlanDate: p.constructionPhasePlanDate ?? "",
-      preConstructionInfoUrl: p.preConstructionInfoUrl ?? "",
-      healthSafetyFileUrl: p.healthSafetyFileUrl ?? "",
-      welfareProvisions: welfareArr,
+      f10Notes: p.f10Notes ?? "",
+      cppStatus: p.cppStatus ?? "not_prepared",
+      cppDate: p.cppDate ?? "",
+      cppNotes: p.cppNotes ?? "",
+      pciStatus: p.pciStatus ?? "not_prepared",
+      pciDate: p.pciDate ?? "",
+      pciNotes: p.pciNotes ?? "",
+      hsfStatus: p.hsfStatus ?? "not_started",
+      hsfDate: p.hsfDate ?? "",
+      hsfNotes: p.hsfNotes ?? "",
+      welfareToilets: p.welfareToilets ?? false,
+      welfareWashing: p.welfareWashing ?? false,
+      welfareRestArea: p.welfareRestArea ?? false,
+      welfareDrinkingWater: p.welfareDrinkingWater ?? false,
+      welfareChanging: p.welfareChanging ?? false,
       notes: p.notes ?? "",
     });
     setEditingProject(p);
@@ -513,8 +551,10 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
         <div className="space-y-2">
           {filtered.map(p => {
             const badge = CDM_STATUS_BADGE[p.status] ?? { label: p.status, className: "bg-gray-100 text-gray-700" };
-            const overdue = isProjectOverdue(p);
-            const f10Req = p.f10NotificationRequired || isF10Required(p);
+            const overdue = isF10Overdue(p);
+            const notifiable = isNotifiable(p);
+            const score = complianceScore(p);
+            const scorePct = Math.round((score / 5) * 100);
             const companyName = companies.find(c => c.id === p.companyId)?.name ?? "Unknown Company";
             return (
               <GlassCard
@@ -527,14 +567,14 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-semibold text-sm text-fixed">{p.title}</span>
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${badge.className}`}>{badge.label}</span>
-                      {f10Req && (
+                      {notifiable && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
                           <AlertCircle className="h-3 w-3" />F10
                         </span>
                       )}
                       {overdue && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                          <AlertTriangle className="h-3 w-3" />Overdue
+                          <AlertTriangle className="h-3 w-3" />F10 Overdue
                         </span>
                       )}
                     </div>
@@ -544,78 +584,107 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                       {p.clientName && <span className="flex items-center gap-1"><User className="h-3 w-3" />Client: {p.clientName}</span>}
                       <span className="flex items-center gap-1"><HardHatIcon className="h-3 w-3" />{CDM_ROLE_LABELS[p.contractorRole] ?? p.contractorRole}</span>
                       {p.startDate && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />Start: {p.startDate}</span>}
-                      {p.endDate && <span className={`flex items-center gap-1 ${overdue ? "text-red-600 font-medium" : ""}`}><CalendarDays className="h-3 w-3" />End: {p.endDate}</span>}
+                      {p.endDate && <span className="flex items-center gap-1"><CalendarDays className="h-3 w-3" />End: {p.endDate}</span>}
                     </div>
                   </div>
-                  <ChevronDown className={`h-4 w-4 flex-shrink-0 text-muted-foreground transition-transform mt-0.5 ${selectedProject?.id === p.id ? "rotate-180" : ""}`} />
+                  {/* Compliance ring */}
+                  <div className="flex-shrink-0 flex flex-col items-center gap-0.5">
+                    <div className="relative h-10 w-10">
+                      <svg className="h-10 w-10 -rotate-90" viewBox="0 0 36 36">
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="3" className="text-muted/20" />
+                        <circle cx="18" cy="18" r="15.9" fill="none" stroke="currentColor" strokeWidth="3" strokeDasharray={`${scorePct} ${100 - scorePct}`} strokeDashoffset="0" className={score === 5 ? "text-green-500" : score >= 3 ? "text-amber-500" : "text-red-500"} />
+                      </svg>
+                      <span className="absolute inset-0 flex items-center justify-center text-[9px] font-bold">{score}/5</span>
+                    </div>
+                    <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${selectedProject?.id === p.id ? "rotate-180" : ""}`} />
+                  </div>
                 </div>
 
                 {/* Expanded detail panel */}
                 {selectedProject?.id === p.id && (
                   <div className="mt-4 pt-4 border-t border-border space-y-4" onClick={e => e.stopPropagation()}>
+                    {/* Compliance summary */}
+                    <div className={`rounded-lg p-3 text-xs font-semibold flex items-center gap-2 ${score === 5 ? "bg-green-50 text-green-800 dark:bg-green-950/30 dark:text-green-300 border border-green-200 dark:border-green-800" : "bg-amber-50 text-amber-800 dark:bg-amber-950/30 dark:text-amber-300 border border-amber-200 dark:border-amber-800"}`}>
+                      {score === 5 ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />}
+                      Compliance score: {score} / 5 sections complete — {scorePct}%
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
                       {p.estimatedDays && <div><span className="text-muted-foreground text-xs">Duration:</span><p className="font-medium">{p.estimatedDays} days</p></div>}
                       {p.peakWorkers && <div><span className="text-muted-foreground text-xs">Peak Workers:</span><p className="font-medium">{p.peakWorkers}</p></div>}
                       {p.personDays && <div><span className="text-muted-foreground text-xs">Person-Days:</span><p className="font-medium">{p.personDays}</p></div>}
                     </div>
 
-                    {/* F10 Section */}
-                    {(p.f10NotificationRequired || isF10Required(p)) && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30 p-3 space-y-1">
-                        <p className="text-xs font-semibold text-amber-800 dark:text-amber-300 flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5" />F10 Notification Required</p>
-                        {p.f10SubmittedDate ? (
-                          <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Submitted: {p.f10SubmittedDate}{p.f10Reference ? ` — Ref: ${p.f10Reference}` : ""}</p>
-                        ) : (
-                          <p className="text-xs text-red-600 dark:text-red-400 font-medium">⚠ Not yet submitted to HSE</p>
-                        )}
-                      </div>
-                    )}
+                    {/* Five compliance sections */}
+                    <div className="space-y-2">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Compliance Sections</p>
 
-                    {/* Key Documents */}
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Key Documents</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        {[
-                          { label: "Construction Phase Plan", url: p.constructionPhasePlanUrl, date: p.constructionPhasePlanDate },
-                          { label: "Pre-Construction Information", url: p.preConstructionInfoUrl, date: null },
-                          { label: "H&S File", url: p.healthSafetyFileUrl, date: null },
-                        ].map(doc => (
-                          <div key={doc.label} className="flex items-center gap-2 text-xs">
-                            {doc.url ? (
-                              <>
-                                <CheckCircle className="h-3.5 w-3.5 text-green-600 flex-shrink-0" />
-                                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline truncate">{doc.label}{doc.date ? ` (${doc.date})` : ""}</a>
-                              </>
-                            ) : (
-                              <>
-                                <AlertCircle className="h-3.5 w-3.5 text-muted-foreground/50 flex-shrink-0" />
-                                <span className="text-muted-foreground">{doc.label}</span>
-                              </>
-                            )}
-                          </div>
-                        ))}
+                      {/* S1 — F10 */}
+                      <div className="rounded-md border border-border p-3 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5 text-amber-600" />1. F10 HSE Notification</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.f10Status === "submitted" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.f10Status === "pending" ? "bg-amber-100 text-amber-700" : notifiable ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+                            {p.f10Status === "submitted" ? "Submitted" : p.f10Status === "pending" ? "Pending" : notifiable ? "Required — Not Submitted" : "Not Required"}
+                          </span>
+                        </div>
+                        {p.f10Status === "submitted" && <p className="text-xs text-muted-foreground">Submitted: {p.f10Date ?? "—"}{p.f10Reference ? ` · Ref: ${p.f10Reference}` : ""}</p>}
+                        {overdue && <p className="text-xs text-red-600 font-medium flex items-center gap-1"><AlertTriangle className="h-3 w-3" />F10 overdue — project has started</p>}
+                        {p.f10Notes && <p className="text-xs text-muted-foreground italic">"{p.f10Notes}"</p>}
+                      </div>
+
+                      {/* S2 — CPP */}
+                      <div className="rounded-md border border-border p-3 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-blue-600" />2. Construction Phase Plan</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.cppStatus === "approved" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.cppStatus === "in_progress" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                            {p.cppStatus === "approved" ? "Approved" : p.cppStatus === "in_progress" ? "In Progress" : "Not Prepared"}
+                          </span>
+                        </div>
+                        {p.cppDate && <p className="text-xs text-muted-foreground">Date: {p.cppDate}</p>}
+                        {p.cppNotes && <p className="text-xs text-muted-foreground italic">"{p.cppNotes}"</p>}
+                      </div>
+
+                      {/* S3 — PCI */}
+                      <div className="rounded-md border border-border p-3 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-purple-600" />3. Pre-Construction Information</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.pciStatus === "distributed" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.pciStatus === "prepared" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                            {p.pciStatus === "distributed" ? "Distributed" : p.pciStatus === "prepared" ? "Prepared" : "Not Prepared"}
+                          </span>
+                        </div>
+                        {p.pciDate && <p className="text-xs text-muted-foreground">Date: {p.pciDate}</p>}
+                        {p.pciNotes && <p className="text-xs text-muted-foreground italic">"{p.pciNotes}"</p>}
+                      </div>
+
+                      {/* S4 — HSF */}
+                      <div className="rounded-md border border-border p-3 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-indigo-600" />4. Health & Safety File</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${(p.hsfStatus === "complete" || p.hsfStatus === "handed_over") ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.hsfStatus === "in_progress" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}>
+                            {p.hsfStatus === "handed_over" ? "Handed Over" : p.hsfStatus === "complete" ? "Complete" : p.hsfStatus === "in_progress" ? "In Progress" : "Not Started"}
+                          </span>
+                        </div>
+                        {p.hsfDate && <p className="text-xs text-muted-foreground">Date: {p.hsfDate}</p>}
+                        {p.hsfNotes && <p className="text-xs text-muted-foreground italic">"{p.hsfNotes}"</p>}
+                      </div>
+
+                      {/* S5 — Welfare */}
+                      <div className="rounded-md border border-border p-3 space-y-2">
+                        <span className="text-xs font-semibold flex items-center gap-1.5"><CheckSquareIcon className="h-3.5 w-3.5 text-green-600" />5. Welfare Provisions (CDM Reg 25)</span>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                          {[
+                            { key: "welfareToilets", label: "Toilets", val: p.welfareToilets },
+                            { key: "welfareWashing", label: "Washing", val: p.welfareWashing },
+                            { key: "welfareRestArea", label: "Rest Area", val: p.welfareRestArea },
+                            { key: "welfareDrinkingWater", label: "Drinking Water", val: p.welfareDrinkingWater },
+                            { key: "welfareChanging", label: "Changing Facilities", val: p.welfareChanging },
+                          ].map(w => (
+                            <span key={w.key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${w.val ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-muted text-muted-foreground"}`}>
+                              {w.val ? <CheckCircle className="h-3 w-3" /> : <AlertCircle className="h-3 w-3" />}{w.label}
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     </div>
-
-                    {/* Welfare Provisions */}
-                    {p.welfareProvisions && (() => {
-                      try {
-                        const provisions: string[] = JSON.parse(p.welfareProvisions);
-                        if (provisions.length > 0) return (
-                          <div>
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Welfare Provisions</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {WELFARE_OPTIONS.map(opt => (
-                                <span key={opt.key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${provisions.includes(opt.key) ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : "bg-muted text-muted-foreground line-through"}`}>
-                                  {provisions.includes(opt.key) ? <CheckCircle className="h-3 w-3" /> : null}{opt.label}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      } catch {}
-                      return null;
-                    })()}
 
                     {/* Notes */}
                     {p.notes && (
@@ -696,10 +765,10 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Status</label>
                   <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                    <option value="planned">Planned</option>
+                    <option value="planning">Planning</option>
                     <option value="active">Active</option>
-                    <option value="on_hold">On Hold</option>
                     <option value="complete">Complete</option>
+                    <option value="cancelled">Cancelled</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
@@ -726,8 +795,8 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                   <label className="text-sm font-medium">Description</label>
                   <Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={2} placeholder="Brief project description…" />
                 </div>
-                {/* F10 auto-detection hint */}
-                {isF10Required({ ...form, estimatedDays: form.estimatedDays ? parseInt(form.estimatedDays) : 0, peakWorkers: form.peakWorkers ? parseInt(form.peakWorkers) : 0, personDays: form.personDays ? parseInt(form.personDays) : 0, f10NotificationRequired: false } as any) && (
+                {/* F10 auto-detection */}
+                {isNotifiable({ estimatedDays: form.estimatedDays ? parseInt(form.estimatedDays) : 0, peakWorkers: form.peakWorkers ? parseInt(form.peakWorkers) : 0, personDays: form.personDays ? parseInt(form.personDays) : 0 }) && (
                   <div className="col-span-2 rounded-md bg-amber-50 border border-amber-200 dark:bg-amber-950/30 dark:border-amber-800 p-3 text-xs text-amber-800 dark:text-amber-300 flex items-start gap-2">
                     <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
                     <span><strong>F10 notification required</strong> — This project exceeds HSE thresholds ({">"} 30 days with {">"} 20 workers, or {">"} 500 person-days). Notify the HSE before construction starts.</span>
@@ -737,71 +806,104 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
             )}
 
             {addStep === 2 && (
-              <div className="space-y-5">
-                {/* F10 Section */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-600" />F10 HSE Notification</h4>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={form.f10NotificationRequired} onChange={e => setForm({ ...form, f10NotificationRequired: e.target.checked })} className="h-4 w-4" />
-                    <span className="text-sm">F10 notification required for this project</span>
-                  </label>
-                  {form.f10NotificationRequired && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium">Date Submitted</label>
-                        <Input type="date" value={form.f10SubmittedDate} onChange={e => setForm({ ...form, f10SubmittedDate: e.target.value })} />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-xs font-medium">HSE Reference</label>
-                        <Input value={form.f10Reference} onChange={e => setForm({ ...form, f10Reference: e.target.value })} placeholder="F10 reference number" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Key Documents */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-blue-600" />Key CDM Documents (URLs)</h4>
-                  <div className="space-y-2">
+              <div className="space-y-4">
+                {/* S1 — F10 */}
+                <div className="rounded-md border border-border p-3 space-y-2">
+                  <h4 className="font-medium text-sm flex items-center gap-2"><AlertCircle className="h-4 w-4 text-amber-600" />1. F10 HSE Notification</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Construction Phase Plan URL</label>
-                      <div className="flex gap-2">
-                        <Input value={form.constructionPhasePlanUrl} onChange={e => setForm({ ...form, constructionPhasePlanUrl: e.target.value })} placeholder="https://…" />
-                        <Input type="date" className="w-36 flex-shrink-0" value={form.constructionPhasePlanDate} onChange={e => setForm({ ...form, constructionPhasePlanDate: e.target.value })} title="Plan date" />
-                      </div>
+                      <label className="text-xs font-medium">Status</label>
+                      <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none" value={form.f10Status} onChange={e => setForm({ ...form, f10Status: e.target.value })}>
+                        <option value="not_required">Not Required</option>
+                        <option value="pending">Pending</option>
+                        <option value="submitted">Submitted</option>
+                      </select>
                     </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Pre-Construction Information URL</label>
-                      <Input value={form.preConstructionInfoUrl} onChange={e => setForm({ ...form, preConstructionInfoUrl: e.target.value })} placeholder="https://…" />
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-medium">Health & Safety File URL</label>
-                      <Input value={form.healthSafetyFileUrl} onChange={e => setForm({ ...form, healthSafetyFileUrl: e.target.value })} placeholder="https://…" />
-                    </div>
+                    {(form.f10Status === "submitted" || form.f10Status === "pending") && (
+                      <>
+                        <div className="space-y-1.5"><label className="text-xs font-medium">Date Submitted</label><Input type="date" value={form.f10Date} onChange={e => setForm({ ...form, f10Date: e.target.value })} /></div>
+                        <div className="space-y-1.5"><label className="text-xs font-medium">HSE Reference</label><Input value={form.f10Reference} onChange={e => setForm({ ...form, f10Reference: e.target.value })} placeholder="F10 ref" /></div>
+                      </>
+                    )}
+                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">Notes</label><Input value={form.f10Notes} onChange={e => setForm({ ...form, f10Notes: e.target.value })} placeholder="Optional notes…" /></div>
                   </div>
                 </div>
 
-                {/* Welfare Provisions */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-sm flex items-center gap-2"><CheckSquareIcon className="h-4 w-4 text-green-600" />Welfare Provisions (CDM Reg 25)</h4>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    {WELFARE_OPTIONS.map(opt => (
+                {/* S2 — CPP */}
+                <div className="rounded-md border border-border p-3 space-y-2">
+                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-blue-600" />2. Construction Phase Plan</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Status</label>
+                      <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none" value={form.cppStatus} onChange={e => setForm({ ...form, cppStatus: e.target.value })}>
+                        <option value="not_prepared">Not Prepared</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="approved">Approved</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5"><label className="text-xs font-medium">Date</label><Input type="date" value={form.cppDate} onChange={e => setForm({ ...form, cppDate: e.target.value })} /></div>
+                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">Notes</label><Input value={form.cppNotes} onChange={e => setForm({ ...form, cppNotes: e.target.value })} placeholder="Optional notes…" /></div>
+                  </div>
+                </div>
+
+                {/* S3 — PCI */}
+                <div className="rounded-md border border-border p-3 space-y-2">
+                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-purple-600" />3. Pre-Construction Information</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Status</label>
+                      <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none" value={form.pciStatus} onChange={e => setForm({ ...form, pciStatus: e.target.value })}>
+                        <option value="not_prepared">Not Prepared</option>
+                        <option value="prepared">Prepared</option>
+                        <option value="distributed">Distributed</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5"><label className="text-xs font-medium">Date</label><Input type="date" value={form.pciDate} onChange={e => setForm({ ...form, pciDate: e.target.value })} /></div>
+                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">Notes</label><Input value={form.pciNotes} onChange={e => setForm({ ...form, pciNotes: e.target.value })} placeholder="Optional notes…" /></div>
+                  </div>
+                </div>
+
+                {/* S4 — HSF */}
+                <div className="rounded-md border border-border p-3 space-y-2">
+                  <h4 className="font-medium text-sm flex items-center gap-2"><ClipboardList className="h-4 w-4 text-indigo-600" />4. Health & Safety File</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-medium">Status</label>
+                      <select className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none" value={form.hsfStatus} onChange={e => setForm({ ...form, hsfStatus: e.target.value })}>
+                        <option value="not_started">Not Started</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="complete">Complete</option>
+                        <option value="handed_over">Handed Over</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5"><label className="text-xs font-medium">Date</label><Input type="date" value={form.hsfDate} onChange={e => setForm({ ...form, hsfDate: e.target.value })} /></div>
+                    <div className="sm:col-span-2 space-y-1.5"><label className="text-xs font-medium">Notes</label><Input value={form.hsfNotes} onChange={e => setForm({ ...form, hsfNotes: e.target.value })} placeholder="Optional notes…" /></div>
+                  </div>
+                </div>
+
+                {/* S5 — Welfare */}
+                <div className="rounded-md border border-border p-3 space-y-2">
+                  <h4 className="font-medium text-sm flex items-center gap-2"><CheckSquareIcon className="h-4 w-4 text-green-600" />5. Welfare Provisions (CDM Reg 25)</h4>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { key: "welfareToilets" as const, label: "Toilets" },
+                      { key: "welfareWashing" as const, label: "Washing Facilities" },
+                      { key: "welfareRestArea" as const, label: "Rest Area" },
+                      { key: "welfareDrinkingWater" as const, label: "Drinking Water" },
+                      { key: "welfareChanging" as const, label: "Changing Facilities" },
+                    ].map(opt => (
                       <label key={opt.key} className="flex items-center gap-2 cursor-pointer text-sm">
-                        <input type="checkbox"
-                          checked={form.welfareProvisions.includes(opt.key)}
-                          onChange={e => setForm({ ...form, welfareProvisions: e.target.checked ? [...form.welfareProvisions, opt.key] : form.welfareProvisions.filter(k => k !== opt.key) })}
-                          className="h-4 w-4"
-                        />
+                        <input type="checkbox" checked={!!form[opt.key]} onChange={e => setForm({ ...form, [opt.key]: e.target.checked })} className="h-4 w-4" />
                         {opt.label}
                       </label>
                     ))}
                   </div>
                 </div>
 
-                {/* Notes */}
+                {/* General Notes */}
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Notes</label>
-                  <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} placeholder="Any additional CDM notes…" />
+                  <label className="text-sm font-medium">General Notes</label>
+                  <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} placeholder="Any additional CDM notes…" />
                 </div>
               </div>
             )}
@@ -848,10 +950,10 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Status</label>
                 <select className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
-                  <option value="planned">Planned</option>
+                  <option value="planning">Planning</option>
                   <option value="active">Active</option>
-                  <option value="on_hold">On Hold</option>
                   <option value="complete">Complete</option>
+                  <option value="cancelled">Cancelled</option>
                 </select>
               </div>
               <div className="space-y-1.5">
@@ -884,60 +986,90 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={form.f10NotificationRequired} onChange={e => setForm({ ...form, f10NotificationRequired: e.target.checked })} className="h-4 w-4" />
-                <span className="text-sm font-medium">F10 notification required</span>
-              </label>
-              {form.f10NotificationRequired && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pl-6">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium">Date Submitted</label>
-                    <Input type="date" value={form.f10SubmittedDate} onChange={e => setForm({ ...form, f10SubmittedDate: e.target.value })} />
+            {/* Five compliance sections */}
+            <div className="space-y-3">
+              <p className="text-sm font-semibold">Compliance Sections</p>
+
+              {/* S1 — F10 */}
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5 text-amber-600" />1. F10 HSE Notification</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Status</label>
+                    <select className="w-full h-8 px-2 rounded-md border border-input bg-background text-xs focus:outline-none" value={form.f10Status} onChange={e => setForm({ ...form, f10Status: e.target.value })}>
+                      <option value="not_required">Not Required</option><option value="pending">Pending</option><option value="submitted">Submitted</option>
+                    </select>
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium">HSE Reference</label>
-                    <Input value={form.f10Reference} onChange={e => setForm({ ...form, f10Reference: e.target.value })} />
-                  </div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Date Submitted</label><Input type="date" className="h-8 text-xs" value={form.f10Date} onChange={e => setForm({ ...form, f10Date: e.target.value })} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">HSE Reference</label><Input className="h-8 text-xs" value={form.f10Reference} onChange={e => setForm({ ...form, f10Reference: e.target.value })} /></div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Notes</label><Input className="h-8 text-xs" value={form.f10Notes} onChange={e => setForm({ ...form, f10Notes: e.target.value })} /></div>
                 </div>
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Construction Phase Plan URL</label>
-              <div className="flex gap-2">
-                <Input value={form.constructionPhasePlanUrl} onChange={e => setForm({ ...form, constructionPhasePlanUrl: e.target.value })} placeholder="https://…" />
-                <Input type="date" className="w-36 flex-shrink-0" value={form.constructionPhasePlanDate} onChange={e => setForm({ ...form, constructionPhasePlanDate: e.target.value })} />
               </div>
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Pre-Construction Information URL</label>
-              <Input value={form.preConstructionInfoUrl} onChange={e => setForm({ ...form, preConstructionInfoUrl: e.target.value })} placeholder="https://…" />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Health & Safety File URL</label>
-              <Input value={form.healthSafetyFileUrl} onChange={e => setForm({ ...form, healthSafetyFileUrl: e.target.value })} placeholder="https://…" />
-            </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Welfare Provisions</label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {WELFARE_OPTIONS.map(opt => (
-                  <label key={opt.key} className="flex items-center gap-2 cursor-pointer text-sm">
-                    <input type="checkbox"
-                      checked={form.welfareProvisions.includes(opt.key)}
-                      onChange={e => setForm({ ...form, welfareProvisions: e.target.checked ? [...form.welfareProvisions, opt.key] : form.welfareProvisions.filter(k => k !== opt.key) })}
-                      className="h-4 w-4"
-                    />
-                    {opt.label}
-                  </label>
-                ))}
+              {/* S2 — CPP */}
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-blue-600" />2. Construction Phase Plan</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Status</label>
+                    <select className="w-full h-8 px-2 rounded-md border border-input bg-background text-xs focus:outline-none" value={form.cppStatus} onChange={e => setForm({ ...form, cppStatus: e.target.value })}>
+                      <option value="not_prepared">Not Prepared</option><option value="in_progress">In Progress</option><option value="approved">Approved</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Date</label><Input type="date" className="h-8 text-xs" value={form.cppDate} onChange={e => setForm({ ...form, cppDate: e.target.value })} /></div>
+                  <div className="sm:col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Notes</label><Input className="h-8 text-xs" value={form.cppNotes} onChange={e => setForm({ ...form, cppNotes: e.target.value })} /></div>
+                </div>
+              </div>
+
+              {/* S3 — PCI */}
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-purple-600" />3. Pre-Construction Information</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Status</label>
+                    <select className="w-full h-8 px-2 rounded-md border border-input bg-background text-xs focus:outline-none" value={form.pciStatus} onChange={e => setForm({ ...form, pciStatus: e.target.value })}>
+                      <option value="not_prepared">Not Prepared</option><option value="prepared">Prepared</option><option value="distributed">Distributed</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Date</label><Input type="date" className="h-8 text-xs" value={form.pciDate} onChange={e => setForm({ ...form, pciDate: e.target.value })} /></div>
+                  <div className="sm:col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Notes</label><Input className="h-8 text-xs" value={form.pciNotes} onChange={e => setForm({ ...form, pciNotes: e.target.value })} /></div>
+                </div>
+              </div>
+
+              {/* S4 — HSF */}
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><ClipboardList className="h-3.5 w-3.5 text-indigo-600" />4. Health & Safety File</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Status</label>
+                    <select className="w-full h-8 px-2 rounded-md border border-input bg-background text-xs focus:outline-none" value={form.hsfStatus} onChange={e => setForm({ ...form, hsfStatus: e.target.value })}>
+                      <option value="not_started">Not Started</option><option value="in_progress">In Progress</option><option value="complete">Complete</option><option value="handed_over">Handed Over</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1"><label className="text-xs text-muted-foreground">Date</label><Input type="date" className="h-8 text-xs" value={form.hsfDate} onChange={e => setForm({ ...form, hsfDate: e.target.value })} /></div>
+                  <div className="sm:col-span-2 space-y-1"><label className="text-xs text-muted-foreground">Notes</label><Input className="h-8 text-xs" value={form.hsfNotes} onChange={e => setForm({ ...form, hsfNotes: e.target.value })} /></div>
+                </div>
+              </div>
+
+              {/* S5 — Welfare */}
+              <div className="rounded-md border border-border p-3 space-y-2">
+                <h4 className="text-xs font-semibold flex items-center gap-1.5"><CheckSquareIcon className="h-3.5 w-3.5 text-green-600" />5. Welfare Provisions (CDM Reg 25)</h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { key: "welfareToilets" as const, label: "Toilets" },
+                    { key: "welfareWashing" as const, label: "Washing" },
+                    { key: "welfareRestArea" as const, label: "Rest Area" },
+                    { key: "welfareDrinkingWater" as const, label: "Drinking Water" },
+                    { key: "welfareChanging" as const, label: "Changing" },
+                  ].map(opt => (
+                    <label key={opt.key} className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input type="checkbox" checked={!!form[opt.key]} onChange={e => setForm({ ...form, [opt.key]: e.target.checked })} className="h-4 w-4" />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Notes</label>
-              <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} />
+              <label className="text-sm font-medium">General Notes</label>
+              <Textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} />
             </div>
           </div>
           <DialogFooter className="mt-4">
@@ -994,12 +1126,10 @@ export default function ContractorManagement() {
   const [showHSModal, setShowHSModal] = useState(false);
   const [cdmAccreditationForm, setCdmAccreditationForm] = useState({
     cdmRole: "" as string,
-    constructionlineAccredited: false,
-    constructionlineNumber: "",
-    constructionlineExpiry: "",
+    constructionlineGrade: "" as string, // not_registered | registered | silver | gold | platinum
     smasAccredited: false,
-    smasNumber: "",
-    smasExpiry: "",
+    otherAccreditations: "",
+    pdProfessionalBody: "",
   });
   const [workerForCheckIn, setWorkerForCheckIn] = useState<ContractorWorker | null>(null);
   const [companyForCheckIn, setCompanyForCheckIn] = useState<string>("");
@@ -1435,12 +1565,10 @@ export default function ContractorManagement() {
       });
       setCdmAccreditationForm({
         cdmRole: (contractorToEdit as any).cdmRole ?? "",
-        constructionlineAccredited: (contractorToEdit as any).constructionlineAccredited ?? false,
-        constructionlineNumber: (contractorToEdit as any).constructionlineNumber ?? "",
-        constructionlineExpiry: (contractorToEdit as any).constructionlineExpiry ? new Date((contractorToEdit as any).constructionlineExpiry).toISOString().slice(0, 10) : "",
+        constructionlineGrade: (contractorToEdit as any).constructionlineGrade ?? "",
         smasAccredited: (contractorToEdit as any).smasAccredited ?? false,
-        smasNumber: (contractorToEdit as any).smasNumber ?? "",
-        smasExpiry: (contractorToEdit as any).smasExpiry ? new Date((contractorToEdit as any).smasExpiry).toISOString().slice(0, 10) : "",
+        otherAccreditations: (contractorToEdit as any).otherAccreditations ?? "",
+        pdProfessionalBody: (contractorToEdit as any).pdProfessionalBody ?? "",
       });
       setShowCompanyEditDialog(true);
     }
@@ -2872,32 +3000,38 @@ export default function ContractorManagement() {
                   <option value="client">Client</option>
                 </select>
               </div>
-              <div className="space-y-1.5" />
-              {/* Constructionline */}
-              <div className="col-span-2 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <input type="checkbox" className="h-4 w-4" checked={cdmAccreditationForm.constructionlineAccredited} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, constructionlineAccredited: e.target.checked })} />
-                  Constructionline Accredited
-                </label>
-                {cdmAccreditationForm.constructionlineAccredited && (
-                  <div className="grid grid-cols-2 gap-2 pl-6">
-                    <div className="space-y-1"><label className="text-xs text-muted-foreground">Membership No.</label><Input className="h-8 text-xs" value={cdmAccreditationForm.constructionlineNumber} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, constructionlineNumber: e.target.value })} placeholder="CL-000000" /></div>
-                    <div className="space-y-1"><label className="text-xs text-muted-foreground">Expiry Date</label><Input type="date" className="h-8 text-xs" value={cdmAccreditationForm.constructionlineExpiry} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, constructionlineExpiry: e.target.value })} /></div>
-                  </div>
-                )}
+              {/* Constructionline Grade */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Constructionline Grade</label>
+                <select
+                  value={cdmAccreditationForm.constructionlineGrade}
+                  onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, constructionlineGrade: e.target.value })}
+                  className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
+                >
+                  <option value="">Not Registered</option>
+                  <option value="registered">Registered</option>
+                  <option value="silver">Silver</option>
+                  <option value="gold">Gold</option>
+                  <option value="platinum">Platinum</option>
+                </select>
               </div>
-              {/* SMAS */}
-              <div className="col-span-2 space-y-2">
-                <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-300">
+              {/* SMAS Worksafe */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">SMAS Worksafe</label>
+                <label className="flex items-center gap-2 cursor-pointer text-sm h-9 border border-input rounded-md px-3">
                   <input type="checkbox" className="h-4 w-4" checked={cdmAccreditationForm.smasAccredited} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, smasAccredited: e.target.checked })} />
-                  SMAS Worksafe Accredited
+                  SMAS Accredited
                 </label>
-                {cdmAccreditationForm.smasAccredited && (
-                  <div className="grid grid-cols-2 gap-2 pl-6">
-                    <div className="space-y-1"><label className="text-xs text-muted-foreground">Membership No.</label><Input className="h-8 text-xs" value={cdmAccreditationForm.smasNumber} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, smasNumber: e.target.value })} placeholder="SMAS-000000" /></div>
-                    <div className="space-y-1"><label className="text-xs text-muted-foreground">Expiry Date</label><Input type="date" className="h-8 text-xs" value={cdmAccreditationForm.smasExpiry} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, smasExpiry: e.target.value })} /></div>
-                  </div>
-                )}
+              </div>
+              {/* Other Accreditations */}
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Other Accreditations (e.g. CHAS, Acclaim, SafeContractor)</label>
+                <Input className="h-9 text-sm" value={cdmAccreditationForm.otherAccreditations} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, otherAccreditations: e.target.value })} placeholder="e.g. CHAS Premium, SafeContractor approved…" />
+              </div>
+              {/* Principal Designer Professional Body */}
+              <div className="col-span-2 space-y-1.5">
+                <label className="text-xs font-medium text-slate-700 dark:text-slate-300">Principal Designer Professional Body (if applicable)</label>
+                <Input className="h-9 text-sm" value={cdmAccreditationForm.pdProfessionalBody} onChange={e => setCdmAccreditationForm({ ...cdmAccreditationForm, pdProfessionalBody: e.target.value })} placeholder="e.g. RIBA, ARB, ICE, CIOB…" />
               </div>
             </div>
           </div>

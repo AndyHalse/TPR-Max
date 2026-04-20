@@ -465,12 +465,10 @@ export class CustomerDatabaseService {
     // Ensure CDM 2015 columns on contractor_companies and cdm_projects table
     try {
       await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS cdm_role TEXT`);
-      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS constructionline_accredited BOOLEAN DEFAULT false`);
-      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS constructionline_number TEXT`);
-      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS constructionline_expiry TIMESTAMP`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS constructionline_grade TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS smas_accredited BOOLEAN DEFAULT false`);
-      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS smas_number TEXT`);
-      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS smas_expiry TIMESTAMP`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS other_accreditations TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_companies ADD COLUMN IF NOT EXISTS pd_professional_body TEXT`);
       await pool.query(`
         CREATE TABLE IF NOT EXISTS "${schemaName}".cdm_projects (
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -480,20 +478,30 @@ export class CustomerDatabaseService {
           location TEXT,
           client_name TEXT,
           contractor_role TEXT NOT NULL DEFAULT 'contractor',
-          status TEXT NOT NULL DEFAULT 'planned',
+          status TEXT NOT NULL DEFAULT 'planning',
           start_date TEXT,
           end_date TEXT,
           estimated_days INTEGER,
           peak_workers INTEGER,
           person_days INTEGER,
-          f10_notification_required BOOLEAN DEFAULT false,
-          f10_submitted_date TEXT,
+          f10_status TEXT NOT NULL DEFAULT 'not_required',
+          f10_date TEXT,
           f10_reference TEXT,
-          construction_phase_plan_url TEXT,
-          construction_phase_plan_date TEXT,
-          pre_construction_info_url TEXT,
-          health_safety_file_url TEXT,
-          welfare_provisions TEXT,
+          f10_notes TEXT,
+          cpp_status TEXT NOT NULL DEFAULT 'not_prepared',
+          cpp_date TEXT,
+          cpp_notes TEXT,
+          pci_status TEXT NOT NULL DEFAULT 'not_prepared',
+          pci_date TEXT,
+          pci_notes TEXT,
+          hsf_status TEXT NOT NULL DEFAULT 'not_started',
+          hsf_date TEXT,
+          hsf_notes TEXT,
+          welfare_toilets BOOLEAN DEFAULT false,
+          welfare_washing BOOLEAN DEFAULT false,
+          welfare_rest_area BOOLEAN DEFAULT false,
+          welfare_drinking_water BOOLEAN DEFAULT false,
+          welfare_changing BOOLEAN DEFAULT false,
           notes TEXT,
           created_at TIMESTAMP DEFAULT NOW()
         )

@@ -28639,8 +28639,9 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // POST create CDM project
+  // POST create CDM project (admin only)
   app.post("/api/cdm/projects", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     try {
       const db = await customerDbService.getCustomerDatabase(req.customerId!);
       const data = req.body;
@@ -28651,20 +28652,30 @@ This is an automated notification from your visitor management system.`;
         location: data.location || null,
         clientName: data.clientName || null,
         contractorRole: data.contractorRole || "contractor",
-        status: data.status || "planned",
+        status: data.status || "planning",
         startDate: data.startDate || null,
         endDate: data.endDate || null,
         estimatedDays: data.estimatedDays ? parseInt(data.estimatedDays) : null,
         peakWorkers: data.peakWorkers ? parseInt(data.peakWorkers) : null,
         personDays: data.personDays ? parseInt(data.personDays) : null,
-        f10NotificationRequired: data.f10NotificationRequired || false,
-        f10SubmittedDate: data.f10SubmittedDate || null,
+        f10Status: data.f10Status || "not_required",
+        f10Date: data.f10Date || null,
         f10Reference: data.f10Reference || null,
-        constructionPhasePlanUrl: data.constructionPhasePlanUrl || null,
-        constructionPhasePlanDate: data.constructionPhasePlanDate || null,
-        preConstructionInfoUrl: data.preConstructionInfoUrl || null,
-        healthSafetyFileUrl: data.healthSafetyFileUrl || null,
-        welfareProvisions: data.welfareProvisions ? JSON.stringify(data.welfareProvisions) : null,
+        f10Notes: data.f10Notes || null,
+        cppStatus: data.cppStatus || "not_prepared",
+        cppDate: data.cppDate || null,
+        cppNotes: data.cppNotes || null,
+        pciStatus: data.pciStatus || "not_prepared",
+        pciDate: data.pciDate || null,
+        pciNotes: data.pciNotes || null,
+        hsfStatus: data.hsfStatus || "not_started",
+        hsfDate: data.hsfDate || null,
+        hsfNotes: data.hsfNotes || null,
+        welfareToilets: data.welfareToilets || false,
+        welfareWashing: data.welfareWashing || false,
+        welfareRestArea: data.welfareRestArea || false,
+        welfareDrinkingWater: data.welfareDrinkingWater || false,
+        welfareChanging: data.welfareChanging || false,
         notes: data.notes || null,
       }).returning();
       res.json(project);
@@ -28674,8 +28685,9 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // PUT update CDM project
+  // PUT update CDM project (admin only)
   app.put("/api/cdm/projects/:id", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     try {
       const { id } = req.params;
       const db = await customerDbService.getCustomerDatabase(req.customerId!);
@@ -28692,14 +28704,24 @@ This is an automated notification from your visitor management system.`;
       if (data.estimatedDays !== undefined) updates.estimatedDays = data.estimatedDays ? parseInt(data.estimatedDays) : null;
       if (data.peakWorkers !== undefined) updates.peakWorkers = data.peakWorkers ? parseInt(data.peakWorkers) : null;
       if (data.personDays !== undefined) updates.personDays = data.personDays ? parseInt(data.personDays) : null;
-      if (data.f10NotificationRequired !== undefined) updates.f10NotificationRequired = data.f10NotificationRequired;
-      if (data.f10SubmittedDate !== undefined) updates.f10SubmittedDate = data.f10SubmittedDate;
+      if (data.f10Status !== undefined) updates.f10Status = data.f10Status;
+      if (data.f10Date !== undefined) updates.f10Date = data.f10Date;
       if (data.f10Reference !== undefined) updates.f10Reference = data.f10Reference;
-      if (data.constructionPhasePlanUrl !== undefined) updates.constructionPhasePlanUrl = data.constructionPhasePlanUrl;
-      if (data.constructionPhasePlanDate !== undefined) updates.constructionPhasePlanDate = data.constructionPhasePlanDate;
-      if (data.preConstructionInfoUrl !== undefined) updates.preConstructionInfoUrl = data.preConstructionInfoUrl;
-      if (data.healthSafetyFileUrl !== undefined) updates.healthSafetyFileUrl = data.healthSafetyFileUrl;
-      if (data.welfareProvisions !== undefined) updates.welfareProvisions = Array.isArray(data.welfareProvisions) ? JSON.stringify(data.welfareProvisions) : data.welfareProvisions;
+      if (data.f10Notes !== undefined) updates.f10Notes = data.f10Notes;
+      if (data.cppStatus !== undefined) updates.cppStatus = data.cppStatus;
+      if (data.cppDate !== undefined) updates.cppDate = data.cppDate;
+      if (data.cppNotes !== undefined) updates.cppNotes = data.cppNotes;
+      if (data.pciStatus !== undefined) updates.pciStatus = data.pciStatus;
+      if (data.pciDate !== undefined) updates.pciDate = data.pciDate;
+      if (data.pciNotes !== undefined) updates.pciNotes = data.pciNotes;
+      if (data.hsfStatus !== undefined) updates.hsfStatus = data.hsfStatus;
+      if (data.hsfDate !== undefined) updates.hsfDate = data.hsfDate;
+      if (data.hsfNotes !== undefined) updates.hsfNotes = data.hsfNotes;
+      if (data.welfareToilets !== undefined) updates.welfareToilets = data.welfareToilets;
+      if (data.welfareWashing !== undefined) updates.welfareWashing = data.welfareWashing;
+      if (data.welfareRestArea !== undefined) updates.welfareRestArea = data.welfareRestArea;
+      if (data.welfareDrinkingWater !== undefined) updates.welfareDrinkingWater = data.welfareDrinkingWater;
+      if (data.welfareChanging !== undefined) updates.welfareChanging = data.welfareChanging;
       if (data.notes !== undefined) updates.notes = data.notes;
       const [project] = await db.update(isolatedSchema.cdmProjects)
         .set(updates)
@@ -28713,8 +28735,9 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // DELETE CDM project
+  // DELETE CDM project (admin only)
   app.delete("/api/cdm/projects/:id", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     try {
       const { id } = req.params;
       const db = await customerDbService.getCustomerDatabase(req.customerId!);
@@ -28727,20 +28750,19 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
-  // PUT update contractor company CDM/accreditation fields
+  // PUT update contractor company CDM/accreditation fields (admin only)
   app.put("/api/cdm/contractor/:id/accreditations", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     try {
       const { id } = req.params;
       const db = await customerDbService.getCustomerDatabase(req.customerId!);
       const data = req.body;
       const updates: Record<string, any> = {};
       if (data.cdmRole !== undefined) updates.cdmRole = data.cdmRole;
-      if (data.constructionlineAccredited !== undefined) updates.constructionlineAccredited = data.constructionlineAccredited;
-      if (data.constructionlineNumber !== undefined) updates.constructionlineNumber = data.constructionlineNumber;
-      if (data.constructionlineExpiry !== undefined) updates.constructionlineExpiry = data.constructionlineExpiry ? new Date(data.constructionlineExpiry) : null;
+      if (data.constructionlineGrade !== undefined) updates.constructionlineGrade = data.constructionlineGrade;
       if (data.smasAccredited !== undefined) updates.smasAccredited = data.smasAccredited;
-      if (data.smasNumber !== undefined) updates.smasNumber = data.smasNumber;
-      if (data.smasExpiry !== undefined) updates.smasExpiry = data.smasExpiry ? new Date(data.smasExpiry) : null;
+      if (data.otherAccreditations !== undefined) updates.otherAccreditations = data.otherAccreditations;
+      if (data.pdProfessionalBody !== undefined) updates.pdProfessionalBody = data.pdProfessionalBody;
       const [company] = await db.update(isolatedSchema.contractorCompanies)
         .set(updates)
         .where(eq(isolatedSchema.contractorCompanies.id, id))

@@ -703,13 +703,11 @@ export const contractorCompanies = pgTable("contractor_companies", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   // CDM 2015 — Construction Design & Management
-  cdmRole: text("cdm_role"), // principal_contractor | principal_designer | contractor | designer | client | none
-  constructionlineAccredited: boolean("constructionline_accredited").default(false),
-  constructionlineNumber: text("constructionline_number"),
-  constructionlineExpiry: timestamp("constructionline_expiry"),
+  cdmRole: text("cdm_role"), // principal_contractor | principal_designer | contractor | designer | client
+  constructionlineGrade: text("constructionline_grade"), // not_registered | registered | silver | gold | platinum
   smasAccredited: boolean("smas_accredited").default(false),
-  smasNumber: text("smas_number"),
-  smasExpiry: timestamp("smas_expiry"),
+  otherAccreditations: text("other_accreditations"), // free-text for Acclaim, SSIP etc.
+  pdProfessionalBody: text("pd_professional_body"), // e.g. RIBA, ARB, ICE, CIOB
 });
 
 // Contractor Workers
@@ -2252,24 +2250,36 @@ export const cdmProjects = pgTable("cdm_projects", {
   location: text("location"),
   clientName: text("client_name"),
   contractorRole: text("contractor_role").notNull().default("contractor"), // principal_contractor | principal_designer | contractor | designer
-  status: text("status").notNull().default("planned"), // planned | active | complete | on_hold
+  status: text("status").notNull().default("planning"), // planning | active | complete | cancelled
   startDate: text("start_date"),
   endDate: text("end_date"),
   estimatedDays: integer("estimated_days"),
   peakWorkers: integer("peak_workers"),
   personDays: integer("person_days"),
-  // F10 notification
-  f10NotificationRequired: boolean("f10_notification_required").default(false),
-  f10SubmittedDate: text("f10_submitted_date"),
+  // Section 1 — F10 HSE Notification
+  f10Status: text("f10_status").notNull().default("not_required"), // not_required | pending | submitted
+  f10Date: text("f10_date"),        // date submitted
   f10Reference: text("f10_reference"),
-  // Key documents
-  constructionPhasePlanUrl: text("construction_phase_plan_url"),
-  constructionPhasePlanDate: text("construction_phase_plan_date"),
-  preConstructionInfoUrl: text("pre_construction_info_url"),
-  healthSafetyFileUrl: text("health_safety_file_url"),
-  // Welfare provisions checklist (JSON array of provision keys)
-  welfareProvisions: text("welfare_provisions"), // JSON: ["toilets","washing","rest_area","drinking_water","first_aid","lighting"]
-  // Notes
+  f10Notes: text("f10_notes"),
+  // Section 2 — Construction Phase Plan (CPP)
+  cppStatus: text("cpp_status").notNull().default("not_prepared"), // not_prepared | in_progress | approved
+  cppDate: text("cpp_date"),
+  cppNotes: text("cpp_notes"),
+  // Section 3 — Pre-Construction Information (PCI)
+  pciStatus: text("pci_status").notNull().default("not_prepared"), // not_prepared | prepared | distributed
+  pciDate: text("pci_date"),
+  pciNotes: text("pci_notes"),
+  // Section 4 — Health & Safety File (HSF)
+  hsfStatus: text("hsf_status").notNull().default("not_started"), // not_started | in_progress | complete | handed_over
+  hsfDate: text("hsf_date"),
+  hsfNotes: text("hsf_notes"),
+  // Section 5 — Welfare Provisions (CDM Reg 25)
+  welfareToilets: boolean("welfare_toilets").default(false),
+  welfareWashing: boolean("welfare_washing").default(false),
+  welfareRestArea: boolean("welfare_rest_area").default(false),
+  welfareDrinkingWater: boolean("welfare_drinking_water").default(false),
+  welfareChanging: boolean("welfare_changing").default(false),
+  // General
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
