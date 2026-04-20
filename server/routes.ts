@@ -28819,7 +28819,7 @@ This is an automated notification from your visitor management system.`;
       if (data.estimatedDays !== undefined) updates.estimatedDays = data.estimatedDays ? parseInt(data.estimatedDays) : null;
       if (data.peakWorkers !== undefined) updates.peakWorkers = data.peakWorkers ? parseInt(data.peakWorkers) : null;
       if (data.personDays !== undefined) updates.personDays = data.personDays ? parseInt(data.personDays) : null;
-      if (data.isNotifiable !== undefined) updates.isNotifiable = data.isNotifiable;
+      // isNotifiable is a computed/display value — not persisted in DB, derived from estimatedDays/peakWorkers/personDays
       if (data.f10Status !== undefined) updates.f10Status = data.f10Status;
       if (data.f10Date !== undefined) updates.f10Date = data.f10Date;
       if (data.f10Reference !== undefined) updates.f10Reference = data.f10Reference;
