@@ -28800,12 +28800,14 @@ This is an automated notification from your visitor management system.`;
       const statusFilter = typeof req.query.status === 'string' && req.query.status !== 'all' ? req.query.status : null;
       const fromDate = typeof req.query.from === 'string' && req.query.from ? req.query.from : null;
       const toDate = typeof req.query.to === 'string' && req.query.to ? req.query.to : null;
+      const companyIdFilter = typeof req.query.companyId === 'string' && req.query.companyId ? req.query.companyId : null;
 
       // Build WHERE conditions for cdmProjects
       const filterConditions: SQL<boolean>[] = [];
       if (statusFilter) filterConditions.push(eq(isolatedSchema.cdmProjects.status, statusFilter));
       if (fromDate) filterConditions.push(gte(isolatedSchema.cdmProjects.startDate, fromDate));
       if (toDate) filterConditions.push(lte(isolatedSchema.cdmProjects.startDate, toDate));
+      if (companyIdFilter) filterConditions.push(eq(isolatedSchema.cdmProjects.companyId, companyIdFilter));
 
       const projectsBaseQuery = db.select().from(isolatedSchema.cdmProjects);
       const projectsFilteredQuery = filterConditions.length > 0

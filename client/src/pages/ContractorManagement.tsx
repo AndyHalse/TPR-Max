@@ -380,25 +380,27 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
           status: parsed.status ?? "all",
           fromDate: parsed.fromDate ?? "",
           toDate: parsed.toDate ?? "",
+          companyId: parsed.companyId ?? "all",
         };
       }
     } catch {}
-    return { status: "all", fromDate: "", toDate: "" };
+    return { status: "all", fromDate: "", toDate: "", companyId: "all" };
   };
 
   const initialPdfFilters = loadPdfFilters();
   const [pdfStatusFilter, setPdfStatusFilter] = useState(initialPdfFilters.status);
   const [pdfFromDate, setPdfFromDate] = useState(initialPdfFilters.fromDate);
   const [pdfToDate, setPdfToDate] = useState(initialPdfFilters.toDate);
+  const [pdfCompanyFilter, setPdfCompanyFilter] = useState(initialPdfFilters.companyId);
 
   useEffect(() => {
     try {
       localStorage.setItem(
         "cdm_pdf_filter",
-        JSON.stringify({ status: pdfStatusFilter, fromDate: pdfFromDate, toDate: pdfToDate })
+        JSON.stringify({ status: pdfStatusFilter, fromDate: pdfFromDate, toDate: pdfToDate, companyId: pdfCompanyFilter })
       );
     } catch {}
-  }, [pdfStatusFilter, pdfFromDate, pdfToDate]);
+  }, [pdfStatusFilter, pdfFromDate, pdfToDate, pdfCompanyFilter]);
 
   const emptyForm = {
     companyId: "",
@@ -1357,6 +1359,20 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Contractor Company</Label>
+              <Select value={pdfCompanyFilter} onValueChange={setPdfCompanyFilter}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="All companies" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All companies</SelectItem>
+                  {companies.map(c => (
+                    <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
               <Label className="text-sm font-medium">Project Status</Label>
               <Select value={pdfStatusFilter} onValueChange={setPdfStatusFilter}>
                 <SelectTrigger className="h-9 text-sm">
@@ -1398,6 +1414,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
               className="bg-amber-600 hover:bg-amber-700 text-white"
               onClick={() => {
                 const params = new URLSearchParams();
+                if (pdfCompanyFilter && pdfCompanyFilter !== "all") params.set("companyId", pdfCompanyFilter);
                 if (pdfStatusFilter && pdfStatusFilter !== "all") params.set("status", pdfStatusFilter);
                 if (pdfFromDate) params.set("from", pdfFromDate);
                 if (pdfToDate) params.set("to", pdfToDate);
