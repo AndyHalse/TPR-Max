@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -392,6 +392,22 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   const [pdfFromDate, setPdfFromDate] = useState(initialPdfFilters.fromDate);
   const [pdfToDate, setPdfToDate] = useState(initialPdfFilters.toDate);
   const [pdfCompanyFilter, setPdfCompanyFilter] = useState(initialPdfFilters.companyId);
+  const pdfGeneratingRef = useRef(false);
+
+  const resetPdfFilters = () => {
+    setPdfStatusFilter("all");
+    setPdfFromDate("");
+    setPdfToDate("");
+    setPdfCompanyFilter("all");
+  };
+
+  const handlePdfDialogOpenChange = (open: boolean) => {
+    if (!open && !pdfGeneratingRef.current) {
+      resetPdfFilters();
+    }
+    pdfGeneratingRef.current = false;
+    setShowPdfFilterDialog(open);
+  };
 
   useEffect(() => {
     try {
@@ -1361,7 +1377,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
       </Dialog>
 
       {/* PDF Export Filter Dialog */}
-      <Dialog open={showPdfFilterDialog} onOpenChange={setShowPdfFilterDialog}>
+      <Dialog open={showPdfFilterDialog} onOpenChange={handlePdfDialogOpenChange}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Export CDM Report as PDF</DialogTitle>
@@ -1422,16 +1438,11 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
             <Button
               variant="ghost"
               className="mr-auto"
-              onClick={() => {
-                setPdfStatusFilter("all");
-                setPdfFromDate("");
-                setPdfToDate("");
-                localStorage.removeItem("cdm_pdf_filter");
-              }}
+              onClick={() => resetPdfFilters()}
             >
               Reset filters
             </Button>
-            <Button variant="outline" onClick={() => setShowPdfFilterDialog(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => handlePdfDialogOpenChange(false)}>Cancel</Button>
             <Button
               className="bg-amber-600 hover:bg-amber-700 text-white"
               onClick={() => {
@@ -1442,6 +1453,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                 if (pdfToDate) params.set("to", pdfToDate);
                 const qs = params.toString();
                 window.open(`/api/cdm/projects/export-pdf${qs ? `?${qs}` : ""}`, "_blank");
+                pdfGeneratingRef.current = true;
                 setShowPdfFilterDialog(false);
               }}
             >
