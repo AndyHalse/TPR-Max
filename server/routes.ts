@@ -28773,6 +28773,28 @@ This is an automated notification from your visitor management system.`;
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     try {
       const db = await customerDbService.getCustomerDatabase(req.customerId!);
+      const username = req.user!.username;
+      const settingsContext = simpleDatabaseService.createCustomerContext(username, req.customerId!);
+      const companySettings = await simpleDatabaseService.getCompanySettings(settingsContext);
+
+      // Resolve logo to an absolute URL so Puppeteer can fetch it (relative paths break in setContent)
+      let resolvedLogoUrl = "";
+      if (companySettings?.logoUrl) {
+        const raw = companySettings.logoUrl;
+        if (raw.startsWith("http://") || raw.startsWith("https://")) {
+          resolvedLogoUrl = raw;
+        } else {
+          // Normalize path: /uploads/... → /objects/uploads/..., /objects/... → as-is
+          let normalized = raw;
+          if (normalized.startsWith("/uploads/")) {
+            normalized = `/objects${normalized}`;
+          } else if (!normalized.startsWith("/objects")) {
+            normalized = `/objects/uploads/${normalized.replace(/^\/+/, "")}`;
+          }
+          resolvedLogoUrl = `http://localhost:${process.env.PORT ?? 5000}${normalized}`;
+        }
+      }
+
       const [projects, companies] = await Promise.all([
         db.select().from(isolatedSchema.cdmProjects).orderBy(isolatedSchema.cdmProjects.createdAt),
         db.select().from(isolatedSchema.contractorCompanies).orderBy(isolatedSchema.contractorCompanies.companyName),
@@ -28892,9 +28914,13 @@ This is an automated notification from your visitor management system.`;
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 11px; color: #1e293b; background: #fff; padding: 16px; }
-  .report-header { border-bottom: 3px solid #d97706; padding-bottom: 12px; margin-bottom: 20px; }
-  .report-header h1 { font-size: 20px; font-weight: 700; color: #92400e; }
-  .report-header p { color: #64748b; font-size: 10px; margin-top: 4px; }
+  .report-header { border-bottom: 3px solid #d97706; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; }
+  .report-header-left h1 { font-size: 20px; font-weight: 700; color: #92400e; }
+  .report-header-left p { color: #64748b; font-size: 10px; margin-top: 4px; }
+  .report-header-right { text-align: right; font-size: 11px; color: #374151; flex-shrink: 0; margin-left: 16px; }
+  .report-header-right img { max-height: 48px; max-width: 140px; object-fit: contain; margin-bottom: 4px; display: block; margin-left: auto; }
+  .report-header-right .org-name { font-weight: 700; font-size: 12px; color: #1e293b; }
+  .report-header-right .org-address { font-size: 9px; color: #64748b; white-space: pre-line; margin-top: 2px; }
   .company-section { margin-bottom: 24px; }
   .company-header { background: #fef3c7; border-left: 4px solid #d97706; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
   .company-name { font-size: 13px; font-weight: 700; color: #92400e; }
@@ -28929,11 +28955,18 @@ This is an automated notification from your visitor management system.`;
 </style>
 </head><body>
 <div class="report-header">
-  <h1>CDM 2015 Compliance Register</h1>
-  <p>Generated: ${new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} | Total Projects: ${projects.length} across ${grouped.size} contractor${grouped.size !== 1 ? "s" : ""}</p>
+  <div class="report-header-left">
+    <h1>CDM 2015 Compliance Register</h1>
+    <p>Generated: ${new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} | Total Projects: ${projects.length} across ${grouped.size} contractor${grouped.size !== 1 ? "s" : ""}</p>
+  </div>
+  <div class="report-header-right">
+    ${resolvedLogoUrl ? `<img src="${esc(resolvedLogoUrl)}" alt="Company logo" />` : ""}
+    <div class="org-name">${esc(companySettings?.companyName ?? "")}</div>
+    ${companySettings?.address ? `<div class="org-address">${esc(companySettings.address)}</div>` : ""}
+  </div>
 </div>
 ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40px">No CDM projects found.</p>` : groupsHtml}
-<div class="report-footer">CDM 2015 Compliance Register — Confidential. For internal and regulatory use only.</div>
+<div class="report-footer">CDM 2015 Compliance Register${companySettings?.companyName ? ` — ${esc(companySettings.companyName)}` : ""} — Confidential. For internal and regulatory use only.</div>
 </body></html>`;
 
       try {
