@@ -28778,6 +28778,12 @@ This is an automated notification from your visitor management system.`;
       const settingsContext = simpleDatabaseService.createCustomerContext(username, req.customerId!);
       const companySettings = await simpleDatabaseService.getCompanySettings(settingsContext);
 
+      // Build the "Prepared By" name: prefer display name, fall back to username, then company name
+      const adminUser = req.user!;
+      const preparedBy = (adminUser.firstName && adminUser.lastName)
+        ? `${adminUser.firstName} ${adminUser.lastName}`
+        : (adminUser.firstName || adminUser.lastName || adminUser.username || companySettings?.companyName || "");
+
       // Resolve logo to an absolute URL so Puppeteer can fetch it (relative paths break in setContent)
       let resolvedLogoUrl = "";
       if (companySettings?.logoUrl) {
@@ -29012,7 +29018,7 @@ This is an automated notification from your visitor management system.`;
     </div>
     <div class="cover-meta-row">
       <span class="cover-meta-label">Prepared By:</span>
-      <span>${esc(companySettings?.companyName ?? "")}</span>
+      <span>${esc(preparedBy)}</span>
     </div>
   </div>
   <div class="cover-confidential">Confidential &mdash; For internal and regulatory use only</div>
