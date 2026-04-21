@@ -372,9 +372,10 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   const [showPdfFilterDialog, setShowPdfFilterDialog] = useState(false);
   const [showComplianceSummary, setShowComplianceSummary] = useState(true);
 
-  const loadPdfFilters = () => {
+  const loadPdfFilters = (companyId: string) => {
     try {
-      const saved = localStorage.getItem("cdm_pdf_filter");
+      const key = companyId && companyId !== "all" ? `cdm_pdf_filter_${companyId}` : "cdm_pdf_filter_all";
+      const saved = localStorage.getItem(key);
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
@@ -388,7 +389,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     return { status: "all", fromDate: "", toDate: "", companyId: "all" };
   };
 
-  const initialPdfFilters = loadPdfFilters();
+  const initialPdfFilters = loadPdfFilters("all");
   const [pdfStatusFilter, setPdfStatusFilter] = useState(initialPdfFilters.status);
   const [pdfFromDate, setPdfFromDate] = useState(initialPdfFilters.fromDate);
   const [pdfToDate, setPdfToDate] = useState(initialPdfFilters.toDate);
@@ -411,18 +412,26 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   };
 
   useEffect(() => {
+    const filters = loadPdfFilters(pdfCompanyFilter);
+    setPdfStatusFilter(filters.status);
+    setPdfFromDate(filters.fromDate);
+    setPdfToDate(filters.toDate);
+  }, [pdfCompanyFilter]);
+
+  useEffect(() => {
     try {
-      const isDefault = (pdfStatusFilter === "all" || !pdfStatusFilter) && !pdfFromDate && !pdfToDate && !pdfCompanyFilter;
+      const key = pdfCompanyFilter && pdfCompanyFilter !== "all" ? `cdm_pdf_filter_${pdfCompanyFilter}` : "cdm_pdf_filter_all";
+      const isDefault = (pdfStatusFilter === "all" || !pdfStatusFilter) && !pdfFromDate && !pdfToDate && (!pdfCompanyFilter || pdfCompanyFilter === "all");
       if (isDefault) {
-        localStorage.removeItem("cdm_pdf_filter");
+        localStorage.removeItem(key);
       } else {
         localStorage.setItem(
-          "cdm_pdf_filter",
+          key,
           JSON.stringify({ status: pdfStatusFilter, fromDate: pdfFromDate, toDate: pdfToDate, companyId: pdfCompanyFilter })
         );
       }
     } catch {}
-  }, [pdfStatusFilter, pdfFromDate, pdfToDate, pdfCompanyFilter]);
+  }, [pdfCompanyFilter, pdfStatusFilter, pdfFromDate, pdfToDate]);
 
   const emptyForm = {
     companyId: "",
