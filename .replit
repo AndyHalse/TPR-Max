@@ -53,4 +53,4 @@ SALES_EMAIL = "info@acsltd.eu"
 
 [postMerge]
 path = "scripts/post-merge.sh"
-timeoutMs = 20000
+timeoutMs = 30000
