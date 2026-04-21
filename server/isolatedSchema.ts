@@ -2284,6 +2284,7 @@ export const cdmProjects = pgTable("cdm_projects", {
   welfareChanging: boolean("welfare_changing").default(false),
   // General
   notes: text("notes"),
+  f10AlertSentAt: timestamp("f10_alert_sent_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

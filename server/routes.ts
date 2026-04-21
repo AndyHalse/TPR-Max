@@ -28643,6 +28643,107 @@ This is an automated notification from your visitor management system.`;
     }
   }, { timezone: "Europe/London" });
 
+  // ── CDM F10 Daily Alert Cron ─────────────────────────────────────────────────
+  // Runs daily at the same hour as PPM alerts (Europe/London).
+  // Scans all active CDM projects that meet F10 notification thresholds but have
+  // no submission date recorded, and sends a single daily email to the admin.
+  // Deduplication: f10_alert_sent_at is updated per-project so each project only
+  // triggers one email per calendar day.
+  cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
+    try {
+      console.log("🏗️ [CDM Cron] Running daily F10 alert check…");
+      const allCustomers = await customerDbService.getAllCustomers();
+      // Use Europe/London date to match business-day semantics of the cron timezone
+      const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
+
+      for (const customer of allCustomers) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+
+          // Fetch active projects that require F10 but have not submitted it
+          const projects = await custDb.select().from(isolatedSchema.cdmProjects)
+            .where(eq(isolatedSchema.cdmProjects.status, "active"));
+
+          const overdue: (typeof projects[0])[] = [];
+          for (const project of projects) {
+            // F10 threshold: (>30 days AND >20 peak workers) OR >500 person-days
+            const meetsThreshold =
+              ((project.estimatedDays ?? 0) > 30 && (project.peakWorkers ?? 0) > 20) ||
+              (project.personDays ?? 0) > 500;
+            if (!meetsThreshold) continue;
+
+            // Not yet submitted
+            if (project.f10Status === "submitted" || project.f10Date) continue;
+
+            // Deduplication: skip if already alerted today
+            if (project.f10AlertSentAt) {
+              const lastAlertDate = new Date(project.f10AlertSentAt).toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+              if (lastAlertDate === todayStr) continue;
+            }
+
+            overdue.push(project);
+          }
+
+          if (overdue.length === 0) continue;
+
+          // Get admin email and company name
+          const settingsRows = await custDb.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
+          const settings = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+          const companyName = (settings?.company_name as string) || "TPR-Max";
+          const adminEmail = settings?.email as string | undefined;
+
+          if (!adminEmail) {
+            console.warn(`[CDM Cron] No admin email configured for customer ${customer.id} — skipping`);
+            continue;
+          }
+
+          const emailSvc = new EmailService(customer.id);
+          const sent = await emailSvc.sendEmail({
+            to: adminEmail,
+            subject: `CDM Alert: ${overdue.length} F10 Notification${overdue.length > 1 ? "s" : ""} Outstanding`,
+            companyName,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+                <div style="background:#b45309;color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                  <h2 style="margin:0">CDM F10 Notification Alert — ${companyName}</h2>
+                </div>
+                <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+                  <p>The following CDM project${overdue.length > 1 ? "s require" : " requires"} an F10 HSE notification but no submission has been recorded:</p>
+                  <ul style="padding-left:20px">
+                    ${overdue.map(p => `<li><strong>${p.title}</strong>${p.location ? ` — ${p.location}` : ""}${p.clientName ? ` (Client: ${p.clientName})` : ""}</li>`).join("")}
+                  </ul>
+                  <p>These projects meet the HSE notification threshold (duration &gt;30 days with &gt;20 workers, or &gt;500 person-days). Please submit the F10 notification to the HSE and record the submission date in TPR-Max.</p>
+                  <p>Please log in to TPR-Max to review and update each project's F10 status.</p>
+                </div>
+              </div>
+            `,
+            text: `CDM F10 Notification Alert\n\n${overdue.length} project(s) require an F10 HSE notification but no submission has been recorded:\n\n${overdue.map(p => `- ${p.title}${p.location ? ` (${p.location})` : ""}`).join("\n")}\n\nPlease submit the F10 notification and record it in TPR-Max.`,
+          });
+
+          if (!sent) {
+            console.warn(`[CDM Cron] Email send failed for customer ${customer.id} — skipping f10_alert_sent_at update`);
+            continue;
+          }
+
+          // Mark each project as alerted today (only when email was successfully delivered)
+          const now = new Date();
+          for (const project of overdue) {
+            await custDb.update(isolatedSchema.cdmProjects)
+              .set({ f10AlertSentAt: now })
+              .where(eq(isolatedSchema.cdmProjects.id, project.id));
+          }
+
+          console.log(`✅ [CDM Cron] Sent F10 alert for ${overdue.length} project(s) to ${adminEmail} (customer ${customer.id})`);
+        } catch (custErr) {
+          console.error(`[CDM Cron] Error processing customer ${customer.id}:`, custErr);
+        }
+      }
+      console.log("✅ [CDM Cron] Daily F10 check complete");
+    } catch (error: unknown) {
+      console.error("❌ [CDM Cron] Fatal error:", error);
+    }
+  }, { timezone: "Europe/London" });
+
   // ── CDM 2015 Routes ──────────────────────────────────────────────────────────
 
   // GET all CDM projects for a contractor company
