@@ -682,34 +682,6 @@ export default function MarketingPage() {
                 </Button>
               </div>
 
-              {/* Trust Indicators */}
-              <div className="flex flex-col lg:flex-row items-center justify-center lg:justify-start space-y-4 lg:space-y-0 lg:space-x-8 mt-8 pt-8 border-t border-slate-200 dark:border-slate-700">
-                <div className="flex items-center space-x-1">
-                  {[...Array(5)].map((_, i) => (
-                    <Star
-                      key={i}
-                      className="h-4 w-4 fill-yellow-400 text-yellow-400"
-                    />
-                  ))}
-                  <span className="text-sm text-slate-600 dark:text-slate-400 ml-2">
-                    4.9/5 from 200+ enterprise customers
-                  </span>
-                </div>
-                <div className="flex items-center space-x-4 text-sm text-slate-600 dark:text-slate-400">
-                  <div className="flex items-center space-x-1">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>ISO 27001 Certified</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>GDPR Compliant</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>24/7 Support</span>
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div className="relative">
