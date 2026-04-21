@@ -1512,13 +1512,13 @@ export default function Settings() {
                       <TooltipContent className="max-w-xs">Your company's registered address. This appears in the header of CDM PDF reports.</TooltipContent>
                     </Tooltip>
                   </div>
-                  <Input
+                  <Textarea
                     id="address"
-                    type="text"
                     value={currentSettings?.address || ""}
                     onChange={(e) => handleInputChange("address", e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                    placeholder="e.g. 123 Business Park, Manchester, M1 1AA"
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed resize-none"
+                    placeholder={"e.g.\n123 Business Park\nManchester\nM1 1AA"}
+                    rows={4}
                     data-testid="input-company-address"
                   />
                 </div>
