@@ -28768,6 +28768,211 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // GET CDM compliance report as PDF
+  app.get("/api/cdm/projects/export-pdf", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+    try {
+      const db = await customerDbService.getCustomerDatabase(req.customerId!);
+      const [projects, companies] = await Promise.all([
+        db.select().from(isolatedSchema.cdmProjects).orderBy(isolatedSchema.cdmProjects.createdAt),
+        db.select().from(isolatedSchema.contractorCompanies).orderBy(isolatedSchema.contractorCompanies.companyName),
+      ]);
+
+      const companyMap = new Map(companies.map((c: any) => [c.id, c.companyName]));
+
+      const esc = (s: string | null | undefined): string => {
+        if (!s) return '';
+        return String(s)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      };
+
+      const grouped = new Map<string, { companyName: string; projects: any[] }>();
+      for (const p of projects) {
+        const cid = p.companyId ?? "__unassigned__";
+        const name = companyMap.get(cid) ?? "Unassigned";
+        if (!grouped.has(cid)) grouped.set(cid, { companyName: name, projects: [] });
+        grouped.get(cid)!.projects.push(p);
+      }
+
+      const isNotifiable = (p: any) =>
+        (p.estimatedDays && p.estimatedDays > 30) ||
+        (p.peakWorkers && p.peakWorkers > 20) ||
+        (p.personDays && p.personDays > 500);
+
+      const f10Badge = (p: any) => {
+        if (!isNotifiable(p)) return `<span class="badge badge-grey">Not Required</span>`;
+        if (p.f10Status === "submitted") return `<span class="badge badge-green">F10 Submitted</span>`;
+        if (p.f10Status === "pending") return `<span class="badge badge-amber">F10 Pending</span>`;
+        return `<span class="badge badge-red">F10 Required</span>`;
+      };
+
+      const statusBadge = (s: string) => {
+        const map: Record<string, string> = { planning: "badge-blue", active: "badge-green", complete: "badge-grey", cancelled: "badge-red" };
+        return `<span class="badge ${map[s] ?? "badge-grey"}">${s.charAt(0).toUpperCase() + s.slice(1)}</span>`;
+      };
+
+      const tick = (v: boolean) => v
+        ? `<span class="tick tick-yes">&#10003;</span>`
+        : `<span class="tick tick-no">&#10007;</span>`;
+
+      const docRow = (label: string, status: string, date: string | null, notes: string | null) => {
+        const statusColors: Record<string, string> = {
+          not_prepared: "#dc2626", in_progress: "#d97706", approved: "#16a34a",
+          prepared: "#16a34a", distributed: "#16a34a",
+          not_started: "#dc2626", complete: "#16a34a", handed_over: "#16a34a",
+        };
+        const colour = statusColors[esc(status)] ?? "#6b7280";
+        const statusLabel = esc(status).replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase());
+        return `<tr>
+          <td class="doc-label">${esc(label)}</td>
+          <td><span style="color:${colour};font-weight:600">${statusLabel}</span></td>
+          <td>${date ? new Date(date).toLocaleDateString("en-GB") : "—"}</td>
+          <td class="notes-cell">${notes ? esc(notes.substring(0, 80)) : "—"}</td>
+        </tr>`;
+      };
+
+      const roleLabel = (r: string) => r.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+
+      let groupsHtml = "";
+      for (const [, group] of grouped) {
+        const rows = group.projects.map(p => `
+          <div class="project-card">
+            <div class="project-header">
+              <div class="project-title-row">
+                <span class="project-title">${esc(p.title)}</span>
+                ${statusBadge(p.status)}
+                ${f10Badge(p)}
+              </div>
+              <div class="project-meta">
+                ${p.location ? `<span>&#x1F4CD; ${esc(p.location)}</span>` : ""}
+                ${p.clientName ? `<span>Client: ${esc(p.clientName)}</span>` : ""}
+                <span>Role: ${esc(roleLabel(p.contractorRole ?? "contractor"))}</span>
+                ${p.startDate ? `<span>Start: ${new Date(p.startDate).toLocaleDateString("en-GB")}</span>` : ""}
+                ${p.endDate ? `<span>End: ${new Date(p.endDate).toLocaleDateString("en-GB")}</span>` : ""}
+              </div>
+              ${p.f10Reference ? `<div class="f10-ref">HSE F10 Reference: <strong>${esc(p.f10Reference)}</strong>${p.f10Date ? ` (submitted ${new Date(p.f10Date).toLocaleDateString("en-GB")})` : ""}</div>` : ""}
+            </div>
+            <table class="doc-table">
+              <thead><tr><th>Document</th><th>Status</th><th>Date</th><th>Notes</th></tr></thead>
+              <tbody>
+                ${docRow("Construction Phase Plan (CPP)", p.cppStatus ?? "not_prepared", p.cppDate, p.cppNotes)}
+                ${docRow("Pre-Construction Information (PCI)", p.pciStatus ?? "not_prepared", p.pciDate, p.pciNotes)}
+                ${docRow("Health &amp; Safety File (HSF)", p.hsfStatus ?? "not_started", p.hsfDate, p.hsfNotes)}
+              </tbody>
+            </table>
+            <div class="welfare-section">
+              <div class="welfare-title">Welfare Provisions (CDM Reg 25)</div>
+              <div class="welfare-grid">
+                <div class="welfare-item">${tick(!!p.welfareToilets)} Sanitary Conveniences</div>
+                <div class="welfare-item">${tick(!!p.welfareWashing)} Washing Facilities</div>
+                <div class="welfare-item">${tick(!!p.welfareRestArea)} Rest Area</div>
+                <div class="welfare-item">${tick(!!p.welfareDrinkingWater)} Drinking Water</div>
+                <div class="welfare-item">${tick(!!p.welfareChanging)} Changing Rooms</div>
+              </div>
+            </div>
+            ${p.notes ? `<div class="project-notes"><strong>Notes:</strong> ${esc(p.notes)}</div>` : ""}
+          </div>`).join("");
+
+        groupsHtml += `
+          <div class="company-section">
+            <div class="company-header">
+              <span class="company-name">${esc(group.companyName)}</span>
+              <span class="company-count">${group.projects.length} project${group.projects.length !== 1 ? "s" : ""}</span>
+            </div>
+            ${rows}
+          </div>`;
+      }
+
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"/>
+<title>CDM 2015 Compliance Register</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 11px; color: #1e293b; background: #fff; padding: 16px; }
+  .report-header { border-bottom: 3px solid #d97706; padding-bottom: 12px; margin-bottom: 20px; }
+  .report-header h1 { font-size: 20px; font-weight: 700; color: #92400e; }
+  .report-header p { color: #64748b; font-size: 10px; margin-top: 4px; }
+  .company-section { margin-bottom: 24px; }
+  .company-header { background: #fef3c7; border-left: 4px solid #d97706; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .company-name { font-size: 13px; font-weight: 700; color: #92400e; }
+  .company-count { font-size: 10px; color: #78716c; }
+  .project-card { border: 1px solid #e2e8f0; border-radius: 6px; margin-bottom: 10px; overflow: hidden; }
+  .project-header { padding: 10px 12px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+  .project-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .project-title { font-size: 13px; font-weight: 600; color: #0f172a; }
+  .project-meta { display: flex; gap: 12px; font-size: 10px; color: #64748b; flex-wrap: wrap; margin-top: 4px; }
+  .f10-ref { font-size: 10px; color: #1d4ed8; margin-top: 4px; }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 9999px; font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
+  .badge-green { background: #dcfce7; color: #15803d; }
+  .badge-amber { background: #fef3c7; color: #b45309; }
+  .badge-red { background: #fee2e2; color: #b91c1c; }
+  .badge-blue { background: #dbeafe; color: #1d4ed8; }
+  .badge-grey { background: #f1f5f9; color: #475569; }
+  .doc-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .doc-table th { background: #f1f5f9; text-align: left; padding: 5px 8px; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; }
+  .doc-table td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+  .doc-label { font-weight: 600; color: #334155; width: 30%; }
+  .notes-cell { color: #64748b; width: 30%; }
+  .welfare-section { padding: 8px 12px; background: #fafafa; border-top: 1px solid #e2e8f0; }
+  .welfare-title { font-size: 10px; font-weight: 700; color: #475569; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .welfare-grid { display: flex; gap: 14px; flex-wrap: wrap; }
+  .welfare-item { font-size: 10px; display: flex; align-items: center; gap: 4px; }
+  .tick { font-size: 12px; font-weight: 700; }
+  .tick-yes { color: #16a34a; }
+  .tick-no { color: #dc2626; }
+  .project-notes { padding: 6px 12px; font-size: 10px; color: #64748b; background: #fffbeb; border-top: 1px solid #fef3c7; }
+  .report-footer { margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 8px; font-size: 9px; color: #94a3b8; }
+  @media print { body { padding: 0; } }
+</style>
+</head><body>
+<div class="report-header">
+  <h1>CDM 2015 Compliance Register</h1>
+  <p>Generated: ${new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} | Total Projects: ${projects.length} across ${grouped.size} contractor${grouped.size !== 1 ? "s" : ""}</p>
+</div>
+${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40px">No CDM projects found.</p>` : groupsHtml}
+<div class="report-footer">CDM 2015 Compliance Register — Confidential. For internal and regulatory use only.</div>
+</body></html>`;
+
+      try {
+        let puppeteer: any;
+        try { puppeteer = await import('puppeteer'); } catch { throw new Error('puppeteer_unavailable'); }
+        const puppeteerLaunch = puppeteer.default?.launch ?? puppeteer.launch;
+        if (!puppeteerLaunch) throw new Error('puppeteer_launch_missing');
+        const browser = await puppeteerLaunch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu', '--no-zygote', '--single-process'],
+        });
+        try {
+          const page = await browser.newPage();
+          await page.setContent(html, { waitUntil: 'networkidle0' });
+          const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' },
+          });
+          await browser.close();
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="cdm-compliance-report-${new Date().toISOString().split('T')[0]}.pdf"`);
+          return res.send(Buffer.from(pdfBuffer));
+        } catch (pdfErr) {
+          await browser.close();
+          throw pdfErr;
+        }
+      } catch (pdfErr) {
+        console.warn('[cdm-export-pdf] PDF generation unavailable, falling back to HTML:', (pdfErr as Error).message);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="cdm-compliance-report-${new Date().toISOString().split('T')[0]}.html"`);
+        return res.send(html);
+      }
+    } catch (error) {
+      console.error("Error generating CDM PDF:", error);
+      res.status(500).json({ error: "Failed to generate CDM compliance report" });
+    }
+  });
+
   // GET single CDM project
   app.get("/api/cdm/projects/:id", requireAuth, async (req, res) => {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });

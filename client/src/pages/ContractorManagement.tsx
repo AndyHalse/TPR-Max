@@ -541,6 +541,14 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
+            <Button
+              size="sm"
+              variant="outline"
+              className="whitespace-nowrap"
+              onClick={() => { window.open("/api/cdm/projects/export-pdf", "_blank"); }}
+            >
+              <Download className="h-3.5 w-3.5 mr-1" />Export PDF
+            </Button>
             <Button size="sm" onClick={() => { setForm(emptyForm); setAddStep(1); setShowAddDialog(true); }} className="bg-amber-600 hover:bg-amber-700 text-white whitespace-nowrap">
               <Plus className="h-3.5 w-3.5 mr-1" />Add Project
             </Button>
