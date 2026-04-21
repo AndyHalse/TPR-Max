@@ -28967,9 +28967,53 @@ This is an automated notification from your visitor management system.`;
   .tick-no { color: #dc2626; }
   .project-notes { padding: 6px 12px; font-size: 10px; color: #64748b; background: #fffbeb; border-top: 1px solid #fef3c7; }
   .report-footer { margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 8px; font-size: 9px; color: #94a3b8; }
-  @media print { body { padding: 0; } }
+  .cover-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; page-break-after: always; text-align: center; padding: 40px; background: #fff; }
+  .cover-logo { max-height: 120px; max-width: 280px; object-fit: contain; margin-bottom: 32px; }
+  .cover-logo-placeholder { width: 80px; height: 80px; background: #d97706; border-radius: 12px; margin: 0 auto 32px; }
+  .cover-divider-top { width: 80px; height: 4px; background: #d97706; border-radius: 2px; margin: 0 auto 32px; }
+  .cover-report-title { font-size: 28px; font-weight: 700; color: #92400e; letter-spacing: -0.5px; margin-bottom: 8px; }
+  .cover-report-subtitle { font-size: 14px; color: #b45309; font-weight: 600; margin-bottom: 32px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .cover-divider-bottom { width: 80px; height: 4px; background: #d97706; border-radius: 2px; margin: 0 auto 32px; }
+  .cover-company-name { font-size: 18px; font-weight: 700; color: #1e293b; margin-bottom: 10px; }
+  .cover-company-address { font-size: 12px; color: #64748b; line-height: 1.7; white-space: pre-line; margin-bottom: 32px; }
+  .cover-meta-box { border: 1px solid #fde68a; background: #fef3c7; border-radius: 8px; padding: 18px 32px; display: inline-block; margin-bottom: 0; }
+  .cover-meta-row { font-size: 11px; color: #374151; margin-bottom: 6px; display: flex; justify-content: space-between; gap: 24px; }
+  .cover-meta-row:last-child { margin-bottom: 0; }
+  .cover-meta-label { font-weight: 600; color: #92400e; }
+  .cover-confidential { margin-top: 48px; font-size: 9px; color: #94a3b8; letter-spacing: 0.1em; text-transform: uppercase; }
+  @media print { body { padding: 0; } .cover-page { min-height: 100vh; } }
 </style>
 </head><body>
+<div class="cover-page">
+  ${resolvedLogoUrl
+    ? `<img class="cover-logo" src="${esc(resolvedLogoUrl)}" alt="Company logo" />`
+    : `<div class="cover-logo-placeholder"></div>`}
+  <div class="cover-divider-top"></div>
+  <div class="cover-report-title">CDM 2015 Compliance Register</div>
+  <div class="cover-report-subtitle">Construction (Design &amp; Management) Regulations 2015</div>
+  <div class="cover-divider-bottom"></div>
+  ${companySettings?.companyName ? `<div class="cover-company-name">${esc(companySettings.companyName)}</div>` : ""}
+  ${companySettings?.address ? `<div class="cover-company-address">${esc(companySettings.address)}</div>` : ""}
+  <div class="cover-meta-box">
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Date Generated:</span>
+      <span>${new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
+    </div>
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Total Projects:</span>
+      <span>${projects.length}</span>
+    </div>
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Contractor Companies:</span>
+      <span>${grouped.size}</span>
+    </div>
+    <div class="cover-meta-row">
+      <span class="cover-meta-label">Prepared By:</span>
+      <span>${esc(companySettings?.companyName ?? "")}</span>
+    </div>
+  </div>
+  <div class="cover-confidential">Confidential &mdash; For internal and regulatory use only</div>
+</div>
 <div class="report-header">
   <div class="report-header-left">
     <h1>CDM 2015 Compliance Register</h1>
