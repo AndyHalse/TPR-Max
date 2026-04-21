@@ -2,6 +2,452 @@ import { db } from "./db";
 import { helpCategories, helpArticles, insertHelpArticleSchema } from "@shared/schema";
 import { eq, like } from "drizzle-orm";
 
+// ─── New categories and articles added after initial seeding ─────────────────
+const NEW_CATEGORIES = [
+  {
+    name: "Planned Preventative Maintenance",
+    description: "Managing PPM assets, templates, schedules, and maintenance task records",
+    icon: "wrench",
+    color: "#0d9488",
+    sortOrder: 12,
+    isActive: true
+  },
+  {
+    name: "Lone Worker Monitoring",
+    description: "Setting up lone worker sessions, check-in alerts, and emergency escalation",
+    icon: "user",
+    color: "#f97316",
+    sortOrder: 13,
+    isActive: true
+  },
+  {
+    name: "Members & Community",
+    description: "Managing members, memberships, and community group check-in",
+    icon: "users",
+    color: "#8b5cf6",
+    sortOrder: 14,
+    isActive: true
+  }
+];
+
+function buildNewArticles(categoryMap: Record<string, string>) {
+  const createSlug = (title: string): string =>
+    title.toLowerCase().replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+
+  return [
+    // ─── CDM 2015 COMPLIANCE ───────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Safety & Compliance"] ?? categoryMap["Contractor Management"],
+      title: "CDM 2015 Compliance",
+      slug: createSlug("CDM 2015 Compliance"),
+      summary: "Managing CDM 2015 obligations, project registers, contractor notifiability, and F10 notifications",
+      content: `# CDM 2015 Compliance
+
+TPR-Max provides a dedicated CDM 2015 (Construction Design and Management) compliance module to help Principal Contractors, Principal Designers, and Clients meet their legal obligations.
+
+## What Is CDM 2015?
+The Construction (Design and Management) Regulations 2015 place duties on Clients, Principal Designers, and Principal Contractors for notifiable construction projects. Key obligations include:
+
+- Appointing a Principal Designer and Principal Contractor in writing
+- Notifying the HSE (Health & Safety Executive) via an F10 form for notifiable projects
+- Maintaining a Construction Phase Plan and Health & Safety file
+- Ensuring contractor competence before work begins
+
+## CDM Project Register
+Manage all your notifiable projects in one place:
+
+1. Navigate to **Contractors** > **CDM 2015** tab
+2. Click **"Add CDM Project"**
+3. Fill in the project wizard:
+   - **Project details**: Name, description, address, expected start and end dates
+   - **Duty holders**: Client, Principal Designer, and Principal Contractor names/companies
+   - **Notifiability check**: Answer the two questions (>30 working days with >20 simultaneous workers, or >500 person-days) — TPR-Max automatically determines if F10 notification is required
+4. The project is added to your CDM compliance register
+
+## F10 Notification
+For notifiable projects, the HSE must be informed before the construction phase begins:
+
+- TPR-Max flags projects as **"F10 Required"** based on your answers to the notifiability questions
+- A status banner on each project shows whether F10 has been submitted
+- Mark a project as F10 submitted using the project detail controls
+- Future versions will support automated F10 email alerts when submission is due
+
+## Contractor CDM Fields
+Each contractor company has CDM-specific fields:
+
+- **CHAS Accredited**: Toggle to record CHAS, Constructionline, or SafeContractor status
+- **CDM Duty Role**: Client / Principal Designer / Principal Contractor / Contractor
+- **CDM Notes**: Free-text field for compliance notes, accreditation numbers, or expiry dates
+
+Update these in the contractor profile under **Edit Contractor**.
+
+## CDM Compliance Register
+The register provides an at-a-glance view of:
+- All active and completed CDM projects
+- Notifiability status (notifiable / not notifiable)
+- F10 submission status
+- Project dates and duty holders
+
+## Export
+The CDM project register can be exported as a PDF for client reporting or HSE audit evidence.`,
+      targetPages: ["contractors", "/contractors", "cdm"],
+      searchKeywords: ["CDM", "CDM 2015", "F10", "notifiable", "HSE", "construction", "principal contractor", "duty holder", "CHAS", "compliance"],
+      estimatedReadTime: 6,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 5,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── PLANNED PREVENTATIVE MAINTENANCE ────────────────────────────────────
+    {
+      categoryId: categoryMap["Planned Preventative Maintenance"],
+      title: "Planned Preventative Maintenance (PPM)",
+      slug: createSlug("Planned Preventative Maintenance PPM"),
+      summary: "Setting up PPM assets, maintenance templates, schedules, and recording completed tasks",
+      content: `# Planned Preventative Maintenance (PPM)
+
+TPR-Max includes a full PPM module to schedule, track, and record maintenance activities across your assets and facilities.
+
+## What Is PPM?
+Planned Preventative Maintenance is the regular, scheduled maintenance of equipment and facilities to prevent breakdowns and ensure compliance. In UK workplaces, PPM supports obligations under:
+- The Workplace (Health, Safety and Welfare) Regulations 1992
+- The Lifting Operations and Lifting Equipment Regulations (LOLER)
+- The Provision and Use of Work Equipment Regulations (PUWER)
+- NHS Estates and facilities management standards
+
+## PPM Assets
+Assets are the items you maintain — equipment, plant, systems, or areas:
+
+1. Navigate to **PPM** in the main menu
+2. Click **"Add Asset"**
+3. Enter asset details:
+   - Asset name and reference number
+   - Location and description
+   - Asset type / category
+4. Save — the asset is now ready for maintenance schedules
+
+## Maintenance Templates
+Templates define what maintenance work needs to be done and how often:
+
+1. Click **"Templates"** in the PPM section
+2. Click **"Add Template"**
+3. Configure the template:
+   - **Template name**: e.g., "Annual Fire Extinguisher Inspection"
+   - **Frequency**: Daily / Weekly / Monthly / Quarterly / Annual / Custom
+   - **Description**: Detailed instructions for the maintenance task
+   - **Estimated duration**: Expected time to complete
+4. Save the template
+
+## PPM Schedules
+Link an asset to a maintenance template to create a schedule:
+
+1. Click **"Schedules"** in the PPM section
+2. Click **"Add Schedule"**
+3. Select the asset and template
+4. Set the first due date
+5. TPR-Max automatically calculates the next due date based on the template frequency
+6. Overdue tasks are highlighted in red
+
+## Recording Completed Maintenance
+When maintenance is carried out:
+
+1. Find the due schedule in the PPM dashboard
+2. Click **"Mark Complete"**
+3. Enter completion details:
+   - Completed by (staff member or contractor)
+   - Date completed
+   - Notes and findings
+   - Evidence (photo upload if required)
+4. Save — the next occurrence is automatically scheduled
+
+## PPM Dashboard
+The PPM overview shows:
+- **Due Today**: Tasks scheduled for today
+- **Overdue**: Tasks past their due date (highlighted in red)
+- **Upcoming**: Tasks due in the next 30 days
+- **Completed**: Recent maintenance history
+
+## Best Practices
+- Set up all recurring maintenance tasks at system setup
+- Assign clear responsibility for each schedule
+- Upload evidence photos for auditable records
+- Review overdue tasks weekly in the PPM dashboard`,
+      targetPages: ["ppm", "/ppm"],
+      searchKeywords: ["PPM", "planned preventative maintenance", "maintenance", "assets", "schedules", "LOLER", "PUWER", "facilities"],
+      estimatedReadTime: 6,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 1,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── LONE WORKER MONITORING ───────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Lone Worker Monitoring"] ?? categoryMap["Safety & Compliance"],
+      title: "Lone Worker Monitoring",
+      slug: createSlug("Lone Worker Monitoring"),
+      summary: "How to start lone worker sessions, configure check-in alerts, and manage escalations",
+      content: `# Lone Worker Monitoring
+
+TPR-Max includes lone worker monitoring to protect staff and contractors who work alone or in isolated areas, in line with the HSE's guidance on lone working.
+
+## What Is Lone Working?
+The HSE defines a lone worker as someone who works by themselves without close or direct supervision. UK employers have a legal duty of care to assess and manage the risks to lone workers.
+
+## Starting a Lone Worker Session
+For a staff member:
+1. Go to the **Staff** section and open the staff member's profile
+2. Click **"Start Lone Worker Session"**
+3. Set the check-in interval (e.g., every 30 minutes, every hour)
+4. Optionally set an end time for the session
+5. Confirm — the session begins and a unique check-in link is sent to the worker
+
+For a contractor worker:
+1. Open the contractor worker's profile
+2. Click **"Start Lone Worker Session"**
+3. Configure check-in interval and end time
+4. Confirm
+
+## Worker Check-ins
+The lone worker receives a unique URL or SMS/email link:
+- They click the link at each check-in interval to confirm they are safe
+- The check-in is recorded with a timestamp
+- No login is required — the link works from any device
+
+## Missed Check-in Alerts
+If a worker misses their check-in window:
+- The system flags the session as overdue
+- An alert is raised in the TPR-Max admin interface
+- Depending on configuration, escalation notifications can be sent
+
+## Monitoring Active Sessions
+Administrators can monitor all active lone worker sessions:
+1. Navigate to **Lone Worker** in the main menu
+2. The dashboard shows all active sessions with:
+   - Worker name and role
+   - Session start time
+   - Last check-in time
+   - Next check-in due
+   - Status (checked in / overdue)
+
+## Ending a Session
+A lone worker session ends when:
+- The scheduled end time is reached
+- An admin clicks **"End Session"** in the dashboard
+- The worker uses the end-session link
+
+## Compliance and Records
+All lone worker session data is retained for:
+- Incident investigation
+- Insurance and HSE compliance evidence
+- Risk assessment reviews
+
+## Best Practices
+- Conduct a lone working risk assessment before deploying this feature
+- Ensure workers understand how to use the check-in system
+- Define escalation procedures clearly (who to contact if a check-in is missed)
+- Review session records regularly`,
+      targetPages: ["lone-worker", "/lone-worker"],
+      searchKeywords: ["lone worker", "lone working", "check-in", "safety", "HSE", "isolated", "monitoring", "escalation"],
+      estimatedReadTime: 5,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 1,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── MEMBERS & COMMUNITY ─────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Members & Community"] ?? categoryMap["Staff Management"],
+      title: "Members & Community Management",
+      slug: createSlug("Members and Community Management"),
+      summary: "Managing members, memberships types, check-in, and including members in emergency mustering",
+      content: `# Members & Community Management
+
+TPR-Max supports a Members module for organisations such as clubs, associations, leisure centres, or any venue where people have ongoing membership relationships rather than one-off visits.
+
+## What Are Members?
+Members are distinct from visitors and staff — they are people with a recurring relationship with your organisation, such as:
+- Sports club or gym members
+- Community centre users
+- Professional association members
+- Volunteer groups
+
+## Adding Members
+1. Navigate to **Members** in the main menu
+2. Click **"Add Member"**
+3. Enter member details:
+   - First name and last name
+   - Email address and phone number
+   - Membership type (e.g., Full Member, Junior, Associate, Volunteer)
+   - Membership start date and expiry
+4. Upload a photo for ID badge printing
+5. Save the member profile
+
+## Member Check-in / Check-out
+Members can check in when they arrive on site:
+1. Find the member in the Members list
+2. Click **"Check In"**
+3. Select a zone if applicable
+4. The member appears on the dashboard as "On Site"
+
+Check-out follows the same process.
+
+## Including Members in Emergency Mustering
+Members who are checked in are fully included in emergency evacuations:
+- They appear on the Fire Marshal panel and muster page
+- They receive evacuation email alerts during an active evacuation
+- They can mark themselves safe using their personal safe link
+- They are counted in zone-based personnel totals
+
+## Membership Types
+Configure membership categories to organise your members:
+- Create types in Settings
+- Types are used for filtering, reporting, and check-in categorisation
+
+## Member Reports
+The Reports section includes member activity data:
+- Daily and monthly check-in counts
+- Membership utilisation by type
+- On-site time records
+
+## ID Badges for Members
+Members support the same ID card printing features as visitors and contractors:
+- Print membership cards with photo, name, and membership type
+- QR code for fast check-in at reception`,
+      targetPages: ["members", "/members"],
+      searchKeywords: ["members", "membership", "community", "club", "association", "check-in", "volunteer"],
+      estimatedReadTime: 4,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 1,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── BIOSTAR 2 INTEGRATION ────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Settings & Configuration"],
+      title: "BioStar 2 Access Control Integration",
+      slug: createSlug("BioStar 2 Access Control Integration"),
+      summary: "Connecting TPR-Max to Suprema BioStar 2 for access control synchronisation and live event monitoring",
+      content: `# BioStar 2 Access Control Integration
+
+TPR-Max integrates natively with Suprema BioStar 2, the leading access control and time-attendance platform, to synchronise personnel data and bring door reader events into your site management dashboard.
+
+## What Is BioStar 2?
+BioStar 2 is an access control and time-attendance management platform by Suprema. It manages door readers, turnstiles, biometric devices, and access permissions. The TPR-Max integration bridges your physical access control system with your personnel management and emergency mustering capabilities.
+
+## Setting Up the Integration
+Configuration is done in **Settings** > **BioStar 2 Integration**:
+
+1. Enter your BioStar 2 server details:
+   - **Server URL**: Your BioStar 2 server address (e.g., https://192.168.1.100:8443)
+   - **Username**: BioStar 2 admin username
+   - **Password**: BioStar 2 admin password
+2. Click **"Test Connection"** to verify connectivity
+3. Click **"Save"** to enable the integration
+4. The integration begins receiving live door events
+
+## Live Door Event Log
+Once connected, TPR-Max receives real-time door access events:
+- Door open / close events
+- Access granted / denied events
+- Device status updates
+- Personnel identification from BioStar 2 enrolled users
+
+View the live log in **Settings** > **BioStar 2** > **Live Event Log**.
+
+## Personnel Synchronisation
+The integration can synchronise personnel between BioStar 2 and TPR-Max:
+- Enrolled BioStar 2 users can be matched to TPR-Max staff records
+- Access grant events can trigger automatic check-in in TPR-Max
+- This eliminates manual check-in for staff using door readers
+
+## Security Considerations
+- Communication with BioStar 2 uses HTTPS with TLS
+- Credentials are stored securely and never exposed in client-side code
+- The connection runs server-side — BioStar 2 is not accessible directly from browsers
+- Each TPR-Max customer has their own isolated BioStar 2 connection
+
+## Troubleshooting the BioStar 2 Connection
+**Connection refused**:
+1. Verify the server URL includes the port (default: 8443)
+2. Check the BioStar 2 server is running and accessible from TPR-Max's server
+3. Ensure the BioStar 2 account has API access permissions
+4. Check that SSL certificate issues are not blocking the connection
+
+**No events appearing**:
+1. Confirm the integration is enabled and shows as Connected
+2. Trigger a door event manually in BioStar 2 and refresh the live log
+3. Check BioStar 2 server logs for API errors`,
+      targetPages: ["settings", "/settings", "biostar"],
+      searchKeywords: ["BioStar 2", "BioStar", "Suprema", "access control", "door reader", "biometric", "integration", "RFID"],
+      estimatedReadTime: 5,
+      difficulty: "advanced",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 4,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    }
+  ];
+}
+
+async function upsertMissingHelpContent(
+  existingCategories: { id: string; name: string }[],
+  existingArticles: { slug: string }[]
+) {
+  const existingSlugs = new Set(existingArticles.map(a => a.slug));
+  const categoryMap: Record<string, string> = {};
+  existingCategories.forEach(c => { categoryMap[c.name] = c.id; });
+
+  // Insert any missing categories
+  for (const cat of NEW_CATEGORIES) {
+    if (!categoryMap[cat.name]) {
+      const [inserted] = await db.insert(helpCategories).values(cat).returning();
+      categoryMap[inserted.name] = inserted.id;
+      console.log(`📚 Added missing help category: ${cat.name}`);
+    }
+  }
+
+  // Build new articles with resolved category IDs
+  const newArticles = buildNewArticles(categoryMap);
+
+  // Insert any articles whose slugs don't yet exist
+  let added = 0;
+  for (const article of newArticles) {
+    if (!existingSlugs.has(article.slug) && article.categoryId) {
+      await db.insert(helpArticles).values(article as any);
+      console.log(`📄 Added missing help article: ${article.title}`);
+      added++;
+    }
+  }
+  if (added > 0) {
+    console.log(`✅ Upserted ${added} new help article(s)`);
+  } else {
+    console.log('✅ Help content is up to date');
+  }
+}
+
 export async function seedHelpData() {
   try {
     console.log('🌱 Seeding help system data...');
@@ -35,8 +481,9 @@ export async function seedHelpData() {
       }
     }
 
+    // If data already exists, only upsert new articles/categories that are missing
     if (existingCategories.length > 0 && existingArticles.length > 0) {
-      console.log('Help data already exists, skipping seeding');
+      await upsertMissingHelpContent(existingCategories, existingArticles);
       return;
     }
 
