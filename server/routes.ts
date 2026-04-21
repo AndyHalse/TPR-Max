@@ -28905,6 +28905,8 @@ This is an automated notification from your visitor management system.`;
       }
 
       const contractorSummaryRows: { name: string; totalProjects: number; notifiable: number; f10Ok: number; docRate: number }[] = [];
+      let portfolioCompliantDocs = 0;
+      let portfolioTotalDocs = 0;
       for (const [, group] of grouped) {
         const totalProjects = group.projects.length;
         const notifiable = group.projects.filter((p: any) => isNotifiable(p)).length;
@@ -28915,12 +28917,17 @@ This is an automated notification from your visitor management system.`;
           if (["approved", "prepared", "distributed"].includes(p.pciStatus ?? "")) compliantDocs++;
           if (["complete", "handed_over"].includes(p.hsfStatus ?? "")) compliantDocs++;
         }
+        portfolioCompliantDocs += compliantDocs;
+        portfolioTotalDocs += totalProjects * 3;
         const docRate = totalProjects > 0 ? Math.round((compliantDocs / (totalProjects * 3)) * 100) : 0;
         contractorSummaryRows.push({ name: group.companyName, totalProjects, notifiable, f10Ok, docRate });
       }
 
+      const portfolioScore = portfolioTotalDocs > 0 ? Math.round((portfolioCompliantDocs / portfolioTotalDocs) * 100) : 0;
+
       const rateColour = (r: number) => r >= 80 ? "#15803d" : r >= 50 ? "#b45309" : "#b91c1c";
       const rateBg = (r: number) => r >= 80 ? "#dcfce7" : r >= 50 ? "#fef3c7" : "#fee2e2";
+      const portfolioScoreLabel = portfolioScore >= 80 ? "High Compliance" : portfolioScore >= 50 ? "Partial Compliance" : "Low Compliance";
 
       const contractorTableRows = contractorSummaryRows.map(row => `
         <tr>
@@ -28938,6 +28945,15 @@ This is an automated notification from your visitor management system.`;
   <div class="summary-page-header">
     <div class="summary-page-title">Executive Compliance Summary</div>
     <div class="summary-page-subtitle">Portfolio overview &mdash; ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
+  </div>
+
+  <div class="summary-block" style="text-align:center;padding:20px 24px">
+    <div class="summary-block-title" style="margin-bottom:12px">Overall Compliance Score</div>
+    <div style="display:inline-flex;flex-direction:column;align-items:center;gap:6px;background:${rateBg(portfolioScore)};border:2px solid ${rateColour(portfolioScore)};border-radius:12px;padding:16px 40px">
+      <div style="font-size:48px;font-weight:800;line-height:1;color:${rateColour(portfolioScore)}">${portfolioScore}%</div>
+      <div style="font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:${rateColour(portfolioScore)}">${portfolioScoreLabel}</div>
+    </div>
+    <div style="margin-top:10px;font-size:9px;color:#64748b">Weighted average of CPP, PCI &amp; HSF document completion across all projects</div>
   </div>
 
   <div class="summary-block">
