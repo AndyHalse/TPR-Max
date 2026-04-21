@@ -578,14 +578,19 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                 onChange={e => setSearch(e.target.value)}
               />
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="whitespace-nowrap"
-              onClick={() => setShowPdfFilterDialog(true)}
-            >
-              <Download className="h-3.5 w-3.5 mr-1" />Export PDF
-            </Button>
+            <div className="relative inline-flex">
+              <Button
+                size="sm"
+                variant="outline"
+                className="whitespace-nowrap"
+                onClick={() => setShowPdfFilterDialog(true)}
+              >
+                <Download className="h-3.5 w-3.5 mr-1" />Export PDF
+              </Button>
+              {((pdfStatusFilter && pdfStatusFilter !== "all") || pdfFromDate || pdfToDate) && (
+                <span className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full bg-amber-500 border border-white dark:border-gray-900" />
+              )}
+            </div>
             <Button size="sm" onClick={() => { setForm(emptyForm); setAddStep(1); setShowAddDialog(true); }} className="bg-amber-600 hover:bg-amber-700 text-white whitespace-nowrap">
               <Plus className="h-3.5 w-3.5 mr-1" />Add Project
             </Button>
