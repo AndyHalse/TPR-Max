@@ -28826,6 +28826,7 @@ This is an automated notification from your visitor management system.`;
       ]);
 
       const companyMap = new Map(companies.map((c: any) => [c.id, c.companyName]));
+      const filteredCompanyName = companyIdFilter ? (companyMap.get(companyIdFilter) ?? null) : null;
 
       const esc = (s: string | null | undefined): string => {
         if (!s) return '';
@@ -29135,7 +29136,7 @@ This is an automated notification from your visitor management system.`;
     ? `<img class="cover-logo" src="${esc(resolvedLogoUrl)}" alt="Company logo" />`
     : `<div class="cover-logo-placeholder"></div>`}
   <div class="cover-divider-top"></div>
-  <div class="cover-report-title">CDM 2015 Compliance Register</div>
+  <div class="cover-report-title">CDM 2015 Compliance Register${filteredCompanyName ? ` \u2014 ${esc(filteredCompanyName)}` : ""}</div>
   <div class="cover-report-subtitle">Construction (Design &amp; Management) Regulations 2015</div>
   <div class="cover-divider-bottom"></div>
   ${companySettings?.companyName ? `<div class="cover-company-name">${esc(companySettings.companyName)}</div>` : ""}
@@ -29163,7 +29164,7 @@ This is an automated notification from your visitor management system.`;
 ${summaryPageHtml}
 <div class="report-header">
   <div class="report-header-left">
-    <h1>CDM 2015 Compliance Register</h1>
+    <h1>CDM 2015 Compliance Register${filteredCompanyName ? ` \u2014 ${esc(filteredCompanyName)}` : ""}</h1>
     <p>Generated: ${new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} | Total Projects: ${projects.length} across ${grouped.size} contractor${grouped.size !== 1 ? "s" : ""}</p>
     ${(statusFilter || fromDate || toDate) ? `<p style="margin-top:4px;color:#92400e;font-weight:600">Filter: ${[statusFilter ? `Status: ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}` : null, fromDate ? `From: ${new Date(fromDate).toLocaleDateString("en-GB")}` : null, toDate ? `To: ${new Date(toDate).toLocaleDateString("en-GB")}` : null].filter(Boolean).join(" | ")}</p>` : ""}
   </div>
