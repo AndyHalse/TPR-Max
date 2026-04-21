@@ -1050,6 +1050,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
 
   const assetName = (id?: string | null) => assets.find(a => a.id === id)?.name ?? "—";
   const hasCertAlert = (w: PpmWorkOrder) => w.status === "completed" && w.requiresCertificate && !w.certificateUploadedAt;
+  const hasMissingDocsAlert = (w: PpmWorkOrder, docCount: number) => w.status === "overdue" && docCount === 0;
 
   return (
     <div className="space-y-4">
@@ -1134,6 +1135,9 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                     <div className="font-medium truncate max-w-[200px]">{wo.title}</div>
                     {hasCertAlert(wo) && (
                       <span className="text-xs text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Certificate missing</span>
+                    )}
+                    {wo.status === "overdue" && wo.missingDocsAlertedAt && (
+                      <span className="text-xs text-red-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />No documents uploaded</span>
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{assetName(wo.assetId)}</td>
@@ -1235,6 +1239,11 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                   {hasCertAlert(selectedWO) && (
                     <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                       <AlertTriangle className="h-3 w-3" />Certificate missing
+                    </span>
+                  )}
+                  {hasMissingDocsAlert(selectedWO, woDocs.length) && (
+                    <span className="inline-flex items-center gap-1 text-xs text-red-600 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                      <AlertTriangle className="h-3 w-3" />No documents uploaded
                     </span>
                   )}
                 </div>
@@ -1372,6 +1381,15 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                 {/* Documents */}
                 <div className="space-y-2 border-t pt-4">
                   <p className="text-sm font-semibold flex items-center gap-1.5"><FileText className="h-4 w-4" />Documents</p>
+                  {hasMissingDocsAlert(selectedWO, woDocs.length) && (
+                    <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5">
+                      <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-xs font-semibold text-red-700">Action required: no documents uploaded</p>
+                        <p className="text-xs text-red-600 mt-0.5">This work order is overdue and has no service reports, certificates, or photos. Please upload evidence of work carried out.</p>
+                      </div>
+                    </div>
+                  )}
                   {woDocs.length === 0 ? (
                     <p className="text-xs text-muted-foreground">No documents uploaded yet.</p>
                   ) : (

@@ -2219,6 +2219,7 @@ export const ppmWorkOrders = pgTable("ppm_work_orders", {
   certificateUploadedAt: timestamp("certificate_uploaded_at"),
   overdueAlertedAt: timestamp("overdue_alerted_at"),         // Set when overdue alert email sent; prevents daily re-send
   missingCertAlertedAt: timestamp("missing_cert_alerted_at"), // Set when missing-cert alert sent; prevents daily re-send
+  missingDocsAlertedAt: timestamp("missing_docs_alerted_at"), // Set when overdue+no-documents alert sent; prevents daily re-send
   createdAt: timestamp("created_at").defaultNow(),
 });
 

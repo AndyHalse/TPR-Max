@@ -451,6 +451,10 @@ export class CustomerDatabaseService {
         ALTER TABLE IF EXISTS "${schemaName}".ppm_work_orders
         ADD COLUMN IF NOT EXISTS missing_cert_alerted_at TIMESTAMP
       `);
+      await pool.query(`
+        ALTER TABLE IF EXISTS "${schemaName}".ppm_work_orders
+        ADD COLUMN IF NOT EXISTS missing_docs_alerted_at TIMESTAMP
+      `);
       // Index access_token for efficient public token lookup (avoids full-table scan per request)
       await pool.query(`
         CREATE INDEX IF NOT EXISTS idx_ppm_work_orders_access_token

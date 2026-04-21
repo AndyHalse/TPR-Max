@@ -28031,11 +28031,15 @@ This is an automated notification from your visitor management system.`;
         .values({ workOrderId: id, fileName, fileUrl, fileType: fileType || "other", uploadedBy: uploadedBy || req.user!.username })
         .returning();
       // If this looks like a certificate, mark work order as having cert uploaded
+      const woDocUpdates: Record<string, unknown> = {};
       if (fileType === "certificate") {
-        await custDb.update(isolatedSchema.ppmWorkOrders)
-          .set({ certificateUploadedAt: new Date() })
-          .where(eq(isolatedSchema.ppmWorkOrders.id, id));
+        woDocUpdates.certificateUploadedAt = new Date();
       }
+      // Clear missing-docs alert so the cron won't re-fire while docs exist
+      woDocUpdates.missingDocsAlertedAt = null;
+      await custDb.update(isolatedSchema.ppmWorkOrders)
+        .set(woDocUpdates as any)
+        .where(eq(isolatedSchema.ppmWorkOrders.id, id));
       res.json(doc);
     } catch (error: unknown) {
       console.error("POST /api/ppm/work-orders/:id/documents", error);
@@ -28076,9 +28080,10 @@ This is an automated notification from your visitor management system.`;
             )
           );
         if (remaining.length === 0) {
-          // Clear both certificateUploadedAt and missingCertAlertedAt so the cron can fire a fresh alert
+          // Clear cert fields so the cert cron can fire a fresh alert next cycle
+          // Also clear missingDocsAlertedAt so the no-docs cron can re-fire if the WO is still overdue
           await custDb.update(isolatedSchema.ppmWorkOrders)
-            .set({ certificateUploadedAt: null, missingCertAlertedAt: null })
+            .set({ certificateUploadedAt: null, missingCertAlertedAt: null, missingDocsAlertedAt: null })
             .where(eq(isolatedSchema.ppmWorkOrders.id, id));
         }
       }
@@ -28422,8 +28427,8 @@ This is an automated notification from your visitor management system.`;
               .values({ workOrderId: wo.id, fileName, fileUrl: objectPath, fileType: resolvedFileType, uploadedBy: "contractor" })
               .returning();
 
-            // If certificate, mark certificateUploadedAt
-            const woUpdates: Record<string, unknown> = {};
+            // If certificate, mark certificateUploadedAt; always clear missing-docs alert
+            const woUpdates: Record<string, unknown> = { missingDocsAlertedAt: null };
             if (resolvedFileType === "certificate") {
               woUpdates.certificateUploadedAt = new Date();
             }
@@ -28466,7 +28471,8 @@ This is an automated notification from your visitor management system.`;
   // Runs at configurable hour (PPM_ALERT_HOUR env var, default 7) Europe/London every day:
   //  (a) marks work orders overdue when past due date and not completed
   //  (b) alerts admin + contractor when completed work order has no cert after 48h
-  //  (c) auto-generates work orders from schedules that have reached their next due date
+  //  (c) alerts admin when overdue work orders have no documents uploaded at all
+  //  (d) auto-generates work orders from schedules that have reached their next due date
   const ppmAlertHour = parseInt(process.env.PPM_ALERT_HOUR ?? "7", 10);
   cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
     try {
@@ -28574,6 +28580,66 @@ This is an automated notification from your visitor management system.`;
             await custDb.update(isolatedSchema.ppmWorkOrders)
               .set({ missingCertAlertedAt: new Date() })
               .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
+          }
+
+          // ── (c) Alert for overdue work orders with no documents uploaded ─────────
+          // Checks overdue WOs that have no docs at all (any type) and haven't
+          // been alerted yet. Sends one consolidated email to admin.
+          const overdueWOs = workOrders.filter(w =>
+            w.status === "overdue" && !w.missingDocsAlertedAt
+          );
+          const missingDocsWOs: (typeof workOrders[0])[] = [];
+          for (const wo of overdueWOs) {
+            const docs = await custDb.select({ id: isolatedSchema.ppmWorkOrderDocuments.id })
+              .from(isolatedSchema.ppmWorkOrderDocuments)
+              .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, wo.id))
+              .limit(1);
+            if (docs.length === 0) missingDocsWOs.push(wo);
+          }
+          if (missingDocsWOs.length > 0 && adminEmail) {
+            const rows = missingDocsWOs.map(wo =>
+              `<tr>
+                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${wo.title}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#dc2626">${wo.dueDate ?? "—"}</td>
+              </tr>`
+            ).join("");
+            const sent = await emailSvc.sendEmail({
+              to: adminEmail,
+              subject: `PPM Alert: ${missingDocsWOs.length} Overdue Work Order${missingDocsWOs.length > 1 ? "s" : ""} With No Documents`,
+              companyName,
+              html: `
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+                  <div style="background:#dc2626;color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                    <h2 style="margin:0">PPM Documents Missing — ${companyName}</h2>
+                  </div>
+                  <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+                    <p style="margin-top:0">The following PPM work order${missingDocsWOs.length > 1 ? "s are" : " is"} overdue and <strong>no documents or reports have been uploaded</strong>:</p>
+                    <table style="width:100%;border-collapse:collapse;margin:12px 0">
+                      <thead>
+                        <tr style="background:#fef2f2">
+                          <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Work Order</th>
+                          <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Due Date</th>
+                        </tr>
+                      </thead>
+                      <tbody>${rows}</tbody>
+                    </table>
+                    <p style="color:#6b7280;font-size:14px">Please upload the relevant service report, certificate, or completion evidence as soon as possible.</p>
+                  </div>
+                  <div style="background:#f9fafb;padding:12px 20px;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 8px 8px;font-size:12px;color:#9ca3af">
+                    This alert was sent by ${companyName} via TPR-Max PPM system.
+                  </div>
+                </div>
+              `,
+              text: `PPM Documents Missing\n\nThe following work orders are overdue with no documents uploaded:\n\n${missingDocsWOs.map(w => `- ${w.title} (due: ${w.dueDate ?? "—"})`).join("\n")}\n\nPlease upload the relevant service report or certificate.`,
+            });
+            if (sent) {
+              for (const wo of missingDocsWOs) {
+                await custDb.update(isolatedSchema.ppmWorkOrders)
+                  .set({ missingDocsAlertedAt: new Date() })
+                  .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
+              }
+              console.log(`📧 [PPM Cron] Missing-docs alert sent for ${missingDocsWOs.length} work order(s) (customer ${customer.id})`);
+            }
           }
 
           // ── Auto-generate work orders from due schedules ─────────────────────
