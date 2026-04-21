@@ -28884,6 +28884,123 @@ This is an automated notification from your visitor management system.`;
 
       const roleLabel = (r: string) => r.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
 
+      // --- Compliance summary stats ---
+      const statusCounts = { planning: 0, active: 0, complete: 0, cancelled: 0 } as Record<string, number>;
+      for (const p of projects) {
+        if (p.status in statusCounts) statusCounts[p.status]++;
+      }
+
+      let notifiableCount = 0;
+      let f10Submitted = 0;
+      let f10Pending = 0;
+      let f10RequiredUnsent = 0;
+      for (const p of projects) {
+        if (isNotifiable(p)) {
+          notifiableCount++;
+          if (p.f10Status === "submitted") f10Submitted++;
+          else if (p.f10Status === "pending") f10Pending++;
+          else f10RequiredUnsent++;
+        }
+      }
+
+      const contractorSummaryRows: { name: string; totalProjects: number; notifiable: number; f10Ok: number; docRate: number }[] = [];
+      for (const [, group] of grouped) {
+        const totalProjects = group.projects.length;
+        const notifiable = group.projects.filter((p: any) => isNotifiable(p)).length;
+        const f10Ok = group.projects.filter((p: any) => isNotifiable(p) && p.f10Status === "submitted").length;
+        let compliantDocs = 0;
+        for (const p of group.projects) {
+          if (["approved", "prepared", "distributed"].includes(p.cppStatus ?? "")) compliantDocs++;
+          if (["approved", "prepared", "distributed"].includes(p.pciStatus ?? "")) compliantDocs++;
+          if (["complete", "handed_over"].includes(p.hsfStatus ?? "")) compliantDocs++;
+        }
+        const docRate = totalProjects > 0 ? Math.round((compliantDocs / (totalProjects * 3)) * 100) : 0;
+        contractorSummaryRows.push({ name: group.companyName, totalProjects, notifiable, f10Ok, docRate });
+      }
+
+      const rateColour = (r: number) => r >= 80 ? "#15803d" : r >= 50 ? "#b45309" : "#b91c1c";
+      const rateBg = (r: number) => r >= 80 ? "#dcfce7" : r >= 50 ? "#fef3c7" : "#fee2e2";
+
+      const contractorTableRows = contractorSummaryRows.map(row => `
+        <tr>
+          <td style="font-weight:600;color:#1e293b">${esc(row.name)}</td>
+          <td style="text-align:center">${row.totalProjects}</td>
+          <td style="text-align:center">${row.notifiable}</td>
+          <td style="text-align:center">${row.notifiable > 0 ? `${row.f10Ok} / ${row.notifiable}` : "—"}</td>
+          <td style="text-align:center">
+            <span style="display:inline-block;padding:2px 8px;border-radius:9999px;font-size:9px;font-weight:700;background:${rateBg(row.docRate)};color:${rateColour(row.docRate)}">${row.docRate}%</span>
+          </td>
+        </tr>`).join("");
+
+      const summaryPageHtml = `
+<div class="summary-page">
+  <div class="summary-page-header">
+    <div class="summary-page-title">Executive Compliance Summary</div>
+    <div class="summary-page-subtitle">Portfolio overview &mdash; ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</div>
+  </div>
+
+  <div class="summary-block">
+    <div class="summary-block-title">Projects by Status</div>
+    <div class="summary-stat-row">
+      <div class="summary-stat-card summary-stat-blue">
+        <div class="summary-stat-value">${statusCounts.planning}</div>
+        <div class="summary-stat-label">Planning</div>
+      </div>
+      <div class="summary-stat-card summary-stat-green">
+        <div class="summary-stat-value">${statusCounts.active}</div>
+        <div class="summary-stat-label">Active</div>
+      </div>
+      <div class="summary-stat-card summary-stat-grey">
+        <div class="summary-stat-value">${statusCounts.complete}</div>
+        <div class="summary-stat-label">Complete</div>
+      </div>
+      <div class="summary-stat-card summary-stat-red">
+        <div class="summary-stat-value">${statusCounts.cancelled}</div>
+        <div class="summary-stat-label">Cancelled</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-block">
+    <div class="summary-block-title">F10 Notification Status</div>
+    <div class="summary-stat-row">
+      <div class="summary-stat-card summary-stat-amber">
+        <div class="summary-stat-value">${notifiableCount}</div>
+        <div class="summary-stat-label">Notifiable Projects</div>
+      </div>
+      <div class="summary-stat-card summary-stat-green">
+        <div class="summary-stat-value">${f10Submitted}</div>
+        <div class="summary-stat-label">F10 Submitted</div>
+      </div>
+      <div class="summary-stat-card summary-stat-amber">
+        <div class="summary-stat-value">${f10Pending}</div>
+        <div class="summary-stat-label">F10 Pending</div>
+      </div>
+      <div class="summary-stat-card summary-stat-red">
+        <div class="summary-stat-value">${f10RequiredUnsent}</div>
+        <div class="summary-stat-label">F10 Not Submitted</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="summary-block">
+    <div class="summary-block-title">Per-Contractor Compliance Overview</div>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>Contractor</th>
+          <th style="text-align:center">Projects</th>
+          <th style="text-align:center">Notifiable</th>
+          <th style="text-align:center">F10 Submitted</th>
+          <th style="text-align:center">Doc Compliance</th>
+        </tr>
+      </thead>
+      <tbody>${contractorTableRows || `<tr><td colspan="5" style="text-align:center;color:#64748b">No contractor data</td></tr>`}</tbody>
+    </table>
+    <div class="summary-table-note">Doc Compliance = percentage of CPP / PCI / HSF documents in an approved, prepared, or distributed state (CPP &amp; PCI) or complete / handed-over state (HSF) across all projects.</div>
+  </div>
+</div>`;
+
       let groupsHtml = "";
       for (const [, group] of grouped) {
         const rows = group.projects.map(p => `
@@ -28990,7 +29107,27 @@ This is an automated notification from your visitor management system.`;
   .cover-meta-row:last-child { margin-bottom: 0; }
   .cover-meta-label { font-weight: 600; color: #92400e; }
   .cover-confidential { margin-top: 48px; font-size: 9px; color: #94a3b8; letter-spacing: 0.1em; text-transform: uppercase; }
-  @media print { body { padding: 0; } .cover-page { min-height: 100vh; } }
+  .summary-page { page-break-after: always; padding: 32px 24px; }
+  .summary-page-header { border-bottom: 3px solid #d97706; padding-bottom: 12px; margin-bottom: 24px; }
+  .summary-page-title { font-size: 22px; font-weight: 700; color: #92400e; }
+  .summary-page-subtitle { font-size: 11px; color: #64748b; margin-top: 4px; }
+  .summary-block { margin-bottom: 28px; }
+  .summary-block-title { font-size: 12px; font-weight: 700; color: #78350f; text-transform: uppercase; letter-spacing: 0.07em; border-left: 4px solid #d97706; padding-left: 8px; margin-bottom: 12px; background: #fef3c7; padding: 6px 10px; border-radius: 0 4px 4px 0; }
+  .summary-stat-row { display: flex; gap: 14px; }
+  .summary-stat-card { flex: 1; border-radius: 8px; padding: 16px 14px; text-align: center; border: 1px solid; }
+  .summary-stat-value { font-size: 28px; font-weight: 700; margin-bottom: 4px; }
+  .summary-stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+  .summary-stat-blue { background: #dbeafe; border-color: #93c5fd; color: #1d4ed8; }
+  .summary-stat-green { background: #dcfce7; border-color: #86efac; color: #15803d; }
+  .summary-stat-grey { background: #f1f5f9; border-color: #cbd5e1; color: #475569; }
+  .summary-stat-red { background: #fee2e2; border-color: #fca5a5; color: #b91c1c; }
+  .summary-stat-amber { background: #fef3c7; border-color: #fde68a; color: #b45309; }
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+  .summary-table th { background: #fef3c7; text-align: left; padding: 7px 10px; font-weight: 700; color: #78350f; border-bottom: 2px solid #d97706; }
+  .summary-table td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: #374151; }
+  .summary-table tbody tr:nth-child(even) { background: #fafafa; }
+  .summary-table-note { margin-top: 8px; font-size: 9px; color: #94a3b8; font-style: italic; }
+  @media print { body { padding: 0; } .cover-page { min-height: 100vh; } .summary-page { min-height: 100vh; } }
 </style>
 </head><body>
 <div class="cover-page">
@@ -29023,6 +29160,7 @@ This is an automated notification from your visitor management system.`;
   </div>
   <div class="cover-confidential">Confidential &mdash; For internal and regulatory use only</div>
 </div>
+${summaryPageHtml}
 <div class="report-header">
   <div class="report-header-left">
     <h1>CDM 2015 Compliance Register</h1>
