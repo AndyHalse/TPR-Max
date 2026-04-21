@@ -2246,6 +2246,167 @@ export default function MarketingPage() {
         </div>
       </section>
 
+      {/* All Modules Overview Section */}
+      <section className="py-20 bg-white dark:bg-slate-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <Badge className="mb-4 text-white" style={{ backgroundColor: "#2460A9" }}>
+              <Zap className="h-3 w-3 mr-1" />
+              Complete Platform
+            </Badge>
+            <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+              14 Powerful Modules.{" "}
+              <span style={{ color: "#2460A9" }}>One Platform.</span>
+            </h2>
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              Every tool your organisation needs — from visitor sign-in to CDM 2015 construction compliance — built in and ready to use from day one.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[
+              {
+                icon: BarChart3,
+                name: "Dashboard",
+                color: "text-blue-600",
+                bg: "bg-blue-50 dark:bg-blue-900/20",
+                border: "border-blue-200 dark:border-blue-800",
+                desc: "Live personnel count, real-time site occupancy, security alerts, and KPI metrics at a glance.",
+              },
+              {
+                icon: ClipboardList,
+                name: "Reception",
+                color: "text-indigo-600",
+                bg: "bg-indigo-50 dark:bg-indigo-900/20",
+                border: "border-indigo-200 dark:border-indigo-800",
+                desc: "Visitor pre-registration, QR code express check-in, digital signatures, and instant host notifications.",
+              },
+              {
+                icon: Calendar,
+                name: "Rooms",
+                color: "text-violet-600",
+                bg: "bg-violet-50 dark:bg-violet-900/20",
+                border: "border-violet-200 dark:border-violet-800",
+                desc: "Meeting room booking with conflict detection, attendee management, and utilisation analytics.",
+              },
+              {
+                icon: Users,
+                name: "People",
+                color: "text-sky-600",
+                bg: "bg-sky-50 dark:bg-sky-900/20",
+                border: "border-sky-200 dark:border-sky-800",
+                desc: "Staff lifecycle management — departments, roles, permissions, onboarding invitations, and Fire Marshal designation.",
+              },
+              {
+                icon: Printer,
+                name: "ID Cards",
+                color: "text-cyan-600",
+                bg: "bg-cyan-50 dark:bg-cyan-900/20",
+                border: "border-cyan-200 dark:border-cyan-800",
+                desc: "On-demand thermal ID pass printing with QR codes. Compatible with TEC/Toshiba and Zebra printers.",
+              },
+              {
+                icon: HardHat,
+                name: "Contractors",
+                color: "text-amber-600",
+                bg: "bg-amber-50 dark:bg-amber-900/20",
+                border: "border-amber-200 dark:border-amber-800",
+                desc: "Worker and company tracking, red/yellow card compliance alerts, certification and insurance expiry monitoring.",
+              },
+              {
+                icon: Brain,
+                name: "Compliance",
+                color: "text-purple-600",
+                bg: "bg-purple-50 dark:bg-purple-900/20",
+                border: "border-purple-200 dark:border-purple-800",
+                desc: "AI-generated site safety inductions — custom scripts, photorealistic images, and professional voice narration.",
+              },
+              {
+                icon: Siren,
+                name: "Emergency",
+                color: "text-red-600",
+                bg: "bg-red-50 dark:bg-red-900/20",
+                border: "border-red-200 dark:border-red-800",
+                desc: "Zone-based evacuation mustering, fire marshal static URLs, digital roll-call, and self-service mark-safe links.",
+              },
+              {
+                icon: Clock,
+                name: "Time Track",
+                color: "text-teal-600",
+                bg: "bg-teal-50 dark:bg-teal-900/20",
+                border: "border-teal-200 dark:border-teal-800",
+                desc: "Automated check-in/out timestamps, shift management, overtime tracking, and payroll-ready export reports.",
+              },
+              {
+                icon: Leaf,
+                name: "CO2",
+                color: "text-green-600",
+                bg: "bg-green-50 dark:bg-green-900/20",
+                border: "border-green-200 dark:border-green-800",
+                desc: "AI-powered carbon footprint analysis for contractor commutes with ESG reporting and sustainability scoring.",
+              },
+              {
+                icon: TrendingUp,
+                name: "Reports",
+                color: "text-blue-700",
+                bg: "bg-blue-50 dark:bg-blue-900/20",
+                border: "border-blue-200 dark:border-blue-800",
+                desc: "Custom analytics, executive dashboards, compliance reports, and automated scheduling across all modules.",
+              },
+              {
+                icon: ClipboardCheck,
+                name: "RAMS",
+                color: "text-orange-600",
+                bg: "bg-orange-50 dark:bg-orange-900/20",
+                border: "border-orange-200 dark:border-orange-800",
+                desc: "Risk Assessment & Method Statement management — upload, review, approve, track expiry, and get worker sign-off.",
+              },
+              {
+                icon: Wrench,
+                name: "PPM",
+                color: "text-emerald-600",
+                bg: "bg-emerald-50 dark:bg-emerald-900/20",
+                border: "border-emerald-200 dark:border-emerald-800",
+                desc: "Planned preventative maintenance with automated work orders, asset register, contractor assignment, and overdue alerts.",
+              },
+              {
+                icon: Building2,
+                name: "CDM 2015",
+                color: "text-violet-700",
+                bg: "bg-violet-50 dark:bg-violet-900/20",
+                border: "border-violet-200 dark:border-violet-800",
+                desc: "Full Construction Design & Management compliance — F10 notifications, duty-holder roles, and 5-section project scoring.",
+              },
+            ].map(({ icon: Icon, name, color, bg, border, desc }) => (
+              <div
+                key={name}
+                className={`rounded-xl border p-5 ${bg} ${border} flex flex-col gap-3 hover:shadow-md transition-shadow`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm border ${border}`}>
+                    <Icon className={`h-5 w-5 ${color}`} />
+                  </div>
+                  <span className="font-semibold text-slate-900 dark:text-white text-sm">{name}</span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-12">
+            <Button
+              size="lg"
+              onClick={() => scrollToSection("contact")}
+              className="text-white"
+              style={{ backgroundColor: "#2460A9" }}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Request a Full Platform Demo
+            </Button>
+          </div>
+        </div>
+      </section>
+
       {/* Industry-Specific Solutions Section */}
       <section
         id="industries"
