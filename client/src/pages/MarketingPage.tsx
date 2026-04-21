@@ -639,17 +639,27 @@ export default function MarketingPage() {
                 </span>
               </h1>
 
-              <p className="text-xl text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
-                <strong>
-                  Every organisation needs reliable Health & Safety mustering.
-                </strong>{" "}
-                TPR Max delivers instant emergency accountability when seconds
-                count—know exactly who's on-site during evacuations or
-                emergencies. Plus, powerful features like RAMS document management,
-                contractor compliance with CDM 2015 support, planned preventative
-                maintenance (PPM), site inductions, room booking, and staff time
-                & attendance make it your complete personnel management solution.
+              <p className="text-xl text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
+                Know exactly who is on your site at all times. When an emergency strikes, TPR-Max gives you instant accountability — every visitor, contractor, and staff member accounted for in seconds.
               </p>
+
+              <div className="grid grid-cols-2 gap-2 mb-8">
+                {[
+                  "Emergency Mustering & Roll-Call",
+                  "Contractor & CDM 2015 Compliance",
+                  "AI Safety Inductions",
+                  "RAMS Document Management",
+                  "Planned Preventative Maintenance",
+                  "Visitor & Reception Management",
+                  "ID Card & Pass Printing",
+                  "CO2 Sustainability Reporting",
+                ].map((f) => (
+                  <div key={f} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    {f}
+                  </div>
+                ))}
+              </div>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
                 <Button
@@ -659,8 +669,16 @@ export default function MarketingPage() {
                   data-testid="button-get-started"
                   style={{ backgroundColor: "#2460A9" }}
                 >
-                  Start Free Enterprise Trial
+                  Book a Free Demo
                   <ArrowRight className="h-5 w-5 ml-2" />
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="text-lg px-8"
+                  onClick={() => scrollToSection("features")}
+                >
+                  Explore All Features
                 </Button>
               </div>
 
@@ -825,6 +843,168 @@ export default function MarketingPage() {
         </div>
       </section>
 
+      {/* All Modules Overview Section */}
+      <section id="modules" className="py-20 bg-white dark:bg-slate-900 scroll-mt-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <Badge className="mb-4 text-white" style={{ backgroundColor: "#2460A9" }}>
+              <Zap className="h-3 w-3 mr-1" />
+              Complete Platform
+            </Badge>
+            <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+              14 Powerful Modules.{" "}
+              <span style={{ color: "#2460A9" }}>One Platform.</span>
+            </h2>
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              Every tool your organisation needs — from visitor sign-in to CDM 2015 construction compliance — built in and ready to use from day one.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[
+              {
+                icon: BarChart3,
+                name: "Dashboard",
+                color: "text-blue-600",
+                bg: "bg-blue-50 dark:bg-blue-900/20",
+                border: "border-blue-200 dark:border-blue-800",
+                desc: "Live personnel count, real-time site occupancy, security alerts, and KPI metrics at a glance.",
+              },
+              {
+                icon: ClipboardList,
+                name: "Reception",
+                color: "text-indigo-600",
+                bg: "bg-indigo-50 dark:bg-indigo-900/20",
+                border: "border-indigo-200 dark:border-indigo-800",
+                desc: "Visitor pre-registration, QR code express check-in, digital signatures, and instant host notifications.",
+              },
+              {
+                icon: Calendar,
+                name: "Rooms",
+                color: "text-violet-600",
+                bg: "bg-violet-50 dark:bg-violet-900/20",
+                border: "border-violet-200 dark:border-violet-800",
+                desc: "Meeting room booking with conflict detection, attendee management, and utilisation analytics.",
+              },
+              {
+                icon: Users,
+                name: "People",
+                color: "text-sky-600",
+                bg: "bg-sky-50 dark:bg-sky-900/20",
+                border: "border-sky-200 dark:border-sky-800",
+                desc: "Staff lifecycle management — departments, roles, permissions, onboarding invitations, and Fire Marshal designation.",
+              },
+              {
+                icon: Printer,
+                name: "ID Cards",
+                color: "text-cyan-600",
+                bg: "bg-cyan-50 dark:bg-cyan-900/20",
+                border: "border-cyan-200 dark:border-cyan-800",
+                desc: "On-demand thermal ID pass printing with QR codes. Compatible with TEC/Toshiba and Zebra printers.",
+              },
+              {
+                icon: HardHat,
+                name: "Contractors",
+                color: "text-amber-600",
+                bg: "bg-amber-50 dark:bg-amber-900/20",
+                border: "border-amber-200 dark:border-amber-800",
+                desc: "Worker and company tracking, red/yellow card compliance alerts, certification and insurance expiry monitoring.",
+              },
+              {
+                icon: Brain,
+                name: "Compliance",
+                color: "text-purple-600",
+                bg: "bg-purple-50 dark:bg-purple-900/20",
+                border: "border-purple-200 dark:border-purple-800",
+                desc: "AI-generated site safety inductions — custom scripts, photorealistic images, and professional voice narration.",
+              },
+              {
+                icon: Siren,
+                name: "Emergency",
+                color: "text-red-600",
+                bg: "bg-red-50 dark:bg-red-900/20",
+                border: "border-red-200 dark:border-red-800",
+                desc: "Zone-based evacuation mustering, fire marshal static URLs, digital roll-call, and self-service mark-safe links.",
+              },
+              {
+                icon: Clock,
+                name: "Time Track",
+                color: "text-teal-600",
+                bg: "bg-teal-50 dark:bg-teal-900/20",
+                border: "border-teal-200 dark:border-teal-800",
+                desc: "Automated check-in/out timestamps, shift management, overtime tracking, and payroll-ready export reports.",
+              },
+              {
+                icon: Leaf,
+                name: "CO2",
+                color: "text-green-600",
+                bg: "bg-green-50 dark:bg-green-900/20",
+                border: "border-green-200 dark:border-green-800",
+                desc: "AI-powered carbon footprint analysis for contractor commutes with ESG reporting and sustainability scoring.",
+              },
+              {
+                icon: TrendingUp,
+                name: "Reports",
+                color: "text-blue-700",
+                bg: "bg-blue-50 dark:bg-blue-900/20",
+                border: "border-blue-200 dark:border-blue-800",
+                desc: "Custom analytics, executive dashboards, compliance reports, and automated scheduling across all modules.",
+              },
+              {
+                icon: ClipboardCheck,
+                name: "RAMS",
+                color: "text-orange-600",
+                bg: "bg-orange-50 dark:bg-orange-900/20",
+                border: "border-orange-200 dark:border-orange-800",
+                desc: "Risk Assessment & Method Statement management — upload, review, approve, track expiry, and get worker sign-off.",
+              },
+              {
+                icon: Wrench,
+                name: "PPM",
+                color: "text-emerald-600",
+                bg: "bg-emerald-50 dark:bg-emerald-900/20",
+                border: "border-emerald-200 dark:border-emerald-800",
+                desc: "Planned preventative maintenance with automated work orders, asset register, contractor assignment, and overdue alerts.",
+              },
+              {
+                icon: Building2,
+                name: "CDM 2015",
+                color: "text-violet-700",
+                bg: "bg-violet-50 dark:bg-violet-900/20",
+                border: "border-violet-200 dark:border-violet-800",
+                desc: "Full Construction Design & Management compliance — F10 notifications, duty-holder roles, and 5-section project scoring.",
+              },
+            ].map(({ icon: Icon, name, color, bg, border, desc }) => (
+              <div
+                key={name}
+                className={`rounded-xl border p-5 ${bg} ${border} flex flex-col gap-3 hover:shadow-md transition-shadow`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm border ${border}`}>
+                    <Icon className={`h-5 w-5 ${color}`} />
+                  </div>
+                  <span className="font-semibold text-slate-900 dark:text-white text-sm">{name}</span>
+                </div>
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-12">
+            <Button
+              size="lg"
+              onClick={() => scrollToSection("contact")}
+              className="text-white"
+              style={{ backgroundColor: "#2460A9" }}
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              Request a Full Platform Demo
+            </Button>
+          </div>
+        </div>
+      </section>
+
+
       {/* Interactive Tabbed Product Tour */}
       <section
         id="features"
@@ -832,19 +1012,16 @@ export default function MarketingPage() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
+            <Badge className="mb-4 text-white" style={{ backgroundColor: "#2460A9" }}>
+              <Eye className="h-3 w-3 mr-1" />
+              Deep-Dive Feature Tour
+            </Badge>
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
-              Critical Emergency Mustering
-              <span style={{ color: "#2460A9" }}>
-                {" "}
-                Plus Powerful Site Management
-              </span>
+              Explore Every Module
+              <span style={{ color: "#2460A9" }}> In Detail</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              Life-saving emergency accountability is just the beginning.
-              Discover how TPR Max combines critical Health & Safety mustering
-              with contractor management, CDM 2015 compliance, planned preventative
-              maintenance, site inductions, room booking, and staff time &
-              attendance in one complete platform.
+              Select any module below to see exactly what it does, how it looks, and why it matters for your organisation.
             </p>
           </div>
 
@@ -2246,167 +2423,6 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* All Modules Overview Section */}
-      <section className="py-20 bg-white dark:bg-slate-900">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-14">
-            <Badge className="mb-4 text-white" style={{ backgroundColor: "#2460A9" }}>
-              <Zap className="h-3 w-3 mr-1" />
-              Complete Platform
-            </Badge>
-            <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              14 Powerful Modules.{" "}
-              <span style={{ color: "#2460A9" }}>One Platform.</span>
-            </h2>
-            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              Every tool your organisation needs — from visitor sign-in to CDM 2015 construction compliance — built in and ready to use from day one.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {[
-              {
-                icon: BarChart3,
-                name: "Dashboard",
-                color: "text-blue-600",
-                bg: "bg-blue-50 dark:bg-blue-900/20",
-                border: "border-blue-200 dark:border-blue-800",
-                desc: "Live personnel count, real-time site occupancy, security alerts, and KPI metrics at a glance.",
-              },
-              {
-                icon: ClipboardList,
-                name: "Reception",
-                color: "text-indigo-600",
-                bg: "bg-indigo-50 dark:bg-indigo-900/20",
-                border: "border-indigo-200 dark:border-indigo-800",
-                desc: "Visitor pre-registration, QR code express check-in, digital signatures, and instant host notifications.",
-              },
-              {
-                icon: Calendar,
-                name: "Rooms",
-                color: "text-violet-600",
-                bg: "bg-violet-50 dark:bg-violet-900/20",
-                border: "border-violet-200 dark:border-violet-800",
-                desc: "Meeting room booking with conflict detection, attendee management, and utilisation analytics.",
-              },
-              {
-                icon: Users,
-                name: "People",
-                color: "text-sky-600",
-                bg: "bg-sky-50 dark:bg-sky-900/20",
-                border: "border-sky-200 dark:border-sky-800",
-                desc: "Staff lifecycle management — departments, roles, permissions, onboarding invitations, and Fire Marshal designation.",
-              },
-              {
-                icon: Printer,
-                name: "ID Cards",
-                color: "text-cyan-600",
-                bg: "bg-cyan-50 dark:bg-cyan-900/20",
-                border: "border-cyan-200 dark:border-cyan-800",
-                desc: "On-demand thermal ID pass printing with QR codes. Compatible with TEC/Toshiba and Zebra printers.",
-              },
-              {
-                icon: HardHat,
-                name: "Contractors",
-                color: "text-amber-600",
-                bg: "bg-amber-50 dark:bg-amber-900/20",
-                border: "border-amber-200 dark:border-amber-800",
-                desc: "Worker and company tracking, red/yellow card compliance alerts, certification and insurance expiry monitoring.",
-              },
-              {
-                icon: Brain,
-                name: "Compliance",
-                color: "text-purple-600",
-                bg: "bg-purple-50 dark:bg-purple-900/20",
-                border: "border-purple-200 dark:border-purple-800",
-                desc: "AI-generated site safety inductions — custom scripts, photorealistic images, and professional voice narration.",
-              },
-              {
-                icon: Siren,
-                name: "Emergency",
-                color: "text-red-600",
-                bg: "bg-red-50 dark:bg-red-900/20",
-                border: "border-red-200 dark:border-red-800",
-                desc: "Zone-based evacuation mustering, fire marshal static URLs, digital roll-call, and self-service mark-safe links.",
-              },
-              {
-                icon: Clock,
-                name: "Time Track",
-                color: "text-teal-600",
-                bg: "bg-teal-50 dark:bg-teal-900/20",
-                border: "border-teal-200 dark:border-teal-800",
-                desc: "Automated check-in/out timestamps, shift management, overtime tracking, and payroll-ready export reports.",
-              },
-              {
-                icon: Leaf,
-                name: "CO2",
-                color: "text-green-600",
-                bg: "bg-green-50 dark:bg-green-900/20",
-                border: "border-green-200 dark:border-green-800",
-                desc: "AI-powered carbon footprint analysis for contractor commutes with ESG reporting and sustainability scoring.",
-              },
-              {
-                icon: TrendingUp,
-                name: "Reports",
-                color: "text-blue-700",
-                bg: "bg-blue-50 dark:bg-blue-900/20",
-                border: "border-blue-200 dark:border-blue-800",
-                desc: "Custom analytics, executive dashboards, compliance reports, and automated scheduling across all modules.",
-              },
-              {
-                icon: ClipboardCheck,
-                name: "RAMS",
-                color: "text-orange-600",
-                bg: "bg-orange-50 dark:bg-orange-900/20",
-                border: "border-orange-200 dark:border-orange-800",
-                desc: "Risk Assessment & Method Statement management — upload, review, approve, track expiry, and get worker sign-off.",
-              },
-              {
-                icon: Wrench,
-                name: "PPM",
-                color: "text-emerald-600",
-                bg: "bg-emerald-50 dark:bg-emerald-900/20",
-                border: "border-emerald-200 dark:border-emerald-800",
-                desc: "Planned preventative maintenance with automated work orders, asset register, contractor assignment, and overdue alerts.",
-              },
-              {
-                icon: Building2,
-                name: "CDM 2015",
-                color: "text-violet-700",
-                bg: "bg-violet-50 dark:bg-violet-900/20",
-                border: "border-violet-200 dark:border-violet-800",
-                desc: "Full Construction Design & Management compliance — F10 notifications, duty-holder roles, and 5-section project scoring.",
-              },
-            ].map(({ icon: Icon, name, color, bg, border, desc }) => (
-              <div
-                key={name}
-                className={`rounded-xl border p-5 ${bg} ${border} flex flex-col gap-3 hover:shadow-md transition-shadow`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className={`h-9 w-9 rounded-lg flex items-center justify-center bg-white dark:bg-slate-800 shadow-sm border ${border}`}>
-                    <Icon className={`h-5 w-5 ${color}`} />
-                  </div>
-                  <span className="font-semibold text-slate-900 dark:text-white text-sm">{name}</span>
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">{desc}</p>
-              </div>
-            ))}
-          </div>
-
-          <div className="text-center mt-12">
-            <Button
-              size="lg"
-              onClick={() => scrollToSection("contact")}
-              className="text-white"
-              style={{ backgroundColor: "#2460A9" }}
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              Request a Full Platform Demo
-            </Button>
-          </div>
-        </div>
-      </section>
-
       {/* Industry-Specific Solutions Section */}
       <section
         id="industries"
@@ -2883,55 +2899,107 @@ export default function MarketingPage() {
       </section>
 
 
-      {/* Technical Specs */}
+      {/* Mid-page CTA Banner */}
+      <section
+        className="py-16"
+        style={{ background: "linear-gradient(135deg, #1e3a5f 0%, #2460A9 60%, #1e4a87 100%)" }}
+      >
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">
+            Ready to see TPR-Max in action?
+          </h2>
+          <p className="text-xl text-white/85 mb-8 max-w-2xl mx-auto">
+            Book a free, no-obligation demo and we'll walk you through every module relevant to your organisation — live, on your own data.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
+              size="lg"
+              className="bg-white hover:bg-slate-100 text-lg font-semibold px-10"
+              style={{ color: "#2460A9" }}
+              onClick={() => scrollToSection("contact")}
+            >
+              <Mail className="h-5 w-5 mr-2" />
+              Book Your Free Demo
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              className="text-white border-white/50 hover:bg-white/10 text-lg px-10"
+              onClick={() => scrollToSection("features")}
+            >
+              <Eye className="h-5 w-5 mr-2" />
+              Explore Features First
+            </Button>
+          </div>
+          <p className="text-white/60 text-sm mt-6">No commitment required · UK-based team · Response within 1 business day</p>
+        </div>
+      </section>
+
+      {/* Why TPR-Max Section */}
       <section className="py-20 bg-white/50 dark:bg-slate-800/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
-              Enterprise-Grade
-              <span style={{ color: "#2460A9" }}> Technology</span>
+          <div className="text-center mb-14">
+            <Badge className="mb-4 text-white" style={{ backgroundColor: "#2460A9" }}>
+              <ShieldCheck className="h-3 w-3 mr-1" />
+              Built for UK Organisations
+            </Badge>
+            <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
+              Why Organisations Choose TPR-Max
             </h2>
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              Built specifically for UK Health & Safety, compliance, and construction regulations — not a generic product adapted to fit.
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Globe className="h-8 w-8 text-white" />
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                icon: Globe,
+                color: "from-blue-500 to-blue-600",
+                title: "Cloud-Native & Always On",
+                desc: "Hosted on modern cloud infrastructure with 99.9% uptime. No on-premise servers, no maintenance windows — just reliable access, anywhere.",
+              },
+              {
+                icon: Lock,
+                color: "from-indigo-500 to-indigo-600",
+                title: "GDPR Compliant & Secure",
+                desc: "End-to-end encryption, role-based access control, and full tenant data isolation. Your data stays yours — never shared between organisations.",
+              },
+              {
+                icon: Smartphone,
+                color: "from-green-500 to-green-600",
+                title: "No App Download Required",
+                desc: "Fire Marshals, contractors, and visitors all operate through browser-based links. Nothing to install, nothing to update — works on any device.",
+              },
+              {
+                icon: Database,
+                color: "from-purple-500 to-purple-600",
+                title: "BioStar 2 Integration Ready",
+                desc: "Native integration with Suprema BioStar 2 access control — sync personnel data, automate check-in from door readers, and unify security with HR.",
+              },
+              {
+                icon: Users,
+                color: "from-amber-500 to-amber-600",
+                title: "True Multi-Tenant",
+                desc: "Built from the ground up for multi-site organisations. Each tenant has fully isolated data, branding, and configuration — managed from one admin console.",
+              },
+              {
+                icon: Zap,
+                color: "from-red-500 to-red-600",
+                title: "UK Regulations Built-In",
+                desc: "CDM 2015, RAMS, fire safety mustering, GDPR data handling — UK-specific compliance requirements are first-class features, not afterthoughts.",
+              },
+            ].map(({ icon: Icon, color, title, desc }) => (
+              <div key={title} className="flex gap-4 p-6 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 hover:shadow-md transition-shadow">
+                <div className={`h-12 w-12 bg-gradient-to-br ${color} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                  <Icon className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white mb-2">{title}</h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">{desc}</p>
+                </div>
               </div>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                Cloud-Native
-              </h3>
-              <p className="text-slate-600 dark:text-slate-300">
-                Built on modern cloud infrastructure with 99.9% uptime and
-                automatic scaling.
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="h-16 w-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Lock className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                Bank-Level Security
-              </h3>
-              <p className="text-slate-600 dark:text-slate-300">
-                End-to-end encryption, GDPR compliant, and SOC 2 certified data
-                protection.
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="h-16 w-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Zap className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
-                Lightning Fast
-              </h3>
-              <p className="text-slate-600 dark:text-slate-300">
-                React frontend with real-time updates and sub-second response
-                times.
-              </p>
-            </div>
+            ))}
           </div>
         </div>
       </section>
@@ -2945,11 +3013,15 @@ export default function MarketingPage() {
         }}
       >
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <Badge className="mb-6 bg-white/20 text-white border-white/30">
+            <Mail className="h-3 w-3 mr-1" />
+            Get in Touch
+          </Badge>
           <h2 className="text-3xl lg:text-5xl font-bold text-white mb-4">
-            Ready to Transform Your Personnel Management?
+            Book Your Free Demo Today
           </h2>
           <p className="text-xl text-white/90 mb-8 max-w-2xl mx-auto">
-            Fill in your details below and one of our team will be in touch to arrange a personalised demo.
+            Tell us a little about your organisation and we'll arrange a personalised walkthrough — tailored to your industry and the modules that matter most to you.
           </p>
 
           <form onSubmit={handleContactSubmit} className="text-left">
@@ -3018,19 +3090,31 @@ export default function MarketingPage() {
               data-testid="button-contact-submit"
             >
               <Mail className="h-5 w-5 mr-2" />
-              {contactMutation.isPending ? "Sending Enquiry..." : "Send Enquiry"}
+              {contactMutation.isPending ? "Sending Enquiry..." : "Book My Free Demo"}
             </Button>
           </form>
 
+          <div className="flex flex-wrap justify-center gap-6 mt-8 pt-6 border-t border-white/20">
+            {[
+              { icon: CheckCircle, text: "No commitment required" },
+              { icon: Clock, text: "Response within 1 business day" },
+              { icon: Shield, text: "Your data is never shared" },
+            ].map(({ icon: Icon, text }) => (
+              <div key={text} className="flex items-center gap-2 text-white/75 text-sm">
+                <Icon className="h-4 w-4 text-white/60" />
+                {text}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
       {/* Footer */}
       <footer className="bg-slate-900 text-white py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-8">
+          <div className="grid md:grid-cols-3 gap-8 mb-10">
             {/* Company Info */}
-            <div>
+            <div className="md:col-span-1">
               <div className="flex items-center mb-6">
                 <img
                   src={acsLogo}
@@ -3042,53 +3126,66 @@ export default function MarketingPage() {
                   ACS Safety & Security Ltd
                 </span>
               </div>
-              <div className="space-y-2 text-slate-300">
-                <p className="font-semibold">Business Address:</p>
+              <div className="space-y-2 text-slate-300 text-sm">
                 <p>
-                  Wittas House
-                  <br />
-                  Two Rivers
-                  <br />
-                  Station Lane
-                  <br />
-                  Witney
-                  <br />
+                  Wittas House, Two Rivers<br />
+                  Station Lane, Witney<br />
                   OX28 4BH
                 </p>
-                <p className="mt-4">
+                <p className="mt-3">
                   <span className="font-semibold">Phone:</span> +44 1344 771569
+                </p>
+                <p>
+                  <span className="font-semibold">Registered Office:</span><br />
+                  20-22 Wenlock Road, London N1 7GU
                 </p>
               </div>
             </div>
 
-            {/* Registered Office */}
+            {/* Quick Links */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Registered Office</h3>
-              <div className="text-slate-300">
-                <p>
-                  20-22 Wenlock Road
-                  <br />
-                  London
-                  <br />
-                  N1 7GU
-                </p>
-              </div>
+              <h3 className="text-base font-semibold mb-4 text-white">TPR-Max Platform</h3>
+              <ul className="space-y-2 text-sm text-slate-300">
+                {[
+                  ["Emergency Mustering", "features"],
+                  ["All 14 Modules", "modules"],
+                  ["CDM 2015 Compliance", "features"],
+                  ["Industries We Serve", "industries"],
+                  ["Book a Demo", "contact"],
+                ].map(([label, section]) => (
+                  <li key={label}>
+                    <button
+                      onClick={() => scrollToSection(section)}
+                      className="hover:text-white transition-colors text-left"
+                    >
+                      {label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-              {/* Additional Links */}
-              <div className="mt-8">
-                <h4 className="font-semibold mb-3">TPR Max</h4>
-                <p className="text-slate-300 text-sm">
-                  Comprehensive personnel management system for visitors,
-                  contractors, and staff.
-                </p>
+            {/* Product */}
+            <div>
+              <h3 className="text-base font-semibold mb-4 text-white">About TPR-Max</h3>
+              <p className="text-slate-300 text-sm leading-relaxed">
+                A comprehensive personnel management system built for UK organisations. 14 modules covering emergency mustering, contractor compliance, CDM 2015, PPM, visitor management, and more.
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {["GDPR Compliant", "UK-Built", "Multi-Tenant", "BioStar 2 Ready"].map(tag => (
+                  <span key={tag} className="text-xs bg-slate-700 text-slate-300 px-2 py-1 rounded-full">{tag}</span>
+                ))}
               </div>
             </div>
           </div>
 
           {/* Bottom Bar */}
-          <div className="border-t border-slate-800 mt-8 pt-6 text-center">
+          <div className="border-t border-slate-800 pt-6 flex flex-col sm:flex-row justify-between items-center gap-2">
             <p className="text-slate-400 text-sm">
-              © 2024 ACS Safety & Security Ltd. All rights reserved.
+              © 2025 ACS Safety & Security Ltd. All rights reserved.
+            </p>
+            <p className="text-slate-500 text-xs">
+              TPR-Max is a product of ACS Safety & Security Ltd, registered in England & Wales.
             </p>
           </div>
         </div>
