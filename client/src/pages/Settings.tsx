@@ -1505,16 +1505,20 @@ export default function Settings() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="address" className="text-sm font-medium text-fixed">
-                    Company Address
-                  </Label>
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="address" className="text-sm font-medium text-fixed">Registered Address</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">Your company's registered address. This appears in the header of CDM PDF reports.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="address"
                     type="text"
                     value={currentSettings?.address || ""}
                     onChange={(e) => handleInputChange("address", e.target.value)}
                     className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-                    placeholder=""
+                    placeholder="e.g. 123 Business Park, Manchester, M1 1AA"
                     data-testid="input-company-address"
                   />
                 </div>

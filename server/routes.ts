@@ -11312,6 +11312,7 @@ ${evacuationPhotosData.length > 0 ? `
 
   app.put("/api/settings", requireAuth, async (req, res) => {
     try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
       const updates = insertCompanySettingsSchema.partial().parse(req.body);
       
       // Import the simplified database service
