@@ -395,10 +395,15 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
 
   useEffect(() => {
     try {
-      localStorage.setItem(
-        "cdm_pdf_filter",
-        JSON.stringify({ status: pdfStatusFilter, fromDate: pdfFromDate, toDate: pdfToDate, companyId: pdfCompanyFilter })
-      );
+      const isDefault = (pdfStatusFilter === "all" || !pdfStatusFilter) && !pdfFromDate && !pdfToDate && !pdfCompanyFilter;
+      if (isDefault) {
+        localStorage.removeItem("cdm_pdf_filter");
+      } else {
+        localStorage.setItem(
+          "cdm_pdf_filter",
+          JSON.stringify({ status: pdfStatusFilter, fromDate: pdfFromDate, toDate: pdfToDate, companyId: pdfCompanyFilter })
+        );
+      }
     } catch {}
   }, [pdfStatusFilter, pdfFromDate, pdfToDate, pdfCompanyFilter]);
 
@@ -1409,6 +1414,18 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
             </div>
           </div>
           <DialogFooter>
+            <Button
+              variant="ghost"
+              className="mr-auto"
+              onClick={() => {
+                setPdfStatusFilter("all");
+                setPdfFromDate("");
+                setPdfToDate("");
+                localStorage.removeItem("cdm_pdf_filter");
+              }}
+            >
+              Reset filters
+            </Button>
             <Button variant="outline" onClick={() => setShowPdfFilterDialog(false)}>Cancel</Button>
             <Button
               className="bg-amber-600 hover:bg-amber-700 text-white"
