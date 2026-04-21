@@ -197,7 +197,7 @@ export default function MarketingPage() {
         bullets: [
           "Live Personnel Count: Track all visitors, contractors, and staff on-site with real-time updates",
           "Security Alerts: Immediate notifications for unauthorized access or compliance violations",
-          "Performance Metrics: Key insights on occupancy patterns, peak times, and facility utilization",
+          "Performance Metrics: Key insights on occupancy patterns, peak times, and facility utilisation",
         ],
         img: dashboardImg,
       },
@@ -217,11 +217,11 @@ export default function MarketingPage() {
         title: "Meeting Room & Booking Management",
         badge: "Resource Management",
         badgeColor: "#2460A9",
-        description: "Streamline meeting room scheduling and resource allocation with an intuitive booking system. Eliminate double bookings, track room utilization, and manage attendees with comprehensive availability checks.",
+        description: "Streamline meeting room scheduling and resource allocation with an intuitive booking system. Eliminate double bookings, track room utilisation, and manage attendees with comprehensive availability checks.",
         bullets: [
           "Smart Booking: Visual room availability with conflict detection and instant confirmation",
           "Attendee Management: Add staff attendees, send notifications, and track attendance for every booking",
-          "Utilization Analytics: Track room usage patterns and occupancy rates to optimize your workspace",
+          "Utilisation Analytics: Track room usage patterns and occupancy rates to optimise your workspace",
         ],
         img: meetingRoomsImg,
       },
@@ -305,7 +305,7 @@ export default function MarketingPage() {
         title: "CO2 Sustainability Reporting",
         badge: "Environmental Sustainability",
         badgeColor: "#16a34a",
-        description: "Track and reduce your environmental impact with AI-powered carbon footprint analysis. Monitor contractor commute emissions, identify optimization opportunities, and demonstrate your commitment to sustainability.",
+        description: "Track and reduce your environmental impact with AI-powered carbon footprint analysis. Monitor contractor commute emissions, identify optimisation opportunities, and demonstrate your commitment to sustainability.",
         bullets: [
           "AI Distance Calculations: Intelligent UK postcode-to-postcode distance calculations with route type detection",
           "Carbon Footprint Tracking: Detailed CO2 emissions analysis per contractor, per journey, with vehicle type considerations",
@@ -317,11 +317,11 @@ export default function MarketingPage() {
         title: "Comprehensive Analytics & Reporting",
         badge: "Business Intelligence",
         badgeColor: "#2460A9",
-        description: "Transform personnel data into actionable business insights. Comprehensive reporting suite provides facility utilization, security metrics, and compliance analytics to optimize operations and reduce costs.",
+        description: "Transform personnel data into actionable business insights. Comprehensive reporting suite provides facility utilisation, security metrics, and compliance analytics to optimise operations and reduce costs.",
         bullets: [
           "Executive Dashboards: Real-time KPIs and performance metrics for management",
           "Custom Reports: Automated report generation with flexible scheduling and formats",
-          "Predictive Analytics: Trend analysis for capacity planning and resource optimization",
+          "Predictive Analytics: Trend analysis for capacity planning and resource optimisation",
         ],
         img: reportsAnalyticsImg,
       },
@@ -1166,7 +1166,7 @@ export default function MarketingPage() {
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
                         <strong>Performance Metrics:</strong> Key insights on
-                        occupancy patterns, peak times, and facility utilization
+                        occupancy patterns, peak times, and facility utilisation
                       </span>
                     </div>
                   </div>
@@ -1299,7 +1299,7 @@ export default function MarketingPage() {
                       Intelligent Room Management
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Maximize facility utilization with intelligent room
+                      Maximize facility utilisation with intelligent room
                       booking and management. Integrated calendar systems,
                       equipment tracking, and automated notifications ensure
                       optimal space usage and seamless meeting experiences.
@@ -1324,8 +1324,8 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Usage Analytics:</strong> Optimize space
-                        allocation with detailed utilization reports and trends
+                        <strong>Usage Analytics:</strong> Optimise space
+                        allocation with detailed utilisation reports and trends
                       </span>
                     </div>
                   </div>
@@ -1880,7 +1880,7 @@ export default function MarketingPage() {
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
                       Track and reduce your environmental impact with AI-powered carbon footprint analysis. 
-                      Monitor contractor commute emissions, identify optimization opportunities, and demonstrate 
+                      Monitor contractor commute emissions, identify optimisation opportunities, and demonstrate 
                       your commitment to sustainability with comprehensive environmental reporting.
                     </p>
                   </div>
@@ -1913,7 +1913,7 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Route Optimization:</strong> AI-generated recommendations for reducing contractor travel emissions and costs
+                        <strong>Route Optimisation:</strong> AI-generated recommendations for reducing contractor travel emissions and costs
                       </span>
                     </div>
                   </div>
@@ -1982,8 +1982,8 @@ export default function MarketingPage() {
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
                       Transform personnel data into actionable business
                       insights. Comprehensive reporting suite provides facility
-                      utilization, security metrics, and compliance analytics to
-                      optimize operations and reduce costs.
+                      utilisation, security metrics, and compliance analytics to
+                      optimise operations and reduce costs.
                     </p>
                   </div>
 
@@ -2006,7 +2006,7 @@ export default function MarketingPage() {
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
                         <strong>Predictive Analytics:</strong> Trend analysis
-                        for capacity planning and resource optimization
+                        for capacity planning and resource optimisation
                       </span>
                     </div>
                   </div>
@@ -2402,446 +2402,288 @@ export default function MarketingPage() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
+            <Badge className="mb-4 text-white" style={{ backgroundColor: "#2460A9" }}>
+              <Building2 className="h-3 w-3 mr-1" />
+              UK Industries
+            </Badge>
             <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-6">
               Tailored for
               <span style={{ color: "#2460A9" }}> Your Industry</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              TPR Max adapts to serve diverse organizational needs with
-              industry-specific features, compliance requirements, and security
-              protocols that matter most to your sector.
+              TPR-Max is built around UK Health &amp; Safety legislation and the compliance challenges real British organisations face every day.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-12">
-            {/* Corporate Offices */}
-            <Card
-              className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl"
-              data-testid="card-corporate-offices"
-            >
+          <div className="grid md:grid-cols-2 gap-10">
+
+            {/* Construction & Civil Engineering */}
+            <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl" data-testid="card-construction">
               <div className="space-y-6">
                 <div className="flex items-center space-x-4">
-                  <div className="h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center">
-                    <Building2 className="h-8 w-8 text-white" />
+                  <div className="h-16 w-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <HardHat className="h-8 w-8 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-                      Corporate Offices
-                    </h3>
-                    <p className="text-lg text-slate-600 dark:text-slate-300">
-                      Professional visitor experience and executive efficiency
-                    </p>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Construction &amp; Civil Engineering</h3>
+                    <p className="text-slate-600 dark:text-slate-300">CDM 2015 compliance and site safety</p>
                   </div>
                 </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white">
-                    Key Challenges Solved:
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex items-start space-x-3">
-                      <UserX className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="space-y-3">
+                  {[
+                    { icon: FileCheck, colour: "text-orange-500", title: "CDM 2015 obligations", desc: "Manage F10 notifications, Principal Contractor duties, and the health &amp; safety file" },
+                    { icon: HardHat, colour: "text-red-500", title: "Sub-contractor compliance", desc: "CHAS, SafeContractor, CSCS card checks, and AI-powered site inductions" },
+                    { icon: FileText, colour: "text-blue-500", title: "RAMS management", desc: "Collect, review, and store Method Statements and Risk Assessments digitally" },
+                    { icon: Siren, colour: "text-red-600", title: "Emergency mustering on large sites", desc: "Real-time roll-call across multiple zones and welfare areas" },
+                  ].map(({ icon: Icon, colour, title, desc }) => (
+                    <div key={title} className="flex items-start space-x-3">
+                      <Icon className={`h-5 w-5 ${colour} flex-shrink-0 mt-0.5`} />
                       <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Unprofessional visitor experiences
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Eliminate paper logs and long wait times
-                        </p>
+                        <span className="font-medium text-slate-900 dark:text-white">{title}</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400" dangerouslySetInnerHTML={{ __html: desc }} />
                       </div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <TimerIcon className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Meeting room inefficiencies
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Optimize space utilization and booking conflicts
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <TrendingDown className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Staff productivity losses
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Reduce administrative overhead and interruptions
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <ShieldCheck className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Security compliance gaps
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Meet corporate governance and audit requirements
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
-                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
-                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">
-                    Corporate Benefits:
-                  </h5>
+                <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
+                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Key Benefits:</h5>
                   <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
-                    <li>
-                      • Executive-level visitor experience with branded
-                      touchpoints
-                    </li>
-                    <li>• 60% faster meeting room turnover and utilization</li>
-                    <li>• Automated compliance reporting for audits</li>
-                    <li>
-                      • Integration with corporate calendars and directory
-                      systems
-                    </li>
+                    <li>• Full CDM 2015 compliance register with F10 notification tracking</li>
+                    <li>• Digital RAMS library — no more paper chasing</li>
+                    <li>• Instant site-wide emergency mustering for all workers and visitors</li>
+                    <li>• Contractor induction records held securely for HSE audit</li>
                   </ul>
                 </div>
-
-                <Button
-                  size="lg"
-                  onClick={() => scrollToSection("contact")}
-                  className="w-full text-white"
-                  style={{ backgroundColor: "#2460A9" }}
-                  data-testid="button-corporate-solution"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  See Corporate Solution
+                <Button size="lg" onClick={() => scrollToSection("contact")} className="w-full text-white bg-orange-600 hover:bg-orange-700" data-testid="button-construction-solution">
+                  <Mail className="h-4 w-4 mr-2" />Discuss Construction Requirements
                 </Button>
               </div>
             </Card>
 
-            {/* Manufacturing & Industrial */}
-            <Card
-              className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl"
-              data-testid="card-manufacturing-industrial"
-            >
+            {/* Manufacturing & Warehousing */}
+            <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl" data-testid="card-manufacturing-industrial">
               <div className="space-y-6">
                 <div className="flex items-center space-x-4">
-                  <div className="h-16 w-16 bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl flex items-center justify-center">
+                  <div className="h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                     <Factory className="h-8 w-8 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-                      Manufacturing & Industrial
-                    </h3>
-                    <p className="text-lg text-slate-600 dark:text-slate-300">
-                      Contractor safety and regulatory compliance
-                    </p>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Manufacturing &amp; Warehousing</h3>
+                    <p className="text-slate-600 dark:text-slate-300">Operational safety and regulatory compliance</p>
                   </div>
                 </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white">
-                    Key Challenges Solved:
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex items-start space-x-3">
-                      <HardHat className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="space-y-3">
+                  {[
+                    { icon: UserCheck, colour: "text-blue-500", title: "Contractor and visitor safety inductions", desc: "AI-powered inductions ensure every person on-site understands the hazards before they enter" },
+                    { icon: Wrench, colour: "text-green-500", title: "Planned Preventative Maintenance", desc: "Schedule and track PPM for plant, equipment, and facilities to meet HSE requirements" },
+                    { icon: Users, colour: "text-purple-500", title: "Lone worker monitoring", desc: "Track and protect lone workers across large warehouse and factory floors" },
+                    { icon: Siren, colour: "text-red-600", title: "Emergency evacuation", desc: "Instant mustering with Fire Marshal panels and real-time headcount" },
+                  ].map(({ icon: Icon, colour, title, desc }) => (
+                    <div key={title} className="flex items-start space-x-3">
+                      <Icon className={`h-5 w-5 ${colour} flex-shrink-0 mt-0.5`} />
                       <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Contractor safety verification
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Automate cert checks and safety inductions
-                        </p>
+                        <span className="font-medium text-slate-900 dark:text-white">{title}</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{desc}</p>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <FileCheck className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Compliance documentation
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          OSHA, MSHA, and industry-specific requirements
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <Siren className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Emergency response delays
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Instant personnel location and evacuation management
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <PoundSterling className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Insurance liability exposure
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Comprehensive audit trails and safety compliance
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
-                <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
-                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">
-                    Industrial Benefits:
-                  </h5>
+                <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Key Benefits:</h5>
                   <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
-                    <li>
-                      • 90% reduction in safety incidents through automated
-                      verification
-                    </li>
-                    <li>
-                      • Real-time emergency mustering for all site personnel
-                    </li>
-                    <li>
-                      • Automated OSHA and regulatory compliance reporting
-                    </li>
-                    <li>
-                      • Integration with existing safety management systems
-                    </li>
+                    <li>• Full audit trail of contractor compliance for HSE inspections</li>
+                    <li>• PPM schedules and completion records reduce equipment downtime</li>
+                    <li>• Real-time emergency mustering across all site zones</li>
+                    <li>• CHAS and SafeContractor compliance checks automated</li>
                   </ul>
                 </div>
-
-                <Button
-                  size="lg"
-                  onClick={() => scrollToSection("contact")}
-                  className="w-full text-white bg-orange-600 hover:bg-orange-700"
-                  data-testid="button-manufacturing-solution"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  See Industrial Solution
+                <Button size="lg" onClick={() => scrollToSection("contact")} className="w-full text-white" style={{ backgroundColor: "#2460A9" }} data-testid="button-manufacturing-solution">
+                  <Mail className="h-4 w-4 mr-2" />Discuss Manufacturing Requirements
                 </Button>
               </div>
             </Card>
 
-            {/* Healthcare Facilities */}
-            <Card
-              className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl"
-              data-testid="card-healthcare-facilities"
-            >
+            {/* NHS Trusts & Healthcare */}
+            <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl" data-testid="card-healthcare-facilities">
               <div className="space-y-6">
                 <div className="flex items-center space-x-4">
-                  <div className="h-16 w-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center">
+                  <div className="h-16 w-16 bg-gradient-to-br from-green-500 to-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                     <Stethoscope className="h-8 w-8 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-                      Healthcare Facilities
-                    </h3>
-                    <p className="text-lg text-slate-600 dark:text-slate-300">
-                      Patient safety and HIPAA compliance
-                    </p>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">NHS Trusts &amp; Healthcare</h3>
+                    <p className="text-slate-600 dark:text-slate-300">Patient safety, GDPR, and estates compliance</p>
                   </div>
                 </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white">
-                    Key Challenges Solved:
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex items-start space-x-3">
-                      <Heart className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div className="space-y-3">
+                  {[
+                    { icon: Heart, colour: "text-red-500", title: "Visitor access control", desc: "Manage access to wards, theatres, and sensitive areas with visitor pre-registration" },
+                    { icon: BadgeIcon, colour: "text-blue-500", title: "Contractor DBS and compliance", desc: "Verify DBS certificates, mandatory training, and contractor qualifications before site access" },
+                    { icon: Siren, colour: "text-red-600", title: "Fire and emergency mustering", desc: "Rapid patient and staff roll-call across multiple wards and departments" },
+                    { icon: Wrench, colour: "text-purple-500", title: "Estates PPM compliance", desc: "NHS estates planned maintenance schedules, completion records, and audit trails" },
+                  ].map(({ icon: Icon, colour, title, desc }) => (
+                    <div key={title} className="flex items-start space-x-3">
+                      <Icon className={`h-5 w-5 ${colour} flex-shrink-0 mt-0.5`} />
                       <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Patient visitor control
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Restrict access to sensitive areas and patient rooms
-                        </p>
+                        <span className="font-medium text-slate-900 dark:text-white">{title}</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{desc}</p>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <BadgeIcon className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Staff credentialing verification
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Automated license and certification validation
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <ShieldCheck className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Infection control protocols
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Contact tracing and health screening workflows
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <FileCheck className="h-5 w-5 text-purple-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          HIPAA compliance gaps
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Secure visitor logs and access audit trails
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
                 <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
-                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">
-                    Healthcare Benefits:
-                  </h5>
+                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Key Benefits:</h5>
                   <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
-                    <li>
-                      • HIPAA-compliant visitor management with secure data
-                      handling
-                    </li>
-                    <li>
-                      • Automated staff credential verification and renewal
-                      alerts
-                    </li>
-                    <li>• Real-time contact tracing for infection control</li>
-                    <li>
-                      • Integration with hospital access control and paging
-                      systems
-                    </li>
+                    <li>• GDPR-compliant visitor records with automatic data retention controls</li>
+                    <li>• Contractor compliance dashboard for Estates Managers</li>
+                    <li>• Emergency mustering across wards — know who is where instantly</li>
+                    <li>• NHS estates PPM tracking with completion evidence</li>
                   </ul>
                 </div>
-
-                <Button
-                  size="lg"
-                  onClick={() => scrollToSection("contact")}
-                  className="w-full text-white bg-green-600 hover:bg-green-700"
-                  data-testid="button-healthcare-solution"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  See Healthcare Solution
+                <Button size="lg" onClick={() => scrollToSection("contact")} className="w-full text-white bg-green-600 hover:bg-green-700" data-testid="button-healthcare-solution">
+                  <Mail className="h-4 w-4 mr-2" />Discuss Healthcare Requirements
                 </Button>
               </div>
             </Card>
 
-            {/* Educational Institutions */}
-            <Card
-              className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl"
-              data-testid="card-educational-institutions"
-            >
+            {/* Schools, Colleges & Universities */}
+            <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl" data-testid="card-educational-institutions">
               <div className="space-y-6">
                 <div className="flex items-center space-x-4">
-                  <div className="h-16 w-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center">
+                  <div className="h-16 w-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl flex items-center justify-center flex-shrink-0">
                     <GraduationCap className="h-8 w-8 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">
-                      Educational Institutions
-                    </h3>
-                    <p className="text-lg text-slate-600 dark:text-slate-300">
-                      Campus security and student safety
-                    </p>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Schools, Colleges &amp; Universities</h3>
+                    <p className="text-slate-600 dark:text-slate-300">Safeguarding, fire safety, and contractor compliance</p>
                   </div>
                 </div>
-
-                <div className="space-y-4">
-                  <h4 className="text-lg font-semibold text-slate-900 dark:text-white">
-                    Key Challenges Solved:
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="flex items-start space-x-3">
-                      <School className="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="space-y-3">
+                  {[
+                    { icon: ShieldCheck, colour: "text-purple-500", title: "Safeguarding and DBS compliance", desc: "Pre-screen all visitors and contractors against DBS requirements before they step on site" },
+                    { icon: UserX, colour: "text-red-500", title: "Unauthorised visitor prevention", desc: "Instant alerts for unrecognised visitors — protect pupils and students effectively" },
+                    { icon: HardHat, colour: "text-orange-500", title: "Contractor management", desc: "Manage maintenance, construction, and service contractors with inductions and RAMS" },
+                    { icon: Siren, colour: "text-red-600", title: "Fire evacuation and roll-call", desc: "Digital fire register for staff, pupils, and visitors — no more paper lists" },
+                  ].map(({ icon: Icon, colour, title, desc }) => (
+                    <div key={title} className="flex items-start space-x-3">
+                      <Icon className={`h-5 w-5 ${colour} flex-shrink-0 mt-0.5`} />
                       <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Campus security risks
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Control access to dormitories, labs, and facilities
-                        </p>
+                        <span className="font-medium text-slate-900 dark:text-white">{title}</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{desc}</p>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-3">
-                      <UserPlus className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Student and faculty tracking
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Attendance monitoring and location services
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <UserX className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Visitor screening challenges
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Background checks and restricted area access
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-start space-x-3">
-                      <Siren className="h-5 w-5 text-orange-500 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-medium text-slate-900 dark:text-white">
-                          Emergency response coordination
-                        </span>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          Campus-wide alerts and evacuation management
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                  ))}
                 </div>
-
                 <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
-                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">
-                    Educational Benefits:
-                  </h5>
+                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Key Benefits:</h5>
                   <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
-                    <li>
-                      • Campus-wide emergency notification and mustering system
-                    </li>
-                    <li>
-                      • Automated visitor screening with background check
-                      integration
-                    </li>
-                    <li>
-                      • Student attendance tracking and parent notification
-                    </li>
-                    <li>
-                      • Integration with existing student information systems
-                    </li>
+                    <li>• Digital visitor register with safeguarding checks — Ofsted ready</li>
+                    <li>• Instant fire evacuation roll-call for staff, pupils, and visitors</li>
+                    <li>• Contractor compliance records held securely on-platform</li>
+                    <li>• GDPR-compliant data handling for all site visitors</li>
                   </ul>
                 </div>
-
-                <Button
-                  size="lg"
-                  onClick={() => scrollToSection("contact")}
-                  className="w-full text-white bg-purple-600 hover:bg-purple-700"
-                  data-testid="button-educational-solution"
-                >
-                  <Eye className="h-4 w-4 mr-2" />
-                  See Educational Solution
+                <Button size="lg" onClick={() => scrollToSection("contact")} className="w-full text-white bg-purple-600 hover:bg-purple-700" data-testid="button-educational-solution">
+                  <Mail className="h-4 w-4 mr-2" />Discuss Education Requirements
                 </Button>
               </div>
             </Card>
+
+            {/* Facilities Management */}
+            <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl" data-testid="card-facilities-management">
+              <div className="space-y-6">
+                <div className="flex items-center space-x-4">
+                  <div className="h-16 w-16 bg-gradient-to-br from-teal-500 to-teal-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <Wrench className="h-8 w-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Facilities Management</h3>
+                    <p className="text-slate-600 dark:text-slate-300">Multi-site PPM, contractor control, and sustainability</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { icon: CalendarClock, colour: "text-teal-500", title: "Planned Preventative Maintenance", desc: "Schedule recurring maintenance tasks across multiple sites with completion records and evidence uploads" },
+                    { icon: FileText, colour: "text-blue-500", title: "Contractor RAMS and inductions", desc: "Ensure every visiting engineer or sub-contractor has the correct method statement on file" },
+                    { icon: Calendar, colour: "text-purple-500", title: "Room and resource booking", desc: "Manage meeting rooms, shared spaces, and equipment bookings across your estate" },
+                    { icon: Leaf, colour: "text-green-500", title: "CO₂ sustainability reporting", desc: "Track your organisation's carbon footprint with automated CO₂ data collection" },
+                  ].map(({ icon: Icon, colour, title, desc }) => (
+                    <div key={title} className="flex items-start space-x-3">
+                      <Icon className={`h-5 w-5 ${colour} flex-shrink-0 mt-0.5`} />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">{title}</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-4">
+                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Key Benefits:</h5>
+                  <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                    <li>• PPM scheduling and evidence records across all managed sites</li>
+                    <li>• One platform for contractors, visitors, and room bookings</li>
+                    <li>• CO₂ reporting to support Net Zero and sustainability targets</li>
+                    <li>• Full audit trail for client SLA reporting</li>
+                  </ul>
+                </div>
+                <Button size="lg" onClick={() => scrollToSection("contact")} className="w-full text-white bg-teal-600 hover:bg-teal-700" data-testid="button-fm-solution">
+                  <Mail className="h-4 w-4 mr-2" />Discuss FM Requirements
+                </Button>
+              </div>
+            </Card>
+
+            {/* Commercial Offices & Business Parks */}
+            <Card className="p-8 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm border-0 shadow-xl" data-testid="card-corporate-offices">
+              <div className="space-y-6">
+                <div className="flex items-center space-x-4">
+                  <div className="h-16 w-16 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                    <Building2 className="h-8 w-8 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Commercial Offices &amp; Business Parks</h3>
+                    <p className="text-slate-600 dark:text-slate-300">Professional visitor experience and fire safety compliance</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { icon: UserCheck, colour: "text-indigo-500", title: "Professional visitor management", desc: "Pre-registered arrivals, branded sign-in, instant photo ID badges — no more paper visitor books" },
+                    { icon: Calendar, colour: "text-blue-500", title: "Meeting room bookings", desc: "Self-service room and desk booking with real-time availability across all floors and buildings" },
+                    { icon: HardHat, colour: "text-orange-500", title: "Contractor access control", desc: "Manage maintenance contractors with digital inductions, permit-to-work, and RAMS sign-off" },
+                    { icon: Siren, colour: "text-red-600", title: "Fire evacuation compliance", desc: "Real-time fire register — know exactly who is in the building and who has evacuated" },
+                  ].map(({ icon: Icon, colour, title, desc }) => (
+                    <div key={title} className="flex items-start space-x-3">
+                      <Icon className={`h-5 w-5 ${colour} flex-shrink-0 mt-0.5`} />
+                      <div>
+                        <span className="font-medium text-slate-900 dark:text-white">{title}</span>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">{desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4">
+                  <h5 className="font-semibold text-slate-900 dark:text-white mb-2">Key Benefits:</h5>
+                  <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1">
+                    <li>• Digital visitor book — GDPR compliant, no paper required</li>
+                    <li>• Branded check-in experience for tenants and clients</li>
+                    <li>• Fire evacuation list always up-to-date and accessible on mobile</li>
+                    <li>• Contractor compliance for building management teams</li>
+                  </ul>
+                </div>
+                <Button size="lg" onClick={() => scrollToSection("contact")} className="w-full text-white bg-indigo-600 hover:bg-indigo-700" data-testid="button-corporate-solution">
+                  <Mail className="h-4 w-4 mr-2" />Discuss Office Requirements
+                </Button>
+              </div>
+            </Card>
+
           </div>
 
           {/* Industry CTA Section */}
           <div className="text-center mt-16 p-8 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-700 rounded-2xl border border-slate-200 dark:border-slate-600">
             <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">
-              Don't See Your Industry?
+              Don't See Your Sector?
             </h3>
             <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-2xl mx-auto">
-              TPR Max serves organizations across all sectors. Our flexible
-              platform adapts to your specific compliance requirements, security
-              protocols, and operational workflows.
+              TPR-Max serves organisations across all UK sectors — from local authorities and logistics to retail and leisure. Our flexible platform adapts to your specific compliance requirements, security protocols, and operational workflows.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
@@ -3154,7 +2996,7 @@ export default function MarketingPage() {
           {/* Bottom Bar */}
           <div className="border-t border-slate-800 pt-6 flex flex-col sm:flex-row justify-between items-center gap-2">
             <p className="text-slate-400 text-sm">
-              © 2025 ACS Safety & Security Ltd. All rights reserved.
+              © 2026 ACS Safety & Security Ltd. All rights reserved.
             </p>
             <p className="text-slate-500 text-xs">
               TPR-Max is a product of ACS Safety & Security Ltd, registered in England & Wales.
