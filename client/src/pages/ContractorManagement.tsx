@@ -369,6 +369,10 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   // Inline section editing state — tracks which section is being edited and its edits
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [sectionDraft, setSectionDraft] = useState<Record<string, any>>({});
+  const [showPdfFilterDialog, setShowPdfFilterDialog] = useState(false);
+  const [pdfStatusFilter, setPdfStatusFilter] = useState("all");
+  const [pdfFromDate, setPdfFromDate] = useState("");
+  const [pdfToDate, setPdfToDate] = useState("");
 
   const emptyForm = {
     companyId: "",
@@ -545,7 +549,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
               size="sm"
               variant="outline"
               className="whitespace-nowrap"
-              onClick={() => { window.open("/api/cdm/projects/export-pdf", "_blank"); }}
+              onClick={() => setShowPdfFilterDialog(true)}
             >
               <Download className="h-3.5 w-3.5 mr-1" />Export PDF
             </Button>
@@ -1313,6 +1317,70 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
             <Button variant="outline" onClick={() => setEditingProject(null)}>Cancel</Button>
             <Button onClick={() => editingProject && updateMutation.mutate({ id: editingProject.id, data: form })} disabled={updateMutation.isPending || !form.title} className="bg-amber-600 hover:bg-amber-700 text-white">
               {updateMutation.isPending ? "Saving…" : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* PDF Export Filter Dialog */}
+      <Dialog open={showPdfFilterDialog} onOpenChange={setShowPdfFilterDialog}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Export CDM Report as PDF</DialogTitle>
+            <DialogDescription>Optionally filter which projects are included in the report.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Project Status</Label>
+              <Select value={pdfStatusFilter} onValueChange={setPdfStatusFilter}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="planning">Planning</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="complete">Complete</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Start date from</Label>
+                <Input
+                  type="date"
+                  className="h-9 text-sm"
+                  value={pdfFromDate}
+                  onChange={e => setPdfFromDate(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium">Start date to</Label>
+                <Input
+                  type="date"
+                  className="h-9 text-sm"
+                  value={pdfToDate}
+                  onChange={e => setPdfToDate(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowPdfFilterDialog(false)}>Cancel</Button>
+            <Button
+              className="bg-amber-600 hover:bg-amber-700 text-white"
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (pdfStatusFilter && pdfStatusFilter !== "all") params.set("status", pdfStatusFilter);
+                if (pdfFromDate) params.set("from", pdfFromDate);
+                if (pdfToDate) params.set("to", pdfToDate);
+                const qs = params.toString();
+                window.open(`/api/cdm/projects/export-pdf${qs ? `?${qs}` : ""}`, "_blank");
+                setShowPdfFilterDialog(false);
+              }}
+            >
+              <Download className="h-3.5 w-3.5 mr-1.5" />Generate PDF
             </Button>
           </DialogFooter>
         </DialogContent>

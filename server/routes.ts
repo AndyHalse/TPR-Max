@@ -144,7 +144,7 @@ import { CustomerDatabaseService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
 import { db } from "./db";
-import { eq, and, sql, desc, inArray, gte, ne, isNotNull } from "drizzle-orm";
+import { eq, and, sql, desc, inArray, gte, lte, ne, isNotNull, SQL } from "drizzle-orm";
 import { Pool } from 'pg';
 import { websocketService } from "./websocketService";
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -28795,8 +28795,24 @@ This is an automated notification from your visitor management system.`;
         }
       }
 
+      // Parse optional filter query params
+      const statusFilter = typeof req.query.status === 'string' && req.query.status !== 'all' ? req.query.status : null;
+      const fromDate = typeof req.query.from === 'string' && req.query.from ? req.query.from : null;
+      const toDate = typeof req.query.to === 'string' && req.query.to ? req.query.to : null;
+
+      // Build WHERE conditions for cdmProjects
+      const filterConditions: SQL<boolean>[] = [];
+      if (statusFilter) filterConditions.push(eq(isolatedSchema.cdmProjects.status, statusFilter));
+      if (fromDate) filterConditions.push(gte(isolatedSchema.cdmProjects.startDate, fromDate));
+      if (toDate) filterConditions.push(lte(isolatedSchema.cdmProjects.startDate, toDate));
+
+      const projectsBaseQuery = db.select().from(isolatedSchema.cdmProjects);
+      const projectsFilteredQuery = filterConditions.length > 0
+        ? projectsBaseQuery.where(filterConditions.length === 1 ? filterConditions[0] : and(...filterConditions))
+        : projectsBaseQuery;
+
       const [projects, companies] = await Promise.all([
-        db.select().from(isolatedSchema.cdmProjects).orderBy(isolatedSchema.cdmProjects.createdAt),
+        projectsFilteredQuery.orderBy(isolatedSchema.cdmProjects.createdAt),
         db.select().from(isolatedSchema.contractorCompanies).orderBy(isolatedSchema.contractorCompanies.companyName),
       ]);
 
@@ -28958,6 +28974,7 @@ This is an automated notification from your visitor management system.`;
   <div class="report-header-left">
     <h1>CDM 2015 Compliance Register</h1>
     <p>Generated: ${new Date().toLocaleDateString("en-GB", { weekday: "long", year: "numeric", month: "long", day: "numeric" })} | Total Projects: ${projects.length} across ${grouped.size} contractor${grouped.size !== 1 ? "s" : ""}</p>
+    ${(statusFilter || fromDate || toDate) ? `<p style="margin-top:4px;color:#92400e;font-weight:600">Filter: ${[statusFilter ? `Status: ${statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)}` : null, fromDate ? `From: ${new Date(fromDate).toLocaleDateString("en-GB")}` : null, toDate ? `To: ${new Date(toDate).toLocaleDateString("en-GB")}` : null].filter(Boolean).join(" | ")}</p>` : ""}
   </div>
   <div class="report-header-right">
     ${resolvedLogoUrl ? `<img src="${esc(resolvedLogoUrl)}" alt="Company logo" />` : ""}
