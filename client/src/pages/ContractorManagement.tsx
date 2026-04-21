@@ -370,9 +370,35 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   const [editingSection, setEditingSection] = useState<string | null>(null);
   const [sectionDraft, setSectionDraft] = useState<Record<string, any>>({});
   const [showPdfFilterDialog, setShowPdfFilterDialog] = useState(false);
-  const [pdfStatusFilter, setPdfStatusFilter] = useState("all");
-  const [pdfFromDate, setPdfFromDate] = useState("");
-  const [pdfToDate, setPdfToDate] = useState("");
+
+  const loadPdfFilters = () => {
+    try {
+      const saved = localStorage.getItem("cdm_pdf_filter");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          status: parsed.status ?? "all",
+          fromDate: parsed.fromDate ?? "",
+          toDate: parsed.toDate ?? "",
+        };
+      }
+    } catch {}
+    return { status: "all", fromDate: "", toDate: "" };
+  };
+
+  const initialPdfFilters = loadPdfFilters();
+  const [pdfStatusFilter, setPdfStatusFilter] = useState(initialPdfFilters.status);
+  const [pdfFromDate, setPdfFromDate] = useState(initialPdfFilters.fromDate);
+  const [pdfToDate, setPdfToDate] = useState(initialPdfFilters.toDate);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "cdm_pdf_filter",
+        JSON.stringify({ status: pdfStatusFilter, fromDate: pdfFromDate, toDate: pdfToDate })
+      );
+    } catch {}
+  }, [pdfStatusFilter, pdfFromDate, pdfToDate]);
 
   const emptyForm = {
     companyId: "",
