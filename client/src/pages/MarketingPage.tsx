@@ -100,7 +100,6 @@ export default function MarketingPage() {
   const [company, setCompany] = useState("");
   const [phone, setPhone] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [videoPlaying, setVideoPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -185,285 +184,12 @@ export default function MarketingPage() {
   };
 
   const handleDownloadPdf = () => {
-    if (isGeneratingPdf) return;
-    setIsGeneratingPdf(true);
-
-    const features = [
-      {
-        title: "Real-Time Dashboard & Analytics",
-        badge: "Real-Time Operations",
-        badgeColor: "#2460A9",
-        description: "Transform complex personnel data into actionable insights. Our enterprise dashboard provides real-time oversight of all site activity, enabling informed decisions and proactive security management.",
-        bullets: [
-          "Live Personnel Count: Track all visitors, contractors, and staff on-site with real-time updates",
-          "Security Alerts: Immediate notifications for unauthorized access or compliance violations",
-          "Performance Metrics: Key insights on occupancy patterns, peak times, and facility utilisation",
-        ],
-        img: dashboardImg,
-      },
-      {
-        title: "Professional Reception & Visitor Management",
-        badge: "Visitor Excellence",
-        badgeColor: "#2460A9",
-        description: "Create exceptional first impressions with our comprehensive reception diary system. Streamline visitor scheduling, automate check-ins, and maintain complete visitor records for security and compliance.",
-        bullets: [
-          "Smart Scheduling: Pre-register visitors with automated email invitations and calendar integration",
-          "Express Check-In: Contactless visitor arrival with QR codes and digital signatures",
-          "Host Notifications: Instant alerts to hosts when visitors arrive with automated welcome protocols",
-        ],
-        img: visitorManagementImg,
-      },
-      {
-        title: "Meeting Room & Booking Management",
-        badge: "Resource Management",
-        badgeColor: "#2460A9",
-        description: "Streamline meeting room scheduling and resource allocation with an intuitive booking system. Eliminate double bookings, track room utilisation, and manage attendees with comprehensive availability checks.",
-        bullets: [
-          "Smart Booking: Visual room availability with conflict detection and instant confirmation",
-          "Attendee Management: Add staff attendees, send notifications, and track attendance for every booking",
-          "Utilisation Analytics: Track room usage patterns and occupancy rates to optimise your workspace",
-        ],
-        img: meetingRoomsImg,
-      },
-      {
-        title: "Staff & Personnel Management",
-        badge: "People Management",
-        badgeColor: "#2460A9",
-        description: "Comprehensive staff lifecycle management from onboarding to daily operations. Track departments, manage permissions, handle invitations, and maintain complete personnel records with role-based access control.",
-        bullets: [
-          "Department Management: Organize staff by department with role-based permissions and access levels",
-          "User Invitations: Streamlined onboarding with email invitations and self-service registration",
-          "Fire Marshal Designation: Auto-generate permanent Fire Marshal URLs for safety/security staff",
-        ],
-        img: staffManagementImg,
-      },
-      {
-        title: "Thermal ID Card & Pass Printing",
-        badge: "Professional ID Cards",
-        badgeColor: "#2460A9",
-        description: "Generate professional, branded ID passes with integrated QR codes for instant identification. Support for TEC/Toshiba and Zebra thermal printers ensures high-quality, durable passes printed on-demand.",
-        bullets: [
-          "Multi-Printer Support: Compatible with TEC/Toshiba and Zebra thermal printers via direct, browser, and Windows printing",
-          "QR Code Integration: Every pass includes a unique QR code for rapid check-in/out and security verification",
-          "Custom Branding: Full control over pass design including logos, colours, and information layout",
-        ],
-        img: thermalImg,
-      },
-      {
-        title: "Contractor Management & Compliance",
-        badge: "Contractor Safety",
-        badgeColor: "#2460A9",
-        description: "Enterprise-grade contractor management with automated compliance tracking. The red/yellow card system flags expired certifications and insurance, ensuring only properly qualified contractors access your site.",
-        bullets: [
-          "Red/Yellow Card System: Visual compliance alerts flagging expired certifications, insurance, and safety training",
-          "Certification Tracking: Automated monitoring of trade qualifications with expiry notifications",
-          "Company Management: Track contractor companies, workers, insurance, and compliance documents in one place",
-        ],
-        img: contractorManagementImg,
-      },
-      {
-        title: "AI-Powered Safety Inductions & Compliance",
-        badge: "AI-Powered Safety",
-        badgeColor: "#2460A9",
-        description: "Leverage artificial intelligence to create comprehensive safety induction materials. AI generates context-aware safety scripts, photorealistic workplace images, and professional narration for engaging training videos.",
-        bullets: [
-          "AI Script Generation: GPT-5 creates safety scripts tailored to your specific company requirements",
-          "AI Image Generation: Photorealistic, scene-specific workplace safety images for each training section",
-          "Professional Narration: AI-powered voice narration with role-specific voices for engaging content delivery",
-        ],
-        img: inductionsImg,
-      },
-      {
-        title: "Life-Saving Emergency Response System",
-        badge: "Emergency Mustering",
-        badgeColor: "#dc2626",
-        description: "When every second counts, TPR Max delivers instant accountability across your entire site. Zone-based evacuations with interactive floor plan mapping, Fire Marshal static URLs, targeted email alerts, and digital roll-call ensure complete personnel safety.",
-        bullets: [
-          "Zone-Based Evacuations: Up to 16 configurable evacuation zones with colour-coded markers and interactive floor plan placement",
-          "Interactive Zone Map: Drag-and-drop zone markers on your floor plan with real-time personnel counts per zone",
-          "Fire Marshal Static URLs: Permanent, bookmarkable links for Fire Marshals \u2014 works in emergencies AND peacetime monitoring",
-          "Self-Service Mark Safe: Personnel receive unique links via email to mark themselves safe during evacuations",
-          "Targeted Zone Alerts: Send evacuation emails only to personnel in affected zones \u2014 Fire Marshals always receive alerts",
-          "Digital Roll-Call: One-tap personnel accountability with zone filtering and missing person identification",
-          "Emergency Exports: Instant CSV exports for emergency services with complete personnel data and zone assignments",
-        ],
-        img: emergencyMusterImg,
-      },
-      {
-        title: "Smart Time & Attendance",
-        badge: "Automated Time Tracking",
-        badgeColor: "#2460A9",
-        description: "Eliminate manual timesheets with automated time tracking for all personnel. Accurate check-in/check-out records, shift management, and comprehensive attendance reporting ensure precise payroll and contractor billing.",
-        bullets: [
-          "Automated Tracking: Precise check-in/check-out timestamps with location verification and photo capture",
-          "Comprehensive Reports: Detailed attendance analytics with overtime calculations and absence tracking",
-          "Payroll Integration: Export-ready timesheets for seamless payroll processing and contractor invoicing",
-        ],
-        img: timeAttendanceImg,
-      },
-      {
-        title: "CO2 Sustainability Reporting",
-        badge: "Environmental Sustainability",
-        badgeColor: "#16a34a",
-        description: "Track and reduce your environmental impact with AI-powered carbon footprint analysis. Monitor contractor commute emissions, identify optimisation opportunities, and demonstrate your commitment to sustainability.",
-        bullets: [
-          "AI Distance Calculations: Intelligent UK postcode-to-postcode distance calculations with route type detection",
-          "Carbon Footprint Tracking: Detailed CO2 emissions analysis per contractor, per journey, with vehicle type considerations",
-          "Sustainability Scoring: Environmental impact ratings with industry benchmarking and improvement recommendations",
-          "ESG Reporting: Export-ready environmental reports for ESG compliance and stakeholder reporting",
-        ],
-      },
-      {
-        title: "Comprehensive Analytics & Reporting",
-        badge: "Business Intelligence",
-        badgeColor: "#2460A9",
-        description: "Transform personnel data into actionable business insights. Comprehensive reporting suite provides facility utilisation, security metrics, and compliance analytics to optimise operations and reduce costs.",
-        bullets: [
-          "Executive Dashboards: Real-time KPIs and performance metrics for management",
-          "Custom Reports: Automated report generation with flexible scheduling and formats",
-          "Predictive Analytics: Trend analysis for capacity planning and resource optimisation",
-        ],
-        img: reportsAnalyticsImg,
-      },
-      {
-        title: "RAMS Document Management",
-        badge: "Risk Assessment & Method Statements",
-        badgeColor: "#ea580c",
-        description: "Streamline contractor safety documentation with a complete Risk Assessment and Method Statement management system. Upload, review, approve, and track all RAMS documents with automated expiry alerts and a full audit trail.",
-        bullets: [
-          "Digital Upload: Contractors submit RAMS documents (PDF, Word, Excel) with drag-and-drop file upload",
-          "Approval Workflow: Site managers review, approve, or reject RAMS documents with comments and full history",
-          "Expiry Tracking: Automated alerts notify contractors and managers when documents are due for review",
-          "Worker Acknowledgements: Digital sign-off ensures every worker has read the RAMS before starting work",
-          "Full Audit Trail: Every action logged with timestamps and user details for complete accountability",
-          "Version Control: Track document revisions with version history, always using the latest approved RAMS",
-        ],
-      },
-      {
-        title: "CDM 2015 Construction Compliance",
-        badge: "CDM 2015 Regulations",
-        badgeColor: "#7c3aed",
-        description: "Full Construction Design & Management Regulations 2015 compliance built into your contractor management workflow. Manage duty-holder roles, track HSE F10 notifications, and maintain a complete project register with five-section compliance scoring across every construction project.",
-        bullets: [
-          "F10 HSE Notifications: Track notification status (pending/submitted) with HSE reference numbers and overdue alerts on the dashboard",
-          "Notifiability Calculator: Automatic YES/NO threshold determination — flags projects exceeding 30 working days (>20 workers) or 500 person-days",
-          "Five-Section Compliance Scoring: F10 · Construction Phase Plan · Pre-Construction Information · Health & Safety File · Welfare Arrangements — each section independently tracked with status, dates, and notes",
-          "Duty-Holder Register: Assign Principal Contractor and Principal Designer roles; record professional body memberships (RIBA, ARB, ICE, CIOB)",
-          "Contractor Accreditation Badges: Constructionline grade (Registered/Silver/Gold/Platinum), CHAS certification, and SMAS Worksafe status visible on every contractor profile",
-          "CDM Role Assignment: Mark contractors as Principal Contractor, Principal Designer, Contractor, or Designer directly on their company profile",
-          "Overdue F10 Indicator: Live badge in the header counts notifiable projects missing an F10 submission — clickable to jump straight to the CDM register",
-        ],
-      },
-    ];
-
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      toast({ title: "Please allow pop-ups", description: "Your browser blocked the PDF window. Allow pop-ups for this site and try again.", variant: "destructive" });
-      setIsGeneratingPdf(false);
-      return;
-    }
-
-    const featureHtml = features.map((f, i) => `
-      <div class="feature-section${i > 0 ? " page-break" : ""}">
-        <div class="feature-badge" style="background-color: ${f.badgeColor};">${f.badge}</div>
-        <h2 class="feature-title">${f.title}</h2>
-        <p class="feature-desc">${f.description}</p>
-        ${f.img ? `<img src="${f.img}" class="feature-img" alt="${f.title}" />` : ""}
-        <ul class="feature-list">
-          ${f.bullets.map(b => {
-            const colonIdx = b.indexOf(":");
-            if (colonIdx > 0) {
-              return `<li><strong>${b.substring(0, colonIdx)}:</strong>${b.substring(colonIdx + 1)}</li>`;
-            }
-            return `<li>${b}</li>`;
-          }).join("")}
-        </ul>
-      </div>
-    `).join("");
-
-    printWindow.document.write(`<!DOCTYPE html>
-<html>
-<head>
-  <title>TPR Max - Features Overview</title>
-  <style>
-    @page { margin: 15mm 12mm; size: A4; }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #1e293b; line-height: 1.5; }
-    .cover { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 90vh; text-align: center; page-break-after: always; }
-    .cover-logo { width: 80px; height: 80px; margin-bottom: 16px; }
-    .cover h1 { font-size: 42px; color: #2460A9; margin-bottom: 8px; }
-    .cover .subtitle { font-size: 20px; color: #64748b; margin-bottom: 32px; }
-    .cover .tagline { font-size: 16px; color: #475569; max-width: 600px; line-height: 1.6; margin-bottom: 40px; }
-    .cover .badges { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
-    .cover .badge-item { background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 16px; font-size: 13px; color: #475569; display: flex; align-items: center; gap: 6px; }
-    .cover .badge-item .dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
-    .toc { page-break-after: always; padding-top: 40px; }
-    .toc h2 { font-size: 28px; color: #2460A9; margin-bottom: 24px; border-bottom: 2px solid #2460A9; padding-bottom: 8px; }
-    .toc-list { list-style: none; counter-reset: toc-counter; }
-    .toc-list li { counter-increment: toc-counter; padding: 10px 0; border-bottom: 1px solid #e2e8f0; font-size: 15px; display: flex; align-items: center; gap: 12px; }
-    .toc-list li::before { content: counter(toc-counter, decimal-leading-zero); font-weight: 700; color: #2460A9; font-size: 18px; min-width: 30px; }
-    .page-break { page-break-before: always; }
-    .feature-section { padding-top: 20px; }
-    .feature-badge { display: inline-block; color: white; font-size: 11px; font-weight: 600; padding: 4px 12px; border-radius: 12px; margin-bottom: 8px; letter-spacing: 0.3px; }
-    .feature-title { font-size: 26px; color: #0f172a; margin-bottom: 10px; }
-    .feature-desc { font-size: 14px; color: #475569; margin-bottom: 16px; line-height: 1.6; }
-    .feature-img { width: 100%; max-height: 320px; object-fit: contain; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 16px; }
-    .feature-list { list-style: none; padding: 0; }
-    .feature-list li { padding: 6px 0 6px 20px; position: relative; font-size: 13px; color: #334155; line-height: 1.5; }
-    .feature-list li::before { content: "\\2713"; position: absolute; left: 0; color: #22c55e; font-weight: 700; }
-    .feature-list li strong { color: #0f172a; }
-    .footer-section { page-break-before: always; padding-top: 40px; text-align: center; }
-    .footer-section h2 { font-size: 28px; color: #2460A9; margin-bottom: 16px; }
-    .footer-section p { font-size: 15px; color: #475569; margin-bottom: 8px; }
-    .footer-section .company { margin-top: 40px; padding-top: 20px; border-top: 2px solid #e2e8f0; font-size: 13px; color: #94a3b8; }
-  </style>
-</head>
-<body>
-  <div class="cover">
-    <img src="${acsLogo}" class="cover-logo" alt="ACS Logo" />
-    <h1>TPR Max</h1>
-    <div class="subtitle">Total Personnel Register</div>
-    <div class="tagline">
-      Save lives with instant emergency accountability. TPR Max delivers complete personnel management 
-      combining critical Health & Safety mustering with visitor management, contractor compliance, 
-      AI-powered safety inductions, room booking, and staff time & attendance in one platform.
-    </div>
-    <div class="badges">
-      <div class="badge-item"><span class="dot"></span>ISO 27001 Certified</div>
-      <div class="badge-item"><span class="dot"></span>GDPR Compliant</div>
-      <div class="badge-item"><span class="dot"></span>SOC 2 Type II</div>
-      <div class="badge-item"><span class="dot"></span>24/7 Support</div>
-    </div>
-  </div>
-
-  <div class="toc">
-    <h2>Features Overview</h2>
-    <ol class="toc-list">
-      ${features.map(f => `<li>${f.title}</li>`).join("")}
-    </ol>
-  </div>
-
-  ${featureHtml}
-
-  <div class="footer-section">
-    <h2>Ready to Transform Your Personnel Management?</h2>
-    <p>Join hundreds of organisations using TPR Max for complete personnel oversight, compliance management, and emergency preparedness.</p>
-    <p style="margin-top: 20px; font-size: 18px; color: #2460A9; font-weight: 600;">Contact us for a demo today</p>
-    <div class="company">
-      <p><strong>ACS Safety & Security Ltd</strong></p>
-      <p>Wittas House, Two Rivers, Station Lane, Witney, OX28 4BH</p>
-      <p>Phone: +44 1344 771569</p>
-      <p style="margin-top: 8px;">&copy; ${new Date().getFullYear()} ACS Safety & Security Ltd. All rights reserved.</p>
-    </div>
-  </div>
-</body>
-</html>`);
-    printWindow.document.close();
-
-    setTimeout(() => {
-      printWindow.print();
-      setIsGeneratingPdf(false);
-    }, 1500);
+    const link = document.createElement("a");
+    link.href = "/tpr-max-brochure.pdf";
+    link.download = "TPR-Max-Brochure.pdf";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   return (
@@ -517,12 +243,11 @@ export default function MarketingPage() {
                 size="sm"
                 variant="outline"
                 onClick={handleDownloadPdf}
-                disabled={isGeneratingPdf}
                 className="border-[#2460A9] text-[#2460A9] hover:bg-[#2460A9] hover:text-white"
                 data-testid="button-download-pdf"
               >
                 <Download className="h-4 w-4 mr-1" />
-                {isGeneratingPdf ? "Generating..." : "Download PDF"}
+                Download PDF
               </Button>
               <Button
                 size="sm"
@@ -591,11 +316,10 @@ export default function MarketingPage() {
                   size="sm"
                   variant="outline"
                   onClick={() => { handleDownloadPdf(); setMobileMenuOpen(false); }}
-                  disabled={isGeneratingPdf}
                   className="w-full border-[#2460A9] text-[#2460A9] hover:bg-[#2460A9] hover:text-white"
                 >
                   <Download className="h-4 w-4 mr-1" />
-                  {isGeneratingPdf ? "Generating..." : "Download PDF"}
+                  Download PDF
                 </Button>
                 <Button
                   size="sm"
