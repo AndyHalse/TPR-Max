@@ -13161,6 +13161,17 @@ ${evacuationPhotosData.length > 0 ? `
         return res.status(400).json({ error: 'fileData, mimeType and documentType are required' });
       }
 
+      // Strict MIME allowlist — only PDF, JPEG, and PNG are supported
+      const allowedMimes = ['application/pdf', 'image/jpeg', 'image/png'];
+      if (!allowedMimes.includes(mimeType)) {
+        return res.status(400).json({ error: `Unsupported file type '${mimeType}'. Please upload a PDF, JPEG, or PNG.` });
+      }
+
+      // Reject payloads larger than ~10 MB (base64 adds ~33 % overhead so 13.3 MB base64 ≈ 10 MB file)
+      if (fileData.length > 13_500_000) {
+        return res.status(400).json({ error: 'File too large. Maximum supported size is 10 MB.' });
+      }
+
       const { scanDocumentWithAI } = await import('./openaiService');
       const buffer = Buffer.from(fileData, 'base64');
 
@@ -13179,16 +13190,26 @@ ${evacuationPhotosData.length > 0 ? `
         return res.status(422).json({ error: result.error || 'AI extraction failed', fields: result.fields });
       }
 
+      // Normalise expiryDate to YYYY-MM-DD — reject any value that cannot be parsed as a valid date
+      let { expiryDate, issuedBy, policyNumber } = result.fields;
+      if (expiryDate) {
+        const parsed = new Date(expiryDate);
+        if (isNaN(parsed.getTime())) {
+          expiryDate = null; // unparseable date — discard rather than surface garbage
+        } else {
+          expiryDate = parsed.toISOString().split('T')[0]; // normalise to YYYY-MM-DD
+        }
+      }
+
       // If every extracted field is null the document contained no recognisable data
-      const { expiryDate, issuedBy, policyNumber } = result.fields;
       if (!expiryDate && !issuedBy && !policyNumber) {
         return res.status(422).json({
           error: 'No recognisable data found. The document may not contain the expected fields, or the text may not be machine-readable.',
-          fields: result.fields,
+          fields: { expiryDate: null, issuedBy: null, policyNumber: null },
         });
       }
 
-      return res.json({ fields: result.fields });
+      return res.json({ fields: { expiryDate, issuedBy, policyNumber } });
     } catch (error) {
       console.error('❌ Document scan error:', error);
       return res.status(500).json({ error: 'Failed to scan document' });
