@@ -22,3 +22,6 @@ connect.sid
 
 # Security: Prevent user data and credentials from being committed
 data/
+# Generated temp files (runtime artefacts)
+/temp/*
+!/temp/.gitkeep
