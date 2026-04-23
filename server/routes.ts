@@ -28602,12 +28602,25 @@ This is an automated notification from your visitor management system.`;
       const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       // No document count cap on admin uploads — admins may attach additional documents beyond what contractors upload
+      const resolvedFileType = fileType || "other";
+      // If a replacement document with a new expiry date is being uploaded for the same file type,
+      // reset expiryAlertedAt on existing docs of that type so the cron can send a fresh alert
+      if (expiryDate && resolvedFileType !== "other") {
+        await custDb.update(isolatedSchema.ppmWorkOrderDocuments)
+          .set({ expiryAlertedAt: null })
+          .where(
+            and(
+              eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, id),
+              eq(isolatedSchema.ppmWorkOrderDocuments.fileType, resolvedFileType)
+            )
+          );
+      }
       const [doc] = await custDb.insert(isolatedSchema.ppmWorkOrderDocuments)
-        .values({ workOrderId: id, fileName, fileUrl, fileType: fileType || "other", uploadedBy: uploadedBy || req.user!.username, expiryDate: expiryDate || null, referenceNumber: referenceNumber || null, issuedBy: issuedBy || null })
+        .values({ workOrderId: id, fileName, fileUrl, fileType: resolvedFileType, uploadedBy: uploadedBy || req.user!.username, expiryDate: expiryDate || null, referenceNumber: referenceNumber || null, issuedBy: issuedBy || null, expiryAlertedAt: null })
         .returning();
       // If this looks like a certificate, mark work order as having cert uploaded
       const woDocUpdates: Record<string, unknown> = {};
-      if (fileType === "certificate") {
+      if (resolvedFileType === "certificate") {
         woDocUpdates.certificateUploadedAt = new Date();
       }
       // Clear missing-docs alert so the cron won't re-fire while docs exist
