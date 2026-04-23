@@ -18,7 +18,7 @@ import {
   CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
-  Layers, ChevronDown, ChevronRight,
+  Layers, ChevronDown, ChevronRight, Bell,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -107,6 +107,7 @@ interface PpmWorkOrderDocument {
   expiryDate?: string | null;
   referenceNumber?: string | null;
   issuedBy?: string | null;
+  expiryAlertedAt?: string | null;
   createdAt?: string | null;
 }
 
@@ -2074,6 +2075,11 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                               {doc.expiryDate && <span className={isExpired ? "text-red-600 dark:text-red-400 font-medium" : isExpiringSoon ? "text-amber-600 dark:text-amber-400 font-medium" : ""}>Expires: <span className={isExpired ? "text-red-700 dark:text-red-300" : isExpiringSoon ? "text-amber-700 dark:text-amber-300" : "text-foreground"}>{fmtDate(doc.expiryDate)}</span></span>}
                               {doc.referenceNumber && <span>Ref: <span className="text-foreground">{doc.referenceNumber}</span></span>}
                               {doc.issuedBy && <span>By: <span className="text-foreground">{doc.issuedBy}</span></span>}
+                              {doc.expiryDate && (
+                                doc.expiryAlertedAt
+                                  ? <span className="flex items-center gap-1 text-green-700 dark:text-green-400"><Bell className="h-3 w-3" />Notified: <span className="text-green-800 dark:text-green-300 font-medium">{fmtDate(doc.expiryAlertedAt)}</span></span>
+                                  : <span className="flex items-center gap-1 text-muted-foreground/70"><Bell className="h-3 w-3" />Pending notification</span>
+                              )}
                             </div>
                           )}
                         </div>
