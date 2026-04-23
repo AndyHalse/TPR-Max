@@ -30688,9 +30688,10 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
   // ── Nightly Contractor Document Expiry Cron ────────────────────────────────
   // Runs at midnight (00:00) Europe/London every night.
   // Scans all active contractor documents across all customers for those whose
-  // expiryDate has passed and have not yet triggered an alert (expiryAlertedAt IS NULL).
-  // Sends a single digest email to the admin and stamps expiryAlertedAt so the
-  // alert is never repeated for the same document instance.
+  // expiryDate has passed OR is within the next 30 days, and have not yet
+  // triggered an alert (expiryAlertedAt IS NULL).
+  // Sends a digest email to the admin with "Expired" and "Expiring Soon" sections,
+  // then stamps expiryAlertedAt so the alert is never repeated for the same document.
   {
     const rawHour = parseInt(process.env.CONTRACTOR_EXPIRY_ALERT_HOUR ?? "0", 10);
     const contractorExpiryAlertHour = isNaN(rawHour) || rawHour < 0 || rawHour > 23 ? 0 : rawHour;
@@ -30714,8 +30715,11 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
               continue;
             }
 
-            // Find active documents that have expired and not yet been alerted
-            const expiredDocs = await custDb.select({
+            // Find active documents that have already expired OR expire within 30 days,
+            // and have not yet been alerted (expiryAlertedAt IS NULL).
+            const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+            const allAlertDocs = await custDb.select({
               id: isolatedSchema.contractorDocuments.id,
               documentName: isolatedSchema.contractorDocuments.documentName,
               documentType: isolatedSchema.contractorDocuments.documentType,
@@ -30726,18 +30730,22 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
               .where(and(
                 eq(isolatedSchema.contractorDocuments.isActive, true),
                 isNotNull(isolatedSchema.contractorDocuments.expiryDate),
-                lt(isolatedSchema.contractorDocuments.expiryDate, now),
+                lte(isolatedSchema.contractorDocuments.expiryDate, thirtyDaysFromNow),
                 sql`${isolatedSchema.contractorDocuments.expiryAlertedAt} IS NULL`
               ));
 
-            if (expiredDocs.length === 0) {
-              console.log(`[Contractor Expiry Cron] No newly-expired contractor documents for customer ${customer.id}`);
+            if (allAlertDocs.length === 0) {
+              console.log(`[Contractor Expiry Cron] No newly-expired or expiring-soon contractor documents for customer ${customer.id}`);
               continue;
             }
 
+            // Split into already-expired and expiring soon
+            const expiredDocs = allAlertDocs.filter(d => d.expiryDate && new Date(d.expiryDate) < now);
+            const expiringSoonDocs = allAlertDocs.filter(d => d.expiryDate && new Date(d.expiryDate) >= now);
+
             // Enrich with contractor company / worker names
-            const companyIds = [...new Set(expiredDocs.map(d => d.companyId).filter((id): id is string => !!id))];
-            const workerIds = [...new Set(expiredDocs.map(d => d.workerId).filter((id): id is string => !!id))];
+            const companyIds = [...new Set(allAlertDocs.map(d => d.companyId).filter((id): id is string => !!id))];
+            const workerIds = [...new Set(allAlertDocs.map(d => d.workerId).filter((id): id is string => !!id))];
 
             const [companies, workers] = await Promise.all([
               companyIds.length > 0
@@ -30758,37 +30766,79 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
             const docTypeLabel = (t: string) =>
               t.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
 
-            const tableRows = expiredDocs.map(d => {
-              const entityName = d.workerId
-                ? (workerMap[d.workerId] ?? "Unknown Worker")
-                : d.companyId
-                  ? (companyMap[d.companyId] ?? "Unknown Company")
+            const buildTableRows = (docs: typeof allAlertDocs, dateColor: string) =>
+              docs.map(d => {
+                const entityName = d.workerId
+                  ? (workerMap[d.workerId] ?? "Unknown Worker")
+                  : d.companyId
+                    ? (companyMap[d.companyId] ?? "Unknown Company")
+                    : "—";
+                const dateStr = d.expiryDate
+                  ? new Date(d.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
                   : "—";
-              const expiredDate = d.expiryDate
-                ? new Date(d.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-                : "—";
-              return `<tr>
-                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${d.documentName}</td>
-                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${docTypeLabel(d.documentType)}</td>
-                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${entityName}</td>
-                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#dc2626;font-weight:600">${expiredDate}</td>
-              </tr>`;
-            }).join("");
+                return `<tr>
+                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${d.documentName}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${docTypeLabel(d.documentType)}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${entityName}</td>
+                  <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${dateColor};font-weight:600">${dateStr}</td>
+                </tr>`;
+              }).join("");
 
-            const textLines = expiredDocs.map(d => {
-              const entityName = d.workerId
-                ? (workerMap[d.workerId] ?? "Unknown Worker")
-                : d.companyId ? (companyMap[d.companyId] ?? "Unknown Company") : "—";
-              const expiredDate = d.expiryDate
-                ? new Date(d.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-                : "—";
-              return `- ${d.documentName} (${docTypeLabel(d.documentType)}) — ${entityName} — expired ${expiredDate}`;
-            }).join("\n");
+            const buildTextLines = (docs: typeof allAlertDocs, verb: string) =>
+              docs.map(d => {
+                const entityName = d.workerId
+                  ? (workerMap[d.workerId] ?? "Unknown Worker")
+                  : d.companyId ? (companyMap[d.companyId] ?? "Unknown Company") : "—";
+                const dateStr = d.expiryDate
+                  ? new Date(d.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                  : "—";
+                return `- ${d.documentName} (${docTypeLabel(d.documentType)}) — ${entityName} — ${verb} ${dateStr}`;
+              }).join("\n");
+
+            const tableHeader = (bgColor: string, lastColLabel: string) => `
+              <thead>
+                <tr style="background:${bgColor}">
+                  <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Document</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Type</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Contractor / Worker</th>
+                  <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">${lastColLabel}</th>
+                </tr>
+              </thead>`;
+
+            let htmlSections = "";
+            let textSections = "";
+
+            if (expiredDocs.length > 0) {
+              htmlSections += `
+                <h3 style="margin:16px 0 8px;color:#dc2626">Expired (${expiredDocs.length})</h3>
+                <p style="margin:0 0 8px;font-size:13px;color:#374151">These documents have already lapsed and require immediate renewal:</p>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 16px;font-size:14px">
+                  ${tableHeader("#fef2f2", "Expired On")}
+                  <tbody>${buildTableRows(expiredDocs, "#dc2626")}</tbody>
+                </table>`;
+              textSections += `EXPIRED (${expiredDocs.length}):\n${buildTextLines(expiredDocs, "expired")}\n\n`;
+            }
+
+            if (expiringSoonDocs.length > 0) {
+              htmlSections += `
+                <h3 style="margin:16px 0 8px;color:#d97706">Expiring Soon — within 30 days (${expiringSoonDocs.length})</h3>
+                <p style="margin:0 0 8px;font-size:13px;color:#374151">These documents will expire within the next 30 days — please arrange renewals in advance:</p>
+                <table style="width:100%;border-collapse:collapse;margin:0 0 16px;font-size:14px">
+                  ${tableHeader("#fffbeb", "Expires On")}
+                  <tbody>${buildTableRows(expiringSoonDocs, "#d97706")}</tbody>
+                </table>`;
+              textSections += `EXPIRING SOON — within 30 days (${expiringSoonDocs.length}):\n${buildTextLines(expiringSoonDocs, "expires")}\n\n`;
+            }
+
+            const totalCount = allAlertDocs.length;
+            const subjectParts: string[] = [];
+            if (expiredDocs.length > 0) subjectParts.push(`${expiredDocs.length} Expired`);
+            if (expiringSoonDocs.length > 0) subjectParts.push(`${expiringSoonDocs.length} Expiring Soon`);
 
             const emailSvc = new EmailService(customer.id);
             const sent = await emailSvc.sendEmail({
               to: adminEmail,
-              subject: `Contractor Alert: ${expiredDocs.length} Document${expiredDocs.length > 1 ? "s" : ""} Expired Overnight`,
+              subject: `Contractor Alert: ${subjectParts.join(", ")} Document${totalCount > 1 ? "s" : ""}`,
               companyName,
               html: `
                 <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
@@ -30796,18 +30846,8 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
                     <h2 style="margin:0">Contractor Document Expiry Alert — ${companyName}</h2>
                   </div>
                   <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
-                    <p style="margin-top:0">The following ${expiredDocs.length} contractor document${expiredDocs.length > 1 ? "s have" : " has"} expired and may require immediate renewal:</p>
-                    <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px">
-                      <thead>
-                        <tr style="background:#fef2f2">
-                          <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Document</th>
-                          <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Type</th>
-                          <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Contractor / Worker</th>
-                          <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Expired</th>
-                        </tr>
-                      </thead>
-                      <tbody>${tableRows}</tbody>
-                    </table>
+                    <p style="margin-top:0">The following contractor document${totalCount > 1 ? "s require" : " requires"} your attention:</p>
+                    ${htmlSections}
                     <p style="color:#6b7280;font-size:13px">Please log in to TPR-Max to review these documents and request updated copies from the relevant contractors.</p>
                   </div>
                   <div style="background:#f9fafb;padding:12px 20px;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 8px 8px;font-size:12px;color:#9ca3af">
@@ -30815,15 +30855,15 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
                   </div>
                 </div>
               `,
-              text: `Contractor Document Expiry Alert\n\nThe following ${expiredDocs.length} contractor document(s) expired overnight:\n\n${textLines}\n\nPlease log in to TPR-Max to review and action these documents.`,
+              text: `Contractor Document Expiry Alert\n\n${textSections}Please log in to TPR-Max to review and action these documents.`,
             });
 
             if (sent) {
-              const alertedIds = expiredDocs.map(d => d.id);
+              const alertedIds = allAlertDocs.map(d => d.id);
               await custDb.update(isolatedSchema.contractorDocuments)
                 .set({ expiryAlertedAt: new Date() })
                 .where(inArray(isolatedSchema.contractorDocuments.id, alertedIds));
-              console.log(`📧 [Contractor Expiry Cron] Digest sent for ${expiredDocs.length} expired document(s) (customer ${customer.id})`);
+              console.log(`📧 [Contractor Expiry Cron] Digest sent for ${expiredDocs.length} expired + ${expiringSoonDocs.length} expiring-soon document(s) (customer ${customer.id})`);
             }
           } catch (custErr) {
             console.error(`[Contractor Expiry Cron] Error processing customer ${customer.id}:`, custErr);
