@@ -141,7 +141,7 @@ import { CustomerDatabaseService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
 import { db } from "./db";
-import { eq, and, sql, desc, inArray, gte, lte, lt, ne, isNotNull, SQL } from "drizzle-orm";
+import { eq, and, sql, desc, inArray, gte, lte, lt, ne, isNotNull, isNull, SQL } from "drizzle-orm";
 import { Pool } from 'pg';
 import { websocketService } from "./websocketService";
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -13179,6 +13179,23 @@ ${evacuationPhotosData.length > 0 ? `
       
       console.log('✅ Document saved successfully:', newDocument.id);
 
+      // Reset expiryAlertedAt on any previous document of the same type for this worker
+      // so the nightly cron can alert on the new document's expiry date
+      if (documentType) {
+        try {
+          await db.update(isolatedSchema.contractorDocuments)
+            .set({ expiryAlertedAt: null })
+            .where(and(
+              eq(isolatedSchema.contractorDocuments.workerId, workerId),
+              eq(isolatedSchema.contractorDocuments.documentType, documentType),
+              isNotNull(isolatedSchema.contractorDocuments.expiryAlertedAt),
+              ne(isolatedSchema.contractorDocuments.id, newDocument.id)
+            ));
+        } catch (resetErr) {
+          console.error('⚠️ Failed to reset expiryAlertedAt on previous worker documents (continuing):', resetErr);
+        }
+      }
+
       // Audit trail — worker document uploaded
       try {
         const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
@@ -18796,6 +18813,24 @@ This is an automated notification from your visitor management system.`;
         isActive: true,
       }).returning();
 
+      // Reset expiryAlertedAt on any previous document of the same type for this company
+      // so the nightly cron can alert on the new document's expiry date
+      if (documentType) {
+        try {
+          await db.update(isolatedSchema.contractorDocuments)
+            .set({ expiryAlertedAt: null })
+            .where(and(
+              eq(isolatedSchema.contractorDocuments.companyId, companyId),
+              isNull(isolatedSchema.contractorDocuments.workerId),
+              eq(isolatedSchema.contractorDocuments.documentType, documentType),
+              isNotNull(isolatedSchema.contractorDocuments.expiryAlertedAt),
+              ne(isolatedSchema.contractorDocuments.id, document.id)
+            ));
+        } catch (resetErr) {
+          console.error('⚠️ Failed to reset expiryAlertedAt on previous company documents (continuing):', resetErr);
+        }
+      }
+
       // Audit trail — company document uploaded
       try {
         const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
@@ -18840,7 +18875,11 @@ This is an automated notification from your visitor management system.`;
 
       const updateData: any = { updatedAt: new Date() };
       if (normalizedUrl) updateData.documentUrl = normalizedUrl;
-      if (expiryDate !== undefined) updateData.expiryDate = expiryDate ? new Date(expiryDate) : null;
+      if (expiryDate !== undefined) {
+        updateData.expiryDate = expiryDate ? new Date(expiryDate) : null;
+        // Reset the alert stamp so the cron can alert on the new expiry date
+        updateData.expiryAlertedAt = null;
+      }
       if (issuedBy !== undefined) updateData.issuedBy = issuedBy;
       if (policyNumber !== undefined) updateData.policyNumber = policyNumber;
       if (status) updateData.status = status;
