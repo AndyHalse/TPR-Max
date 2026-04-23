@@ -233,6 +233,7 @@ export default function Contractors() {
   const [documentToDelete, setDocumentToDelete] = useState<any>(null);
   const [showDeleteDocumentConfirm, setShowDeleteDocumentConfirm] = useState(false);
   const [deleteComplianceConfirmed, setDeleteComplianceConfirmed] = useState(false);
+  const deleteDocumentConfirmedRef = useRef(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadDocumentType, setUploadDocumentType] = useState('');
   const [companyUploadFile, setCompanyUploadFile] = useState<File | null>(null);
@@ -2539,7 +2540,7 @@ export default function Contractors() {
           : '';
 
         return (
-          <Dialog open={showDeleteDocumentConfirm} onOpenChange={(open) => { setShowDeleteDocumentConfirm(open); if (!open) { setDocumentToDelete(null); setDeleteComplianceConfirmed(false); } }}>
+          <Dialog open={showDeleteDocumentConfirm} onOpenChange={(open) => { setShowDeleteDocumentConfirm(open); if (!open) { if (!deleteDocumentConfirmedRef.current) { setShowDocumentModal(true); } deleteDocumentConfirmedRef.current = false; setDocumentToDelete(null); setDeleteComplianceConfirmed(false); } }}>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-red-600">
@@ -2570,7 +2571,7 @@ export default function Contractors() {
                 </>
               )}
               <div className="flex justify-end gap-3 mt-4">
-                <Button variant="outline" onClick={() => { setShowDeleteDocumentConfirm(false); setDocumentToDelete(null); setDeleteComplianceConfirmed(false); }}>
+                <Button variant="outline" onClick={() => { setShowDeleteDocumentConfirm(false); setShowDocumentModal(true); setDocumentToDelete(null); setDeleteComplianceConfirmed(false); }}>
                   Cancel
                 </Button>
                 <Button
@@ -2578,6 +2579,7 @@ export default function Contractors() {
                   disabled={deleteCompanyDocumentMutation.isPending || (isSoleActiveDocument && !deleteComplianceConfirmed)}
                   onClick={() => {
                     if (documentToDelete && selectedContractor) {
+                      deleteDocumentConfirmedRef.current = true;
                       deleteCompanyDocumentMutation.mutate(documentToDelete.id);
                     }
                   }}
