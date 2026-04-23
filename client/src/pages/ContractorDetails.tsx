@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -63,6 +63,30 @@ export default function ContractorDetails() {
   const [uploading, setUploading] = useState(false);
   const [isScanningDoc, setIsScanningDoc] = useState(false);
   const [aiExtracted, setAiExtracted] = useState(false);
+
+  // Document detail modal state
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [selectedDocumentDetail, setSelectedDocumentDetail] = useState<{ doc: { key: string; name: string; basis: string; note: string; category: string; requiresExpiry: boolean }; uploaded: any } | null>(null);
+
+  // Delete document confirmation state
+  const [documentToDelete, setDocumentToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [showDeleteDocumentConfirm, setShowDeleteDocumentConfirm] = useState(false);
+  const deleteDocumentConfirmedRef = useRef(false);
+  const deleteInitiatedFromDetailRef = useRef(false);
+  const deleteConfirmCloseHandledRef = useRef(false);
+
+  const handleDeleteConfirmClose = (confirmed: boolean) => {
+    if (deleteConfirmCloseHandledRef.current) return;
+    deleteConfirmCloseHandledRef.current = true;
+    setShowDeleteDocumentConfirm(false);
+    if (!confirmed && deleteInitiatedFromDetailRef.current) {
+      setShowDocumentModal(true);
+    }
+    deleteDocumentConfirmedRef.current = false;
+    deleteInitiatedFromDetailRef.current = false;
+    setDocumentToDelete(null);
+    setTimeout(() => { deleteConfirmCloseHandledRef.current = false; }, 0);
+  };
 
   const [issuingCard, setIssuingCard] = useState(false);
   const [addingCertification, setAddingCertification] = useState(false);
@@ -1189,10 +1213,17 @@ export default function ContractorDetails() {
                             )}
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
-                            {uploaded?.documentUrl && (
-                              <a href={uploaded.documentUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-blue-600 hover:underline px-2 py-1 border border-blue-200 rounded">
-                                <Eye className="w-3 h-3" /> View
-                              </a>
+                            {uploaded && (
+                              <button
+                                className="inline-flex items-center gap-1 text-xs text-gray-600 hover:bg-gray-50 px-2 py-1 border border-gray-200 rounded font-medium"
+                                onClick={() => {
+                                  setSelectedDocumentDetail({ doc, uploaded });
+                                  setShowDocumentModal(true);
+                                }}
+                                title="View document details"
+                              >
+                                <Eye className="w-3 h-3" /> Details
+                              </button>
                             )}
                             {uploaded && uploaded.status === 'pending' && (
                               <button
@@ -1220,9 +1251,9 @@ export default function ContractorDetails() {
                               <button
                                 className="inline-flex items-center gap-1 text-xs text-red-600 hover:bg-red-50 px-2 py-1 border border-red-200 rounded font-medium disabled:opacity-50"
                                 onClick={() => {
-                                  if (window.confirm(`Delete "${doc.name}"? This cannot be undone.`)) {
-                                    deleteCompanyDocumentMutation.mutate(uploaded.id);
-                                  }
+                                  deleteInitiatedFromDetailRef.current = false;
+                                  setDocumentToDelete({ id: uploaded.id, name: doc.name });
+                                  setShowDeleteDocumentConfirm(true);
                                 }}
                                 disabled={deleteCompanyDocumentMutation.isPending}
                                 title="Delete this document"
@@ -2439,6 +2470,128 @@ export default function ContractorDetails() {
           <DialogFooter>
             <Button variant="outline" onClick={() => { setQrPassWorker(null); setQrPassData(null); }}>
               Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Detail Modal */}
+      <Dialog open={showDocumentModal} onOpenChange={setShowDocumentModal}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              {selectedDocumentDetail?.doc.name}
+            </DialogTitle>
+            <DialogDescription>
+              Document details and actions for this compliance document.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDocumentDetail && (
+            <div className="space-y-4 mt-2">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Status</p>
+                  <p className="mt-0.5 font-medium capitalize">{selectedDocumentDetail.uploaded.status}</p>
+                </div>
+                {selectedDocumentDetail.uploaded.expiryDate && (
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Expires</p>
+                    <p className="mt-0.5">{new Date(selectedDocumentDetail.uploaded.expiryDate).toLocaleDateString('en-GB')}</p>
+                  </div>
+                )}
+                {selectedDocumentDetail.uploaded.issuedBy && (
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Issued By</p>
+                    <p className="mt-0.5">{selectedDocumentDetail.uploaded.issuedBy}</p>
+                  </div>
+                )}
+                {selectedDocumentDetail.uploaded.policyNumber && (
+                  <div>
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Policy Number</p>
+                    <p className="mt-0.5">{selectedDocumentDetail.uploaded.policyNumber}</p>
+                  </div>
+                )}
+                {selectedDocumentDetail.uploaded.approvedBy && (
+                  <div className="col-span-2">
+                    <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Approved By</p>
+                    <p className="mt-0.5">{selectedDocumentDetail.uploaded.approvedBy} · {new Date(selectedDocumentDetail.uploaded.approvedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex flex-col gap-2 pt-2">
+                {selectedDocumentDetail.uploaded.documentUrl && (
+                  <Button variant="outline" className="w-full" onClick={() => window.open(selectedDocumentDetail.uploaded.documentUrl, '_blank')}>
+                    <Eye className="h-4 w-4 mr-2" /> View Document
+                  </Button>
+                )}
+                {selectedDocumentDetail.uploaded.status === 'pending' && (
+                  <Button
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => {
+                      approveDocumentMutation.mutate(selectedDocumentDetail.uploaded.id);
+                      setShowDocumentModal(false);
+                    }}
+                    disabled={approveDocumentMutation.isPending}
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-2" /> Approve Document
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                  onClick={() => {
+                    deleteInitiatedFromDetailRef.current = true;
+                    deleteDocumentConfirmedRef.current = false;
+                    setDocumentToDelete({ id: selectedDocumentDetail.uploaded.id, name: selectedDocumentDetail.doc.name });
+                    setShowDocumentModal(false);
+                    setShowDeleteDocumentConfirm(true);
+                  }}
+                  disabled={deleteCompanyDocumentMutation.isPending}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" /> Delete Document
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Document Confirmation Dialog */}
+      <Dialog
+        open={showDeleteDocumentConfirm}
+        onOpenChange={(open) => {
+          if (!open) handleDeleteConfirmClose(deleteDocumentConfirmedRef.current);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Document</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{documentToDelete?.name}</strong>? This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => handleDeleteConfirmClose(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteCompanyDocumentMutation.isPending}
+              onClick={() => {
+                if (documentToDelete) {
+                  deleteDocumentConfirmedRef.current = true;
+                  deleteCompanyDocumentMutation.mutate(documentToDelete.id, {
+                    onSuccess: () => handleDeleteConfirmClose(true),
+                    onError: () => { deleteDocumentConfirmedRef.current = false; }
+                  });
+                }
+              }}
+            >
+              {deleteCompanyDocumentMutation.isPending ? 'Deleting...' : 'Delete Document'}
             </Button>
           </DialogFooter>
         </DialogContent>
