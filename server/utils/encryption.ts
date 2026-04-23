@@ -122,7 +122,7 @@ export function getKeyLast4(apiKey: string, length: number = 4): string {
  * @param serviceType - The service type ('openai' or 'gemini')
  * @returns Boolean indicating if format is valid
  */
-export function validateApiKeyFormat(apiKey: string, serviceType: 'openai' | 'gemini'): boolean {
+export function validateApiKeyFormat(apiKey: string, serviceType: 'openai' | 'gemini' | 'claude'): boolean {
   if (!apiKey || typeof apiKey !== 'string') {
     return false;
   }
@@ -135,6 +135,9 @@ export function validateApiKeyFormat(apiKey: string, serviceType: 'openai' | 'ge
   } else if (serviceType === 'gemini') {
     // Gemini keys are typically 39 characters alphanumeric with dashes/underscores
     return trimmedKey.length >= 20 && /^[A-Za-z0-9_-]+$/.test(trimmedKey);
+  } else if (serviceType === 'claude') {
+    // Anthropic Claude keys start with sk-ant-
+    return trimmedKey.startsWith('sk-ant-') && trimmedKey.length >= 20;
   }
   
   return false;

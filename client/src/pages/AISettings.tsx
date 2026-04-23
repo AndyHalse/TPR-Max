@@ -25,7 +25,8 @@ import {
   Zap,
   Activity,
   Lock,
-  Unlock
+  Unlock,
+  Sparkles
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,7 +34,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface ApiKeyStatus {
   id?: string;
-  serviceType: 'openai' | 'gemini';
+  serviceType: 'openai' | 'gemini' | 'claude';
   hasKey: boolean;
   last4: string;
   isActive: boolean;
@@ -53,14 +54,17 @@ export default function AISettings() {
   const { toast } = useToast();
   const [openaiKey, setOpenaiKey] = useState("");
   const [geminiKey, setGeminiKey] = useState("");
+  const [claudeKey, setClaudeKey] = useState("");
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [showClaudeKey, setShowClaudeKey] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
   // Fetch current API key status
   const { data: apiKeyStatus, isLoading } = useQuery<{
     openai: ApiKeyStatus;
     gemini: ApiKeyStatus;
+    claude: ApiKeyStatus;
   }>({
     queryKey: ["/api/settings/ai-keys"],
     refetchInterval: 300000, // Refresh every 5 minutes
@@ -68,7 +72,7 @@ export default function AISettings() {
 
   // Save API keys mutation
   const saveKeysMutation = useMutation({
-    mutationFn: async (data: { openaiKey?: string; geminiKey?: string }) => {
+    mutationFn: async (data: { openaiKey?: string; geminiKey?: string; claudeKey?: string }) => {
       const response = await apiRequest("PUT", "/api/settings/ai-keys", data);
       return response.json();
     },
@@ -81,6 +85,7 @@ export default function AISettings() {
       // Clear form inputs after successful save
       setOpenaiKey("");
       setGeminiKey("");
+      setClaudeKey("");
     },
     onError: (error: any) => {
       toast({
@@ -140,17 +145,42 @@ export default function AISettings() {
     },
   });
 
+  const testClaudeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/settings/ai-keys/test", {
+        serviceType: "claude",
+        tempKey: claudeKey || undefined,
+      });
+      return response.json();
+    },
+    onSuccess: (result: TestResult) => {
+      toast({
+        title: result.success ? "Claude Connection Successful" : "Claude Connection Failed",
+        description: result.message,
+        variant: result.success ? "default" : "destructive",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Claude Test Failed",
+        description: error.message || "Failed to test Claude connection.",
+        variant: "destructive",
+      });
+    },
+  });
+
   // Revoke API key mutation
   const revokeKeyMutation = useMutation({
-    mutationFn: async (serviceType: 'openai' | 'gemini') => {
+    mutationFn: async (serviceType: 'openai' | 'gemini' | 'claude') => {
       const response = await apiRequest("DELETE", `/api/settings/ai-keys/${serviceType}`);
       return response.json();
     },
     onSuccess: (_, serviceType) => {
       queryClient.invalidateQueries({ queryKey: ["/api/settings/ai-keys"] });
+      const label = serviceType === 'openai' ? 'OpenAI' : serviceType === 'gemini' ? 'Gemini' : 'Claude';
       toast({
         title: "API Key Revoked",
-        description: `Your ${serviceType === 'openai' ? 'OpenAI' : 'Gemini'} API key has been securely removed.`,
+        description: `Your ${label} API key has been securely removed.`,
       });
     },
     onError: (error: any) => {
@@ -163,9 +193,10 @@ export default function AISettings() {
   });
 
   const handleSaveKeys = () => {
-    const data: { openaiKey?: string; geminiKey?: string } = {};
+    const data: { openaiKey?: string; geminiKey?: string; claudeKey?: string } = {};
     if (openaiKey.trim()) data.openaiKey = openaiKey.trim();
     if (geminiKey.trim()) data.geminiKey = geminiKey.trim();
+    if (claudeKey.trim()) data.claudeKey = claudeKey.trim();
     
     if (Object.keys(data).length === 0) {
       toast({
@@ -204,15 +235,15 @@ export default function AISettings() {
     }
   };
 
-  const validateApiKey = (key: string, type: 'openai' | 'gemini'): boolean => {
+  const validateApiKey = (key: string, type: 'openai' | 'gemini' | 'claude'): boolean => {
     if (!key.trim()) return false;
     
     if (type === 'openai') {
-      // OpenAI keys start with sk- and are typically 48+ characters
       return key.startsWith('sk-') && key.length >= 20;
     } else if (type === 'gemini') {
-      // Gemini keys are typically 39 characters alphanumeric
       return key.length >= 20 && /^[A-Za-z0-9_-]+$/.test(key);
+    } else if (type === 'claude') {
+      return key.startsWith('sk-ant-') && key.length >= 20;
     }
     
     return false;
@@ -268,6 +299,10 @@ export default function AISettings() {
             <TabsTrigger value="gemini" data-testid="tab-gemini">
               <Brain className="h-4 w-4 mr-2" />
               Gemini
+            </TabsTrigger>
+            <TabsTrigger value="claude" data-testid="tab-claude">
+              <Sparkles className="h-4 w-4 mr-2" />
+              Claude
             </TabsTrigger>
           </TabsList>
 
@@ -434,6 +469,86 @@ export default function AISettings() {
                   )}
                 </CardContent>
               </GlassCard>
+
+              {/* Claude Status Card */}
+              <GlassCard>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Sparkles className="h-5 w-5 text-purple-500" />
+                      Claude
+                    </CardTitle>
+                    {getStatusBadge(apiKeyStatus?.claude || { serviceType: 'claude', hasKey: false, last4: '', isActive: false, lastUsed: null, usageCount: 0, status: 'inactive' })}
+                  </div>
+                  <CardDescription>
+                    Anthropic Claude for document scanning (fallback when OpenAI is unavailable)
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {apiKeyStatus?.claude?.hasKey ? (
+                    <>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600 dark:text-slate-400">API Key</span>
+                        <span className="font-mono" data-testid="claude-key-display">
+                          sk-ant-...{apiKeyStatus.claude.last4}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600 dark:text-slate-400">Last Used</span>
+                        <span data-testid="claude-last-used">
+                          {formatLastUsed(apiKeyStatus.claude.lastUsed)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600 dark:text-slate-400">Total Requests</span>
+                        <span data-testid="claude-usage-count">
+                          {apiKeyStatus.claude.usageCount?.toLocaleString() || 0}
+                        </span>
+                      </div>
+                      <div className="pt-2 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => testClaudeMutation.mutate()}
+                          disabled={testClaudeMutation.isPending}
+                          data-testid="button-test-claude"
+                        >
+                          {testClaudeMutation.isPending ? (
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <TestTube className="h-4 w-4 mr-2" />
+                          )}
+                          Test Connection
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => revokeKeyMutation.mutate('claude')}
+                          disabled={revokeKeyMutation.isPending}
+                          data-testid="button-revoke-claude"
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Revoke
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-4 text-slate-500 dark:text-slate-400">
+                      <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No API key configured</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => setActiveTab('claude')}
+                        data-testid="button-configure-claude"
+                      >
+                        Configure Claude Key
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </GlassCard>
             </div>
           </TabsContent>
 
@@ -510,7 +625,7 @@ export default function AISettings() {
                   </Button>
                   <Button
                     onClick={handleSaveKeys}
-                    disabled={(!openaiKey && !geminiKey) || saveKeysMutation.isPending}
+                    disabled={(!openaiKey && !geminiKey && !claudeKey) || saveKeysMutation.isPending}
                     data-testid="button-save-keys"
                   >
                     {saveKeysMutation.isPending ? (
@@ -607,7 +722,7 @@ export default function AISettings() {
                   </Button>
                   <Button
                     onClick={handleSaveKeys}
-                    disabled={(!openaiKey && !geminiKey) || saveKeysMutation.isPending}
+                    disabled={(!openaiKey && !geminiKey && !claudeKey) || saveKeysMutation.isPending}
                     data-testid="button-save-keys-gemini"
                   >
                     {saveKeysMutation.isPending ? (
@@ -625,6 +740,112 @@ export default function AISettings() {
                   <AlertDescription>
                     Get your Gemini API key from <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 dark:text-blue-400">Google AI Studio</a>. 
                     Your key will be encrypted and stored securely in your customer database.
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </GlassCard>
+          </TabsContent>
+
+          {/* Claude Tab */}
+          <TabsContent value="claude" className="space-y-6">
+            <GlassCard>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-purple-500" />
+                  Claude API Configuration
+                </CardTitle>
+                <CardDescription>
+                  Configure your Anthropic Claude API key. Claude is used as an automatic fallback for document scanning when OpenAI is unavailable or rate-limited.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Current Status */}
+                {apiKeyStatus?.claude?.hasKey && (
+                  <Alert data-testid="claude-current-status">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      Current key: <span className="font-mono">sk-ant-...{apiKeyStatus.claude.last4}</span> •{" "}
+                      Status: {getStatusBadge(apiKeyStatus.claude)} •{" "}
+                      Last used: {formatLastUsed(apiKeyStatus.claude.lastUsed)}
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                {/* API Key Input */}
+                <div className="space-y-2">
+                  <Label htmlFor="claude-key">Claude API Key</Label>
+                  <div className="relative">
+                    <Input
+                      id="claude-key"
+                      type={showClaudeKey ? "text" : "password"}
+                      value={claudeKey}
+                      onChange={(e) => setClaudeKey(e.target.value)}
+                      placeholder="sk-ant-..."
+                      className="pr-10"
+                      data-testid="input-claude-key"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowClaudeKey(!showClaudeKey)}
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      data-testid="button-toggle-claude-visibility"
+                    >
+                      {showClaudeKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                  {claudeKey && !validateApiKey(claudeKey, 'claude') && (
+                    <p className="text-sm text-red-500 flex items-center gap-1" data-testid="claude-validation-error">
+                      <AlertTriangle className="h-4 w-4" />
+                      Invalid Claude API key format. Keys should begin with sk-ant-.
+                    </p>
+                  )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-2">
+                  <Button
+                    onClick={() => testClaudeMutation.mutate()}
+                    disabled={!claudeKey || !validateApiKey(claudeKey, 'claude') || testClaudeMutation.isPending}
+                    variant="outline"
+                    data-testid="button-test-claude-new"
+                  >
+                    {testClaudeMutation.isPending ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <TestTube className="h-4 w-4 mr-2" />
+                    )}
+                    Test Key
+                  </Button>
+                  <Button
+                    onClick={handleSaveKeys}
+                    disabled={(!openaiKey && !geminiKey && !claudeKey) || saveKeysMutation.isPending}
+                    data-testid="button-save-keys-claude"
+                  >
+                    {saveKeysMutation.isPending ? (
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Lock className="h-4 w-4 mr-2" />
+                    )}
+                    Save Encrypted
+                  </Button>
+                </div>
+
+                {/* Help Text */}
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    Get your Claude API key from{" "}
+                    <a
+                      href="https://console.anthropic.com/settings/keys"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline text-blue-600 dark:text-blue-400"
+                    >
+                      Anthropic Console
+                    </a>
+                    . When configured, Claude (claude-3-5-sonnet) automatically takes over document
+                    scanning if OpenAI fails or hits rate limits. Your key will be encrypted and
+                    stored securely.
                   </AlertDescription>
                 </Alert>
               </CardContent>

@@ -11038,6 +11038,7 @@ ${evacuationPhotosData.length > 0 ? `
       // Format response with masked keys and status info
       const openaiKey = apiKeys.find(key => key.serviceType === 'openai');
       const geminiKey = apiKeys.find(key => key.serviceType === 'gemini');
+      const claudeKey = apiKeys.find(key => key.serviceType === 'claude');
       
       const formatKeyStatus = (key: any) => {
         if (!key) {
@@ -11064,7 +11065,8 @@ ${evacuationPhotosData.length > 0 ? `
 
       res.json({
         openai: { serviceType: 'openai', ...formatKeyStatus(openaiKey) },
-        gemini: { serviceType: 'gemini', ...formatKeyStatus(geminiKey) }
+        gemini: { serviceType: 'gemini', ...formatKeyStatus(geminiKey) },
+        claude: { serviceType: 'claude', ...formatKeyStatus(claudeKey) },
       });
     } catch (error) {
       console.error("Error fetching AI keys:", error);
@@ -11074,7 +11076,7 @@ ${evacuationPhotosData.length > 0 ? `
 
   app.put("/api/settings/ai-keys", requireAuth, async (req, res) => {
     try {
-      const { openaiKey, geminiKey } = req.body;
+      const { openaiKey, geminiKey, claudeKey } = req.body;
       
       // FIXED: Get customer context using authenticated session customerId
       if (!req.session?.customerId) {
@@ -11160,6 +11162,39 @@ ${evacuationPhotosData.length > 0 ? `
         const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
         results.push({ service: 'gemini', success: true, id: savedKey.id });
       }
+
+      // Process Claude key if provided
+      if (claudeKey && claudeKey.trim()) {
+        if (!validateApiKeyFormat(claudeKey, 'claude')) {
+          return res.status(400).json({ error: "Invalid Claude API key format. Claude keys begin with sk-ant-" });
+        }
+
+        const encrypted = encryptData(claudeKey);
+        const fingerprint = generateKeyFingerprint(claudeKey);
+        const last4 = getKeyLast4(claudeKey);
+
+        const existingKey = await databaseService.getApiKeyByFingerprint(context, fingerprint);
+        if (existingKey && existingKey.serviceType === 'claude') {
+          return res.status(400).json({ error: "This Claude key is already registered" });
+        }
+
+        const keyData = {
+          keyName: 'Claude API Key',
+          keyDescription: 'Anthropic Claude API key for document scanning and AI assistance',
+          serviceType: 'claude',
+          last4,
+          encryptedKey: encrypted.encryptedData,
+          initializationVector: encrypted.iv,
+          authTag: encrypted.authTag,
+          keyFingerprint: fingerprint,
+          status: 'active',
+          createdBy: req.user?.id || username,
+          decryptAuditLog: [generateAuditLogEntry('encrypt', req.user?.id || username, 'claude')]
+        };
+
+        const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
+        results.push({ service: 'claude', success: true, id: savedKey.id });
+      }
       
       res.json({ 
         success: true, 
@@ -11176,7 +11211,7 @@ ${evacuationPhotosData.length > 0 ? `
     try {
       const { serviceType, tempKey } = req.body;
       
-      if (!serviceType || !['openai', 'gemini'].includes(serviceType)) {
+      if (!serviceType || !['openai', 'gemini', 'claude'].includes(serviceType)) {
         return res.status(400).json({ error: "Invalid service type" });
       }
       
@@ -11261,6 +11296,33 @@ ${evacuationPhotosData.length > 0 ? `
           testResult = {
             success: false,
             message: `Gemini connection failed: ${error.message}`
+          };
+        }
+      } else if (serviceType === 'claude') {
+        // Test Claude API key by requesting a minimal message
+        try {
+          const Anthropic = (await import("@anthropic-ai/sdk")).default;
+          const anthropic = new Anthropic({ apiKey: testKey });
+
+          await anthropic.messages.create({
+            model: "claude-3-5-sonnet-20241022",
+            max_tokens: 10,
+            messages: [{ role: "user", content: "Say OK" }],
+          });
+
+          testResult = {
+            success: true,
+            message: "Claude connection successful. claude-3-5-sonnet is available.",
+            model: "claude-3-5-sonnet-20241022",
+          };
+
+          if (!tempKey) {
+            await databaseService.updateApiKeyLastUsed(context, serviceType);
+          }
+        } catch (error: any) {
+          testResult = {
+            success: false,
+            message: `Claude connection failed: ${error.message}`,
           };
         }
       }
@@ -13175,16 +13237,50 @@ ${evacuationPhotosData.length > 0 ? `
       const { scanDocumentWithAI } = await import('./openaiService');
       const buffer = Buffer.from(fileData, 'base64');
 
-      let result;
+      // Extract text from PDF once (used by both providers)
+      let pdfText: string | undefined;
       if (mimeType === 'application/pdf') {
         // Import the internal lib directly to avoid pdf-parse's self-test (index.js reads a test
         // file when module.parent is undefined, which is always the case under tsx/ESM).
         const pdfParse = (await import('pdf-parse/lib/pdf-parse.js')).default as (buf: Buffer) => Promise<{ text: string }>;
-        const { text: pdfText } = await pdfParse(buffer);
+        const { text } = await pdfParse(buffer);
+        pdfText = text;
+      }
+
+      // Try OpenAI first
+      let result;
+      if (pdfText !== undefined) {
         result = await scanDocumentWithAI({ mimeType, pdfText, documentType });
       } else {
-        // Image — send base64 directly to GPT-4o vision
         result = await scanDocumentWithAI({ mimeType, base64Data: fileData, documentType });
+      }
+
+      // If OpenAI fails, attempt Claude as fallback (if the customer has a Claude key configured)
+      if (!result.success && req.session?.customerId) {
+        try {
+          const { decryptData } = await import('./utils/encryption');
+          const context = { customerId: req.session.customerId };
+          const apiKeys = await databaseService.getCustomerApiKeys(context);
+          const claudeKeyRow = apiKeys.find((k: any) => k.serviceType === 'claude' && k.status === 'active');
+
+          if (claudeKeyRow) {
+            const claudeApiKey = decryptData(
+              claudeKeyRow.encryptedKey,
+              claudeKeyRow.initializationVector,
+              claudeKeyRow.authTag || ''
+            );
+            const { scanDocumentWithClaude } = await import('./claudeService');
+            console.log('⚠️ OpenAI scan failed — falling back to Claude:', result.error);
+            if (pdfText !== undefined) {
+              result = await scanDocumentWithClaude({ mimeType, pdfText, documentType, apiKey: claudeApiKey });
+            } else {
+              result = await scanDocumentWithClaude({ mimeType, base64Data: fileData, documentType, apiKey: claudeApiKey });
+            }
+          }
+        } catch (fallbackErr) {
+          console.error('❌ Claude fallback error:', fallbackErr);
+          // Keep the original OpenAI failure result
+        }
       }
 
       if (!result.success) {
