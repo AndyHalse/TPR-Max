@@ -1311,14 +1311,30 @@ export default function ContractorDetails() {
                       <div className={`h-2 rounded-full transition-all ${pct === 100 ? 'bg-green-500' : pct >= 60 ? 'bg-amber-500' : 'bg-red-500'}`} style={{ width: `${pct}%` }} />
                     </div>
                     {pct < 100 && missingCount > 0 && (
-                      <p className="text-xs text-gray-500 mt-1.5">
-                        {missingCount} document{missingCount > 1 ? 's' : ''} still need{missingCount === 1 ? 's' : ''} uploading to reach 100% compliance.
-                      </p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <p className="text-xs text-gray-500">
+                          {missingCount} document{missingCount > 1 ? 's' : ''} still need{missingCount === 1 ? 's' : ''} uploading to reach 100% compliance.
+                        </p>
+                        <button
+                          className="text-xs text-blue-600 underline underline-offset-2 hover:text-blue-800 whitespace-nowrap ml-3 shrink-0"
+                          onClick={() => setFilterMissing(true)}
+                        >
+                          View gaps →
+                        </button>
+                      </div>
                     )}
                     {pct < 100 && missingCount === 0 && expiredCount > 0 && (
-                      <p className="text-xs text-amber-600 mt-1.5">
-                        {expiredCount} document{expiredCount > 1 ? 's' : ''} {expiredCount === 1 ? 'has' : 'have'} expired — please renew to maintain compliance.
-                      </p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <p className="text-xs text-amber-600">
+                          {expiredCount} document{expiredCount > 1 ? 's' : ''} {expiredCount === 1 ? 'has' : 'have'} expired — please renew to maintain compliance.
+                        </p>
+                        <button
+                          className="text-xs text-blue-600 underline underline-offset-2 hover:text-blue-800 whitespace-nowrap ml-3 shrink-0"
+                          onClick={() => setFilterMissing(true)}
+                        >
+                          View gaps →
+                        </button>
+                      </div>
                     )}
                     {pct === 100 && (
                       <p className="text-xs text-green-600 mt-1.5">All required documents uploaded. Documents marked pending are awaiting admin review.</p>
