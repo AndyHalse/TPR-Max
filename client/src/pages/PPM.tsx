@@ -2379,6 +2379,9 @@ export default function PPM() {
   const [activeTab, setActiveTab] = useState("assets");
   const [woStatusFilter, setWoStatusFilter] = useState<string | undefined>(undefined);
 
+  const { data: companySettings } = useQuery<CompanySettings>({ queryKey: ["/api/settings"] });
+  const notificationsEnabled = companySettings?.notifyOnDocumentExpiry !== false;
+
   function handleSummaryClick(filter?: string) {
     setWoStatusFilter(filter);
     setActiveTab("work-orders");
@@ -2434,6 +2437,23 @@ export default function PPM() {
       </div>
 
       <DashboardSummary onWorkOrdersClick={handleSummaryClick} />
+
+      {!notificationsEnabled && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-4 py-3">
+          <BellOff className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">Automated notifications are currently disabled</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400">
+              The following alert types are suppressed until notifications are re-enabled:
+              overdue work order reminders, missing certificate alerts, missing document warnings, and document expiry notifications.{" "}
+              <Link href="/settings" className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-200">
+                Go to Notification Settings
+              </Link>{" "}
+              to turn them back on.
+            </p>
+          </div>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
