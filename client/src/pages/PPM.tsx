@@ -16,7 +16,7 @@ import {
   Wrench, Plus, Edit, Trash2, Copy, Building2, ClipboardList, CalendarClock,
   CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
-  Download, Upload, Mail, RefreshCw, Eye, Sparkles,
+  Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -99,6 +99,15 @@ interface ContractorCompany {
   name: string;
   email?: string | null;
   contactEmail?: string | null;
+  contactPhone?: string | null;
+  contactFirstName?: string | null;
+  contactLastName?: string | null;
+  address?: string | null;
+  postcode?: string | null;
+  industry?: string | null;
+  status?: string | null;
+  companyNumber?: string | null;
+  website?: string | null;
 }
 
 interface ContractorWorker {
@@ -107,6 +116,11 @@ interface ContractorWorker {
   firstName: string;
   lastName: string;
   email?: string | null;
+  phone?: string | null;
+  cscsCard?: string | null;
+  cscsStatus?: string | null;
+  rightToWork?: string | null;
+  postcode?: string | null;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -879,6 +893,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   const [contractorLink, setContractorLink] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
   const [showEditWO, setShowEditWO] = useState(false);
+  const [contractorDetailTarget, setContractorDetailTarget] = useState<{ type: 'company' | 'worker'; workOrder: PpmWorkOrder } | null>(null);
 
   // Create form
   const emptyWOForm = () => ({
@@ -941,6 +956,20 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
       return res.json();
     },
   });
+
+  const detailWorkerId = contractorDetailTarget?.type === 'worker' ? contractorDetailTarget.workOrder.contractorWorkerId : null;
+  const { data: detailWorker, isLoading: isDetailWorkerLoading } = useQuery<ContractorWorker>({
+    queryKey: ["/api/contractors/workers", detailWorkerId],
+    enabled: !!detailWorkerId,
+    queryFn: async () => {
+      const res = await fetch(`/api/contractors/workers/${detailWorkerId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Worker not found");
+      return res.json();
+    },
+  });
+  const detailCompany = contractorDetailTarget?.type === 'company'
+    ? contractors.find(c => c.id === contractorDetailTarget.workOrder.contractorCompanyId) ?? null
+    : null;
 
   const createWOMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/work-orders", data),
@@ -1163,6 +1192,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                 <th className="text-left px-3 py-2 font-medium">Status</th>
                 <th className="text-left px-3 py-2 font-medium hidden sm:table-cell">Due</th>
                 <th className="text-left px-3 py-2 font-medium hidden lg:table-cell">Contractor</th>
+                <th className="text-left px-3 py-2 font-medium hidden xl:table-cell">Worker</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -1181,8 +1211,19 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                   <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{assetName(wo.assetId)}</td>
                   <td className="px-3 py-2.5"><WOStatusBadge status={wo.status} /></td>
                   <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{fmtDate(wo.dueDate)}</td>
-                  <td className="px-3 py-2.5 text-muted-foreground hidden lg:table-cell truncate max-w-[150px]">
-                    {wo.contractorWorkerName || wo.contractorCompanyName || "—"}
+                  <td className="px-3 py-2.5 hidden lg:table-cell max-w-[150px]">
+                    {wo.contractorCompanyName ? (
+                      <button className="text-blue-600 dark:text-blue-400 hover:underline text-left text-sm truncate max-w-[140px] block" onClick={e => { e.stopPropagation(); setContractorDetailTarget({ type: 'company', workOrder: wo }); }}>
+                        {wo.contractorCompanyName}
+                      </button>
+                    ) : <span className="text-muted-foreground text-sm">—</span>}
+                  </td>
+                  <td className="px-3 py-2.5 hidden xl:table-cell max-w-[150px]">
+                    {wo.contractorWorkerName ? (
+                      <button className="text-blue-600 dark:text-blue-400 hover:underline text-left text-sm truncate max-w-[140px] block" onClick={e => { e.stopPropagation(); setContractorDetailTarget({ type: 'worker', workOrder: wo }); }}>
+                        {wo.contractorWorkerName}
+                      </button>
+                    ) : <span className="text-muted-foreground text-sm">—</span>}
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-1">
@@ -1206,6 +1247,121 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
           </table>
         </div>
       )}
+
+      {/* Contractor / Worker Detail Dialog */}
+      <Dialog open={!!contractorDetailTarget} onOpenChange={open => { if (!open) setContractorDetailTarget(null); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {contractorDetailTarget?.type === 'company'
+                ? <><Building2 className="h-4 w-4 text-blue-600" />Contractor Company</>
+                : <><User className="h-4 w-4 text-indigo-600" />Worker Details</>
+              }
+            </DialogTitle>
+          </DialogHeader>
+
+          {contractorDetailTarget?.type === 'company' && (
+            <div className="space-y-3 text-sm">
+              <p className="font-semibold text-base">{contractorDetailTarget.workOrder.contractorCompanyName}</p>
+              {detailCompany ? (
+                <>
+                  {(detailCompany.contactFirstName || detailCompany.contactLastName) && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <User className="h-3.5 w-3.5 shrink-0" />
+                      <span>{[detailCompany.contactFirstName, detailCompany.contactLastName].filter(Boolean).join(" ")}</span>
+                    </div>
+                  )}
+                  {(detailCompany.contactEmail || detailCompany.email) && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <a href={`mailto:${detailCompany.contactEmail || detailCompany.email}`} className="hover:underline text-blue-600">{detailCompany.contactEmail || detailCompany.email}</a>
+                    </div>
+                  )}
+                  {detailCompany.contactPhone && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5 shrink-0" />
+                      <a href={`tel:${detailCompany.contactPhone}`} className="hover:underline">{detailCompany.contactPhone}</a>
+                    </div>
+                  )}
+                  {(detailCompany.address || detailCompany.postcode) && (
+                    <div className="flex items-start gap-2 text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                      <span>{[detailCompany.address, detailCompany.postcode].filter(Boolean).join(", ")}</span>
+                    </div>
+                  )}
+                  {detailCompany.website && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Globe className="h-3.5 w-3.5 shrink-0" />
+                      <a href={detailCompany.website} target="_blank" rel="noopener noreferrer" className="hover:underline text-blue-600 truncate">{detailCompany.website}</a>
+                    </div>
+                  )}
+                  {detailCompany.industry && (
+                    <div className="text-xs text-muted-foreground pt-1 border-t">Industry: {detailCompany.industry}</div>
+                  )}
+                  {detailCompany.status && (
+                    <Badge variant={detailCompany.status === 'approved' ? 'default' : 'secondary'} className="text-xs capitalize">{detailCompany.status}</Badge>
+                  )}
+                </>
+              ) : (
+                <p className="text-muted-foreground text-xs">No additional details available — contractor may have been entered manually.</p>
+              )}
+            </div>
+          )}
+
+          {contractorDetailTarget?.type === 'worker' && (
+            <div className="space-y-3 text-sm">
+              {isDetailWorkerLoading ? (
+                <div className="text-muted-foreground animate-pulse">Loading worker details…</div>
+              ) : detailWorker ? (
+                <>
+                  <p className="font-semibold text-base">{detailWorker.firstName} {detailWorker.lastName}</p>
+                  <p className="text-xs text-muted-foreground">{contractorDetailTarget.workOrder.contractorCompanyName}</p>
+                  {detailWorker.email && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <a href={`mailto:${detailWorker.email}`} className="hover:underline text-blue-600">{detailWorker.email}</a>
+                    </div>
+                  )}
+                  {detailWorker.phone && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5 shrink-0" />
+                      <a href={`tel:${detailWorker.phone}`} className="hover:underline">{detailWorker.phone}</a>
+                    </div>
+                  )}
+                  {detailWorker.postcode && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <MapPin className="h-3.5 w-3.5 shrink-0" />
+                      <span>{detailWorker.postcode}</span>
+                    </div>
+                  )}
+                  <div className="border-t pt-2 space-y-1">
+                    {detailWorker.cscsCard && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">CSCS Card</span>
+                        <span className="font-medium">{detailWorker.cscsCard}</span>
+                      </div>
+                    )}
+                    {detailWorker.cscsStatus && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">CSCS Status</span>
+                        <Badge variant={detailWorker.cscsStatus === 'valid' ? 'default' : 'secondary'} className="text-xs capitalize h-4">{detailWorker.cscsStatus}</Badge>
+                      </div>
+                    )}
+                    {detailWorker.rightToWork && (
+                      <div className="flex justify-between text-xs">
+                        <span className="text-muted-foreground">Right to Work</span>
+                        <Badge variant={detailWorker.rightToWork === 'verified' ? 'default' : 'secondary'} className="text-xs capitalize h-4">{detailWorker.rightToWork}</Badge>
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <p className="text-muted-foreground text-xs">Worker details not found — they may have been entered manually.</p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Create Work Order Dialog */}
       <Dialog open={showCreate} onOpenChange={setShowCreate}>
