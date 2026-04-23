@@ -91,6 +91,9 @@ interface PpmWorkOrderDocument {
   fileUrl: string;
   fileType?: string | null;
   uploadedBy?: string | null;
+  expiryDate?: string | null;
+  referenceNumber?: string | null;
+  issuedBy?: string | null;
   createdAt?: string | null;
 }
 
@@ -931,6 +934,21 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [docFileType, setDocFileType] = useState("other");
+  const [pendingDocFile, setPendingDocFile] = useState<File | null>(null);
+  const [isScanningDoc, setIsScanningDoc] = useState(false);
+  const [docAiExtracted, setDocAiExtracted] = useState(false);
+  const [docExpiryDate, setDocExpiryDate] = useState("");
+  const [docReferenceNumber, setDocReferenceNumber] = useState("");
+  const [docIssuedBy, setDocIssuedBy] = useState("");
+
+  useEffect(() => {
+    setPendingDocFile(null);
+    setDocAiExtracted(false);
+    setDocExpiryDate("");
+    setDocReferenceNumber("");
+    setDocIssuedBy("");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }, [selectedWO?.id]);
 
   // Data queries
   const { data: workOrders = [], isLoading: woLoading } = useQuery<PpmWorkOrder[]>({ queryKey: ["/api/ppm/work-orders"] });
@@ -1091,27 +1109,79 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
     } catch { /* non-critical — link simply won't be shown */ }
   }
 
-  async function handleDocUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  function handleDocFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (!file || !selectedWO) return;
+    if (!file) return;
+    setPendingDocFile(file);
+    setDocAiExtracted(false);
+    setDocExpiryDate("");
+    setDocReferenceNumber("");
+    setDocIssuedBy("");
+  }
+
+  async function scanPpmDocument() {
+    if (!pendingDocFile) return;
+    setIsScanningDoc(true);
+    setDocAiExtracted(false);
+    try {
+      const fileData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(pendingDocFile);
+      });
+      const response = await apiRequest('POST', '/api/contractors/documents/scan', {
+        fileData,
+        mimeType: pendingDocFile.type || 'application/octet-stream',
+        documentType: docFileType || 'other',
+      });
+      const data = await response.json();
+      const fields = data.fields as { expiryDate: string | null; issuedBy: string | null; policyNumber: string | null };
+      if (!docExpiryDate && fields.expiryDate) setDocExpiryDate(fields.expiryDate);
+      if (!docIssuedBy && fields.issuedBy) setDocIssuedBy(fields.issuedBy);
+      if (!docReferenceNumber && fields.policyNumber) setDocReferenceNumber(fields.policyNumber);
+      setDocAiExtracted(true);
+      toast({ title: 'Scan complete', description: 'Fields have been pre-filled — please verify before saving.' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unable to scan document';
+      toast({ title: 'Scan failed', description: msg, variant: 'destructive' });
+    } finally {
+      setIsScanningDoc(false);
+    }
+  }
+
+  async function handleDocUpload() {
+    if (!pendingDocFile || !selectedWO) return;
     setUploadingDoc(true);
     try {
-      const b64 = await fileToBase64(file);
-      const uploadRes = await apiRequest("POST", "/api/objects/upload", { data: b64, mimeType: file.type });
+      const b64 = await fileToBase64(pendingDocFile);
+      const uploadRes = await apiRequest("POST", "/api/objects/upload", { data: b64, mimeType: pendingDocFile.type });
       const { objectPath } = await uploadRes.json();
       await apiRequest("POST", `/api/ppm/work-orders/${selectedWO.id}/documents`, {
-        fileName: file.name, fileUrl: objectPath, fileType: docFileType, uploadedBy: "admin",
+        fileName: pendingDocFile.name, fileUrl: objectPath, fileType: docFileType, uploadedBy: "admin",
+        expiryDate: docExpiryDate || null,
+        referenceNumber: docReferenceNumber || null,
+        issuedBy: docIssuedBy || null,
       });
       refetchDocs();
       if (docFileType === "certificate") {
         queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
       }
       toast({ title: "Document uploaded" });
+      setPendingDocFile(null);
+      setDocAiExtracted(false);
+      setDocExpiryDate("");
+      setDocReferenceNumber("");
+      setDocIssuedBy("");
+      if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
       toastError(err, toast);
     } finally {
       setUploadingDoc(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   }
 
@@ -1669,56 +1739,139 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                   ) : (
                     <div className="space-y-1">
                       {woDocs.map(doc => (
-                        <div key={doc.id} className="flex items-center justify-between gap-2 rounded border px-2 py-1.5 text-xs">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                            <span className="truncate font-medium">{doc.fileName}</span>
-                            {doc.fileType && doc.fileType !== "other" && (
-                              <Badge variant="secondary" className="text-xs shrink-0">{doc.fileType}</Badge>
-                            )}
+                        <div key={doc.id} className="rounded border px-2 py-1.5 text-xs space-y-0.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                              <span className="truncate font-medium">{doc.fileName}</span>
+                              {doc.fileType && doc.fileType !== "other" && (
+                                <Badge variant="secondary" className="text-xs shrink-0">{doc.fileType}</Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <a href={doc.fileUrl} target="_blank" rel="noreferrer" title="View document" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
+                                <Eye className="h-3.5 w-3.5" />
+                              </a>
+                              <a href={doc.fileUrl} download={doc.fileName} target="_blank" rel="noreferrer" title="Download document" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
+                                <Download className="h-3.5 w-3.5" />
+                              </a>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                onClick={() => { if (confirm("Delete this document?")) deleteDocMutation.mutate({ woId: selectedWO.id, docId: doc.id }); }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <a href={doc.fileUrl} target="_blank" rel="noreferrer" title="View document" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
-                              <Eye className="h-3.5 w-3.5" />
-                            </a>
-                            <a href={doc.fileUrl} download={doc.fileName} target="_blank" rel="noreferrer" title="Download document" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
-                              <Download className="h-3.5 w-3.5" />
-                            </a>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              className="h-6 w-6 p-0 text-destructive hover:text-destructive"
-                              onClick={() => { if (confirm("Delete this document?")) deleteDocMutation.mutate({ woId: selectedWO.id, docId: doc.id }); }}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </div>
+                          {(doc.expiryDate || doc.referenceNumber || doc.issuedBy) && (
+                            <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground pl-5">
+                              {doc.expiryDate && <span>Expires: <span className="text-foreground">{fmtDate(doc.expiryDate)}</span></span>}
+                              {doc.referenceNumber && <span>Ref: <span className="text-foreground">{doc.referenceNumber}</span></span>}
+                              {doc.issuedBy && <span>By: <span className="text-foreground">{doc.issuedBy}</span></span>}
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   )}
                   {/* Upload */}
-                  <div className="flex items-center gap-2 pt-1">
-                    <Select value={docFileType} onValueChange={setDocFileType}>
-                      <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="certificate">Certificate</SelectItem>
-                        <SelectItem value="report">Report</SelectItem>
-                        <SelectItem value="photo">Photo</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 text-xs flex-1"
-                      disabled={uploadingDoc}
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      {uploadingDoc ? <RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Upload className="h-3.5 w-3.5 mr-1" />}
-                      {uploadingDoc ? "Uploading…" : "Upload Document"}
-                    </Button>
-                    <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleDocUpload} />
+                  <div className="space-y-2 pt-1">
+                    <div className="flex items-center gap-2">
+                      <Select value={docFileType} onValueChange={setDocFileType}>
+                        <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="certificate">Certificate</SelectItem>
+                          <SelectItem value="report">Report</SelectItem>
+                          <SelectItem value="photo">Photo</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-8 text-xs flex-1"
+                        disabled={uploadingDoc || isScanningDoc}
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="h-3.5 w-3.5 mr-1" />
+                        {pendingDocFile ? "Change File" : "Choose File"}
+                      </Button>
+                      <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={handleDocFileSelect} />
+                    </div>
+                    {pendingDocFile && (
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+                            Selected: <span className="font-medium text-foreground">{pendingDocFile.name}</span>
+                          </p>
+                          {/\.(pdf|jpg|jpeg|png)$/i.test(pendingDocFile.name) && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs text-purple-700 border-purple-300 hover:bg-purple-50 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-950 shrink-0"
+                              disabled={isScanningDoc || uploadingDoc}
+                              onClick={scanPpmDocument}
+                            >
+                              {isScanningDoc ? (
+                                <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" />Scanning…</>
+                              ) : (
+                                <><Sparkles className="h-3.5 w-3.5 mr-1" />Scan with AI</>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Expiry Date (optional)</Label>
+                            <Input
+                              type="date"
+                              value={docExpiryDate}
+                              onChange={e => setDocExpiryDate(e.target.value)}
+                              className="h-7 text-xs"
+                              disabled={uploadingDoc}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Reference / Document No. (optional)</Label>
+                            <Input
+                              type="text"
+                              value={docReferenceNumber}
+                              onChange={e => setDocReferenceNumber(e.target.value)}
+                              className="h-7 text-xs"
+                              placeholder="e.g. CERT-12345"
+                              disabled={uploadingDoc}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs text-muted-foreground">Issued By (optional)</Label>
+                            <Input
+                              type="text"
+                              value={docIssuedBy}
+                              onChange={e => setDocIssuedBy(e.target.value)}
+                              className="h-7 text-xs"
+                              placeholder="e.g. SafeContractor"
+                              disabled={uploadingDoc}
+                            />
+                          </div>
+                        </div>
+                        {docAiExtracted && (
+                          <div className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-md px-3 py-2">
+                            <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                            AI-extracted — please verify the fields above before saving.
+                          </div>
+                        )}
+                        <Button
+                          size="sm"
+                          className="h-8 text-xs w-full"
+                          disabled={uploadingDoc || isScanningDoc}
+                          onClick={handleDocUpload}
+                        >
+                          {uploadingDoc ? <><RefreshCw className="h-3.5 w-3.5 mr-1 animate-spin" />Uploading…</> : <><Upload className="h-3.5 w-3.5 mr-1" />Upload Document</>}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </div>
 

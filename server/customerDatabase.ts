@@ -432,8 +432,18 @@ export class CustomerDatabaseService {
           file_url TEXT NOT NULL,
           file_type TEXT,
           uploaded_by TEXT,
+          expiry_date TEXT,
+          reference_number TEXT,
+          issued_by TEXT,
           created_at TIMESTAMP DEFAULT NOW()
         )
+      `);
+      // Add AI-scan metadata columns to ppm_work_order_documents (added in Task #47)
+      await pool.query(`
+        ALTER TABLE IF EXISTS "${schemaName}".ppm_work_order_documents
+        ADD COLUMN IF NOT EXISTS expiry_date TEXT,
+        ADD COLUMN IF NOT EXISTS reference_number TEXT,
+        ADD COLUMN IF NOT EXISTS issued_by TEXT
       `);
       // Add accessTokenExpiresAt column if missing (added in Task #9 update)
       await pool.query(`

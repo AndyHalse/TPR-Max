@@ -28151,7 +28151,7 @@ This is an automated notification from your visitor management system.`;
     try {
       if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
       const { id } = req.params;
-      const { fileName, fileUrl, fileType, uploadedBy } = req.body;
+      const { fileName, fileUrl, fileType, uploadedBy, expiryDate, referenceNumber, issuedBy } = req.body;
       if (!fileName || !fileUrl) return res.status(400).json({ error: "fileName and fileUrl required" });
       // Only allow paths produced by the object storage upload endpoint
       if (typeof fileUrl !== "string" || !fileUrl.startsWith("/objects/")) {
@@ -28161,7 +28161,7 @@ This is an automated notification from your visitor management system.`;
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       // No document count cap on admin uploads — admins may attach additional documents beyond what contractors upload
       const [doc] = await custDb.insert(isolatedSchema.ppmWorkOrderDocuments)
-        .values({ workOrderId: id, fileName, fileUrl, fileType: fileType || "other", uploadedBy: uploadedBy || req.user!.username })
+        .values({ workOrderId: id, fileName, fileUrl, fileType: fileType || "other", uploadedBy: uploadedBy || req.user!.username, expiryDate: expiryDate || null, referenceNumber: referenceNumber || null, issuedBy: issuedBy || null })
         .returning();
       // If this looks like a certificate, mark work order as having cert uploaded
       const woDocUpdates: Record<string, unknown> = {};

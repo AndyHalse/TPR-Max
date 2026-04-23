@@ -2242,6 +2242,9 @@ export const ppmWorkOrderDocuments = pgTable("ppm_work_order_documents", {
   fileUrl: text("file_url").notNull(),
   fileType: text("file_type"),
   uploadedBy: text("uploaded_by"),
+  expiryDate: text("expiry_date"),
+  referenceNumber: text("reference_number"),
+  issuedBy: text("issued_by"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
