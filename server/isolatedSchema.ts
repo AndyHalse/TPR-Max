@@ -1597,6 +1597,7 @@ export const reports = pgTable("reports", {
   avgDuration: text("avg_duration").notNull().default("N/A"),
   emailSent: boolean("email_sent").default(false),
   emailSentAt: timestamp("email_sent_at"),
+  data: text("data"),
 });
 
 // Create insert schemas without customerId

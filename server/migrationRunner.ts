@@ -303,6 +303,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addClaudeModelMigration,
     addPpmDocScannedAtMigration,
     backfillPpmDocScannedAtMigration,
+    addReportsDataColumnMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -2082,6 +2083,19 @@ const backfillPpmDocScannedAtMigration: Migration = {
       console.log('✅ [042] ppm_work_order_documents legacy scanned_at backfill complete');
     } catch (err: any) {
       console.log(`⚠️ [042] scanned_at backfill: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+const addReportsDataColumnMigration: Migration = {
+  version: '20260423_043_add_reports_data_column',
+  description: 'Add data TEXT column to reports table to persist snapshot payloads (e.g. compliance_gap contractor list)',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS data TEXT`);
+      console.log('✅ [043] reports.data column ensured');
+    } catch (err: any) {
+      console.log(`⚠️ [043] reports.data column: ${err.message?.substring(0, 80)}`);
     }
   }
 };

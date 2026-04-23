@@ -13641,6 +13641,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       let totalVisitors = "0";
       let avgDuration = "N/A";
+      let snapshotData: string | null = null;
 
       if (['daily', 'weekly', 'monthly'].includes(reportType)) {
         const allVisitors = await databaseService.getAllVisitors(context);
@@ -13699,6 +13700,7 @@ ${evacuationPhotosData.length > 0 ? `
         });
         totalVisitors = `${companies.length} contractors`;
         avgDuration = `${withGaps.length} with gaps`;
+        snapshotData = JSON.stringify({ type: 'compliance_gap', companies });
       }
       
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -13711,6 +13713,7 @@ ${evacuationPhotosData.length > 0 ? `
           avgDuration,
           emailSent: false,
           emailSentAt: null,
+          ...(snapshotData ? { data: snapshotData } : {}),
         })
         .returning();
       
@@ -13788,8 +13791,12 @@ ${evacuationPhotosData.length > 0 ? `
         const fireMarshals = allStaff.filter(s => s.isFireMarshal);
         reportData = { type: 'evacuation_readiness', allStaff, fireMarshals, checkedInStaff, visitors: currentVisitors, contractors: checkedInContractors };
       } else if (report.reportType === 'compliance_gap') {
-        const companies = await databaseService.getAllContractorCompanies(context);
-        reportData = { type: 'compliance_gap', companies };
+        if (report.data) {
+          reportData = JSON.parse(report.data);
+        } else {
+          const companies = await databaseService.getAllContractorCompanies(context);
+          reportData = { type: 'compliance_gap', companies };
+        }
       } else {
         reportData = { type: 'visitor_log', visitors: allVisitors, checkedOutVisitors: allVisitors.filter(v => v.checkedOutAt), staff: allStaff };
       }
@@ -13908,8 +13915,12 @@ ${evacuationPhotosData.length > 0 ? `
           contractors: checkedInContractors,
         };
       } else if (report.reportType === 'compliance_gap') {
-        const companies = await databaseService.getAllContractorCompanies(context);
-        reportData = { type: 'compliance_gap', companies };
+        if (report.data) {
+          reportData = JSON.parse(report.data);
+        } else {
+          const companies = await databaseService.getAllContractorCompanies(context);
+          reportData = { type: 'compliance_gap', companies };
+        }
       } else {
         const visitorsInRange = allVisitors.filter(v => 
           v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
