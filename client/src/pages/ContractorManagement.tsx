@@ -744,12 +744,18 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                 <p className="text-xs text-muted-foreground text-center py-4">No projects match the selected filters.</p>
               ) : (
               <>
-              {/* Overall Compliance Score */}
+              {/* Overall Compliance Score — matches PDF formula exactly:
+                  CPP/PCI/HSF document completion; 3 docs per project */}
               {summaryProjects.length > 0 && (() => {
-                const overallPct = Math.round(
-                  summaryProjects.reduce((sum, p) => sum + complianceScore(p), 0) /
-                    summaryProjects.length / 5 * 100
-                );
+                const compliantDocs = summaryProjects.reduce((sum, p) => {
+                  let c = 0;
+                  if (["approved", "prepared", "distributed"].includes(p.cppStatus ?? "")) c++;
+                  if (["approved", "prepared", "distributed"].includes(p.pciStatus ?? "")) c++;
+                  if (["complete", "handed_over"].includes(p.hsfStatus ?? "")) c++;
+                  return sum + c;
+                }, 0);
+                const totalDocs = summaryProjects.length * 3;
+                const overallPct = totalDocs > 0 ? Math.round((compliantDocs / totalDocs) * 100) : 0;
                 const colorClass = overallPct >= 80
                   ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800"
                   : overallPct >= 50
@@ -760,7 +766,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                   : overallPct >= 50
                   ? "text-amber-700 dark:text-amber-400"
                   : "text-red-700 dark:text-red-400";
-                const label = overallPct >= 80 ? "Good" : overallPct >= 50 ? "Needs attention" : "At risk";
+                const label = overallPct >= 80 ? "High Compliance" : overallPct >= 50 ? "Partial Compliance" : "Low Compliance";
                 return (
                   <div className={`flex items-center justify-between rounded-lg border px-4 py-3 ${colorClass}`}>
                     <div className="flex items-center gap-2">
@@ -768,7 +774,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                       <div>
                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Overall Compliance Score</p>
                         <p className="text-xs text-muted-foreground">
-                          Based on {summaryProjects.length} project{summaryProjects.length !== 1 ? "s" : ""}
+                          CPP · PCI · HSF across {summaryProjects.length} project{summaryProjects.length !== 1 ? "s" : ""}
                           {summaryFiltersActive ? " (filtered)" : ""}
                         </p>
                       </div>
