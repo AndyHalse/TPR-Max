@@ -149,29 +149,33 @@ export default function Reports() {
     },
   });
 
-  const handleGenerateReport = () => {
-    if (!dateFrom || !dateTo) {
-      toast({
-        title: "Error",
-        description: "Please select both start and end dates",
-        variant: "destructive",
-      });
-      return;
-    }
+  const isSnapshotReport = reportType === 'compliance_gap';
 
-    if (dateFrom > dateTo) {
-      toast({
-        title: "Error",
-        description: "Start date must be before end date",
-        variant: "destructive",
-      });
-      return;
+  const handleGenerateReport = () => {
+    if (!isSnapshotReport) {
+      if (!dateFrom || !dateTo) {
+        toast({
+          title: "Error",
+          description: "Please select both start and end dates",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (dateFrom > dateTo) {
+        toast({
+          title: "Error",
+          description: "Start date must be before end date",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     generateReportMutation.mutate({
       reportType,
-      dateFrom,
-      dateTo,
+      dateFrom: isSnapshotReport ? new Date() : dateFrom,
+      dateTo: isSnapshotReport ? new Date() : dateTo,
     });
   };
 
@@ -240,6 +244,7 @@ export default function Reports() {
       staff_attendance: "Staff Attendance",
       contractor_activity: "Contractor Activity",
       contractor_compliance: "Contractor Compliance",
+      compliance_gap: "Contractor Compliance Gap",
       site_headcount: "Site Headcount / Roll Call",
       evacuation_readiness: "Evacuation Readiness",
     };
@@ -257,6 +262,7 @@ export default function Reports() {
       staff_attendance: "bg-emerald-100 text-emerald-800",
       contractor_activity: "bg-orange-100 text-orange-800",
       contractor_compliance: "bg-yellow-100 text-yellow-800",
+      compliance_gap: "bg-red-100 text-red-800",
       site_headcount: "bg-purple-100 text-purple-800",
       evacuation_readiness: "bg-red-100 text-red-800",
     };
@@ -299,61 +305,68 @@ export default function Reports() {
                   <SelectItem value="staff_attendance">Staff Attendance Report</SelectItem>
                   <SelectItem value="contractor_activity">Contractor Activity Report</SelectItem>
                   <SelectItem value="contractor_compliance">Contractor Compliance Report</SelectItem>
+                  <SelectItem value="compliance_gap">Contractor Compliance Gap Report</SelectItem>
                   <SelectItem value="site_headcount">Site Headcount / Roll Call</SelectItem>
                   <SelectItem value="evacuation_readiness">Evacuation Readiness Report</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-variable">From Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 justify-start text-left font-normal"
-                      data-testid="button-date-from"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateFrom ? format(dateFrom, "MMM dd, yyyy") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dateFrom}
-                      onSelect={(date) => date && setDateFrom(date)}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+            {isSnapshotReport ? (
+              <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+                This is a point-in-time snapshot — no date range required. The report reflects the current compliance status of all contractors.
               </div>
-              
-              <div className="space-y-2">
-                <Label className="text-sm font-medium text-variable">To Date</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 justify-start text-left font-normal"
-                      data-testid="button-date-to"
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {dateTo ? format(dateTo, "MMM dd, yyyy") : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={dateTo}
-                      onSelect={(date) => date && setDateTo(date)}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-variable">From Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 justify-start text-left font-normal"
+                        data-testid="button-date-from"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateFrom ? format(dateFrom, "MMM dd, yyyy") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateFrom}
+                        onSelect={(date) => date && setDateFrom(date)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-variable">To Date</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full px-4 py-3 rounded-xl border border-white/30 bg-white/50 justify-start text-left font-normal"
+                        data-testid="button-date-to"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {dateTo ? format(dateTo, "MMM dd, yyyy") : "Pick a date"}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={dateTo}
+                        onSelect={(date) => date && setDateTo(date)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
               </div>
-            </div>
+            )}
             
             <Button
               onClick={handleGenerateReport}

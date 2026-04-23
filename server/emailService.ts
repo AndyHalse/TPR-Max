@@ -482,8 +482,8 @@ For system support, visit: https://visigate.pro/support`;
     const reportTypeNames: Record<string, string> = {
       daily: 'Daily Visitor Log', weekly: 'Weekly Visitor Log', monthly: 'Monthly Visitor Log',
       staff_attendance: 'Staff Attendance Report', contractor_activity: 'Contractor Activity Report',
-      contractor_compliance: 'Contractor Compliance Report', site_headcount: 'Site Headcount / Roll Call',
-      evacuation_readiness: 'Evacuation Readiness Report',
+      contractor_compliance: 'Contractor Compliance Report', compliance_gap: 'Contractor Compliance Gap Report',
+      site_headcount: 'Site Headcount / Roll Call', evacuation_readiness: 'Evacuation Readiness Report',
     };
     const reportTitle = reportTypeNames[report.reportType] || report.reportType;
 
@@ -644,6 +644,92 @@ For system support, visit: https://visigate.pro/support`;
         ${contractors.length > 0 ? `<h3>Contractors On-Site (${contractors.length})</h3><table><thead><tr><th>Name</th><th>Company</th><th>Check-in Time</th></tr></thead><tbody>
         ${contractors.map((c: any) => `<tr><td>${c.firstName} ${c.lastName}</td><td>${c.companyName || '-'}</td><td>${c.checkedInAt ? new Date(c.checkedInAt).toLocaleString('en-GB') : '-'}</td></tr>`).join('')}
         </tbody></table>` : '<p>No contractors currently on-site.</p>'}`;
+
+    } else if (reportData.type === 'compliance_gap') {
+      const companies: any[] = reportData.companies || [];
+      const GAP_DOCS = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'] as const;
+      const DOC_LABELS: Record<string, string> = {
+        publicLiability: 'Public Liability',
+        employersLiability: 'Employers Liability',
+        healthSafety: 'Health & Safety',
+        cisRegistration: 'CIS Registration',
+      };
+
+      const withGaps = companies.filter(c => {
+        const ds = c.documentsStatus;
+        if (!ds) return true;
+        return GAP_DOCS.some(k => ds[k] === 'missing' || ds[k] === 'expired');
+      });
+      const withWarnings = companies.filter(c => {
+        const ds = c.documentsStatus;
+        if (!ds) return false;
+        const hasGap = GAP_DOCS.some(k => ds[k] === 'missing' || ds[k] === 'expired');
+        if (hasGap) return false;
+        return GAP_DOCS.some(k => ds[k] === 'expiring');
+      });
+      const fullyCompliant = companies.filter(c => {
+        const ds = c.documentsStatus;
+        if (!ds) return false;
+        return GAP_DOCS.every(k => ds[k] === 'valid');
+      });
+
+      const docBadge = (status: string) => {
+        if (status === 'missing') return `<span class="badge badge-red">Missing</span>`;
+        if (status === 'expired') return `<span class="badge badge-red">Expired</span>`;
+        if (status === 'expiring') return `<span class="badge badge-amber">Expiring</span>`;
+        if (status === 'valid') return `<span class="badge badge-green">Valid</span>`;
+        return `<span class="badge badge-gray">${status || 'Unknown'}</span>`;
+      };
+
+      const gapsTable = withGaps.length > 0 ? `
+        <h3 style="color:#dc2626;">&#9888; Contractors with Compliance Gaps (${withGaps.length})</h3>
+        <table>
+          <thead><tr><th>Company</th><th>Status</th><th>Workers</th><th>Public Liability</th><th>Employers Liability</th><th>Health &amp; Safety</th><th>CIS Registration</th></tr></thead>
+          <tbody>
+          ${withGaps.map(c => {
+            const ds = c.documentsStatus || {};
+            const statusLabel = c.status === 'approved' ? '<span class="badge badge-green">Approved</span>' : c.status === 'suspended' ? '<span class="badge badge-red">Suspended</span>' : '<span class="badge badge-amber">Pending</span>';
+            return `<tr><td><strong>${c.companyName || c.name || '-'}</strong></td><td>${statusLabel}</td><td>${c.workersCount ?? 0}</td><td>${docBadge(ds.publicLiability || 'missing')}</td><td>${docBadge(ds.employersLiability || 'missing')}</td><td>${docBadge(ds.healthSafety || 'missing')}</td><td>${docBadge(ds.cisRegistration || 'missing')}</td></tr>`;
+          }).join('')}
+          </tbody>
+        </table>` : '<p style="color:#16a34a;font-weight:600;">&#10003; No contractors with compliance gaps.</p>';
+
+      const warningsTable = withWarnings.length > 0 ? `
+        <h3 style="color:#d97706;">&#9679; Contractors with Expiring Documents (${withWarnings.length})</h3>
+        <table>
+          <thead><tr><th>Company</th><th>Status</th><th>Workers</th><th>Public Liability</th><th>Employers Liability</th><th>Health &amp; Safety</th><th>CIS Registration</th></tr></thead>
+          <tbody>
+          ${withWarnings.map(c => {
+            const ds = c.documentsStatus || {};
+            const statusLabel = c.status === 'approved' ? '<span class="badge badge-green">Approved</span>' : c.status === 'suspended' ? '<span class="badge badge-red">Suspended</span>' : '<span class="badge badge-amber">Pending</span>';
+            return `<tr><td><strong>${c.companyName || c.name || '-'}</strong></td><td>${statusLabel}</td><td>${c.workersCount ?? 0}</td><td>${docBadge(ds.publicLiability || 'missing')}</td><td>${docBadge(ds.employersLiability || 'missing')}</td><td>${docBadge(ds.healthSafety || 'missing')}</td><td>${docBadge(ds.cisRegistration || 'missing')}</td></tr>`;
+          }).join('')}
+          </tbody>
+        </table>` : '';
+
+      const compliantList = fullyCompliant.length > 0 ? `
+        <h3>&#10003; Fully Compliant Contractors (${fullyCompliant.length})</h3>
+        <table>
+          <thead><tr><th>Company</th><th>Status</th><th>Workers</th></tr></thead>
+          <tbody>
+          ${fullyCompliant.map(c => {
+            const statusLabel = c.status === 'approved' ? '<span class="badge badge-green">Approved</span>' : c.status === 'suspended' ? '<span class="badge badge-red">Suspended</span>' : '<span class="badge badge-amber">Pending</span>';
+            return `<tr><td>${c.companyName || c.name || '-'}</td><td>${statusLabel}</td><td>${c.workersCount ?? 0}</td></tr>`;
+          }).join('')}
+          </tbody>
+        </table>` : '';
+
+      bodyContent = `
+        <div class="stats-grid">
+          <div class="stat-card"><div class="stat-number">${companies.length}</div><div class="stat-label">Total Contractors</div></div>
+          <div class="stat-card red"><div class="stat-number">${withGaps.length}</div><div class="stat-label">With Compliance Gaps</div></div>
+          <div class="stat-card amber"><div class="stat-number">${withWarnings.length}</div><div class="stat-label">Documents Expiring Soon</div></div>
+          <div class="stat-card green"><div class="stat-number">${fullyCompliant.length}</div><div class="stat-label">Fully Compliant</div></div>
+        </div>
+        <p style="font-size:12px;color:#555;margin-bottom:16px;">Gaps are defined as any mandatory document (Public Liability, Employers Liability, Health &amp; Safety, CIS Registration) with a status of <strong>Missing</strong> or <strong>Expired</strong>.</p>
+        ${gapsTable}
+        ${warningsTable}
+        ${compliantList}`;
 
     } else if (reportData.type === 'evacuation_readiness') {
       const allStaff = reportData.allStaff || [];

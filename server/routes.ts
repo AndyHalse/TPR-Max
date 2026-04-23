@@ -13689,6 +13689,16 @@ ${evacuationPhotosData.length > 0 ? `
         const total = checkedInStaff.length + currentVisitors.length + checkedInContractors.length;
         totalVisitors = `${total} on-site`;
         avgDuration = `${fireMarshals.length} fire marshals`;
+      } else if (reportType === 'compliance_gap') {
+        const companies = await databaseService.getAllContractorCompanies(context);
+        const GAP_DOCS = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'] as const;
+        const withGaps = companies.filter(c => {
+          const ds = (c as any).documentsStatus;
+          if (!ds) return true;
+          return GAP_DOCS.some(k => ds[k] === 'missing' || ds[k] === 'expired');
+        });
+        totalVisitors = `${companies.length} contractors`;
+        avgDuration = `${withGaps.length} with gaps`;
       }
       
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -13777,6 +13787,9 @@ ${evacuationPhotosData.length > 0 ? `
         const checkedInContractors = await databaseService.getCheckedInContractors(context);
         const fireMarshals = allStaff.filter(s => s.isFireMarshal);
         reportData = { type: 'evacuation_readiness', allStaff, fireMarshals, checkedInStaff, visitors: currentVisitors, contractors: checkedInContractors };
+      } else if (report.reportType === 'compliance_gap') {
+        const companies = await databaseService.getAllContractorCompanies(context);
+        reportData = { type: 'compliance_gap', companies };
       } else {
         reportData = { type: 'visitor_log', visitors: allVisitors, checkedOutVisitors: allVisitors.filter(v => v.checkedOutAt), staff: allStaff };
       }
@@ -13894,6 +13907,9 @@ ${evacuationPhotosData.length > 0 ? `
           visitors: currentVisitors,
           contractors: checkedInContractors,
         };
+      } else if (report.reportType === 'compliance_gap') {
+        const companies = await databaseService.getAllContractorCompanies(context);
+        reportData = { type: 'compliance_gap', companies };
       } else {
         const visitorsInRange = allVisitors.filter(v => 
           v.checkedInAt >= report.dateFrom && v.checkedInAt <= report.dateTo
