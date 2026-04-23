@@ -109,6 +109,7 @@ interface PpmWorkOrderDocument {
   issuedBy?: string | null;
   expiryAlertedAt?: string | null;
   createdAt?: string | null;
+  expiryAlertedAt?: string | null;
 }
 
 interface ContractorCompany {
@@ -1068,6 +1069,8 @@ function SchedulesTab() {
 
 function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }) {
   const { toast } = useToast();
+  const { data: currentUser } = useQuery<{ id: string; username: string; role: string }>({ queryKey: ["/api/auth/me"] });
+  const isAdmin = currentUser?.role === "admin";
 
   // Filters
   const [filterStatus, setFilterStatus] = useState(initialStatusFilter || "all");
@@ -1244,6 +1247,12 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   const deleteDocMutation = useMutation({
     mutationFn: ({ woId, docId }: { woId: string; docId: string }) => apiRequest("DELETE", `/api/ppm/work-orders/${woId}/documents/${docId}`),
     onSuccess: () => { refetchDocs(); toast({ title: "Document removed" }); },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
+  const resendAlertMutation = useMutation({
+    mutationFn: ({ woId, docId }: { woId: string; docId: string }) => apiRequest("POST", `/api/ppm/work-orders/${woId}/documents/${docId}/resend-alert`),
+    onSuccess: () => { refetchDocs(); toast({ title: "Expiry alert sent", description: "The alert email has been sent to the admin address." }); },
     onError: (error: unknown) => toastError(error, toast),
   });
 
@@ -2060,6 +2069,24 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                               <a href={doc.fileUrl} download={doc.fileName} target="_blank" rel="noreferrer" title="Download document" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
                                 <Download className="h-3.5 w-3.5" />
                               </a>
+                              {isAdmin && (isExpired || isExpiringSoon) && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      className={`h-6 w-6 p-0 ${isExpired ? "text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30" : "text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"}`}
+                                      disabled={resendAlertMutation.isPending}
+                                      onClick={() => resendAlertMutation.mutate({ woId: selectedWO.id, docId: doc.id })}
+                                    >
+                                      {resendAlertMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">
+                                    <p className="text-xs">Send expiry alert email now</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
                               <Button
                                 size="sm"
                                 variant="ghost"

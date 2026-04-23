@@ -28401,6 +28401,105 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // POST /api/ppm/work-orders/:id/documents/:docId/resend-alert — resend expiry alert email immediately
+  app.post("/api/ppm/work-orders/:id/documents/:docId/resend-alert", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const { id, docId } = req.params;
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      // Fetch the document and verify it belongs to this work order
+      const [doc] = await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
+        .where(and(
+          eq(isolatedSchema.ppmWorkOrderDocuments.id, docId),
+          eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, id)
+        ));
+      if (!doc) return res.status(404).json({ error: "Document not found on this work order" });
+      if (!doc.expiryDate) return res.status(400).json({ error: "Document has no expiry date — alert not applicable" });
+
+      // Fetch company settings for email
+      const settingsRows = await custDb.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
+      const settings = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+      const companyName = (settings?.company_name as string) || "TPR-Max";
+      const adminEmail = settings?.email as string | undefined;
+      if (!adminEmail) return res.status(400).json({ error: "No admin email configured" });
+
+      // Fetch the work order title for context
+      const [wo] = await custDb.select({ title: isolatedSchema.ppmWorkOrders.title })
+        .from(isolatedSchema.ppmWorkOrders)
+        .where(eq(isolatedSchema.ppmWorkOrders.id, id));
+      const woTitle = wo?.title ?? id;
+
+      const todayStr = new Date().toISOString().split("T")[0];
+      const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const in30DaysStr = in30Days.toISOString().split("T")[0];
+      const isExpired = doc.expiryDate <= todayStr;
+      const isExpiringSoon = !isExpired && doc.expiryDate <= in30DaysStr;
+
+      // Only allow resend for documents that are expired or expiring within the alert window
+      if (!isExpired && !isExpiringSoon) {
+        return res.status(400).json({ error: "Document is not within the expiry alert window (must be expired or expiring within 30 days)" });
+      }
+
+      const emailSvc = new EmailService(context.customerId);
+      const subject = isExpired
+        ? `PPM Alert: Expired Document — ${doc.fileName}`
+        : `PPM Alert: Document Expiring Soon — ${doc.fileName}`;
+
+      const sent = await emailSvc.sendEmail({
+        to: adminEmail,
+        subject,
+        companyName,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+            <div style="background:${isExpired ? "#dc2626" : "#d97706"};color:#fff;padding:20px;border-radius:8px 8px 0 0">
+              <h2 style="margin:0">PPM Document Expiry Alert — ${companyName}</h2>
+            </div>
+            <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+              <p style="margin-top:0">The following PPM work order document requires attention:</p>
+              <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px">
+                <thead>
+                  <tr style="background:#f9fafb">
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Document</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Work Order</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Expiry Date</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${doc.fileName}</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${woTitle}</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExpired ? "#dc2626" : "#d97706"};font-weight:600">${doc.expiryDate}</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExpired ? "#dc2626" : "#d97706"}">${isExpired ? "Expired" : "Expiring Soon"}</td>
+                  </tr>
+                </tbody>
+              </table>
+              <p style="color:#6b7280;font-size:13px">Please log in to TPR-Max to review and replace this document as required.</p>
+            </div>
+            <div style="background:#f9fafb;padding:12px 20px;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 8px 8px;font-size:12px;color:#9ca3af">
+              This alert was sent by ${companyName} via TPR-Max PPM system.
+            </div>
+          </div>
+        `,
+        text: `PPM Document Expiry Alert\n\nDocument: ${doc.fileName}\nWork Order: ${woTitle}\nExpiry Date: ${doc.expiryDate}\nStatus: ${isExpired ? "Expired" : "Expiring Soon"}\n\nPlease log in to TPR-Max to review.`,
+      });
+
+      if (!sent) return res.status(500).json({ error: "Failed to send alert email" });
+
+      // Stamp expiryAlertedAt so cron won't re-fire automatically until reset
+      await custDb.update(isolatedSchema.ppmWorkOrderDocuments)
+        .set({ expiryAlertedAt: new Date() })
+        .where(eq(isolatedSchema.ppmWorkOrderDocuments.id, docId));
+
+      res.json({ success: true });
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/work-orders/:id/documents/:docId/resend-alert", error);
+      res.status(500).json({ error: "Failed to resend alert" });
+    }
+  });
+
   // GET /api/ppm/work-orders/:id/export — generate a PDF summary of a work order
   app.get("/api/ppm/work-orders/:id/export", requireAuth, async (req, res) => {
     try {
