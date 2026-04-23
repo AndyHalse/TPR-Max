@@ -46,7 +46,9 @@ import {
   ChevronsUpDown,
   Check,
   LayoutGrid,
-  LayoutList
+  LayoutList,
+  Sparkles,
+  RotateCcw
 } from "lucide-react";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorsComplianceView from "@/components/ContractorsComplianceView";
@@ -230,6 +232,12 @@ export default function Contractors() {
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadDocumentType, setUploadDocumentType] = useState('');
+  const [companyUploadFile, setCompanyUploadFile] = useState<File | null>(null);
+  const [companyUploadFormData, setCompanyUploadFormData] = useState({ expiryDate: '', issuedBy: '', policyNumber: '' });
+  const [companyUploadProgress, setCompanyUploadProgress] = useState(0);
+  const [companyIsUploading, setCompanyIsUploading] = useState(false);
+  const [companyIsScanningDoc, setCompanyIsScanningDoc] = useState(false);
+  const [companyAiExtracted, setCompanyAiExtracted] = useState(false);
   const [showComplianceView, setShowComplianceView] = useState(false);
   const [approvalForm, setApprovalForm] = useState({
     status: '',
@@ -802,8 +810,106 @@ export default function Contractors() {
 
   const handleUploadDocument = (documentType: string) => {
     setUploadDocumentType(documentType);
+    setCompanyUploadFile(null);
+    setCompanyUploadFormData({ expiryDate: '', issuedBy: '', policyNumber: '' });
+    setCompanyUploadProgress(0);
+    setCompanyIsUploading(false);
+    setCompanyIsScanningDoc(false);
+    setCompanyAiExtracted(false);
     setShowUploadModal(true);
   };
+
+  const scanCompanyDocument = async () => {
+    if (!companyUploadFile) return;
+    setCompanyIsScanningDoc(true);
+    setCompanyAiExtracted(false);
+    try {
+      const fileData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(companyUploadFile);
+      });
+
+      const response = await apiRequest('POST', '/api/contractors/documents/scan', {
+        fileData,
+        mimeType: companyUploadFile.type || 'application/octet-stream',
+        documentType: uploadDocumentType || 'other',
+      });
+      const data = await response.json();
+      const fields = data.fields as { expiryDate: string | null; issuedBy: string | null; policyNumber: string | null };
+
+      setCompanyUploadFormData(prev => ({
+        expiryDate: prev.expiryDate || fields.expiryDate || '',
+        issuedBy: prev.issuedBy || fields.issuedBy || '',
+        policyNumber: prev.policyNumber || fields.policyNumber || '',
+      }));
+      setCompanyAiExtracted(true);
+      toast({ title: 'Scan complete', description: 'Fields have been pre-filled — please verify before saving.' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unable to scan document';
+      toast({ title: 'Scan failed', description: msg, variant: 'destructive' });
+    } finally {
+      setCompanyIsScanningDoc(false);
+    }
+  };
+
+  const uploadCompanyDocumentMutation = useMutation({
+    mutationFn: async (file: File) => {
+      if (!selectedContractor) throw new Error('No contractor selected');
+
+      setCompanyIsUploading(true);
+      setCompanyUploadProgress(10);
+
+      const urlResponse = await fetch(`/api/contractors/${selectedContractor.id}/documents/upload-url`, {
+        credentials: 'include',
+      });
+      if (!urlResponse.ok) throw new Error('Failed to get upload URL');
+      const { uploadURL } = await urlResponse.json();
+      setCompanyUploadProgress(30);
+
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        headers: { 'Content-Type': file.type || 'application/octet-stream' },
+        body: file,
+      });
+      if (!uploadResponse.ok) throw new Error('Failed to upload file');
+      setCompanyUploadProgress(70);
+
+      const response = await apiRequest('POST', `/api/contractors/${selectedContractor.id}/documents`, {
+        documentName: file.name,
+        documentType: uploadDocumentType,
+        documentUrl: uploadURL.split('?')[0],
+        expiryDate: companyUploadFormData.expiryDate || null,
+        issuedBy: companyUploadFormData.issuedBy || null,
+        policyNumber: companyUploadFormData.policyNumber || null,
+      });
+
+      setCompanyUploadProgress(100);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", selectedContractor?.id, "documents", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      toast({ title: 'Upload Successful', description: 'Document has been uploaded and saved.' });
+      setShowUploadModal(false);
+      setCompanyUploadFile(null);
+      setCompanyUploadFormData({ expiryDate: '', issuedBy: '', policyNumber: '' });
+      setCompanyUploadProgress(0);
+      setCompanyIsUploading(false);
+      setCompanyAiExtracted(false);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Upload failed';
+      toast({ title: 'Upload Failed', description: msg, variant: 'destructive' });
+      setCompanyIsUploading(false);
+      setCompanyUploadProgress(0);
+    },
+  });
 
   const handleApproveDocument = async (documentId: string, status: 'approved' | 'rejected') => {
     try {
@@ -2476,8 +2582,8 @@ export default function Contractors() {
       </Dialog>
 
       {/* Upload Document Modal */}
-      <Dialog open={showUploadModal} onOpenChange={setShowUploadModal}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={showUploadModal} onOpenChange={(open) => { if (!companyIsUploading) setShowUploadModal(open); }}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Upload className="h-5 w-5" />
@@ -2485,128 +2591,142 @@ export default function Contractors() {
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-6 mt-4">
-            <div className="text-center">
-              <p className="text-variable">
-                You can upload a PDF or image file for the {uploadDocumentType.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} document.
-              </p>
-              <p className="text-sm text-variable mt-2">
-                For demo purposes, you can download and upload our sample documents:
-              </p>
-            </div>
-
-            {/* Demo Sample Downloads */}
-            <div className="grid grid-cols-2 gap-4">
-              {uploadDocumentType === 'public_liability' && (
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = '/sample-public-liability.pdf';
-                    link.download = 'sample-public-liability.pdf';
-                    link.click();
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Download Sample
-                </Button>
-              )}
-              {uploadDocumentType === 'employers_liability' && (
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = '/sample-employers-liability.pdf';
-                    link.download = 'sample-employers-liability.pdf';
-                    link.click();
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Download Sample
-                </Button>
-              )}
-              {uploadDocumentType === 'health_safety' && (
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = '/sample-health-safety.pdf';
-                    link.download = 'sample-health-safety.pdf';
-                    link.click();
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Download Sample
-                </Button>
-              )}
-              {uploadDocumentType === 'cis_registration' && (
-                <Button 
-                  variant="outline" 
-                  className="w-full"
-                  onClick={() => {
-                    const link = document.createElement('a');
-                    link.href = '/sample-cis-registration.pdf';
-                    link.download = 'sample-cis-registration.pdf';
-                    link.click();
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Download Sample
-                </Button>
-              )}
-            </div>
-
-            {/* Upload Area */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors">
-              <Upload className="h-12 w-12 mx-auto mb-4 text-variable" />
-              <p className="text-lg font-medium text-variable mb-2">
-                Drop your document here or click to browse
-              </p>
-              <p className="text-sm text-variable">
-                Supports PDF, JPG, PNG files up to 10MB
-              </p>
-              <Input 
-                type="file" 
-                className="hidden" 
+          <div className="space-y-4 mt-2">
+            {/* File Input */}
+            <div>
+              <Label htmlFor="company-document-file">Select Document</Label>
+              <Input
+                id="company-document-file"
+                type="file"
                 accept=".pdf,.jpg,.jpeg,.png"
                 onChange={(e) => {
-                  // Handle file upload logic here
-                  const file = e.target.files?.[0];
-                  if (file) {
-                    toast({
-                      title: "Upload Started",
-                      description: `Uploading ${file.name}...`,
-                    });
-                    // In a real implementation, you'd upload the file here
-                    setTimeout(() => {
-                      toast({
-                        title: "Upload Successful",
-                        description: "Document has been uploaded successfully.",
-                      });
-                      setShowUploadModal(false);
-                    }, 2000);
-                  }
+                  setCompanyUploadFile(e.target.files?.[0] || null);
+                  setCompanyAiExtracted(false);
                 }}
+                disabled={companyIsUploading}
+                className="cursor-pointer mt-1"
               />
-              <Button 
-                variant="outline" 
-                className="mt-4"
-                onClick={() => {
-                  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-                  fileInput?.click();
-                }}
-              >
-                Choose File
-              </Button>
+              {companyUploadFile && (
+                <div className="mt-2 flex items-center gap-2 flex-wrap">
+                  <p className="text-sm text-variable">Selected: {companyUploadFile.name}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={scanCompanyDocument}
+                    disabled={companyIsScanningDoc || companyIsUploading}
+                    className="text-purple-700 border-purple-300 hover:bg-purple-50 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-950"
+                  >
+                    {companyIsScanningDoc ? (
+                      <>
+                        <RotateCcw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                        Scanning…
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                        Scan with AI
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
+
+            {/* Expiry Date */}
+            <div>
+              <Label htmlFor="company-expiry-date">Expiry Date (Optional)</Label>
+              <Input
+                id="company-expiry-date"
+                type="date"
+                value={companyUploadFormData.expiryDate}
+                onChange={(e) => setCompanyUploadFormData(prev => ({ ...prev, expiryDate: e.target.value }))}
+                disabled={companyIsUploading}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Issued By */}
+            <div>
+              <Label htmlFor="company-issued-by">Issued By (Optional)</Label>
+              <Input
+                id="company-issued-by"
+                type="text"
+                value={companyUploadFormData.issuedBy}
+                onChange={(e) => setCompanyUploadFormData(prev => ({ ...prev, issuedBy: e.target.value }))}
+                disabled={companyIsUploading}
+                className="mt-1"
+              />
+            </div>
+
+            {/* Policy Number */}
+            <div>
+              <Label htmlFor="company-policy-number">Policy / Certificate Number (Optional)</Label>
+              <Input
+                id="company-policy-number"
+                type="text"
+                value={companyUploadFormData.policyNumber}
+                onChange={(e) => setCompanyUploadFormData(prev => ({ ...prev, policyNumber: e.target.value }))}
+                disabled={companyIsUploading}
+                className="mt-1"
+              />
+            </div>
+
+            {/* AI-extracted notice */}
+            {companyAiExtracted && (
+              <div className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-md px-3 py-2">
+                <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                AI-extracted — please verify the fields above before saving.
+              </div>
+            )}
+
+            {/* Progress bar */}
+            {companyIsUploading && (
+              <div className="space-y-1">
+                <div className="flex justify-between text-xs text-variable">
+                  <span>Uploading…</span>
+                  <span>{companyUploadProgress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${companyUploadProgress}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowUploadModal(false)}>
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setShowUploadModal(false)}
+              disabled={companyIsUploading}
+            >
               Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (companyUploadFile) {
+                  uploadCompanyDocumentMutation.mutate(companyUploadFile);
+                } else {
+                  toast({ title: 'No file selected', description: 'Please choose a file to upload.', variant: 'destructive' });
+                }
+              }}
+              disabled={!companyUploadFile || companyIsUploading}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {companyIsUploading ? (
+                <>
+                  <RotateCcw className="h-4 w-4 mr-2 animate-spin" />
+                  Uploading… {companyUploadProgress}%
+                </>
+              ) : (
+                <>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
