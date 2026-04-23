@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical, HardHat, AlertTriangle, Wand2, ScrollText, Wrench } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, UserCheck, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical, HardHat, AlertTriangle, Wand2, ScrollText, Wrench } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment, Report } from "@shared/schema";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
