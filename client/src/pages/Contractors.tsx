@@ -2489,36 +2489,64 @@ export default function Contractors() {
       </Dialog>
 
       {/* Delete Company Document Confirmation Dialog */}
-      <Dialog open={showDeleteDocumentConfirm} onOpenChange={(open) => { setShowDeleteDocumentConfirm(open); if (!open) setDocumentToDelete(null); }}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <Trash2 className="h-5 w-5" />
-              Delete Document
-            </DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete <strong>{documentToDelete?.documentName || 'this document'}</strong>? This action cannot be undone and will be logged in the audit trail.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-3 mt-4">
-            <Button variant="outline" onClick={() => { setShowDeleteDocumentConfirm(false); setDocumentToDelete(null); }}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={deleteCompanyDocumentMutation.isPending}
-              onClick={() => {
-                if (documentToDelete && selectedContractor) {
-                  deleteCompanyDocumentMutation.mutate(documentToDelete.id);
-                }
-              }}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              {deleteCompanyDocumentMutation.isPending ? 'Deleting...' : 'Delete Document'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {(() => {
+        const requiredCategories = ['public_liability', 'employers_liability', 'health_safety', 'cis_registration'];
+        const activeStatuses = ['valid', 'approved', 'expiring'];
+        const isRequiredCategory = documentToDelete && requiredCategories.includes(documentToDelete.documentType);
+        const isBeingDeletedActive = documentToDelete && activeStatuses.includes(documentToDelete.status);
+        const otherActiveDocsOfSameType = isRequiredCategory && isBeingDeletedActive
+          ? documents.filter((d: any) =>
+              d.id !== documentToDelete.id &&
+              d.documentType === documentToDelete.documentType &&
+              activeStatuses.includes(d.status)
+            )
+          : [];
+        const isSoleActiveDocument = isRequiredCategory && isBeingDeletedActive && otherActiveDocsOfSameType.length === 0;
+        const categoryLabel = documentToDelete?.documentType
+          ? documentToDelete.documentType.split('_').map((w: string) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+          : '';
+
+        return (
+          <Dialog open={showDeleteDocumentConfirm} onOpenChange={(open) => { setShowDeleteDocumentConfirm(open); if (!open) setDocumentToDelete(null); }}>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2 text-red-600">
+                  <Trash2 className="h-5 w-5" />
+                  Delete Document
+                </DialogTitle>
+                <DialogDescription>
+                  Are you sure you want to delete <strong>{documentToDelete?.documentName || 'this document'}</strong>? This action cannot be undone and will be logged in the audit trail.
+                </DialogDescription>
+              </DialogHeader>
+              {isSoleActiveDocument && (
+                <div className="flex items-start gap-3 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
+                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-yellow-600" />
+                  <span>
+                    <strong>Compliance warning:</strong> This is the only active {categoryLabel} document for this contractor. Deleting it will leave the contractor without a required compliance document and may cause them to fall out of compliance.
+                  </span>
+                </div>
+              )}
+              <div className="flex justify-end gap-3 mt-4">
+                <Button variant="outline" onClick={() => { setShowDeleteDocumentConfirm(false); setDocumentToDelete(null); }}>
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={deleteCompanyDocumentMutation.isPending}
+                  onClick={() => {
+                    if (documentToDelete && selectedContractor) {
+                      deleteCompanyDocumentMutation.mutate(documentToDelete.id);
+                    }
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  {deleteCompanyDocumentMutation.isPending ? 'Deleting...' : 'Delete Document'}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
 
       {/* Document View Modal */}
       <Dialog open={showDocumentModal} onOpenChange={setShowDocumentModal}>
