@@ -1263,8 +1263,50 @@ export default function Contractors() {
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-solid border-current border-r-transparent"></div>
             <p className="mt-2 text-variable">Loading contractors...</p>
           </div>
-        ) : filteredContractors.map((contractor) => 
-          viewMode === 'grid' ? (
+        ) : (() => {
+          const hasBothGroups =
+            sortGapsFirst &&
+            filteredContractors.some(hasComplianceGap) &&
+            filteredContractors.some((c) => !hasComplianceGap(c));
+
+          return filteredContractors.flatMap((contractor, index) => {
+          const isFirstWithGap =
+            hasBothGroups &&
+            hasComplianceGap(contractor) &&
+            index === 0;
+
+          const isFirstCompliant =
+            hasBothGroups &&
+            !hasComplianceGap(contractor) &&
+            (index === 0 || hasComplianceGap(filteredContractors[index - 1]));
+
+          const gapsHeader = isFirstWithGap ? (
+            <div
+              key="divider-gaps"
+              className="flex items-center gap-3 py-1"
+            >
+              <div className="h-px flex-1 bg-orange-200" />
+              <span className="text-xs font-semibold text-orange-500 uppercase tracking-wide">
+                Compliance Gaps
+              </span>
+              <div className="h-px flex-1 bg-orange-200" />
+            </div>
+          ) : null;
+
+          const compliantHeader = isFirstCompliant ? (
+            <div
+              key={`divider-compliant-${index}`}
+              className="flex items-center gap-3 py-1"
+            >
+              <div className="h-px flex-1 bg-emerald-200" />
+              <span className="text-xs font-semibold text-emerald-600 uppercase tracking-wide">
+                Compliant
+              </span>
+              <div className="h-px flex-1 bg-emerald-200" />
+            </div>
+          ) : null;
+
+          const card = viewMode === 'grid' ? (
             <GlassCard key={contractor.id}>
               <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div className="flex-1">
@@ -1439,8 +1481,11 @@ export default function Contractors() {
                 </div>
               );
             })()
-          )
-        )}
+          );
+
+          return [gapsHeader, compliantHeader, card].filter(Boolean);
+        });
+        })()} 
       </div>
 
       {/* Add Contractor Dialog */}
