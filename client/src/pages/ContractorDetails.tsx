@@ -664,6 +664,7 @@ export default function ContractorDetails() {
       }
 
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
       setUploadDialog({ open: false, docKey: "", docName: "", requiresExpiry: false });
       setUploadFile(null);
       setUploadExpiry("");

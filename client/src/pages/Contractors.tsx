@@ -895,6 +895,9 @@ export default function Contractors() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", selectedContractor?.id, "documents", customerId] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      if (selectedContractor?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedContractor.id}`] });
+      }
       toast({ title: 'Upload Successful', description: 'Document has been uploaded and saved.' });
       setShowUploadModal(false);
       setCompanyUploadFile(null);
@@ -925,6 +928,9 @@ export default function Contractors() {
       });
       
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      if (selectedContractor?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedContractor.id}`] });
+      }
       
       setApprovalForm({ status: '', comments: '', rejectionReason: '' });
       setShowDocumentModal(false);
