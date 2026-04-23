@@ -744,6 +744,43 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                 <p className="text-xs text-muted-foreground text-center py-4">No projects match the selected filters.</p>
               ) : (
               <>
+              {/* Overall Compliance Score */}
+              {summaryProjects.length > 0 && (() => {
+                const overallPct = Math.round(
+                  summaryProjects.reduce((sum, p) => sum + complianceScore(p), 0) /
+                    summaryProjects.length / 5 * 100
+                );
+                const colorClass = overallPct >= 80
+                  ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800"
+                  : overallPct >= 50
+                  ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800"
+                  : "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-800";
+                const textClass = overallPct >= 80
+                  ? "text-green-700 dark:text-green-400"
+                  : overallPct >= 50
+                  ? "text-amber-700 dark:text-amber-400"
+                  : "text-red-700 dark:text-red-400";
+                const label = overallPct >= 80 ? "Good" : overallPct >= 50 ? "Needs attention" : "At risk";
+                return (
+                  <div className={`flex items-center justify-between rounded-lg border px-4 py-3 ${colorClass}`}>
+                    <div className="flex items-center gap-2">
+                      <Shield className={`h-5 w-5 ${textClass}`} />
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Overall Compliance Score</p>
+                        <p className="text-xs text-muted-foreground">
+                          Based on {summaryProjects.length} project{summaryProjects.length !== 1 ? "s" : ""}
+                          {summaryFiltersActive ? " (filtered)" : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className={`text-3xl font-bold tabular-nums ${textClass}`}>{overallPct}%</span>
+                      <p className={`text-xs font-medium ${textClass}`}>{label}</p>
+                    </div>
+                  </div>
+                );
+              })()}
+
               {/* Status breakdown + F10 counts */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Project status breakdown */}
