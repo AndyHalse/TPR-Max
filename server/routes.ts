@@ -13694,7 +13694,7 @@ ${evacuationPhotosData.length > 0 ? `
         const companies = await databaseService.getAllContractorCompanies(context);
         const GAP_DOCS = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'] as const;
         const withGaps = companies.filter(c => {
-          const ds = (c as any).documentsStatus;
+          const ds = c.documentsStatus;
           if (!ds) return true;
           return GAP_DOCS.some(k => ds[k] === 'missing' || ds[k] === 'expired');
         });

@@ -648,12 +648,6 @@ For system support, visit: https://visigate.pro/support`;
     } else if (reportData.type === 'compliance_gap') {
       const companies: any[] = reportData.companies || [];
       const GAP_DOCS = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'] as const;
-      const DOC_LABELS: Record<string, string> = {
-        publicLiability: 'Public Liability',
-        employersLiability: 'Employers Liability',
-        healthSafety: 'Health & Safety',
-        cisRegistration: 'CIS Registration',
-      };
 
       const withGaps = companies.filter(c => {
         const ds = c.documentsStatus;
