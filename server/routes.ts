@@ -10853,12 +10853,30 @@ ${evacuationPhotosData.length > 0 ? `
       console.log(`[SETTINGS-API] customer=${context.customerId} logo=${settings?.logoUrl || 'NONE'} bg=${settings?.backgroundColor || 'NONE'} accent=${settings?.accentColor || 'NONE'} company=${settings?.companyName || 'NONE'}`);
       
       if (settings) {
+        // Strip all sensitive credentials before sending settings to the browser
         const {
           biostarPassword,
+          biostarApiKey,
+          biostarUsername,
+          biostarBaseUrl,
+          paxtonPassword,
+          paxtonClientId,
+          paxtonUsername,
+          paxtonClientSecret,
           smtpPassword,
+          smtpHost,
+          smtpPort,
+          smtpUser,
           twilioAuthToken,
+          twilioAccountSid,
+          twilioPhoneNumber,
+          eightByXApiKey,
           eightByXApiSecret,
+          clueApiKey,
           clueApiSecret,
+          openaiApiKey,
+          geminiApiKey,
+          sendgridApiKey,
           ...sanitizedSettings
         } = settings;
         
