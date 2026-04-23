@@ -13177,8 +13177,9 @@ ${evacuationPhotosData.length > 0 ? `
 
       let result;
       if (mimeType === 'application/pdf') {
-        // Extract text from the PDF using pdf-parse, then send to GPT-4o
-        const pdfParse = (await import('pdf-parse')).default as (buf: Buffer) => Promise<{ text: string }>;
+        // Import the internal lib directly to avoid pdf-parse's self-test (index.js reads a test
+        // file when module.parent is undefined, which is always the case under tsx/ESM).
+        const pdfParse = (await import('pdf-parse/lib/pdf-parse.js')).default as (buf: Buffer) => Promise<{ text: string }>;
         const { text: pdfText } = await pdfParse(buffer);
         result = await scanDocumentWithAI({ mimeType, pdfText, documentType });
       } else {
