@@ -20811,11 +20811,12 @@ This is an automated notification from your visitor management system.`;
         customers = [{ id: specificCustomerId }];
       } else {
         const dbCustomers = await customerDbService.getAllCustomers();
-        // Also include hardcoded customer IDs that are never in the customers table
-        // (e.g. dev-customer-001 = ACS Safety & Security Ltd on production)
-        const hardcodedIds = ['dev-customer-001', 'dev-customer-002', 'test-customer-trial'];
+        // DEV_CUSTOMER_IDS: comma-separated list of customer IDs to include in the daily reset
+        // loop even when they are not present in the customers table. Set in development only;
+        // leave unset in production so no extra customers are injected.
+        const devCustomerIds = (process.env.DEV_CUSTOMER_IDS || '').split(',').filter(Boolean);
         const dbIds = new Set(dbCustomers.map((c: { id: string }) => c.id));
-        const extraCustomers = hardcodedIds
+        const extraCustomers = devCustomerIds
           .filter(id => !dbIds.has(id))
           .map(id => ({ id }));
         customers = [...dbCustomers, ...extraCustomers];
@@ -21288,11 +21289,14 @@ This is an automated notification from your visitor management system.`;
 
     try {
       const dbCustomers = await customerDbService.getAllCustomers();
-      const hardcodedIds = ['dev-customer-001', 'dev-customer-002', 'test-customer-trial'];
+      // DEV_CUSTOMER_IDS: comma-separated list of customer IDs to include in the BioStar polling
+      // loop even when they are not present in the customers table. Set in development only;
+      // leave unset in production so no extra customers are injected.
+      const devCustomerIds = (process.env.DEV_CUSTOMER_IDS || '').split(',').filter(Boolean);
       const dbIds = new Set(dbCustomers.map((c: { id: string }) => c.id));
       const allCustomers = [
         ...dbCustomers,
-        ...hardcodedIds.filter(id => !dbIds.has(id)).map(id => ({ id })),
+        ...devCustomerIds.filter(id => !dbIds.has(id)).map(id => ({ id })),
       ];
 
       for (const customer of allCustomers) {
