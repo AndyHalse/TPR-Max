@@ -145,10 +145,89 @@ export const addMissingThermalPrinterColumnsMigration: Migration = {
 };
 
 /**
+ * Migration to add core nav feature toggle columns (dashboard, visitors, contractors,
+ * staff, muster_list, reports, settings_page) to company_settings table.
+ */
+export const addCoreNavFeatureToggleColumnsMigration: Migration = {
+  version: '20260423_001_add_core_nav_feature_toggle_columns',
+  description: 'Add core nav feature toggle columns to company_settings table',
+  async up(db: any) {
+    const columns = [
+      'feature_dashboard',
+      'feature_visitors',
+      'feature_contractors',
+      'feature_staff',
+      'feature_muster_list',
+      'feature_reports',
+      'feature_settings_page',
+    ];
+
+    for (const col of columns) {
+      const result = await db.execute(`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema()
+          AND table_name = 'company_settings'
+          AND column_name = '${col}'
+        )
+      `);
+      if (!result.rows[0]?.exists) {
+        console.log(`🔄 Adding ${col} column to company_settings`);
+        await db.execute(`ALTER TABLE company_settings ADD COLUMN ${col} BOOLEAN DEFAULT TRUE`);
+        console.log(`✅ Added ${col} column`);
+      } else {
+        console.log(`ℹ️ ${col} already exists, skipping`);
+      }
+    }
+  }
+};
+
+/**
+ * Fixed migration: re-runs with schema-scoped check so each customer gets the columns.
+ * Supersedes 20260423_001 which used an unscoped information_schema query and
+ * falsely detected columns from sibling schemas.
+ */
+export const addCoreNavFeatureToggleColumnsFixedMigration: Migration = {
+  version: '20260423_002_add_core_nav_feature_toggle_columns_fixed',
+  description: 'Add core nav feature toggle columns (schema-scoped check)',
+  async up(db: any) {
+    const columns = [
+      'feature_dashboard',
+      'feature_visitors',
+      'feature_contractors',
+      'feature_staff',
+      'feature_muster_list',
+      'feature_reports',
+      'feature_settings_page',
+    ];
+
+    for (const col of columns) {
+      const result = await db.execute(`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema()
+          AND table_name = 'company_settings'
+          AND column_name = '${col}'
+        )
+      `);
+      if (!result.rows[0]?.exists) {
+        console.log(`🔄 [fix] Adding ${col} to company_settings in schema ${await db.execute(`SELECT current_schema()`).then((r: any) => r.rows[0]?.current_schema)}`);
+        await db.execute(`ALTER TABLE company_settings ADD COLUMN ${col} BOOLEAN DEFAULT TRUE`);
+        console.log(`✅ [fix] Added ${col}`);
+      } else {
+        console.log(`ℹ️ [fix] ${col} already exists in current schema, skipping`);
+      }
+    }
+  }
+};
+
+/**
  * All settings column migrations exported as array
  */
 export const settingsColumnMigrations: Migration[] = [
   addIdCardPrintQualityColumnMigration,
   addMissingIdCardColumnsMigration,
   addMissingThermalPrinterColumnsMigration,
+  addCoreNavFeatureToggleColumnsMigration,
+  addCoreNavFeatureToggleColumnsFixedMigration,
 ];

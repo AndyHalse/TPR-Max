@@ -349,7 +349,8 @@ By entering our premises, you agree to comply with all health and safety rules.`
       const tableInfo = await customerDb.execute(`
         SELECT column_name 
         FROM information_schema.columns 
-        WHERE table_name = 'company_settings'
+        WHERE table_schema = current_schema()
+        AND table_name = 'company_settings'
       `);
       
       const existingColumns = new Set(tableInfo.rows.map((row: any) => {
