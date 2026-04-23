@@ -27919,6 +27919,41 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // POST /api/ppm/work-orders/:id/duplicate — clone a work order, resetting status/completion fields
+  app.post("/api/ppm/work-orders/:id/duplicate", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const { id } = req.params;
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [original] = await custDb.select().from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+      if (!original) return res.status(404).json({ error: "Work order not found" });
+      const accessToken = randomBytes(24).toString("hex");
+      const accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      const [copy] = await custDb.insert(isolatedSchema.ppmWorkOrders).values({
+        scheduleId: original.scheduleId,
+        assetId: original.assetId,
+        title: `${original.title} (Copy)`,
+        description: original.description,
+        status: "scheduled",
+        contractorCompanyId: original.contractorCompanyId,
+        contractorCompanyName: original.contractorCompanyName,
+        contractorWorkerId: original.contractorWorkerId,
+        contractorWorkerName: original.contractorWorkerName,
+        assignedEmail: original.assignedEmail,
+        dueDate: original.dueDate,
+        notes: original.notes,
+        requiresCertificate: original.requiresCertificate,
+        accessToken,
+        accessTokenExpiresAt,
+      }).returning();
+      res.json(copy);
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/work-orders/:id/duplicate", error);
+      res.status(500).json({ error: "Failed to duplicate work order" });
+    }
+  });
+
   // POST /api/ppm/work-orders/:id/assign — assign contractor and send email
   app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
     try {

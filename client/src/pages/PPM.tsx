@@ -956,6 +956,15 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
     onError: (error: unknown) => toastError(error, toast),
   });
 
+  const duplicateWOMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("POST", `/api/ppm/work-orders/${id}/duplicate`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
+      toast({ title: "Work order duplicated", description: "A copy has been added with status reset to Scheduled." });
+    },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
   const assignMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
       const res = await apiRequest("POST", `/api/ppm/work-orders/${id}/assign`, data);
@@ -1155,9 +1164,14 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                     {wo.contractorWorkerName || wo.contractorCompanyName || "—"}
                   </td>
                   <td className="px-3 py-2.5">
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={e => { e.stopPropagation(); openDetail(wo); }}>
-                      <Eye className="h-3.5 w-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="View work order" onClick={e => { e.stopPropagation(); openDetail(wo); }}>
+                        <Eye className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" title="Duplicate work order" disabled={duplicateWOMutation.isPending} onClick={e => { e.stopPropagation(); duplicateWOMutation.mutate(wo.id); }}>
+                        <Copy className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
