@@ -389,11 +389,12 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     return { status: "all", fromDate: "", toDate: "", companyId: "all" };
   };
 
-  const initialPdfFilters = loadPdfFilters("all");
+  const initialLastCompany = (() => { try { return localStorage.getItem("cdm_pdf_last_company") || "all"; } catch { return "all"; } })();
+  const initialPdfFilters = loadPdfFilters(initialLastCompany);
   const [pdfStatusFilter, setPdfStatusFilter] = useState(initialPdfFilters.status);
   const [pdfFromDate, setPdfFromDate] = useState(initialPdfFilters.fromDate);
   const [pdfToDate, setPdfToDate] = useState(initialPdfFilters.toDate);
-  const [pdfCompanyFilter, setPdfCompanyFilter] = useState(initialPdfFilters.companyId);
+  const [pdfCompanyFilter, setPdfCompanyFilter] = useState(initialLastCompany);
   const pdfGeneratingRef = useRef(false);
 
   const resetPdfFilters = () => {
@@ -401,10 +402,14 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     setPdfFromDate("");
     setPdfToDate("");
     setPdfCompanyFilter("all");
+    try { localStorage.setItem("cdm_pdf_last_company", "all"); } catch {}
   };
 
   const handlePdfDialogOpenChange = (open: boolean) => {
-    if (!open && !pdfGeneratingRef.current) {
+    if (open) {
+      const lastCompany = (() => { try { return localStorage.getItem("cdm_pdf_last_company") || "all"; } catch { return "all"; } })();
+      setPdfCompanyFilter(lastCompany);
+    } else if (!pdfGeneratingRef.current) {
       resetPdfFilters();
     }
     pdfGeneratingRef.current = false;
@@ -1549,7 +1554,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label className="text-sm font-medium">Contractor Company</Label>
-              <Select value={pdfCompanyFilter} onValueChange={setPdfCompanyFilter}>
+              <Select value={pdfCompanyFilter} onValueChange={(val) => { setPdfCompanyFilter(val); try { localStorage.setItem("cdm_pdf_last_company", val); } catch {} }}>
                 <SelectTrigger className="h-9 text-sm">
                   <SelectValue placeholder="All companies" />
                 </SelectTrigger>
