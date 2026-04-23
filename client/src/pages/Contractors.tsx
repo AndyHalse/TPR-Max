@@ -1274,7 +1274,7 @@ export default function Contractors() {
                           <>
                             {getComplianceIcon(dynamicScore)}
                             <span className="text-sm font-medium text-slate-700">{dynamicScore}%</span>
-                            {getComplianceGapBadge(contractor.documentsStatus, () => setLocation(`/contractors/${contractor.id}?tab=documents`))}
+                            {getComplianceGapBadge(contractor.documentsStatus, () => setLocation(`/contractors/${contractor.id}?tab=documents&filter=missing`))}
                             {getStatusBadge(contractor.status)}
                           </>
                         );
@@ -1374,7 +1374,7 @@ export default function Contractors() {
             </GlassCard>
           ) : (
             (() => {
-              const complianceGapBadge = getComplianceGapBadge(contractor.documentsStatus, () => setLocation(`/contractors/${contractor.id}?tab=documents`));
+              const complianceGapBadge = getComplianceGapBadge(contractor.documentsStatus, () => setLocation(`/contractors/${contractor.id}?tab=documents&filter=missing`));
               return (
                 <div key={contractor.id} className="bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all">
                   {/* Info row — full-width so company name is never cut off */}

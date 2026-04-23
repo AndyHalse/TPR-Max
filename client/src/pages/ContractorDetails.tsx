@@ -48,9 +48,12 @@ export default function ContractorDetails() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
 
-  // Read ?tab= from URL to support direct navigation (e.g. ?tab=documents)
+  // Read ?tab= and ?filter= from URL to support direct navigation (e.g. ?tab=documents&filter=missing)
   const initialTab = new URLSearchParams(window.location.search).get("tab") || "workers";
   const [activeTab, setActiveTab] = useState(initialTab);
+  const [filterMissing, setFilterMissing] = useState(
+    new URLSearchParams(window.location.search).get("filter") === "missing"
+  );
 
   // Upload dialog state
   const [uploadDialog, setUploadDialog] = useState<{ open: boolean; docKey: string; docName: string; requiresExpiry: boolean; existingId?: string }>({
@@ -1175,7 +1178,12 @@ export default function ContractorDetails() {
             const expiredCount = requiredDocs.filter(d => getDocStatus(d.key) === 'expired').length;
             const pct = Math.round((compliantCount / requiredDocs.length) * 100);
 
-            const DocSection = ({ title, icon, badge, items }: { title: string; icon: any; badge: any; items: typeof UK_DOC_FRAMEWORK }) => (
+            const DocSection = ({ title, icon, badge, items }: { title: string; icon: any; badge: any; items: typeof UK_DOC_FRAMEWORK }) => {
+              const visibleItems = filterMissing
+                ? items.filter(d => ['missing', 'expired'].includes(getDocStatus(d.key)))
+                : items;
+              if (visibleItems.length === 0) return null;
+              return (
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
@@ -1185,7 +1193,7 @@ export default function ContractorDetails() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {items.map(doc => {
+                  {visibleItems.map(doc => {
                     const status = getDocStatus(doc.key);
                     const uploaded = docs.find((d: any) => d.documentType === doc.key);
                     return (
@@ -1268,7 +1276,8 @@ export default function ContractorDetails() {
                   })}
                 </CardContent>
               </Card>
-            );
+              );
+            };
 
             return (
               <div className="space-y-4">
@@ -1297,6 +1306,23 @@ export default function ContractorDetails() {
                     )}
                   </CardContent>
                 </Card>
+
+                {filterMissing && (
+                  <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-amber-800 font-medium">
+                      <span>⚠️ Showing gaps only — missing and expired documents</span>
+                    </div>
+                    <button
+                      className="text-xs text-amber-700 underline underline-offset-2 hover:text-amber-900 whitespace-nowrap"
+                      onClick={() => {
+                        setFilterMissing(false);
+                        setLocation(`/contractors/${id}?tab=documents`);
+                      }}
+                    >
+                      Show all
+                    </button>
+                  </div>
+                )}
 
                 <DocSection
                   title="Legally Required"
