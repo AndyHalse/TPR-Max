@@ -255,7 +255,8 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/fire-marshal') ||
         req.originalUrl.startsWith('/api/induction/public') ||
         req.originalUrl.startsWith('/api/induction/kiosk') ||
-        req.originalUrl.startsWith('/api/muster/safe')) {
+        req.originalUrl.startsWith('/api/muster/safe') ||
+        req.originalUrl.startsWith('/api/ppm/work-order/public')) {
       console.log(`✅ CSRF EXEMPTION: External/public endpoint`);
       return next();
     }

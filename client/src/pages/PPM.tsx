@@ -1195,6 +1195,9 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" title="Duplicate work order" disabled={duplicateWOMutation.isPending} onClick={e => { e.stopPropagation(); duplicateWOMutation.mutate(wo.id); }}>
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" title="Delete work order" disabled={deleteWOMutation.isPending} onClick={e => { e.stopPropagation(); if (confirm("Delete this work order and all its documents?")) deleteWOMutation.mutate(wo.id); }}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </td>
                 </tr>
