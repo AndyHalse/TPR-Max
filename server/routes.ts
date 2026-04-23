@@ -13166,10 +13166,11 @@ ${evacuationPhotosData.length > 0 ? `
 
       let result;
       if (mimeType === 'application/pdf') {
-        // Extract text from the PDF then send to GPT-4o
-        const pdfParse = (await import('pdf-parse')).default;
-        const pdfData = await pdfParse(buffer);
-        result = await scanDocumentWithAI({ mimeType, pdfText: pdfData.text, documentType });
+        // Extract text from the PDF (pdf-parse v2 API) then send to GPT-4o
+        const { PDFParse } = await import('pdf-parse');
+        const parser = new PDFParse({ data: buffer, verbosity: 0 });
+        const pdfText = await parser.getText();
+        result = await scanDocumentWithAI({ mimeType, pdfText, documentType });
       } else {
         // Image — send base64 directly to GPT-4o vision
         result = await scanDocumentWithAI({ mimeType, base64Data: fileData, documentType });
@@ -13177,6 +13178,15 @@ ${evacuationPhotosData.length > 0 ? `
 
       if (!result.success) {
         return res.status(422).json({ error: result.error || 'AI extraction failed', fields: result.fields });
+      }
+
+      // If every extracted field is null the document contained no recognisable data
+      const { expiryDate, issuedBy, policyNumber } = result.fields;
+      if (!expiryDate && !issuedBy && !policyNumber) {
+        return res.status(422).json({
+          error: 'No recognisable data found. The document may not contain the expected fields, or the text may not be machine-readable.',
+          fields: result.fields,
+        });
       }
 
       return res.json({ fields: result.fields });
