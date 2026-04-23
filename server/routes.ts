@@ -28659,8 +28659,14 @@ This is an automated notification from your visitor management system.`;
       const adminEmail = settings?.email as string | undefined;
       if (!adminEmail) return res.status(400).json({ error: "No admin email configured" });
 
-      // Fetch the work order title for context
-      const [wo] = await custDb.select({ title: isolatedSchema.ppmWorkOrders.title })
+      // Fetch the work order title and contractor details for context
+      const [wo] = await custDb.select({
+        title: isolatedSchema.ppmWorkOrders.title,
+        assignedEmail: isolatedSchema.ppmWorkOrders.assignedEmail,
+        contractorWorkerName: isolatedSchema.ppmWorkOrders.contractorWorkerName,
+        contractorCompanyName: isolatedSchema.ppmWorkOrders.contractorCompanyName,
+        accessToken: isolatedSchema.ppmWorkOrders.accessToken,
+      })
         .from(isolatedSchema.ppmWorkOrders)
         .where(eq(isolatedSchema.ppmWorkOrders.id, id));
       const woTitle = wo?.title ?? id;
@@ -28722,12 +28728,64 @@ This is an automated notification from your visitor management system.`;
 
       if (!sent) return res.status(500).json({ error: "Failed to send alert email" });
 
+      // Also notify the assigned contractor (if the work order has one)
+      const contractorEmail = wo?.assignedEmail;
+      let contractorNotified = false;
+      if (contractorEmail) {
+        try {
+          const recipientName = wo?.contractorWorkerName || wo?.contractorCompanyName || "Contractor";
+          const baseUrl = process.env.REPLIT_DOMAINS
+            ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+            : (process.env.PUBLIC_URL || process.env.BASE_URL || "http://localhost:5000");
+          const workOrderUrl = wo?.accessToken ? `${baseUrl}/ppm/work-order/${wo.accessToken}` : null;
+          const contractorSubject = isExpired
+            ? `Action Required: Expired Document on Work Order — ${woTitle}`
+            : `Action Required: Document Expiring Soon on Work Order — ${woTitle}`;
+          const accentColor = isExpired ? "#dc2626" : "#d97706";
+          const statusLabel = isExpired ? "Expired" : "Expiring Soon";
+          await emailSvc.sendEmail({
+            to: contractorEmail,
+            subject: contractorSubject,
+            companyName,
+            html: `
+              <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f6f6f6;margin:0;padding:20px">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+                <div style="background:${accentColor};color:#fff;padding:24px 28px">
+                  <h1 style="margin:0;font-size:20px">Document Expiry Notice</h1>
+                  <p style="margin:6px 0 0;opacity:.85;font-size:14px">${companyName}</p>
+                </div>
+                <div style="padding:28px">
+                  <p style="font-size:16px;color:#1f2937">Hello ${recipientName},</p>
+                  <p style="color:#374151">A document on one of your assigned PPM work orders requires attention. Please supply a replacement as soon as possible.</p>
+                  <div style="background:#fef2f2;border:1px solid ${accentColor}33;border-radius:8px;padding:16px;margin:20px 0">
+                    <p style="margin:0 0 6px;font-weight:600;color:#1f2937;font-size:15px">${woTitle}</p>
+                    <p style="margin:0 0 4px;font-size:14px;color:#374151"><strong>Document:</strong> ${doc.fileName}</p>
+                    <p style="margin:0 0 4px;font-size:14px;color:${accentColor}"><strong>Expiry Date:</strong> ${doc.expiryDate}</p>
+                    <p style="margin:0;font-size:14px;color:${accentColor}"><strong>Status:</strong> ${statusLabel}</p>
+                  </div>
+                  ${workOrderUrl ? `<div style="text-align:center;margin:28px 0"><a href="${workOrderUrl}" style="background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-weight:600;font-size:15px;display:inline-block">View Work Order</a></div>` : ""}
+                  <p style="color:#6b7280;font-size:13px">Please upload a valid replacement document at your earliest convenience. If you have any questions, contact ${companyName} directly.</p>
+                </div>
+                <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 28px;text-align:center">
+                  <p style="margin:0;color:#9ca3af;font-size:12px">This notice was sent by ${companyName} via TPR-Max PPM system.</p>
+                </div>
+              </div>
+              </body></html>
+            `,
+            text: `Document Expiry Notice — ${companyName}\n\nHello ${recipientName},\n\nA document on your assigned work order "${woTitle}" requires attention.\n\nDocument: ${doc.fileName}\nExpiry Date: ${doc.expiryDate}\nStatus: ${statusLabel}\n\nPlease supply a replacement document as soon as possible.${workOrderUrl ? `\n\nView your work order at:\n${workOrderUrl}` : ""}\n\n${companyName}`,
+          });
+          contractorNotified = true;
+        } catch (contractorEmailErr) {
+          console.error("PPM expiry resend — contractor notification failed:", contractorEmailErr);
+        }
+      }
+
       // Stamp expiryAlertedAt so cron won't re-fire automatically until reset
       await custDb.update(isolatedSchema.ppmWorkOrderDocuments)
         .set({ expiryAlertedAt: new Date() })
         .where(eq(isolatedSchema.ppmWorkOrderDocuments.id, docId));
 
-      res.json({ success: true });
+      res.json({ success: true, contractorNotified });
     } catch (error: unknown) {
       console.error("POST /api/ppm/work-orders/:id/documents/:docId/resend-alert", error);
       res.status(500).json({ error: "Failed to resend alert" });
