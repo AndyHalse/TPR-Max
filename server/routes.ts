@@ -13148,6 +13148,44 @@ ${evacuationPhotosData.length > 0 ? `
     }
   });
 
+  // AI document scan — extract expiry date, issuer, and policy number from an uploaded document
+  app.post('/api/contractors/documents/scan', requireAuth, async (req, res) => {
+    try {
+      const { fileData, mimeType, documentType } = req.body as {
+        fileData?: string;
+        mimeType?: string;
+        documentType?: string;
+      };
+
+      if (!fileData || !mimeType || !documentType) {
+        return res.status(400).json({ error: 'fileData, mimeType and documentType are required' });
+      }
+
+      const { scanDocumentWithAI } = await import('./openaiService');
+      const buffer = Buffer.from(fileData, 'base64');
+
+      let result;
+      if (mimeType === 'application/pdf') {
+        // Extract text from the PDF then send to GPT-4o
+        const pdfParse = (await import('pdf-parse')).default;
+        const pdfData = await pdfParse(buffer);
+        result = await scanDocumentWithAI({ mimeType, pdfText: pdfData.text, documentType });
+      } else {
+        // Image — send base64 directly to GPT-4o vision
+        result = await scanDocumentWithAI({ mimeType, base64Data: fileData, documentType });
+      }
+
+      if (!result.success) {
+        return res.status(422).json({ error: result.error || 'AI extraction failed', fields: result.fields });
+      }
+
+      return res.json({ fields: result.fields });
+    } catch (error) {
+      console.error('❌ Document scan error:', error);
+      return res.status(500).json({ error: 'Failed to scan document' });
+    }
+  });
+
   // Reports endpoints
   // Generate test data for load testing
   // Clear duplicate visitors endpoint

@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
-import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck } from 'lucide-react';
+import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -58,6 +58,8 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     issuedBy: '',
     policyNumber: '',
   });
+  const [isScanningDoc, setIsScanningDoc] = useState(false);
+  const [aiExtracted, setAiExtracted] = useState(false);
 
   // Fetch FRESH worker data directly from API when modal opens
   // This ensures we always have the latest data, not stale parent state
@@ -301,6 +303,48 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     },
   });
 
+  // AI document scan handler
+  const scanDocument = async () => {
+    if (!selectedFile) return;
+    setIsScanningDoc(true);
+    setAiExtracted(false);
+    try {
+      const fileData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          // Strip the data URL prefix (e.g. "data:application/pdf;base64,")
+          const base64 = result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(selectedFile);
+      });
+
+      const response = await apiRequest('POST', '/api/contractors/documents/scan', {
+        fileData,
+        mimeType: selectedFile.type || 'application/octet-stream',
+        documentType: documentFormData.documentType || 'other',
+      });
+      const data = await response.json();
+      const fields = data.fields as { expiryDate: string | null; issuedBy: string | null; policyNumber: string | null };
+
+      setDocumentFormData(prev => ({
+        ...prev,
+        expiryDate: prev.expiryDate || fields.expiryDate || '',
+        issuedBy: prev.issuedBy || fields.issuedBy || '',
+        policyNumber: prev.policyNumber || fields.policyNumber || '',
+      }));
+      setAiExtracted(true);
+      toast({ title: 'Scan complete', description: 'Fields have been pre-filled — please verify before saving.' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unable to scan document';
+      toast({ title: 'Scan failed', description: msg, variant: 'destructive' });
+    } finally {
+      setIsScanningDoc(false);
+    }
+  };
+
   // Upload document mutation
   const uploadDocumentMutation = useMutation({
     mutationFn: async (file: File) => {
@@ -364,6 +408,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       }
       
       setSelectedFile(null);
+      setAiExtracted(false);
       setDocumentFormData({
         documentType: '',
         expiryDate: '',
@@ -1016,9 +1061,32 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         data-testid="input-document-file"
                       />
                       {selectedFile && (
-                        <p className="text-sm text-variable mt-1" data-testid="text-selected-file">
-                          Selected: {selectedFile.name}
-                        </p>
+                        <div className="mt-2 flex items-center gap-2 flex-wrap">
+                          <p className="text-sm text-variable" data-testid="text-selected-file">
+                            Selected: {selectedFile.name}
+                          </p>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={scanDocument}
+                            disabled={isScanningDoc || isUploading}
+                            className="text-purple-700 border-purple-300 hover:bg-purple-50 dark:text-purple-300 dark:border-purple-700 dark:hover:bg-purple-950"
+                            data-testid="button-scan-document"
+                          >
+                            {isScanningDoc ? (
+                              <>
+                                <RotateCcw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                                Scanning…
+                              </>
+                            ) : (
+                              <>
+                                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                                Scan with AI
+                              </>
+                            )}
+                          </Button>
+                        </div>
                       )}
                     </div>
 
@@ -1088,6 +1156,14 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                       />
                     </div>
 
+                    {/* AI-extracted notice */}
+                    {aiExtracted && (
+                      <div className="flex items-center gap-1.5 text-xs text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800 rounded-md px-3 py-2">
+                        <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                        AI-extracted — please verify the fields above before saving.
+                      </div>
+                    )}
+
                     {/* Upload Button */}
                     <div className="flex justify-end gap-2">
                       {selectedFile && (
@@ -1096,6 +1172,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           variant="outline"
                           onClick={() => {
                             setSelectedFile(null);
+                            setAiExtracted(false);
                             setDocumentFormData({
                               documentType: '',
                               expiryDate: '',

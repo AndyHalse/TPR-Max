@@ -97,3 +97,86 @@ function generateFallbackDescription(companyName: string, industry?: string): st
 
   return `${companyName} is a professional contractor specializing in ${serviceDescription}. The company provides reliable, high-quality solutions to meet client requirements and maintain industry standards.`;
 }
+
+export interface ScannedDocumentFields {
+  expiryDate: string | null;
+  issuedBy: string | null;
+  policyNumber: string | null;
+}
+
+/**
+ * Scan a contractor document (image or PDF text) and extract key fields using GPT-4o.
+ * For images supply base64 + mimeType. For PDFs supply the extracted text as `pdfText`.
+ */
+export async function scanDocumentWithAI(params: {
+  mimeType: string;
+  base64Data?: string;
+  pdfText?: string;
+  documentType: string;
+}): Promise<{ fields: ScannedDocumentFields; success: boolean; error?: string }> {
+  const { mimeType, base64Data, pdfText, documentType } = params;
+
+  const systemPrompt = `You are a document data-extraction assistant. Extract the following fields from the provided contractor compliance document and return ONLY valid JSON. If a field is not present, return null for that field.
+
+Fields to extract:
+- expiryDate: The document expiry/valid-to date in ISO format YYYY-MM-DD (e.g. "2027-03-31"). Look for words like "expiry", "valid to", "expires", "valid until", "renewal date".
+- issuedBy: The name of the insurer, issuing authority, or certificate body (e.g. "Zurich Insurance", "CSCS", "CITB").
+- policyNumber: The policy number, certificate number, or reference number (e.g. "PL-2024-001234", "PLI-2026-BRC-00441").
+
+Return format (JSON only, no markdown, no explanation):
+{"expiryDate": "YYYY-MM-DD or null", "issuedBy": "string or null", "policyNumber": "string or null"}`;
+
+  try {
+    let responseContent: string | null = null;
+
+    if (pdfText) {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: `Document type: ${documentType}\n\nExtracted document text:\n${pdfText.slice(0, 8000)}` }
+        ],
+        max_completion_tokens: 200,
+        response_format: { type: "json_object" },
+      });
+      responseContent = response.choices[0].message.content;
+    } else if (base64Data) {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          { role: "system", content: systemPrompt },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: `Document type: ${documentType}. Please extract the fields.` },
+              { type: "image_url", image_url: { url: `data:${mimeType};base64,${base64Data}`, detail: "high" } }
+            ]
+          }
+        ],
+        max_completion_tokens: 200,
+        response_format: { type: "json_object" },
+      });
+      responseContent = response.choices[0].message.content;
+    } else {
+      return { fields: { expiryDate: null, issuedBy: null, policyNumber: null }, success: false, error: "No document content provided" };
+    }
+
+    if (!responseContent) {
+      return { fields: { expiryDate: null, issuedBy: null, policyNumber: null }, success: false, error: "Empty response from AI" };
+    }
+
+    const parsed = JSON.parse(responseContent);
+    return {
+      fields: {
+        expiryDate: parsed.expiryDate || null,
+        issuedBy: parsed.issuedBy || null,
+        policyNumber: parsed.policyNumber || null,
+      },
+      success: true,
+    };
+  } catch (error) {
+    OpenAIErrorHandler.logError(error, 'scanDocumentWithAI');
+    const errResult = OpenAIErrorHandler.handleError(error);
+    return { fields: { expiryDate: null, issuedBy: null, policyNumber: null }, success: false, error: errResult.userMessage };
+  }
+}
