@@ -210,6 +210,18 @@ interface ContractorCompany {
   };
 }
 
+function getExpiryState(expiryDate: string | null | undefined): { state: 'expired' | 'expiring'; days: number } | null {
+  if (!expiryDate) return null;
+  const expiry = new Date(expiryDate);
+  expiry.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const daysToExpiry = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (daysToExpiry < 0) return { state: 'expired', days: 0 };
+  if (daysToExpiry <= 30) return { state: 'expiring', days: daysToExpiry };
+  return null;
+}
+
 export default function Contractors() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
@@ -2169,11 +2181,17 @@ export default function Contractors() {
                 <h3 className="text-lg font-semibold text-fixed mb-4">Document Management</h3>
                 <TooltipProvider>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {documents.map((document: any) => (
+                    {documents.map((document: any) => {
+                      const liveExpiryState = getExpiryState(document.expiryDate);
+                      const cardBorder =
+                        liveExpiryState?.state === 'expired' ? 'border-red-300 bg-red-50' :
+                        liveExpiryState?.state === 'expiring' ? 'border-amber-300 bg-amber-50' :
+                        'border-slate-200 bg-[var(--card)]';
+                      return (
                       <Tooltip key={document.id}>
                         <TooltipTrigger asChild>
                           <div 
-                            className="border-2 border-slate-200 rounded-lg p-4 hover:border-blue-500 hover:shadow-lg hover:bg-blue-50 transition-all duration-200 cursor-pointer bg-[var(--card)] select-none"
+                            className={`border-2 ${cardBorder} rounded-lg p-4 hover:border-blue-500 hover:shadow-lg hover:bg-blue-50 transition-all duration-200 cursor-pointer select-none`}
                             onClick={() => {
                               console.log('Document panel clicked:', document.documentName);
                               handleViewDocument(document);
@@ -2191,9 +2209,23 @@ export default function Contractors() {
                           {document.status.charAt(0).toUpperCase() + document.status.slice(1)}
                         </Badge>
                       </div>
-                      <div className="text-sm text-variable mb-3">
+                      <div className="text-sm text-variable mb-2">
                         {document.expiryDate ? `Expires: ${new Date(document.expiryDate).toLocaleDateString()}` : 'No expiry date'}
                       </div>
+                      {liveExpiryState?.state === 'expiring' && (
+                        <div className="mb-2">
+                          <Badge className="bg-amber-100 text-amber-800 border border-amber-300">
+                            ⚠️ Expires in {liveExpiryState.days} day{liveExpiryState.days === 1 ? '' : 's'}
+                          </Badge>
+                        </div>
+                      )}
+                      {liveExpiryState?.state === 'expired' && (
+                        <div className="mb-2">
+                          <Badge className="bg-red-100 text-red-800 border border-red-300">
+                            ❌ Expired
+                          </Badge>
+                        </div>
+                      )}
                             <div className="flex gap-2">
                               <Button 
                                 variant="outline" 
@@ -2243,7 +2275,8 @@ export default function Contractors() {
                           <p>Click to open {document.documentName}</p>
                         </TooltipContent>
                       </Tooltip>
-                    ))}
+                      );
+                    })}
 
                     {/* Placeholder for missing documents */}
                     {['public_liability', 'employers_liability', 'health_safety', 'cis_registration'].filter(
@@ -2836,12 +2869,25 @@ export default function Contractors() {
                       <Label className="text-sm font-medium text-variable">Uploaded</Label>
                       <p className="text-fixed">{new Date(selectedDocument.uploadedAt).toLocaleString()}</p>
                     </div>
-                    {selectedDocument.expiryDate && (
-                      <div>
-                        <Label className="text-sm font-medium text-variable">Expires</Label>
-                        <p className="text-fixed">{new Date(selectedDocument.expiryDate).toLocaleDateString()}</p>
-                      </div>
-                    )}
+                    {selectedDocument.expiryDate && (() => {
+                      const expiryState = getExpiryState(selectedDocument.expiryDate);
+                      return (
+                        <div>
+                          <Label className="text-sm font-medium text-variable">Expires</Label>
+                          <p className="text-fixed">{new Date(selectedDocument.expiryDate).toLocaleDateString()}</p>
+                          {expiryState?.state === 'expiring' && (
+                            <Badge className="mt-1 bg-amber-100 text-amber-800 border border-amber-300">
+                              ⚠️ Expires in {expiryState.days} day{expiryState.days === 1 ? '' : 's'}
+                            </Badge>
+                          )}
+                          {expiryState?.state === 'expired' && (
+                            <Badge className="mt-1 bg-red-100 text-red-800 border border-red-300">
+                              ❌ Expired
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
 
