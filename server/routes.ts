@@ -2524,7 +2524,6 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock stats");
         const mockStats = getMockCompanyStats();
         return res.json({
           currentVisitors: mockStats.currentVisitors,
@@ -2642,7 +2641,6 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // DEV DATA BYPASS: Return mock recent activity data instead of empty array
       if (isDevDataBypass()) {
-        console.log("🚀 DEV_DATA_BYPASS: Returning mock recent activity data");
         return res.json(getMockRecentActivity());
       }
       
@@ -2653,7 +2651,6 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock recent activity");
         return res.json(getMockRecentActivity());
       }
       
@@ -2675,7 +2672,6 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock department analytics");
         return res.json(getMockDepartmentAnalytics());
       }
       
@@ -2909,7 +2905,6 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock peak hours analytics");
         return res.json(getMockPeakHoursAnalytics());
       }
       
@@ -3776,7 +3771,6 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
     try {
       // Validate emergency token
       const emergencyToken = req.emergencyToken;
-      console.log(`🔍 EMERGENCY TOKEN DEBUG: Token received = ${emergencyToken ? emergencyToken.substring(0, 20) + '...' : 'NONE'}`);
       
       if (!emergencyToken) {
         return res.status(401).json({ error: "Emergency token required", code: "TOKEN_REQUIRED" });
@@ -8792,7 +8786,6 @@ ${evacuationPhotosData.length > 0 ? `
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock checked-in staff");
         return res.json(getMockCheckedInStaff());
       }
       
@@ -8814,7 +8807,6 @@ ${evacuationPhotosData.length > 0 ? `
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock checked-in contractors");
         return res.json(getMockCheckedInContractors());
       }
       
@@ -9092,7 +9084,6 @@ ${evacuationPhotosData.length > 0 ? `
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock current visitors");
         return res.json(getMockCurrentVisitors());
       }
       
@@ -9113,7 +9104,6 @@ ${evacuationPhotosData.length > 0 ? `
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock today's visitors");
         return res.json(getMockTodaysVisitors());
       }
       
@@ -14999,7 +14989,6 @@ This is an automated notification from your visitor management system.`;
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock reception diary");
         return res.json(getMockReceptionDiary());
       }
       
@@ -17722,7 +17711,6 @@ This is an automated notification from your visitor management system.`;
         return res.status(404).json({ error: "Contractor not found" });
       }
       
-      console.log("✅ DEBUG: Contractor updated successfully:", JSON.stringify(contractor, null, 2));
 
       // Audit trail — company updated
       try {
@@ -22674,7 +22662,6 @@ This is an automated notification from your visitor management system.`;
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log("🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock room bookings");
         return res.json(getMockRoomBookings());
       }
       

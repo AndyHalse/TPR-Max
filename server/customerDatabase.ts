@@ -130,7 +130,6 @@ export class CustomerDatabaseService {
         // DEV DATA BYPASS: Skip database provisioning if Neon is disabled
         const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
         if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-          console.log('🚀 DEV_DATA_BYPASS: Skipping database provisioning due to Neon database disabled');
           // Continue with connection setup using the existing database URL
         } else {
           throw error;
@@ -219,7 +218,6 @@ export class CustomerDatabaseService {
         
         const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
         if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-          console.log('🚀 DEV_DATA_BYPASS: Creating mock database connection due to Neon database disabled');
           const mockDb = {} as ReturnType<typeof drizzle>;
           this.customerConnections.set(customerId, mockDb);
           return mockDb;
@@ -678,7 +676,6 @@ export class CustomerDatabaseService {
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log('🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock customer creation');
         return {
           id: 'dev-customer-001',
           companyName: customerData.companyName,

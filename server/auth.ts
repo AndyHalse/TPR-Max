@@ -76,7 +76,6 @@ export function isValidDevCredentials(company: string, username: string, passwor
 
 // Mock Data Generation Functions for Development Bypass
 export function getMockDepartmentAnalytics() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock department analytics');
   return [
     { department: 'Engineering', count: 12, checkedIn: 8 },
     { department: 'Operations', count: 15, checkedIn: 11 },
@@ -87,7 +86,6 @@ export function getMockDepartmentAnalytics() {
 }
 
 export function getMockPeakHoursAnalytics() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock peak hours analytics');
   return [
     { hour: '08:00', checkIns: 15, checkOuts: 2 },
     { hour: '09:00', checkIns: 23, checkOuts: 1 },
@@ -103,7 +101,6 @@ export function getMockPeakHoursAnalytics() {
 }
 
 export function getMockCheckedInStaff() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock checked-in staff');
   return [
     {
       id: 'staff-001',
@@ -136,7 +133,6 @@ export function getMockCheckedInStaff() {
 }
 
 export function getMockCheckedInContractors() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock checked-in contractors');
   return [
     {
       id: 'contractor-001',
@@ -178,7 +174,6 @@ export function getMockCheckedInContractors() {
 }
 
 export function getMockCurrentVisitors() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock current visitors');
   return [
     {
       id: 'visitor-001',
@@ -208,7 +203,6 @@ export function getMockCurrentVisitors() {
 }
 
 export function getMockRecentActivity() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock recent activity');
   return [
     {
       id: 'activity-001',
@@ -242,7 +236,6 @@ export function getMockRecentActivity() {
 }
 
 export function getMockCompanyStats() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock company stats');
   return {
     currentVisitors: 2,
     todayCheckIns: 15,
@@ -254,7 +247,6 @@ export function getMockCompanyStats() {
 }
 
 export function getMockCompanySettings() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock company settings');
   return {
     id: 'settings-001',
     companyName: 'Development Corporation',
@@ -271,7 +263,6 @@ export function getMockCompanySettings() {
 }
 
 export function getMockTodaysVisitors() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock today\'s visitors');
   return [
     {
       id: 'visitor-001',
@@ -316,7 +307,6 @@ export function getMockTodaysVisitors() {
 }
 
 export function getMockRoomBookings() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock room bookings for today');
   return [
     {
       id: 'booking-001',
@@ -344,7 +334,6 @@ export function getMockRoomBookings() {
 }
 
 export function getMockReceptionDiary() {
-  console.log('🚀 DEV_DATA_BYPASS: Returning mock reception diary');
   return {
     visitors: [],
     contractors: [],
@@ -518,7 +507,6 @@ export class AuthService {
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log('🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock customer for company lookup');
         return {
           id: 'dev-customer-001',
           companyName: companyName,
@@ -577,7 +565,6 @@ export class AuthService {
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
-        console.log('🚀 DEV_DATA_BYPASS: Neon database disabled, returning mock user authentication');
         return {
           id: 'dev-user-001',
           username: username,

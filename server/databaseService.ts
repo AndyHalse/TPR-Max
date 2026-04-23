@@ -1881,13 +1881,10 @@ export class DatabaseService {
       const worker = workers[0];
       
       if (!worker) {
-        console.log(`🔍 DEBUG: No worker found with id: ${id}`);
         return undefined;
       }
       
       // Debug: Log what fields are actually returned
-      console.log(`🔍 DEBUG: Worker found, mapping fields for frontend...`);
-      console.log(`🔍 DEBUG: Key fields - postcode: "${worker.postcode}", transportMethod: "${worker.transportMethod}", cscsStatus: "${worker.cscsStatus}", inductionCompleted: ${worker.siteInductionCompleted}`);
       
       // FIXED: Properly map database fields to frontend format with correct field names
       const mappedWorker = {
@@ -1965,7 +1962,6 @@ export class DatabaseService {
         needsEvacuationAssistance: worker.needsEvacuationAssistance ?? false,
       } as ContractorWorker;
       
-      console.log(`✅ DEBUG: Successfully mapped worker. Key fields - inductionCompleted: ${mappedWorker.inductionCompleted}, cscsStatus: ${mappedWorker.cscsStatus}, transportMethod: ${mappedWorker.transportMethod}`);
       
       return mappedWorker;
     } catch (error) {
