@@ -1277,6 +1277,18 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
     onError: (error: unknown) => toastError(error, toast),
   });
 
+  const bulkResendAlertMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/ppm/documents/bulk-resend-alert").then(r => r.json()),
+    onSuccess: (data: { count: number; message?: string }) => {
+      if (data.count === 0) {
+        toast({ title: "No documents to alert", description: "There are no expired or expiring documents at this time." });
+      } else {
+        toast({ title: "Bulk expiry alerts sent", description: `Alert email sent covering ${data.count} document${data.count !== 1 ? "s" : ""}.` });
+      }
+    },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
   // Derive unique contractor companies from loaded work orders for structured dropdown
   const contractorOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -1422,6 +1434,16 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
               <FileDown className="h-4 w-4 mr-1" />Export All
             </Button>
           )}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { if (confirm("Send a digest alert email covering all expired and expiring-soon PPM documents?")) bulkResendAlertMutation.mutate(); }}
+            disabled={bulkResendAlertMutation.isPending}
+            title="Send expiry alert email for all expired or expiring-soon documents"
+          >
+            {bulkResendAlertMutation.isPending ? <RefreshCw className="h-4 w-4 mr-1 animate-spin" /> : <Bell className="h-4 w-4 mr-1" />}
+            Send All Expiry Alerts
+          </Button>
           <Button size="sm" onClick={() => { setWoForm(emptyWOForm()); setShowCreate(true); }}>
             <Plus className="h-4 w-4 mr-1" />New Work Order
           </Button>

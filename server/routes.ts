@@ -28910,14 +28910,12 @@ This is an automated notification from your visitor management system.`;
       res.status(500).json({ error: "Failed to resend alert" });
     }
   });
-
   // GET /api/ppm/work-orders/export-all — bulk PDF export for all matching work orders
   app.get("/api/ppm/work-orders/export-all", requireAuth, async (req, res) => {
     try {
       if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
       const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-
       const { status, dateFrom, dateTo } = req.query as { status?: string; dateFrom?: string; dateTo?: string };
 
       // Build filter conditions
@@ -29067,6 +29065,121 @@ ${wos.length === 0 ? `<p style="color:#6b7280;font-size:14px;text-align:center;p
     } catch (error: unknown) {
       console.error("GET /api/ppm/work-orders/export-all", error);
       res.status(500).json({ error: "Failed to generate bulk work order export" });
+    }
+  });
+
+  // POST /api/ppm/documents/bulk-resend-alert — send a single digest covering ALL expired/expiring-soon PPM documents
+  app.post("/api/ppm/documents/bulk-resend-alert", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      // Fetch company settings
+      const settingsRows = await custDb.execute(`SELECT company_name, email, notify_on_document_expiry FROM company_settings LIMIT 1`);
+      const settings = settingsRows.rows[0] as { company_name?: string; email?: string; notify_on_document_expiry?: boolean } | undefined;
+      const companyName = (settings?.company_name as string) || "TPR-Max";
+      const adminEmail = settings?.email as string | undefined;
+      if (!adminEmail) return res.status(400).json({ error: "No admin email configured" });
+      const notifyOnDocumentExpiry = settings?.notify_on_document_expiry !== false;
+      if (!notifyOnDocumentExpiry) return res.status(403).json({ error: "Expiry notifications are disabled in company settings" });
+
+      const todayDateStr = new Date().toISOString().split("T")[0];
+      const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const in30DaysStr = in30Days.toISOString().split("T")[0];
+
+      // Fetch ALL expired or expiring-soon documents (regardless of expiryAlertedAt — this is a manual bulk resend)
+      const expiringDocs = await custDb.select({
+        id: isolatedSchema.ppmWorkOrderDocuments.id,
+        fileName: isolatedSchema.ppmWorkOrderDocuments.fileName,
+        fileType: isolatedSchema.ppmWorkOrderDocuments.fileType,
+        expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate,
+        workOrderId: isolatedSchema.ppmWorkOrderDocuments.workOrderId,
+      }).from(isolatedSchema.ppmWorkOrderDocuments)
+        .where(and(
+          sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} IS NOT NULL`,
+          sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} <= ${in30DaysStr}`
+        ));
+
+      if (expiringDocs.length === 0) {
+        return res.json({ success: true, count: 0, message: "No expired or expiring documents found" });
+      }
+
+      // Enrich with work order titles
+      const woIds = [...new Set(expiringDocs.map(d => d.workOrderId))];
+      const relatedWOs = await custDb.select({
+        id: isolatedSchema.ppmWorkOrders.id,
+        title: isolatedSchema.ppmWorkOrders.title,
+      }).from(isolatedSchema.ppmWorkOrders)
+        .where(inArray(isolatedSchema.ppmWorkOrders.id, woIds));
+      const woMap = Object.fromEntries(relatedWOs.map(w => [w.id, w.title]));
+
+      const expired = expiringDocs.filter(d => d.expiryDate! <= todayDateStr);
+      const soonExpiring = expiringDocs.filter(d => d.expiryDate! > todayDateStr);
+
+      const buildRow = (d: typeof expiringDocs[0], isExp: boolean) =>
+        `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${d.fileName}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${woMap[d.workOrderId] ?? d.workOrderId}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"};font-weight:600">${d.expiryDate}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"}">${isExp ? "Expired" : "Expiring Soon"}</td>
+        </tr>`;
+
+      const tableRows = [
+        ...expired.map(d => buildRow(d, true)),
+        ...soonExpiring.map(d => buildRow(d, false)),
+      ].join("");
+
+      const subjectCount = expiringDocs.length;
+      const hasExpired = expired.length > 0;
+      const subject = hasExpired
+        ? `PPM Alert: ${expired.length} Expired Document${expired.length > 1 ? "s" : ""}${soonExpiring.length > 0 ? ` & ${soonExpiring.length} Expiring Soon` : ""}`
+        : `PPM Alert: ${soonExpiring.length} Document${soonExpiring.length > 1 ? "s" : ""} Expiring Soon`;
+
+      const emailSvc = new EmailService(context.customerId);
+      const sent = await emailSvc.sendEmail({
+        to: adminEmail,
+        subject,
+        companyName,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+            <div style="background:${hasExpired ? "#dc2626" : "#d97706"};color:#fff;padding:20px;border-radius:8px 8px 0 0">
+              <h2 style="margin:0">PPM Document Expiry Alert — ${companyName}</h2>
+            </div>
+            <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+              <p style="margin-top:0">${subjectCount} PPM work order document${subjectCount > 1 ? "s require" : " requires"} attention:</p>
+              <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px">
+                <thead>
+                  <tr style="background:#f9fafb">
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Document</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Work Order</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Expiry Date</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Status</th>
+                  </tr>
+                </thead>
+                <tbody>${tableRows}</tbody>
+              </table>
+              <p style="color:#6b7280;font-size:13px">Please log in to TPR-Max to review and replace these documents as required.</p>
+            </div>
+            <div style="background:#f9fafb;padding:12px 20px;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 8px 8px;font-size:12px;color:#9ca3af">
+              This alert was sent by ${companyName} via TPR-Max PPM system.
+            </div>
+          </div>
+        `,
+        text: `PPM Document Expiry Alert\n\n${expired.length > 0 ? `Expired (${expired.length}):\n${expired.map(d => `- ${d.fileName} (WO: ${woMap[d.workOrderId] ?? d.workOrderId}, expired: ${d.expiryDate})`).join("\n")}\n\n` : ""}${soonExpiring.length > 0 ? `Expiring Soon (${soonExpiring.length}):\n${soonExpiring.map(d => `- ${d.fileName} (WO: ${woMap[d.workOrderId] ?? d.workOrderId}, expires: ${d.expiryDate})`).join("\n")}\n\n` : ""}Please log in to TPR-Max to review.`,
+      });
+
+      if (!sent) return res.status(500).json({ error: "Failed to send alert email" });
+
+      // Reset expiryAlertedAt for all included documents so cron deduplication is updated
+      const alertedIds = expiringDocs.map(d => d.id);
+      await custDb.update(isolatedSchema.ppmWorkOrderDocuments)
+        .set({ expiryAlertedAt: new Date() })
+        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.id, alertedIds));
+
+      res.json({ success: true, count: subjectCount });
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/documents/bulk-resend-alert", error);
+      res.status(500).json({ error: "Failed to send bulk expiry alert" });
     }
   });
 
