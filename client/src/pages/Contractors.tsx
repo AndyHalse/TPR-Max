@@ -2724,12 +2724,12 @@ export default function Contractors() {
                       <strong>Compliance warning:</strong> This is the only active {categoryLabel} document for this contractor. Deleting it will leave the contractor without a required compliance document and may cause them to fall out of compliance.
                     </span>
                   </div>
-                  <label className="flex items-center gap-2 text-sm font-medium text-red-700 cursor-pointer select-none">
+                  <label className={`flex items-center gap-2 text-sm font-medium cursor-pointer select-none rounded-md px-2 py-1 transition-colors ${deleteComplianceConfirmed ? 'text-red-700' : 'text-red-700 bg-red-50 border border-red-300 motion-safe:animate-pulse'}`}>
                     <input
                       type="checkbox"
                       checked={deleteComplianceConfirmed}
                       onChange={(e) => setDeleteComplianceConfirmed(e.target.checked)}
-                      className="h-4 w-4 accent-red-600"
+                      className="h-4 w-4 accent-red-600 shrink-0"
                     />
                     I understand this will create a compliance gap for this contractor
                   </label>
@@ -2739,19 +2739,33 @@ export default function Contractors() {
                 <Button variant="outline" onClick={() => { setShowDeleteDocumentConfirm(false); setShowDocumentModal(true); setDocumentToDelete(null); setDeleteComplianceConfirmed(false); }}>
                   Cancel
                 </Button>
-                <Button
-                  variant="destructive"
-                  disabled={deleteCompanyDocumentMutation.isPending || (isSoleActiveDocument && !deleteComplianceConfirmed)}
-                  onClick={() => {
-                    if (documentToDelete && selectedContractor) {
-                      deleteDocumentConfirmedRef.current = true;
-                      deleteCompanyDocumentMutation.mutate(documentToDelete.id);
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {deleteCompanyDocumentMutation.isPending ? 'Deleting...' : 'Delete Document'}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span tabIndex={isSoleActiveDocument && !deleteComplianceConfirmed ? 0 : undefined} className="inline-flex">
+                        <Button
+                          variant="destructive"
+                          disabled={deleteCompanyDocumentMutation.isPending || (isSoleActiveDocument && !deleteComplianceConfirmed)}
+                          onClick={() => {
+                            if (documentToDelete && selectedContractor) {
+                              deleteDocumentConfirmedRef.current = true;
+                              deleteCompanyDocumentMutation.mutate(documentToDelete.id);
+                            }
+                          }}
+                          className={isSoleActiveDocument && !deleteComplianceConfirmed ? 'pointer-events-none' : ''}
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          {deleteCompanyDocumentMutation.isPending ? 'Deleting...' : 'Delete Document'}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    {isSoleActiveDocument && !deleteComplianceConfirmed && (
+                      <TooltipContent side="top">
+                        Check the box above to confirm
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </DialogContent>
           </Dialog>
