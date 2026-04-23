@@ -6986,203 +6986,8 @@ export default function Settings() {
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {/* Meeting Rooms */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-green-100 rounded-lg">
-                      <Calendar className="w-5 h-5 text-green-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Meeting Rooms</h4>
-                      <p className="text-xs text-variable">Room booking & management</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureMeetingRooms !== false}
-                    onCheckedChange={(checked) => handleInputChange("featureMeetingRooms", checked)}
-                    data-testid="toggle-meeting-rooms"
-                  />
-                </div>
 
-                {/* Time & Attendance */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-100 rounded-lg">
-                      <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Time Attendance</h4>
-                      <p className="text-xs text-variable">Staff time tracking & reports</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureTimeAttendance !== false}
-                    onCheckedChange={(checked) => handleInputChange("featureTimeAttendance", checked)}
-                    data-testid="toggle-time-attendance"
-                  />
-                </div>
-
-                {/* Induction Settings */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-orange-100 rounded-lg">
-                      <Video className="w-5 h-5 text-orange-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Induction Settings</h4>
-                      <p className="text-xs text-variable">Safety induction configuration</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureInductionSettings !== false}
-                    onCheckedChange={(checked) => handleInputChange("featureInductionSettings", checked)}
-                    data-testid="toggle-induction-settings"
-                  />
-                </div>
-
-                {/* Kiosk Mode */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-cyan-100 rounded-lg">
-                      <Dock className="w-5 h-5 text-cyan-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Kiosk Mode</h4>
-                      <p className="text-xs text-variable">Self-service check-in kiosks</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureKiosk !== false}
-                    onCheckedChange={(checked) => handleInputChange("featureKiosk", checked)}
-                    data-testid="toggle-kiosk"
-                  />
-                </div>
-
-                {/* AI Demo */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-pink-100 rounded-lg">
-                      <Brain className="w-5 h-5 text-pink-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">AI Demo</h4>
-                      <p className="text-xs text-variable">AI-powered features showcase</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureAiDemo !== false}
-                    onCheckedChange={(checked) => handleInputChange("featureAiDemo", checked)}
-                    data-testid="toggle-ai-demo"
-                  />
-                </div>
-
-                {/* Contractor Page */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-amber-100 rounded-lg">
-                      <CalendarPlus className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Contractor Page</h4>
-                      <p className="text-xs text-variable">Contractor management & H&S compliance</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureContractorPage !== false}
-                    onCheckedChange={(checked) => handleInputChange("featureContractorPage", checked)}
-                    data-testid="toggle-contractor-page"
-                  />
-                </div>
-
-                {/* Members */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-purple-100 rounded-lg">
-                      <Users className="w-5 h-5 text-purple-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Members</h4>
-                      <p className="text-xs text-variable">Member management, check-in/out & muster tracking</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureMembers !== false}
-                    onCheckedChange={(checked) => handleInputChange("featureMembers", checked)}
-                    data-testid="toggle-members"
-                  />
-                </div>
-
-                {/* Email Outbox */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-sky-100 rounded-lg">
-                      <Mail className="w-5 h-5 text-sky-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Email Outbox</h4>
-                      <p className="text-xs text-variable">Log all system emails — preview exactly what recipients receive</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureEmailOutbox === true}
-                    onCheckedChange={(checked) => handleInputChange("featureEmailOutbox", checked)}
-                    data-testid="toggle-email-outbox"
-                  />
-                </div>
-
-                {/* Incident Reports */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-red-100 rounded-lg">
-                      <ScrollText className="w-5 h-5 text-red-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Incident Reports</h4>
-                      <p className="text-xs text-variable">Post-evacuation drill & emergency reports with PDF export</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureIncidentReports !== false}
-                    onCheckedChange={(checked) => handleInputChange("featureIncidentReports", checked)}
-                    data-testid="toggle-incident-reports"
-                  />
-                </div>
-
-                {/* Martyn's Law */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-slate-100 rounded-lg">
-                      <Shield className="w-5 h-5 text-slate-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Martyn's Law</h4>
-                      <p className="text-xs text-variable">UK Protect Duty compliance checklist & security plan</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featureMartynLaw !== false}
-                    onCheckedChange={(checked) => handleInputChange("featureMartynLaw", checked)}
-                    data-testid="toggle-martyn-law"
-                  />
-                </div>
-
-                {/* PPM */}
-                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-slate-100 rounded-lg">
-                      <Wrench className="w-5 h-5 text-slate-600" />
-                    </div>
-                    <div>
-                      <h4 className="font-medium text-fixed">Planned Preventative Maintenance (PPM)</h4>
-                      <p className="text-xs text-variable">Asset registry, maintenance templates & scheduling for facilities management</p>
-                    </div>
-                  </div>
-                  <Switch
-                    checked={currentSettings?.featurePPM === true}
-                    onCheckedChange={(checked) => handleInputChange("featurePPM", checked)}
-                    data-testid="toggle-ppm"
-                  />
-                </div>
+                {/* ── Core Navigation ───────────────────────────────── */}
 
                 {/* Dashboard */}
                 <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
@@ -7307,6 +7112,210 @@ export default function Settings() {
                     checked={currentSettings?.featureSettingsPage !== false}
                     onCheckedChange={(checked) => handleInputChange("featureSettingsPage", checked)}
                     data-testid="toggle-settings-page"
+                  />
+                </div>
+
+                {/* ── Extended Modules ──────────────────────────────── */}
+
+                {/* Members */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <Users className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Members</h4>
+                      <p className="text-xs text-variable">Member management, check-in/out & muster tracking</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureMembers !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureMembers", checked)}
+                    data-testid="toggle-members"
+                  />
+                </div>
+
+                {/* Contractor Page */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 rounded-lg">
+                      <CalendarPlus className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Contractor Page</h4>
+                      <p className="text-xs text-variable">Contractor management & H&S compliance</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureContractorPage !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureContractorPage", checked)}
+                    data-testid="toggle-contractor-page"
+                  />
+                </div>
+
+                {/* Meeting Rooms */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <Calendar className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Meeting Rooms</h4>
+                      <p className="text-xs text-variable">Room booking & management</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureMeetingRooms !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureMeetingRooms", checked)}
+                    data-testid="toggle-meeting-rooms"
+                  />
+                </div>
+
+                {/* Time & Attendance */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Time Attendance</h4>
+                      <p className="text-xs text-variable">Staff time tracking & reports</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureTimeAttendance !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureTimeAttendance", checked)}
+                    data-testid="toggle-time-attendance"
+                  />
+                </div>
+
+                {/* ── Safety & Compliance ───────────────────────────── */}
+
+                {/* Incident Reports */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded-lg">
+                      <ScrollText className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Incident Reports</h4>
+                      <p className="text-xs text-variable">Post-evacuation drill & emergency reports with PDF export</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureIncidentReports !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureIncidentReports", checked)}
+                    data-testid="toggle-incident-reports"
+                  />
+                </div>
+
+                {/* Martyn's Law */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-slate-100 rounded-lg">
+                      <Shield className="w-5 h-5 text-slate-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Martyn's Law</h4>
+                      <p className="text-xs text-variable">UK Protect Duty compliance checklist & security plan</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureMartynLaw !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureMartynLaw", checked)}
+                    data-testid="toggle-martyn-law"
+                  />
+                </div>
+
+                {/* Induction Settings */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-orange-100 rounded-lg">
+                      <Video className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Induction Settings</h4>
+                      <p className="text-xs text-variable">Safety induction configuration</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureInductionSettings !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureInductionSettings", checked)}
+                    data-testid="toggle-induction-settings"
+                  />
+                </div>
+
+                {/* ── Optional & Specialist ─────────────────────────── */}
+
+                {/* PPM */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-slate-100 rounded-lg">
+                      <Wrench className="w-5 h-5 text-slate-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Planned Preventative Maintenance (PPM)</h4>
+                      <p className="text-xs text-variable">Asset registry, maintenance templates & scheduling for facilities management</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featurePPM === true}
+                    onCheckedChange={(checked) => handleInputChange("featurePPM", checked)}
+                    data-testid="toggle-ppm"
+                  />
+                </div>
+
+                {/* Kiosk Mode */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-cyan-100 rounded-lg">
+                      <Dock className="w-5 h-5 text-cyan-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Kiosk Mode</h4>
+                      <p className="text-xs text-variable">Self-service check-in kiosks</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureKiosk !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureKiosk", checked)}
+                    data-testid="toggle-kiosk"
+                  />
+                </div>
+
+                {/* Email Outbox */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-sky-100 rounded-lg">
+                      <Mail className="w-5 h-5 text-sky-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Email Outbox</h4>
+                      <p className="text-xs text-variable">Log all system emails — preview exactly what recipients receive</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureEmailOutbox === true}
+                    onCheckedChange={(checked) => handleInputChange("featureEmailOutbox", checked)}
+                    data-testid="toggle-email-outbox"
+                  />
+                </div>
+
+                {/* AI Demo */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-pink-100 rounded-lg">
+                      <Brain className="w-5 h-5 text-pink-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">AI Demo</h4>
+                      <p className="text-xs text-variable">AI-powered features showcase</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureAiDemo !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureAiDemo", checked)}
+                    data-testid="toggle-ai-demo"
                   />
                 </div>
               </div>

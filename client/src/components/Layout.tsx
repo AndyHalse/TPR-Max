@@ -202,24 +202,24 @@ export default function Layout({ children }: LayoutProps) {
   }, [settings?.logoUrl, settings?.companyName]);
 
   const allNavItems = [
-    { path: "/", icon: ChartLine, label: "Dashboard", alwaysVisible: true },
-    { path: "/visitors", icon: User, label: "Visitors", alwaysVisible: true },
-    { path: "/contractors", icon: HardHat, label: "Contractors", alwaysVisible: true },
+    { path: "/", icon: ChartLine, label: "Dashboard", featureKey: "featureDashboard", defaultOn: true },
+    { path: "/visitors", icon: User, label: "Visitors", featureKey: "featureVisitors", defaultOn: true },
+    { path: "/contractors", icon: HardHat, label: "Contractors", featureKey: "featureContractors", defaultOn: true },
     { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out", featureKey: "featureContractorPage", defaultOn: true },
-    { path: "/staff", icon: Users, label: "Staff", alwaysVisible: true },
+    { path: "/staff", icon: Users, label: "Staff", featureKey: "featureStaff", defaultOn: true },
     { path: "/members", icon: UserCheck, label: "Members", featureKey: "featureMembers", defaultOn: true },
     { path: "/meeting-rooms", icon: Calendar, label: "Meeting Rooms", featureKey: "featureMeetingRooms", defaultOn: true },
     { path: "/time-attendance", icon: Clock, label: "T&A Report", featureKey: "featureTimeAttendance", defaultOn: true },
-    { path: "/muster", icon: ListChecks, label: "Muster List", alwaysVisible: true },
+    { path: "/muster", icon: ListChecks, label: "Muster List", featureKey: "featureMusterList", defaultOn: true },
     { path: "/incident-reports", icon: ScrollText, label: "Incident Reports", featureKey: "featureIncidentReports", defaultOn: true },
     { path: "/ppm", icon: Wrench, label: "PPM", featureKey: "featurePPM", defaultOn: false },
     { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw" },
-    { path: "/reports", icon: FileText, label: "Reports", alwaysVisible: true },
+    { path: "/reports", icon: FileText, label: "Reports", featureKey: "featureReports", defaultOn: true },
     { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings", defaultOn: true },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk", defaultOn: true },
     { path: "/ai-demo", icon: Brain, label: "AI Demo", featureKey: "featureAiDemo", defaultOn: true },
     { path: "/email-outbox", icon: Mail, label: "Email Outbox", featureKey: "featureEmailOutbox" },
-    { path: "/settings", icon: Settings, label: "Settings", alwaysVisible: true },
+    { path: "/settings", icon: Settings, label: "Settings", featureKey: "featureSettingsPage", defaultOn: true },
   ];
 
   // Filter navigation items based on feature toggles and user-specific menu access.
