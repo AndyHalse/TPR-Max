@@ -11230,6 +11230,40 @@ ${evacuationPhotosData.length > 0 ? `
         results.push({ service: 'claude', success: true, id: savedKey.id });
       }
       
+      // Process Claude key if provided
+      if (claudeKey && claudeKey.trim()) {
+        if (!validateApiKeyFormat(claudeKey, 'claude')) {
+          return res.status(400).json({ error: "Invalid Claude API key format. Keys must start with 'sk-ant-'" });
+        }
+        
+        const encrypted = encryptData(claudeKey);
+        const fingerprint = generateKeyFingerprint(claudeKey);
+        const last4 = getKeyLast4(claudeKey);
+        
+        // Check if key already exists by fingerprint
+        const existingKey = await databaseService.getApiKeyByFingerprint(context, fingerprint);
+        if (existingKey && existingKey.serviceType === 'claude') {
+          return res.status(400).json({ error: "This Claude key is already registered" });
+        }
+        
+        const keyData = {
+          keyName: 'Claude API Key',
+          keyDescription: 'Anthropic Claude API key for text generation',
+          serviceType: 'claude',
+          last4,
+          encryptedKey: encrypted.encryptedData,
+          initializationVector: encrypted.iv,
+          authTag: encrypted.authTag,
+          keyFingerprint: fingerprint,
+          status: 'active',
+          createdBy: req.user?.id || username,
+          decryptAuditLog: [generateAuditLogEntry('encrypt', req.user?.id || username, 'claude')]
+        };
+        
+        const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
+        results.push({ service: 'claude', success: true, id: savedKey.id });
+      }
+      
       res.json({ 
         success: true, 
         message: "API keys saved successfully",
@@ -11356,7 +11390,7 @@ ${evacuationPhotosData.length > 0 ? `
         } catch (error: any) {
           testResult = {
             success: false,
-            message: `Claude connection failed: ${error.message}`,
+            message: `Claude connection failed: ${error.message}`
           };
         }
       }
@@ -11381,7 +11415,7 @@ ${evacuationPhotosData.length > 0 ? `
     try {
       const { serviceType } = req.params;
       
-      if (!['openai', 'gemini'].includes(serviceType)) {
+      if (!['openai', 'gemini', 'claude'].includes(serviceType)) {
         return res.status(400).json({ error: "Invalid service type" });
       }
       

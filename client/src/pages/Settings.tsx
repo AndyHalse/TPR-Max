@@ -5710,7 +5710,7 @@ export default function Settings() {
                     <Label className="text-sm font-medium text-fixed">AI Model</Label>
                     <Tooltip>
                       <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-xs">Controls which OpenAI model generates induction scripts and safety content. GPT-4o is the best balance of quality and speed. GPT-5 is the most capable but slower. All models are billed to Replit credits — no personal API key required.</TooltipContent>
+                      <TooltipContent className="max-w-xs">Controls which AI model generates induction scripts and safety content. GPT-4o is the best balance of quality and speed. GPT-5 is the most capable. Claude models require an Anthropic API key configured in AI Settings.</TooltipContent>
                     </Tooltip>
                   </div>
                   <Select
@@ -5718,12 +5718,15 @@ export default function Settings() {
                     onValueChange={(value) => handleInputChange("openaiModel", value)}
                   >
                     <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-openai-model">
-                      <SelectValue placeholder="Select OpenAI model" />
+                      <SelectValue placeholder="Select AI model" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="gpt-4">GPT-4 (Standard)</SelectItem>
                       <SelectItem value="gpt-4o">GPT-4o (Optimized)</SelectItem>
-                      <SelectItem value="gpt-5">GPT-5 (Latest) 🚀</SelectItem>
+                      <SelectItem value="gpt-5">GPT-5 (Latest)</SelectItem>
+                      <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet (Anthropic)</SelectItem>
+                      <SelectItem value="claude-3-opus">Claude 3 Opus (Anthropic)</SelectItem>
+                      <SelectItem value="claude-3-haiku">Claude 3 Haiku — Fast (Anthropic)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

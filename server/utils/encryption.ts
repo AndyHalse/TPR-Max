@@ -119,7 +119,7 @@ export function getKeyLast4(apiKey: string, length: number = 4): string {
 /**
  * Validate API key format
  * @param apiKey - The API key to validate
- * @param serviceType - The service type ('openai' or 'gemini')
+ * @param serviceType - The service type ('openai', 'gemini', or 'claude')
  * @returns Boolean indicating if format is valid
  */
 export function validateApiKeyFormat(apiKey: string, serviceType: 'openai' | 'gemini' | 'claude'): boolean {

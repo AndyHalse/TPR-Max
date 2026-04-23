@@ -300,6 +300,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addComplianceAlertPreferencesMigration,
     addContractorDocumentExpiryAlertedAtMigration,
     addCdmAlertsEmailMigration,
+    addClaudeModelMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -464,6 +465,7 @@ const rebuildCompanySettingsMigration: Migration = {
               biometric_devices TEXT[] DEFAULT ARRAY[]::TEXT[],
               reader_settings TEXT DEFAULT '{}',
               openai_model TEXT DEFAULT 'gpt-5',
+              claude_model TEXT DEFAULT 'claude-3-5-sonnet',
               openai_temperature TEXT DEFAULT '0.7',
               openai_max_tokens TEXT DEFAULT '4000',
               video_quality_preference TEXT DEFAULT 'high',
@@ -2035,6 +2037,19 @@ const addCdmAlertsEmailMigration: Migration = {
       console.log('✅ [039] Added cdm_alerts_email to company_settings');
     } catch (err: any) {
       console.log(`⚠️ [039] company_settings.cdm_alerts_email: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+const addClaudeModelMigration: Migration = {
+  version: '20260423_040_add_claude_model',
+  description: 'Add claude_model column to company_settings for Anthropic Claude provider support',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS claude_model TEXT DEFAULT 'claude-3-5-sonnet'`);
+      console.log('✅ [040] company_settings claude_model column ensured');
+    } catch (err: any) {
+      console.log(`⚠️ [040] claude_model: ${err.message?.substring(0, 80)}`);
     }
   }
 };

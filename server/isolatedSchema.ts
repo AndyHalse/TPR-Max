@@ -400,7 +400,8 @@ export const companySettings = pgTable("company_settings", {
   biometricDevices: text("biometric_devices").array().default([]), // Array of configured device IDs
   readerSettings: text("reader_settings").default("{}"), // JSON string for device-specific settings
   // AI and Video Generation Settings
-  openaiModel: text("openai_model").default("gpt-5"), // gpt-4, gpt-5, gpt-6, gpt-7
+  openaiModel: text("openai_model").default("gpt-5"), // gpt-4, gpt-5, gpt-6, gpt-7, claude-3-5-sonnet, claude-3-opus, claude-3-haiku
+  claudeModel: text("claude_model").default("claude-3-5-sonnet"), // claude-3-5-sonnet, claude-3-opus, claude-3-haiku
   openaiTemperature: text("openai_temperature").default("0.7"), // 0.0-2.0 for creativity control
   openaiMaxTokens: text("openai_max_tokens").default("4000"), // Token limit per request
   videoQualityPreference: text("video_quality_preference").default("high"), // low, medium, high, ultra

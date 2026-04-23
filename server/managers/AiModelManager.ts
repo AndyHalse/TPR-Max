@@ -3,6 +3,7 @@
  */
 
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import type { ModelConfig, AiModelOptions, Result, IAiChatClient } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
 import { OpenAIErrorHandler } from '../utils/openaiErrorHandler';
@@ -18,6 +19,18 @@ if (process.env.OPENAI_PROJECT_ID) {
 }
 
 const openai = new OpenAI(openaiConfig);
+
+// Default Anthropic client using env var (if set)
+const anthropicConfig: any = {};
+if (process.env.ANTHROPIC_API_KEY) {
+  anthropicConfig.apiKey = process.env.ANTHROPIC_API_KEY;
+}
+const defaultAnthropic = process.env.ANTHROPIC_API_KEY
+  ? new Anthropic(anthropicConfig)
+  : null;
+
+// Claude model names for routing detection
+const CLAUDE_MODELS = ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-haiku', 'claude-3-sonnet', 'claude-2'];
 
 // OpenAI configured - detailed logging disabled for security
 
@@ -53,6 +66,34 @@ export class AiModelManager implements IAiChatClient {
     }
   ];
 
+  private readonly claudeModelConfigs: ModelConfig[] = [
+    {
+      name: "claude-3-5-sonnet",
+      maxTokens: 4000,
+      temperature: 0.7,
+      timeoutMs: 30000,
+      retryAttempts: 2
+    },
+    {
+      name: "claude-3-opus",
+      maxTokens: 4000,
+      temperature: 0.7,
+      timeoutMs: 60000,
+      retryAttempts: 2
+    },
+    {
+      name: "claude-3-haiku",
+      maxTokens: 4000,
+      temperature: 0.7,
+      timeoutMs: 20000,
+      retryAttempts: 2
+    }
+  ];
+
+  private isClaudeModel(modelName: string): boolean {
+    return CLAUDE_MODELS.some(m => modelName.startsWith(m));
+  }
+
   async completeJson<T = any>(
     prompt: string, 
     schemaHints?: string, 
@@ -83,6 +124,12 @@ export class AiModelManager implements IAiChatClient {
 
   async complete(prompt: string, options: AiModelOptions = {}): Promise<Result<string>> {
     const startModel = options.model || this.modelConfigs[0].name;
+
+    // Route to Claude if the selected model is a Claude model
+    if (this.isClaudeModel(startModel)) {
+      return this.callClaude(prompt, startModel, options);
+    }
+
     const startIndex = this.modelConfigs.findIndex(config => config.name === startModel);
     const modelsToTry = startIndex >= 0 
       ? this.modelConfigs.slice(startIndex)
@@ -130,6 +177,104 @@ export class AiModelManager implements IAiChatClient {
     }
     
     return ResultUtils.error(new Error('All AI models failed - no specific error available'));
+  }
+
+  /**
+   * Call Claude/Anthropic API with retry logic.
+   * Uses options.claudeApiKey if provided, otherwise falls back to ANTHROPIC_API_KEY env var.
+   */
+  async callClaude(prompt: string, modelName: string, options: AiModelOptions = {}): Promise<Result<string>> {
+    const apiKey = (options as any).claudeApiKey || process.env.ANTHROPIC_API_KEY;
+
+    if (!apiKey) {
+      return ResultUtils.error(new Error(
+        'No Anthropic API key available. Add a Claude API key in AI Settings or set ANTHROPIC_API_KEY environment variable.'
+      ));
+    }
+
+    const anthropic = (options as any).claudeApiKey
+      ? new Anthropic({ apiKey })
+      : (defaultAnthropic || new Anthropic({ apiKey }));
+
+    const claudeConfig = this.claudeModelConfigs.find(c => modelName.startsWith(c.name))
+      || this.claudeModelConfigs[0];
+
+    const maxTokens = options.maxTokens ?? claudeConfig.maxTokens;
+    const temperature = options.temperature ?? claudeConfig.temperature;
+    const maxAttempts = options.retryAttempts ?? claudeConfig.retryAttempts;
+    const timeoutMs = options.timeoutMs ?? claudeConfig.timeoutMs;
+
+    // Map the model name to the full Anthropic model ID
+    const anthropicModelId = this.mapClaudeModelId(modelName);
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        console.log(`🤖 Attempting Claude ${anthropicModelId} (attempt ${attempt}/${maxAttempts})...`);
+
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('Request timeout')), timeoutMs);
+        });
+
+        const messageParams: Anthropic.MessageCreateParamsNonStreaming = {
+          model: anthropicModelId,
+          max_tokens: maxTokens,
+          messages: [{ role: "user", content: prompt }],
+        };
+
+        // Claude doesn't support JSON mode natively but we enforce via prompt
+        // Temperature must be 0-1 for Claude
+        if (temperature !== undefined && temperature <= 1) {
+          messageParams.temperature = temperature;
+        }
+
+        const apiCall = anthropic.messages.create(messageParams);
+        const response = await Promise.race([apiCall, timeoutPromise]);
+
+        const content = response.content[0];
+        if (!content || content.type !== 'text') {
+          throw new Error('No text content in Claude response');
+        }
+
+        console.log(`✅ Successfully generated content using Claude ${anthropicModelId}`);
+        return ResultUtils.success(content.text);
+
+      } catch (error: any) {
+        console.error(`❌ Claude attempt ${attempt} failed: ${error.message}`);
+
+        if (attempt === maxAttempts) {
+          const msg = error.status === 401
+            ? 'Claude API key is invalid or expired. Please update it in AI Settings.'
+            : error.status === 429
+            ? 'Claude rate limit reached. Please try again later.'
+            : `Claude API error: ${error.message}`;
+
+          return ResultUtils.error(new Error(msg));
+        }
+
+        const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
+        console.log(`⏳ Retrying Claude in ${backoffDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+      }
+    }
+
+    return ResultUtils.error(new Error(`All ${maxAttempts} Claude attempts failed`));
+  }
+
+  private mapClaudeModelId(modelName: string): string {
+    // Map short names to full Anthropic model IDs
+    const modelMap: Record<string, string> = {
+      'claude-3-5-sonnet': 'claude-3-5-sonnet-20241022',
+      'claude-3-opus': 'claude-3-opus-20240229',
+      'claude-3-haiku': 'claude-3-haiku-20240307',
+      'claude-3-sonnet': 'claude-3-sonnet-20240229',
+    };
+
+    for (const [key, value] of Object.entries(modelMap)) {
+      if (modelName.startsWith(key)) return value;
+    }
+
+    // Return as-is if already a full model ID or unknown
+    return modelName;
   }
 
   private async tryModelWithRetry(

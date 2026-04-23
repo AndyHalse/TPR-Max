@@ -82,7 +82,6 @@ export default function AISettings() {
         title: "API Keys Updated",
         description: "Your AI API keys have been securely saved and encrypted.",
       });
-      // Clear form inputs after successful save
       setOpenaiKey("");
       setGeminiKey("");
       setClaudeKey("");
@@ -192,11 +191,11 @@ export default function AISettings() {
     },
   });
 
-  const handleSaveKeys = () => {
+  const handleSaveKeys = (provider?: 'openai' | 'gemini' | 'claude') => {
     const data: { openaiKey?: string; geminiKey?: string; claudeKey?: string } = {};
-    if (openaiKey.trim()) data.openaiKey = openaiKey.trim();
-    if (geminiKey.trim()) data.geminiKey = geminiKey.trim();
-    if (claudeKey.trim()) data.claudeKey = claudeKey.trim();
+    if (!provider || provider === 'openai') if (openaiKey.trim()) data.openaiKey = openaiKey.trim();
+    if (!provider || provider === 'gemini') if (geminiKey.trim()) data.geminiKey = geminiKey.trim();
+    if (!provider || provider === 'claude') if (claudeKey.trim()) data.claudeKey = claudeKey.trim();
     
     if (Object.keys(data).length === 0) {
       toast({
@@ -249,6 +248,16 @@ export default function AISettings() {
     return false;
   };
 
+  const emptyStatus = (serviceType: 'openai' | 'gemini' | 'claude'): ApiKeyStatus => ({
+    serviceType,
+    hasKey: false,
+    last4: '',
+    isActive: false,
+    lastUsed: null,
+    usageCount: 0,
+    status: 'inactive'
+  });
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800">
@@ -271,7 +280,7 @@ export default function AISettings() {
             <h1 className="text-xl sm:text-3xl font-bold text-slate-800 dark:text-slate-200">AI Settings</h1>
           </div>
           <p className="text-slate-600 dark:text-slate-400 max-w-2xl mx-auto">
-            Securely manage your OpenAI and Gemini API keys. All keys are encrypted and stored in your isolated customer database.
+            Securely manage your OpenAI, Gemini, and Claude API keys. All keys are encrypted and stored in your isolated customer database.
           </p>
         </div>
 
@@ -287,7 +296,7 @@ export default function AISettings() {
 
         {/* Main Content */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="max-w-4xl mx-auto">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="overview" data-testid="tab-overview">
               <Activity className="h-4 w-4 mr-2" />
               Overview
@@ -308,7 +317,7 @@ export default function AISettings() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-3 gap-6">
               
               {/* OpenAI Status Card */}
               <GlassCard>
@@ -318,7 +327,7 @@ export default function AISettings() {
                       <Zap className="h-5 w-5 text-orange-500" />
                       OpenAI
                     </CardTitle>
-                    {getStatusBadge(apiKeyStatus?.openai || { serviceType: 'openai', hasKey: false, last4: '', isActive: false, lastUsed: null, usageCount: 0, status: 'inactive' })}
+                    {getStatusBadge(apiKeyStatus?.openai || emptyStatus('openai'))}
                   </div>
                   <CardDescription>
                     GPT models for text generation and analysis
@@ -358,7 +367,7 @@ export default function AISettings() {
                           ) : (
                             <TestTube className="h-4 w-4 mr-2" />
                           )}
-                          Test Connection
+                          Test
                         </Button>
                         <Button
                           size="sm"
@@ -383,7 +392,7 @@ export default function AISettings() {
                         onClick={() => setActiveTab('openai')}
                         data-testid="button-configure-openai"
                       >
-                        Configure OpenAI Key
+                        Configure
                       </Button>
                     </div>
                   )}
@@ -398,7 +407,7 @@ export default function AISettings() {
                       <Brain className="h-5 w-5 text-blue-500" />
                       Gemini
                     </CardTitle>
-                    {getStatusBadge(apiKeyStatus?.gemini || { serviceType: 'gemini', hasKey: false, last4: '', isActive: false, lastUsed: null, usageCount: 0, status: 'inactive' })}
+                    {getStatusBadge(apiKeyStatus?.gemini || emptyStatus('gemini'))}
                   </div>
                   <CardDescription>
                     Google's Gemini models for text and image generation
@@ -438,7 +447,7 @@ export default function AISettings() {
                           ) : (
                             <TestTube className="h-4 w-4 mr-2" />
                           )}
-                          Test Connection
+                          Test
                         </Button>
                         <Button
                           size="sm"
@@ -463,7 +472,87 @@ export default function AISettings() {
                         onClick={() => setActiveTab('gemini')}
                         data-testid="button-configure-gemini"
                       >
-                        Configure Gemini Key
+                        Configure
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </GlassCard>
+
+              {/* Claude Status Card */}
+              <GlassCard>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Key className="h-5 w-5 text-purple-500" />
+                      Claude
+                    </CardTitle>
+                    {getStatusBadge(apiKeyStatus?.claude || emptyStatus('claude'))}
+                  </div>
+                  <CardDescription>
+                    Anthropic's Claude models for advanced text generation
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {apiKeyStatus?.claude?.hasKey ? (
+                    <>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600 dark:text-slate-400">API Key</span>
+                        <span className="font-mono" data-testid="claude-key-display">
+                          sk-ant-...{apiKeyStatus.claude.last4}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600 dark:text-slate-400">Last Used</span>
+                        <span data-testid="claude-last-used">
+                          {formatLastUsed(apiKeyStatus.claude.lastUsed)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-slate-600 dark:text-slate-400">Total Requests</span>
+                        <span data-testid="claude-usage-count">
+                          {apiKeyStatus.claude.usageCount?.toLocaleString() || 0}
+                        </span>
+                      </div>
+                      <div className="pt-2 flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => testClaudeMutation.mutate()}
+                          disabled={testClaudeMutation.isPending}
+                          data-testid="button-test-claude"
+                        >
+                          {testClaudeMutation.isPending ? (
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          ) : (
+                            <TestTube className="h-4 w-4 mr-2" />
+                          )}
+                          Test
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => revokeKeyMutation.mutate('claude')}
+                          disabled={revokeKeyMutation.isPending}
+                          data-testid="button-revoke-claude"
+                        >
+                          <XCircle className="h-4 w-4 mr-2" />
+                          Revoke
+                        </Button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-4 text-slate-500 dark:text-slate-400">
+                      <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No API key configured</p>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="mt-2"
+                        onClick={() => setActiveTab('claude')}
+                        data-testid="button-configure-claude"
+                      >
+                        Configure
                       </Button>
                     </div>
                   )}
@@ -624,8 +713,8 @@ export default function AISettings() {
                     Test Key
                   </Button>
                   <Button
-                    onClick={handleSaveKeys}
-                    disabled={(!openaiKey && !geminiKey && !claudeKey) || saveKeysMutation.isPending}
+                    onClick={() => handleSaveKeys('openai')}
+                    disabled={!openaiKey || saveKeysMutation.isPending}
                     data-testid="button-save-keys"
                   >
                     {saveKeysMutation.isPending ? (
@@ -635,6 +724,16 @@ export default function AISettings() {
                     )}
                     Save Encrypted
                   </Button>
+                  {apiKeyStatus?.openai?.hasKey && (
+                    <Button
+                      variant="destructive"
+                      onClick={() => revokeKeyMutation.mutate('openai')}
+                      disabled={revokeKeyMutation.isPending}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Revoke Key
+                    </Button>
+                  )}
                 </div>
 
                 {/* Help Text */}
@@ -721,8 +820,8 @@ export default function AISettings() {
                     Test Key
                   </Button>
                   <Button
-                    onClick={handleSaveKeys}
-                    disabled={(!openaiKey && !geminiKey && !claudeKey) || saveKeysMutation.isPending}
+                    onClick={() => handleSaveKeys('gemini')}
+                    disabled={!geminiKey || saveKeysMutation.isPending}
                     data-testid="button-save-keys-gemini"
                   >
                     {saveKeysMutation.isPending ? (
@@ -732,6 +831,16 @@ export default function AISettings() {
                     )}
                     Save Encrypted
                   </Button>
+                  {apiKeyStatus?.gemini?.hasKey && (
+                    <Button
+                      variant="destructive"
+                      onClick={() => revokeKeyMutation.mutate('gemini')}
+                      disabled={revokeKeyMutation.isPending}
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Revoke Key
+                    </Button>
+                  )}
                 </div>
 
                 {/* Help Text */}
@@ -751,29 +860,39 @@ export default function AISettings() {
             <GlassCard>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Sparkles className="h-5 w-5 text-purple-500" />
-                  Claude API Configuration
+                  <Key className="h-5 w-5 text-purple-500" />
+                  Anthropic / Claude API Configuration
                 </CardTitle>
                 <CardDescription>
-                  Configure your Anthropic Claude API key. Claude is used as an automatic fallback for document scanning when OpenAI is unavailable or rate-limited.
+                  Configure your Anthropic API key to use Claude models (claude-3-5-sonnet, claude-3-opus, claude-3-haiku) for AI features.
+                  Use this when you need an alternative to OpenAI or want to use Claude's specific strengths.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
+                
                 {/* Current Status */}
-                {apiKeyStatus?.claude?.hasKey && (
+                {apiKeyStatus?.claude?.hasKey ? (
                   <Alert data-testid="claude-current-status">
                     <Info className="h-4 w-4" />
                     <AlertDescription>
-                      Current key: <span className="font-mono">sk-ant-...{apiKeyStatus.claude.last4}</span> •{" "}
-                      Status: {getStatusBadge(apiKeyStatus.claude)} •{" "}
+                      Current key: <span className="font-mono">sk-ant-...{apiKeyStatus.claude.last4}</span> • 
+                      Status: {getStatusBadge(apiKeyStatus.claude)} • 
                       Last used: {formatLastUsed(apiKeyStatus.claude.lastUsed)}
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Alert data-testid="claude-no-key-notice">
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      No Claude API key is configured. Claude models will appear as options in AI settings, but require a key to be active.
+                      You can add a key below to enable Claude-powered features.
                     </AlertDescription>
                   </Alert>
                 )}
 
                 {/* API Key Input */}
                 <div className="space-y-2">
-                  <Label htmlFor="claude-key">Claude API Key</Label>
+                  <Label htmlFor="claude-key">Anthropic API Key</Label>
                   <div className="relative">
                     <Input
                       id="claude-key"
@@ -796,7 +915,7 @@ export default function AISettings() {
                   {claudeKey && !validateApiKey(claudeKey, 'claude') && (
                     <p className="text-sm text-red-500 flex items-center gap-1" data-testid="claude-validation-error">
                       <AlertTriangle className="h-4 w-4" />
-                      Invalid Claude API key format. Keys should begin with sk-ant-.
+                      Invalid Claude API key format. Keys should start with 'sk-ant-'
                     </p>
                   )}
                 </div>
@@ -817,8 +936,8 @@ export default function AISettings() {
                     Test Key
                   </Button>
                   <Button
-                    onClick={handleSaveKeys}
-                    disabled={(!openaiKey && !geminiKey && !claudeKey) || saveKeysMutation.isPending}
+                    onClick={() => handleSaveKeys('claude')}
+                    disabled={!claudeKey || saveKeysMutation.isPending}
                     data-testid="button-save-keys-claude"
                   >
                     {saveKeysMutation.isPending ? (
@@ -828,24 +947,25 @@ export default function AISettings() {
                     )}
                     Save Encrypted
                   </Button>
+                  {apiKeyStatus?.claude?.hasKey && (
+                    <Button
+                      variant="destructive"
+                      onClick={() => revokeKeyMutation.mutate('claude')}
+                      disabled={revokeKeyMutation.isPending}
+                      data-testid="button-revoke-claude-tab"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Revoke Key
+                    </Button>
+                  )}
                 </div>
 
                 {/* Help Text */}
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription>
-                    Get your Claude API key from{" "}
-                    <a
-                      href="https://console.anthropic.com/settings/keys"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="underline text-blue-600 dark:text-blue-400"
-                    >
-                      Anthropic Console
-                    </a>
-                    . When configured, Claude (claude-3-5-sonnet) automatically takes over document
-                    scanning if OpenAI fails or hits rate limits. Your key will be encrypted and
-                    stored securely.
+                    Get your Anthropic API key from <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className="underline text-blue-600 dark:text-blue-400">console.anthropic.com</a>. 
+                    Your key will be encrypted and stored securely. Once saved, select a Claude model in <strong>Settings &rarr; AI Settings</strong> to activate it.
                   </AlertDescription>
                 </Alert>
               </CardContent>

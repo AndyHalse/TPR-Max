@@ -122,6 +122,7 @@ export const bootstrapSchemaMigration: Migration = {
         biometric_devices TEXT[] DEFAULT ARRAY[]::TEXT[],
         reader_settings TEXT DEFAULT '{}',
         openai_model TEXT DEFAULT 'gpt-5',
+        claude_model TEXT DEFAULT 'claude-3-5-sonnet',
         openai_temperature TEXT DEFAULT '0.7',
         openai_max_tokens TEXT DEFAULT '4000',
         video_quality_preference TEXT DEFAULT 'high',
