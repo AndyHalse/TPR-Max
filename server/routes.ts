@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 
 // ── BioStar 2 Live Event Log ────────────────────────────────────────────────
 // In-memory ring buffer: stores the last 200 webhook events per customer.
@@ -25,23 +26,19 @@ function ppmTokenCacheEvict(token: string) {
   ppmTokenCache.delete(token);
 }
 
-// Simple in-memory rate limiter for public PPM contractor endpoints.
-// Limits each IP to PPM_RATE_LIMIT requests per PPM_RATE_WINDOW_MS milliseconds.
-// Unknown/abusive tokens will hit the slow cross-tenant scan, so rate-limiting
-// them here prevents scan-based denial-of-service from a single IP.
-const PPM_RATE_LIMIT = parseInt(process.env.PPM_RATE_LIMIT ?? "60", 10);   // requests per window
-const PPM_RATE_WINDOW_MS = parseInt(process.env.PPM_RATE_WINDOW_MS ?? "60000", 10); // 1 minute
-const ppmRateMap = new Map<string, { count: number; resetAt: number }>();
-function ppmRateLimitCheck(ip: string): boolean {
-  const now = Date.now();
-  const entry = ppmRateMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    ppmRateMap.set(ip, { count: 1, resetAt: now + PPM_RATE_WINDOW_MS });
-    return true; // allowed
-  }
-  entry.count++;
-  return entry.count <= PPM_RATE_LIMIT;
-}
+// Rate limiter for PPM public contractor endpoints.
+// Unknown/abusive tokens hit the slow cross-tenant scan, so limiting here
+// prevents scan-based denial-of-service from a single IP.
+// Configure via env vars: PPM_RATE_LIMIT (default 60) and PPM_RATE_WINDOW_MS (default 60000).
+// NOTE: express-rate-limit's default store is in-memory per process. For multi-process /
+// multi-server deployments, swap the store for a shared Redis store without changing routes.
+const ppmPublicRateLimit = rateLimit({
+  windowMs: parseInt(process.env.PPM_RATE_WINDOW_MS ?? "60000", 10),
+  max: parseInt(process.env.PPM_RATE_LIMIT ?? "60", 10),
+  standardHeaders: true,  // sends Retry-After and RateLimit-* headers
+  legacyHeaders: false,
+  message: { error: "Too many requests. Please try again later." },
+});
 interface BiostarLiveEvent {
   id: string;                   // UUID
   ts: string;                   // ISO datetime
@@ -28231,12 +28228,10 @@ This is an automated notification from your visitor management system.`;
   // ── PPM Public Work Order (Contractor Mobile View) ──────────────────────────
 
   // GET /api/ppm/work-order/public/:token — contractor fetches their work order
-  app.get("/api/ppm/work-order/public/:token", async (req, res) => {
+  app.get("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res) => {
     try {
       const { token } = req.params;
       if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
-      const clientIp = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
-      if (!ppmRateLimitCheck(clientIp)) return res.status(429).json({ error: "Too many requests. Please try again later." });
 
       // Helper: resolve work order from a known customer (used by both cache-hit and scan paths)
       const resolveFromCustomer = async (customerId: string) => {
@@ -28298,12 +28293,10 @@ This is an automated notification from your visitor management system.`;
   // PUT /api/ppm/work-order/public/:token — contractor updates status / completion notes
   // Token is rotated on every write (rolling token semantics: original email link is single-use,
   // subsequent operations use the nextToken returned in the response).
-  app.put("/api/ppm/work-order/public/:token", async (req, res) => {
+  app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res) => {
     try {
       const { token } = req.params;
       if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
-      const clientIpPut = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
-      if (!ppmRateLimitCheck(clientIpPut)) return res.status(429).json({ error: "Too many requests. Please try again later." });
       const { status, completionNotes } = req.body;
       const allowedStatuses = ["in_progress", "completed"];
       if (status && !allowedStatuses.includes(status)) return res.status(400).json({ error: "Invalid status" });
@@ -28364,12 +28357,10 @@ This is an automated notification from your visitor management system.`;
   // POST /api/ppm/work-order/public/:token/files — atomic contractor file upload + document record creation
   // Combines upload and document linking in a single request to prevent orphan objects.
   // Also rotates the access token after successful upload (rolling token).
-  app.post("/api/ppm/work-order/public/:token/files", async (req, res) => {
+  app.post("/api/ppm/work-order/public/:token/files", ppmPublicRateLimit, async (req, res) => {
     try {
       const { token } = req.params;
       if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
-      const clientIpFiles = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? "unknown";
-      if (!ppmRateLimitCheck(clientIpFiles)) return res.status(429).json({ error: "Too many requests. Please try again later." });
       const { data, mimeType, fileName, fileType } = req.body;
       if (!data || !mimeType || !fileName) return res.status(400).json({ error: "Missing required fields: data, mimeType, fileName" });
 
