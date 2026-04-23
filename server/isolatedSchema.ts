@@ -2258,6 +2258,7 @@ export const ppmWorkOrderDocuments = pgTable("ppm_work_order_documents", {
   expiryDate: text("expiry_date"),
   referenceNumber: text("reference_number"),
   issuedBy: text("issued_by"),
+  expiryAlertedAt: timestamp("expiry_alerted_at"), // Set when expiry alert email sent; null = not yet alerted for this expiry window. New uploads start null so the next cron run will alert.
   createdAt: timestamp("created_at").defaultNow(),
 });
 

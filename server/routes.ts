@@ -29042,16 +29042,18 @@ ${wo.completionNotes ? `
           }
 
           // ── (d) Alert for expiring/expired PPM work order documents ────────────
-            // Sends a daily digest email to admin listing all documents with expiryDate
-            // within the next 30 days (expiring soon) or already past (expired).
-            // No per-document deduplication: the email fires each day while docs remain
-            // in the alert window so the admin is reminded until action is taken.
+            // Sends a one-time digest email per document when it first enters the expiry
+            // window (expired or expiring ≤30 days). Each document is stamped with
+            // expiryAlertedAt after being included in an alert so it is never re-sent
+            // on subsequent days. The stamp is absent on newly-uploaded documents, so
+            // replacement certificates automatically trigger a fresh alert if they too
+            // are within the 30-day window.
             {
               const todayDateStr = today.toISOString().split("T")[0];
               const in30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
               const in30DaysStr = in30Days.toISOString().split("T")[0];
 
-              // Fetch all docs that have an expiryDate and are expired or expiring ≤30d
+              // Only fetch docs that have not yet been alerted (expiryAlertedAt IS NULL)
               const expiringDocs = await custDb.select({
                 id: isolatedSchema.ppmWorkOrderDocuments.id,
                 fileName: isolatedSchema.ppmWorkOrderDocuments.fileName,
@@ -29062,7 +29064,8 @@ ${wo.completionNotes ? `
               }).from(isolatedSchema.ppmWorkOrderDocuments)
                 .where(and(
                   sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} IS NOT NULL`,
-                  sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} <= ${in30DaysStr}`
+                  sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} <= ${in30DaysStr}`,
+                  sql`${isolatedSchema.ppmWorkOrderDocuments.expiryAlertedAt} IS NULL`
                 ));
 
               if (expiringDocs.length > 0 && adminEmail) {
@@ -29097,7 +29100,7 @@ ${wo.completionNotes ? `
                   ? `PPM Alert: ${expired.length} Expired Document${expired.length > 1 ? "s" : ""}${soonExpiring.length > 0 ? ` & ${soonExpiring.length} Expiring Soon` : ""}`
                   : `PPM Alert: ${soonExpiring.length} Document${soonExpiring.length > 1 ? "s" : ""} Expiring Soon`;
 
-                await emailSvc.sendEmail({
+                const sent = await emailSvc.sendEmail({
                   to: adminEmail,
                   subject,
                   companyName,
@@ -29128,7 +29131,14 @@ ${wo.completionNotes ? `
                   `,
                   text: `PPM Document Expiry Alert\n\n${expired.length > 0 ? `Expired (${expired.length}):\n${expired.map(d => `- ${d.fileName} (WO: ${woMap[d.workOrderId] ?? d.workOrderId}, expired: ${d.expiryDate})`).join("\n")}\n\n` : ""}${soonExpiring.length > 0 ? `Expiring Soon (${soonExpiring.length}):\n${soonExpiring.map(d => `- ${d.fileName} (WO: ${woMap[d.workOrderId] ?? d.workOrderId}, expires: ${d.expiryDate})`).join("\n")}\n\n` : ""}Please log in to TPR-Max to review.`,
                 });
-                console.log(`📧 [PPM Cron] Document expiry alert sent for ${subjectCount} document(s) (customer ${customer.id})`);
+                if (sent) {
+                  // Stamp each alerted document so it is not re-sent on future cron runs
+                  const alertedIds = expiringDocs.map(d => d.id);
+                  await custDb.update(isolatedSchema.ppmWorkOrderDocuments)
+                    .set({ expiryAlertedAt: new Date() })
+                    .where(inArray(isolatedSchema.ppmWorkOrderDocuments.id, alertedIds));
+                  console.log(`📧 [PPM Cron] Document expiry alert sent for ${subjectCount} document(s) (customer ${customer.id})`);
+                }
               }
             }
 
