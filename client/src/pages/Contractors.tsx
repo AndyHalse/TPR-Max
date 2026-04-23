@@ -213,10 +213,26 @@ interface ContractorCompany {
 export default function Contractors() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState("contractors");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+
+  const VALID_TABS = ["contractors", "assign-hs"];
+  const [activeTab, setActiveTab] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    const t = p.get("tab") || "contractors";
+    return VALID_TABS.includes(t) ? t : "contractors";
+  });
+  const [searchTerm, setSearchTerm] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    return p.get("search") || "";
+  });
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>(() => {
+    const p = new URLSearchParams(window.location.search);
+    const v = p.get("view");
+    if (v === 'grid' || v === 'list') return v;
+    return 'list';
+  });
   const [showGapsOnly, setShowGapsOnly] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.has("gaps")) return p.get("gaps") === 'true';
     try {
       return localStorage.getItem('contractors_showGapsOnly') === 'true';
     } catch {
@@ -224,12 +240,27 @@ export default function Contractors() {
     }
   });
   const [sortGapsFirst, setSortGapsFirst] = useState(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.has("sort")) return p.get("sort") === 'true';
     try {
       return localStorage.getItem('contractors_sortGapsFirst') === 'true';
     } catch {
       return false;
     }
   });
+
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (activeTab && activeTab !== "contractors") p.set("tab", activeTab);
+    if (searchTerm) p.set("search", searchTerm);
+    if (viewMode !== 'list') p.set("view", viewMode);
+    if (showGapsOnly) p.set("gaps", "true");
+    if (sortGapsFirst) p.set("sort", "true");
+    const qs = p.toString();
+    const newUrl = window.location.pathname + (qs ? `?${qs}` : "");
+    window.history.replaceState(window.history.state, "", newUrl);
+  }, [activeTab, searchTerm, viewMode, showGapsOnly, sortGapsFirst]);
+
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
