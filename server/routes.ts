@@ -30202,6 +30202,11 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
 
       const _rawSlug = filteredCompanyName ? filteredCompanyName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') : '';
       const companyFileSlug = _rawSlug ? '-' + _rawSlug : '';
+      const toSafeSlugPart = (v: string) => v.toLowerCase().replace(/[^a-z0-9-]/g, '').replace(/^-|-$/g, '');
+      const statusFileSlug = statusFilter ? `-${toSafeSlugPart(statusFilter)}` : '';
+      const fromFileSlug = fromDate ? `-from-${toSafeSlugPart(fromDate)}` : '';
+      const toFileSlug = toDate ? `-to-${toSafeSlugPart(toDate)}` : '';
+      const filterFileSlug = `${statusFileSlug}${fromFileSlug}${toFileSlug}`;
       try {
         let puppeteer: any;
         try { puppeteer = await import('puppeteer'); } catch { throw new Error('puppeteer_unavailable'); }
@@ -30221,7 +30226,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
           });
           await browser.close();
           res.setHeader('Content-Type', 'application/pdf');
-          res.setHeader('Content-Disposition', `attachment; filename="cdm-compliance-report${companyFileSlug}-${new Date().toISOString().split('T')[0]}.pdf"`);
+          res.setHeader('Content-Disposition', `attachment; filename="cdm-compliance-report${companyFileSlug}${filterFileSlug}-${new Date().toISOString().split('T')[0]}.pdf"`);
           return res.send(Buffer.from(pdfBuffer));
         } catch (pdfErr) {
           await browser.close();
@@ -30230,7 +30235,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       } catch (pdfErr) {
         console.warn('[cdm-export-pdf] PDF generation unavailable, falling back to HTML:', (pdfErr as Error).message);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
-        res.setHeader('Content-Disposition', `attachment; filename="cdm-compliance-report${companyFileSlug}-${new Date().toISOString().split('T')[0]}.html"`);
+        res.setHeader('Content-Disposition', `attachment; filename="cdm-compliance-report${companyFileSlug}${filterFileSlug}-${new Date().toISOString().split('T')[0]}.html"`);
         return res.send(html);
       }
     } catch (error) {
