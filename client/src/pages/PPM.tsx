@@ -19,7 +19,7 @@ import {
   CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
-  Layers, ChevronDown, ChevronRight, Bell, FileDown, BellOff,
+  Layers, ChevronDown, ChevronRight, Bell, FileDown, BellOff, Scan,
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -111,7 +111,7 @@ interface PpmWorkOrderDocument {
   issuedBy?: string | null;
   expiryAlertedAt?: string | null;
   createdAt?: string | null;
-  expiryAlertedAt?: string | null;
+  scannedAt?: string | null;
 }
 
 interface ContractorCompany {
@@ -2181,6 +2181,8 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                         const in30DaysStr = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA");
                         const isExpired = !!doc.expiryDate && doc.expiryDate <= todayStr;
                         const isExpiringSoon = !!doc.expiryDate && !isExpired && doc.expiryDate <= in30DaysStr;
+                        const hasMetadata = !!(doc.expiryDate || doc.referenceNumber || doc.issuedBy);
+                        const scanPending = !hasMetadata && doc.scannedAt === null;
                         return (
                         <div key={doc.id} className={`rounded border px-2 py-1.5 text-xs space-y-0.5 ${isExpired ? "border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800" : isExpiringSoon ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700" : ""}`}>
                           <div className="flex items-center justify-between gap-2">
@@ -2195,6 +2197,11 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                               )}
                               {isExpiringSoon && (
                                 <Badge className="bg-amber-500 text-white text-xs shrink-0">Expiring Soon</Badge>
+                              )}
+                              {scanPending && (
+                                <span className="inline-flex items-center gap-1 text-xs text-muted-foreground shrink-0">
+                                  <Scan className="h-3 w-3" />Scan pending
+                                </span>
                               )}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
