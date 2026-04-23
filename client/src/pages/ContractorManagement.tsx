@@ -376,6 +376,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   const [summaryStatusFilter, setSummaryStatusFilter] = useState("all");
   const [summaryFromDate, setSummaryFromDate] = useState("");
   const [summaryToDate, setSummaryToDate] = useState("");
+  const [summaryContractorFilter, setSummaryContractorFilter] = useState("all");
 
   const loadPdfFilters = (companyId: string) => {
     try {
@@ -540,6 +541,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   const summaryToMs = summaryToDate ? new Date(summaryToDate).getTime() : null;
   const summaryProjects = allProjects.filter(p => {
     if (summaryStatusFilter !== "all" && p.status !== summaryStatusFilter) return false;
+    if (summaryContractorFilter !== "all" && String(p.companyId) !== summaryContractorFilter) return false;
     if (summaryFromMs !== null || summaryToMs !== null) {
       if (!p.startDate) return false;
       const pMs = new Date(p.startDate).getTime();
@@ -550,7 +552,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     return true;
   });
   const summaryFiltersActive =
-    summaryStatusFilter !== "all" || summaryFromDate !== "" || summaryToDate !== "";
+    summaryStatusFilter !== "all" || summaryFromDate !== "" || summaryToDate !== "" || summaryContractorFilter !== "all";
 
   // Compliance summary derived data (uses summaryProjects)
   const statusCounts = {
@@ -694,6 +696,20 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
               {/* Filter controls */}
               <div className="flex flex-wrap items-end gap-2 pt-3">
                 <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Contractor</label>
+                  <Select value={summaryContractorFilter} onValueChange={setSummaryContractorFilter}>
+                    <SelectTrigger className="h-7 text-xs w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All contractors</SelectItem>
+                      {companies.map(c => (
+                        <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Status</label>
                   <Select value={summaryStatusFilter} onValueChange={setSummaryStatusFilter}>
                     <SelectTrigger className="h-7 text-xs w-32">
@@ -731,7 +747,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                     variant="ghost"
                     size="sm"
                     className="h-7 text-xs px-2 text-muted-foreground"
-                    onClick={() => { setSummaryStatusFilter("all"); setSummaryFromDate(""); setSummaryToDate(""); }}
+                    onClick={() => { setSummaryStatusFilter("all"); setSummaryFromDate(""); setSummaryToDate(""); setSummaryContractorFilter("all"); }}
                   >
                     Clear filters
                   </Button>
