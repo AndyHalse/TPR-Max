@@ -1628,11 +1628,45 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         customerId: req.session.customerId,
         role: user.role,
         allowedMenuItems: user.allowedMenuItems ?? null,
-        defaultLandingPage: user.defaultLandingPage ?? null
+        defaultLandingPage: user.defaultLandingPage ?? null,
+        firstName: user.firstName ?? null,
+        lastName: user.lastName ?? null
       });
     } catch (error) {
       console.error('Error in /api/auth/me:', error);
       return res.status(401).json({ error: "Authentication failed" });
+    }
+  });
+
+  // Update current user's profile (first name, last name)
+  app.patch("/api/auth/profile", async (req, res) => {
+    if (!req.session.userId || !req.session.customerId) {
+      return res.status(401).json({ error: "Not authenticated" });
+    }
+
+    const { firstName, lastName } = req.body;
+
+    if (typeof firstName !== "string" || typeof lastName !== "string") {
+      return res.status(400).json({ error: "firstName and lastName are required strings" });
+    }
+
+    if (!firstName.trim() || !lastName.trim()) {
+      return res.status(400).json({ error: "firstName and lastName must not be empty" });
+    }
+
+    try {
+      const customerDbService = CustomerDatabaseService.getInstance();
+      const customerDb = await customerDbService.getCustomerDatabase(req.session.customerId);
+
+      await customerDb
+        .update(isolatedSchema.users)
+        .set({ firstName: firstName.trim(), lastName: lastName.trim() })
+        .where(eq(isolatedSchema.users.id, req.session.userId));
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ error: "Failed to update profile" });
     }
   });
 

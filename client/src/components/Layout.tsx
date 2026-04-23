@@ -337,10 +337,12 @@ export default function Layout({ children }: LayoutProps) {
             
             {user && (
               <div className="flex items-center space-x-1 sm:space-x-2">
-                <div className="flex items-center space-x-1 max-w-[80px] sm:max-w-[140px]">
-                  <User size={14} className="flex-shrink-0 opacity-70" style={bannerTextStyle} />
-                  <span className="text-xs sm:text-sm font-medium truncate" style={bannerTextStyle}>{user.username}</span>
-                </div>
+                <Link href="/profile">
+                  <div className="flex items-center space-x-1 max-w-[80px] sm:max-w-[140px] cursor-pointer hover:opacity-80 transition-opacity">
+                    <User size={14} className="flex-shrink-0 opacity-70" style={bannerTextStyle} />
+                    <span className="text-xs sm:text-sm font-medium truncate" style={bannerTextStyle}>{user.username}</span>
+                  </div>
+                </Link>
                 <LogoutButton bannerInvert={navInvert} />
               </div>
             )}
@@ -384,6 +386,20 @@ export default function Layout({ children }: LayoutProps) {
                   </button>
                 </Link>
               ))}
+              <div className="border-t border-border/40 pt-1 mt-1">
+                <Link href="/profile">
+                  <button
+                    className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-colors flex items-center space-x-3 text-sm ${
+                      location === '/profile' ? 'bg-white/20 shadow-sm' : 'text-fixed hover:bg-white/10'
+                    }`}
+                    style={location === '/profile' ? { color: 'var(--primary)' } : {}}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <User size={16} />
+                    <span className="truncate">My Profile</span>
+                  </button>
+                </Link>
+              </div>
             </div>
           </div>
         </>

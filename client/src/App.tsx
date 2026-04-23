@@ -43,6 +43,7 @@ import Signup from "@/pages/Signup";
 import SignupPayment from "@/pages/SignupPayment";
 import Welcome from "@/pages/Welcome";
 import AcceptInvitation from "@/pages/AcceptInvitation";
+import Profile from "@/pages/Profile";
 import PlatformAdminLogin from "@/pages/PlatformAdminLogin";
 import PlatformAdminDashboard from "@/pages/PlatformAdminDashboard";
 import IncidentManagerMonitor from "@/pages/IncidentManagerMonitor";
@@ -379,6 +380,7 @@ function Router() {
             <Route path="/meeting-rooms" component={MeetingRooms} />
             <Route path="/ai-demo" component={AIDemo} />
             <Route path="/billing" component={Billing} />
+            <Route path="/profile" component={Profile} />
             <Route component={NotFound} />
           </Switch>
         </Layout>
