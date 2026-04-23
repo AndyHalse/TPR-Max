@@ -122,9 +122,11 @@ export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
   // Send update to all Fire Marshals
   const sendUpdateMutation = useMutation({
     mutationFn: async () => {
+      const csrfCookie = document.cookie.split(';').find(c => c.trim().startsWith('csrf-token='));
+      const csrfToken = csrfCookie ? csrfCookie.split('=')[1] : '';
       const response = await fetch("/api/emergency/send-update", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
         credentials: "include",
         body: JSON.stringify({ evacuationId: activeEvacuationId })
       });
@@ -142,10 +144,13 @@ export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
   // Complete evacuation mutation
   const completeEvacuationMutation = useMutation({
     mutationFn: async ({ checkOutMode }: { checkOutMode: 'keep_checked_in' | 'check_out_all' }) => {
+      const csrfCookie = document.cookie.split(';').find(c => c.trim().startsWith('csrf-token='));
+      const csrfToken = csrfCookie ? csrfCookie.split('=')[1] : '';
       const response = await fetch('/api/emergency/complete-evacuation', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-csrf-token': csrfToken
         },
         credentials: 'include',
         body: JSON.stringify({

@@ -577,9 +577,11 @@ export default function EmergencyMuster() {
 
   const completeEvacuationMutation = useMutation({
     mutationFn: async (checkOutMode: 'keep_checked_in' | 'check_out_all') => {
+      const csrfCookie = document.cookie.split(';').find(c => c.trim().startsWith('csrf-token='));
+      const csrfToken = csrfCookie ? csrfCookie.split('=')[1] : '';
       const response = await fetch("/api/emergency/complete-evacuation", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrfToken },
         credentials: "include",
         body: JSON.stringify({ checkOutMode }),
       });

@@ -184,13 +184,16 @@ function createCSRFMiddleware() {
       return next();
     }
     
-    // Emergency Fire Marshal read-only endpoints require valid emergency token OR Fire Marshal URL ID
+    // Emergency Fire Marshal endpoints require valid emergency token OR Fire Marshal URL ID
     // But emergency activation requires normal authentication (admin only)
     // Also includes muster points management for Fire Marshals
     if (req.originalUrl.startsWith('/api/emergency/active') ||
         req.originalUrl.startsWith('/api/emergency/accountability') ||
         req.originalUrl.startsWith('/api/emergency/mark-safe') ||
         req.originalUrl.startsWith('/api/emergency/qr-mark-safe') ||
+        req.originalUrl.startsWith('/api/emergency/sweep-zone') ||
+        req.originalUrl.startsWith('/api/emergency/evacuation-note') ||
+        req.originalUrl.startsWith('/api/emergency/evacuation-photo') ||
         req.originalUrl.startsWith('/api/muster-points')) {
       // Check for emergency token in Authorization header or query parameter
       const emergencyToken = req.headers['x-emergency-token'] as string || req.query.token as string;
@@ -217,9 +220,22 @@ function createCSRFMiddleware() {
       return next();
     }
     
-    // complete-evacuation is handled by the core functionality exemption below.
-    // It supports three auth methods (emergency token, fire marshal ID, admin session)
-    // all checked directly in the route handler — session middleware runs after CSRF here.
+    // complete-evacuation supports fire marshal/emergency-token auth OR admin session auth.
+    // Bypass CSRF only when fire marshal credentials are present; admin session falls through
+    // to the normal CSRF check (which requires x-csrf-token from the browser).
+    if (req.originalUrl.startsWith('/api/emergency/complete-evacuation')) {
+      const emergencyToken = req.headers['x-emergency-token'] as string || req.query.token as string;
+      const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
+      if (emergencyToken) {
+        req.emergencyToken = emergencyToken;
+        console.log(`✅ CSRF EXEMPTION: complete-evacuation with emergency token`);
+        return next();
+      } else if (fireMarshalId) {
+        console.log(`✅ CSRF EXEMPTION: complete-evacuation with Fire Marshal URL ID`);
+        return next();
+      }
+      // No fire marshal credentials — fall through to standard CSRF validation (admin session)
+    }
     
     // Skip CSRF only for requests that originate outside the browser app
     // (kiosk devices, public self-service links, fire-marshal mobile URLs)
