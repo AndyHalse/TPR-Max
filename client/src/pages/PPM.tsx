@@ -19,8 +19,9 @@ import {
   CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
-  Layers, ChevronDown, ChevronRight, Bell, FileDown,
+  Layers, ChevronDown, ChevronRight, Bell, FileDown, BellOff,
 } from "lucide-react";
+import { Link } from "wouter";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -2102,6 +2103,18 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                 {/* Documents */}
                 <div className="space-y-2 border-t pt-4">
                   <p className="text-sm font-semibold flex items-center gap-1.5"><FileText className="h-4 w-4" />Documents</p>
+                  {!notifyOnDocumentExpiry && (
+                    <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700 px-3 py-2.5">
+                      <BellOff className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        Expiry notifications are currently disabled. Alert buttons are inactive.{" "}
+                        <Link href="/settings" className="underline underline-offset-2 font-medium hover:text-amber-900 dark:hover:text-amber-100">
+                          Go to Settings
+                        </Link>{" "}
+                        to enable them.
+                      </p>
+                    </div>
+                  )}
                   {hasMissingDocsAlert(selectedWO, woDocs.length) && (
                     <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2.5">
                       <AlertTriangle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
