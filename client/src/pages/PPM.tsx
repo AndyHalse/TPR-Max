@@ -1289,6 +1289,17 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
     onError: (error: unknown) => toastError(error, toast),
   });
 
+  const bulkResendAlertsMutation = useMutation({
+    mutationFn: () => apiRequest("POST", `/api/ppm/documents/bulk-resend-alerts`),
+    onSuccess: (data: { documentsAlerted: number; contractorEmailsSent: number }) => {
+      toast({
+        title: "Bulk alerts sent",
+        description: `${data.documentsAlerted} document alert${data.documentsAlerted !== 1 ? "s" : ""} sent to admin${data.contractorEmailsSent > 0 ? `, ${data.contractorEmailsSent} contractor notification${data.contractorEmailsSent !== 1 ? "s" : ""} sent` : ""}.`,
+      });
+    },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
   // Derive unique contractor companies from loaded work orders for structured dropdown
   const contractorOptions = useMemo(() => {
     const seen = new Set<string>();
@@ -1495,6 +1506,19 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
           >
             <AlertTriangle className="h-3 w-3" />Expiring docs
           </Button>
+          {isAdmin && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 text-xs gap-1"
+              disabled={bulkResendAlertsMutation.isPending || !notifyOnDocumentExpiry}
+              title={notifyOnDocumentExpiry ? "Send expiry alert emails to admin and contractors for all expiring/expired documents" : "Expiry notifications are disabled in Settings"}
+              onClick={() => bulkResendAlertsMutation.mutate()}
+            >
+              {bulkResendAlertsMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+              Resend All Alerts
+            </Button>
+          )}
           {(filterStatus !== "all" || filterAsset !== "all" || filterContractor || filterDateFrom || filterDateTo || filterExpiringDocs) && (
             <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterStatus("all"); setFilterAsset("all"); setFilterContractor(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterExpiringDocs(false); }}>
               <X className="h-3 w-3 mr-1" />Clear

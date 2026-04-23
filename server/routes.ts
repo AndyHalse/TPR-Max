@@ -28910,6 +28910,187 @@ This is an automated notification from your visitor management system.`;
       res.status(500).json({ error: "Failed to resend alert" });
     }
   });
+
+  // POST /api/ppm/documents/bulk-resend-alerts — resend expiry alert for ALL expiring/expired PPM documents at once
+  // Admin receives a consolidated digest; each work order's assigned contractor (if any) receives a per-document email.
+  app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const settingsRows = await custDb.execute(`SELECT company_name, email, notify_on_document_expiry FROM company_settings LIMIT 1`);
+      const settings = settingsRows.rows[0] as { company_name?: string; email?: string; notify_on_document_expiry?: boolean } | undefined;
+      const companyName = (settings?.company_name as string) || "TPR-Max";
+      const adminEmail = settings?.email as string | undefined;
+      if (!adminEmail) return res.status(400).json({ error: "No admin email configured" });
+      const notifyOnDocumentExpiry = settings?.notify_on_document_expiry !== false;
+      if (!notifyOnDocumentExpiry) return res.status(403).json({ error: "Expiry notifications are disabled in company settings" });
+
+      const todayStr = new Date().toISOString().split("T")[0];
+      const in30Days = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const in30DaysStr = in30Days.toISOString().split("T")[0];
+
+      // Fetch all PPM work order documents that are expired or expiring within 30 days
+      const expiringDocs = await custDb.select({
+        id: isolatedSchema.ppmWorkOrderDocuments.id,
+        fileName: isolatedSchema.ppmWorkOrderDocuments.fileName,
+        expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate,
+        workOrderId: isolatedSchema.ppmWorkOrderDocuments.workOrderId,
+      }).from(isolatedSchema.ppmWorkOrderDocuments)
+        .where(and(
+          sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} IS NOT NULL`,
+          sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} <= ${in30DaysStr}`
+        ));
+
+      if (expiringDocs.length === 0) {
+        return res.status(400).json({ error: "No expiring or expired PPM documents found within the 30-day alert window" });
+      }
+
+      // Fetch all related work orders in one query to get titles and contractor details
+      const woIds = [...new Set(expiringDocs.map(d => d.workOrderId))];
+      const relatedWOs = await custDb.select({
+        id: isolatedSchema.ppmWorkOrders.id,
+        title: isolatedSchema.ppmWorkOrders.title,
+        assignedEmail: isolatedSchema.ppmWorkOrders.assignedEmail,
+        contractorWorkerName: isolatedSchema.ppmWorkOrders.contractorWorkerName,
+        contractorCompanyName: isolatedSchema.ppmWorkOrders.contractorCompanyName,
+        accessToken: isolatedSchema.ppmWorkOrders.accessToken,
+      }).from(isolatedSchema.ppmWorkOrders)
+        .where(inArray(isolatedSchema.ppmWorkOrders.id, woIds));
+      const woMap = Object.fromEntries(relatedWOs.map(w => [w.id, w]));
+
+      const expired = expiringDocs.filter(d => d.expiryDate! <= todayStr);
+      const soonExpiring = expiringDocs.filter(d => d.expiryDate! > todayStr);
+
+      const buildRow = (d: typeof expiringDocs[0], isExp: boolean) =>
+        `<tr>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${d.fileName}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${woMap[d.workOrderId]?.title ?? d.workOrderId}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"};font-weight:600">${d.expiryDate}</td>
+          <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"}">${isExp ? "Expired" : "Expiring Soon"}</td>
+        </tr>`;
+
+      const tableRows = [
+        ...expired.map(d => buildRow(d, true)),
+        ...soonExpiring.map(d => buildRow(d, false)),
+      ].join("");
+
+      const subjectCount = expiringDocs.length;
+      const hasExpired = expired.length > 0;
+      const adminSubject = hasExpired
+        ? `PPM Alert: ${expired.length} Expired Document${expired.length > 1 ? "s" : ""}${soonExpiring.length > 0 ? ` & ${soonExpiring.length} Expiring Soon` : ""}`
+        : `PPM Alert: ${soonExpiring.length} Document${soonExpiring.length > 1 ? "s" : ""} Expiring Soon`;
+
+      const emailSvc = new EmailService(context.customerId);
+
+      // ── Admin consolidated digest ───────────────────────────────────────────
+      const adminSent = await emailSvc.sendEmail({
+        to: adminEmail,
+        subject: adminSubject,
+        companyName,
+        html: `
+          <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+            <div style="background:${hasExpired ? "#dc2626" : "#d97706"};color:#fff;padding:20px;border-radius:8px 8px 0 0">
+              <h2 style="margin:0">PPM Document Expiry Alert — ${companyName}</h2>
+            </div>
+            <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+              <p style="margin-top:0">${subjectCount} PPM work order document${subjectCount > 1 ? "s require" : " requires"} attention:</p>
+              <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px">
+                <thead>
+                  <tr style="background:#f9fafb">
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Document</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Work Order</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Expiry Date</th>
+                    <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Status</th>
+                  </tr>
+                </thead>
+                <tbody>${tableRows}</tbody>
+              </table>
+              <p style="color:#6b7280;font-size:13px">Please log in to TPR-Max to review and replace these documents as required.</p>
+            </div>
+            <div style="background:#f9fafb;padding:12px 20px;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 8px 8px;font-size:12px;color:#9ca3af">
+              This alert was sent by ${companyName} via TPR-Max PPM system.
+            </div>
+          </div>
+        `,
+        text: `PPM Document Expiry Alert\n\n${expired.length > 0 ? `Expired (${expired.length}):\n${expired.map(d => `- ${d.fileName} (WO: ${woMap[d.workOrderId]?.title ?? d.workOrderId}, expired: ${d.expiryDate})`).join("\n")}\n\n` : ""}${soonExpiring.length > 0 ? `Expiring Soon (${soonExpiring.length}):\n${soonExpiring.map(d => `- ${d.fileName} (WO: ${woMap[d.workOrderId]?.title ?? d.workOrderId}, expires: ${d.expiryDate})`).join("\n")}\n\n` : ""}Please log in to TPR-Max to review.`,
+      });
+
+      if (!adminSent) return res.status(500).json({ error: "Failed to send admin alert email" });
+
+      // ── Per-contractor notifications ────────────────────────────────────────
+      // Group documents by assignedEmail so each contractor gets one email per document
+      const baseUrl = process.env.REPLIT_DOMAINS
+        ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+        : (process.env.PUBLIC_URL || process.env.BASE_URL || "http://localhost:5000");
+
+      let contractorEmailsSent = 0;
+      for (const doc of expiringDocs) {
+        const wo = woMap[doc.workOrderId];
+        if (!wo?.assignedEmail) continue;
+
+        const isExpired = doc.expiryDate! <= todayStr;
+        const accentColor = isExpired ? "#dc2626" : "#d97706";
+        const statusLabel = isExpired ? "Expired" : "Expiring Soon";
+        const recipientName = wo.contractorWorkerName || wo.contractorCompanyName || "Contractor";
+        const woTitle = wo.title ?? doc.workOrderId;
+        const workOrderUrl = wo.accessToken ? `${baseUrl}/ppm/work-order/${wo.accessToken}` : null;
+        const contractorSubject = isExpired
+          ? `Action Required: Expired Document on Work Order — ${woTitle}`
+          : `Action Required: Document Expiring Soon on Work Order — ${woTitle}`;
+
+        try {
+          await emailSvc.sendEmail({
+            to: wo.assignedEmail,
+            subject: contractorSubject,
+            companyName,
+            html: `
+              <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f6f6f6;margin:0;padding:20px">
+              <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+                <div style="background:${accentColor};color:#fff;padding:24px 28px">
+                  <h1 style="margin:0;font-size:20px">Document Expiry Notice</h1>
+                  <p style="margin:6px 0 0;opacity:.85;font-size:14px">${companyName}</p>
+                </div>
+                <div style="padding:28px">
+                  <p style="font-size:16px;color:#1f2937">Hello ${recipientName},</p>
+                  <p style="color:#374151">A document on one of your assigned PPM work orders requires attention. Please supply a replacement as soon as possible.</p>
+                  <div style="background:#fef2f2;border:1px solid ${accentColor}33;border-radius:8px;padding:16px;margin:20px 0">
+                    <p style="margin:0 0 6px;font-weight:600;color:#1f2937;font-size:15px">${woTitle}</p>
+                    <p style="margin:0 0 4px;font-size:14px;color:#374151"><strong>Document:</strong> ${doc.fileName}</p>
+                    <p style="margin:0 0 4px;font-size:14px;color:${accentColor}"><strong>Expiry Date:</strong> ${doc.expiryDate}</p>
+                    <p style="margin:0;font-size:14px;color:${accentColor}"><strong>Status:</strong> ${statusLabel}</p>
+                  </div>
+                  ${workOrderUrl ? `<div style="text-align:center;margin:28px 0"><a href="${workOrderUrl}" style="background:${accentColor};color:#fff;text-decoration:none;padding:14px 32px;border-radius:6px;font-weight:600;font-size:15px;display:inline-block">View Work Order</a></div>` : ""}
+                  <p style="color:#6b7280;font-size:13px">Please upload a valid replacement document at your earliest convenience. If you have any questions, contact ${companyName} directly.</p>
+                </div>
+                <div style="background:#f9fafb;border-top:1px solid #e5e7eb;padding:16px 28px;text-align:center">
+                  <p style="margin:0;color:#9ca3af;font-size:12px">This notice was sent by ${companyName} via TPR-Max PPM system.</p>
+                </div>
+              </div>
+              </body></html>
+            `,
+            text: `Document Expiry Notice — ${companyName}\n\nHello ${recipientName},\n\nA document on your assigned work order "${woTitle}" requires attention.\n\nDocument: ${doc.fileName}\nExpiry Date: ${doc.expiryDate}\nStatus: ${statusLabel}\n\nPlease supply a replacement document as soon as possible.${workOrderUrl ? `\n\nView your work order at:\n${workOrderUrl}` : ""}\n\n${companyName}`,
+          });
+          contractorEmailsSent++;
+        } catch (contractorEmailErr) {
+          console.error(`PPM bulk resend — contractor notification failed for WO ${doc.workOrderId}:`, contractorEmailErr);
+        }
+      }
+
+      // Stamp expiryAlertedAt on all processed documents
+      const docIds = expiringDocs.map(d => d.id);
+      await custDb.update(isolatedSchema.ppmWorkOrderDocuments)
+        .set({ expiryAlertedAt: new Date() })
+        .where(inArray(isolatedSchema.ppmWorkOrderDocuments.id, docIds));
+
+      res.json({ success: true, documentsAlerted: expiringDocs.length, contractorEmailsSent });
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/documents/bulk-resend-alerts", error);
+      res.status(500).json({ error: "Failed to send bulk alerts" });
+    }
+  });
+
   // GET /api/ppm/work-orders/export-all — bulk PDF export for all matching work orders
   app.get("/api/ppm/work-orders/export-all", requireAuth, async (req, res) => {
     try {
