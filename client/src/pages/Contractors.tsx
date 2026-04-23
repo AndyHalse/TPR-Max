@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+import { cn, hasContractorComplianceGap } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { 
   HardHat, 
@@ -440,13 +440,7 @@ export default function Contractors() {
 
   const contractorData = contractors || [];
 
-  const hasComplianceGap = (contractor: ContractorCompany) => {
-    const ds = contractor.documentsStatus;
-    if (!ds) return true;
-    return ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'].some(
-      key => ds[key as keyof typeof ds] === 'missing' || ds[key as keyof typeof ds] === 'expired'
-    );
-  };
+  const hasComplianceGap = hasContractorComplianceGap;
 
   const filteredContractors = contractorData
     .filter((contractor: ContractorCompany) => {

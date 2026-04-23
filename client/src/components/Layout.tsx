@@ -8,6 +8,7 @@ import HelpPanel from "@/components/HelpPanel";
 import type { CompanySettings } from "@shared/schema";
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { getQueryFn } from "@/lib/queryClient";
+import { hasContractorComplianceGap, type ContractorWithComplianceStatus } from "@/lib/utils";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -19,11 +20,22 @@ export default function Layout({ children }: LayoutProps) {
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
   
-  const { data: user } = useQuery<{ id: string; username: string; role?: string; allowedMenuItems?: string[] | null; defaultLandingPage?: string | null } | null>({
+  const { data: user } = useQuery<{ id: string; username: string; role?: string; allowedMenuItems?: string[] | null; defaultLandingPage?: string | null; customerId?: string } | null>({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     staleTime: 5 * 60 * 1000,
   });
+
+  const customerId = user?.customerId;
+
+  const { data: contractorsForBadge } = useQuery<ContractorWithComplianceStatus[]>({
+    queryKey: ["/api/contractors", customerId],
+    enabled: !!customerId,
+    staleTime: 30 * 1000,
+    refetchInterval: 30 * 1000,
+  });
+
+  const contractorGapsCount = (contractorsForBadge || []).filter(hasContractorComplianceGap).length;
 
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -204,7 +216,7 @@ export default function Layout({ children }: LayoutProps) {
   const allNavItems = [
     { path: "/", icon: ChartLine, label: "Dashboard", featureKey: "featureDashboard", defaultOn: true },
     { path: "/visitors", icon: User, label: "Visitors", featureKey: "featureVisitors", defaultOn: true },
-    { path: "/contractors", icon: HardHat, label: "Contractors", featureKey: "featureContractors", defaultOn: true },
+    { path: "/contractors", icon: HardHat, label: "Contractors", featureKey: "featureContractors", defaultOn: true, badge: contractorGapsCount > 0 ? contractorGapsCount : undefined },
     { path: "/contractor", icon: CalendarPlus, label: "Contractor In/Out", featureKey: "featureContractorPage", defaultOn: true },
     { path: "/staff", icon: Users, label: "Staff", featureKey: "featureStaff", defaultOn: true },
     { path: "/members", icon: UserCheck, label: "Members", featureKey: "featureMembers", defaultOn: true },
@@ -287,7 +299,7 @@ export default function Layout({ children }: LayoutProps) {
                   <TooltipTrigger asChild>
                     <Link href={item.path}>
                       <button 
-                        className={`nav-btn p-3 rounded-lg transition-colors ${
+                        className={`nav-btn p-3 rounded-lg transition-colors relative ${
                           location === item.path 
                             ? 'bg-white/20 shadow-sm' 
                             : 'hover:bg-white/10'
@@ -296,11 +308,16 @@ export default function Layout({ children }: LayoutProps) {
                         data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
                       >
                         <item.icon size={21} />
+                        {'badge' in item && item.badge !== undefined && (
+                          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                            {item.badge > 99 ? '99+' : item.badge}
+                          </span>
+                        )}
                       </button>
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{item.label}</p>
+                    <p>{item.label}{('badge' in item && item.badge !== undefined) ? ` (${item.badge} gap${item.badge !== 1 ? 's' : ''})` : ''}</p>
                   </TooltipContent>
                 </Tooltip>
               ))}
@@ -358,7 +375,12 @@ export default function Layout({ children }: LayoutProps) {
                     data-testid={`mobile-nav-${item.label.toLowerCase().replace(' ', '-')}`}
                   >
                     <item.icon size={16} />
-                    <span className="truncate">{item.label}</span>
+                    <span className="truncate flex-1">{item.label}</span>
+                    {'badge' in item && item.badge !== undefined && (
+                      <span className="ml-auto min-w-[20px] h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center leading-none flex-shrink-0">
+                        {item.badge > 99 ? '99+' : item.badge}
+                      </span>
+                    )}
                   </button>
                 </Link>
               ))}
