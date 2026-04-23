@@ -551,7 +551,7 @@ export default function AISettings() {
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
-                      <Key className="h-5 w-5 text-purple-500" />
+                      <Sparkles className="h-5 w-5 text-purple-500" />
                       Claude
                       {settingsLoaded && activeProvider === 'claude' && (
                         <Badge className="ml-1 bg-blue-600 text-white text-xs" data-testid="badge-active-claude">Active</Badge>
@@ -561,89 +561,6 @@ export default function AISettings() {
                   </div>
                   <CardDescription>
                     Anthropic's Claude models for advanced text generation
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {apiKeyStatus?.claude?.hasKey ? (
-                    <>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600 dark:text-slate-400">API Key</span>
-                        <span className="font-mono" data-testid="claude-key-display">
-                          sk-ant-...{apiKeyStatus.claude.last4}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600 dark:text-slate-400">Last Used</span>
-                        <span data-testid="claude-last-used">
-                          {formatLastUsed(apiKeyStatus.claude.lastUsed)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-slate-600 dark:text-slate-400">Total Requests</span>
-                        <span data-testid="claude-usage-count">
-                          {apiKeyStatus.claude.usageCount?.toLocaleString() || 0}
-                        </span>
-                      </div>
-                      <div className="pt-2 flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => testClaudeMutation.mutate()}
-                          disabled={testClaudeMutation.isPending}
-                          data-testid="button-test-claude"
-                        >
-                          {testClaudeMutation.isPending ? (
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                          ) : (
-                            <TestTube className="h-4 w-4 mr-2" />
-                          )}
-                          Test
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="destructive"
-                          onClick={() => revokeKeyMutation.mutate('claude')}
-                          disabled={revokeKeyMutation.isPending}
-                          data-testid="button-revoke-claude"
-                        >
-                          <XCircle className="h-4 w-4 mr-2" />
-                          Revoke
-                        </Button>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-4 text-slate-500 dark:text-slate-400">
-                      <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No API key configured</p>
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="mt-2"
-                        onClick={() => setActiveTab('claude')}
-                        data-testid="button-configure-claude"
-                      >
-                        Configure
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </GlassCard>
-
-              {/* Claude Status Card */}
-              <GlassCard className={settingsLoaded && activeProvider === 'claude' ? "ring-2 ring-blue-500" : ""}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="flex items-center gap-2">
-                      <Sparkles className="h-5 w-5 text-purple-500" />
-                      Claude
-                      {settingsLoaded && activeProvider === 'claude' && (
-                        <Badge className="ml-1 bg-blue-600 text-white text-xs" data-testid="badge-active-claude-2">Active</Badge>
-                      )}
-                    </CardTitle>
-                    {getStatusBadge(apiKeyStatus?.claude || { serviceType: 'claude', hasKey: false, last4: '', isActive: false, lastUsed: null, usageCount: 0, status: 'inactive' })}
-                  </div>
-                  <CardDescription>
-                    Anthropic Claude for document scanning (fallback when OpenAI is unavailable)
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-3">
