@@ -217,7 +217,13 @@ export default function Contractors() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [showGapsOnly, setShowGapsOnly] = useState(false);
-  const [sortGapsFirst, setSortGapsFirst] = useState(false);
+  const [sortGapsFirst, setSortGapsFirst] = useState(() => {
+    try {
+      return localStorage.getItem('contractors_sortGapsFirst') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -1204,7 +1210,11 @@ export default function Contractors() {
             <Button
               variant={sortGapsFirst ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setSortGapsFirst(prev => !prev)}
+              onClick={() => setSortGapsFirst(prev => {
+                const next = !prev;
+                try { localStorage.setItem('contractors_sortGapsFirst', String(next)); } catch {}
+                return next;
+              })}
               className={sortGapsFirst ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500" : "text-orange-600 border-orange-300 hover:bg-orange-50"}
               title="Sort contractors with compliance gaps to the top"
               data-testid="button-sort-gaps-first"
