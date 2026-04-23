@@ -18697,6 +18697,44 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // Delete a company document
+  app.delete("/api/contractors/:companyId/documents/:documentId", requireAuth, async (req, res) => {
+    try {
+      const { companyId, documentId } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const [deleted] = await db.delete(isolatedSchema.contractorDocuments)
+        .where(and(
+          eq(isolatedSchema.contractorDocuments.id, documentId),
+          eq(isolatedSchema.contractorDocuments.companyId, companyId)
+        )).returning();
+
+      if (!deleted) {
+        return res.status(404).json({ error: "Document not found" });
+      }
+
+      try {
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const docLabel = (deleted.documentType || deleted.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
+        await db.insert(isolatedSchema.companyNotes).values({
+          companyId,
+          changeType: 'document_deleted',
+          notes: `Document "${docLabel}" deleted by ${username} on ${auditTs}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('⚠️ Failed to create company document delete audit note (continuing):', auditErr);
+      }
+
+      res.json({ success: true, message: 'Document deleted' });
+    } catch (error) {
+      console.error("Error deleting company document:", error);
+      res.status(500).json({ error: "Failed to delete document" });
+    }
+  });
+
   // Approve a company document
   app.patch("/api/contractors/:companyId/documents/:documentId/approve", requireAuth, async (req, res) => {
     try {

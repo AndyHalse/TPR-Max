@@ -943,6 +943,26 @@ export default function Contractors() {
     }
   };
 
+  const deleteCompanyDocumentMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      if (!selectedContractor) throw new Error('No contractor selected');
+      return apiRequest('DELETE', `/api/contractors/${selectedContractor.id}/documents/${documentId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", selectedContractor?.id, "documents", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      if (selectedContractor?.id) {
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedContractor.id}`] });
+      }
+      toast({ title: 'Document Deleted', description: 'The document has been removed.' });
+      setShowDocumentModal(false);
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : 'Failed to delete document';
+      toast({ title: 'Delete Failed', description: msg, variant: 'destructive' });
+    },
+  });
+
   const getComplianceIcon = (score: number) => {
     if (score >= 90) return <CheckCircle className="text-green-500" size={20} />;
     if (score >= 70) return <AlertTriangle className="text-yellow-500" size={20} />;
@@ -2502,6 +2522,20 @@ export default function Contractors() {
                     <Button className="w-full" onClick={() => window.open(selectedDocument.documentUrl, '_blank')}>
                       <ExternalLink className="h-4 w-4 mr-2" />
                       View Document
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
+                      onClick={() => {
+                        if (confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+                          deleteCompanyDocumentMutation.mutate(selectedDocument.id);
+                        }
+                      }}
+                      disabled={deleteCompanyDocumentMutation.isPending}
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      {deleteCompanyDocumentMutation.isPending ? 'Deleting...' : 'Delete Document'}
                     </Button>
                     
                     {selectedDocument.status !== 'approved' && (
