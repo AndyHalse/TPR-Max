@@ -1678,7 +1678,10 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                             )}
                           </div>
                           <div className="flex items-center gap-1 shrink-0">
-                            <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                            <a href={doc.fileUrl} target="_blank" rel="noreferrer" title="View document" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
+                              <Eye className="h-3.5 w-3.5" />
+                            </a>
+                            <a href={doc.fileUrl} download={doc.fileName} target="_blank" rel="noreferrer" title="Download document" className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-primary hover:bg-muted transition-colors">
                               <Download className="h-3.5 w-3.5" />
                             </a>
                             <Button
