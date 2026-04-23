@@ -141,7 +141,7 @@ import { CustomerDatabaseService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
 import { inductionService } from "./inductionService";
 import { db } from "./db";
-import { eq, and, sql, desc, inArray, gte, lte, ne, isNotNull, SQL } from "drizzle-orm";
+import { eq, and, sql, desc, inArray, gte, lte, lt, ne, isNotNull, SQL } from "drizzle-orm";
 import { Pool } from 'pg';
 import { websocketService } from "./websocketService";
 import { drizzle } from 'drizzle-orm/node-postgres';
@@ -30282,6 +30282,158 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       res.status(500).json({ error: "Failed to update CDM accreditations" });
     }
   });
+
+
+  // ── Nightly Contractor Document Expiry Cron ────────────────────────────────
+  // Runs at midnight (00:00) Europe/London every night.
+  // Scans all active contractor documents across all customers for those whose
+  // expiryDate has passed and have not yet triggered an alert (expiryAlertedAt IS NULL).
+  // Sends a single digest email to the admin and stamps expiryAlertedAt so the
+  // alert is never repeated for the same document instance.
+  {
+    const rawHour = parseInt(process.env.CONTRACTOR_EXPIRY_ALERT_HOUR ?? "0", 10);
+    const contractorExpiryAlertHour = isNaN(rawHour) || rawHour < 0 || rawHour > 23 ? 0 : rawHour;
+    cron.schedule(`0 ${contractorExpiryAlertHour} * * *`, async () => {
+      try {
+        console.log("🔧 [Contractor Expiry Cron] Running nightly contractor document expiry check…");
+        const allCustomers = await customerDbService.getAllCustomers();
+        const now = new Date();
+
+        for (const customer of allCustomers) {
+          try {
+            const custDb = await customerDbService.getCustomerDatabase(customer.id);
+
+            const settingsRows = await custDb.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
+            const settings = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+            const companyName = (settings?.company_name as string) || "TPR-Max";
+            const adminEmail = settings?.email as string | undefined;
+
+            if (!adminEmail) {
+              console.log(`[Contractor Expiry Cron] No admin email configured for customer ${customer.id} — skipping`);
+              continue;
+            }
+
+            // Find active documents that have expired and not yet been alerted
+            const expiredDocs = await custDb.select({
+              id: isolatedSchema.contractorDocuments.id,
+              documentName: isolatedSchema.contractorDocuments.documentName,
+              documentType: isolatedSchema.contractorDocuments.documentType,
+              expiryDate: isolatedSchema.contractorDocuments.expiryDate,
+              companyId: isolatedSchema.contractorDocuments.companyId,
+              workerId: isolatedSchema.contractorDocuments.workerId,
+            }).from(isolatedSchema.contractorDocuments)
+              .where(and(
+                eq(isolatedSchema.contractorDocuments.isActive, true),
+                isNotNull(isolatedSchema.contractorDocuments.expiryDate),
+                lt(isolatedSchema.contractorDocuments.expiryDate, now),
+                sql`${isolatedSchema.contractorDocuments.expiryAlertedAt} IS NULL`
+              ));
+
+            if (expiredDocs.length === 0) {
+              console.log(`[Contractor Expiry Cron] No newly-expired contractor documents for customer ${customer.id}`);
+              continue;
+            }
+
+            // Enrich with contractor company / worker names
+            const companyIds = [...new Set(expiredDocs.map(d => d.companyId).filter((id): id is string => !!id))];
+            const workerIds = [...new Set(expiredDocs.map(d => d.workerId).filter((id): id is string => !!id))];
+
+            const [companies, workers] = await Promise.all([
+              companyIds.length > 0
+                ? custDb.select({ id: isolatedSchema.contractorCompanies.id, companyName: isolatedSchema.contractorCompanies.companyName })
+                    .from(isolatedSchema.contractorCompanies)
+                    .where(inArray(isolatedSchema.contractorCompanies.id, companyIds))
+                : Promise.resolve([]),
+              workerIds.length > 0
+                ? custDb.select({ id: isolatedSchema.contractorWorkers.id, firstName: isolatedSchema.contractorWorkers.firstName, lastName: isolatedSchema.contractorWorkers.lastName })
+                    .from(isolatedSchema.contractorWorkers)
+                    .where(inArray(isolatedSchema.contractorWorkers.id, workerIds))
+                : Promise.resolve([]),
+            ]);
+
+            const companyMap = Object.fromEntries(companies.map(c => [c.id, c.companyName]));
+            const workerMap = Object.fromEntries(workers.map(w => [w.id, `${w.firstName} ${w.lastName}`]));
+
+            const docTypeLabel = (t: string) =>
+              t.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+
+            const tableRows = expiredDocs.map(d => {
+              const entityName = d.workerId
+                ? (workerMap[d.workerId] ?? "Unknown Worker")
+                : d.companyId
+                  ? (companyMap[d.companyId] ?? "Unknown Company")
+                  : "—";
+              const expiredDate = d.expiryDate
+                ? new Date(d.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                : "—";
+              return `<tr>
+                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${d.documentName}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${docTypeLabel(d.documentType)}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${entityName}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:#dc2626;font-weight:600">${expiredDate}</td>
+              </tr>`;
+            }).join("");
+
+            const textLines = expiredDocs.map(d => {
+              const entityName = d.workerId
+                ? (workerMap[d.workerId] ?? "Unknown Worker")
+                : d.companyId ? (companyMap[d.companyId] ?? "Unknown Company") : "—";
+              const expiredDate = d.expiryDate
+                ? new Date(d.expiryDate).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
+                : "—";
+              return `- ${d.documentName} (${docTypeLabel(d.documentType)}) — ${entityName} — expired ${expiredDate}`;
+            }).join("\n");
+
+            const emailSvc = new EmailService(customer.id);
+            const sent = await emailSvc.sendEmail({
+              to: adminEmail,
+              subject: `Contractor Alert: ${expiredDocs.length} Document${expiredDocs.length > 1 ? "s" : ""} Expired Overnight`,
+              companyName,
+              html: `
+                <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+                  <div style="background:#dc2626;color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                    <h2 style="margin:0">Contractor Document Expiry Alert — ${companyName}</h2>
+                  </div>
+                  <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+                    <p style="margin-top:0">The following ${expiredDocs.length} contractor document${expiredDocs.length > 1 ? "s have" : " has"} expired and may require immediate renewal:</p>
+                    <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px">
+                      <thead>
+                        <tr style="background:#fef2f2">
+                          <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Document</th>
+                          <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Type</th>
+                          <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Contractor / Worker</th>
+                          <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Expired</th>
+                        </tr>
+                      </thead>
+                      <tbody>${tableRows}</tbody>
+                    </table>
+                    <p style="color:#6b7280;font-size:13px">Please log in to TPR-Max to review these documents and request updated copies from the relevant contractors.</p>
+                  </div>
+                  <div style="background:#f9fafb;padding:12px 20px;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 8px 8px;font-size:12px;color:#9ca3af">
+                    This is an automated nightly alert sent by ${companyName} via TPR-Max.
+                  </div>
+                </div>
+              `,
+              text: `Contractor Document Expiry Alert\n\nThe following ${expiredDocs.length} contractor document(s) expired overnight:\n\n${textLines}\n\nPlease log in to TPR-Max to review and action these documents.`,
+            });
+
+            if (sent) {
+              const alertedIds = expiredDocs.map(d => d.id);
+              await custDb.update(isolatedSchema.contractorDocuments)
+                .set({ expiryAlertedAt: new Date() })
+                .where(inArray(isolatedSchema.contractorDocuments.id, alertedIds));
+              console.log(`📧 [Contractor Expiry Cron] Digest sent for ${expiredDocs.length} expired document(s) (customer ${customer.id})`);
+            }
+          } catch (custErr) {
+            console.error(`[Contractor Expiry Cron] Error processing customer ${customer.id}:`, custErr);
+          }
+        }
+      } catch (err) {
+        console.error("[Contractor Expiry Cron] Fatal error in nightly check:", err);
+      }
+    }, { timezone: "Europe/London" });
+    console.log("✅ [Contractor Expiry Cron] Nightly contractor document expiry check scheduled");
+  }
 
   // ── End CDM routes ──────────────────────────────────────────────────────────
 

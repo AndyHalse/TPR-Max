@@ -298,6 +298,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addBiostarDevicesMigration,
     addBiostarDeviceGroupAddressMigration,
     addComplianceAlertPreferencesMigration,
+    addContractorDocumentExpiryAlertedAtMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -2008,5 +2009,18 @@ const addComplianceAlertPreferencesMigration: Migration = {
       }
     }
     console.log('✅ [037] company_settings compliance alert preference columns ensured');
+  }
+};
+
+const addContractorDocumentExpiryAlertedAtMigration: Migration = {
+  version: '20260423_038_contractor_documents_expiry_alerted_at',
+  description: 'Add expiry_alerted_at column to contractor_documents for nightly expiry digest cron',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE contractor_documents ADD COLUMN IF NOT EXISTS expiry_alerted_at TIMESTAMP`);
+      console.log('✅ [038] Added expiry_alerted_at to contractor_documents');
+    } catch (err: any) {
+      console.log(`⚠️ [038] contractor_documents.expiry_alerted_at: ${err.message?.substring(0, 80)}`);
+    }
   }
 };

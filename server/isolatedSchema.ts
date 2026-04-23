@@ -869,6 +869,7 @@ export const contractorDocuments = pgTable("contractor_documents", {
   policyNumber: text("policy_number"),
   coverageAmount: text("coverage_amount"),
   isActive: boolean("is_active").default(true).notNull(),
+  expiryAlertedAt: timestamp("expiry_alerted_at"), // Set when nightly expiry digest email sent; null = not yet alerted for this expiry. New uploads start null.
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
