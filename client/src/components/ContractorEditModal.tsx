@@ -1055,7 +1055,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         id="document-file"
                         type="file"
                         accept=".pdf,.jpg,.jpeg,.png"
-                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        onChange={(e) => { setSelectedFile(e.target.files?.[0] || null); setAiExtracted(false); }}
                         disabled={isUploading}
                         className="cursor-pointer"
                         data-testid="input-document-file"
