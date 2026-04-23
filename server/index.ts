@@ -39,7 +39,12 @@ async function ensureChromeBinary() {
     console.warn('⚠️ Could not install Puppeteer Chrome — PDF generation will fall back to HTML:', e.message);
   }
 }
-ensureChromeBinary();
+// Chrome must be pre-installed in the production Docker/server image.
+// This install only runs in development — see docs/AWS_DEPLOYMENT.md for the
+// one-time build-time command to bake Chrome into a production image.
+if (process.env.NODE_ENV !== 'production') {
+  ensureChromeBinary();
+}
 
 // Global error handlers to prevent crashes
 process.on('uncaughtException', (error: any) => {

@@ -138,6 +138,38 @@ ECS_CLUSTER_NAME="visigate-production"
 ALB_TARGET_GROUP_ARN="arn:aws:elasticloadbalancing:..."
 ```
 
+#### Puppeteer Chrome — Production Image Setup
+
+TPR Max uses Puppeteer to generate PDF reports. The Chrome binary is **not** downloaded
+at runtime in production (`NODE_ENV=production`). It must be baked into the server image
+at build time to avoid a 30–120 second install on every cold start.
+
+**If using a Dockerfile**, add these steps to your image build (Debian/Ubuntu base):
+```dockerfile
+# Install Chrome system dependencies and the Puppeteer-managed Chrome binary
+RUN apt-get update && apt-get install -y \
+    ca-certificates fonts-liberation libappindicator3-1 libasound2 libatk-bridge2.0-0 \
+    libatk1.0-0 libc6 libcairo2 libcups2 libdbus-1-3 libexpat1 libfontconfig1 \
+    libgbm1 libgcc1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 \
+    libpangocairo-1.0-0 libstdc++6 libx11-6 libx11-xcb1 libxcb1 libxcomposite1 \
+    libxcursor1 libxdamage1 libxext6 libxfixes3 libxi6 libxrandr2 libxrender1 \
+    libxss1 libxtst6 lsb-release wget xdg-utils --no-install-recommends && \
+    rm -rf /var/lib/apt/lists/*
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+RUN npx puppeteer browsers install chrome
+```
+
+**If deploying directly to an EC2 / Linux server**, run this once after `npm ci`:
+```bash
+npx puppeteer browsers install chrome
+```
+
+> The server code skips this install when `NODE_ENV=production`, so it will not
+> attempt a network download at startup. Ensure the binary is present before
+> starting the server.
+
 ## 🛡️ Security Best Practices
 
 ### Secret Rotation Strategy
