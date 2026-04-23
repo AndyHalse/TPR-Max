@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wrench, Plus, Edit, Trash2, Copy, Building2, ClipboardList, CalendarClock,
@@ -92,6 +93,8 @@ interface PpmWorkOrder {
   requiresCertificate?: boolean | null;
   certificateUploadedAt?: string | null;
   createdAt?: string | null;
+  expiredDocCount?: number;
+  expiringSoonDocCount?: number;
 }
 
 interface PpmWorkOrderDocument {
@@ -1457,7 +1460,34 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
               {sortedWOs.map(wo => (
                 <tr key={wo.id} className={`hover:bg-muted/30 cursor-pointer ${wo.status === "overdue" ? "bg-red-50/50 dark:bg-red-950/20" : ""}`} onClick={() => openDetail(wo)}>
                   <td className="px-3 py-2.5">
-                    <div className="font-medium truncate max-w-[200px]">{wo.title}</div>
+                    <div className="flex items-center gap-1.5">
+                      <div className="font-medium truncate max-w-[200px]">{wo.title}</div>
+                      {(wo.expiredDocCount ?? 0) > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400 cursor-default" aria-label="Expired documents">
+                              <AlertTriangle className="h-3 w-3" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {wo.expiredDocCount} document{(wo.expiredDocCount ?? 0) === 1 ? "" : "s"} expired
+                            {(wo.expiringSoonDocCount ?? 0) > 0 ? `, ${wo.expiringSoonDocCount} expiring soon` : ""}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                      {(wo.expiredDocCount ?? 0) === 0 && (wo.expiringSoonDocCount ?? 0) > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400 cursor-default" aria-label="Documents expiring soon">
+                              <AlertTriangle className="h-3 w-3" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top">
+                            {wo.expiringSoonDocCount} document{(wo.expiringSoonDocCount ?? 0) === 1 ? "" : "s"} expiring soon
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
                     {hasCertAlert(wo) && (
                       <span className="text-xs text-amber-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Certificate missing</span>
                     )}

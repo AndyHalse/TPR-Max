@@ -27994,7 +27994,37 @@ This is an automated notification from your visitor management system.`;
       const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders).orderBy(isolatedSchema.ppmWorkOrders.createdAt);
       // Omit bearer token fields from list payload; use GET /api/ppm/work-orders/:id/token to get link
       const sanitized = rows.map(({ accessToken: _t, accessTokenExpiresAt: _e, ...rest }) => rest);
-      res.json(sanitized);
+
+      // Attach aggregated document expiry counts so the list view can show inline indicators
+      const woIds = sanitized.map(w => w.id);
+      let expiryCounts: Record<string, { expiredDocCount: number; expiringSoonDocCount: number }> = {};
+      if (woIds.length > 0) {
+        const docs = await custDb.select({
+          workOrderId: isolatedSchema.ppmWorkOrderDocuments.workOrderId,
+          expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate,
+        }).from(isolatedSchema.ppmWorkOrderDocuments).where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, woIds));
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const in30Days = new Date(today);
+        in30Days.setDate(in30Days.getDate() + 30);
+        for (const doc of docs) {
+          if (!doc.expiryDate) continue;
+          const exp = new Date(doc.expiryDate);
+          if (!expiryCounts[doc.workOrderId]) expiryCounts[doc.workOrderId] = { expiredDocCount: 0, expiringSoonDocCount: 0 };
+          if (exp <= today) {
+            expiryCounts[doc.workOrderId].expiredDocCount++;
+          } else if (exp <= in30Days) {
+            expiryCounts[doc.workOrderId].expiringSoonDocCount++;
+          }
+        }
+      }
+
+      const withExpiry = sanitized.map(wo => ({
+        ...wo,
+        expiredDocCount: expiryCounts[wo.id]?.expiredDocCount ?? 0,
+        expiringSoonDocCount: expiryCounts[wo.id]?.expiringSoonDocCount ?? 0,
+      }));
+      res.json(withExpiry);
     } catch (error: unknown) {
       console.error("GET /api/ppm/work-orders", error);
       res.status(500).json({ error: "Failed to fetch PPM work orders" });
