@@ -28339,6 +28339,37 @@ This is an automated notification from your visitor management system.`;
 
   // ── PPM Work Orders ──────────────────────────────────────────────────────────
 
+  // GET /api/ppm/expiry-count — lightweight summary of expired/expiring-soon document counts (for nav badge)
+  app.get('/api/ppm/expiry-count', requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== 'admin') return res.status(403).json({ error: 'Administrator access required' });
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const docs = await custDb.select({
+        expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate,
+      }).from(isolatedSchema.ppmWorkOrderDocuments);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const in30Days = new Date(today);
+      in30Days.setDate(in30Days.getDate() + 30);
+      let expiredCount = 0;
+      let expiringSoonCount = 0;
+      for (const doc of docs) {
+        if (!doc.expiryDate) continue;
+        const exp = new Date(doc.expiryDate);
+        if (exp <= today) {
+          expiredCount++;
+        } else if (exp <= in30Days) {
+          expiringSoonCount++;
+        }
+      }
+      res.json({ expiredCount, expiringSoonCount, total: expiredCount + expiringSoonCount });
+    } catch (error) {
+      console.error('GET /api/ppm/expiry-count', error);
+      res.status(500).json({ error: 'Failed to fetch PPM expiry count' });
+    }
+  });
+
   // GET /api/ppm/work-orders — list all work orders for customer (admin only; tokens omitted from list)
   app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
     try {
