@@ -31,6 +31,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface ApiKeyStatus {
   id?: string;
@@ -64,23 +65,6 @@ function getActiveProvider(model: string | undefined): ActiveProvider {
   return 'openai';
 }
 
-function getModelLabel(model: string | undefined): string {
-  if (!model) return 'GPT-4o (OpenAI)';
-  const labels: Record<string, string> = {
-    'gpt-4':            'GPT-4 (OpenAI)',
-    'gpt-4o':           'GPT-4o (OpenAI)',
-    'gpt-5':            'GPT-5 (OpenAI)',
-    'claude-3-5-sonnet': 'Claude 3.5 Sonnet (Anthropic)',
-    'claude-3-opus':    'Claude 3 Opus (Anthropic)',
-    'claude-3-haiku':   'Claude 3 Haiku (Anthropic)',
-    'gemini-pro':       'Gemini Pro (Google)',
-    'gemini-2.5-flash': 'Gemini 2.5 Flash (Google)',
-  };
-  if (labels[model]) return labels[model];
-  if (model.startsWith('claude-')) return `${model} (Anthropic)`;
-  if (model.startsWith('gemini-')) return `${model} (Google)`;
-  return `${model} (OpenAI)`;
-}
 
 export default function AISettings() {
   const { toast } = useToast();
@@ -99,7 +83,28 @@ export default function AISettings() {
 
   const activeModel = appSettings?.openaiModel as string | undefined;
   const activeProvider = getActiveProvider(activeModel);
-  const activeModelLabel = getModelLabel(activeModel);
+
+  // Mutation to update the active AI model
+  const saveModelMutation = useMutation({
+    mutationFn: async (model: string) => {
+      const response = await apiRequest("PUT", "/api/settings", { openaiModel: model });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      toast({
+        title: "Model Updated",
+        description: "The active AI model has been saved.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Failed to update model",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Fetch current API key status
   const { data: apiKeyStatus, isLoading } = useQuery<{
@@ -361,19 +366,41 @@ export default function AISettings() {
 
             {/* Currently Active Banner */}
             {settingsLoaded && <div
-              className="flex items-center gap-3 rounded-xl border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/40 px-5 py-4"
+              className="flex flex-wrap items-center gap-3 rounded-xl border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/40 px-5 py-4"
               data-testid="active-provider-banner"
             >
               <CheckCircle className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400 mb-1">
                   Currently Active Model
                 </p>
-                <p className="text-sm font-medium text-slate-800 dark:text-slate-100" data-testid="active-model-label">
-                  {activeModelLabel}
-                </p>
+                <Select
+                  value={activeModel || "gpt-4o"}
+                  onValueChange={(value) => saveModelMutation.mutate(value)}
+                  disabled={saveModelMutation.isPending}
+                >
+                  <SelectTrigger
+                    className="h-8 w-auto min-w-[220px] border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-sm font-medium"
+                    data-testid="active-model-select"
+                  >
+                    <SelectValue data-testid="active-model-label" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="gpt-4">GPT-4 (OpenAI)</SelectItem>
+                    <SelectItem value="gpt-4o">GPT-4o (OpenAI)</SelectItem>
+                    <SelectItem value="gpt-5">GPT-5 (OpenAI)</SelectItem>
+                    <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet (Anthropic)</SelectItem>
+                    <SelectItem value="claude-3-opus">Claude 3 Opus (Anthropic)</SelectItem>
+                    <SelectItem value="claude-3-haiku">Claude 3 Haiku (Anthropic)</SelectItem>
+                    <SelectItem value="gemini-pro">Gemini Pro (Google)</SelectItem>
+                    <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash (Google)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-              <div className="ml-auto">
+              <div className="ml-auto flex items-center gap-2">
+                {saveModelMutation.isPending && (
+                  <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
+                )}
                 <Badge className="bg-blue-600 text-white text-xs">Active</Badge>
               </div>
             </div>}

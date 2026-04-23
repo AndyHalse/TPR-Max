@@ -5727,6 +5727,8 @@ export default function Settings() {
                       <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet (Anthropic)</SelectItem>
                       <SelectItem value="claude-3-opus">Claude 3 Opus (Anthropic)</SelectItem>
                       <SelectItem value="claude-3-haiku">Claude 3 Haiku — Fast (Anthropic)</SelectItem>
+                      <SelectItem value="gemini-pro">Gemini Pro (Google)</SelectItem>
+                      <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash (Google)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
