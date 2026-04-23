@@ -29974,16 +29974,23 @@ ${wo.completionNotes ? `
           const settingsRows = await custDb.execute(`SELECT company_name, email, cdm_alerts_email FROM company_settings LIMIT 1`);
           const settings = settingsRows.rows[0] as { company_name?: string; email?: string; cdm_alerts_email?: string } | undefined;
           const companyName = (settings?.company_name as string) || "TPR-Max";
-          const adminEmail = ((settings?.cdm_alerts_email as string | undefined) || '').trim() || (settings?.email as string | undefined);
+          const cdmAlertsEmail = ((settings?.cdm_alerts_email as string | undefined) || '').trim();
+          const companyEmail = ((settings?.email as string | undefined) || '').trim();
 
-          if (!adminEmail) {
+          // Build a deduplicated list of recipient addresses:
+          // send to both cdm_alerts_email AND the main company email when both are populated.
+          const recipientSet = new Set<string>();
+          if (cdmAlertsEmail) recipientSet.add(cdmAlertsEmail);
+          if (companyEmail) recipientSet.add(companyEmail);
+          const recipients = Array.from(recipientSet);
+
+          if (recipients.length === 0) {
             console.warn(`[CDM Cron] No admin email configured for customer ${customer.id} — skipping`);
             continue;
           }
 
           const emailSvc = new EmailService(customer.id);
-          const sent = await emailSvc.sendEmail({
-            to: adminEmail,
+          const emailPayload = {
             subject: `CDM Alert: ${overdue.length} F10 Notification${overdue.length > 1 ? "s" : ""} Outstanding`,
             companyName,
             html: `
@@ -30002,7 +30009,10 @@ ${wo.completionNotes ? `
               </div>
             `,
             text: `CDM F10 Notification Alert\n\n${overdue.length} project(s) require an F10 HSE notification but no submission has been recorded:\n\n${overdue.map(p => `- ${p.title}${p.location ? ` (${p.location})` : ""}`).join("\n")}\n\nPlease submit the F10 notification and record it in TPR-Max.`,
-          });
+          };
+
+          const sendResults = await Promise.all(recipients.map(addr => emailSvc.sendEmail({ to: addr, ...emailPayload })));
+          const sent = sendResults.every(Boolean);
 
           if (!sent) {
             console.warn(`[CDM Cron] Email send failed for customer ${customer.id} — skipping f10_alert_sent_at update`);
@@ -30017,7 +30027,7 @@ ${wo.completionNotes ? `
               .where(eq(isolatedSchema.cdmProjects.id, project.id));
           }
 
-          console.log(`✅ [CDM Cron] Sent F10 alert for ${overdue.length} project(s) to ${adminEmail} (customer ${customer.id})`);
+          console.log(`✅ [CDM Cron] Sent F10 alert for ${overdue.length} project(s) to ${recipients.join(', ')} (customer ${customer.id})`);
         } catch (custErr) {
           console.error(`[CDM Cron] Error processing customer ${customer.id}:`, custErr);
         }
