@@ -23,7 +23,7 @@ import {
   Building2, Users, FileText, Shield, AlertTriangle, CheckCircle2, 
   Calendar, MapPin, Phone, Mail, User, Award, Leaf, TrendingUp,
   XCircle, Clock, AlertCircle, CalendarPlus, Lock, CheckSquare,
-  ChevronRight, Upload, Eye, QrCode, Printer, Download, Sparkles, RotateCcw
+  ChevronRight, Upload, Eye, QrCode, Printer, Download, Sparkles, RotateCcw, Trash2
 } from "lucide-react";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import RAMSManagement from "@/components/RAMSManagement";
@@ -86,6 +86,12 @@ export default function ContractorDetails() {
   const [preBookPurpose, setPreBookPurpose] = useState("Site work");
   const [preBookDuration, setPreBookDuration] = useState("8");
   const [preBookNotes, setPreBookNotes] = useState("");
+
+  // Fetch current user to get customerId (needed for list-level cache invalidation)
+  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string }>({
+    queryKey: ['/api/auth/me'],
+  });
+  const customerId = currentUser?.customerId;
 
   // Fetch contractor details
   const { data: contractor, isLoading } = useQuery({
@@ -359,6 +365,26 @@ export default function ContractorDetails() {
     },
     onError: (error: any) => {
       toast({ title: "Failed to approve document", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Delete company document mutation — invalidates both the contractor detail cache and the
+  // contractor list cache so compliance scores stay in sync across both views.
+  const deleteCompanyDocumentMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      return apiRequest('DELETE', `/api/contractors/${id}/documents/${documentId}`);
+    },
+    onSuccess: () => {
+      toast({ title: "Document deleted", description: "The document has been removed." });
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
+      if (customerId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to delete document", description: error.message, variant: "destructive" });
     }
   });
 
@@ -1190,6 +1216,20 @@ export default function ContractorDetails() {
                             >
                               <Upload className="w-3 h-3" /> {uploaded ? 'Replace' : 'Upload'}
                             </button>
+                            {uploaded && (
+                              <button
+                                className="inline-flex items-center gap-1 text-xs text-red-600 hover:bg-red-50 px-2 py-1 border border-red-200 rounded font-medium disabled:opacity-50"
+                                onClick={() => {
+                                  if (window.confirm(`Delete "${doc.name}"? This cannot be undone.`)) {
+                                    deleteCompanyDocumentMutation.mutate(uploaded.id);
+                                  }
+                                }}
+                                disabled={deleteCompanyDocumentMutation.isPending}
+                                title="Delete this document"
+                              >
+                                <Trash2 className="w-3 h-3" /> Delete
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
