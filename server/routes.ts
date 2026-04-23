@@ -29631,15 +29631,16 @@ ${wo.completionNotes ? `
           }
 
           // Get settings for email
-          const settingsRows = await custDb.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
-          const settings = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+          const settingsRows = await custDb.execute(`SELECT company_name, email, notify_on_document_expiry FROM company_settings LIMIT 1`);
+          const settings = settingsRows.rows[0] as { company_name?: string; email?: string; notify_on_document_expiry?: boolean } | undefined;
           const companyName = (settings?.company_name as string) || "TPR-Max";
           const adminEmail = settings?.email as string | undefined;
+          const notifyEnabled = settings?.notify_on_document_expiry !== false;
           const emailSvc = new EmailService(customer.id);
 
           // Alert admin about newly-overdue work orders (only those not yet alerted)
           const newlyAlertedOverdue = workOrders.filter(w => overdueIds.includes(w.id) && !w.overdueAlertedAt);
-          if (newlyAlertedOverdue.length > 0 && adminEmail) {
+          if (notifyEnabled && newlyAlertedOverdue.length > 0 && adminEmail) {
             await emailSvc.sendEmail({
               to: adminEmail,
               subject: `PPM Alert: ${newlyAlertedOverdue.length} Overdue Work Order${newlyAlertedOverdue.length > 1 ? "s" : ""}`,
@@ -29669,7 +29670,7 @@ ${wo.completionNotes ? `
           }
 
           // Alert for missing certificates (only those not yet alerted; missingCertAlertedAt guards re-send)
-          for (const wo of missingCertWOs) {
+          if (notifyEnabled) for (const wo of missingCertWOs) {
             const recipients = [...new Set([adminEmail, wo.assignedEmail].filter((e): e is string => !!e))];
             for (const email of recipients) {
               await emailSvc.sendEmail({
@@ -29711,7 +29712,7 @@ ${wo.completionNotes ? `
               .limit(1);
             if (docs.length === 0) missingDocsWOs.push(wo);
           }
-          if (missingDocsWOs.length > 0 && adminEmail) {
+          if (notifyEnabled && missingDocsWOs.length > 0 && adminEmail) {
             const rows = missingDocsWOs.map(wo =>
               `<tr>
                 <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${wo.title}</td>
@@ -29784,7 +29785,7 @@ ${wo.completionNotes ? `
                   sql`${isolatedSchema.ppmWorkOrderDocuments.expiryAlertedAt} IS NULL`
                 ));
 
-              if (expiringDocs.length > 0 && adminEmail) {
+              if (notifyEnabled && expiringDocs.length > 0 && adminEmail) {
                 // Enrich with work order title
                 const woIds = [...new Set(expiringDocs.map(d => d.workOrderId))];
                 const relatedWOs = await custDb.select({
