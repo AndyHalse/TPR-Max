@@ -41,6 +41,9 @@ interface WODocument {
   fileType?: string | null;
   uploadedBy?: string | null;
   createdAt?: string | null;
+  expiryDate?: string | null;
+  referenceNumber?: string | null;
+  issuedBy?: string | null;
 }
 
 function fmtDate(d?: string | null) {
@@ -315,15 +318,30 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
           {docs.length > 0 && (
             <div className="space-y-1.5">
               {docs.map(doc => (
-                <div key={doc.id} className="flex items-center gap-2 rounded-lg border bg-slate-50 px-3 py-2">
-                  <FileText className="h-4 w-4 text-slate-400 shrink-0" />
-                  <span className="text-xs truncate flex-1">{doc.fileName}</span>
-                  {doc.fileType && doc.fileType !== "other" && (
-                    <span className="text-xs bg-slate-200 text-slate-600 rounded px-1.5 py-0.5 shrink-0">{doc.fileType}</span>
+                <div key={doc.id} className="rounded-lg border bg-slate-50 px-3 py-2">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-slate-400 shrink-0" />
+                    <span className="text-xs truncate flex-1">{doc.fileName}</span>
+                    {doc.fileType && doc.fileType !== "other" && (
+                      <span className="text-xs bg-slate-200 text-slate-600 rounded px-1.5 py-0.5 shrink-0">{doc.fileType}</span>
+                    )}
+                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="shrink-0">
+                      <Download className="h-4 w-4 text-blue-600" />
+                    </a>
+                  </div>
+                  {(doc.expiryDate || doc.referenceNumber || doc.issuedBy) && (
+                    <div className="mt-1.5 ml-6 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
+                      {doc.referenceNumber && (
+                        <span>Ref: <span className="font-medium text-slate-700">{doc.referenceNumber}</span></span>
+                      )}
+                      {doc.issuedBy && (
+                        <span>Issued by: <span className="font-medium text-slate-700">{doc.issuedBy}</span></span>
+                      )}
+                      {doc.expiryDate && (
+                        <span>Expires: <span className="font-medium text-slate-700">{fmtDate(doc.expiryDate)}</span></span>
+                      )}
+                    </div>
                   )}
-                  <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="shrink-0">
-                    <Download className="h-4 w-4 text-blue-600" />
-                  </a>
                 </div>
               ))}
             </div>
