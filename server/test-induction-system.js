@@ -154,7 +154,7 @@ class InductionSystemValidator {
       const loginResponse = await fetch(`${this.baseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: 'Andy', password: 'Kubo1966&&' })
+        body: JSON.stringify({ username: 'Andy', password: process.env.DEV_ANDY_PASSWORD || '' })
       });
       
       const sessionCookie = loginResponse.headers.get('set-cookie');

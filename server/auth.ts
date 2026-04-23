@@ -71,7 +71,7 @@ export function isValidDevCredentials(company: string, username: string, passwor
   
   return company === 'Development Customer' && 
          username === 'Andy' && 
-         password === 'Kubo1966&&';
+         password === process.env.DEV_ANDY_PASSWORD;
 }
 
 // Mock Data Generation Functions for Development Bypass
@@ -686,9 +686,14 @@ export class AuthService {
       await this.ensureCustomersExist();
       
       console.log('🔧 Initializing developer users...');
-      // Get passwords from environment variables - no fallbacks in production
-      const andyPassword = process.env.DEV_ANDY_PASSWORD || 'Kubo1966&&';
-      const emmaPassword = process.env.DEV_EMMA_PASSWORD || 'Kubo1976&&';
+      const andyPassword = process.env.DEV_ANDY_PASSWORD;
+      const emmaPassword = process.env.DEV_EMMA_PASSWORD;
+
+      if (!andyPassword || !emmaPassword) {
+        throw new Error(
+          'DEV_ANDY_PASSWORD and DEV_EMMA_PASSWORD environment variables must be set in development'
+        );
+      }
 
       // Initialize Andy (Customer 001)
       const existingAndy = await storage.getUserByUsername('Andy');

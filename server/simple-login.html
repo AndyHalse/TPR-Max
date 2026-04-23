@@ -16,7 +16,7 @@
     <div class="container">
         <h2>VisiGate Pro - Emergency Login</h2>
         <p><strong>Username:</strong> Andy</p>
-        <p><strong>Password:</strong> Kubo1966&&</p>
+        <p><strong>Password:</strong> [set via DEV_ANDY_PASSWORD env var]</p>
         
         <button onclick="testBasicFunction()" style="cursor: pointer; z-index: 9999;">🧪 Test Basic JavaScript</button>
         <button onclick="attemptLogin()" style="cursor: pointer; z-index: 9999;">🔑 Attempt Login</button>
@@ -34,6 +34,11 @@
             
             async function attemptLogin() {
                 const status = document.getElementById('status');
+                const password = prompt('Enter password (from DEV_ANDY_PASSWORD env var):');
+                if (!password) {
+                    status.innerHTML = '<div class="error">❌ No password entered</div>';
+                    return;
+                }
                 status.innerHTML = '<div>🔄 Attempting login...</div>';
                 
                 try {
@@ -45,7 +50,7 @@
                         },
                         body: JSON.stringify({
                             username: 'Andy',
-                            password: 'Kubo1966&&'
+                            password: password
                         }),
                         credentials: 'include'
                     });
