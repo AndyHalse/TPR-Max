@@ -301,6 +301,8 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addContractorDocumentExpiryAlertedAtMigration,
     addCdmAlertsEmailMigration,
     addClaudeModelMigration,
+    addPpmDocScannedAtMigration,
+    backfillPpmDocScannedAtMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -2050,6 +2052,36 @@ const addClaudeModelMigration: Migration = {
       console.log('✅ [040] company_settings claude_model column ensured');
     } catch (err: any) {
       console.log(`⚠️ [040] claude_model: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+const addPpmDocScannedAtMigration: Migration = {
+  version: '20260423_041_add_ppm_doc_scanned_at',
+  description: 'Add scanned_at column to ppm_work_order_documents to track AI scan completion',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE ppm_work_order_documents ADD COLUMN IF NOT EXISTS scanned_at TIMESTAMP`);
+      console.log('✅ [041] ppm_work_order_documents scanned_at column ensured');
+    } catch (err: any) {
+      console.log(`⚠️ [041] scanned_at column: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+const backfillPpmDocScannedAtMigration: Migration = {
+  version: '20260423_042_backfill_ppm_doc_scanned_at',
+  description: 'Backfill scanned_at on pre-existing ppm_work_order_documents rows to prevent false Scan Pending indicators on legacy data',
+  async up(db: any) {
+    // Mark all pre-existing rows as already-scanned (using created_at as the proxy timestamp)
+    // so legacy documents without metadata do not show a false "Scan pending" indicator.
+    // Rows uploaded after migration 041 start with scanned_at = null (pending) and have it
+    // stamped by the async scan on completion; this backfill does not touch those.
+    try {
+      await db.execute(`UPDATE ppm_work_order_documents SET scanned_at = COALESCE(created_at, NOW()) WHERE scanned_at IS NULL`);
+      console.log('✅ [042] ppm_work_order_documents legacy scanned_at backfill complete');
+    } catch (err: any) {
+      console.log(`⚠️ [042] scanned_at backfill: ${err.message?.substring(0, 80)}`);
     }
   }
 };

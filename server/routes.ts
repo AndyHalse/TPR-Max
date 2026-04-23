@@ -29834,11 +29834,45 @@ ${wo.completionNotes ? `
             await fileObj.save(buffer, { contentType: mimeType, resumable: false });
             const objectPath = `/objects/uploads/${objectId}`;
 
-            // Atomically create document record
+            // Atomically create document record (scannedAt left null — AI scan fires async below)
             const resolvedFileType = fileType || "other";
             const [doc] = await custDb.insert(isolatedSchema.ppmWorkOrderDocuments)
               .values({ workOrderId: wo.id, fileName, fileUrl: objectPath, fileType: resolvedFileType, uploadedBy: "contractor" })
               .returning();
+
+            // Fire-and-forget async AI scan to extract metadata (expiryDate, issuer, ref).
+            // Sets scannedAt once complete so the mobile view can distinguish "pending" from "scanned with no results".
+            (async () => {
+              try {
+                const { scanDocumentWithAI } = await import('./openaiService');
+                const isImage = mimeType.startsWith("image/");
+                let scanResult;
+                if (isImage) {
+                  scanResult = await scanDocumentWithAI({ mimeType, base64Data: data, documentType: resolvedFileType });
+                } else if (mimeType === "application/pdf") {
+                  // Attempt text extraction for PDFs; fall back to no-op (non-image PDFs can't be vision-scanned)
+                  scanResult = await scanDocumentWithAI({ mimeType, base64Data: data, documentType: resolvedFileType });
+                } else {
+                  // Non-image, non-PDF (Word/Excel) — mark as scanned with no results
+                  scanResult = { fields: { expiryDate: null, issuedBy: null, policyNumber: null }, success: false };
+                }
+                const metadataUpdate: Record<string, unknown> = { scannedAt: new Date() };
+                if (scanResult.fields.expiryDate) metadataUpdate.expiryDate = scanResult.fields.expiryDate;
+                if (scanResult.fields.issuedBy) metadataUpdate.issuedBy = scanResult.fields.issuedBy;
+                if (scanResult.fields.policyNumber) metadataUpdate.referenceNumber = scanResult.fields.policyNumber;
+                await custDb.update(isolatedSchema.ppmWorkOrderDocuments)
+                  .set(metadataUpdate)
+                  .where(eq(isolatedSchema.ppmWorkOrderDocuments.id, doc.id));
+              } catch (scanErr) {
+                // Best-effort: stamp scannedAt so the pending indicator clears even if the scan failed
+                try {
+                  await custDb.update(isolatedSchema.ppmWorkOrderDocuments)
+                    .set({ scannedAt: new Date() })
+                    .where(eq(isolatedSchema.ppmWorkOrderDocuments.id, doc.id));
+                } catch { /* ignore */ }
+                console.error("PPM async AI scan error:", scanErr);
+              }
+            })();
 
             // If certificate, mark certificateUploadedAt; always clear missing-docs alert
             const woUpdates: Record<string, unknown> = { missingDocsAlertedAt: null };

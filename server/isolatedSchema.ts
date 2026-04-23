@@ -2266,10 +2266,11 @@ export const ppmWorkOrderDocuments = pgTable("ppm_work_order_documents", {
   referenceNumber: text("reference_number"),
   issuedBy: text("issued_by"),
   expiryAlertedAt: timestamp("expiry_alerted_at"), // Set when expiry alert email sent; null = not yet alerted for this expiry window. New uploads start null so the next cron run will alert.
+  scannedAt: timestamp("scanned_at"), // Set when AI metadata extraction completes (success or no-results). null = scan pending.
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertPpmWorkOrderDocumentSchema = createInsertSchema(ppmWorkOrderDocuments).omit({ id: true, createdAt: true });
+export const insertPpmWorkOrderDocumentSchema = createInsertSchema(ppmWorkOrderDocuments).omit({ id: true, createdAt: true, scannedAt: true });
 export type InsertPpmWorkOrderDocument = z.infer<typeof insertPpmWorkOrderDocumentSchema>;
 export type PpmWorkOrderDocument = typeof ppmWorkOrderDocuments.$inferSelect;
 

@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Wrench, CheckCircle2, Clock, AlertTriangle, FileText, Upload,
-  RefreshCw, Download, Building2, CalendarDays, User, X, Bell
+  RefreshCw, Download, Building2, CalendarDays, User, X, Bell, Scan
 } from "lucide-react";
 
 interface WorkOrder {
@@ -46,6 +46,7 @@ interface WODocument {
   expiryAlertedAt?: string | null;
   referenceNumber?: string | null;
   issuedBy?: string | null;
+  scannedAt?: string | null;
 }
 
 function fmtDate(d?: string | null) {
@@ -351,6 +352,8 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
               {docs.map(doc => {
                 const isExpired = !!doc.expiryDate && new Date(doc.expiryDate) < today;
                 const isExpiringSoon = !isExpired && !!doc.expiryDate && new Date(doc.expiryDate) <= in30Days;
+                const hasMetadata = !!(doc.expiryDate || doc.referenceNumber || doc.issuedBy);
+                const scanPending = !hasMetadata && doc.scannedAt === null;
                 return (
                   <div key={doc.id} className={`rounded-lg border px-3 py-2 ${isExpired ? "bg-red-50 border-red-200" : isExpiringSoon ? "bg-amber-50 border-amber-200" : "bg-slate-50"}`}>
                     <div className="flex items-center gap-2">
@@ -361,6 +364,11 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
                       )}
                       {isExpiringSoon && (
                         <Badge className="bg-amber-500 text-white text-xs shrink-0">Expiring Soon</Badge>
+                      )}
+                      {scanPending && (
+                        <span className="inline-flex items-center gap-1 text-xs text-slate-400 shrink-0">
+                          <Scan className="h-3 w-3" />Scan pending
+                        </span>
                       )}
                       {doc.fileType && doc.fileType !== "other" && (
                         <span className="text-xs bg-slate-200 text-slate-600 rounded px-1.5 py-0.5 shrink-0">{doc.fileType}</span>
