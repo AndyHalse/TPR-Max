@@ -91,7 +91,7 @@ export class AiModelManager implements IAiChatClient {
   ];
 
   private isClaudeModel(modelName: string): boolean {
-    return CLAUDE_MODELS.some(m => modelName.startsWith(m));
+    return modelName.startsWith('claude-');
   }
 
   async completeJson<T = any>(

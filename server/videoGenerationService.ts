@@ -194,7 +194,42 @@ export class VideoGenerationService {
     category: string;
     roleType: string;
   }>> {
-    const result = await this.services.questionGenerator.generate(script, scenes, roleType);
+    const modelOptions: import('./interfaces/ai').AiModelOptions = { model: modelType };
+
+    if (modelType.startsWith('claude-')) {
+      const customerId = this.customerId;
+      if (customerId) {
+        try {
+          const { decryptData } = await import('./utils/encryption');
+          const { databaseService } = await import('./databaseService');
+          const apiKeys = await databaseService.getCustomerApiKeys({ customerId });
+          const claudeKeyRow = apiKeys.find((k: any) => k.serviceType === 'claude' && k.status === 'active');
+          if (claudeKeyRow) {
+            modelOptions.claudeApiKey = decryptData(
+              claudeKeyRow.encryptedKey,
+              claudeKeyRow.initializationVector,
+              claudeKeyRow.authTag || ''
+            );
+            console.log(`🔑 Using customer Claude API key for question generation`);
+          } else if (process.env.ANTHROPIC_API_KEY) {
+            console.log(`🔑 No stored customer Claude key — using ANTHROPIC_API_KEY env var for question generation`);
+          } else {
+            console.warn('⚠️ No active Claude API key found for question generation — falling back to default questions');
+            return this.getFallbackQuestions(roleType);
+          }
+        } catch (err: any) {
+          console.warn(`⚠️ Failed to retrieve Claude API key for question generation: ${err.message} — falling back to default questions`);
+          return this.getFallbackQuestions(roleType);
+        }
+      } else {
+        if (!process.env.ANTHROPIC_API_KEY) {
+          console.warn('⚠️ No ANTHROPIC_API_KEY set and no customer ID — falling back to default questions');
+          return this.getFallbackQuestions(roleType);
+        }
+      }
+    }
+
+    const result = await this.services.questionGenerator.generate(script, scenes, roleType, modelOptions);
     
     if (ResultUtils.isSuccess(result)) {
       return result.data;

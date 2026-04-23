@@ -66,7 +66,8 @@ export interface IQuestionGenerator {
   generate(
     script: string, 
     scenes: any[], 
-    roleType: string
+    roleType: string,
+    options?: AiModelOptions
   ): Promise<Result<Question[]>>;
 }
 

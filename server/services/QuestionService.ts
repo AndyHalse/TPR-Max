@@ -3,7 +3,7 @@
  * Generates exactly 10 questions across 5 key UK HSE safety categories
  */
 
-import type { IQuestionGenerator, Question, Result, IAiChatClient } from '../interfaces/ai';
+import type { IQuestionGenerator, Question, Result, IAiChatClient, AiModelOptions } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
 
 const REQUIRED_CATEGORIES = [
@@ -17,8 +17,9 @@ const REQUIRED_CATEGORIES = [
 export class QuestionService implements IQuestionGenerator {
   constructor(private aiClient: IAiChatClient) {}
 
-  async generate(script: string, scenes: any[], roleType: string): Promise<Result<Question[]>> {
-    console.log(`🧠 Generating AI questions for ${roleType} induction video...`);
+  async generate(script: string, scenes: any[], roleType: string, options?: AiModelOptions): Promise<Result<Question[]>> {
+    const modelLabel = options?.model || 'default';
+    console.log(`🧠 Generating AI questions for ${roleType} induction video (model: ${modelLabel})...`);
     
     try {
       const prompt = this.buildPrompt(script, roleType);
@@ -39,7 +40,7 @@ export class QuestionService implements IQuestionGenerator {
         ]
       }`;
 
-      const result = await this.aiClient.completeJson(prompt, schemaHints);
+      const result = await this.aiClient.completeJson(prompt, schemaHints, options);
       
       if (ResultUtils.isSuccess(result)) {
         const questions = this.parseAndValidateQuestions(result.data, roleType);
