@@ -578,8 +578,77 @@ export class StripeWebhookHandler {
 
     console.log(`🚨 Payment failure for customer: ${customerId}`);
 
-    // TODO: Send payment failed notification
-    // await emailService.sendPaymentFailedNotification(customerId, invoice);
+    try {
+      const db = this.getManagementDb();
+      const [customer] = await db
+        .select({ contactEmail: sharedSchema.customers.contactEmail, companyName: sharedSchema.customers.companyName })
+        .from(sharedSchema.customers)
+        .where(eq(sharedSchema.customers.id, customerId));
+
+      if (customer?.contactEmail) {
+        const billingUrl = 'https://app.tprmax.com/billing';
+        const html = `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>TPR Max — payment unsuccessful</title>
+          </head>
+          <body style="margin:0;padding:0;background-color:#f6f6f6;font-family:Arial,Helvetica,sans-serif;line-height:1.6;">
+            <div style="width:100%;background-color:#f6f6f6;padding:20px 0;">
+              <div style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                <div style="background:linear-gradient(135deg,#c0392b 0%,#922b21 100%);color:#ffffff;padding:30px 20px;text-align:center;">
+                  <h1 style="margin:0;font-size:24px;font-weight:bold;">Payment unsuccessful</h1>
+                </div>
+                <div style="padding:30px 25px;">
+                  <p style="margin:0 0 16px;color:#333333;font-size:15px;">Hi${customer.companyName ? ' ' + customer.companyName : ''},</p>
+                  <p style="margin:0 0 16px;color:#333333;font-size:15px;">
+                    We were unable to process your most recent payment for TPR Max. This can happen if a card has expired, has insufficient funds, or if your bank has declined the transaction.
+                  </p>
+                  <p style="margin:0 0 16px;color:#333333;font-size:15px;">
+                    Please update your payment details as soon as possible. If the issue is not resolved, your access to TPR Max may be suspended.
+                  </p>
+                  <p style="margin:0 0 24px;color:#333333;font-size:15px;">
+                    You can update your payment method and view your invoices from your billing page.
+                  </p>
+                  <div style="text-align:center;margin:0 0 24px;">
+                    <a href="${billingUrl}" style="display:inline-block;background-color:#c0392b;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:6px;font-size:15px;font-weight:bold;">Update Payment Details</a>
+                  </div>
+                  <p style="margin:0 0 8px;color:#333333;font-size:15px;">If you believe this is an error or need any help, please reply to this email and we'll get it sorted.</p>
+                  <p style="margin:0;color:#333333;font-size:15px;">
+                    The TPR Max Team
+                  </p>
+                </div>
+                <div style="background-color:#f6f6f6;padding:16px 25px;text-align:center;">
+                  <p style="margin:0;color:#999999;font-size:12px;">
+                    TPR Max &mdash; Personnel Management &amp; Compliance<br>
+                    If you have questions, reply to this email or visit <a href="${billingUrl}" style="color:#c0392b;">your billing page</a>.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </body>
+          </html>
+        `;
+
+        const sent = await emailService.sendEmail({
+          to: customer.contactEmail,
+          subject: 'TPR Max — payment unsuccessful',
+          html,
+        });
+
+        if (sent) {
+          console.log(`📧 Payment failure notification sent to ${customer.contactEmail} (customer: ${customerId})`);
+        } else {
+          console.error(`📧 Failed to send payment failure notification to ${customer.contactEmail} (customer: ${customerId})`);
+        }
+      } else {
+        console.warn(`📧 No contact email found for customer: ${customerId} — payment failure notification not sent`);
+      }
+    } catch (err) {
+      console.error(`📧 Error sending payment failure notification for customer ${customerId}:`, err);
+    }
 
     // If subscription is past due for too long, suspend access
     if (subscription.status === 'unpaid') {
