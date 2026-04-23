@@ -445,6 +445,14 @@ export default function Contractors() {
     return true;
   });
 
+  const gapsCount = contractorData.filter((contractor: ContractorCompany) => {
+    const matchesSearch =
+      contractor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${contractor.contactFirstName} ${contractor.contactLastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contractor.email.toLowerCase().includes(searchTerm.toLowerCase());
+    return matchesSearch && hasComplianceGap(contractor);
+  }).length;
+
   // Calculate dynamic compliance score from documents status
   const calculateComplianceScore = (documentsStatus: any) => {
     if (!documentsStatus) return 0;
@@ -1183,7 +1191,7 @@ export default function Contractors() {
               data-testid="button-filter-gaps-only"
             >
               <AlertTriangle size={14} className="mr-1" />
-              Gaps only
+              Gaps only ({gapsCount})
             </Button>
             <div className="flex items-center gap-1">
               <Button
