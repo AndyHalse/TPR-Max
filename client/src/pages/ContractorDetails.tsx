@@ -23,7 +23,7 @@ import {
   Building2, Users, FileText, Shield, AlertTriangle, CheckCircle2, 
   Calendar, MapPin, Phone, Mail, User, Award, Leaf, TrendingUp,
   XCircle, Clock, AlertCircle, CalendarPlus, Lock, CheckSquare,
-  ChevronRight, Upload, Eye, QrCode, Printer, Download
+  ChevronRight, Upload, Eye, QrCode, Printer, Download, Sparkles, RotateCcw
 } from "lucide-react";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import RAMSManagement from "@/components/RAMSManagement";
@@ -61,6 +61,8 @@ export default function ContractorDetails() {
   const [uploadIssuer, setUploadIssuer] = useState("");
   const [uploadPolicy, setUploadPolicy] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [isScanningDoc, setIsScanningDoc] = useState(false);
+  const [aiExtracted, setAiExtracted] = useState(false);
 
   const [issuingCard, setIssuingCard] = useState(false);
   const [addingCertification, setAddingCertification] = useState(false);
@@ -584,6 +586,39 @@ export default function ContractorDetails() {
     );
   }
 
+  // AI document scan handler
+  const scanDocument = async () => {
+    if (!uploadFile) return;
+    setIsScanningDoc(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]); // strip data URL prefix
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(uploadFile);
+      });
+
+      const data = await apiRequest("POST", "/api/contractors/documents/scan", {
+        fileData: base64,
+        mimeType: uploadFile.type,
+        documentType: uploadDialog.docKey,
+      });
+
+      const { fields } = data as { fields: { expiryDate: string | null; issuedBy: string | null; policyNumber: string | null } };
+      if (fields.expiryDate && !uploadExpiry) setUploadExpiry(fields.expiryDate);
+      if (fields.issuedBy && !uploadIssuer) setUploadIssuer(fields.issuedBy);
+      if (fields.policyNumber && !uploadPolicy) setUploadPolicy(fields.policyNumber);
+      setAiExtracted(true);
+    } catch (err: any) {
+      toast({ title: "Scan failed", description: err.message || "Could not extract data from the document", variant: "destructive" });
+    } finally {
+      setIsScanningDoc(false);
+    }
+  };
+
   // Document upload handler
   const handleDocumentUpload = async () => {
     if (!uploadFile) {
@@ -634,6 +669,7 @@ export default function ContractorDetails() {
       setUploadExpiry("");
       setUploadIssuer("");
       setUploadPolicy("");
+      setAiExtracted(false);
       toast({ title: "Document uploaded", description: `${uploadDialog.docName} has been saved successfully.` });
     } catch (err: any) {
       toast({ title: "Upload failed", description: err.message || "Please try again", variant: "destructive" });
@@ -2185,9 +2221,27 @@ export default function ContractorDetails() {
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                   className="block w-full text-sm text-gray-500 file:mr-3 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-gray-200 rounded-md"
-                  onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+                  onChange={(e) => { setUploadFile(e.target.files?.[0] || null); setAiExtracted(false); }}
                 />
-                <p className="text-xs text-gray-500 mt-1">PDF, Word, or image files accepted</p>
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-xs text-gray-500">PDF, Word, or image files accepted</p>
+                  {uploadFile && ['application/pdf', 'image/jpeg', 'image/png'].includes(uploadFile.type) && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={scanDocument}
+                      disabled={isScanningDoc}
+                      className="h-7 px-2 text-xs border-purple-300 text-purple-700 hover:bg-purple-50"
+                    >
+                      {isScanningDoc ? (
+                        <><RotateCcw className="w-3 h-3 mr-1 animate-spin" />Scanning…</>
+                      ) : (
+                        <><Sparkles className="w-3 h-3 mr-1" />Scan with AI</>
+                      )}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
             {uploadDialog.requiresExpiry && (
@@ -2226,8 +2280,14 @@ export default function ContractorDetails() {
               />
             </div>
           </div>
+          {aiExtracted && (
+            <p className="text-xs text-purple-700 bg-purple-50 border border-purple-200 rounded px-3 py-2 flex items-center gap-1.5">
+              <Sparkles className="w-3 h-3 shrink-0" />
+              AI-extracted — please verify the values before saving.
+            </p>
+          )}
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setUploadDialog({ open: false, docKey: "", docName: "", requiresExpiry: false })}>
+            <Button variant="outline" onClick={() => { setUploadDialog({ open: false, docKey: "", docName: "", requiresExpiry: false }); setAiExtracted(false); }}>
               Cancel
             </Button>
             <Button
