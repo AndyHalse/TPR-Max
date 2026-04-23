@@ -1738,14 +1738,25 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                     <p className="text-xs text-muted-foreground">No documents uploaded yet.</p>
                   ) : (
                     <div className="space-y-1">
-                      {woDocs.map(doc => (
-                        <div key={doc.id} className="rounded border px-2 py-1.5 text-xs space-y-0.5">
+                      {woDocs.map(doc => {
+                        const todayStr = new Date().toLocaleDateString("en-CA");
+                        const in30DaysStr = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString("en-CA");
+                        const isExpired = !!doc.expiryDate && doc.expiryDate <= todayStr;
+                        const isExpiringSoon = !!doc.expiryDate && !isExpired && doc.expiryDate <= in30DaysStr;
+                        return (
+                        <div key={doc.id} className={`rounded border px-2 py-1.5 text-xs space-y-0.5 ${isExpired ? "border-red-300 bg-red-50 dark:bg-red-950/20 dark:border-red-800" : isExpiringSoon ? "border-amber-300 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-700" : ""}`}>
                           <div className="flex items-center justify-between gap-2">
                             <div className="flex items-center gap-1.5 min-w-0">
                               <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                               <span className="truncate font-medium">{doc.fileName}</span>
                               {doc.fileType && doc.fileType !== "other" && (
                                 <Badge variant="secondary" className="text-xs shrink-0">{doc.fileType}</Badge>
+                              )}
+                              {isExpired && (
+                                <Badge className="bg-red-500 text-white text-xs shrink-0">Expired</Badge>
+                              )}
+                              {isExpiringSoon && (
+                                <Badge className="bg-amber-500 text-white text-xs shrink-0">Expiring Soon</Badge>
                               )}
                             </div>
                             <div className="flex items-center gap-1 shrink-0">
@@ -1767,13 +1778,14 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                           </div>
                           {(doc.expiryDate || doc.referenceNumber || doc.issuedBy) && (
                             <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-muted-foreground pl-5">
-                              {doc.expiryDate && <span>Expires: <span className="text-foreground">{fmtDate(doc.expiryDate)}</span></span>}
+                              {doc.expiryDate && <span className={isExpired ? "text-red-600 dark:text-red-400 font-medium" : isExpiringSoon ? "text-amber-600 dark:text-amber-400 font-medium" : ""}>Expires: <span className={isExpired ? "text-red-700 dark:text-red-300" : isExpiringSoon ? "text-amber-700 dark:text-amber-300" : "text-foreground"}>{fmtDate(doc.expiryDate)}</span></span>}
                               {doc.referenceNumber && <span>Ref: <span className="text-foreground">{doc.referenceNumber}</span></span>}
                               {doc.issuedBy && <span>By: <span className="text-foreground">{doc.issuedBy}</span></span>}
                             </div>
                           )}
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                   {/* Upload */}

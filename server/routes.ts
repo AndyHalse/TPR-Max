@@ -28807,6 +28807,97 @@ This is an automated notification from your visitor management system.`;
             }
           }
 
+          // ── (d) Alert for expiring/expired PPM work order documents ────────────
+            // Sends a daily digest email to admin listing all documents with expiryDate
+            // within the next 30 days (expiring soon) or already past (expired).
+            // No per-document deduplication: the email fires each day while docs remain
+            // in the alert window so the admin is reminded until action is taken.
+            {
+              const todayDateStr = today.toISOString().split("T")[0];
+              const in30Days = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+              const in30DaysStr = in30Days.toISOString().split("T")[0];
+
+              // Fetch all docs that have an expiryDate and are expired or expiring ≤30d
+              const expiringDocs = await custDb.select({
+                id: isolatedSchema.ppmWorkOrderDocuments.id,
+                fileName: isolatedSchema.ppmWorkOrderDocuments.fileName,
+                fileType: isolatedSchema.ppmWorkOrderDocuments.fileType,
+                expiryDate: isolatedSchema.ppmWorkOrderDocuments.expiryDate,
+                workOrderId: isolatedSchema.ppmWorkOrderDocuments.workOrderId,
+                referenceNumber: isolatedSchema.ppmWorkOrderDocuments.referenceNumber,
+              }).from(isolatedSchema.ppmWorkOrderDocuments)
+                .where(and(
+                  sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} IS NOT NULL`,
+                  sql`${isolatedSchema.ppmWorkOrderDocuments.expiryDate} <= ${in30DaysStr}`
+                ));
+
+              if (expiringDocs.length > 0 && adminEmail) {
+                // Enrich with work order title
+                const woIds = [...new Set(expiringDocs.map(d => d.workOrderId))];
+                const relatedWOs = await custDb.select({
+                  id: isolatedSchema.ppmWorkOrders.id,
+                  title: isolatedSchema.ppmWorkOrders.title,
+                }).from(isolatedSchema.ppmWorkOrders)
+                  .where(inArray(isolatedSchema.ppmWorkOrders.id, woIds));
+                const woMap = Object.fromEntries(relatedWOs.map(w => [w.id, w.title]));
+
+                const expired = expiringDocs.filter(d => d.expiryDate! <= todayDateStr);
+                const soonExpiring = expiringDocs.filter(d => d.expiryDate! > todayDateStr);
+
+                const buildRow = (d: typeof expiringDocs[0], isExp: boolean) =>
+                  `<tr>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;font-weight:500">${d.fileName}</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">${woMap[d.workOrderId] ?? d.workOrderId}</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"};font-weight:600">${d.expiryDate}</td>
+                    <td style="padding:8px 12px;border-bottom:1px solid #f3f4f6;color:${isExp ? "#dc2626" : "#d97706"}">${isExp ? "Expired" : "Expiring Soon"}</td>
+                  </tr>`;
+
+                const tableRows = [
+                  ...expired.map(d => buildRow(d, true)),
+                  ...soonExpiring.map(d => buildRow(d, false)),
+                ].join("");
+
+                const subjectCount = expiringDocs.length;
+                const hasExpired = expired.length > 0;
+                const subject = hasExpired
+                  ? `PPM Alert: ${expired.length} Expired Document${expired.length > 1 ? "s" : ""}${soonExpiring.length > 0 ? ` & ${soonExpiring.length} Expiring Soon` : ""}`
+                  : `PPM Alert: ${soonExpiring.length} Document${soonExpiring.length > 1 ? "s" : ""} Expiring Soon`;
+
+                await emailSvc.sendEmail({
+                  to: adminEmail,
+                  subject,
+                  companyName,
+                  html: `
+                    <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+                      <div style="background:${hasExpired ? "#dc2626" : "#d97706"};color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                        <h2 style="margin:0">PPM Document Expiry Alert — ${companyName}</h2>
+                      </div>
+                      <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+                        <p style="margin-top:0">${subjectCount} PPM work order document${subjectCount > 1 ? "s require" : " requires"} attention:</p>
+                        <table style="width:100%;border-collapse:collapse;margin:12px 0;font-size:14px">
+                          <thead>
+                            <tr style="background:#f9fafb">
+                              <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Document</th>
+                              <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Work Order</th>
+                              <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Expiry Date</th>
+                              <th style="text-align:left;padding:8px 12px;font-size:12px;text-transform:uppercase;color:#6b7280">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>${tableRows}</tbody>
+                        </table>
+                        <p style="color:#6b7280;font-size:13px">Please log in to TPR-Max to review and replace these documents as required.</p>
+                      </div>
+                      <div style="background:#f9fafb;padding:12px 20px;border:1px solid #e5e7eb;border-top:0;border-radius:0 0 8px 8px;font-size:12px;color:#9ca3af">
+                        This alert was sent by ${companyName} via TPR-Max PPM system.
+                      </div>
+                    </div>
+                  `,
+                  text: `PPM Document Expiry Alert\n\n${expired.length > 0 ? `Expired (${expired.length}):\n${expired.map(d => `- ${d.fileName} (WO: ${woMap[d.workOrderId] ?? d.workOrderId}, expired: ${d.expiryDate})`).join("\n")}\n\n` : ""}${soonExpiring.length > 0 ? `Expiring Soon (${soonExpiring.length}):\n${soonExpiring.map(d => `- ${d.fileName} (WO: ${woMap[d.workOrderId] ?? d.workOrderId}, expires: ${d.expiryDate})`).join("\n")}\n\n` : ""}Please log in to TPR-Max to review.`,
+                });
+                console.log(`📧 [PPM Cron] Document expiry alert sent for ${subjectCount} document(s) (customer ${customer.id})`);
+              }
+            }
+
           // ── Auto-generate work orders from due schedules ─────────────────────
           // Idempotent: keyed by scheduleId + nextDueDate to avoid duplicates
           const schedules = await custDb.select().from(isolatedSchema.ppmSchedules)
