@@ -297,6 +297,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addBiostarStaffFieldsMigration,
     addBiostarDevicesMigration,
     addBiostarDeviceGroupAddressMigration,
+    addComplianceAlertPreferencesMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -1988,5 +1989,24 @@ const addBiostarDeviceGroupAddressMigration: Migration = {
       }
     }
     console.log('✅ [036] biostar_devices device_address + device_group columns ensured');
+  }
+};
+
+const addComplianceAlertPreferencesMigration: Migration = {
+  version: '20260423_037_add_compliance_alert_preferences',
+  description: 'Add notify_on_document_deletion and notify_on_document_expiry boolean columns to company_settings',
+  async up(db: any) {
+    const cols = [
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS notify_on_document_deletion BOOLEAN DEFAULT true`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS notify_on_document_expiry BOOLEAN DEFAULT true`,
+    ];
+    for (const colSql of cols) {
+      try {
+        await db.execute(colSql);
+      } catch (err: any) {
+        console.log(`⚠️ [037] ${err.message?.substring(0, 80)}`);
+      }
+    }
+    console.log('✅ [037] company_settings compliance alert preference columns ensured');
   }
 };

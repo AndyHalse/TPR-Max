@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, UserCheck, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical, HardHat, AlertTriangle, Wand2, ScrollText, Wrench } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, UserCheck, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical, HardHat, AlertTriangle, Wand2, ScrollText, Wrench, Bell } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment, Report } from "@shared/schema";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -7411,6 +7411,41 @@ export default function Settings() {
               </GlassCard>
             );
           })}
+
+          {/* Contractor Compliance Alerts */}
+          <GlassCard>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+                <Bell className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-fixed">Contractor Compliance Alerts</h3>
+                <p className="text-sm text-variable">Choose which compliance events trigger an email notification to the admin address.</p>
+              </div>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10">
+                <div>
+                  <p className="text-sm font-medium text-fixed">Notify when a document is deleted</p>
+                  <p className="text-xs text-variable mt-0.5">Send an alert email when a contractor's compliance document is removed.</p>
+                </div>
+                <Switch
+                  checked={currentSettings?.notifyOnDocumentDeletion !== false}
+                  onCheckedChange={(checked) => triggerAutoSave('notifyOnDocumentDeletion', checked)}
+                />
+              </div>
+              <div className="flex items-center justify-between p-4 rounded-lg bg-white/10 dark:bg-white/5 border border-white/20 dark:border-white/10">
+                <div>
+                  <p className="text-sm font-medium text-fixed">Notify when a document expires</p>
+                  <p className="text-xs text-variable mt-0.5">Send an alert email when a contractor's compliance document transitions to expired status.</p>
+                </div>
+                <Switch
+                  checked={currentSettings?.notifyOnDocumentExpiry !== false}
+                  onCheckedChange={(checked) => triggerAutoSave('notifyOnDocumentExpiry', checked)}
+                />
+              </div>
+            </div>
+          </GlassCard>
         </TabsContent>
 
         {/* Lone Worker Protection */}

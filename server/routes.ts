@@ -18714,10 +18714,11 @@ This is an automated notification from your visitor management system.`;
           try {
             const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
             const docLabel = (updated.documentType || updated.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
-            const settingsRows = await db.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
-            const sRow = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+            const settingsRows = await db.execute(`SELECT company_name, email, notify_on_document_expiry FROM company_settings LIMIT 1`);
+            const sRow = settingsRows.rows[0] as { company_name?: string; email?: string; notify_on_document_expiry?: boolean } | undefined;
             const adminEmail = sRow?.email as string | undefined;
-            if (adminEmail) {
+            const notifyOnExpiry = sRow?.notify_on_document_expiry !== false;
+            if (adminEmail && notifyOnExpiry) {
               const [contractor] = await db.select({ companyName: isolatedSchema.contractorCompanies.companyName })
                 .from(isolatedSchema.contractorCompanies)
                 .where(eq(isolatedSchema.contractorCompanies.id, companyId));
@@ -18796,10 +18797,11 @@ This is an automated notification from your visitor management system.`;
         try {
           const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
           const docLabel = (deleted.documentType || deleted.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
-          const settingsRows = await db.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
-          const sRow = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+          const settingsRows = await db.execute(`SELECT company_name, email, notify_on_document_deletion FROM company_settings LIMIT 1`);
+          const sRow = settingsRows.rows[0] as { company_name?: string; email?: string; notify_on_document_deletion?: boolean } | undefined;
           const adminEmail = sRow?.email as string | undefined;
-          if (adminEmail) {
+          const notifyOnDeletion = sRow?.notify_on_document_deletion !== false;
+          if (adminEmail && notifyOnDeletion) {
             const [contractor] = await db.select({ companyName: isolatedSchema.contractorCompanies.companyName })
               .from(isolatedSchema.contractorCompanies)
               .where(eq(isolatedSchema.contractorCompanies.id, companyId));

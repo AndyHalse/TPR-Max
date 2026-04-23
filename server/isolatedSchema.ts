@@ -530,6 +530,10 @@ export const companySettings = pgTable("company_settings", {
   // Incident Manager Monitor - permanent read-only URL for senior management
   incidentManagerUrlId: text("incident_manager_url_id"),
 
+  // Contractor Compliance Alert Preferences
+  notifyOnDocumentDeletion: boolean("notify_on_document_deletion").default(true),
+  notifyOnDocumentExpiry: boolean("notify_on_document_expiry").default(true),
+
   // Lone Worker Protection Configuration
   loneWorkerEnabled: boolean("lone_worker_enabled").default(false),
   loneWorkerCheckIntervalMins: integer("lone_worker_check_interval_mins").default(30),
