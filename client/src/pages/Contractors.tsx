@@ -217,6 +217,7 @@ export default function Contractors() {
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [showGapsOnly, setShowGapsOnly] = useState(false);
+  const [sortGapsFirst, setSortGapsFirst] = useState(false);
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -435,15 +436,22 @@ export default function Contractors() {
     );
   };
 
-  const filteredContractors = contractorData.filter((contractor: ContractorCompany) => {
-    const matchesSearch =
-      contractor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      `${contractor.contactFirstName} ${contractor.contactLastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contractor.email.toLowerCase().includes(searchTerm.toLowerCase());
-    if (!matchesSearch) return false;
-    if (showGapsOnly && !hasComplianceGap(contractor)) return false;
-    return true;
-  });
+  const filteredContractors = contractorData
+    .filter((contractor: ContractorCompany) => {
+      const matchesSearch =
+        contractor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        `${contractor.contactFirstName} ${contractor.contactLastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        contractor.email.toLowerCase().includes(searchTerm.toLowerCase());
+      if (!matchesSearch) return false;
+      if (showGapsOnly && !hasComplianceGap(contractor)) return false;
+      return true;
+    })
+    .sort((a: ContractorCompany, b: ContractorCompany) => {
+      if (!sortGapsFirst) return 0;
+      const aGap = hasComplianceGap(a) ? 0 : 1;
+      const bGap = hasComplianceGap(b) ? 0 : 1;
+      return aGap - bGap;
+    });
 
   const gapsCount = contractorData.filter((contractor: ContractorCompany) => {
     const matchesSearch =
@@ -1192,6 +1200,17 @@ export default function Contractors() {
             >
               <AlertTriangle size={14} className="mr-1" />
               Gaps only ({gapsCount})
+            </Button>
+            <Button
+              variant={sortGapsFirst ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSortGapsFirst(prev => !prev)}
+              className={sortGapsFirst ? "bg-orange-500 hover:bg-orange-600 text-white border-orange-500" : "text-orange-600 border-orange-300 hover:bg-orange-50"}
+              title="Sort contractors with compliance gaps to the top"
+              data-testid="button-sort-gaps-first"
+            >
+              <AlertTriangle size={14} className="mr-1" />
+              Gaps first
             </Button>
             <div className="flex items-center gap-1">
               <Button
