@@ -7183,6 +7183,132 @@ export default function Settings() {
                     data-testid="toggle-ppm"
                   />
                 </div>
+
+                {/* Dashboard */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-blue-100 rounded-lg">
+                      <Monitor className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Dashboard</h4>
+                      <p className="text-xs text-variable">Main overview & live activity feed</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureDashboard !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureDashboard", checked)}
+                    data-testid="toggle-dashboard"
+                  />
+                </div>
+
+                {/* Visitors */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-green-100 rounded-lg">
+                      <UserCheck className="w-5 h-5 text-green-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Visitors</h4>
+                      <p className="text-xs text-variable">Visitor sign-in, passes & pre-booking</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureVisitors !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureVisitors", checked)}
+                    data-testid="toggle-visitors"
+                  />
+                </div>
+
+                {/* Contractors */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-amber-100 rounded-lg">
+                      <HardHat className="w-5 h-5 text-amber-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Contractors</h4>
+                      <p className="text-xs text-variable">Contractor sign-in, passes & compliance</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureContractors !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureContractors", checked)}
+                    data-testid="toggle-contractors"
+                  />
+                </div>
+
+                {/* Staff */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-indigo-100 rounded-lg">
+                      <Users className="w-5 h-5 text-indigo-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Staff</h4>
+                      <p className="text-xs text-variable">Staff directory, check-in & management</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureStaff !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureStaff", checked)}
+                    data-testid="toggle-staff"
+                  />
+                </div>
+
+                {/* Muster List */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 rounded-lg">
+                      <AlertTriangle className="w-5 h-5 text-red-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Muster List</h4>
+                      <p className="text-xs text-variable">Emergency evacuation & roll-call</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureMusterList !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureMusterList", checked)}
+                    data-testid="toggle-muster-list"
+                  />
+                </div>
+
+                {/* Reports */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-purple-100 rounded-lg">
+                      <BarChart3 className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Reports</h4>
+                      <p className="text-xs text-variable">Analytics, exports & audit logs</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureReports !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureReports", checked)}
+                    data-testid="toggle-reports"
+                  />
+                </div>
+
+                {/* Settings */}
+                <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-slate-100 rounded-lg">
+                      <SettingsIcon className="w-5 h-5 text-slate-600" />
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-fixed">Settings</h4>
+                      <p className="text-xs text-variable">System configuration & preferences</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={currentSettings?.featureSettingsPage !== false}
+                    onCheckedChange={(checked) => handleInputChange("featureSettingsPage", checked)}
+                    data-testid="toggle-settings-page"
+                  />
+                </div>
               </div>
               
               <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">

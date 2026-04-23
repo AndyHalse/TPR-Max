@@ -487,6 +487,14 @@ export const companySettings = pgTable("company_settings", {
   featureMartynLaw: boolean("feature_martyn_law").default(true),
   featureIncidentReports: boolean("feature_incident_reports").default(true),
   featurePPM: boolean("feature_ppm").default(false),
+  // Core navigation feature toggles — default ON
+  featureDashboard: boolean("feature_dashboard").default(true),
+  featureVisitors: boolean("feature_visitors").default(true),
+  featureContractors: boolean("feature_contractors").default(true),
+  featureStaff: boolean("feature_staff").default(true),
+  featureMusterList: boolean("feature_muster_list").default(true),
+  featureReports: boolean("feature_reports").default(true),
+  featureSettingsPage: boolean("feature_settings_page").default(true),
   
   // Zones configuration
   zonesEnabled: boolean("zones_enabled").default(false),
