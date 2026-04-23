@@ -22111,7 +22111,7 @@ This is an automated notification from your visitor management system.`;
       const context = inductionQContext;
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
-      const videoService = new VideoGenerationService(settings);
+      const videoService = new VideoGenerationService(settings, undefined, context.customerId);
 
       // Generate script to base questions on
       const scriptContent = await videoService.generateInductionScript(roleType, 'interactive_slides', modelType);
@@ -22246,7 +22246,7 @@ This is an automated notification from your visitor management system.`;
           console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
           const context = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
           const companySettings = await simpleDatabaseService.getCompanySettings(context);
-          const videoService = new VideoGenerationService(companySettings);
+          const videoService = new VideoGenerationService(companySettings, undefined, context.customerId);
 
           // ── Step 1: Generate AI script ─────────────────────────────────────
           setStatus('generating_script', 1, 'Generating AI safety script...');
@@ -22447,7 +22447,7 @@ This is an automated notification from your visitor management system.`;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
-      const videoService = new VideoGenerationService(settings);
+      const videoService = new VideoGenerationService(settings, undefined, context.customerId);
       
       const content = await videoService.generateInductionScript(roleType);
       
@@ -22604,7 +22604,7 @@ This is an automated notification from your visitor management system.`;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
-        const videoService = new VideoGenerationService(settings);
+        const videoService = new VideoGenerationService(settings, undefined, context.customerId);
         
         const content = await videoService.generateVideoPresentation(roleType);
         await videoService.updateSettingsWithGeneratedContent(roleType, content);

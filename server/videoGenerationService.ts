@@ -3,7 +3,7 @@ import { inductionSettings } from "@shared/schema";
 import { type CompanySettings } from "./isolatedSchema";
 import { eq } from "drizzle-orm";
 import { ServiceFactory } from './factories/ServiceFactory';
-import type { AiServiceDependencies } from './interfaces/ai';
+import type { AiServiceDependencies, AiModelOptions } from './interfaces/ai';
 import { ResultUtils } from './utils/result';
 import { ImageFallbackChain } from './managers/ImageFallbackChain';
 import OpenAI from "openai";
@@ -19,9 +19,11 @@ const openai = new OpenAI({
 export class VideoGenerationService {
   private companySettings: CompanySettings | null = null;
   private services: AiServiceDependencies;
+  private customerId: string | null = null;
 
-  constructor(settings?: CompanySettings, deps?: Partial<AiServiceDependencies>) {
+  constructor(settings?: CompanySettings, deps?: Partial<AiServiceDependencies>, customerId?: string) {
     this.companySettings = settings || null;
+    this.customerId = customerId || null;
     
     // Create services with company settings for proper branding
     const defaultServices = ServiceFactory.getDependencies();
@@ -89,6 +91,11 @@ export class VideoGenerationService {
   }
 
   private async aiJsonFromMessages<T>(messages: Array<{role: string, content: string}>, schemaHints?: string, options: any = {}): Promise<T> {
+    const selectedModel = options.model || 'gpt-5';
+    if (selectedModel.startsWith('claude-')) {
+      return this.aiJsonFromMessagesViaClaude<T>(messages, schemaHints, options);
+    }
+
     try {
       const response = await openai.chat.completions.create({
         model: "gpt-5",
@@ -106,6 +113,72 @@ export class VideoGenerationService {
     } catch (error: any) {
       throw new Error(`OpenAI JSON completion failed: ${error.message}`);
     }
+  }
+
+  private async aiJsonFromMessagesViaClaude<T>(messages: Array<{role: string, content: string}>, _schemaHints?: string, options: any = {}): Promise<T> {
+    const { AiModelManager } = await import('./managers/AiModelManager');
+    const manager = new AiModelManager();
+
+    let claudeApiKey: string | undefined;
+
+    const customerId = this.customerId;
+    if (customerId) {
+      try {
+        const { decryptData } = await import('./utils/encryption');
+        const { databaseService } = await import('./databaseService');
+        const apiKeys = await databaseService.getCustomerApiKeys({ customerId });
+        const claudeKeyRow = apiKeys.find((k: any) => k.serviceType === 'claude' && k.status === 'active');
+
+        if (!claudeKeyRow) {
+          throw new Error('No active Claude API key found. Please add a Claude API key in AI Settings to use Claude models for video generation.');
+        }
+
+        claudeApiKey = decryptData(
+          claudeKeyRow.encryptedKey,
+          claudeKeyRow.initializationVector,
+          claudeKeyRow.authTag || ''
+        );
+      } catch (error: any) {
+        throw new Error(error.message.includes('No active Claude API key')
+          ? error.message
+          : `Failed to retrieve Claude API key: ${error.message}`);
+      }
+    }
+
+    const combinedPrompt = messages.map(m => {
+      if (m.role === 'system') return `[System Instructions]\n${m.content}`;
+      return m.content;
+    }).join('\n\n');
+
+    const modelName = options.model || 'claude-3-5-sonnet';
+    const claudeOptions: AiModelOptions = {
+      claudeApiKey,
+      maxTokens: options.max_tokens || options.max_completion_tokens || 4000,
+      temperature: options.temperature,
+    };
+    const result = await manager.callClaude(combinedPrompt, modelName, claudeOptions);
+
+    if (!ResultUtils.isSuccess(result)) {
+      throw new Error(result.error?.message || 'Claude generation failed');
+    }
+
+    const text = result.data;
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('Claude did not return valid JSON content');
+    }
+
+    return JSON.parse(jsonMatch[0]);
+  }
+
+  private isTerminalConfigError(message: string): boolean {
+    const terminalPhrases = [
+      'No active Claude API key found',
+      'Claude API key is invalid or expired',
+      'Failed to retrieve Claude API key',
+      'No Anthropic API key available',
+    ];
+    return terminalPhrases.some(phrase => message.includes(phrase));
   }
   
   // Generate AI-powered questions based on video script content
@@ -194,7 +267,7 @@ export class VideoGenerationService {
   }
   
   // Generate comprehensive induction script for a specific role
-  async generateInductionScript(roleType: string, videoFormat: string = 'interactive_slides', modelType: string = 'gpt-5'): Promise<{
+  async generateInductionScript(roleType: string, videoFormat: string = 'interactive_slides', modelType?: string): Promise<{
     script: string;
     scenes: Array<{
       title: string;
@@ -308,12 +381,12 @@ export class VideoGenerationService {
       console.log(`🔧 Starting script generation with comprehensive logging...`);
       console.log(`🔧 Company settings available: ${this.companySettings ? 'YES' : 'NO'}`);
       
-      if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
-        throw new Error('CRITICAL: Replit AI Integrations OpenAI key not configured (AI_INTEGRATIONS_OPENAI_API_KEY)');
-      }
-      
       // Use modelType param first (from caller), fall back to company settings, then default to gpt-5
       let selectedModel = modelType || this.companySettings?.openaiModel || "gpt-5";
+
+      if (!selectedModel.startsWith('claude-') && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+        throw new Error('CRITICAL: Replit AI Integrations OpenAI key not configured (AI_INTEGRATIONS_OPENAI_API_KEY)');
+      }
       
       console.log(`🤖 Using AI model: ${selectedModel} for ${roleType} induction generation`);
       
@@ -429,6 +502,12 @@ export class VideoGenerationService {
         
         content = await this.aiJsonFromMessages(messages, "Induction script with scenes array", options);
       } catch (error: any) {
+        // Config/auth errors (e.g. missing Claude key, invalid API key) are terminal —
+        // re-throw immediately with the helpful message rather than retrying or using fallback
+        if (this.isTerminalConfigError(error.message)) {
+          console.error(`🔑 Configuration error — not retrying: ${error.message}`);
+          throw error;
+        }
         console.log(`⚠️ AI generation failed (attempt 1): ${error.message}`);
         // Retry once with a simplified, shorter prompt before giving up
         try {
@@ -453,6 +532,11 @@ Respond with valid JSON:
           content = await this.aiJsonFromMessages(retryMessages, undefined, retryOptions);
           console.log(`✅ Retry succeeded`);
         } catch (retryError: any) {
+          // Also check for terminal errors on retry
+          if (this.isTerminalConfigError(retryError.message)) {
+            console.error(`🔑 Configuration error on retry — not using fallback: ${retryError.message}`);
+            throw retryError;
+          }
           console.log(`🚨 Both attempts failed, using emergency fallback: ${retryError.message}`);
           return this.generateEmergencyFallbackScript(roleType, videoFormat);
         }
@@ -1019,7 +1103,7 @@ Respond with valid JSON:
   }
 
   // Generate HTML5 video-like presentation
-  async generateVideoPresentation(roleType: string, videoFormat: string = 'interactive_slides', modelType: string = 'gpt-5'): Promise<{
+  async generateVideoPresentation(roleType: string, videoFormat: string = 'interactive_slides', modelType?: string): Promise<{
     htmlContent: string;
     script: string;
     scenes: any[];

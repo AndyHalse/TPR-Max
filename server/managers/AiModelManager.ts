@@ -184,7 +184,7 @@ export class AiModelManager implements IAiChatClient {
    * Uses options.claudeApiKey if provided, otherwise falls back to ANTHROPIC_API_KEY env var.
    */
   async callClaude(prompt: string, modelName: string, options: AiModelOptions = {}): Promise<Result<string>> {
-    const apiKey = (options as any).claudeApiKey || process.env.ANTHROPIC_API_KEY;
+    const apiKey = options.claudeApiKey || process.env.ANTHROPIC_API_KEY;
 
     if (!apiKey) {
       return ResultUtils.error(new Error(
@@ -192,7 +192,7 @@ export class AiModelManager implements IAiChatClient {
       ));
     }
 
-    const anthropic = (options as any).claudeApiKey
+    const anthropic = options.claudeApiKey
       ? new Anthropic({ apiKey })
       : (defaultAnthropic || new Anthropic({ apiKey }));
 

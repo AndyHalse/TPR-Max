@@ -15,6 +15,7 @@ export interface AiModelOptions {
   retryAttempts?: number;
   timeoutMs?: number;
   json?: boolean;
+  claudeApiKey?: string;
 }
 
 export interface IAiChatClient {
