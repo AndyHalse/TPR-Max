@@ -403,7 +403,11 @@ export default function ContractorDetails() {
     onSuccess: () => {
       toast({ title: "Document approved", description: "Approval recorded with your name and timestamp." });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
+      if (customerId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      }
     },
     onError: (error: any) => {
       toast({ title: "Failed to approve document", description: error.message, variant: "destructive" });
@@ -732,7 +736,11 @@ export default function ContractorDetails() {
       }
 
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
-      queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
+      if (customerId) {
+        queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      }
       setUploadDialog({ open: false, docKey: "", docName: "", requiresExpiry: false });
       setUploadFile(null);
       setUploadExpiry("");
