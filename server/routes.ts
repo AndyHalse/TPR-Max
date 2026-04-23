@@ -30607,6 +30607,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       if (data.peakWorkers !== undefined) updates.peakWorkers = data.peakWorkers ? parseInt(data.peakWorkers) : null;
       if (data.personDays !== undefined) updates.personDays = data.personDays ? parseInt(data.personDays) : null;
       if (data.f10Status !== undefined) updates.f10Status = data.f10Status;
+      if (data.f10Status === "submitted") updates.f10AlertSentAt = null;
       if (data.f10Date !== undefined) updates.f10Date = data.f10Date;
       if (data.f10Reference !== undefined) updates.f10Reference = data.f10Reference;
       if (data.f10Notes !== undefined) updates.f10Notes = data.f10Notes;
@@ -30675,6 +30676,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       if (data.personDays !== undefined) updates.personDays = data.personDays ? parseInt(data.personDays) : null;
       // isNotifiable is a computed/display value — not persisted in DB, derived from estimatedDays/peakWorkers/personDays
       if (data.f10Status !== undefined) updates.f10Status = data.f10Status;
+      if (data.f10Status === "submitted") updates.f10AlertSentAt = null;
       if (data.f10Date !== undefined) updates.f10Date = data.f10Date;
       if (data.f10Reference !== undefined) updates.f10Reference = data.f10Reference;
       if (data.f10Notes !== undefined) updates.f10Notes = data.f10Notes;
