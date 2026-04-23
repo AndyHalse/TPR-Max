@@ -18664,6 +18664,16 @@ This is an automated notification from your visitor management system.`;
       const objectStorageService = new ObjectStorageService();
       const normalizedUrl = documentUrl ? objectStorageService.normalizeObjectEntityPath(documentUrl) : undefined;
 
+      // Read current state before updating so we can detect genuine expiry transitions
+      const [prevDoc] = await db.select({
+        status: isolatedSchema.contractorDocuments.status,
+        expiryDate: isolatedSchema.contractorDocuments.expiryDate,
+      }).from(isolatedSchema.contractorDocuments)
+        .where(and(
+          eq(isolatedSchema.contractorDocuments.id, documentId),
+          eq(isolatedSchema.contractorDocuments.companyId, companyId)
+        ));
+
       const updateData: any = { updatedAt: new Date() };
       if (normalizedUrl) updateData.documentUrl = normalizedUrl;
       if (expiryDate !== undefined) updateData.expiryDate = expiryDate ? new Date(expiryDate) : null;
@@ -18691,6 +18701,56 @@ This is an automated notification from your visitor management system.`;
         });
       } catch (auditErr) {
         console.error('⚠️ Failed to create company document update audit note (continuing):', auditErr);
+      }
+
+      // Fire-and-forget: notify admin only on genuine transition to expired
+      const now = new Date();
+      const wasAlreadyExpired = prevDoc
+        ? (prevDoc.status === 'expired' || (prevDoc.expiryDate != null && new Date(prevDoc.expiryDate) < now))
+        : false;
+      const isNowExpired = (expiryDate && new Date(expiryDate) < now) || status === 'expired';
+      if (updated && isNowExpired && !wasAlreadyExpired) {
+        setImmediate(async () => {
+          try {
+            const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+            const docLabel = (updated.documentType || updated.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
+            const settingsRows = await db.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
+            const sRow = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+            const adminEmail = sRow?.email as string | undefined;
+            if (adminEmail) {
+              const [contractor] = await db.select({ companyName: isolatedSchema.contractorCompanies.companyName })
+                .from(isolatedSchema.contractorCompanies)
+                .where(eq(isolatedSchema.contractorCompanies.id, companyId));
+              const contractorName = contractor?.companyName || companyId;
+              const companyName = (sRow?.company_name as string) || 'TPR Max';
+              const expiryStr = expiryDate ? new Date(expiryDate).toLocaleDateString('en-GB') : 'N/A';
+              const emailSvc = new EmailService(context.customerId);
+              await emailSvc.sendEmail({
+                to: adminEmail,
+                subject: `Compliance Alert: Document Expired — ${contractorName}`,
+                companyName,
+                html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+                  <div style="background:#d97706;color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                    <h2 style="margin:0">Contractor Compliance Alert — ${companyName}</h2>
+                  </div>
+                  <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+                    <p style="margin-top:0">A compliance document has <strong>expired</strong>, which means this contractor may no longer be compliant.</p>
+                    <table style="width:100%;border-collapse:collapse;margin:16px 0">
+                      <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb">Contractor</td><td style="padding:8px;border:1px solid #e5e7eb">${contractorName}</td></tr>
+                      <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb">Document</td><td style="padding:8px;border:1px solid #e5e7eb">${docLabel}</td></tr>
+                      <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb">Expiry Date</td><td style="padding:8px;border:1px solid #e5e7eb">${expiryStr}</td></tr>
+                      <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb">Recorded At</td><td style="padding:8px;border:1px solid #e5e7eb">${auditTs}</td></tr>
+                    </table>
+                    <p style="color:#6b7280;font-size:14px">Please contact the contractor to request an updated document before deploying them on site.</p>
+                  </div>
+                </div>`,
+                text: `Contractor Compliance Alert\n\nA compliance document has expired.\n\nContractor: ${contractorName}\nDocument: ${docLabel}\nExpiry Date: ${expiryStr}\nRecorded At: ${auditTs}\n\nPlease contact the contractor to request an updated document.`,
+              });
+            }
+          } catch (emailErr) {
+            console.error('⚠️ Failed to send contractor compliance expiry alert email:', emailErr);
+          }
+        });
       }
 
       res.json({ success: true, document: updated });
@@ -18730,6 +18790,48 @@ This is an automated notification from your visitor management system.`;
       } catch (auditErr) {
         console.error('⚠️ Failed to create company document delete audit note (continuing):', auditErr);
       }
+
+      // Fire-and-forget: notify admin that a compliance document was deleted
+      setImmediate(async () => {
+        try {
+          const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+          const docLabel = (deleted.documentType || deleted.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
+          const settingsRows = await db.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
+          const sRow = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+          const adminEmail = sRow?.email as string | undefined;
+          if (adminEmail) {
+            const [contractor] = await db.select({ companyName: isolatedSchema.contractorCompanies.companyName })
+              .from(isolatedSchema.contractorCompanies)
+              .where(eq(isolatedSchema.contractorCompanies.id, companyId));
+            const contractorName = contractor?.companyName || companyId;
+            const companyName = (sRow?.company_name as string) || 'TPR Max';
+            const emailSvc = new EmailService(context.customerId);
+            await emailSvc.sendEmail({
+              to: adminEmail,
+              subject: `Compliance Alert: Document Deleted — ${contractorName}`,
+              companyName,
+              html: `<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+                <div style="background:#dc2626;color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                  <h2 style="margin:0">Contractor Compliance Alert — ${companyName}</h2>
+                </div>
+                <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+                  <p style="margin-top:0">A compliance document has been <strong>deleted</strong>, which may affect the contractor's compliance status.</p>
+                  <table style="width:100%;border-collapse:collapse;margin:16px 0">
+                    <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb">Contractor</td><td style="padding:8px;border:1px solid #e5e7eb">${contractorName}</td></tr>
+                    <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb">Document</td><td style="padding:8px;border:1px solid #e5e7eb">${docLabel}</td></tr>
+                    <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb">Deleted By</td><td style="padding:8px;border:1px solid #e5e7eb">${username}</td></tr>
+                    <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:600;background:#f9fafb">Deleted At</td><td style="padding:8px;border:1px solid #e5e7eb">${auditTs}</td></tr>
+                  </table>
+                  <p style="color:#6b7280;font-size:14px">Please review the contractor's compliance profile to ensure all required documents remain in place.</p>
+                </div>
+              </div>`,
+              text: `Contractor Compliance Alert\n\nA compliance document has been deleted.\n\nContractor: ${contractorName}\nDocument: ${docLabel}\nDeleted By: ${username}\nDeleted At: ${auditTs}\n\nPlease review the contractor's compliance profile.`,
+            });
+          }
+        } catch (emailErr) {
+          console.error('⚠️ Failed to send contractor compliance deletion alert email:', emailErr);
+        }
+      });
 
       res.json({ success: true, message: 'Document deleted' });
     } catch (error) {
