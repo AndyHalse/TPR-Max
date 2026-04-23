@@ -1192,6 +1192,7 @@ export default function ContractorDetails() {
             const missingCount = requiredDocs.filter(d => getDocStatus(d.key) === 'missing').length;
             const expiredCount = requiredDocs.filter(d => getDocStatus(d.key) === 'expired').length;
             const pct = Math.round((compliantCount / requiredDocs.length) * 100);
+            const totalGapCount = [...legalDocs, ...siteDocs, ...goodDocs].filter(d => ['missing', 'expired'].includes(getDocStatus(d.key))).length;
 
             const DocSection = ({ title, icon, badge, items }: { title: string; icon: any; badge: any; items: typeof UK_DOC_FRAMEWORK }) => {
               const visibleItems = filterMissing
@@ -1328,7 +1329,7 @@ export default function ContractorDetails() {
                 {filterMissing && (
                   <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">
                     <div className="flex items-center gap-2 text-sm text-amber-800 font-medium">
-                      <span>⚠️ Showing gaps only — missing and expired documents</span>
+                      <span>⚠️ Showing {totalGapCount} {totalGapCount === 1 ? 'gap' : 'gaps'} — missing and expired documents</span>
                     </div>
                     <button
                       className="text-xs text-amber-700 underline underline-offset-2 hover:text-amber-900 whitespace-nowrap"
