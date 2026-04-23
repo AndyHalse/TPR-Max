@@ -1183,13 +1183,16 @@ export default function ContractorDetails() {
                 ? items.filter(d => ['missing', 'expired'].includes(getDocStatus(d.key)))
                 : items;
               if (visibleItems.length === 0) return null;
+              const displayBadge = filterMissing
+                ? <Badge className="bg-orange-100 text-orange-700 text-xs">{visibleItems.length} {visibleItems.length === 1 ? 'gap' : 'gaps'}</Badge>
+                : badge;
               return (
               <Card>
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2">
                     {icon}
                     <CardTitle className="text-sm font-semibold">{title}</CardTitle>
-                    {badge}
+                    {displayBadge}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
