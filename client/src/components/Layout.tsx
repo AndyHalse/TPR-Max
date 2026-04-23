@@ -20,7 +20,7 @@ export default function Layout({ children }: LayoutProps) {
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
   
-  const { data: user } = useQuery<{ id: string; username: string; role?: string; allowedMenuItems?: string[] | null; defaultLandingPage?: string | null; customerId?: string } | null>({
+  const { data: user } = useQuery<{ id: string; username: string; firstName?: string | null; lastName?: string | null; role?: string; allowedMenuItems?: string[] | null; defaultLandingPage?: string | null; customerId?: string } | null>({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     staleTime: 5 * 60 * 1000,
@@ -347,10 +347,25 @@ export default function Layout({ children }: LayoutProps) {
             {user && (
               <div className="flex items-center space-x-1 sm:space-x-2">
                 <Link href="/profile">
-                  <div className="flex items-center space-x-1 max-w-[80px] sm:max-w-[140px] cursor-pointer hover:opacity-80 transition-opacity">
-                    <User size={14} className="flex-shrink-0 opacity-70" style={bannerTextStyle} />
-                    <span className="text-xs sm:text-sm font-medium truncate" style={bannerTextStyle}>{user.username}</span>
-                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div className="flex items-center space-x-1 max-w-[80px] sm:max-w-[140px] cursor-pointer hover:opacity-80 transition-opacity">
+                          <User size={14} className="flex-shrink-0 opacity-70" style={bannerTextStyle} />
+                          <span className="text-xs sm:text-sm font-medium truncate" style={bannerTextStyle}>
+                            {user.firstName && user.lastName
+                              ? `${user.firstName} ${user.lastName}`
+                              : user.username}
+                          </span>
+                        </div>
+                      </TooltipTrigger>
+                      {user.firstName && user.lastName && (
+                        <TooltipContent>
+                          <p>{user.username}</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </Link>
                 <LogoutButton bannerInvert={navInvert} />
               </div>
