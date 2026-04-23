@@ -216,7 +216,13 @@ export default function Contractors() {
   const [activeTab, setActiveTab] = useState("contractors");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
-  const [showGapsOnly, setShowGapsOnly] = useState(false);
+  const [showGapsOnly, setShowGapsOnly] = useState(() => {
+    try {
+      return localStorage.getItem('contractors_showGapsOnly') === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [sortGapsFirst, setSortGapsFirst] = useState(() => {
     try {
       return localStorage.getItem('contractors_sortGapsFirst') === 'true';
@@ -1199,7 +1205,11 @@ export default function Contractors() {
             <Button
               variant={showGapsOnly ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setShowGapsOnly(prev => !prev)}
+              onClick={() => setShowGapsOnly(prev => {
+                const next = !prev;
+                try { localStorage.setItem('contractors_showGapsOnly', String(next)); } catch {}
+                return next;
+              })}
               className={showGapsOnly ? "bg-red-600 hover:bg-red-700 text-white border-red-600" : "text-red-600 border-red-300 hover:bg-red-50"}
               title="Show only contractors with compliance gaps"
               data-testid="button-filter-gaps-only"
