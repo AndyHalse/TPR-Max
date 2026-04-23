@@ -447,7 +447,7 @@ export default function AISettings() {
                     </>
                   ) : (
                     <div className="text-center py-4 text-slate-500 dark:text-slate-400">
-                      <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <Zap className="h-8 w-8 mx-auto mb-2 opacity-50 text-orange-500" />
                       <p className="text-sm">No API key configured</p>
                       <Button 
                         variant="outline" 
@@ -530,7 +530,7 @@ export default function AISettings() {
                     </>
                   ) : (
                     <div className="text-center py-4 text-slate-500 dark:text-slate-400">
-                      <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <Brain className="h-8 w-8 mx-auto mb-2 opacity-50 text-blue-500" />
                       <p className="text-sm">No API key configured</p>
                       <Button 
                         variant="outline" 
@@ -613,7 +613,7 @@ export default function AISettings() {
                     </>
                   ) : (
                     <div className="text-center py-4 text-slate-500 dark:text-slate-400">
-                      <Key className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50 text-purple-500" />
                       <p className="text-sm">No API key configured</p>
                       <Button
                         variant="outline"
@@ -622,7 +622,7 @@ export default function AISettings() {
                         onClick={() => setActiveTab('claude')}
                         data-testid="button-configure-claude"
                       >
-                        Configure Claude Key
+                        Configure
                       </Button>
                     </div>
                   )}
