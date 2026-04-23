@@ -4,6 +4,9 @@
  */
 
 import { TCPLGenerator, TCPLElement, TCPLPrintData, TCPLSettings } from './tcplGenerator';
+import { db } from "./db";
+import { printQueue, printServiceInstances } from "@shared/schema";
+import { eq, inArray } from "drizzle-orm";
 
 export interface PrintJob {
   id: string;
@@ -355,30 +358,148 @@ export class PrintJobQueue {
   }
   
   /**
-   * Load persisted state from database
+   * Load persisted state from database.
+   * Reconstructs pending/processing jobs and active services into the in-memory maps
+   * so they survive a server restart. Runs asynchronously after construction.
    */
   private loadPersistedState(): void {
-    // TODO: Load from database
-    // For now, just initialize empty
     console.log('📂 Loading persisted print queue state...');
+    Promise.all([
+      db.select().from(printQueue).where(inArray(printQueue.status, ['pending', 'processing'])),
+      db.select().from(printServiceInstances).where(eq(printServiceInstances.isActive, true)),
+    ]).then(([pendingJobs, activeServices]) => {
+      // Rebuild services map first (jobs need serviceToken lookups from it)
+      for (const svc of activeServices) {
+        const isRecent = svc.lastHeartbeat
+          ? Date.now() - svc.lastHeartbeat.getTime() < 2 * 60 * 1000
+          : false;
+        const service: PrintService = {
+          id: svc.id,
+          customerId: svc.customerId,
+          apiToken: svc.apiToken,
+          serviceName: svc.serviceName,
+          location: svc.location || '',
+          printerType: ((svc.supportedPrinters || [])[0] as 'tec' | 'zebra') || 'tec',
+          printerName: svc.computerName || svc.serviceName,
+          status: isRecent ? 'online' : 'offline',
+          lastHeartbeat: svc.lastHeartbeat || new Date(0),
+          registeredAt: svc.createdAt,
+          capabilities: {
+            supportsTCPL: (svc.supportedPrinters || []).includes('tec'),
+            supportsZPL: (svc.supportedPrinters || []).includes('zebra'),
+            supportsDirectUSB: true,
+            supportsNetwork: true,
+          },
+          statistics: { totalJobs: 0, successfulJobs: 0, failedJobs: 0, averagePrintTime: 0 },
+        };
+        this.services.set(svc.apiToken, service);
+      }
+
+      // Rebuild jobs map
+      const statusMap: Record<string, PrintJob['status']> = {
+        pending: 'pending',
+        processing: 'polling',
+        completed: 'completed',
+        failed: 'failed',
+        cancelled: 'failed',
+      };
+      for (const row of pendingJobs) {
+        const svcEntry = [...this.services.values()].find(s => s.id === row.serviceInstanceId);
+        const job: PrintJob = {
+          id: row.id,
+          customerId: row.customerId,
+          serviceToken: svcEntry?.apiToken || '',
+          printerType: row.printerType as 'tec' | 'zebra',
+          status: statusMap[row.status] || 'pending',
+          priority: row.priority,
+          createdAt: row.createdAt,
+          polledAt: row.assignedAt || undefined,
+          completedAt: row.completedAt || undefined,
+          attempts: row.retryCount,
+          maxAttempts: row.maxRetries,
+          errorMessage: row.errorMessage || undefined,
+          data: {
+            elements: JSON.parse(row.passElements || '[]'),
+            printData: JSON.parse(row.visitorData || '{}') as TCPLPrintData,
+            settings: JSON.parse(row.printerSettings || '{}') as TCPLSettings,
+          },
+        };
+        this.jobs.set(row.id, job);
+      }
+
+      console.log(`✅ Restored ${pendingJobs.length} pending job(s) and ${activeServices.length} active service(s) from database`);
+    }).catch((err: Error) => {
+      console.warn('⚠️ Could not load persisted print queue state from database — starting with empty queue:', err.message);
+    });
   }
-  
+
   /**
-   * Persist job state to database
+   * Persist job state to database.
+   * Fire-and-forget: logs a warning on failure but never throws.
    */
   private persistJobState(job: PrintJob): void {
-    // TODO: Save to database
-    // For now, just log
-    console.log(`💾 Persisted job ${job.id} state`);
+    // Map in-memory status values to the database enum
+    const dbStatus: string =
+      job.status === 'polling' || job.status === 'printing' ? 'processing' : job.status;
+
+    db.insert(printQueue).values({
+      id: job.id,
+      customerId: job.customerId,
+      jobType: 'visitor_pass',          // PrintJob predates multi-type support; safe default
+      printerType: job.printerType,
+      priority: job.priority,
+      visitorData: JSON.stringify(job.data.printData),
+      passElements: JSON.stringify(job.data.elements),
+      printerSettings: JSON.stringify(job.data.settings),
+      status: dbStatus,
+      assignedAt: job.polledAt || null,
+      completedAt: job.completedAt || null,
+      errorMessage: job.errorMessage || null,
+      retryCount: job.attempts,
+      maxRetries: job.maxAttempts,
+      requestSource: 'web_app',
+    }).onConflictDoUpdate({
+      target: printQueue.id,
+      set: {
+        status: dbStatus,
+        assignedAt: job.polledAt || null,
+        completedAt: job.completedAt || null,
+        errorMessage: job.errorMessage || null,
+        retryCount: job.attempts,
+      },
+    }).catch((err: Error) => {
+      console.warn(`⚠️ Could not persist print job ${job.id} to database:`, err.message);
+    });
   }
-  
+
   /**
-   * Persist service state to database
+   * Persist service registration/heartbeat to database.
+   * Fire-and-forget: logs a warning on failure but never throws.
    */
   private persistServiceState(service: PrintService): void {
-    // TODO: Save to database
-    // For now, just log
-    console.log(`💾 Persisted service ${service.id} state`);
+    db.insert(printServiceInstances).values({
+      id: service.id,
+      customerId: service.customerId,
+      serviceName: service.serviceName,
+      machineId: service.id,            // PrintService has no machineId; use stable id as placeholder
+      apiToken: service.apiToken,
+      location: service.location || null,
+      supportedPrinters: [service.printerType],
+      isActive: service.status !== 'offline',
+      lastHeartbeat: service.lastHeartbeat,
+    }).onConflictDoUpdate({
+      target: printServiceInstances.apiToken,
+      set: {
+        serviceName: service.serviceName,
+        location: service.location || null,
+        supportedPrinters: [service.printerType],
+        isActive: service.status !== 'offline',
+        lastHeartbeat: service.lastHeartbeat,
+        updatedAt: new Date(),
+      },
+    }).catch((err: Error) => {
+      console.warn(`⚠️ Could not persist print service ${service.id} to database:`, err.message);
+    });
   }
 }
 
