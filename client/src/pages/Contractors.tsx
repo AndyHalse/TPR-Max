@@ -1011,7 +1011,7 @@ export default function Contractors() {
     { key: 'cisRegistration', label: 'CIS Registration' },
   ];
 
-  const getComplianceGapBadge = (documentsStatus: { publicLiability: string; employersLiability: string; healthSafety: string; cisRegistration: string }) => {
+  const getComplianceGapBadge = (documentsStatus: { publicLiability: string; employersLiability: string; healthSafety: string; cisRegistration: string }, onClick?: () => void) => {
     const missing = REQUIRED_DOC_CATEGORIES.filter(({ key }) => {
       const s = documentsStatus[key];
       return s === 'missing' || s === 'expired';
@@ -1020,7 +1020,13 @@ export default function Contractors() {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 border border-red-300 cursor-default flex-shrink-0">
+          <span
+            role={onClick ? "button" : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onClick={onClick}
+            onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+            className={`inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 border border-red-300 flex-shrink-0 ${onClick ? 'cursor-pointer hover:bg-red-200 focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1' : 'cursor-default'}`}
+          >
             <AlertTriangle size={11} />
             {missing.length} gap{missing.length > 1 ? 's' : ''}
           </span>
@@ -1028,6 +1034,7 @@ export default function Contractors() {
         <TooltipContent side="top" className="max-w-xs">
           <p className="font-semibold mb-1">Compliance Gap Detected</p>
           <p className="text-xs">Missing or expired: {missing.map(c => c.label).join(', ')}</p>
+          {onClick && <p className="text-xs mt-1 opacity-75">Click to view documents</p>}
         </TooltipContent>
       </Tooltip>
     );
@@ -1213,7 +1220,7 @@ export default function Contractors() {
                           <>
                             {getComplianceIcon(dynamicScore)}
                             <span className="text-sm font-medium text-slate-700">{dynamicScore}%</span>
-                            {getComplianceGapBadge(contractor.documentsStatus)}
+                            {getComplianceGapBadge(contractor.documentsStatus, () => setLocation(`/contractors/${contractor.id}?tab=documents`))}
                             {getStatusBadge(contractor.status)}
                           </>
                         );
@@ -1313,7 +1320,7 @@ export default function Contractors() {
             </GlassCard>
           ) : (
             (() => {
-              const complianceGapBadge = getComplianceGapBadge(contractor.documentsStatus);
+              const complianceGapBadge = getComplianceGapBadge(contractor.documentsStatus, () => setLocation(`/contractors/${contractor.id}?tab=documents`));
               return (
                 <div key={contractor.id} className="bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all">
                   {/* Info row — full-width so company name is never cut off */}
