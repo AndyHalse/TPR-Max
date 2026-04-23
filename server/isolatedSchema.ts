@@ -2146,8 +2146,20 @@ export type InsertBiostarDevice = z.infer<typeof insertBiostarDeviceSchema>;
 
 // ── PPM (Planned Preventative Maintenance) ───────────────────────────────────
 
+export const ppmAssetGroups = pgTable("ppm_asset_groups", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),          // e.g. "HVAC System", "Access Control"
+  description: text("description"),     // Optional notes about what the group covers
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertPpmAssetGroupSchema = createInsertSchema(ppmAssetGroups).omit({ id: true, createdAt: true });
+export type InsertPpmAssetGroup = z.infer<typeof insertPpmAssetGroupSchema>;
+export type PpmAssetGroup = typeof ppmAssetGroups.$inferSelect;
+
 export const ppmAssets = pgTable("ppm_assets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  groupId: varchar("group_id").references(() => ppmAssetGroups.id, { onDelete: "set null" }),
   name: text("name").notNull(),
   assetRef: text("asset_ref"),           // Internal reference / asset tag
   category: text("category"),            // e.g. HVAC, Fire, Electrical, Plumbing
@@ -2209,6 +2221,7 @@ export const ppmWorkOrders = pgTable("ppm_work_orders", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   scheduleId: varchar("schedule_id").references(() => ppmSchedules.id, { onDelete: "set null" }),
   assetId: varchar("asset_id").references(() => ppmAssets.id, { onDelete: "set null" }),
+  groupId: varchar("group_id").references(() => ppmAssetGroups.id, { onDelete: "set null" }), // Group-level work order
   title: text("title").notNull(),
   description: text("description"),
   status: text("status").notNull().default("scheduled"), // scheduled | in_progress | completed | overdue

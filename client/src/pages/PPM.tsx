@@ -17,12 +17,21 @@ import {
   CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
+  Layers, ChevronDown, ChevronRight,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
+interface PpmAssetGroup {
+  id: string;
+  name: string;
+  description?: string | null;
+  createdAt?: string | null;
+}
+
 interface PpmAsset {
   id: string;
+  groupId?: string | null;
   name: string;
   assetRef?: string | null;
   category?: string | null;
@@ -67,6 +76,7 @@ interface PpmWorkOrder {
   id: string;
   scheduleId?: string | null;
   assetId?: string | null;
+  groupId?: string | null;
   title: string;
   description?: string | null;
   status: string;
@@ -295,56 +305,136 @@ function DashboardSummary({ onWorkOrdersClick }: { onWorkOrdersClick: (filter?: 
 
 function AssetsTab() {
   const { toast } = useToast();
+
+  // ── Asset form state ────────────────────────────────────────────────────────
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<PpmAsset | null>(null);
   const emptyForm = () => ({
     name: "", assetRef: "", category: "", location: "", manufacturer: "",
-    modelNumber: "", serialNumber: "", installDate: "", notes: "", status: "active",
+    modelNumber: "", serialNumber: "", installDate: "", notes: "", status: "active", groupId: "",
   });
   const [form, setForm] = useState(emptyForm());
 
-  const { data: assets = [], isLoading } = useQuery<PpmAsset[]>({ queryKey: ["/api/ppm/assets"] });
+  // ── Group management state ──────────────────────────────────────────────────
+  const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+  const [editingGroup, setEditingGroup] = useState<PpmAssetGroup | null>(null);
+  const [groupForm, setGroupForm] = useState({ name: "", description: "" });
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
 
+  // ── Data ────────────────────────────────────────────────────────────────────
+  const { data: assets = [], isLoading } = useQuery<PpmAsset[]>({ queryKey: ["/api/ppm/assets"] });
+  const { data: groups = [] } = useQuery<PpmAssetGroup[]>({ queryKey: ["/api/ppm/asset-groups"] });
+
+  // Expand all groups by default when they first load
+  useEffect(() => {
+    if (groups.length > 0) setExpandedGroups(new Set(groups.map(g => g.id)));
+  }, [groups.length]);
+
+  // ── Asset mutations ─────────────────────────────────────────────────────────
+  const inv = () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); };
   const createMutation = useMutation({
     mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/assets", data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); setOpen(false); toast({ title: "Asset created" }); },
+    onSuccess: () => { inv(); setOpen(false); toast({ title: "Asset created" }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/assets/${id}`, data),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); setOpen(false); toast({ title: "Asset updated" }); },
+    onSuccess: () => { inv(); setOpen(false); toast({ title: "Asset updated" }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/assets/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); toast({ title: "Asset deleted" }); },
+    onSuccess: () => { inv(); toast({ title: "Asset deleted" }); },
     onError: (error: unknown) => toastError(error, toast),
   });
   const duplicateMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/ppm/assets/${id}/duplicate`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] }); toast({ title: "Asset duplicated", description: "A copy has been added — update the name, ref, and serial number as needed." }); },
+    onSuccess: () => { inv(); toast({ title: "Asset duplicated", description: "A copy has been added — update the name, ref, and serial number as needed." }); },
     onError: (error: unknown) => toastError(error, toast),
   });
 
+  // ── Group mutations ─────────────────────────────────────────────────────────
+  const invG = () => {
+    queryClient.invalidateQueries({ queryKey: ["/api/ppm/asset-groups"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] });
+  };
+  const createGroupMutation = useMutation({
+    mutationFn: (data: Record<string, unknown>) => apiRequest("POST", "/api/ppm/asset-groups", data),
+    onSuccess: () => { invG(); setGroupForm({ name: "", description: "" }); toast({ title: "Asset group created" }); },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+  const updateGroupMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/asset-groups/${id}`, data),
+    onSuccess: () => { invG(); setEditingGroup(null); setGroupForm({ name: "", description: "" }); toast({ title: "Group updated" }); },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+  const deleteGroupMutation = useMutation({
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/ppm/asset-groups/${id}`),
+    onSuccess: () => { invG(); toast({ title: "Group deleted", description: "Assets have been moved to Ungrouped." }); },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
+  // ── Helpers ─────────────────────────────────────────────────────────────────
   function openNew() { setEditing(null); setForm(emptyForm()); setOpen(true); }
   function openEdit(a: PpmAsset) {
     setEditing(a);
     setForm({ name: a.name, assetRef: a.assetRef ?? "", category: a.category ?? "", location: a.location ?? "",
       manufacturer: a.manufacturer ?? "", modelNumber: a.modelNumber ?? "", serialNumber: a.serialNumber ?? "",
-      installDate: a.installDate ?? "", notes: a.notes ?? "", status: a.status });
+      installDate: a.installDate ?? "", notes: a.notes ?? "", status: a.status, groupId: a.groupId ?? "" });
     setOpen(true);
   }
   function handleSubmit() {
-    if (editing) updateMutation.mutate({ id: editing.id, data: form });
-    else createMutation.mutate(form);
+    const payload = { ...form, groupId: form.groupId || null };
+    if (editing) updateMutation.mutate({ id: editing.id, data: payload });
+    else createMutation.mutate(payload);
+  }
+  function toggleGroup(id: string) {
+    setExpandedGroups(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
   const isBusy = createMutation.isPending || updateMutation.isPending;
+
+  // ── Grouped / ungrouped partitions ─────────────────────────────────────────
+  const grouped = groups.map(g => ({ group: g, assets: assets.filter(a => a.groupId === g.id) }));
+  const ungrouped = assets.filter(a => !a.groupId);
+
+  // ── Asset card (reused in all sections) ─────────────────────────────────────
+  function AssetCard({ a }: { a: PpmAsset }) {
+    return (
+      <GlassCard className="p-4 space-y-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <p className="font-semibold text-sm truncate">{a.name}</p>
+            {a.assetRef && <p className="text-xs text-muted-foreground">Ref: {a.assetRef}</p>}
+          </div>
+          <AssetStatusBadge status={a.status} />
+        </div>
+        {a.category && <p className="text-xs"><span className="text-muted-foreground">Category:</span> {a.category}</p>}
+        {a.location && <p className="text-xs"><span className="text-muted-foreground">Location:</span> {a.location}</p>}
+        {a.manufacturer && <p className="text-xs"><span className="text-muted-foreground">Manufacturer:</span> {a.manufacturer}</p>}
+        {a.serialNumber && <p className="text-xs"><span className="text-muted-foreground">Serial:</span> {a.serialNumber}</p>}
+        <div className="flex gap-2 pt-1">
+          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(a)}><Edit className="h-3 w-3 mr-1" />Edit</Button>
+          <Button size="sm" variant="outline" className="h-7 text-xs" disabled={duplicateMutation.isPending} onClick={() => duplicateMutation.mutate(a.id)}>
+            <Copy className="h-3 w-3 mr-1" />Duplicate
+          </Button>
+          <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this asset? Any associated schedules will also be deleted.")) deleteMutation.mutate(a.id); }}>
+            <Trash2 className="h-3 w-3 mr-1" />Delete
+          </Button>
+        </div>
+      </GlassCard>
+    );
+  }
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">Register and track all physical assets that require maintenance.</p>
-        <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />Add Asset</Button>
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => { setEditingGroup(null); setGroupForm({ name: "", description: "" }); setGroupDialogOpen(true); }}>
+            <Layers className="h-4 w-4 mr-1" />Manage Groups
+          </Button>
+          <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" />Add Asset</Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -354,35 +444,58 @@ function AssetsTab() {
           <Package className="h-10 w-10 mx-auto mb-3 opacity-30" />
           <p className="text-muted-foreground">No assets yet. Add your first asset to get started.</p>
         </div>
-      ) : (
+      ) : groups.length === 0 ? (
+        // No groups defined — flat list (backward compatible)
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {assets.map(a => (
-            <GlassCard key={a.id} className="p-4 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="font-semibold text-sm truncate">{a.name}</p>
-                  {a.assetRef && <p className="text-xs text-muted-foreground">Ref: {a.assetRef}</p>}
+          {assets.map(a => <AssetCard key={a.id} a={a} />)}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {/* Each Asset Group as a collapsible section */}
+          {grouped.map(({ group, assets: ga }) => (
+            <div key={group.id} className="border rounded-lg overflow-hidden">
+              <button
+                onClick={() => toggleGroup(group.id)}
+                className="w-full flex items-center gap-2 px-4 py-3 bg-muted/40 hover:bg-muted/60 transition-colors text-left"
+              >
+                {expandedGroups.has(group.id)
+                  ? <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                  : <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />}
+                <Layers className="h-4 w-4 text-blue-600 shrink-0" />
+                <span className="font-semibold text-sm flex-1">{group.name}</span>
+                <Badge variant="secondary" className="text-xs">{ga.length} asset{ga.length !== 1 ? "s" : ""}</Badge>
+              </button>
+              {expandedGroups.has(group.id) && (
+                <div className="p-3">
+                  {ga.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-3 text-center">No assets assigned to this group yet. Edit an asset to assign it here.</p>
+                  ) : (
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {ga.map(a => <AssetCard key={a.id} a={a} />)}
+                    </div>
+                  )}
                 </div>
-                <AssetStatusBadge status={a.status} />
-              </div>
-              {a.category && <p className="text-xs"><span className="text-muted-foreground">Category:</span> {a.category}</p>}
-              {a.location && <p className="text-xs"><span className="text-muted-foreground">Location:</span> {a.location}</p>}
-              {a.manufacturer && <p className="text-xs"><span className="text-muted-foreground">Manufacturer:</span> {a.manufacturer}</p>}
-              {a.serialNumber && <p className="text-xs"><span className="text-muted-foreground">Serial:</span> {a.serialNumber}</p>}
-              <div className="flex gap-2 pt-1">
-                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(a)}><Edit className="h-3 w-3 mr-1" />Edit</Button>
-                <Button size="sm" variant="outline" className="h-7 text-xs" disabled={duplicateMutation.isPending} onClick={() => duplicateMutation.mutate(a.id)} title="Duplicate this asset">
-                  <Copy className="h-3 w-3 mr-1" />Duplicate
-                </Button>
-                <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this asset? Any associated schedules will also be deleted.")) deleteMutation.mutate(a.id); }}>
-                  <Trash2 className="h-3 w-3 mr-1" />Delete
-                </Button>
-              </div>
-            </GlassCard>
+              )}
+            </div>
           ))}
+
+          {/* Ungrouped assets at the bottom */}
+          {ungrouped.length > 0 && (
+            <div className="border rounded-lg overflow-hidden border-dashed">
+              <div className="flex items-center gap-2 px-4 py-3 bg-muted/20">
+                <Package className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="font-medium text-sm text-muted-foreground flex-1">Ungrouped</span>
+                <Badge variant="outline" className="text-xs">{ungrouped.length} asset{ungrouped.length !== 1 ? "s" : ""}</Badge>
+              </div>
+              <div className="p-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {ungrouped.map(a => <AssetCard key={a.id} a={a} />)}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
+      {/* ── Asset Form Dialog ─────────────────────────────────────────────── */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "Edit Asset" : "New Asset"}</DialogTitle></DialogHeader>
@@ -403,6 +516,16 @@ function AssetsTab() {
                   <SelectContent>
                     <SelectItem value="_none">— None —</SelectItem>
                     {ASSET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="col-span-2">
+                <Label>Asset Group</Label>
+                <Select value={form.groupId || "_none"} onValueChange={v => setForm(f => ({ ...f, groupId: v === "_none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="— Ungrouped —" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— Ungrouped —</SelectItem>
+                    {groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -445,6 +568,65 @@ function AssetsTab() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button onClick={handleSubmit} disabled={!form.name || isBusy}>{isBusy ? "Saving…" : editing ? "Update" : "Create"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Group Management Dialog ───────────────────────────────────────── */}
+      <Dialog open={groupDialogOpen} onOpenChange={o => { setGroupDialogOpen(o); if (!o) { setEditingGroup(null); setGroupForm({ name: "", description: "" }); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Layers className="h-4 w-4" />Asset Groups</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            {/* Existing groups list */}
+            {groups.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">No groups yet. Create one below.</p>
+            ) : (
+              <div className="space-y-2">
+                {groups.map(g => (
+                  <div key={g.id} className="flex items-center gap-2 p-3 border rounded-md bg-muted/20">
+                    {editingGroup?.id === g.id ? (
+                      <div className="flex-1 space-y-2">
+                        <Input value={groupForm.name} onChange={e => setGroupForm(f => ({ ...f, name: e.target.value }))} placeholder="Group name" />
+                        <Input value={groupForm.description} onChange={e => setGroupForm(f => ({ ...f, description: e.target.value }))} placeholder="Description (optional)" />
+                        <div className="flex gap-2">
+                          <Button size="sm" disabled={!groupForm.name || updateGroupMutation.isPending} onClick={() => updateGroupMutation.mutate({ id: g.id, data: groupForm })}>Save</Button>
+                          <Button size="sm" variant="outline" onClick={() => { setEditingGroup(null); setGroupForm({ name: "", description: "" }); }}>Cancel</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm truncate">{g.name}</p>
+                          {g.description && <p className="text-xs text-muted-foreground truncate">{g.description}</p>}
+                          <p className="text-xs text-muted-foreground">{assets.filter(a => a.groupId === g.id).length} asset{assets.filter(a => a.groupId === g.id).length !== 1 ? "s" : ""}</p>
+                        </div>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingGroup(g); setGroupForm({ name: g.name, description: g.description ?? "" }); }}>
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive hover:text-destructive" onClick={() => { if (confirm(`Delete "${g.name}"? Assets will become ungrouped.`)) deleteGroupMutation.mutate(g.id); }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Create new group form */}
+            {!editingGroup && (
+              <div className="border-t pt-4 space-y-2">
+                <p className="text-sm font-medium">Create New Group</p>
+                <Input value={groupForm.name} onChange={e => setGroupForm(f => ({ ...f, name: e.target.value }))} placeholder="Group name e.g. HVAC System, Access Control" />
+                <Input value={groupForm.description} onChange={e => setGroupForm(f => ({ ...f, description: e.target.value }))} placeholder="Description (optional)" />
+                <Button size="sm" disabled={!groupForm.name || createGroupMutation.isPending} onClick={() => createGroupMutation.mutate(groupForm)}>
+                  <Plus className="h-3.5 w-3.5 mr-1" />{createGroupMutation.isPending ? "Creating…" : "Create Group"}
+                </Button>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setGroupDialogOpen(false)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -900,8 +1082,8 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
 
   // Create form
   const emptyWOForm = () => ({
-    title: "", description: "", assetId: "", scheduleId: "", dueDate: "", notes: "",
-    requiresCertificate: false, status: "scheduled",
+    title: "", description: "", assetId: "", groupId: "", scheduleId: "", dueDate: "", notes: "",
+    requiresCertificate: false, status: "scheduled", scope: "single-asset" as "single-asset" | "group",
   });
   const [woForm, setWoForm] = useState(emptyWOForm());
 
@@ -914,11 +1096,13 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
       title: wo.title,
       description: wo.description || "",
       assetId: wo.assetId || "",
+      groupId: wo.groupId || "",
       scheduleId: wo.scheduleId || "",
       dueDate: wo.dueDate || "",
       notes: wo.notes || "",
       requiresCertificate: wo.requiresCertificate ?? false,
       status: wo.status,
+      scope: wo.groupId ? "group" : "single-asset",
     });
     setShowEditWO(true);
   };
@@ -953,6 +1137,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   // Data queries
   const { data: workOrders = [], isLoading: woLoading } = useQuery<PpmWorkOrder[]>({ queryKey: ["/api/ppm/work-orders"] });
   const { data: assets = [] } = useQuery<PpmAsset[]>({ queryKey: ["/api/ppm/assets"] });
+  const { data: groups = [] } = useQuery<PpmAssetGroup[]>({ queryKey: ["/api/ppm/asset-groups"] });
   const { data: schedules = [] } = useQuery<PpmSchedule[]>({ queryKey: ["/api/ppm/schedules"] });
   const { data: contractors = [] } = useQuery<ContractorCompany[]>({ queryKey: ["/api/contractors"] });
   const { data: companyWorkers = [] } = useQuery<ContractorWorker[]>({
@@ -1186,6 +1371,8 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   }
 
   const assetName = (id?: string | null) => assets.find(a => a.id === id)?.name ?? "—";
+  const groupName = (id?: string | null) => groups.find(g => g.id === id)?.name ?? "—";
+  const woScope = (wo: PpmWorkOrder) => wo.groupId ? `Group: ${groupName(wo.groupId)}` : assetName(wo.assetId);
   const hasCertAlert = (w: PpmWorkOrder) => w.status === "completed" && w.requiresCertificate && !w.certificateUploadedAt;
   const hasMissingDocsAlert = (w: PpmWorkOrder, docCount: number) => w.status === "overdue" && docCount === 0;
 
@@ -1278,7 +1465,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                       <span className="text-xs text-red-600 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />No documents uploaded</span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{assetName(wo.assetId)}</td>
+                  <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{woScope(wo)}</td>
                   <td className="px-3 py-2.5"><WOStatusBadge status={wo.status} /></td>
                   <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{fmtDate(wo.dueDate)}</td>
                   <td className="px-3 py-2.5 hidden lg:table-cell max-w-[150px]">
@@ -1443,26 +1630,51 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
               <Input value={woForm.title} onChange={e => setWoForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Annual boiler service" />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Asset</Label>
-                <Select value={woForm.assetId || "_none"} onValueChange={v => setWoForm(f => ({ ...f, assetId: v === "_none" ? "" : v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+              <div className="col-span-2">
+                <Label>Scope</Label>
+                <Select value={woForm.scope} onValueChange={v => setWoForm(f => ({ ...f, scope: v as "single-asset" | "group", assetId: "", groupId: "" }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_none">— None —</SelectItem>
-                    {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                    <SelectItem value="single-asset">Single Asset</SelectItem>
+                    <SelectItem value="group">Asset Group (full system service)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Schedule (optional)</Label>
-                <Select value={woForm.scheduleId || "_none"} onValueChange={v => setWoForm(f => ({ ...f, scheduleId: v === "_none" ? "" : v }))}>
-                  <SelectTrigger><SelectValue placeholder="Link to schedule" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">— None —</SelectItem>
-                    {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              {woForm.scope === "group" ? (
+                <div className="col-span-2">
+                  <Label>Asset Group</Label>
+                  <Select value={woForm.groupId || "_none"} onValueChange={v => setWoForm(f => ({ ...f, groupId: v === "_none" ? "" : v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select asset group" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— None —</SelectItem>
+                      {groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div>
+                  <Label>Asset</Label>
+                  <Select value={woForm.assetId || "_none"} onValueChange={v => setWoForm(f => ({ ...f, assetId: v === "_none" ? "" : v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— None —</SelectItem>
+                      {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}{a.assetRef ? ` (${a.assetRef})` : ""}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {woForm.scope === "single-asset" && (
+                <div>
+                  <Label>Schedule (optional)</Label>
+                  <Select value={woForm.scheduleId || "_none"} onValueChange={v => setWoForm(f => ({ ...f, scheduleId: v === "_none" ? "" : v }))}>
+                    <SelectTrigger><SelectValue placeholder="Link to schedule" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— None —</SelectItem>
+                      {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>Due Date</Label>
                 <Input type="date" value={woForm.dueDate} onChange={e => setWoForm(f => ({ ...f, dueDate: e.target.value }))} />
@@ -1492,7 +1704,15 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
-            <Button onClick={() => createWOMutation.mutate({ ...woForm, assetId: woForm.assetId || null, scheduleId: woForm.scheduleId || null })} disabled={!woForm.title || createWOMutation.isPending}>
+            <Button
+              onClick={() => createWOMutation.mutate({
+                ...woForm,
+                assetId: woForm.scope === "single-asset" ? (woForm.assetId || null) : null,
+                groupId: woForm.scope === "group" ? (woForm.groupId || null) : null,
+                scheduleId: woForm.scheduleId || null,
+              })}
+              disabled={!woForm.title || createWOMutation.isPending}
+            >
               {createWOMutation.isPending ? "Creating…" : "Create Work Order"}
             </Button>
           </DialogFooter>
@@ -1509,26 +1729,51 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
               <Input value={editWOForm.title} onChange={e => setEditWOForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Annual boiler service" />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Asset</Label>
-                <Select value={editWOForm.assetId || "_none"} onValueChange={v => setEditWOForm(f => ({ ...f, assetId: v === "_none" ? "" : v }))}>
-                  <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+              <div className="col-span-2">
+                <Label>Scope</Label>
+                <Select value={editWOForm.scope} onValueChange={v => setEditWOForm(f => ({ ...f, scope: v as "single-asset" | "group", assetId: "", groupId: "" }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="_none">— None —</SelectItem>
-                    {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                    <SelectItem value="single-asset">Single Asset</SelectItem>
+                    <SelectItem value="group">Asset Group (full system service)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Schedule (optional)</Label>
-                <Select value={editWOForm.scheduleId || "_none"} onValueChange={v => setEditWOForm(f => ({ ...f, scheduleId: v === "_none" ? "" : v }))}>
-                  <SelectTrigger><SelectValue placeholder="Link to schedule" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_none">— None —</SelectItem>
-                    {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
+              {editWOForm.scope === "group" ? (
+                <div className="col-span-2">
+                  <Label>Asset Group</Label>
+                  <Select value={editWOForm.groupId || "_none"} onValueChange={v => setEditWOForm(f => ({ ...f, groupId: v === "_none" ? "" : v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select asset group" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— None —</SelectItem>
+                      {groups.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div>
+                  <Label>Asset</Label>
+                  <Select value={editWOForm.assetId || "_none"} onValueChange={v => setEditWOForm(f => ({ ...f, assetId: v === "_none" ? "" : v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— None —</SelectItem>
+                      {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}{a.assetRef ? ` (${a.assetRef})` : ""}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {editWOForm.scope === "single-asset" && (
+                <div>
+                  <Label>Schedule (optional)</Label>
+                  <Select value={editWOForm.scheduleId || "_none"} onValueChange={v => setEditWOForm(f => ({ ...f, scheduleId: v === "_none" ? "" : v }))}>
+                    <SelectTrigger><SelectValue placeholder="Link to schedule" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="_none">— None —</SelectItem>
+                      {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div>
                 <Label>Due Date</Label>
                 <Input type="date" value={editWOForm.dueDate} onChange={e => setEditWOForm(f => ({ ...f, dueDate: e.target.value }))} />
@@ -1560,7 +1805,15 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
             <Button variant="outline" onClick={() => { setShowEditWO(false); setEditingWO(null); }}>Cancel</Button>
             <Button
               disabled={!editWOForm.title || updateWOMutation.isPending}
-              onClick={() => editingWO && updateWOMutation.mutate({ id: editingWO.id, data: { ...editWOForm, assetId: editWOForm.assetId || null, scheduleId: editWOForm.scheduleId || null } })}
+              onClick={() => editingWO && updateWOMutation.mutate({
+                id: editingWO.id,
+                data: {
+                  ...editWOForm,
+                  assetId: editWOForm.scope === "single-asset" ? (editWOForm.assetId || null) : null,
+                  groupId: editWOForm.scope === "group" ? (editWOForm.groupId || null) : null,
+                  scheduleId: editWOForm.scheduleId || null,
+                }
+              })}
             >
               {updateWOMutation.isPending ? "Saving…" : "Save Changes"}
             </Button>
@@ -1598,7 +1851,8 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                 <div className="space-y-2 text-sm">
                   {selectedWO.description && <p className="text-muted-foreground">{selectedWO.description}</p>}
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-                    <span className="text-muted-foreground">Asset</span><span>{assetName(selectedWO.assetId)}</span>
+                    <span className="text-muted-foreground">{selectedWO.groupId ? "Asset Group" : "Asset"}</span>
+                    <span>{selectedWO.groupId ? groupName(selectedWO.groupId) : assetName(selectedWO.assetId)}</span>
                     <span className="text-muted-foreground">Due Date</span><span>{fmtDate(selectedWO.dueDate)}</span>
                     <span className="text-muted-foreground">Completed</span><span>{fmtDate(selectedWO.completedDate)}</span>
                     {selectedWO.requiresCertificate && (

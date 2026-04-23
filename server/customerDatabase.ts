@@ -344,6 +344,15 @@ export class CustomerDatabaseService {
 
     // Ensure PPM tables exist (PPM module migration)
     try {
+      // ppm_asset_groups must be created before ppm_assets (FK dependency)
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".ppm_asset_groups (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          description TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
       await pool.query(`
         CREATE TABLE IF NOT EXISTS "${schemaName}".ppm_assets (
           id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -469,6 +478,9 @@ export class CustomerDatabaseService {
         ON "${schemaName}".ppm_work_orders (access_token)
         WHERE access_token IS NOT NULL
       `);
+      // Asset Groups feature — add group_id FK columns (Task: Asset Groups)
+      await pool.query(`ALTER TABLE IF EXISTS "${schemaName}".ppm_assets ADD COLUMN IF NOT EXISTS group_id VARCHAR REFERENCES "${schemaName}".ppm_asset_groups(id) ON DELETE SET NULL`);
+      await pool.query(`ALTER TABLE IF EXISTS "${schemaName}".ppm_work_orders ADD COLUMN IF NOT EXISTS group_id VARCHAR REFERENCES "${schemaName}".ppm_asset_groups(id) ON DELETE SET NULL`);
       console.log(`✅ PPM work order tables ensured for ${schemaName}`);
     } catch (err: any) {
       console.warn(`⚠️ PPM work order tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

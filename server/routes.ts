@@ -27797,6 +27797,65 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // ── PPM Asset Groups CRUD ────────────────────────────────────────────────────
+  app.get("/api/ppm/asset-groups", requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const rows = await custDb.select().from(isolatedSchema.ppmAssetGroups).orderBy(isolatedSchema.ppmAssetGroups.name);
+      res.json(rows);
+    } catch (error: unknown) {
+      console.error("GET /api/ppm/asset-groups", error);
+      res.status(500).json({ error: "Failed to fetch asset groups" });
+    }
+  });
+
+  app.post("/api/ppm/asset-groups", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+    try {
+      const parsed = isolatedSchema.insertPpmAssetGroupSchema.parse(req.body);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [row] = await custDb.insert(isolatedSchema.ppmAssetGroups).values(parsed).returning();
+      res.status(201).json(row);
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/asset-groups", error);
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create asset group" });
+    }
+  });
+
+  app.put("/api/ppm/asset-groups/:id", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+    try {
+      const { id } = req.params;
+      const parsed = isolatedSchema.insertPpmAssetGroupSchema.partial().parse(req.body);
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [row] = await custDb.update(isolatedSchema.ppmAssetGroups).set(parsed).where(eq(isolatedSchema.ppmAssetGroups.id, id)).returning();
+      if (!row) return res.status(404).json({ error: "Asset group not found" });
+      res.json(row);
+    } catch (error: unknown) {
+      console.error("PUT /api/ppm/asset-groups/:id", error);
+      res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update asset group" });
+    }
+  });
+
+  app.delete("/api/ppm/asset-groups/:id", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+    try {
+      const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      // Detach all assets from the group before deleting (FK is set null on delete, but do it explicitly)
+      await custDb.update(isolatedSchema.ppmAssets).set({ groupId: null }).where(eq(isolatedSchema.ppmAssets.groupId, id));
+      await custDb.delete(isolatedSchema.ppmAssetGroups).where(eq(isolatedSchema.ppmAssetGroups.id, id));
+      res.json({ success: true });
+    } catch (error: unknown) {
+      console.error("DELETE /api/ppm/asset-groups/:id", error);
+      res.status(500).json({ error: "Failed to delete asset group" });
+    }
+  });
+
   // PPM Templates
   app.get("/api/ppm/templates", requireAuth, async (req, res) => {
     try {
