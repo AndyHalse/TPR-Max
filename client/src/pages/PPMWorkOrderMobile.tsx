@@ -105,6 +105,17 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
   const docs = data?.documents ?? [];
   const asset = data?.asset ?? null;
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const in30Days = new Date(today);
+  in30Days.setDate(in30Days.getDate() + 30);
+  const expiredDocCount = docs.filter(d => d.expiryDate && new Date(d.expiryDate) < today).length;
+  const expiringSoonDocCount = docs.filter(d => {
+    if (!d.expiryDate) return false;
+    const exp = new Date(d.expiryDate);
+    return exp >= today && exp <= in30Days;
+  }).length;
+
   const updateMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
       const res = await fetch(`/api/ppm/work-order/public/${currentToken}`, {
@@ -207,8 +218,26 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
           {wo.contractorCompanyName && (
             <p className="text-sm opacity-75 mt-1">{wo.contractorCompanyName}{wo.contractorWorkerName ? ` · ${wo.contractorWorkerName}` : ""}</p>
           )}
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2">
             <StatusPill status={wo.status} />
+            {expiredDocCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800"
+                title={`${expiredDocCount} document${expiredDocCount === 1 ? "" : "s"} expired${expiringSoonDocCount > 0 ? `, ${expiringSoonDocCount} expiring soon` : ""}`}
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {expiredDocCount} expired{expiringSoonDocCount > 0 ? `, ${expiringSoonDocCount} expiring soon` : ""}
+              </span>
+            )}
+            {expiredDocCount === 0 && expiringSoonDocCount > 0 && (
+              <span
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800"
+                title={`${expiringSoonDocCount} document${expiringSoonDocCount === 1 ? "" : "s"} expiring soon`}
+              >
+                <AlertTriangle className="h-3.5 w-3.5" />
+                {expiringSoonDocCount} expiring soon
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -318,38 +347,50 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
 
           {docs.length > 0 && (
             <div className="space-y-1.5">
-              {docs.map(doc => (
-                <div key={doc.id} className="rounded-lg border bg-slate-50 px-3 py-2">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-slate-400 shrink-0" />
-                    <span className="text-xs truncate flex-1">{doc.fileName}</span>
-                    {doc.fileType && doc.fileType !== "other" && (
-                      <span className="text-xs bg-slate-200 text-slate-600 rounded px-1.5 py-0.5 shrink-0">{doc.fileType}</span>
-                    )}
-                    <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="shrink-0">
-                      <Download className="h-4 w-4 text-blue-600" />
-                    </a>
-                  </div>
-                  {(doc.expiryDate || doc.referenceNumber || doc.issuedBy) && (
-                    <div className="mt-1.5 ml-6 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
-                      {doc.referenceNumber && (
-                        <span>Ref: <span className="font-medium text-slate-700">{doc.referenceNumber}</span></span>
-                      )}
-                      {doc.issuedBy && (
-                        <span>Issued by: <span className="font-medium text-slate-700">{doc.issuedBy}</span></span>
-                      )}
-                      {doc.expiryDate && (
-                        <span>Expires: <span className="font-medium text-slate-700">{fmtDate(doc.expiryDate)}</span></span>
+              {docs.map(doc => {
+                const isExpired = !!doc.expiryDate && new Date(doc.expiryDate) < today;
+                const isExpiringSoon = !isExpired && !!doc.expiryDate && new Date(doc.expiryDate) <= in30Days;
+                return (
+                  <div key={doc.id} className={`rounded-lg border px-3 py-2 ${isExpired ? "bg-red-50 border-red-200" : isExpiringSoon ? "bg-amber-50 border-amber-200" : "bg-slate-50"}`}>
+                    <div className="flex items-center gap-2">
+                      <FileText className={`h-4 w-4 shrink-0 ${isExpired ? "text-red-400" : isExpiringSoon ? "text-amber-400" : "text-slate-400"}`} />
+                      <span className="text-xs truncate flex-1">{doc.fileName}</span>
+                      {doc.fileType && doc.fileType !== "other" && (
+                        <span className="text-xs bg-slate-200 text-slate-600 rounded px-1.5 py-0.5 shrink-0">{doc.fileType}</span>
                       )}
                       {doc.expiryDate && (
                         doc.expiryAlertedAt
                           ? <span className="flex items-center gap-1 text-green-700"><Bell className="h-3 w-3" />Notified on <span className="font-medium">{fmtDate(doc.expiryAlertedAt)}</span></span>
                           : <span className="flex items-center gap-1 text-slate-400"><Bell className="h-3 w-3" />Pending notification</span>
                       )}
+                      <a href={doc.fileUrl} target="_blank" rel="noreferrer" className="shrink-0">
+                        <Download className="h-4 w-4 text-blue-600" />
+                      </a>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {(doc.referenceNumber || doc.issuedBy || doc.expiryDate) && (
+                      <div className="mt-1.5 ml-6 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
+                        {doc.referenceNumber && (
+                          <span>Ref: <span className="font-medium text-slate-700">{doc.referenceNumber}</span></span>
+                        )}
+                        {doc.issuedBy && (
+                          <span>Issued by: <span className="font-medium text-slate-700">{doc.issuedBy}</span></span>
+                        )}
+                        {doc.expiryDate && (
+                          <span className={isExpired ? "text-red-600 font-medium" : isExpiringSoon ? "text-amber-600 font-medium" : ""}>
+                            {isExpired ? "Expired" : "Expires"}: <span className={isExpired ? "text-red-700" : isExpiringSoon ? "text-amber-700" : "font-medium text-slate-700"}>{fmtDate(doc.expiryDate)}</span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {(isExpired || isExpiringSoon) && (
+                      <p className={`text-xs mt-1 ml-6 flex items-center gap-1 ${isExpired ? "text-red-600" : "text-amber-600"}`}>
+                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                        {isExpired ? "This document has expired — please upload a replacement" : "This document is expiring soon"}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           )}
 
