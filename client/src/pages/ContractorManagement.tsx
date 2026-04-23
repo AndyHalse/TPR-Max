@@ -414,8 +414,6 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     if (open) {
       const lastCompany = (() => { try { return localStorage.getItem("cdm_pdf_last_company") || "all"; } catch { return "all"; } })();
       setPdfCompanyFilter(lastCompany);
-    } else if (!pdfGeneratingRef.current) {
-      resetPdfFilters();
     }
     pdfGeneratingRef.current = false;
     setShowPdfFilterDialog(open);
