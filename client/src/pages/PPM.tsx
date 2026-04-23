@@ -1080,7 +1080,9 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   const [filterContractor, setFilterContractor] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
-  const [filterExpiringDocs, setFilterExpiringDocs] = useState(false);
+  const [filterExpiringDocs, setFilterExpiringDocs] = useState(() => {
+    try { return localStorage.getItem('ppm_filterExpiringDocs') === 'true'; } catch { return false; }
+  });
 
   // Export All dialog
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -1502,7 +1504,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
             size="sm"
             variant={filterExpiringDocs ? "secondary" : "outline"}
             className={`h-8 text-xs gap-1 ${filterExpiringDocs ? "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-600" : ""}`}
-            onClick={() => setFilterExpiringDocs(v => !v)}
+            onClick={() => setFilterExpiringDocs(v => { const next = !v; try { localStorage.setItem('ppm_filterExpiringDocs', String(next)); } catch {} return next; })}
           >
             <AlertTriangle className="h-3 w-3" />Expiring docs
           </Button>
@@ -1520,7 +1522,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
             </Button>
           )}
           {(filterStatus !== "all" || filterAsset !== "all" || filterContractor || filterDateFrom || filterDateTo || filterExpiringDocs) && (
-            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterStatus("all"); setFilterAsset("all"); setFilterContractor(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterExpiringDocs(false); }}>
+            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterStatus("all"); setFilterAsset("all"); setFilterContractor(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterExpiringDocs(false); try { localStorage.setItem('ppm_filterExpiringDocs', 'false'); } catch {} }}>
               <X className="h-3 w-3 mr-1" />Clear
             </Button>
           )}
