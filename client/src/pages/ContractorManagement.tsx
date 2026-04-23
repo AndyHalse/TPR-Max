@@ -371,6 +371,9 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   const [sectionDraft, setSectionDraft] = useState<Record<string, any>>({});
   const [showPdfFilterDialog, setShowPdfFilterDialog] = useState(false);
   const [showComplianceSummary, setShowComplianceSummary] = useState(true);
+  const [summaryStatusFilter, setSummaryStatusFilter] = useState("all");
+  const [summaryFromDate, setSummaryFromDate] = useState("");
+  const [summaryToDate, setSummaryToDate] = useState("");
 
   const loadPdfFilters = (companyId: string) => {
     try {
@@ -532,24 +535,42 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
   const totalF10 = allProjects.filter(p => isNotifiable(p)).length;
   const totalOverdue = allProjects.filter(isF10Overdue).length;
 
-  // Compliance summary derived data
+  // Summary-panel filtered projects — independent of the project list search
+  const summaryFromMs = summaryFromDate ? new Date(summaryFromDate).getTime() : null;
+  const summaryToMs = summaryToDate ? new Date(summaryToDate).getTime() : null;
+  const summaryProjects = allProjects.filter(p => {
+    if (summaryStatusFilter !== "all" && p.status !== summaryStatusFilter) return false;
+    if (summaryFromMs !== null || summaryToMs !== null) {
+      if (!p.startDate) return false;
+      const pMs = new Date(p.startDate).getTime();
+      if (isNaN(pMs)) return false;
+      if (summaryFromMs !== null && pMs < summaryFromMs) return false;
+      if (summaryToMs !== null && pMs > summaryToMs) return false;
+    }
+    return true;
+  });
+  const summaryFiltersActive =
+    summaryStatusFilter !== "all" || summaryFromDate !== "" || summaryToDate !== "";
+
+  // Compliance summary derived data (uses summaryProjects)
   const statusCounts = {
-    planning: allProjects.filter(p => p.status === "planning").length,
-    active: allProjects.filter(p => p.status === "active").length,
-    complete: allProjects.filter(p => p.status === "complete").length,
-    cancelled: allProjects.filter(p => p.status === "cancelled").length,
+    planning: summaryProjects.filter(p => p.status === "planning").length,
+    active: summaryProjects.filter(p => p.status === "active").length,
+    complete: summaryProjects.filter(p => p.status === "complete").length,
+    cancelled: summaryProjects.filter(p => p.status === "cancelled").length,
   };
-  const notifiableProjects = allProjects.filter(isNotifiable);
+  const notifiableProjects = summaryProjects.filter(isNotifiable);
   const f10Counts = {
     required: notifiableProjects.filter(p => p.f10Status !== "submitted" && p.f10Status !== "pending").length,
     pending: notifiableProjects.filter(p => p.f10Status === "pending").length,
     submitted: notifiableProjects.filter(p => p.f10Status === "submitted").length,
   };
-  // Per-contractor compliance table
+  const summaryOverdue = summaryProjects.filter(isF10Overdue).length;
+  // Per-contractor compliance table (uses summaryProjects)
   const knownCompanyIds = new Set(companies.map(c => c.id));
   const contractorCompliance: { id: string; name: string; projectCount: number; avgPct: number; overdueCount: number }[] = [];
   companies.forEach(company => {
-    const projects = allProjects.filter(p => p.companyId === company.id);
+    const projects = summaryProjects.filter(p => p.companyId === company.id);
     if (projects.length === 0) return;
     const avgScore = projects.reduce((sum, p) => sum + complianceScore(p), 0) / projects.length;
     const avgPct = Math.round((avgScore / 5) * 100);
@@ -557,7 +578,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     contractorCompliance.push({ id: company.id, name: company.name, projectCount: projects.length, avgPct, overdueCount });
   });
   // Fallback row for projects whose company no longer exists in the list
-  const orphanProjects = allProjects.filter(p => !knownCompanyIds.has(p.companyId));
+  const orphanProjects = summaryProjects.filter(p => !knownCompanyIds.has(p.companyId));
   if (orphanProjects.length > 0) {
     const avgScore = orphanProjects.reduce((sum, p) => sum + complianceScore(p), 0) / orphanProjects.length;
     const avgPct = Math.round((avgScore / 5) * 100);
@@ -633,13 +654,69 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
               <Shield className="h-4 w-4 text-primary" />
               <span className="font-semibold text-sm text-fixed">Compliance Summary</span>
               <span className="text-xs text-muted-foreground">Portfolio health overview</span>
+              {summaryFiltersActive && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">Filtered</Badge>
+              )}
             </div>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${showComplianceSummary ? "rotate-180" : ""}`} />
           </button>
           {showComplianceSummary && (
             <div className="px-4 pb-4 space-y-4 border-t border-border">
+              {/* Filter controls */}
+              <div className="flex flex-wrap items-end gap-2 pt-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Status</label>
+                  <Select value={summaryStatusFilter} onValueChange={setSummaryStatusFilter}>
+                    <SelectTrigger className="h-7 text-xs w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="planning">Planning</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="complete">Complete</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Start date from</label>
+                  <input
+                    type="date"
+                    className="h-7 px-2 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={summaryFromDate}
+                    onChange={e => setSummaryFromDate(e.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">Start date to</label>
+                  <input
+                    type="date"
+                    className="h-7 px-2 text-xs rounded-md border border-input bg-background focus:outline-none focus:ring-1 focus:ring-ring"
+                    value={summaryToDate}
+                    onChange={e => setSummaryToDate(e.target.value)}
+                  />
+                </div>
+                {summaryFiltersActive && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs px-2 text-muted-foreground"
+                    onClick={() => { setSummaryStatusFilter("all"); setSummaryFromDate(""); setSummaryToDate(""); }}
+                  >
+                    Clear filters
+                  </Button>
+                )}
+                <span className="text-xs text-muted-foreground ml-auto self-end pb-0.5">
+                  {summaryProjects.length} of {allProjects.length} project{allProjects.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+              {summaryProjects.length === 0 && summaryFiltersActive ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No projects match the selected filters.</p>
+              ) : (
+              <>
               {/* Status breakdown + F10 counts */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Project status breakdown */}
                 <div>
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Projects by Status</p>
@@ -651,7 +728,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                       { key: "cancelled", label: "Cancelled", color: "bg-red-400", textColor: "text-red-700 dark:text-red-400" },
                     ] as const).map(({ key, label, color, textColor }) => {
                       const count = statusCounts[key];
-                      const pct = allProjects.length > 0 ? Math.round((count / allProjects.length) * 100) : 0;
+                      const pct = summaryProjects.length > 0 ? Math.round((count / summaryProjects.length) * 100) : 0;
                       return (
                         <div key={key} className="flex items-center gap-2">
                           <span className="text-xs w-16 text-muted-foreground">{label}</span>
@@ -681,10 +758,10 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                       <p className="text-[10px] text-green-600 dark:text-green-500 leading-tight">Submitted</p>
                     </div>
                   </div>
-                  {totalOverdue > 0 && (
+                  {summaryOverdue > 0 && (
                     <div className="mt-2 flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400 font-medium">
                       <AlertTriangle className="h-3.5 w-3.5" />
-                      {totalOverdue} project{totalOverdue !== 1 ? "s" : ""} with overdue F10
+                      {summaryOverdue} project{summaryOverdue !== 1 ? "s" : ""} with overdue F10
                     </div>
                   )}
                 </div>
@@ -736,6 +813,8 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                     </table>
                   </div>
                 </div>
+              )}
+              </>
               )}
             </div>
           )}
