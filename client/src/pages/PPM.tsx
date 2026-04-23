@@ -878,6 +878,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   const [selectedWO, setSelectedWO] = useState<PpmWorkOrder | null>(null);
   const [contractorLink, setContractorLink] = useState<string | null>(null);
   const [showDetail, setShowDetail] = useState(false);
+  const [showEditWO, setShowEditWO] = useState(false);
 
   // Create form
   const emptyWOForm = () => ({
@@ -885,6 +886,24 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
     requiresCertificate: false, status: "scheduled",
   });
   const [woForm, setWoForm] = useState(emptyWOForm());
+
+  // Edit form
+  const [editingWO, setEditingWO] = useState<PpmWorkOrder | null>(null);
+  const [editWOForm, setEditWOForm] = useState(emptyWOForm());
+  const openEditWO = (wo: PpmWorkOrder) => {
+    setEditingWO(wo);
+    setEditWOForm({
+      title: wo.title,
+      description: wo.description || "",
+      assetId: wo.assetId || "",
+      scheduleId: wo.scheduleId || "",
+      dueDate: wo.dueDate || "",
+      notes: wo.notes || "",
+      requiresCertificate: wo.requiresCertificate ?? false,
+      status: wo.status,
+    });
+    setShowEditWO(true);
+  };
 
   // Assign contractor form (in detail sheet)
   const [assignForm, setAssignForm] = useState({
@@ -940,6 +959,8 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
       const updated = workOrders.find(w => w.id === vars.id);
       if (updated) setSelectedWO({ ...updated, ...vars.data } as PpmWorkOrder);
+      setShowEditWO(false);
+      setEditingWO(null);
       toast({ title: "Work order updated" });
     },
     onError: (error: unknown) => toastError(error, toast),
@@ -1168,6 +1189,9 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0" title="View work order" onClick={e => { e.stopPropagation(); openDetail(wo); }}>
                         <Eye className="h-3.5 w-3.5" />
                       </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" title="Edit work order" onClick={e => { e.stopPropagation(); openEditWO(wo); }}>
+                        <Edit className="h-3.5 w-3.5" />
+                      </Button>
                       <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-muted-foreground" title="Duplicate work order" disabled={duplicateWOMutation.isPending} onClick={e => { e.stopPropagation(); duplicateWOMutation.mutate(wo.id); }}>
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
@@ -1241,6 +1265,75 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
             <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button onClick={() => createWOMutation.mutate({ ...woForm, assetId: woForm.assetId || null, scheduleId: woForm.scheduleId || null })} disabled={!woForm.title || createWOMutation.isPending}>
               {createWOMutation.isPending ? "Creating…" : "Create Work Order"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Work Order Dialog */}
+      <Dialog open={showEditWO} onOpenChange={o => { setShowEditWO(o); if (!o) setEditingWO(null); }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Edit Work Order</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label>Title *</Label>
+              <Input value={editWOForm.title} onChange={e => setEditWOForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Annual boiler service" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Asset</Label>
+                <Select value={editWOForm.assetId || "_none"} onValueChange={v => setEditWOForm(f => ({ ...f, assetId: v === "_none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select asset" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— None —</SelectItem>
+                    {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Schedule (optional)</Label>
+                <Select value={editWOForm.scheduleId || "_none"} onValueChange={v => setEditWOForm(f => ({ ...f, scheduleId: v === "_none" ? "" : v }))}>
+                  <SelectTrigger><SelectValue placeholder="Link to schedule" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="_none">— None —</SelectItem>
+                    {schedules.map(s => <SelectItem key={s.id} value={s.id}>{s.title}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Due Date</Label>
+                <Input type="date" value={editWOForm.dueDate} onChange={e => setEditWOForm(f => ({ ...f, dueDate: e.target.value }))} />
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select value={editWOForm.status} onValueChange={v => setEditWOForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {WO_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea value={editWOForm.description} onChange={e => setEditWOForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Scope of work…" />
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Textarea value={editWOForm.notes} onChange={e => setEditWOForm(f => ({ ...f, notes: e.target.value }))} rows={2} />
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="editReqCert" checked={editWOForm.requiresCertificate} onChange={e => setEditWOForm(f => ({ ...f, requiresCertificate: e.target.checked }))} className="h-4 w-4" />
+              <Label htmlFor="editReqCert" className="font-normal cursor-pointer">Requires service certificate upload</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setShowEditWO(false); setEditingWO(null); }}>Cancel</Button>
+            <Button
+              disabled={!editWOForm.title || updateWOMutation.isPending}
+              onClick={() => editingWO && updateWOMutation.mutate({ id: editingWO.id, data: { ...editWOForm, assetId: editWOForm.assetId || null, scheduleId: editWOForm.scheduleId || null } })}
+            >
+              {updateWOMutation.isPending ? "Saving…" : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
