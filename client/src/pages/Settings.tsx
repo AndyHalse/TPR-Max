@@ -1573,6 +1573,25 @@ export default function Settings() {
                     data-testid="input-company-website"
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <Label htmlFor="cdmAlertsEmail" className="text-sm font-medium text-fixed">CDM Alerts Email</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">Email address that receives CDM F10 alert notifications. If left blank, alerts are sent to the Company Email above. Use this to direct CDM alerts to a dedicated safety officer or separate inbox.</TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <Input
+                    id="cdmAlertsEmail"
+                    type="email"
+                    value={currentSettings?.cdmAlertsEmail || ""}
+                    onChange={(e) => handleInputChange("cdmAlertsEmail", e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
+                    placeholder="e.g. safety@company.com"
+                    data-testid="input-cdm-alerts-email"
+                  />
+                </div>
                 
                 <div className="space-y-2">
                   <div className="flex items-center gap-1.5">

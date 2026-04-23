@@ -29693,11 +29693,11 @@ ${wo.completionNotes ? `
 
           if (overdue.length === 0) continue;
 
-          // Get admin email and company name
-          const settingsRows = await custDb.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
-          const settings = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+          // Get admin email and company name (use dedicated CDM alerts email if configured, else fall back to main company email)
+          const settingsRows = await custDb.execute(`SELECT company_name, email, cdm_alerts_email FROM company_settings LIMIT 1`);
+          const settings = settingsRows.rows[0] as { company_name?: string; email?: string; cdm_alerts_email?: string } | undefined;
           const companyName = (settings?.company_name as string) || "TPR-Max";
-          const adminEmail = settings?.email as string | undefined;
+          const adminEmail = ((settings?.cdm_alerts_email as string | undefined) || '').trim() || (settings?.email as string | undefined);
 
           if (!adminEmail) {
             console.warn(`[CDM Cron] No admin email configured for customer ${customer.id} — skipping`);

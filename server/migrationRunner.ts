@@ -299,6 +299,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addBiostarDeviceGroupAddressMigration,
     addComplianceAlertPreferencesMigration,
     addContractorDocumentExpiryAlertedAtMigration,
+    addCdmAlertsEmailMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -2021,6 +2022,19 @@ const addContractorDocumentExpiryAlertedAtMigration: Migration = {
       console.log('✅ [038] Added expiry_alerted_at to contractor_documents');
     } catch (err: any) {
       console.log(`⚠️ [038] contractor_documents.expiry_alerted_at: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+const addCdmAlertsEmailMigration: Migration = {
+  version: '20260423_039_company_settings_cdm_alerts_email',
+  description: 'Add cdm_alerts_email column to company_settings for configurable CDM F10 alert recipient',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS cdm_alerts_email TEXT DEFAULT ''`);
+      console.log('✅ [039] Added cdm_alerts_email to company_settings');
+    } catch (err: any) {
+      console.log(`⚠️ [039] company_settings.cdm_alerts_email: ${err.message?.substring(0, 80)}`);
     }
   }
 };

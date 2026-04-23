@@ -312,6 +312,7 @@ export const companySettings = pgTable("company_settings", {
   phone: text("phone").default(""),
   website: text("website").default(""),
   email: text("email").default(""),
+  cdmAlertsEmail: text("cdm_alerts_email").default(""),
   // Email and report settings
   emailReportsEnabled: boolean("email_reports_enabled").default(false),
   reportFrequency: text("report_frequency").default("weekly"), // daily, weekly, monthly
