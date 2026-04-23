@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -355,6 +356,12 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
                     <div className="flex items-center gap-2">
                       <FileText className={`h-4 w-4 shrink-0 ${isExpired ? "text-red-400" : isExpiringSoon ? "text-amber-400" : "text-slate-400"}`} />
                       <span className="text-xs truncate flex-1">{doc.fileName}</span>
+                      {isExpired && (
+                        <Badge className="bg-red-500 text-white text-xs shrink-0">Expired</Badge>
+                      )}
+                      {isExpiringSoon && (
+                        <Badge className="bg-amber-500 text-white text-xs shrink-0">Expiring Soon</Badge>
+                      )}
                       {doc.fileType && doc.fileType !== "other" && (
                         <span className="text-xs bg-slate-200 text-slate-600 rounded px-1.5 py-0.5 shrink-0">{doc.fileType}</span>
                       )}
