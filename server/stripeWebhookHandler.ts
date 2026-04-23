@@ -7,6 +7,7 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq, and } from 'drizzle-orm';
 import * as sharedSchema from '@shared/schema';
 import crypto from 'crypto';
+import { emailService } from './emailService';
 
 /**
  * STRIPE WEBHOOK HANDLER
@@ -381,12 +382,79 @@ export class StripeWebhookHandler {
     const subscription = event.data.object as Stripe.Subscription;
     console.log(`🔄 Processing trial will end: ${subscription.id}`);
 
-    // TODO: Send trial ending notification email
-    // This would integrate with your email service
     const customerId = subscription.metadata?.visigate_customer_id;
     if (customerId) {
-      console.log(`📧 TODO: Send trial ending notification to customer: ${customerId}`);
-      // await emailService.sendTrialEndingNotification(customerId);
+      try {
+        const db = this.getManagementDb();
+        const [customer] = await db
+          .select({ contactEmail: sharedSchema.customers.contactEmail, companyName: sharedSchema.customers.companyName })
+          .from(sharedSchema.customers)
+          .where(eq(sharedSchema.customers.id, customerId));
+
+        if (customer?.contactEmail) {
+          const billingUrl = 'https://app.tprmax.com/billing';
+          const html = `
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>Your TPR Max trial ends in 3 days</title>
+            </head>
+            <body style="margin:0;padding:0;background-color:#f6f6f6;font-family:Arial,Helvetica,sans-serif;line-height:1.6;">
+              <div style="width:100%;background-color:#f6f6f6;padding:20px 0;">
+                <div style="max-width:600px;margin:0 auto;background-color:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                  <div style="background:linear-gradient(135deg,#2460a9 0%,#1a4080 100%);color:#ffffff;padding:30px 20px;text-align:center;">
+                    <h1 style="margin:0;font-size:24px;font-weight:bold;">Your TPR Max trial ends in 3 days</h1>
+                  </div>
+                  <div style="padding:30px 25px;">
+                    <p style="margin:0 0 16px;color:#333333;font-size:15px;">Hi${customer.companyName ? ' ' + customer.companyName : ''},</p>
+                    <p style="margin:0 0 16px;color:#333333;font-size:15px;">
+                      Just a friendly heads-up — your TPR Max free trial will end in <strong>3 days</strong>.
+                    </p>
+                    <p style="margin:0 0 16px;color:#333333;font-size:15px;">
+                      After your trial ends, your subscription will automatically continue and your payment method on file will be charged. You'll keep full access to everything you've been using, with no interruption.
+                    </p>
+                    <p style="margin:0 0 24px;color:#333333;font-size:15px;">
+                      If you'd like to review your plan, update your payment details, or cancel before you're charged, you can do that any time from your billing page.
+                    </p>
+                    <div style="text-align:center;margin:0 0 24px;">
+                      <a href="${billingUrl}" style="display:inline-block;background-color:#2460a9;color:#ffffff;text-decoration:none;padding:14px 32px;border-radius:6px;font-size:15px;font-weight:bold;">Manage My Subscription</a>
+                    </div>
+                    <p style="margin:0 0 8px;color:#333333;font-size:15px;">Thanks for trying TPR Max. We hope it's been useful.</p>
+                    <p style="margin:0;color:#333333;font-size:15px;">
+                      The TPR Max Team
+                    </p>
+                  </div>
+                  <div style="background-color:#f6f6f6;padding:16px 25px;text-align:center;">
+                    <p style="margin:0;color:#999999;font-size:12px;">
+                      TPR Max &mdash; Personnel Management &amp; Compliance<br>
+                      If you have questions, reply to this email or visit <a href="${billingUrl}" style="color:#2460a9;">your billing page</a>.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </body>
+            </html>
+          `;
+
+          const sent = await emailService.sendEmail({
+            to: customer.contactEmail,
+            subject: 'Your TPR Max trial ends in 3 days',
+            html,
+          });
+
+          if (sent) {
+            console.log(`📧 Trial ending notification sent to ${customer.contactEmail} (customer: ${customerId})`);
+          } else {
+            console.error(`📧 Failed to send trial ending notification to ${customer.contactEmail} (customer: ${customerId})`);
+          }
+        } else {
+          console.warn(`📧 No contact email found for customer: ${customerId} — trial ending notification not sent`);
+        }
+      } catch (err) {
+        console.error(`📧 Error sending trial ending notification for customer ${customerId}:`, err);
+      }
     }
   }
 
