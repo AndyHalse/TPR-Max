@@ -1079,6 +1079,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   const [filterContractor, setFilterContractor] = useState("");
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
+  const [filterExpiringDocs, setFilterExpiringDocs] = useState(false);
 
   // Dialogs/sheets
   const [showCreate, setShowCreate] = useState(false);
@@ -1282,6 +1283,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
     if (filterContractor && filterContractor !== "all" && w.contractorCompanyName !== filterContractor) return false;
     if (filterDateFrom && w.dueDate && w.dueDate < filterDateFrom) return false;
     if (filterDateTo && w.dueDate && w.dueDate > filterDateTo) return false;
+    if (filterExpiringDocs && !((w.expiredDocCount ?? 0) > 0 || (w.expiringSoonDocCount ?? 0) > 0)) return false;
     return true;
   });
 
@@ -1439,8 +1441,16 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
             <span className="text-xs text-muted-foreground">to</span>
             <Input type="date" className="h-8 w-36 text-xs" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
           </div>
-          {(filterStatus !== "all" || filterAsset !== "all" || filterContractor || filterDateFrom || filterDateTo) && (
-            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterStatus("all"); setFilterAsset("all"); setFilterContractor(""); setFilterDateFrom(""); setFilterDateTo(""); }}>
+          <Button
+            size="sm"
+            variant={filterExpiringDocs ? "secondary" : "outline"}
+            className={`h-8 text-xs gap-1 ${filterExpiringDocs ? "border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-600" : ""}`}
+            onClick={() => setFilterExpiringDocs(v => !v)}
+          >
+            <AlertTriangle className="h-3 w-3" />Expiring docs
+          </Button>
+          {(filterStatus !== "all" || filterAsset !== "all" || filterContractor || filterDateFrom || filterDateTo || filterExpiringDocs) && (
+            <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterStatus("all"); setFilterAsset("all"); setFilterContractor(""); setFilterDateFrom(""); setFilterDateTo(""); setFilterExpiringDocs(false); }}>
               <X className="h-3 w-3 mr-1" />Clear
             </Button>
           )}
