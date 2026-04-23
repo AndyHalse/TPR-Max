@@ -383,8 +383,8 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
                           <span>Issued by: <span className="font-medium text-slate-700">{doc.issuedBy}</span></span>
                         )}
                         {doc.expiryDate && (
-                          <span className={isExpired ? "text-red-600 font-medium" : isExpiringSoon ? "text-amber-600 font-medium" : ""}>
-                            {isExpired ? "Expired" : "Expires"}: <span className={isExpired ? "text-red-700" : isExpiringSoon ? "text-amber-700" : "font-medium text-slate-700"}>{fmtDate(doc.expiryDate)}</span>
+                          <span className={isExpired ? "text-red-600 font-medium" : isExpiringSoon ? "text-amber-600 font-medium" : "text-green-600 font-medium"}>
+                            {isExpired ? "Expired" : "Expires"}: <span className={isExpired ? "text-red-700" : isExpiringSoon ? "text-amber-700" : "text-green-700"}>{fmtDate(doc.expiryDate)}</span>
                           </span>
                         )}
                       </div>
