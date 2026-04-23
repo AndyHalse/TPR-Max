@@ -230,6 +230,8 @@ export default function Contractors() {
   const [issueCardForm, setIssueCardForm] = useState({ cardType: 'yellow', offenceId: '', description: '' });
   const [showDocumentModal, setShowDocumentModal] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [documentToDelete, setDocumentToDelete] = useState<any>(null);
+  const [showDeleteDocumentConfirm, setShowDeleteDocumentConfirm] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadDocumentType, setUploadDocumentType] = useState('');
   const [companyUploadFile, setCompanyUploadFile] = useState<File | null>(null);
@@ -956,6 +958,8 @@ export default function Contractors() {
       }
       toast({ title: 'Document Deleted', description: 'The document has been removed.' });
       setShowDocumentModal(false);
+      setShowDeleteDocumentConfirm(false);
+      setDocumentToDelete(null);
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : 'Failed to delete document';
@@ -1974,7 +1978,9 @@ export default function Contractors() {
                                 size="sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleViewDocument(document);
+                                  if (document.documentUrl) {
+                                    window.open(document.documentUrl, '_blank', 'noopener,noreferrer');
+                                  }
                                 }}
                                 data-testid={`button-view-document-${document.id}`}
                               >
@@ -1992,6 +1998,20 @@ export default function Contractors() {
                               >
                                 <Upload className="h-4 w-4 mr-1" />
                                 Upload New
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-red-600 border-red-200 hover:bg-red-50 hover:border-red-400"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDocumentToDelete(document);
+                                  setShowDeleteDocumentConfirm(true);
+                                }}
+                                data-testid={`button-delete-document-${document.id}`}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Delete
                               </Button>
                             </div>
                           </div>
@@ -2464,6 +2484,38 @@ export default function Contractors() {
                 {updateWorkerMutation.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Company Document Confirmation Dialog */}
+      <Dialog open={showDeleteDocumentConfirm} onOpenChange={(open) => { setShowDeleteDocumentConfirm(open); if (!open) setDocumentToDelete(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-5 w-5" />
+              Delete Document
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete <strong>{documentToDelete?.documentName || 'this document'}</strong>? This action cannot be undone and will be logged in the audit trail.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={() => { setShowDeleteDocumentConfirm(false); setDocumentToDelete(null); }}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={deleteCompanyDocumentMutation.isPending}
+              onClick={() => {
+                if (documentToDelete && selectedContractor) {
+                  deleteCompanyDocumentMutation.mutate(documentToDelete.id);
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              {deleteCompanyDocumentMutation.isPending ? 'Deleting...' : 'Delete Document'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

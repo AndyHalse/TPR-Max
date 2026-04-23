@@ -18576,7 +18576,10 @@ This is an automated notification from your visitor management system.`;
       const compDocsContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const compDocsDb = await customerDbService.getCustomerDatabase(compDocsContext.customerId);
       const documents = await compDocsDb.select().from(isolatedSchema.contractorDocuments)
-        .where(eq(isolatedSchema.contractorDocuments.companyId, companyId));
+        .where(and(
+          eq(isolatedSchema.contractorDocuments.companyId, companyId),
+          eq(isolatedSchema.contractorDocuments.isActive, true)
+        ));
       res.json(documents);
     } catch (error) {
       console.error("Error fetching documents:", error);
@@ -18782,6 +18785,50 @@ This is an automated notification from your visitor management system.`;
     } catch (error) {
       console.error("Error approving company document:", error);
       res.status(500).json({ error: "Failed to approve document" });
+    }
+  });
+
+  // Delete (soft-delete) a company document
+  app.delete("/api/contractors/:companyId/documents/:documentId", requireAuth, async (req, res) => {
+    try {
+      const { companyId, documentId } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const [deletedDoc] = await db
+        .update(isolatedSchema.contractorDocuments)
+        .set({ isActive: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(isolatedSchema.contractorDocuments.id, documentId),
+            eq(isolatedSchema.contractorDocuments.companyId, companyId)
+          )
+        )
+        .returning();
+
+      if (!deletedDoc) {
+        return res.status(404).json({ error: 'Document not found' });
+      }
+
+      // Audit trail — company document deleted
+      try {
+        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+        const docLabel = (deletedDoc.documentType || deletedDoc.documentName || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) || 'Document';
+        await db.insert(isolatedSchema.companyNotes).values({
+          companyId,
+          changeType: 'document_deleted',
+          notes: `Document "${docLabel}" deleted by ${username} on ${auditTs}`,
+          changedBy: username,
+        });
+      } catch (auditErr) {
+        console.error('⚠️ Failed to create company document delete audit note (continuing):', auditErr);
+      }
+
+      res.json({ success: true, message: 'Document deleted' });
+    } catch (error) {
+      console.error('❌ Error deleting company document:', error);
+      res.status(500).json({ error: 'Failed to delete document' });
     }
   });
 
