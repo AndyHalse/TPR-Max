@@ -232,6 +232,7 @@ export default function Contractors() {
   const [selectedDocument, setSelectedDocument] = useState<any>(null);
   const [documentToDelete, setDocumentToDelete] = useState<any>(null);
   const [showDeleteDocumentConfirm, setShowDeleteDocumentConfirm] = useState(false);
+  const [deleteComplianceConfirmed, setDeleteComplianceConfirmed] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadDocumentType, setUploadDocumentType] = useState('');
   const [companyUploadFile, setCompanyUploadFile] = useState<File | null>(null);
@@ -960,6 +961,7 @@ export default function Contractors() {
       setShowDocumentModal(false);
       setShowDeleteDocumentConfirm(false);
       setDocumentToDelete(null);
+      setDeleteComplianceConfirmed(false);
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error ? err.message : 'Failed to delete document';
@@ -2006,6 +2008,7 @@ export default function Contractors() {
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setDocumentToDelete(document);
+                                  setDeleteComplianceConfirmed(false);
                                   setShowDeleteDocumentConfirm(true);
                                 }}
                                 data-testid={`button-delete-document-${document.id}`}
@@ -2507,7 +2510,7 @@ export default function Contractors() {
           : '';
 
         return (
-          <Dialog open={showDeleteDocumentConfirm} onOpenChange={(open) => { setShowDeleteDocumentConfirm(open); if (!open) setDocumentToDelete(null); }}>
+          <Dialog open={showDeleteDocumentConfirm} onOpenChange={(open) => { setShowDeleteDocumentConfirm(open); if (!open) { setDocumentToDelete(null); setDeleteComplianceConfirmed(false); } }}>
             <DialogContent className="max-w-md">
               <DialogHeader>
                 <DialogTitle className="flex items-center gap-2 text-red-600">
@@ -2519,20 +2522,31 @@ export default function Contractors() {
                 </DialogDescription>
               </DialogHeader>
               {isSoleActiveDocument && (
-                <div className="flex items-start gap-3 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
-                  <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-yellow-600" />
-                  <span>
-                    <strong>Compliance warning:</strong> This is the only active {categoryLabel} document for this contractor. Deleting it will leave the contractor without a required compliance document and may cause them to fall out of compliance.
-                  </span>
-                </div>
+                <>
+                  <div className="flex items-start gap-3 rounded-md border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
+                    <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-yellow-600" />
+                    <span>
+                      <strong>Compliance warning:</strong> This is the only active {categoryLabel} document for this contractor. Deleting it will leave the contractor without a required compliance document and may cause them to fall out of compliance.
+                    </span>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm font-medium text-red-700 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={deleteComplianceConfirmed}
+                      onChange={(e) => setDeleteComplianceConfirmed(e.target.checked)}
+                      className="h-4 w-4 accent-red-600"
+                    />
+                    I understand this will create a compliance gap for this contractor
+                  </label>
+                </>
               )}
               <div className="flex justify-end gap-3 mt-4">
-                <Button variant="outline" onClick={() => { setShowDeleteDocumentConfirm(false); setDocumentToDelete(null); }}>
+                <Button variant="outline" onClick={() => { setShowDeleteDocumentConfirm(false); setDocumentToDelete(null); setDeleteComplianceConfirmed(false); }}>
                   Cancel
                 </Button>
                 <Button
                   variant="destructive"
-                  disabled={deleteCompanyDocumentMutation.isPending}
+                  disabled={deleteCompanyDocumentMutation.isPending || (isSoleActiveDocument && !deleteComplianceConfirmed)}
                   onClick={() => {
                     if (documentToDelete && selectedContractor) {
                       deleteCompanyDocumentMutation.mutate(documentToDelete.id);
@@ -2609,6 +2623,7 @@ export default function Contractors() {
                       className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
                       onClick={() => {
                         setDocumentToDelete(selectedDocument);
+                        setDeleteComplianceConfirmed(false);
                         setShowDocumentModal(false);
                         setShowDeleteDocumentConfirm(true);
                       }}
