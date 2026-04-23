@@ -295,6 +295,7 @@ type CdmProject = {
   f10Date?: string | null;
   f10Reference?: string | null;
   f10Notes?: string | null;
+  f10AlertSentAt?: string | null;
   // Section 2 — CPP
   cppStatus: string;
   cppDate?: string | null;
@@ -900,6 +901,11 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                           <AlertTriangle className="h-3 w-3" />F10 Overdue
                         </span>
                       )}
+                      {p.f10AlertSentAt && overdue && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                          <AlertCircle className="h-3 w-3" />Alert Sent
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-3 mt-1.5 flex-wrap text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Building2 className="h-3 w-3" />{companyName}</span>
@@ -950,10 +956,15 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                           <div className="rounded-md border border-border p-3 space-y-1">
                             <div className="flex items-center justify-between">
                               <span className="text-xs font-semibold flex items-center gap-1.5"><AlertCircle className="h-3.5 w-3.5 text-amber-600" />1. F10 HSE Notification</span>
-                              <div className="flex items-center gap-1.5">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${p.f10Status === "submitted" ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300" : p.f10Status === "pending" ? "bg-amber-100 text-amber-700" : notifiable ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>
                                   {p.f10Status === "submitted" ? "Submitted" : p.f10Status === "pending" ? "Pending" : notifiable ? "Required — Not Submitted" : "Not Required"}
                                 </span>
+                                {p.f10AlertSentAt && overdue && (
+                                  <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+                                    <AlertCircle className="h-3 w-3" />Alert Sent
+                                  </span>
+                                )}
                                 <Button size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={() => { setEditingSection(isEditing ? null : `${p.id}-${sec}`); setSectionDraft({ f10Status: p.f10Status ?? "not_required", f10Date: p.f10Date ?? "", f10Reference: p.f10Reference ?? "", f10Notes: p.f10Notes ?? "" }); }}>
                                   {isEditing ? "Cancel" : <><Edit className="h-3 w-3 mr-0.5" />Edit</>}
                                 </Button>
@@ -963,6 +974,11 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                               <>
                                 {p.f10Status === "submitted" && <p className="text-xs text-muted-foreground">Submitted: {p.f10Date ?? "—"}{p.f10Reference ? ` · Ref: ${p.f10Reference}` : ""}</p>}
                                 {overdue && <p className="text-xs text-red-600 font-medium flex items-center gap-1"><AlertTriangle className="h-3 w-3" />F10 overdue — project has started</p>}
+                                {p.f10AlertSentAt && (
+                                  <p className="text-xs text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1">
+                                    <AlertCircle className="h-3 w-3" />Last F10 alert sent: {new Date(p.f10AlertSentAt).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                                  </p>
+                                )}
                                 {p.f10Notes && <p className="text-xs text-muted-foreground italic">"{p.f10Notes}"</p>}
                               </>
                             )}
