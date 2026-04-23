@@ -19,8 +19,12 @@ export default function LogoutButton({ bannerInvert }: LogoutButtonProps) {
     },
     onSuccess: () => {
       localStorage.removeItem('visigate_user');
-      localStorage.removeItem('tprmax-last-login');
       localStorage.removeItem('tprmax-logo-token');
+      // Only wipe saved credentials if the user has not opted in to remember-me.
+      // If they have, keep tprmax-last-login so the login form pre-fills on the next visit.
+      if (localStorage.getItem('tprmax-remember-me') !== 'true') {
+        localStorage.removeItem('tprmax-last-login');
+      }
       queryClient.clear();
       window.location.href = '/login';
     },
