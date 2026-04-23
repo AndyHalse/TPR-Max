@@ -19,7 +19,7 @@ import {
   CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
-  Layers, ChevronDown, ChevronRight, Bell,
+  Layers, ChevronDown, ChevronRight, Bell, FileDown,
 } from "lucide-react";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -1081,6 +1081,22 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterExpiringDocs, setFilterExpiringDocs] = useState(false);
 
+  // Export All dialog
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [exportStatus, setExportStatus] = useState("all");
+  const [exportDateFrom, setExportDateFrom] = useState("");
+  const [exportDateTo, setExportDateTo] = useState("");
+
+  function handleExportAll() {
+    const params = new URLSearchParams();
+    if (exportStatus !== "all") params.set("status", exportStatus);
+    if (exportDateFrom) params.set("dateFrom", exportDateFrom);
+    if (exportDateTo) params.set("dateTo", exportDateTo);
+    const url = `/api/ppm/work-orders/export-all${params.toString() ? `?${params}` : ""}`;
+    window.open(url, "_blank");
+    setShowExportDialog(false);
+  }
+
   // Dialogs/sheets
   const [showCreate, setShowCreate] = useState(false);
   const [selectedWO, setSelectedWO] = useState<PpmWorkOrder | null>(null);
@@ -1399,9 +1415,16 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">Track work order lifecycle from creation to completion and certificate upload.</p>
-        <Button size="sm" onClick={() => { setWoForm(emptyWOForm()); setShowCreate(true); }}>
-          <Plus className="h-4 w-4 mr-1" />New Work Order
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button size="sm" variant="outline" onClick={() => setShowExportDialog(true)}>
+              <FileDown className="h-4 w-4 mr-1" />Export All
+            </Button>
+          )}
+          <Button size="sm" onClick={() => { setWoForm(emptyWOForm()); setShowCreate(true); }}>
+            <Plus className="h-4 w-4 mr-1" />New Work Order
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -1670,6 +1693,44 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Export All Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Export Work Order Report</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">Choose an optional date range and status filter to include in the report. Leave blank to export all work orders.</p>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Status</Label>
+              <Select value={exportStatus} onValueChange={setExportStatus}>
+                <SelectTrigger className="h-9 text-sm">
+                  <SelectValue placeholder="All statuses" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  {WO_STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs font-medium">Due Date Range</Label>
+              <div className="flex items-center gap-2">
+                <Input type="date" className="h-9 text-sm flex-1" value={exportDateFrom} onChange={e => setExportDateFrom(e.target.value)} />
+                <span className="text-xs text-muted-foreground">to</span>
+                <Input type="date" className="h-9 text-sm flex-1" value={exportDateTo} onChange={e => setExportDateTo(e.target.value)} />
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" size="sm" onClick={() => setShowExportDialog(false)}>Cancel</Button>
+            <Button size="sm" onClick={handleExportAll}>
+              <FileDown className="h-4 w-4 mr-1" />Export PDF
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -28828,6 +28828,165 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // GET /api/ppm/work-orders/export-all — bulk PDF export for all matching work orders
+  app.get("/api/ppm/work-orders/export-all", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const { status, dateFrom, dateTo } = req.query as { status?: string; dateFrom?: string; dateTo?: string };
+
+      // Build filter conditions
+      const conditions: SQL<unknown>[] = [];
+      if (status && status !== "all") conditions.push(eq(isolatedSchema.ppmWorkOrders.status, status));
+      if (dateFrom) conditions.push(gte(isolatedSchema.ppmWorkOrders.dueDate, dateFrom));
+      if (dateTo) conditions.push(lte(isolatedSchema.ppmWorkOrders.dueDate, dateTo));
+
+      const wos = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+        .where(conditions.length > 0 ? and(...conditions) : undefined)
+        .orderBy(isolatedSchema.ppmWorkOrders.dueDate);
+
+      // Fetch all assets and build a lookup
+      const allAssets = await custDb.select({ id: isolatedSchema.ppmAssets.id, name: isolatedSchema.ppmAssets.name })
+        .from(isolatedSchema.ppmAssets);
+      const assetMap: Record<string, string> = {};
+      for (const a of allAssets) assetMap[a.id] = a.name;
+
+      // Fetch all documents for these work orders in one query
+      const woIds = wos.map(w => w.id);
+      const allDocs = woIds.length > 0
+        ? await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
+            .where(inArray(isolatedSchema.ppmWorkOrderDocuments.workOrderId, woIds))
+            .orderBy(isolatedSchema.ppmWorkOrderDocuments.createdAt)
+        : [];
+      const docsByWo: Record<string, typeof allDocs> = {};
+      for (const d of allDocs) {
+        if (!docsByWo[d.workOrderId]) docsByWo[d.workOrderId] = [];
+        docsByWo[d.workOrderId].push(d);
+      }
+
+      const esc = (s: string | null | undefined) => (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const fmtDate = (d: string | null | undefined) => {
+        if (!d) return "—";
+        try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); } catch { return d; }
+      };
+      const statusLabel: Record<string, string> = {
+        scheduled: "Scheduled", in_progress: "In Progress", completed: "Completed",
+        overdue: "Overdue", cancelled: "Cancelled",
+      };
+      const statusColour: Record<string, string> = {
+        scheduled: "#1d4ed8", in_progress: "#b45309", completed: "#15803d",
+        overdue: "#b91c1c", cancelled: "#6b7280",
+      };
+      const docTypeLabel: Record<string, string> = {
+        certificate: "Certificate", report: "Report", photo: "Photo", other: "Other",
+      };
+
+      const generatedAt = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+      // Build filter description for report header
+      const filterParts: string[] = [];
+      if (status && status !== "all") filterParts.push(`Status: ${statusLabel[status] ?? status}`);
+      if (dateFrom) filterParts.push(`From: ${fmtDate(dateFrom)}`);
+      if (dateTo) filterParts.push(`To: ${fmtDate(dateTo)}`);
+      const filterDesc = filterParts.length > 0 ? filterParts.join("&nbsp;&nbsp;·&nbsp;&nbsp;") : "All work orders";
+
+      const woSections = wos.map((wo, idx) => {
+        const docs = docsByWo[wo.id] ?? [];
+        const assetName = wo.assetId ? (assetMap[wo.assetId] ?? "—") : "—";
+        const sColour = statusColour[wo.status ?? ""] ?? "#6b7280";
+        const docsHtml = docs.length === 0
+          ? `<p style="color:#6b7280;font-size:12px;margin:0;">No documents uploaded.</p>`
+          : docs.map(doc => `
+              <div style="border:1px solid #e5e7eb;border-radius:4px;padding:7px 10px;margin-bottom:6px;font-size:12px;">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                  <span style="font-weight:600;color:#111827;">${esc(doc.fileName)}</span>
+                  ${doc.fileType && doc.fileType !== "other" ? `<span style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:3px;padding:1px 5px;font-size:10px;color:#374151;text-transform:capitalize;">${esc(docTypeLabel[doc.fileType] ?? doc.fileType)}</span>` : ""}
+                </div>
+                ${(doc.expiryDate || doc.referenceNumber || doc.issuedBy) ? `
+                <div style="display:flex;flex-wrap:wrap;gap:12px;color:#6b7280;">
+                  ${doc.expiryDate ? `<span>Expiry: <strong style="color:#111827;">${esc(fmtDate(doc.expiryDate))}</strong></span>` : ""}
+                  ${doc.referenceNumber ? `<span>Ref No.: <strong style="color:#111827;">${esc(doc.referenceNumber)}</strong></span>` : ""}
+                  ${doc.issuedBy ? `<span>Issued By: <strong style="color:#111827;">${esc(doc.issuedBy)}</strong></span>` : ""}
+                </div>` : ""}
+              </div>`).join("");
+
+        return `
+          <div style="page-break-inside:avoid;border:1px solid #e5e7eb;border-radius:6px;padding:14px 16px;margin-bottom:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+              <div>
+                <span style="font-size:11px;color:#9ca3af;font-weight:500;margin-right:8px;">#${idx + 1}</span>
+                <span style="font-size:15px;font-weight:700;color:#111827;">${esc(wo.title)}</span>
+              </div>
+              <span style="font-size:11px;font-weight:600;color:${sColour};background:${sColour}18;border:1px solid ${sColour}44;border-radius:4px;padding:2px 8px;">${esc(statusLabel[wo.status ?? ""] ?? wo.status ?? "—")}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:140px 1fr 140px 1fr;gap:3px 10px;font-size:12px;margin-bottom:10px;">
+              <span style="color:#6b7280;">Asset</span><span style="color:#111827;">${esc(assetName)}</span>
+              <span style="color:#6b7280;">Due Date</span><span style="color:#111827;">${esc(fmtDate(wo.dueDate))}</span>
+              ${wo.contractorCompanyName ? `<span style="color:#6b7280;">Contractor</span><span style="color:#111827;">${esc(wo.contractorCompanyName)}</span>` : `<span></span><span></span>`}
+              ${wo.completedDate ? `<span style="color:#6b7280;">Completed</span><span style="color:#111827;">${esc(fmtDate(wo.completedDate))}</span>` : `<span></span><span></span>`}
+            </div>
+            ${docs.length > 0 ? `
+            <div>
+              <div style="font-size:11px;font-weight:700;color:#374151;border-bottom:1px solid #f3f4f6;padding-bottom:4px;margin-bottom:6px;">Documents (${docs.length})</div>
+              ${docsHtml}
+            </div>` : `<p style="font-size:12px;color:#9ca3af;margin:0;">No documents uploaded.</p>`}
+          </div>`;
+      }).join("");
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111827; background: #fff; padding: 28px 36px; }
+  h1 { font-size: 20px; font-weight: 700; color: #111827; margin-bottom: 3px; }
+  .subtitle { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+  .filter-bar { font-size: 12px; color: #374151; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 5px; padding: 6px 12px; margin-bottom: 20px; display: inline-block; }
+  .footer { margin-top: 32px; padding-top: 10px; border-top: 1px solid #e5e7eb; font-size: 10px; color: #9ca3af; text-align: center; }
+</style>
+</head>
+<body>
+<h1>PPM Work Order Report</h1>
+<p class="subtitle">Generated: ${generatedAt} &nbsp;·&nbsp; ${wos.length} work order${wos.length !== 1 ? "s" : ""}</p>
+<div class="filter-bar">${filterDesc}</div>
+
+${wos.length === 0 ? `<p style="color:#6b7280;font-size:14px;text-align:center;padding:40px 0;">No work orders match the selected criteria.</p>` : woSections}
+
+<div class="footer">Generated by TPR Max — PPM Bulk Work Order Export &nbsp;·&nbsp; ${generatedAt}</div>
+</body>
+</html>`;
+
+      try {
+        const puppeteer = await import('puppeteer');
+        const browser = await puppeteer.default.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+        try {
+          const page = await browser.newPage();
+          await page.setContent(html, { waitUntil: 'networkidle0' });
+          const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '12mm', right: '12mm' } });
+          await browser.close();
+          res.setHeader('Content-Type', 'application/pdf');
+          const dateSuffix = dateFrom || dateTo ? `-${(dateFrom || "").replace(/-/g,"") || "start"}-${(dateTo || "").replace(/-/g,"") || "end"}` : "";
+          res.setHeader('Content-Disposition', `attachment; filename="work-orders-report${dateSuffix}.pdf"`);
+          return res.send(Buffer.from(pdfBuffer));
+        } catch (pdfErr) {
+          await browser.close();
+          throw pdfErr;
+        }
+      } catch {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        const printHtml = html.replace('</body>', '<script>window.onload=function(){window.print();}</script></body>');
+        res.setHeader('Content-Disposition', `inline; filename="work-orders-report.html"`);
+        return res.send(printHtml);
+      }
+    } catch (error: unknown) {
+      console.error("GET /api/ppm/work-orders/export-all", error);
+      res.status(500).json({ error: "Failed to generate bulk work order export" });
+    }
+  });
+
   // GET /api/ppm/work-orders/:id/export — generate a PDF summary of a work order
   app.get("/api/ppm/work-orders/:id/export", requireAuth, async (req, res) => {
     try {
