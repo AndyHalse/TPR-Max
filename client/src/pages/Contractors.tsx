@@ -1674,9 +1674,36 @@ export default function Contractors() {
             </DialogDescription>
           </DialogHeader>
           
-          {selectedContractor && (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
-              {/* Company Information */}
+          {selectedContractor && (() => {
+            const requiredCategories: { key: keyof typeof selectedContractor.documentsStatus; label: string }[] = [
+              { key: 'publicLiability', label: 'Public Liability Insurance' },
+              { key: 'employersLiability', label: 'Employers Liability Insurance' },
+              { key: 'healthSafety', label: 'Health & Safety Certificate' },
+              { key: 'cisRegistration', label: 'CIS Registration' },
+            ];
+            const missingCategories = requiredCategories.filter(
+              ({ key }) => {
+                const s = selectedContractor.documentsStatus[key];
+                return s === 'missing' || s === 'expired';
+              }
+            );
+            return (
+              <>
+                {missingCategories.length > 0 && (
+                  <div className="flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 mt-4">
+                    <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-semibold text-red-800">Compliance Gap Detected</p>
+                      <p className="text-sm text-red-700 mt-0.5">
+                        The following required documents are missing or expired:{' '}
+                        <span className="font-medium">{missingCategories.map(c => c.label).join(', ')}</span>.
+                        Please upload and approve the relevant documents to resolve this.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+                  {/* Company Information */}
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-slate-700">Company Information</h3>
                 <div className="space-y-3">
@@ -1818,7 +1845,9 @@ export default function Contractors() {
                 </div>
               </div>
             </div>
-          )}
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
 
