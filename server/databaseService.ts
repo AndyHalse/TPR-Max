@@ -1632,22 +1632,57 @@ export class DatabaseService {
       .select()
       .from(isolatedSchema.contractorCompanies);
     
-    // For each company, count workers and get document status
+    // For each company, count workers and compute document statuses
     const companiesWithCounts = await Promise.all(
       companies.map(async (company) => {
         const workersCount = await db
           .select({ count: sql<number>`count(*)` })
           .from(isolatedSchema.contractorWorkers)
           .where(eq(isolatedSchema.contractorWorkers.companyId, company.id));
-        
+
+        // Fetch active company-level documents
+        const companyDocs = await db
+          .select()
+          .from(isolatedSchema.contractorDocuments)
+          .where(and(
+            eq(isolatedSchema.contractorDocuments.companyId, company.id),
+            eq(isolatedSchema.contractorDocuments.isActive, true)
+          ));
+
+        // Compute status for a given documentType key using the same rules
+        // as ContractorDetails.tsx getDocStatus: missing → expired → expiring → status
+        const getDocStatus = (docType: string): string => {
+          const doc = companyDocs.find(d => d.documentType === docType);
+          if (!doc) return 'missing';
+          if (doc.expiryDate) {
+            const now = new Date();
+            const expiry = new Date(doc.expiryDate);
+            const daysToExpiry = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            if (expiry < now) return 'expired';
+            if (daysToExpiry <= 30) return 'expiring';
+          }
+          return doc.status || 'pending';
+        };
+
+        const documentsStatus: Record<string, string> = {
+          publicLiability: getDocStatus('publicLiability'),
+          employersLiability: getDocStatus('employersLiability'),
+          healthSafety: getDocStatus('healthSafety'),
+          cisRegistration: getDocStatus('cisRegistration'),
+          rams: getDocStatus('rams'),
+          modernSlavery: getDocStatus('modernSlavery'),
+          environmentalPolicy: getDocStatus('environmentalPolicy'),
+          professionalIndemnity: getDocStatus('professionalIndemnity'),
+        };
+
         return {
           ...company,
           // Map database fields to frontend expected fields
-          name: company.companyName, // Map companyName from DB to name for frontend
-          email: company.contactEmail, // Map contactEmail from DB to email for frontend
-          phone: company.contactPhone, // Map contactPhone from DB to phone for frontend
+          name: company.companyName,
+          email: company.contactEmail,
+          phone: company.contactPhone,
           workersCount: parseInt(String(workersCount[0]?.count)) || 0,
-          documentsStatus: {} // Empty for now since documents system is optional
+          documentsStatus,
         };
       })
     );
