@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Wrench, CheckCircle2, Clock, AlertTriangle, FileText, Upload,
-  RefreshCw, Download, Building2, CalendarDays, User, X
+  RefreshCw, Download, Building2, CalendarDays, User, X, Bell
 } from "lucide-react";
 
 interface WorkOrder {
@@ -42,6 +42,7 @@ interface WODocument {
   uploadedBy?: string | null;
   createdAt?: string | null;
   expiryDate?: string | null;
+  expiryAlertedAt?: string | null;
   referenceNumber?: string | null;
   issuedBy?: string | null;
 }
@@ -339,6 +340,11 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
                       )}
                       {doc.expiryDate && (
                         <span>Expires: <span className="font-medium text-slate-700">{fmtDate(doc.expiryDate)}</span></span>
+                      )}
+                      {doc.expiryDate && (
+                        doc.expiryAlertedAt
+                          ? <span className="flex items-center gap-1 text-green-700"><Bell className="h-3 w-3" />Notified on <span className="font-medium">{fmtDate(doc.expiryAlertedAt)}</span></span>
+                          : <span className="flex items-center gap-1 text-slate-400"><Bell className="h-3 w-3" />Pending notification</span>
                       )}
                     </div>
                   )}
