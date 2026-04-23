@@ -28653,11 +28653,13 @@ This is an automated notification from your visitor management system.`;
       if (!doc.expiryDate) return res.status(400).json({ error: "Document has no expiry date — alert not applicable" });
 
       // Fetch company settings for email
-      const settingsRows = await custDb.execute(`SELECT company_name, email FROM company_settings LIMIT 1`);
-      const settings = settingsRows.rows[0] as { company_name?: string; email?: string } | undefined;
+      const settingsRows = await custDb.execute(`SELECT company_name, email, notify_on_document_expiry FROM company_settings LIMIT 1`);
+      const settings = settingsRows.rows[0] as { company_name?: string; email?: string; notify_on_document_expiry?: boolean } | undefined;
       const companyName = (settings?.company_name as string) || "TPR-Max";
       const adminEmail = settings?.email as string | undefined;
       if (!adminEmail) return res.status(400).json({ error: "No admin email configured" });
+      const notifyOnDocumentExpiry = settings?.notify_on_document_expiry !== false;
+      if (!notifyOnDocumentExpiry) return res.status(403).json({ error: "Expiry notifications are disabled in company settings" });
 
       // Fetch the work order title and contractor details for context
       const [wo] = await custDb.select({

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import type { CompanySettings } from "@shared/schema";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -1147,6 +1148,8 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
   const { data: groups = [] } = useQuery<PpmAssetGroup[]>({ queryKey: ["/api/ppm/asset-groups"] });
   const { data: schedules = [] } = useQuery<PpmSchedule[]>({ queryKey: ["/api/ppm/schedules"] });
   const { data: contractors = [] } = useQuery<ContractorCompany[]>({ queryKey: ["/api/contractors"] });
+  const { data: companySettings } = useQuery<CompanySettings>({ queryKey: ["/api/settings"] });
+  const notifyOnDocumentExpiry = companySettings?.notifyOnDocumentExpiry !== false;
   const { data: companyWorkers = [] } = useQuery<ContractorWorker[]>({
     queryKey: ["/api/contractors", selectedCompanyIdForWorkers, "workers"],
     enabled: !!selectedCompanyIdForWorkers,
@@ -2072,18 +2075,20 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                               {isAdmin && (isExpired || isExpiringSoon) && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      className={`h-6 w-6 p-0 ${isExpired ? "text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30" : "text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"}`}
-                                      disabled={resendAlertMutation.isPending}
-                                      onClick={() => resendAlertMutation.mutate({ woId: selectedWO.id, docId: doc.id })}
-                                    >
-                                      {resendAlertMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
-                                    </Button>
+                                    <span className="inline-flex">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className={`h-6 w-6 p-0 ${!notifyOnDocumentExpiry ? "opacity-40 cursor-not-allowed text-muted-foreground" : isExpired ? "text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30" : "text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-950/30"}`}
+                                        disabled={resendAlertMutation.isPending || !notifyOnDocumentExpiry}
+                                        onClick={() => resendAlertMutation.mutate({ woId: selectedWO.id, docId: doc.id })}
+                                      >
+                                        {resendAlertMutation.isPending ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Bell className="h-3 w-3" />}
+                                      </Button>
+                                    </span>
                                   </TooltipTrigger>
                                   <TooltipContent side="top">
-                                    <p className="text-xs">Send expiry alert email now</p>
+                                    <p className="text-xs">{notifyOnDocumentExpiry ? "Send expiry alert email now" : "Expiry notifications are disabled in Settings"}</p>
                                   </TooltipContent>
                                 </Tooltip>
                               )}
