@@ -28324,6 +28324,151 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // GET /api/ppm/work-orders/:id/export — generate a PDF summary of a work order
+  app.get("/api/ppm/work-orders/:id/export", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const { id } = req.params;
+      const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+      if (!wo) return res.status(404).json({ error: "Work order not found" });
+
+      const docs = await custDb.select().from(isolatedSchema.ppmWorkOrderDocuments)
+        .where(eq(isolatedSchema.ppmWorkOrderDocuments.workOrderId, id))
+        .orderBy(isolatedSchema.ppmWorkOrderDocuments.createdAt);
+
+      let assetName = "—";
+      if (wo.assetId) {
+        const [asset] = await custDb.select({ name: isolatedSchema.ppmAssets.name })
+          .from(isolatedSchema.ppmAssets)
+          .where(eq(isolatedSchema.ppmAssets.id, wo.assetId));
+        if (asset) assetName = asset.name;
+      }
+
+      const esc = (s: string | null | undefined) => (s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+      const fmtDate = (d: string | null | undefined) => {
+        if (!d) return "—";
+        try { return new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); } catch { return d; }
+      };
+      const statusLabel: Record<string, string> = {
+        pending: "Pending", in_progress: "In Progress", completed: "Completed",
+        overdue: "Overdue", cancelled: "Cancelled",
+      };
+      const docTypeLabel: Record<string, string> = {
+        certificate: "Certificate", report: "Report", photo: "Photo", other: "Other",
+      };
+
+      const docsHtml = docs.length === 0
+        ? `<p style="color:#6b7280;font-size:13px;margin:0;">No documents uploaded.</p>`
+        : docs.map(doc => `
+          <div style="border:1px solid #e5e7eb;border-radius:6px;padding:10px 12px;margin-bottom:8px;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+              <span style="font-weight:600;font-size:13px;color:#111827;">${esc(doc.fileName)}</span>
+              ${doc.fileType && doc.fileType !== "other" ? `<span style="background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;padding:1px 7px;font-size:11px;color:#374151;text-transform:capitalize;">${esc(docTypeLabel[doc.fileType] ?? doc.fileType)}</span>` : ""}
+            </div>
+            ${(doc.expiryDate || doc.referenceNumber || doc.issuedBy) ? `
+            <div style="display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:#6b7280;padding-left:0;">
+              ${doc.expiryDate ? `<span>Expiry Date: <strong style="color:#111827;">${esc(fmtDate(doc.expiryDate))}</strong></span>` : ""}
+              ${doc.referenceNumber ? `<span>Reference No.: <strong style="color:#111827;">${esc(doc.referenceNumber)}</strong></span>` : ""}
+              ${doc.issuedBy ? `<span>Issued By: <strong style="color:#111827;">${esc(doc.issuedBy)}</strong></span>` : ""}
+            </div>` : ""}
+          </div>`).join("");
+
+      const generatedAt = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #111827; background: #fff; padding: 32px 40px; }
+  h1 { font-size: 22px; font-weight: 700; color: #111827; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #6b7280; margin-bottom: 24px; }
+  .section { margin-bottom: 24px; }
+  .section-title { font-size: 14px; font-weight: 700; color: #374151; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; margin-bottom: 12px; }
+  .grid { display: grid; grid-template-columns: 160px 1fr; gap: 4px 12px; font-size: 13px; }
+  .grid .label { color: #6b7280; }
+  .grid .value { color: #111827; }
+  .notes-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 10px 12px; font-size: 13px; color: #374151; white-space: pre-wrap; }
+  .completion-box { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 12px; font-size: 13px; color: #166534; white-space: pre-wrap; }
+  .footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #9ca3af; text-align: center; }
+</style>
+</head>
+<body>
+<h1>${esc(wo.title)}</h1>
+<p class="subtitle">PPM Work Order &nbsp;·&nbsp; Status: ${esc(statusLabel[wo.status ?? ""] ?? wo.status ?? "—")} &nbsp;·&nbsp; Generated: ${generatedAt}</p>
+
+<div class="section">
+  <div class="section-title">Work Order Details</div>
+  <div class="grid">
+    <span class="label">Asset</span><span class="value">${esc(assetName)}</span>
+    <span class="label">Due Date</span><span class="value">${esc(fmtDate(wo.dueDate))}</span>
+    <span class="label">Completed Date</span><span class="value">${esc(fmtDate(wo.completedDate))}</span>
+    ${wo.contractorCompanyName ? `<span class="label">Contractor</span><span class="value">${esc(wo.contractorCompanyName)}</span>` : ""}
+    ${wo.contractorWorkerName ? `<span class="label">Worker</span><span class="value">${esc(wo.contractorWorkerName)}</span>` : ""}
+    ${wo.requiresCertificate ? `<span class="label">Certificate</span><span class="value">${wo.certificateUploadedAt ? `Uploaded ${fmtDate(wo.certificateUploadedAt)}` : "Not yet uploaded"}</span>` : ""}
+  </div>
+</div>
+
+${wo.description ? `
+<div class="section">
+  <div class="section-title">Description</div>
+  <div class="notes-box">${esc(wo.description)}</div>
+</div>` : ""}
+
+${wo.notes ? `
+<div class="section">
+  <div class="section-title">Notes</div>
+  <div class="notes-box">${esc(wo.notes)}</div>
+</div>` : ""}
+
+${wo.completionNotes ? `
+<div class="section">
+  <div class="section-title">Completion Notes</div>
+  <div class="completion-box">${esc(wo.completionNotes)}</div>
+</div>` : ""}
+
+<div class="section">
+  <div class="section-title">Documents (${docs.length})</div>
+  ${docsHtml}
+</div>
+
+<div class="footer">
+  Generated by TPR Max — PPM Work Order Export &nbsp;·&nbsp; ${generatedAt}
+</div>
+</body>
+</html>`;
+
+      try {
+        const puppeteer = await import('puppeteer');
+        const browser = await puppeteer.default.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] });
+        try {
+          const page = await browser.newPage();
+          await page.setContent(html, { waitUntil: 'networkidle0' });
+          const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '15mm', bottom: '15mm', left: '12mm', right: '12mm' } });
+          await browser.close();
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="work-order-${id.slice(0, 8)}.pdf"`);
+          return res.send(Buffer.from(pdfBuffer));
+        } catch (pdfErr) {
+          await browser.close();
+          throw pdfErr;
+        }
+      } catch {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        const printHtml = html.replace('</body>', '<script>window.onload=function(){window.print();}</script></body>');
+        res.setHeader('Content-Disposition', `inline; filename="work-order-${id.slice(0, 8)}.html"`);
+        return res.send(printHtml);
+      }
+    } catch (error: unknown) {
+      console.error("GET /api/ppm/work-orders/:id/export", error);
+      res.status(500).json({ error: "Failed to generate work order export" });
+    }
+  });
+
   // ── PPM Demo Data ───────────────────────────────────────────────────────────
   // POST /api/ppm/demo-data — seed typical UK facility PPM assets + templates
 

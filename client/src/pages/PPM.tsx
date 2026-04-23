@@ -1843,6 +1843,15 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
                       <AlertTriangle className="h-3 w-3" />No documents uploaded
                     </span>
                   )}
+                  <a
+                    href={`/api/ppm/work-orders/${selectedWO.id}/export`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 text-xs text-muted-foreground border border-border rounded-md px-2 py-0.5 hover:bg-muted transition-colors ml-auto"
+                  >
+                    <Download className="h-3 w-3" />
+                    Export PDF
+                  </a>
                 </div>
               </SheetHeader>
 
