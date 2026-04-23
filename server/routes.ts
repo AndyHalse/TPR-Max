@@ -27667,6 +27667,29 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // POST /api/ppm/assets/:id/duplicate — clone an asset with a new name, clearing unique fields
+  app.post("/api/ppm/assets/:id/duplicate", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const [original] = await custDb.select().from(isolatedSchema.ppmAssets).where(eq(isolatedSchema.ppmAssets.id, id));
+      if (!original) return res.status(404).json({ error: "Asset not found" });
+      const { id: _id, createdAt: _createdAt, assetRef: _assetRef, serialNumber: _serialNumber, ...rest } = original;
+      const [copy] = await custDb.insert(isolatedSchema.ppmAssets).values({
+        ...rest,
+        name: `Copy of ${original.name}`,
+        assetRef: null,
+        serialNumber: null,
+        status: "active",
+      }).returning();
+      res.status(201).json(copy);
+    } catch (error: unknown) {
+      console.error("POST /api/ppm/assets/:id/duplicate", error);
+      res.status(500).json({ error: "Failed to duplicate asset" });
+    }
+  });
+
   // PPM Templates
   app.get("/api/ppm/templates", requireAuth, async (req, res) => {
     try {
