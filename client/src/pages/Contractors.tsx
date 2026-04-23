@@ -216,6 +216,7 @@ export default function Contractors() {
   const [activeTab, setActiveTab] = useState("contractors");
   const [searchTerm, setSearchTerm] = useState("");
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
+  const [showGapsOnly, setShowGapsOnly] = useState(false);
   const [showAddContractorDialog, setShowAddContractorDialog] = useState(false);
   const [showAddWorkerDialog, setShowAddWorkerDialog] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -425,11 +426,24 @@ export default function Contractors() {
     activeLoneWorkers.find((s: any) => s.personId === workerId && s.personType === 'contractor');
 
   const contractorData = contractors || [];
-  const filteredContractors = contractorData.filter((contractor: ContractorCompany) =>
-    contractor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    `${contractor.contactFirstName} ${contractor.contactLastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    contractor.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
+  const hasComplianceGap = (contractor: ContractorCompany) => {
+    const ds = contractor.documentsStatus;
+    if (!ds) return true;
+    return ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'].some(
+      key => ds[key as keyof typeof ds] === 'missing' || ds[key as keyof typeof ds] === 'expired'
+    );
+  };
+
+  const filteredContractors = contractorData.filter((contractor: ContractorCompany) => {
+    const matchesSearch =
+      contractor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      `${contractor.contactFirstName} ${contractor.contactLastName}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contractor.email.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) return false;
+    if (showGapsOnly && !hasComplianceGap(contractor)) return false;
+    return true;
+  });
 
   // Calculate dynamic compliance score from documents status
   const calculateComplianceScore = (documentsStatus: any) => {
@@ -1159,25 +1173,38 @@ export default function Contractors() {
               data-testid="input-search-contractors"
             />
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-2">
             <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
+              variant={showGapsOnly ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setViewMode('grid')}
-              className="h-8 w-8 p-0"
-              title="Grid view"
+              onClick={() => setShowGapsOnly(prev => !prev)}
+              className={showGapsOnly ? "bg-red-600 hover:bg-red-700 text-white border-red-600" : "text-red-600 border-red-300 hover:bg-red-50"}
+              title="Show only contractors with compliance gaps"
+              data-testid="button-filter-gaps-only"
             >
-              <LayoutGrid size={14} />
+              <AlertTriangle size={14} className="mr-1" />
+              Gaps only
             </Button>
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setViewMode('list')}
-              className="h-8 w-8 p-0"
-              title="List view"
-            >
-              <LayoutList size={14} />
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant={viewMode === 'grid' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('grid')}
+                className="h-8 w-8 p-0"
+                title="Grid view"
+              >
+                <LayoutGrid size={14} />
+              </Button>
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="h-8 w-8 p-0"
+                title="List view"
+              >
+                <LayoutList size={14} />
+              </Button>
+            </div>
           </div>
         </div>
       </GlassCard>
