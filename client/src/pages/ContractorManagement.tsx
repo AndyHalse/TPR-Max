@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -587,6 +588,35 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     contractorCompliance.push({ id: "__unknown__", name: "Unknown Contractor", projectCount: orphanProjects.length, avgPct, overdueCount });
   }
 
+  // Compliance trend: fixed 12-month window ending at the current month
+  const complianceTrend = useMemo(() => {
+    const monthMap: Record<string, { total: number; count: number }> = {};
+    allProjects.forEach(p => {
+      if (!p.startDate) return;
+      const d = new Date(p.startDate);
+      if (isNaN(d.getTime())) return;
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!monthMap[key]) monthMap[key] = { total: 0, count: 0 };
+      monthMap[key].total += complianceScore(p);
+      monthMap[key].count++;
+    });
+    // Always show the last 12 calendar months ending with the current month
+    const today = new Date();
+    const result: { month: string; score: number | null; count: number }[] = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const label = d.toLocaleString("default", { month: "short", year: "2-digit" });
+      const entry = monthMap[key];
+      result.push({
+        month: label,
+        score: entry ? Math.round((entry.total / entry.count / 5) * 100) : null,
+        count: entry ? entry.count : 0,
+      });
+    }
+    return result;
+  }, [allProjects]);
+
   const openEdit = (p: CdmProject) => {
     setForm({
       companyId: p.companyId,
@@ -813,6 +843,36 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                       </tbody>
                     </table>
                   </div>
+                </div>
+              )}
+              {/* Compliance trend chart — only shown when at least one month has data */}
+              {complianceTrend.some(m => m.score !== null) && (
+                <div>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Compliance Trend</p>
+                  <div className="h-32">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={complianceTrend} margin={{ top: 4, right: 4, left: -28, bottom: 0 }} barCategoryGap="30%">
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted/40" />
+                        <XAxis dataKey="month" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                        <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `${v}%`} />
+                        <Tooltip
+                          formatter={(value: number | null, _name: string, item: { payload?: { count?: number } }) => {
+                            if (value === null) return ["No projects", "Avg Compliance"];
+                            const n = item.payload?.count ?? 0;
+                            return [`${value}% (${n} project${n !== 1 ? "s" : ""})`, "Avg Compliance"];
+                          }}
+                          contentStyle={{ fontSize: 12, borderRadius: 6 }}
+                          cursor={{ fill: "hsl(var(--muted)/0.3)" }}
+                        />
+                        <Bar
+                          dataKey="score"
+                          radius={[3, 3, 0, 0]}
+                          fill="hsl(var(--primary))"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-1 text-center">Average compliance % by project start month (last 12 months)</p>
                 </div>
               )}
               </>
