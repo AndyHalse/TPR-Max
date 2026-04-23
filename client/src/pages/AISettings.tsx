@@ -50,6 +50,38 @@ interface TestResult {
   credits?: number;
 }
 
+interface AppSettings {
+  openaiModel?: string;
+  [key: string]: unknown;
+}
+
+type ActiveProvider = 'openai' | 'gemini' | 'claude' | null;
+
+function getActiveProvider(model: string | undefined): ActiveProvider {
+  if (!model) return 'openai';
+  if (model.startsWith('claude-')) return 'claude';
+  if (model.startsWith('gemini-')) return 'gemini';
+  return 'openai';
+}
+
+function getModelLabel(model: string | undefined): string {
+  if (!model) return 'GPT-4o (OpenAI)';
+  const labels: Record<string, string> = {
+    'gpt-4':            'GPT-4 (OpenAI)',
+    'gpt-4o':           'GPT-4o (OpenAI)',
+    'gpt-5':            'GPT-5 (OpenAI)',
+    'claude-3-5-sonnet': 'Claude 3.5 Sonnet (Anthropic)',
+    'claude-3-opus':    'Claude 3 Opus (Anthropic)',
+    'claude-3-haiku':   'Claude 3 Haiku (Anthropic)',
+    'gemini-pro':       'Gemini Pro (Google)',
+    'gemini-2.5-flash': 'Gemini 2.5 Flash (Google)',
+  };
+  if (labels[model]) return labels[model];
+  if (model.startsWith('claude-')) return `${model} (Anthropic)`;
+  if (model.startsWith('gemini-')) return `${model} (Google)`;
+  return `${model} (OpenAI)`;
+}
+
 export default function AISettings() {
   const { toast } = useToast();
   const [openaiKey, setOpenaiKey] = useState("");
@@ -59,6 +91,15 @@ export default function AISettings() {
   const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [showClaudeKey, setShowClaudeKey] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Fetch general settings to read active AI model
+  const { data: appSettings, isSuccess: settingsLoaded } = useQuery<AppSettings>({
+    queryKey: ["/api/settings"],
+  });
+
+  const activeModel = appSettings?.openaiModel as string | undefined;
+  const activeProvider = getActiveProvider(activeModel);
+  const activeModelLabel = getModelLabel(activeModel);
 
   // Fetch current API key status
   const { data: apiKeyStatus, isLoading } = useQuery<{
@@ -317,15 +358,38 @@ export default function AISettings() {
 
           {/* Overview Tab */}
           <TabsContent value="overview" className="space-y-6">
+
+            {/* Currently Active Banner */}
+            {settingsLoaded && <div
+              className="flex items-center gap-3 rounded-xl border-2 border-blue-500 bg-blue-50 dark:bg-blue-950/40 px-5 py-4"
+              data-testid="active-provider-banner"
+            >
+              <CheckCircle className="h-5 w-5 shrink-0 text-blue-600 dark:text-blue-400" />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                  Currently Active Model
+                </p>
+                <p className="text-sm font-medium text-slate-800 dark:text-slate-100" data-testid="active-model-label">
+                  {activeModelLabel}
+                </p>
+              </div>
+              <div className="ml-auto">
+                <Badge className="bg-blue-600 text-white text-xs">Active</Badge>
+              </div>
+            </div>}
+
             <div className="grid md:grid-cols-3 gap-6">
               
               {/* OpenAI Status Card */}
-              <GlassCard>
+              <GlassCard className={settingsLoaded && activeProvider === 'openai' ? "ring-2 ring-blue-500" : ""}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <Zap className="h-5 w-5 text-orange-500" />
                       OpenAI
+                      {settingsLoaded && activeProvider === 'openai' && (
+                        <Badge className="ml-1 bg-blue-600 text-white text-xs" data-testid="badge-active-openai">Active</Badge>
+                      )}
                     </CardTitle>
                     {getStatusBadge(apiKeyStatus?.openai || emptyStatus('openai'))}
                   </div>
@@ -400,12 +464,15 @@ export default function AISettings() {
               </GlassCard>
 
               {/* Gemini Status Card */}
-              <GlassCard>
+              <GlassCard className={settingsLoaded && activeProvider === 'gemini' ? "ring-2 ring-blue-500" : ""}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <Brain className="h-5 w-5 text-blue-500" />
                       Gemini
+                      {settingsLoaded && activeProvider === 'gemini' && (
+                        <Badge className="ml-1 bg-blue-600 text-white text-xs" data-testid="badge-active-gemini">Active</Badge>
+                      )}
                     </CardTitle>
                     {getStatusBadge(apiKeyStatus?.gemini || emptyStatus('gemini'))}
                   </div>
@@ -480,12 +547,15 @@ export default function AISettings() {
               </GlassCard>
 
               {/* Claude Status Card */}
-              <GlassCard>
+              <GlassCard className={settingsLoaded && activeProvider === 'claude' ? "ring-2 ring-blue-500" : ""}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <Key className="h-5 w-5 text-purple-500" />
                       Claude
+                      {settingsLoaded && activeProvider === 'claude' && (
+                        <Badge className="ml-1 bg-blue-600 text-white text-xs" data-testid="badge-active-claude">Active</Badge>
+                      )}
                     </CardTitle>
                     {getStatusBadge(apiKeyStatus?.claude || emptyStatus('claude'))}
                   </div>
@@ -560,12 +630,15 @@ export default function AISettings() {
               </GlassCard>
 
               {/* Claude Status Card */}
-              <GlassCard>
+              <GlassCard className={settingsLoaded && activeProvider === 'claude' ? "ring-2 ring-blue-500" : ""}>
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="flex items-center gap-2">
                       <Sparkles className="h-5 w-5 text-purple-500" />
                       Claude
+                      {settingsLoaded && activeProvider === 'claude' && (
+                        <Badge className="ml-1 bg-blue-600 text-white text-xs" data-testid="badge-active-claude-2">Active</Badge>
+                      )}
                     </CardTitle>
                     {getStatusBadge(apiKeyStatus?.claude || { serviceType: 'claude', hasKey: false, last4: '', isActive: false, lastUsed: null, usageCount: 0, status: 'inactive' })}
                   </div>
