@@ -2580,14 +2580,14 @@ export default function Contractors() {
                       variant="outline"
                       className="w-full text-red-600 border-red-200 hover:bg-red-50 hover:border-red-300"
                       onClick={() => {
-                        if (confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
-                          deleteCompanyDocumentMutation.mutate(selectedDocument.id);
-                        }
+                        setDocumentToDelete(selectedDocument);
+                        setShowDocumentModal(false);
+                        setShowDeleteDocumentConfirm(true);
                       }}
                       disabled={deleteCompanyDocumentMutation.isPending}
                     >
                       <Trash2 className="h-4 w-4 mr-2" />
-                      {deleteCompanyDocumentMutation.isPending ? 'Deleting...' : 'Delete Document'}
+                      Delete Document
                     </Button>
                     
                     {selectedDocument.status !== 'approved' && (
