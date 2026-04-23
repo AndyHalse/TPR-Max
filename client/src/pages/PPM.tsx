@@ -1162,9 +1162,9 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
             </SelectContent>
           </Select>
           <div className="flex items-center gap-1">
-            <Input type="date" className="h-8 w-32 text-xs" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
+            <Input type="date" className="h-8 w-36 text-xs" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} />
             <span className="text-xs text-muted-foreground">to</span>
-            <Input type="date" className="h-8 w-32 text-xs" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
+            <Input type="date" className="h-8 w-36 text-xs" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} />
           </div>
           {(filterStatus !== "all" || filterAsset !== "all" || filterContractor || filterDateFrom || filterDateTo) && (
             <Button size="sm" variant="ghost" className="h-8 text-xs" onClick={() => { setFilterStatus("all"); setFilterAsset("all"); setFilterContractor(""); setFilterDateFrom(""); setFilterDateTo(""); }}>
