@@ -13166,27 +13166,9 @@ ${evacuationPhotosData.length > 0 ? `
 
       let result;
       if (mimeType === 'application/pdf') {
-        // Extract text from the PDF using pdftotext (poppler, available system-wide)
-        const pdfText = await new Promise<string>((resolve, reject) => {
-          const { spawn } = require('child_process');
-          // pdftotext -layout -  -   reads from stdin and writes to stdout
-          const proc = spawn('pdftotext', ['-layout', '-', '-']);
-          const chunks: Buffer[] = [];
-          const errChunks: Buffer[] = [];
-          proc.stdout.on('data', (d: Buffer) => chunks.push(d));
-          proc.stderr.on('data', (d: Buffer) => errChunks.push(d));
-          proc.on('close', (code: number) => {
-            if (code !== 0) {
-              const errMsg = Buffer.concat(errChunks).toString().trim();
-              reject(new Error(`pdftotext exited ${code}: ${errMsg}`));
-            } else {
-              resolve(Buffer.concat(chunks).toString('utf8'));
-            }
-          });
-          proc.on('error', reject);
-          proc.stdin.write(buffer);
-          proc.stdin.end();
-        });
+        // Extract text from the PDF using pdf-parse, then send to GPT-4o
+        const pdfParse = (await import('pdf-parse')).default as (buf: Buffer) => Promise<{ text: string }>;
+        const { text: pdfText } = await pdfParse(buffer);
         result = await scanDocumentWithAI({ mimeType, pdfText, documentType });
       } else {
         // Image — send base64 directly to GPT-4o vision
