@@ -221,60 +221,21 @@ function createCSRFMiddleware() {
     // It supports three auth methods (emergency token, fire marshal ID, admin session)
     // all checked directly in the route handler — session middleware runs after CSRF here.
     
-    // Skip CSRF for core functionality endpoints (always, regardless of environment)
-    if (req.originalUrl.startsWith('/api/objects/') || 
-        req.originalUrl.startsWith('/api/staff') ||
-        req.originalUrl.startsWith('/api/visitors') ||
-        req.originalUrl.startsWith('/api/prebookings') ||
-        req.originalUrl.startsWith('/api/room-bookings') ||
-        req.originalUrl.startsWith('/api/meeting-rooms') ||
-        req.originalUrl.startsWith('/api/card-issues') ||
-        req.originalUrl.startsWith('/api/contractors') ||
-        req.originalUrl.startsWith('/api/settings') ||
-        req.originalUrl.startsWith('/api/zones') ||
-        req.originalUrl.startsWith('/api/departments') ||
-        req.originalUrl.startsWith('/api/users') ||
-        req.originalUrl.startsWith('/api/muster') ||
-        req.originalUrl.startsWith('/api/evacuation') ||
-        req.originalUrl.startsWith('/api/emergency') ||
-        req.originalUrl.startsWith('/api/members') ||
-        req.originalUrl.startsWith('/api/reports') ||
-        req.originalUrl.startsWith('/api/activity') ||
-        req.originalUrl.startsWith('/api/analytics') ||
-        req.originalUrl.startsWith('/api/help') ||
-        req.originalUrl.startsWith('/api/printers') ||
-        req.originalUrl.startsWith('/api/induction') ||
-        req.originalUrl.startsWith('/api/feature-toggles') ||
-        req.originalUrl.startsWith('/api/co2') ||
-        req.originalUrl.startsWith('/api/reception') ||
-        req.originalUrl.startsWith('/api/company-logo') ||
-        req.originalUrl.startsWith('/api/public-logo') ||
-        req.originalUrl.startsWith('/api/import') ||
-        req.originalUrl.startsWith('/api/biostar') ||
-        req.originalUrl.startsWith('/api/paxton') ||
-        req.originalUrl.startsWith('/api/clue') ||
-        req.originalUrl.startsWith('/api/lone-worker') ||
-        req.originalUrl.startsWith('/api/card-offences') ||
-        req.originalUrl.startsWith('/api/system') ||
-        req.originalUrl.startsWith('/api/contractor-workers') ||
-        req.originalUrl.startsWith('/api/ppm') ||
-        req.originalUrl.startsWith('/api/ai') ||
-        req.originalUrl.startsWith('/api/stripe') ||
-        req.originalUrl.startsWith('/api/billing') ||
-        req.originalUrl.startsWith('/api/voice-notifications') ||
-        req.originalUrl.startsWith('/api/backups') ||
-        req.originalUrl.startsWith('/api/uk-hs') ||
-        req.originalUrl.startsWith('/api/cdm')) {
-      console.log(`✅ CSRF EXEMPTION: Core functionality endpoint`);
+    // Skip CSRF only for requests that originate outside the browser app
+    // (kiosk devices, public self-service links, fire-marshal mobile URLs)
+    if (req.originalUrl.startsWith('/api/kiosk') ||
+        req.originalUrl.startsWith('/api/fire-marshal') ||
+        req.originalUrl.startsWith('/api/induction/public') ||
+        req.originalUrl.startsWith('/api/induction/kiosk') ||
+        req.originalUrl.startsWith('/api/muster/safe')) {
+      console.log(`✅ CSRF EXEMPTION: External/public endpoint`);
       return next();
     }
     
-    // Skip CSRF for login endpoint (always), platform admin operations, and super-admin operations (dev only)
+    // Skip CSRF for login/logout and platform-admin auth only
     if (req.originalUrl === '/api/auth/login' || 
         req.originalUrl === '/api/auth/logout' ||
-        req.originalUrl.startsWith('/platform-admin/') ||
-        req.originalUrl === '/api/users/manual' ||
-        req.originalUrl === '/api/invitations' ||
+        req.originalUrl.startsWith('/platform-admin/auth') ||
         (process.env.NODE_ENV !== 'production' && req.originalUrl.startsWith('/api/super-admin/'))) {
       console.log(`✅ CSRF EXEMPTION: Login/admin endpoint`);
       return next();
