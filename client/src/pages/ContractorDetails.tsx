@@ -55,6 +55,21 @@ export default function ContractorDetails() {
     new URLSearchParams(window.location.search).get("filter") === "missing"
   );
 
+  // Keep the URL in sync with tab + filter state so switching tabs preserves the filter
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    params.set("tab", activeTab);
+    if (filterMissing) {
+      params.set("filter", "missing");
+    } else {
+      params.delete("filter");
+    }
+    const newSearch = `?${params.toString()}`;
+    if (window.location.search !== newSearch) {
+      setLocation(`/contractors/${id}${newSearch}`);
+    }
+  }, [activeTab, filterMissing, id]);
+
   // Upload dialog state
   const [uploadDialog, setUploadDialog] = useState<{ open: boolean; docKey: string; docName: string; requiresExpiry: boolean; existingId?: string }>({
     open: false, docKey: "", docName: "", requiresExpiry: false
@@ -1317,10 +1332,7 @@ export default function ContractorDetails() {
                     </div>
                     <button
                       className="text-xs text-amber-700 underline underline-offset-2 hover:text-amber-900 whitespace-nowrap"
-                      onClick={() => {
-                        setFilterMissing(false);
-                        setLocation(`/contractors/${id}?tab=documents`);
-                      }}
+                      onClick={() => setFilterMissing(false)}
                     >
                       Show all
                     </button>
