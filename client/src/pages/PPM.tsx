@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { useToast } from "@/hooks/use-toast";
 import {
-  Wrench, Plus, Edit, Trash2, Copy2, Building2, ClipboardList, CalendarClock,
+  Wrench, Plus, Edit, Trash2, Copy, Building2, ClipboardList, CalendarClock,
   CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles,
@@ -355,7 +355,7 @@ function AssetsTab() {
               <div className="flex gap-2 pt-1">
                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEdit(a)}><Edit className="h-3 w-3 mr-1" />Edit</Button>
                 <Button size="sm" variant="outline" className="h-7 text-xs" disabled={duplicateMutation.isPending} onClick={() => duplicateMutation.mutate(a.id)} title="Duplicate this asset">
-                  <Copy2 className="h-3 w-3 mr-1" />Duplicate
+                  <Copy className="h-3 w-3 mr-1" />Duplicate
                 </Button>
                 <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive hover:text-destructive" onClick={() => { if (confirm("Delete this asset? Any associated schedules will also be deleted.")) deleteMutation.mutate(a.id); }}>
                   <Trash2 className="h-3 w-3 mr-1" />Delete
