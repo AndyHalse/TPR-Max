@@ -1004,6 +1004,35 @@ export default function Contractors() {
     }
   };
 
+  const REQUIRED_DOC_CATEGORIES: { key: 'publicLiability' | 'employersLiability' | 'healthSafety' | 'cisRegistration'; label: string }[] = [
+    { key: 'publicLiability', label: 'Public Liability Insurance' },
+    { key: 'employersLiability', label: 'Employers Liability Insurance' },
+    { key: 'healthSafety', label: 'Health & Safety Certificate' },
+    { key: 'cisRegistration', label: 'CIS Registration' },
+  ];
+
+  const getComplianceGapBadge = (documentsStatus: { publicLiability: string; employersLiability: string; healthSafety: string; cisRegistration: string }) => {
+    const missing = REQUIRED_DOC_CATEGORIES.filter(({ key }) => {
+      const s = documentsStatus[key];
+      return s === 'missing' || s === 'expired';
+    });
+    if (missing.length === 0) return null;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-semibold text-red-700 border border-red-300 cursor-default flex-shrink-0">
+            <AlertTriangle size={11} />
+            {missing.length} gap{missing.length > 1 ? 's' : ''}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="max-w-xs">
+          <p className="font-semibold mb-1">Compliance Gap Detected</p>
+          <p className="text-xs">Missing or expired: {missing.map(c => c.label).join(', ')}</p>
+        </TooltipContent>
+      </Tooltip>
+    );
+  };
+
   return (
     <div className="space-y-6 pt-20 pb-6 p-6 rounded-xl bg-background min-h-screen">
       {/* Header */}
@@ -1184,6 +1213,7 @@ export default function Contractors() {
                           <>
                             {getComplianceIcon(dynamicScore)}
                             <span className="text-sm font-medium text-slate-700">{dynamicScore}%</span>
+                            {getComplianceGapBadge(contractor.documentsStatus)}
                             {getStatusBadge(contractor.status)}
                           </>
                         );
@@ -1282,43 +1312,52 @@ export default function Contractors() {
               </div>
             </GlassCard>
           ) : (
-            <div key={contractor.id} className="bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all">
-              {/* Info row — full-width so company name is never cut off */}
-              <div className="flex items-center gap-3 px-3 pt-3 pb-1">
-                <div className="w-10 h-10 bg-[var(--background)] rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Building2 className="text-variable" size={16} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-fixed text-sm leading-tight">{contractor.name}</p>
-                  <div className="flex items-center gap-3 text-xs text-variable mt-0.5">
-                    <span className="flex items-center"><Users className="mr-1" size={11} />{contractor.workersCount} workers</span>
-                    {contractor.email && <span>{contractor.email}</span>}
+            (() => {
+              const complianceGapBadge = getComplianceGapBadge(contractor.documentsStatus);
+              return (
+                <div key={contractor.id} className="bg-white/60 rounded-lg border border-white/30 hover:bg-white/80 transition-all">
+                  {/* Info row — full-width so company name is never cut off */}
+                  <div className="flex items-center gap-3 px-3 pt-3 pb-1">
+                    <div className="w-10 h-10 bg-[var(--background)] rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Building2 className="text-variable" size={16} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-fixed text-sm leading-tight">{contractor.name}</p>
+                      <div className="flex items-center gap-3 text-xs text-variable mt-0.5">
+                        <span className="flex items-center"><Users className="mr-1" size={11} />{contractor.workersCount} workers</span>
+                        {contractor.email && <span>{contractor.email}</span>}
+                      </div>
+                    </div>
+                    {/* Desktop: actions inline */}
+                    <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+                      {complianceGapBadge}
+                      {getStatusBadge(contractor.status)}
+                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm">
+                        <Users className="mr-1" size={13} />Workers
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm">
+                        <UserPlus className="mr-1" size={13} />Add Worker
+                      </Button>
+                    </div>
+                  </div>
+                  {/* Mobile: actions as bottom row */}
+                  <div className="sm:hidden flex items-center justify-between gap-2 px-3 pb-3 pt-1">
+                    <div className="flex items-center gap-2">
+                      {complianceGapBadge}
+                      {getStatusBadge(contractor.status)}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm font-medium">
+                        <Users className="mr-1" size={13} />Workers
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm font-medium">
+                        <UserPlus className="mr-1" size={13} />Add
+                      </Button>
+                    </div>
                   </div>
                 </div>
-                {/* Desktop: actions inline */}
-                <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-                  {getStatusBadge(contractor.status)}
-                  <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm">
-                    <Users className="mr-1" size={13} />Workers
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm">
-                    <UserPlus className="mr-1" size={13} />Add Worker
-                  </Button>
-                </div>
-              </div>
-              {/* Mobile: actions as bottom row */}
-              <div className="sm:hidden flex items-center justify-between gap-2 px-3 pb-3 pt-1">
-                {getStatusBadge(contractor.status)}
-                <div className="flex items-center gap-2">
-                  <Button variant="outline" size="sm" onClick={() => setLocation(`/contractors/${contractor.id}`)} className="h-9 px-3 text-sm font-medium">
-                    <Users className="mr-1" size={13} />Workers
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => { setSelectedContractor(contractor); setShowWorkersModal(true); }} className="h-9 px-3 text-sm font-medium">
-                    <UserPlus className="mr-1" size={13} />Add
-                  </Button>
-                </div>
-              </div>
-            </div>
+              );
+            })()
           )
         )}
       </div>
