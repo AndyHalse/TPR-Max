@@ -568,11 +568,13 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     submitted: notifiableProjects.filter(p => p.f10Status === "submitted").length,
   };
   const summaryOverdue = summaryProjects.filter(isF10Overdue).length;
-  // Per-contractor compliance table (uses summaryProjects)
+  // Exclude cancelled projects from compliance scoring
+  const nonCancelledSummary = summaryProjects.filter(p => p.status !== "cancelled");
+  // Per-contractor compliance table (excludes cancelled projects)
   const knownCompanyIds = new Set(companies.map(c => c.id));
   const contractorCompliance: { id: string; name: string; projectCount: number; avgPct: number; overdueCount: number }[] = [];
   companies.forEach(company => {
-    const projects = summaryProjects.filter(p => p.companyId === company.id);
+    const projects = nonCancelledSummary.filter(p => p.companyId === company.id);
     if (projects.length === 0) return;
     const avgScore = projects.reduce((sum, p) => sum + complianceScore(p), 0) / projects.length;
     const avgPct = Math.round((avgScore / 5) * 100);
@@ -580,7 +582,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     contractorCompliance.push({ id: company.id, name: company.name, projectCount: projects.length, avgPct, overdueCount });
   });
   // Fallback row for projects whose company no longer exists in the list
-  const orphanProjects = summaryProjects.filter(p => !knownCompanyIds.has(p.companyId));
+  const orphanProjects = nonCancelledSummary.filter(p => !knownCompanyIds.has(p.companyId));
   if (orphanProjects.length > 0) {
     const avgScore = orphanProjects.reduce((sum, p) => sum + complianceScore(p), 0) / orphanProjects.length;
     const avgPct = Math.round((avgScore / 5) * 100);
@@ -588,10 +590,10 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
     contractorCompliance.push({ id: "__unknown__", name: "Unknown Contractor", projectCount: orphanProjects.length, avgPct, overdueCount });
   }
 
-  // Compliance trend: fixed 12-month window ending at the current month
+  // Compliance trend: fixed 12-month window ending at the current month (excludes cancelled)
   const complianceTrend = useMemo(() => {
     const monthMap: Record<string, { total: number; count: number }> = {};
-    allProjects.forEach(p => {
+    allProjects.filter(p => p.status !== "cancelled").forEach(p => {
       if (!p.startDate) return;
       const d = new Date(p.startDate);
       if (isNaN(d.getTime())) return;
@@ -762,15 +764,18 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
               <>
               {/* Overall Compliance Score — matches PDF formula exactly:
                   CPP/PCI/HSF document completion; 3 docs per project */}
-              {summaryProjects.length > 0 && (() => {
-                const compliantDocs = summaryProjects.reduce((sum, p) => {
+              {nonCancelledSummary.length === 0 && summaryProjects.length > 0 && (
+                <p className="text-xs text-muted-foreground text-center py-2">All selected projects are cancelled — no compliance score to display.</p>
+              )}
+              {nonCancelledSummary.length > 0 && (() => {
+                const compliantDocs = nonCancelledSummary.reduce((sum, p) => {
                   let c = 0;
                   if (["approved", "prepared", "distributed"].includes(p.cppStatus ?? "")) c++;
                   if (["approved", "prepared", "distributed"].includes(p.pciStatus ?? "")) c++;
                   if (["complete", "handed_over"].includes(p.hsfStatus ?? "")) c++;
                   return sum + c;
                 }, 0);
-                const totalDocs = summaryProjects.length * 3;
+                const totalDocs = nonCancelledSummary.length * 3;
                 const overallPct = totalDocs > 0 ? Math.round((compliantDocs / totalDocs) * 100) : 0;
                 const colorClass = overallPct >= 80
                   ? "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-800"
@@ -790,8 +795,8 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                       <div>
                         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Overall Compliance Score</p>
                         <p className="text-xs text-muted-foreground">
-                          CPP · PCI · HSF across {summaryProjects.length} project{summaryProjects.length !== 1 ? "s" : ""}
-                          {summaryFiltersActive ? " (filtered)" : ""}
+                          CPP · PCI · HSF across {nonCancelledSummary.length} project{nonCancelledSummary.length !== 1 ? "s" : ""}
+                          {summaryFiltersActive ? " (filtered)" : ""} · excl. cancelled
                         </p>
                       </div>
                     </div>
@@ -857,7 +862,8 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
               {/* Per-contractor compliance table */}
               {contractorCompliance.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Compliance by Contractor</p>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Compliance by Contractor</p>
+                  <p className="text-[10px] text-muted-foreground mb-2">Cancelled projects excluded</p>
                   <div className="rounded-lg border border-border overflow-hidden">
                     <table className="w-full text-xs">
                       <thead>
@@ -929,7 +935,7 @@ function ContractorCDMTab({ companies }: { companies: any[] }) {
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-1 text-center">Average compliance % by project start month (last 12 months)</p>
+                  <p className="text-[10px] text-muted-foreground mt-1 text-center">Average compliance % by project start month (last 12 months) · excl. cancelled</p>
                 </div>
               )}
               </>
