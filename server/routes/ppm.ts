@@ -4,6 +4,7 @@ import path from 'path';
 import cron from 'node-cron';
 import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
+import { simpleDatabaseService } from '../simpleDatabaseService';
 import { EmailService } from '../emailService';
 import { ObjectStorageService } from '../objectStorage';
 import { logger } from '../utils/logger';

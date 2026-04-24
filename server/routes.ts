@@ -3340,7 +3340,8 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // no submission date recorded, and sends a single daily email to the admin.
   // Deduplication: f10_alert_sent_at is updated per-project so each project only
   // triggers one email per calendar day.
-  cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
+  const cdmAlertHour = parseInt(process.env.PPM_ALERT_HOUR ?? "7", 10);
+  cron.schedule(`0 ${cdmAlertHour} * * *`, async () => {
     try {
       console.log("🏗️ [CDM Cron] Running daily F10 alert check…");
       const allCustomers = await customerDbService.getAllCustomers();
