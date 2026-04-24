@@ -1,0 +1,51 @@
+We are splitting server/routes.ts. The shared state is in server/routeState.ts 
+and the folder structure exists. Now move the authentication routes.
+
+In server/routes.ts, the auth routes run from approximately line 1331 to line 1762. 
+They handle these paths:
+  POST /api/auth/login
+  POST /api/auth/logout
+  GET  /api/auth/emergency-login
+  POST /api/auth/session-refresh
+  GET  /api/auth/me
+  PATCH /api/auth/profile
+  POST /api/auth/tenant-login
+
+Do the following:
+
+1. Open server/routes/auth.ts and add the following structure:
+   import type { Express } from 'express';
+   // Copy only the imports that these 7 route handlers actually use from routes.ts.
+   // They will need: requireAuth, AuthService, isDevAuthBypass, getDevUser, 
+   // isValidDevCredentials, isDevDataBypass, isDatabaseConnectionError, 
+   // getMock* functions (from ./auth), bcrypt, storage, databaseService, 
+   // simpleDatabaseService, emailService, logger, z (from zod), 
+   // and the schema imports they reference.
+
+   export function registerAuthRoutes(app: Express): void {
+     // paste all 7 route handlers here
+   }
+
+2. Cut the 7 route handler blocks from routes.ts (lines 1331–1762) and paste 
+   them inside the registerAuthRoutes function body.
+
+3. Adjust any imports in server/routes/auth.ts that reference relative paths — 
+   since this file is one level deeper (in server/routes/), all paths like 
+   './databaseService' must become '../databaseService'.
+
+4. In server/routes/index.ts:
+   import { registerAuthRoutes } from './auth';
+   
+   Inside registerSplitRoutes, add:
+   registerAuthRoutes(app);
+
+5. In server/routes.ts, find where registerSplitRoutes is NOT yet called — 
+   it isn't yet. We will wire it in at the very end (Prompt R14). 
+   For now, leave server/routes.ts and server/index.ts unchanged.
+
+6. After saving, check for TypeScript errors in server/routes/auth.ts.
+   Fix any import path issues (remember: one level deeper means ../serviceName).
+
+NOTE: Do not wire up server/routes/index.ts into the main app yet.
+We will do that in the final prompt once everything is moved.
+The goal right now is just to have clean compilable files.
