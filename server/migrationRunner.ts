@@ -304,6 +304,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addPpmDocScannedAtMigration,
     backfillPpmDocScannedAtMigration,
     addReportsDataColumnMigration,
+    addHelpDeskMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -2096,6 +2097,44 @@ const addReportsDataColumnMigration: Migration = {
       console.log('✅ [043] reports.data column ensured');
     } catch (err: any) {
       console.log(`⚠️ [043] reports.data column: ${err.message?.substring(0, 80)}`);
+    }
+  }
+};
+
+const addHelpDeskMigration: Migration = {
+  version: '20260424_044_add_help_desk',
+  description: 'Add Help Desk module: feature_help_desk toggle on company_settings and help_desk_tickets table',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_help_desk BOOLEAN DEFAULT false`);
+      console.log('✅ [044] feature_help_desk column ensured');
+    } catch (err: any) {
+      console.log(`⚠️ [044] feature_help_desk column: ${err.message?.substring(0, 80)}`);
+    }
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS help_desk_tickets (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          ticket_number TEXT,
+          title TEXT NOT NULL,
+          description TEXT,
+          category TEXT,
+          priority TEXT,
+          status TEXT NOT NULL DEFAULT 'open',
+          location TEXT,
+          asset_id TEXT,
+          reported_by_name TEXT,
+          reported_by_email TEXT,
+          assigned_to TEXT,
+          resolution_notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW(),
+          resolved_at TIMESTAMP
+        )
+      `);
+      console.log('✅ [044] help_desk_tickets table ensured');
+    } catch (err: any) {
+      console.log(`⚠️ [044] help_desk_tickets table: ${err.message?.substring(0, 80)}`);
     }
   }
 };

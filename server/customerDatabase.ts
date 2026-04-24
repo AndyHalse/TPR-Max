@@ -342,6 +342,13 @@ export class CustomerDatabaseService {
       console.warn(`⚠️ feature_ppm column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Ensure feature_help_desk column exists in company_settings (Help Desk module)
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_help_desk BOOLEAN DEFAULT false`);
+    } catch (err: any) {
+      console.warn(`⚠️ feature_help_desk column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure PPM tables exist (PPM module migration)
     try {
       // ppm_asset_groups must be created before ppm_assets (FK dependency)

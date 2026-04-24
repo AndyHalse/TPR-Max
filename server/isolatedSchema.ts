@@ -489,6 +489,7 @@ export const companySettings = pgTable("company_settings", {
   featureMartynLaw: boolean("feature_martyn_law").default(true),
   featureIncidentReports: boolean("feature_incident_reports").default(true),
   featurePPM: boolean("feature_ppm").default(false),
+  featureHelpDesk: boolean("feature_help_desk").default(false),
   // Core navigation feature toggles — default ON
   featureDashboard: boolean("feature_dashboard").default(true),
   featureVisitors: boolean("feature_visitors").default(true),
@@ -2326,5 +2327,30 @@ export const cdmProjects = pgTable("cdm_projects", {
 export const insertCdmProjectSchema = createInsertSchema(cdmProjects).omit({ id: true, createdAt: true });
 export type InsertCdmProject = z.infer<typeof insertCdmProjectSchema>;
 export type CdmProject = typeof cdmProjects.$inferSelect;
+
+// ── Help Desk / Reactive Maintenance ─────────────────────────────────────────
+
+export const helpDeskTickets = pgTable("help_desk_tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketNumber: text("ticket_number"),          // e.g. "HD-001", auto-generated on create
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category"),                   // maintenance | it | facilities | safety | other
+  priority: text("priority"),                   // low | medium | high | urgent
+  status: text("status").notNull().default("open"), // open | in_progress | pending | resolved | closed
+  location: text("location"),
+  assetId: text("asset_id"),
+  reportedByName: text("reported_by_name"),
+  reportedByEmail: text("reported_by_email"),
+  assignedTo: text("assigned_to"),
+  resolutionNotes: text("resolution_notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  resolvedAt: timestamp("resolved_at"),
+});
+
+export const insertHelpDeskTicketSchema = createInsertSchema(helpDeskTickets).omit({ id: true, ticketNumber: true, createdAt: true, updatedAt: true });
+export type InsertHelpDeskTicket = z.infer<typeof insertHelpDeskTicketSchema>;
+export type HelpDeskTicket = typeof helpDeskTickets.$inferSelect;
 
 export type BiostarDevice = typeof biostarDevices.$inferSelect;

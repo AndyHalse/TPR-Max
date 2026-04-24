@@ -1,0 +1,51 @@
+I'm adding a Help Desk (reactive maintenance / fault reporting) module to TPR Max.
+
+This follows exactly the same pattern as the PPM module. Here's what I need you to do:
+
+**1. Add a feature toggle to the company_settings schema in `shared/schema.ts`**
+
+Find the block of feature toggles (around line 480, where `featurePPM` is defined) and add this new line alongside them:
+
+  featureHelpDesk: boolean("feature_help_desk").default(false),
+
+**2. Add a database migration in `server/migrationRunner.ts`**
+
+Add a new migration (follow the same pattern as the PPM migration and others) that:
+- Adds the `feature_help_desk` boolean column (DEFAULT false) to `company_settings`
+- Creates a new `help_desk_tickets` table with these columns:
+  - id (UUID, primary key, auto-generated)
+  - ticket_number (TEXT, auto-incremented ref like "HD-001")
+  - title (TEXT, not null)
+  - description (TEXT)
+  - category (TEXT) — values: "maintenance", "it", "facilities", "safety", "other"
+  - priority (TEXT) — values: "low", "medium", "high", "urgent"
+  - status (TEXT, default "open") — values: "open", "in_progress", "pending", "resolved", "closed"
+  - location (TEXT) — free text, e.g. "2nd floor kitchen"
+  - asset_id (TEXT) — optional link to PPM asset
+  - reported_by_name (TEXT)
+  - reported_by_email (TEXT)
+  - assigned_to (TEXT)
+  - resolution_notes (TEXT)
+  - created_at (TIMESTAMP, default NOW)
+  - updated_at (TIMESTAMP, default NOW)
+  - resolved_at (TIMESTAMP, nullable)
+
+**3. Also add this to `server/customerDatabase.ts`**
+
+In the block where other feature columns are ensured (around where `feature_ppm` is handled), add:
+  await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_help_desk BOOLEAN DEFAULT false`);
+
+**4. Add API routes in `server/routes.ts`**
+
+Follow the exact same pattern as `/api/ppm/assets`. Add these routes:
+
+- GET /api/helpdesk/tickets — return all tickets for the customer schema, newest first
+- POST /api/helpdesk/tickets — create a new ticket (auto-generate ticket_number as HD-XXX)
+- GET /api/helpdesk/tickets/:id — get a single ticket
+- PUT /api/helpdesk/tickets/:id — update a ticket (status, assigned_to, resolution_notes, etc.)
+- DELETE /api/helpdesk/tickets/:id — delete a ticket
+- GET /api/helpdesk/stats — return counts grouped by status (for dashboard badge)
+
+All routes must use `requireAuth` middleware. Pull the customer schema from the session the same way PPM routes do.
+
+Do not build the UI yet. Just the schema, migration, and API.
