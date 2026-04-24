@@ -1120,6 +1120,12 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           error: 'customerId, companyName, and adminUsername are required for development customer creation' 
         });
       }
+
+      // Set DEV_PROVISIONING_PASSWORD in your .env file for local development
+      const devProvPassword = process.env.DEV_PROVISIONING_PASSWORD;
+      if (!devProvPassword) {
+        return res.status(500).json({ error: 'DEV_PROVISIONING_PASSWORD not set' });
+      }
       
       console.log(`🔧 Creating development customer: ${customerId} - ${companyName}`);
       
@@ -1129,7 +1135,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
         contactEmail: `dev+${customerId}@visigatepro.local`,
         adminUsername,
         adminEmail: `admin+${customerId}@visigatepro.local`,
-        adminPassword: 'DevPassword123!',
+        adminPassword: devProvPassword,
         adminFirstName: 'Admin',
         adminLastName: 'User',
         planType: 'trial',
@@ -1153,7 +1159,7 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
           adminCredentials: {
             companyName: response.customer.companyName,
             username: adminUsername,
-            password: 'DevPassword123!' // Only in development
+            password: devProvPassword // Only in development
           }
         }
       });
