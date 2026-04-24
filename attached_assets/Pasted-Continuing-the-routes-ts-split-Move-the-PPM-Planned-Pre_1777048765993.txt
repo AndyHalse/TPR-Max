@@ -1,0 +1,50 @@
+Continuing the routes.ts split. Move the PPM (Planned Preventative 
+Maintenance) routes. These are well-contained between lines 28132 and 30517.
+
+In server/routes.ts, the PPM section includes:
+  The calcNextDueDate helper function     (line 28132)
+  app.use('/api/ppm', requireAuth, requirePPMFeature)  (line 28166)
+  All /api/ppm/... route handlers         (lines 28169–30064)
+  The PPM daily cron                      (lines 30065–30517)
+
+IMPORTANT — the requirePPMFeature middleware const is also defined in 
+this section (line 28152). Move it with the routes.
+
+IMPORTANT — PPM routes use the shared state from server/routeState.ts:
+  ppmTokenCache, ppmTokenCacheGet, ppmTokenCacheSet, ppmTokenCacheEvict
+  ppmPublicRateLimit
+Import all from '../routeState'.
+
+Do the following:
+
+1. In server/routes/ppm.ts:
+   import type { Express } from 'express';
+   import { ppmTokenCacheGet, ppmTokenCacheSet, ppmTokenCacheEvict, 
+            ppmPublicRateLimit } from '../routeState';
+   // Other imports: requireAuth, databaseService, customerDbService,
+   // emailService, ObjectStorageService, logger, z, cron (node-cron),
+   // isolatedSchema (ppmAssets, ppmAssetGroups, ppmMaintenanceTemplates,
+   // ppmSchedules, ppmWorkOrders tables)
+
+   // Define helpers before export:
+   function calcNextDueDate(...) { ... }
+   const requirePPMFeature = async (req, res, next) => { ... }
+
+   export function registerPPMRoutes(app: Express): void {
+     app.use('/api/ppm', requireAuth, requirePPMFeature);
+     // Paste all route handlers
+     // Paste the PPM daily cron setup at the end
+   }
+
+2. Cut the entire block (calcNextDueDate through end of cron) from routes.ts.
+   Search for '/api/ppm' in routes.ts after cutting to confirm zero remain.
+
+3. Fix relative import paths.
+
+4. In server/routes/index.ts add the import and call.
+
+5. Test:
+   - View the PPM assets list
+   - Create a work order and mark it as Completed
+   - Confirm the schedule nextDueDate advances correctly
+   - Access a contractor's public work order link
