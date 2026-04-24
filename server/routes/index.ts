@@ -9,11 +9,16 @@ import { registerMeetingRoomRoutes } from './meetingRooms';
 import { registerReportRoutes } from './reports';
 import { registerRamsRoutes } from './rams';
 import { registerLoneWorkerRoutes } from './loneWorker';
+import { registerSettingsRoutes } from './settings';
 
 // Feature route modules will be registered here as they are migrated.
 // Billing routes are already split: see server/billingRoutes.ts
 
-export async function registerSplitRoutes(app: Express, server: Server): Promise<void> {
+export async function registerSplitRoutes(
+  app: Express,
+  server: Server,
+  setupAutomaticDailyReset?: (customerId?: string) => Promise<void>
+): Promise<void> {
   registerAuthRoutes(app);
   registerPlatformAdminRoutes(app);
   registerOnboardingRoutes(app);
@@ -23,5 +28,6 @@ export async function registerSplitRoutes(app: Express, server: Server): Promise
   registerReportRoutes(app);
   registerRamsRoutes(app);
   registerLoneWorkerRoutes(app, server);
+  registerSettingsRoutes(app, { setupAutomaticDailyReset });
   // Domain route modules will be added here as each phase of the split is completed
 }
