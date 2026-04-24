@@ -28117,7 +28117,7 @@ This is an automated notification from your visitor management system.`;
 
   // ── PPM (Planned Preventative Maintenance) routes ───────────────────────────
 
-  // Helper: calculate nextDueDate from startDate + frequency
+  // Helper: calculate nextDueDate from a base date + frequency
   function calcNextDueDate(startDate: string, frequency: string, customDays?: number | null): string {
     const d = new Date(startDate);
     if (isNaN(d.getTime())) return startDate;
@@ -28125,7 +28125,12 @@ This is an automated notification from your visitor management system.`;
       case "weekly":    d.setDate(d.getDate() + 7); break;
       case "monthly":   d.setMonth(d.getMonth() + 1); break;
       case "quarterly": d.setMonth(d.getMonth() + 3); break;
-      case "annual":    d.setFullYear(d.getFullYear() + 1); break;
+      case "biannual":
+      case "semi-annual":
+      case "biannually": d.setMonth(d.getMonth() + 6); break;
+      case "annual":
+      case "annually":
+      case "yearly":    d.setFullYear(d.getFullYear() + 1); break;
       case "custom":    d.setDate(d.getDate() + (customDays ?? 30)); break;
       default:          d.setMonth(d.getMonth() + 1); break;
     }
@@ -28539,6 +28544,30 @@ This is an automated notification from your visitor management system.`;
         updates.overdueAlertedAt = null;
       }
       const [row] = await custDb.update(isolatedSchema.ppmWorkOrders).set(updates).where(eq(isolatedSchema.ppmWorkOrders.id, id)).returning();
+
+      // Advance the linked schedule's nextDueDate when a work order is marked completed
+      if (updates.status === "completed" && row?.scheduleId) {
+        try {
+          const [schedule] = await custDb.select()
+            .from(isolatedSchema.ppmSchedules)
+            .where(eq(isolatedSchema.ppmSchedules.id, row.scheduleId))
+            .limit(1);
+          if (schedule?.nextDueDate) {
+            const newDue = calcNextDueDate(schedule.nextDueDate, schedule.frequency, schedule.customDays ?? undefined);
+            await custDb.update(isolatedSchema.ppmSchedules)
+              .set({
+                nextDueDate: newDue,
+                status: "scheduled",
+                lastCompletedDate: new Date().toISOString().split("T")[0],
+              })
+              .where(eq(isolatedSchema.ppmSchedules.id, schedule.id));
+            console.log(`✅ [PPM] Schedule ${schedule.id} advanced: ${schedule.nextDueDate} → ${newDue}`);
+          }
+        } catch (schedErr) {
+          console.error("⚠️ [PPM] Failed to advance schedule after work order completion:", schedErr);
+        }
+      }
+
       res.json(row);
     } catch (error: unknown) {
       console.error("PUT /api/ppm/work-orders/:id", error);
@@ -29796,6 +29825,30 @@ ${wo.completionNotes ? `
         // Evict old token, cache the new one
         ppmTokenCacheEvict(token);
         ppmTokenCacheSet(nextToken, customerId, nextExpiresAt);
+
+        // Advance the linked schedule's nextDueDate when contractor marks work order completed
+        if (status === "completed" && updated.scheduleId) {
+          try {
+            const [schedule] = await custDb.select()
+              .from(isolatedSchema.ppmSchedules)
+              .where(eq(isolatedSchema.ppmSchedules.id, updated.scheduleId))
+              .limit(1);
+            if (schedule?.nextDueDate) {
+              const newDue = calcNextDueDate(schedule.nextDueDate, schedule.frequency, schedule.customDays ?? undefined);
+              await custDb.update(isolatedSchema.ppmSchedules)
+                .set({
+                  nextDueDate: newDue,
+                  status: "scheduled",
+                  lastCompletedDate: new Date().toISOString().split("T")[0],
+                })
+                .where(eq(isolatedSchema.ppmSchedules.id, schedule.id));
+              console.log(`✅ [PPM Public] Schedule ${schedule.id} advanced: ${schedule.nextDueDate} → ${newDue}`);
+            }
+          } catch (schedErr) {
+            console.error("⚠️ [PPM Public] Failed to advance schedule after contractor completion:", schedErr);
+          }
+        }
+
         const { accessToken: _t, accessTokenExpiresAt: _e, ...safeUpdated } = updated;
         return { ...safeUpdated, nextToken };
       };
@@ -30279,12 +30332,15 @@ ${wo.completionNotes ? `
 
           for (const schedule of schedules) {
             if (!schedule.nextDueDate || schedule.nextDueDate > todayStr) continue;
-            // Check by (scheduleId, dueDate) so recurring schedules generate a new WO each cycle
+            // Check by (scheduleId, dueDate) so recurring schedules generate a new WO each cycle.
+            // Exclude completed/cancelled WOs so a newly-due cycle always gets its own work order.
             const [existing] = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
               .from(isolatedSchema.ppmWorkOrders)
               .where(and(
                 eq(isolatedSchema.ppmWorkOrders.scheduleId, schedule.id),
-                eq(isolatedSchema.ppmWorkOrders.dueDate, schedule.nextDueDate)
+                eq(isolatedSchema.ppmWorkOrders.dueDate, schedule.nextDueDate),
+                ne(isolatedSchema.ppmWorkOrders.status, "completed"),
+                ne(isolatedSchema.ppmWorkOrders.status, "cancelled")
               ));
             if (existing) continue;
             const woToken = randomBytes(24).toString("hex");

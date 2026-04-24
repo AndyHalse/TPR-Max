@@ -1,0 +1,42 @@
+In the PPM module there is a logic gap: when a contractor marks a work order 
+as "Completed", the linked schedule's nextDueDate is never updated. 
+This means the schedule keeps appearing as overdue instead of resetting 
+to the next occurrence.
+
+Do the following:
+
+1. Find the work order status update endpoint in server/routes.ts.
+   Search for the PUT route handling PPM work order status changes 
+   (look for 'ppm' and 'status' and 'Completed' near each other).
+
+2. In the section where status is being set to 'Completed', add logic to 
+   advance the schedule's nextDueDate. After saving the completed status:
+
+   a. Look up the work order's linked scheduleId (if it has one — 
+      manually created work orders may not have a schedule).
+   b. If a scheduleId exists, fetch the schedule to get its frequency field.
+   c. Calculate the new nextDueDate based on the current nextDueDate 
+      and the frequency:
+      - 'weekly'     → add 7 days
+      - 'monthly'    → add 1 month
+      - 'quarterly'  → add 3 months  
+      - 'biannual'   → add 6 months
+      - 'annual'     → add 1 year
+      - 'custom'     → add the schedule's customFrequencyDays days
+   d. Update the schedule row: set nextDueDate to the new date, 
+      set status to 'upcoming' (or 'due_soon' if within 30 days), 
+      and set lastCompletedDate to today.
+
+3. Also update the PPM daily cron job (search for the section that 
+   auto-generates work orders from schedules, around line 29944).
+   Confirm that the cron only generates a new work order if no open 
+   work order already exists for that schedule (status not 'Completed' 
+   and not 'Cancelled'). If this check is missing, add it — otherwise 
+   the cron will create duplicate work orders for recently completed schedules.
+
+4. Test by:
+   - Creating a schedule with 'monthly' frequency
+   - Manually creating a work order from it
+   - Marking the work order as Completed
+   - Checking that the schedule's nextDueDate has moved forward by one month
+   - Confirming no duplicate work order appears
