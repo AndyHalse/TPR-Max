@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Headphones } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Brain, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
@@ -234,7 +234,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/muster", icon: ListChecks, label: "Muster List", featureKey: "featureMusterList", defaultOn: true },
     { path: "/incident-reports", icon: ScrollText, label: "Incident Reports", featureKey: "featureIncidentReports", defaultOn: true },
     { path: "/ppm", icon: Wrench, label: "PPM", featureKey: "featurePPM", defaultOn: false, badge: ppmGapsCount > 0 ? ppmGapsCount : undefined },
-    { path: "/helpdesk", icon: Headphones, label: "Help Desk", featureKey: "featureHelpDesk", defaultOn: false },
+    { path: "/helpdesk", icon: Ticket, label: "Help Desk", featureKey: "featureHelpDesk", defaultOn: false },
     { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw" },
     { path: "/reports", icon: FileText, label: "Reports", featureKey: "featureReports", defaultOn: true },
     { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings", defaultOn: true },
