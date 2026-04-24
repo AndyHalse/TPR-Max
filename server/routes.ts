@@ -11180,28 +11180,31 @@ ${evacuationPhotosData.length > 0 ? `
         const fingerprint = generateKeyFingerprint(openaiKey);
         const last4 = getKeyLast4(openaiKey);
         
-        // Check if key already exists by fingerprint
-        const existingKey = await databaseService.getApiKeyByFingerprint(context, fingerprint);
-        if (existingKey && existingKey.serviceType === 'openai') {
-          return res.status(400).json({ error: "This OpenAI key is already registered" });
+        // If this exact key is already stored for this service, treat as success (idempotent)
+        const existingByFingerprintOpenai = await databaseService.getApiKeyByFingerprint(context, fingerprint);
+        if (existingByFingerprintOpenai) {
+          if (existingByFingerprintOpenai.serviceType === 'openai') {
+            results.push({ service: 'openai', success: true, id: existingByFingerprintOpenai.id });
+          } else {
+            return res.status(400).json({ error: "This key is already registered for a different service" });
+          }
+        } else {
+          const keyData = {
+            keyName: 'OpenAI API Key',
+            keyDescription: 'OpenAI API key for GPT models and text generation',
+            serviceType: 'openai',
+            last4,
+            encryptedKey: encrypted.encryptedData,
+            initializationVector: encrypted.iv,
+            authTag: encrypted.authTag,
+            keyFingerprint: fingerprint,
+            status: 'active',
+            createdBy: req.user?.id || username,
+            decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'openai')])
+          };
+          const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
+          results.push({ service: 'openai', success: true, id: savedKey.id });
         }
-        
-        const keyData = {
-          keyName: 'OpenAI API Key',
-          keyDescription: 'OpenAI API key for GPT models and text generation',
-          serviceType: 'openai',
-          last4,
-          encryptedKey: encrypted.encryptedData,
-          initializationVector: encrypted.iv,
-          authTag: encrypted.authTag, // FIXED: Store authTag for GCM decryption
-          keyFingerprint: fingerprint,
-          status: 'active',
-          createdBy: req.user?.id || username,
-          decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'openai')])
-        };
-        
-        const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
-        results.push({ service: 'openai', success: true, id: savedKey.id });
       }
       
       // Process Gemini key if provided
@@ -11214,28 +11217,31 @@ ${evacuationPhotosData.length > 0 ? `
         const fingerprint = generateKeyFingerprint(geminiKey);
         const last4 = getKeyLast4(geminiKey);
         
-        // Check if key already exists by fingerprint
-        const existingKey = await databaseService.getApiKeyByFingerprint(context, fingerprint);
-        if (existingKey && existingKey.serviceType === 'gemini') {
-          return res.status(400).json({ error: "This Gemini key is already registered" });
+        // If this exact key is already stored for this service, treat as success (idempotent)
+        const existingByFingerprintGemini = await databaseService.getApiKeyByFingerprint(context, fingerprint);
+        if (existingByFingerprintGemini) {
+          if (existingByFingerprintGemini.serviceType === 'gemini') {
+            results.push({ service: 'gemini', success: true, id: existingByFingerprintGemini.id });
+          } else {
+            return res.status(400).json({ error: "This key is already registered for a different service" });
+          }
+        } else {
+          const keyData = {
+            keyName: 'Gemini API Key',
+            keyDescription: 'Google Gemini API key for text and image generation',
+            serviceType: 'gemini',
+            last4,
+            encryptedKey: encrypted.encryptedData,
+            initializationVector: encrypted.iv,
+            authTag: encrypted.authTag,
+            keyFingerprint: fingerprint,
+            status: 'active',
+            createdBy: req.user?.id || username,
+            decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'gemini')])
+          };
+          const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
+          results.push({ service: 'gemini', success: true, id: savedKey.id });
         }
-        
-        const keyData = {
-          keyName: 'Gemini API Key',
-          keyDescription: 'Google Gemini API key for text and image generation',
-          serviceType: 'gemini',
-          last4,
-          encryptedKey: encrypted.encryptedData,
-          initializationVector: encrypted.iv,
-          authTag: encrypted.authTag, // FIXED: Store authTag for GCM decryption
-          keyFingerprint: fingerprint,
-          status: 'active',
-          createdBy: req.user?.id || username,
-          decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'gemini')])
-        };
-        
-        const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
-        results.push({ service: 'gemini', success: true, id: savedKey.id });
       }
 
       // Process Claude key if provided
@@ -11248,61 +11254,31 @@ ${evacuationPhotosData.length > 0 ? `
         const fingerprint = generateKeyFingerprint(claudeKey);
         const last4 = getKeyLast4(claudeKey);
 
-        const existingKey = await databaseService.getApiKeyByFingerprint(context, fingerprint);
-        if (existingKey && existingKey.serviceType === 'claude') {
-          return res.status(400).json({ error: "This Claude key is already registered" });
+        // If this exact key is already stored for this service, treat as success (idempotent)
+        const existingByFingerprintClaude = await databaseService.getApiKeyByFingerprint(context, fingerprint);
+        if (existingByFingerprintClaude) {
+          if (existingByFingerprintClaude.serviceType === 'claude') {
+            results.push({ service: 'claude', success: true, id: existingByFingerprintClaude.id });
+          } else {
+            return res.status(400).json({ error: "This key is already registered for a different service" });
+          }
+        } else {
+          const keyData = {
+            keyName: 'Claude API Key',
+            keyDescription: 'Anthropic Claude API key for document scanning and AI assistance',
+            serviceType: 'claude',
+            last4,
+            encryptedKey: encrypted.encryptedData,
+            initializationVector: encrypted.iv,
+            authTag: encrypted.authTag,
+            keyFingerprint: fingerprint,
+            status: 'active',
+            createdBy: req.user?.id || username,
+            decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'claude')])
+          };
+          const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
+          results.push({ service: 'claude', success: true, id: savedKey.id });
         }
-
-        const keyData = {
-          keyName: 'Claude API Key',
-          keyDescription: 'Anthropic Claude API key for document scanning and AI assistance',
-          serviceType: 'claude',
-          last4,
-          encryptedKey: encrypted.encryptedData,
-          initializationVector: encrypted.iv,
-          authTag: encrypted.authTag,
-          keyFingerprint: fingerprint,
-          status: 'active',
-          createdBy: req.user?.id || username,
-          decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'claude')])
-        };
-
-        const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
-        results.push({ service: 'claude', success: true, id: savedKey.id });
-      }
-      
-      // Process Claude key if provided
-      if (claudeKey && claudeKey.trim()) {
-        if (!validateApiKeyFormat(claudeKey, 'claude')) {
-          return res.status(400).json({ error: "Invalid Claude API key format. Keys must start with 'sk-ant-'" });
-        }
-        
-        const encrypted = encryptData(claudeKey);
-        const fingerprint = generateKeyFingerprint(claudeKey);
-        const last4 = getKeyLast4(claudeKey);
-        
-        // Check if key already exists by fingerprint
-        const existingKey = await databaseService.getApiKeyByFingerprint(context, fingerprint);
-        if (existingKey && existingKey.serviceType === 'claude') {
-          return res.status(400).json({ error: "This Claude key is already registered" });
-        }
-        
-        const keyData = {
-          keyName: 'Claude API Key',
-          keyDescription: 'Anthropic Claude API key for text generation',
-          serviceType: 'claude',
-          last4,
-          encryptedKey: encrypted.encryptedData,
-          initializationVector: encrypted.iv,
-          authTag: encrypted.authTag,
-          keyFingerprint: fingerprint,
-          status: 'active',
-          createdBy: req.user?.id || username,
-          decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'claude')])
-        };
-        
-        const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
-        results.push({ service: 'claude', success: true, id: savedKey.id });
       }
       
       res.json({ 
