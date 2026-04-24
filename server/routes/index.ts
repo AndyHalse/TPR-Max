@@ -7,5 +7,5 @@ import { registerAuthRoutes } from './auth';
 
 export async function registerSplitRoutes(app: Express, server: Server): Promise<void> {
   registerAuthRoutes(app);
-  // Modules will be imported and called here as each phase completes
+  // Domain route modules will be added here as each phase of the split is completed
 }

@@ -104,6 +104,7 @@ import { biostarService } from "./biostarService";
 import { paxtonService } from "./paxtonService";
 import { customerOnboardingService } from "./customerOnboardingService";
 import { registerBillingRoutes } from "./billingRoutes";
+import { registerSplitRoutes } from "./routes/index";
 import { stripeService } from "./stripeService";
 import cron from "node-cron";
 
@@ -138,6 +139,10 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   
   // Register billing routes (includes Stripe webhook)
   registerBillingRoutes(app);
+
+  // Register split route modules (auth and future domain modules)
+  const server = existingServer ?? createServer(app);
+  await registerSplitRoutes(app, server);
   
   // Public Induction Preview Routes (no auth required) - DEV ONLY
   if (process.env.NODE_ENV === 'development') {
