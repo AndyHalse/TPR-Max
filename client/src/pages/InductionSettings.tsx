@@ -79,6 +79,13 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  interface AiKeyStatus { hasKey: boolean; isActive: boolean; status: string; }
+  interface AiKeysResponse { openai: AiKeyStatus; gemini: AiKeyStatus; claude: AiKeyStatus; }
+  const { data: aiKeys } = useQuery<AiKeysResponse>({
+    queryKey: ['/api/settings/ai-keys'],
+    staleTime: 60000,
+  });
+
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus>({ status: 'idle', step: 0, totalSteps: 5, message: '' });
   const [showQuestions, setShowQuestions] = useState(false);
   const [showSendLink, setShowSendLink] = useState(false);
@@ -779,6 +786,17 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                   Using company AI setting — change in Settings → AI
                 </p>
               )}
+              {(() => {
+                const effectiveModel = companySettings?.openaiModel || settings?.modelType || '';
+                const isClaude = effectiveModel.startsWith('claude-');
+                const missingClaudeKey = isClaude && aiKeys !== undefined && !aiKeys.claude.hasKey;
+                return missingClaudeKey ? (
+                  <div className="flex items-start gap-1.5 p-2 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-md text-yellow-800 dark:text-yellow-300">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-yellow-600 dark:text-yellow-400" />
+                    <span>Claude is selected but no Anthropic API key is configured. Add one in <strong>Settings → Integrations</strong>.</span>
+                  </div>
+                ) : null;
+              })()}
               <p className="text-purple-600 dark:text-purple-300 leading-relaxed">
                 AI model via Replit AI Integrations — billed to Replit credits, no personal API key required. GPT-Image-1 generates photorealistic workplace safety images.
               </p>
