@@ -1,0 +1,62 @@
+Continuing the routes.ts split. Move the emergency and evacuation routes.
+These are SAFETY CRITICAL. Test extremely carefully.
+
+In server/routes.ts, emergency routes run from approximately lines 3003–7756 
+(approximately 4,750 lines). They cover all paths starting with:
+  /api/muster/...
+  /api/emergency/...
+  /api/evacuation/...
+  /api/incident-monitor/:urlId
+  /api/incident-reports/...
+  /mark-safe/:token          (bare path — no /api prefix)
+  /api/fire-marshal-muster/...
+  /api/zones/...
+  All zone sweep and muster point routes
+
+IMPORTANT — this helper function is defined inside registerRoutes 
+and used ONLY by emergency routes. Move it with them:
+  generateSafetyToken(...)   (approximately line 3303)
+
+IMPORTANT — these routes use the shared state from server/routeState.ts:
+  biostarLiveLog             (for BioStar-integrated check-in tracking)
+  pushBiostarEvent           (called in evacuation webhook handlers)
+Import both from '../routeState'.
+
+Do the following:
+
+1. In server/routes/emergency.ts:
+   import type { Express } from 'express';
+   import type { Server } from 'http';
+   import { biostarLiveLog, pushBiostarEvent } from '../routeState';
+   // All other imports: requireAuth, requireAuthOrFireMarshal, 
+   // databaseService, simpleDatabaseService, customerDbService,
+   // emailService, EmergencyEmailService, websocketService,
+   // ObjectStorageService, logger, z, crypto, cron (if emergency cron exists),
+   // relevant schema imports
+
+   // Define helper before export:
+   function generateSafetyToken(...) { ... }
+
+   export function registerEmergencyRoutes(app: Express, server: Server): void {
+     // Paste all route handlers
+   }
+
+2. Cut all handlers from routes.ts.
+   Search for '/api/emergency' and '/api/muster' in routes.ts after 
+   cutting to confirm zero remain.
+
+3. Fix relative import paths.
+
+4. In server/routes/index.ts add the import and call, passing server.
+
+5. Test VERY carefully:
+   - Activate an evacuation drill
+   - Load the Fire Marshal mobile view in a separate browser (no login)
+   - Mark a person as safe via email token link
+   - Mark all safe
+   - End the drill
+   - Confirm the drill record appears in incident reports
+   - Confirm the live dashboard updates in real time
+
+If ANY of the above fail, stop and report the error before continuing 
+to the next prompt.
