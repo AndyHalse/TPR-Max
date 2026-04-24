@@ -305,6 +305,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     backfillPpmDocScannedAtMigration,
     addReportsDataColumnMigration,
     addHelpDeskMigration,
+    addAiKeyColumnsMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -2136,5 +2137,35 @@ const addHelpDeskMigration: Migration = {
     } catch (err: any) {
       console.log(`⚠️ [044] help_desk_tickets table: ${err.message?.substring(0, 80)}`);
     }
+  }
+};
+
+const addAiKeyColumnsMigration: Migration = {
+  version: '20260424_045_add_ai_key_columns',
+  description: 'Add missing columns to customer_api_keys for AI provider key management',
+  async up(db: any) {
+    const cols = [
+      `ALTER TABLE customer_api_keys ADD COLUMN IF NOT EXISTS service_type TEXT`,
+      `ALTER TABLE customer_api_keys ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active'`,
+      `ALTER TABLE customer_api_keys ADD COLUMN IF NOT EXISTS encrypted_key TEXT`,
+      `ALTER TABLE customer_api_keys ADD COLUMN IF NOT EXISTS initialization_vector TEXT`,
+      `ALTER TABLE customer_api_keys ADD COLUMN IF NOT EXISTS auth_tag TEXT`,
+      `ALTER TABLE customer_api_keys ADD COLUMN IF NOT EXISTS last4 TEXT`,
+      `ALTER TABLE customer_api_keys ADD COLUMN IF NOT EXISTS key_version INTEGER DEFAULT 1`,
+      `ALTER TABLE customer_api_keys ADD COLUMN IF NOT EXISTS decrypt_audit_log TEXT DEFAULT '[]'`,
+      `ALTER TABLE customer_api_keys ADD COLUMN IF NOT EXISTS key_description TEXT`,
+      `ALTER TABLE customer_api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMP`,
+      // Drop NOT NULL constraints on legacy columns so new inserts (which omit them) don't fail
+      `ALTER TABLE customer_api_keys ALTER COLUMN service DROP NOT NULL`,
+      `ALTER TABLE customer_api_keys ALTER COLUMN key_type DROP NOT NULL`,
+      `ALTER TABLE customer_api_keys ALTER COLUMN encrypted_api_key DROP NOT NULL`,
+      `ALTER TABLE customer_api_keys ALTER COLUMN encryption_iv DROP NOT NULL`,
+    ];
+    for (const sql of cols) {
+      try { await db.execute(sql); } catch (err: any) {
+        console.log(`⚠️ [045] customer_api_keys column: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    console.log('✅ [045] customer_api_keys AI key columns ensured');
   }
 };

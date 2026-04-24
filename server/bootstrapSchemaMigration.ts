@@ -1238,10 +1238,10 @@ export const bootstrapSchemaMigration: Migration = {
       CREATE TABLE IF NOT EXISTS customer_api_keys (
         id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
         key_name TEXT NOT NULL,
-        service TEXT NOT NULL,
-        key_type TEXT NOT NULL,
-        encrypted_api_key TEXT NOT NULL,
-        encryption_iv TEXT NOT NULL,
+        service TEXT,
+        key_type TEXT,
+        encrypted_api_key TEXT,
+        encryption_iv TEXT,
         key_fingerprint TEXT NOT NULL,
         is_active BOOLEAN NOT NULL DEFAULT true,
         is_test_key BOOLEAN NOT NULL DEFAULT false,
@@ -1258,7 +1258,17 @@ export const bootstrapSchemaMigration: Migration = {
         description TEXT,
         tags TEXT[] DEFAULT ARRAY[]::TEXT[],
         created_at TIMESTAMP NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        service_type TEXT,
+        key_description TEXT,
+        status TEXT DEFAULT 'active',
+        encrypted_key TEXT,
+        initialization_vector TEXT,
+        auth_tag TEXT,
+        last4 TEXT,
+        key_version INTEGER DEFAULT 1,
+        decrypt_audit_log TEXT DEFAULT '[]',
+        last_used_at TIMESTAMP
       )
     `);
 

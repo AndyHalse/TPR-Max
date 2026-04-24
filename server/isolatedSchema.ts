@@ -1414,31 +1414,42 @@ export const customerApiKeys = pgTable("customer_api_keys", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   // API Key Details
   keyName: text("key_name").notNull(), // User-friendly name for the key
-  service: text("service").notNull(), // Service/integration name (e.g., "stripe", "openai", "twilio")
-  keyType: text("key_type").notNull(), // "api_key", "secret_key", "auth_token", "webhook_secret"
+  service: text("service"), // Legacy: service name
+  keyType: text("key_type"), // Legacy: key type
+  // AI Provider key management (new columns added by migration 045)
+  serviceType: text("service_type"), // "openai", "gemini", "claude"
+  keyDescription: text("key_description"), // Optional description
   // Encrypted Storage - CRITICAL: Keys must be encrypted at rest
-  encryptedApiKey: text("encrypted_api_key").notNull(), // AES-256 encrypted API key
-  encryptionIv: text("encryption_iv").notNull(), // Initialization vector for encryption
-  keyFingerprint: text("key_fingerprint").notNull(), // SHA-256 hash for verification (first 8 chars visible)
+  encryptedApiKey: text("encrypted_api_key"), // Legacy encrypted storage
+  encryptionIv: text("encryption_iv"), // Legacy IV
+  encryptedKey: text("encrypted_key"), // AES-256-GCM encrypted key
+  initializationVector: text("initialization_vector"), // GCM IV
+  authTag: text("auth_tag"), // GCM authentication tag
+  keyFingerprint: text("key_fingerprint").notNull(), // SHA-256 hash for deduplication
+  last4: text("last4"), // Last 4 chars for display
   // Key Management
-  isActive: boolean("is_active").notNull().default(true),
-  isTestKey: boolean("is_test_key").notNull().default(false), // Sandbox/test environment key
+  keyVersion: integer("key_version").default(1), // For rotation tracking
+  isActive: boolean("is_active").notNull().default(true), // Legacy active flag
+  status: text("status").default("active"), // active, revoked
   expiresAt: timestamp("expires_at"), // Optional expiration date
   // Usage Tracking
-  lastUsed: timestamp("last_used"),
+  lastUsed: timestamp("last_used"), // Legacy
+  lastUsedAt: timestamp("last_used_at"), // Preferred last-used timestamp
   usageCount: integer("usage_count").notNull().default(0),
   lastRequestIp: text("last_request_ip"),
   // Security & Audit
-  createdBy: varchar("created_by").references(() => users.id),
-  rotatedFrom: varchar("rotated_from"), // Previous key ID if rotated
-  rotationReason: text("rotation_reason"), // Reason for key rotation
+  createdBy: varchar("created_by"), // User who created/saved the key
+  rotatedFrom: varchar("rotated_from"),
+  rotationReason: text("rotation_reason"),
+  decryptAuditLog: text("decrypt_audit_log"), // JSON array of audit entries
   // Key Permissions & Scope
-  permissions: text("permissions").array().notNull().default([]), // Scoped permissions for this key
-  allowedIps: text("allowed_ips").array().default([]), // IP whitelist (optional)
-  rateLimit: integer("rate_limit").default(1000), // Requests per hour limit
+  permissions: text("permissions").array().notNull().default([]),
+  allowedIps: text("allowed_ips").array().default([]),
+  rateLimit: integer("rate_limit").default(1000),
   // Metadata
-  description: text("description"), // Purpose or use case description
-  tags: text("tags").array().default([]), // Tags for organization
+  description: text("description"),
+  tags: text("tags").array().default([]),
+  isTestKey: boolean("is_test_key").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -11197,7 +11197,7 @@ ${evacuationPhotosData.length > 0 ? `
           keyFingerprint: fingerprint,
           status: 'active',
           createdBy: req.user?.id || username,
-          decryptAuditLog: [generateAuditLogEntry('encrypt', req.user?.id || username, 'openai')]
+          decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'openai')])
         };
         
         const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
@@ -11231,7 +11231,7 @@ ${evacuationPhotosData.length > 0 ? `
           keyFingerprint: fingerprint,
           status: 'active',
           createdBy: req.user?.id || username,
-          decryptAuditLog: [generateAuditLogEntry('encrypt', req.user?.id || username, 'gemini')]
+          decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'gemini')])
         };
         
         const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
@@ -11264,7 +11264,7 @@ ${evacuationPhotosData.length > 0 ? `
           keyFingerprint: fingerprint,
           status: 'active',
           createdBy: req.user?.id || username,
-          decryptAuditLog: [generateAuditLogEntry('encrypt', req.user?.id || username, 'claude')]
+          decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'claude')])
         };
 
         const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
@@ -11298,7 +11298,7 @@ ${evacuationPhotosData.length > 0 ? `
           keyFingerprint: fingerprint,
           status: 'active',
           createdBy: req.user?.id || username,
-          decryptAuditLog: [generateAuditLogEntry('encrypt', req.user?.id || username, 'claude')]
+          decryptAuditLog: JSON.stringify([generateAuditLogEntry('encrypt', req.user?.id || username, 'claude')])
         };
         
         const savedKey = await databaseService.upsertCustomerApiKey(context, keyData);
