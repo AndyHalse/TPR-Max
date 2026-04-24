@@ -803,7 +803,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         {/* AI Model badge */}
         <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
           <Sparkles className="h-3 w-3 text-purple-500 dark:text-purple-400" />
-          <span>Powered by <span className="font-medium text-purple-700 dark:text-purple-400">GPT-5</span> via Replit AI — billed to Replit credits</span>
+          <span>Powered by <span className="font-medium text-purple-700 dark:text-purple-400">{companySettings?.openaiModel || settings?.modelType || 'GPT-5'}</span> via Replit AI — billed to Replit credits</span>
         </div>
 
       </CardContent>
