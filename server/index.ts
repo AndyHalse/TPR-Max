@@ -188,11 +188,8 @@ function generateCSRFToken(): string {
 
 function createCSRFMiddleware() {
   return (req: Request, res: Response, next: NextFunction) => {
-    console.log(`🔍 CSRF Check: ${req.method} ${req.originalUrl}, NODE_ENV: ${process.env.NODE_ENV}`);
-    
     // Skip CSRF for Stripe webhooks (they use signature verification)
     if (req.originalUrl === '/api/stripe/webhook') {
-      console.log(`✅ CSRF EXEMPTION: Stripe webhook`);
       return next();
     }
     
@@ -211,8 +208,6 @@ function createCSRFMiddleware() {
       const emergencyToken = req.headers['x-emergency-token'] as string || req.query.token as string;
       const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
       
-      console.log(`🔍 [MIDDLEWARE] Token extraction: emergencyToken=${req.headers['x-emergency-token'] ? 'YES' : 'NO'}, query=${req.query.token ? 'YES' : 'NO'}, fireMarshalId=${fireMarshalId ? 'YES' : 'NO'}`);
-      
       // Allow if either emergency token OR Fire Marshal URL ID is present
       if (!emergencyToken && !fireMarshalId) {
         console.log(`❌ CSRF/AUTH FAILURE: Emergency endpoint requires valid token or Fire Marshal URL ID`);
@@ -225,9 +220,6 @@ function createCSRFMiddleware() {
       // Store token in request for validation in routes (if present)
       if (emergencyToken) {
         req.emergencyToken = emergencyToken;
-        console.log(`✅ CSRF EXEMPTION: Emergency endpoint with emergency token: ${emergencyToken.substring(0, 20)}...`);
-      } else if (fireMarshalId) {
-        console.log(`✅ CSRF EXEMPTION: Emergency endpoint with Fire Marshal URL ID: ${fireMarshalId}`);
       }
       return next();
     }
@@ -240,10 +232,8 @@ function createCSRFMiddleware() {
       const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
       if (emergencyToken) {
         req.emergencyToken = emergencyToken;
-        console.log(`✅ CSRF EXEMPTION: complete-evacuation with emergency token`);
         return next();
       } else if (fireMarshalId) {
-        console.log(`✅ CSRF EXEMPTION: complete-evacuation with Fire Marshal URL ID`);
         return next();
       }
       // No fire marshal credentials — fall through to standard CSRF validation (admin session)
@@ -257,7 +247,6 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/induction/kiosk') ||
         req.originalUrl.startsWith('/api/muster/safe') ||
         req.originalUrl.startsWith('/api/ppm/work-order/public')) {
-      console.log(`✅ CSRF EXEMPTION: External/public endpoint`);
       return next();
     }
     
@@ -266,7 +255,6 @@ function createCSRFMiddleware() {
         req.originalUrl === '/api/auth/logout' ||
         req.originalUrl.startsWith('/platform-admin/auth') ||
         (process.env.NODE_ENV !== 'production' && req.originalUrl.startsWith('/api/super-admin/'))) {
-      console.log(`✅ CSRF EXEMPTION: Login/admin endpoint`);
       return next();
     }
     
