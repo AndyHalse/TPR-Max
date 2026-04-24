@@ -8173,6 +8173,8 @@ export default function Settings() {
                     { path: "/time-attendance", label: "T&A Report" },
                     { path: "/muster", label: "Muster List" },
                     { path: "/incident-reports", label: "Incident Reports" },
+                    { path: "/ppm", label: "PPM" },
+                    { path: "/helpdesk", label: "Help Desk" },
                     { path: "/martyn-law", label: "Martyn's Law" },
                     { path: "/reports", label: "Reports" },
                     { path: "/induction-settings", label: "Induction Settings" },
