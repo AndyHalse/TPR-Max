@@ -1385,10 +1385,27 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
               if (settings) {
                 const {
                   biostarPassword,
+                  biostarApiKey,
+                  biostarUsername,
+                  biostarBaseUrl,
+                  paxtonPassword,
+                  paxtonClientId,
+                  paxtonUsername,
+                  paxtonClientSecret,
                   smtpPassword,
+                  smtpHost,
+                  smtpPort,
+                  smtpUser,
                   twilioAuthToken,
+                  twilioAccountSid,
+                  twilioPhoneNumber,
+                  eightByXApiKey,
                   eightByXApiSecret,
+                  clueApiKey,
                   clueApiSecret,
+                  openaiApiKey,
+                  geminiApiKey,
+                  sendgridApiKey,
                   ...sanitizedSettings
                 } = settings;
                 companySettings = sanitizedSettings;
@@ -1486,10 +1503,27 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
             if (settings) {
               const {
                 biostarPassword,
+                biostarApiKey,
+                biostarUsername,
+                biostarBaseUrl,
+                paxtonPassword,
+                paxtonClientId,
+                paxtonUsername,
+                paxtonClientSecret,
                 smtpPassword,
+                smtpHost,
+                smtpPort,
+                smtpUser,
                 twilioAuthToken,
+                twilioAccountSid,
+                twilioPhoneNumber,
+                eightByXApiKey,
                 eightByXApiSecret,
+                clueApiKey,
                 clueApiSecret,
+                openaiApiKey,
+                geminiApiKey,
+                sendgridApiKey,
                 ...sanitizedSettings
               } = settings;
               companySettings = sanitizedSettings;
