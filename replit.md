@@ -71,3 +71,28 @@ Preferred communication style: Simple, everyday language.
 - **UK Document Checklist Tab (T004)**: Documents tab on ContractorDetails now shows a structured checklist of all 8 UK document types, grouped by Legally Required / Site Required / Good Practice. Compliance score bar at top. Expiry warnings for docs due within 30 days (⚠️). Upload/Replace/View buttons per document. `GET /api/contractors` extended to include all 8 document types in `documentsStatus`.
 - **RAMS Management (full module)**: Risk Assessment & Method Statement (RAMS) system integrated as 7th tab in ContractorManagement. Schema: `ramsDocuments` extended with versioning (`version`, `previousVersionId`), approval workflow (`approvedBy`, `approvedAt`, `rejectionReason`), job context (`jobDescription`, `siteLocation`, `workCategory`), `requiredBeforeAccess` flag. Two new tables: `ramsAcknowledgements` (worker sign-off with deduplication) and `ramsAuditLog` (full history). 9 API routes (`/api/rams/*`): list, create, update, approve, reject, new-version (archives old), soft-delete, get-acknowledgements, acknowledge, audit-trail, get-single. UI: stat cards, search/filter bar, status badges, inline approve/reject, UploadDialog, ReviewDialog, DetailDialog with 3-tab view (Details / Acknowledgements / Audit Trail), per-company compliance summary.
 - **RAMS linked to Contractor Compliance tab**: `RAMSManagement` component now accepts `companyId` and `embedded` props. When used in `ContractorDetails.tsx`, it: (1) fetches only that contractor's RAMS docs via `GET /api/rams?companyId=...`, (2) hides the company filter and multi-company compliance summary, (3) pre-fills the upload dialog with the contractor's company ID. The hardcoded "RAMs Certification" placeholder in the Compliance tab is replaced by the live `<RAMSManagement companyId={id} embedded />`. The Activity tab now merges RAMS events (uploads, approvals, rejections, new versions) derived from the RAMS docs into the contractor's activity timeline, sorted newest-first, with coloured badge labels and contextual icons.
+
+## Server Route Architecture
+
+The backend route layer has been split from a single monolithic `server/routes.ts` into domain-specific modules under `server/routes/`. Each module exports a `registerXxxRoutes(app, server?)` function. All modules are wired together in `server/routes/index.ts` via `registerSplitRoutes(app, server)`.
+
+**Route modules** (`server/routes/`):
+| File | Domain | Key routes |
+|---|---|---|
+| `auth.ts` | Authentication | `/api/auth/*`, `/api/users/*` |
+| `platformAdmin.ts` | Platform Admin | `/platform-admin/*` |
+| `onboarding.ts` | Customer onboarding | `/api/onboarding/*` |
+| `visitors.ts` | Visitors | `/api/visitors/*`, `/api/pre-bookings/*` |
+| `staff.ts` | Staff | `/api/staff/*` |
+| `contractors.ts` | Contractors | `/api/contractors/*` |
+| `meetingRooms.ts` | Meeting rooms | `/api/meeting-rooms/*` |
+| `reports.ts` | Reports | `/api/reports/*` |
+| `rams.ts` | RAMS | `/api/rams/*` |
+| `loneWorker.ts` | Lone Worker | `/api/lone-worker/*` |
+| `settings.ts` | Settings | `/api/settings/*`, `/api/webhooks/*` |
+| `emergency.ts` | Emergency | `/api/emergency/*`, `/api/evacuation/*` |
+| `induction.ts` | Induction | `/api/induction/*` — also exports `setupAutomaticDailyReset` |
+| `ppm.ts` | PPM | `/api/ppm/*` |
+| `remaining.ts` | All other domains | `/api/ai/*`, `/api/help/*`, `/api/stats`, `/api/analytics/*`, `/api/thermal-passes/*`, `/api/qr-*`, `/api/print-service/*`, `/api/import/*`, `/api/cdm/*`, `/api/helpdesk/*`, `/service-installation-guide` |
+
+`server/routes.ts` is now a thin 63-line shell: runs shared DB migrations, registers billing routes, calls `registerSplitRoutes`, and initialises the WebSocket service. Shared in-memory state (ppmTokenCache, biostarLiveLog, etc.) lives in `server/routeState.ts`.

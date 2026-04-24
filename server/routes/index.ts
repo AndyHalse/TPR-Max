@@ -14,9 +14,7 @@ import { registerContractorRoutes } from './contractors';
 import { registerEmergencyRoutes } from './emergency';
 import { registerInductionRoutes } from './induction';
 import { registerPPMRoutes } from './ppm';
-
-// Feature route modules will be registered here as they are migrated.
-// Billing routes are already split: see server/billingRoutes.ts
+import { registerRemainingRoutes } from './remaining';
 
 export async function registerSplitRoutes(
   app: Express,
@@ -37,5 +35,5 @@ export async function registerSplitRoutes(
   registerEmergencyRoutes(app);
   registerInductionRoutes(app);
   registerPPMRoutes(app);
-  // Domain route modules will be added here as each phase of the split is completed
+  await registerRemainingRoutes(app, server);
 }

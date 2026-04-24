@@ -1,0 +1,110 @@
+This is the final phase of the routes.ts split. Move all remaining 
+route handlers and then connect everything to the main app.
+
+First, check what route handlers remain in server/routes.ts by searching for 
+'app.get(', 'app.post(', 'app.put(', 'app.delete(', 'app.patch(' in the file.
+The remaining handlers will likely include some or all of:
+  /api/stats, /api/activity/recent, /api/analytics/...
+  /api/ai/...
+  /api/help/...
+  /api/biostar/...
+  /api/paxton/...
+  /api/clue/...
+  /api/integrations/...
+  /api/xstation/...
+  /api/qr-readers/... and /api/qr-scan/...
+  /api/thermal-passes/... and /api/thermal/...
+  /api/print-service/..., /api/print-queue/..., /api/windows-service/...
+  /api/import/...
+  /api/members/...
+  /api/companies
+  /api/system/... (backup/restore)
+  /api/health/...
+  /api/cdm/...
+  /api/helpdesk/...
+  /api/idcard/... (if not moved with staff)
+  /service-installation-guide
+  /livez, /readyz, /healthz
+
+Also check for any remaining helper functions:
+  setupAutomaticDailyReset and performDailyReset   (daily reset section)
+  setupBiostarAttendancePolling and pollBiostarAttendance
+  setupOvernightNotifications and sendOvernightReport
+  setupLoneWorkerPolling (if not moved in R9)
+
+Do the following:
+
+STEP 1 — Move remaining handlers into server/routes/remaining.ts
+  import type { Express } from 'express';
+  import type { Server } from 'http';
+  import { biostarLiveLog, pushBiostarEvent } from '../routeState';
+  // All other imports needed by these handlers
+  
+  // Move any remaining helper functions here before the export:
+  function setupAutomaticDailyReset(...) { ... }
+  function performDailyReset(...) { ... }
+  // etc.
+
+  export function registerRemainingRoutes(app: Express, server: Server): void {
+    // Paste all remaining handlers and cron setups
+  }
+
+STEP 2 — Confirm routes.ts is empty
+  After the cut, search routes.ts for 'app.get(', 'app.post(', 'app.put(', 
+  'app.delete(', 'app.patch(' — there should be ZERO results.
+  The file should now contain only:
+  - Import statements
+  - The module-level shared state imports (now from routeState.ts)
+  - The registerBillingRoutes import (line 154)
+  - The registerRoutes function shell
+  - The createHttpServer export
+
+STEP 3 — Update server/routes/index.ts
+  Add registerRemainingRoutes and all other not-yet-added modules.
+  The full registerSplitRoutes function should now call every module:
+  
+  export async function registerSplitRoutes(app: Express, server: Server) {
+    registerAuthRoutes(app);
+    registerPlatformAdminRoutes(app);
+    registerOnboardingRoutes(app);
+    registerVisitorRoutes(app);
+    registerStaffRoutes(app);
+    registerContractorRoutes(app);
+    registerEmergencyRoutes(app, server);
+    registerInductionRoutes(app);
+    registerLoneWorkerRoutes(app, server);
+    registerPPMRoutes(app);
+    registerMeetingRoomRoutes(app);
+    registerReportRoutes(app);
+    registerRamsRoutes(app);
+    registerSettingsRoutes(app);
+    registerRemainingRoutes(app, server);
+  }
+
+STEP 4 — Wire server/routes/index.ts into the main app
+  In server/routes.ts, inside the registerRoutes function body, 
+  add at the top (before any remaining route registrations):
+  
+  import { registerSplitRoutes } from './routes/index';
+  // ... inside registerRoutes:
+  await registerSplitRoutes(app, server);
+
+  Then delete the original registerRoutes function body content 
+  (since it should now be empty of handlers).
+
+STEP 5 — Full regression test:
+  - Login and logout
+  - Visitor check-in and check-out
+  - Contractor compliance view and document upload
+  - Staff check-in
+  - Start and end an evacuation DRILL (not a real one)
+  - Complete a site induction via public link
+  - Open Settings and save a change
+  - Open Billing page
+  - Log into the platform admin portal
+  - Create a PPM work order and mark it complete
+  - Load a contractor's public PPM work order link
+  - Check the lone worker session still starts and ticks
+
+If everything passes, you can then delete the backup routes.ts.bak file 
+you made at the start.
