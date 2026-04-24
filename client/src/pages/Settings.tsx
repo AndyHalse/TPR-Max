@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
-import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, UserCheck, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical, HardHat, AlertTriangle, Wand2, ScrollText, Wrench, Bell, Ticket } from "lucide-react";
+import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monitor, Sun, Moon, Users, UserPlus, UserCheck, Shield, Phone, Globe, AtSign, Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Database, Server, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Edit, Trash2, Plus, Brain, RefreshCw, Download, FolderOpen, Scan, Settings2, Send, Calendar, BarChart3, TrendingUp, Activity, Zap, Eye, EyeOff, Key, Loader2, Info, Bot, Copy, Clock, Video, Dock, CalendarPlus, MapPin, SunMoon, BadgeCheck, FlaskConical, HardHat, AlertTriangle, Wand2, ScrollText, Wrench, Bell, Ticket } from "lucide-react";
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment, Report } from "@shared/schema";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
@@ -84,6 +84,10 @@ export default function Settings() {
   const [paxtonSyncResult, setPaxtonSyncResult] = useState<string>("");
   const [paxtonSyncLoading, setPaxtonSyncLoading] = useState(false);
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [aiKeyInputs, setAiKeyInputs] = useState<{ openai: string; claude: string; gemini: string }>({ openai: '', claude: '', gemini: '' });
+  const [aiKeyVisible, setAiKeyVisible] = useState<{ openai: boolean; claude: boolean; gemini: boolean }>({ openai: false, claude: false, gemini: false });
+  const [aiKeyTesting, setAiKeyTesting] = useState<{ openai: boolean; claude: boolean; gemini: boolean }>({ openai: false, claude: false, gemini: false });
+  const [aiKeyTestResults, setAiKeyTestResults] = useState<{ openai?: string; claude?: string; gemini?: string }>({});
   const [webhookTestResult, setWebhookTestResult] = useState<string>("");
   const [webhookTestLoading, setWebhookTestLoading] = useState(false);
   const [apiKeyGenerating, setApiKeyGenerating] = useState(false);
@@ -191,6 +195,55 @@ export default function Settings() {
   const { data: cardOffences = [] } = useQuery<any[]>({
     queryKey: ["/api/card-offences"],
   });
+
+  const { data: aiKeyStatus, refetch: refetchAiKeys } = useQuery<{
+    openai: { hasKey: boolean; last4: string; isActive: boolean; status: string };
+    claude: { hasKey: boolean; last4: string; isActive: boolean; status: string };
+    gemini: { hasKey: boolean; last4: string; isActive: boolean; status: string };
+  }>({ queryKey: ["/api/settings/ai-keys"] });
+
+  const saveAiKeyMutation = useMutation({
+    mutationFn: async (body: { openaiKey?: string; claudeKey?: string; geminiKey?: string }) => {
+      const res = await apiRequest("PUT", "/api/settings/ai-keys", body);
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Failed to save key"); }
+      return res.json();
+    },
+    onSuccess: (_, vars) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/ai-keys"] });
+      const updated = vars.openaiKey ? 'OpenAI' : vars.claudeKey ? 'Claude' : 'Gemini';
+      toast({ title: "Key saved", description: `${updated} API key saved successfully.` });
+      setAiKeyInputs(prev => ({ ...prev, openai: '', claude: '', gemini: '' }));
+    },
+    onError: (err: Error) => toast({ title: "Save failed", description: err.message, variant: "destructive" }),
+  });
+
+  const revokeAiKeyMutation = useMutation({
+    mutationFn: async (serviceType: 'openai' | 'claude' | 'gemini') => {
+      const res = await apiRequest("DELETE", `/api/settings/ai-keys/${serviceType}`, {});
+      if (!res.ok) { const e = await res.json(); throw new Error(e.error || "Failed to revoke key"); }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/ai-keys"] });
+      toast({ title: "Key revoked", description: "API key has been removed." });
+    },
+    onError: (err: Error) => toast({ title: "Revoke failed", description: err.message, variant: "destructive" }),
+  });
+
+  const testAiKey = async (serviceType: 'openai' | 'claude' | 'gemini', tempKey?: string) => {
+    setAiKeyTesting(prev => ({ ...prev, [serviceType]: true }));
+    setAiKeyTestResults(prev => ({ ...prev, [serviceType]: undefined }));
+    try {
+      const res = await apiRequest("POST", "/api/settings/ai-keys/test", { serviceType, tempKey: tempKey || undefined });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Test failed");
+      setAiKeyTestResults(prev => ({ ...prev, [serviceType]: data.success ? "✓ Connection successful" : "✗ Test failed" }));
+    } catch (err: any) {
+      setAiKeyTestResults(prev => ({ ...prev, [serviceType]: `✗ ${err.message}` }));
+    } finally {
+      setAiKeyTesting(prev => ({ ...prev, [serviceType]: false }));
+    }
+  };
 
   // Function to copy invitation link
   const copyInvitationLink = (token: string, customerId?: string) => {
@@ -5745,6 +5798,108 @@ export default function Settings() {
               </div>
             </GlassCard>
           </div>
+
+          <GlassCard>
+            <div className="flex items-center mb-6">
+              <Key className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
+              <div>
+                <h3 className="text-lg font-semibold text-fixed">AI Provider API Keys</h3>
+                <p className="text-xs text-variable mt-0.5">Keys are encrypted and stored securely. Only the last 4 characters are shown after saving.</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {([ 
+                { id: 'openai' as const, label: 'OpenAI', description: 'For GPT-4, GPT-4o, GPT-5 models', placeholder: 'sk-...', badgeClass: 'border-green-300 text-green-700 dark:text-green-400', fieldKey: 'openaiKey' },
+                { id: 'claude' as const, label: 'Anthropic (Claude)', description: 'For Claude 3.5 Sonnet, Claude 3 Opus, Claude Haiku', placeholder: 'sk-ant-...', badgeClass: 'border-purple-300 text-purple-700 dark:text-purple-400', fieldKey: 'claudeKey' },
+                { id: 'gemini' as const, label: 'Google Gemini', description: 'For Gemini Pro, Gemini 2.5 Flash models', placeholder: 'AIza...', badgeClass: 'border-blue-300 text-blue-700 dark:text-blue-400', fieldKey: 'geminiKey' },
+              ]).map(({ id, label, description, placeholder, badgeClass, fieldKey }) => {
+                const status = aiKeyStatus?.[id];
+                const inputVal = aiKeyInputs[id];
+                const visible = aiKeyVisible[id];
+                const testing = aiKeyTesting[id];
+                const testResult = aiKeyTestResults[id];
+
+                return (
+                  <div key={id} className="border border-border rounded-xl p-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-fixed">{label}</p>
+                        <p className="text-xs text-variable">{description}</p>
+                      </div>
+                      {status?.hasKey ? (
+                        <Badge variant="outline" className={`text-xs ${badgeClass}`}>
+                          Active — ···{status.last4}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-xs text-muted-foreground">Not configured</Badge>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Input
+                          type={visible ? "text" : "password"}
+                          placeholder={status?.hasKey ? `Replace existing key (currently ···${status.last4})` : placeholder}
+                          value={inputVal}
+                          onChange={(e) => setAiKeyInputs(prev => ({ ...prev, [id]: e.target.value }))}
+                          className="pr-10 font-mono text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setAiKeyVisible(prev => ({ ...prev, [id]: !prev[id] }))}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                        >
+                          {visible ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!inputVal.trim() || testing || saveAiKeyMutation.isPending}
+                        onClick={() => saveAiKeyMutation.mutate({ [fieldKey]: inputVal })}
+                      >
+                        {saveAiKeyMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                        <span className="ml-1 hidden sm:inline">Save</span>
+                      </Button>
+                    </div>
+
+                    {(status?.hasKey || inputVal.trim()) && (
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-xs h-7 px-2"
+                          disabled={testing}
+                          onClick={() => testAiKey(id, inputVal.trim() || undefined)}
+                        >
+                          {testing ? <Loader2 size={12} className="animate-spin mr-1" /> : <Zap size={12} className="mr-1" />}
+                          Test connection
+                        </Button>
+                        {status?.hasKey && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs h-7 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                            disabled={revokeAiKeyMutation.isPending}
+                            onClick={() => revokeAiKeyMutation.mutate(id)}
+                          >
+                            <Trash2 size={12} className="mr-1" /> Revoke
+                          </Button>
+                        )}
+                        {testResult && (
+                          <span className={`text-xs font-medium ${testResult.startsWith('✓') ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {testResult}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </GlassCard>
+
           </TooltipProvider>
         </TabsContent>
 
