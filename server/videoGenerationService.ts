@@ -416,8 +416,8 @@ export class VideoGenerationService {
       console.log(`🔧 Starting script generation with comprehensive logging...`);
       console.log(`🔧 Company settings available: ${this.companySettings ? 'YES' : 'NO'}`);
       
-      // Use modelType param first (from caller), fall back to company settings, then default to gpt-5
-      let selectedModel = modelType || this.companySettings?.openaiModel || "gpt-5";
+      // Company-wide AI setting takes priority; per-role modelType param is a fallback
+      let selectedModel = this.companySettings?.openaiModel || modelType || "gpt-5";
 
       if (!selectedModel.startsWith('claude-') && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         throw new Error('CRITICAL: Replit AI Integrations OpenAI key not configured (AI_INTEGRATIONS_OPENAI_API_KEY)');

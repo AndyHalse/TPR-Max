@@ -22170,6 +22170,10 @@ This is an automated notification from your visitor management system.`;
       const context = inductionQContext;
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
+
+      // Company-wide AI setting (Settings → AI tab) takes priority over the per-role default
+      modelType = settings?.openaiModel || modelType;
+
       const videoService = new VideoGenerationService(settings, undefined, context.customerId);
 
       // Generate script to base questions on
@@ -22302,9 +22306,12 @@ This is an automated notification from your visitor management system.`;
             console.log('Using default video settings');
           }
 
-          console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
+          // Company-wide AI setting (Settings → AI tab) takes priority over the per-role default
           const context = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
           const companySettings = await simpleDatabaseService.getCompanySettings(context);
+          modelType = companySettings?.openaiModel || modelType;
+
+          console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
           const videoService = new VideoGenerationService(companySettings, undefined, context.customerId);
 
           // ── Step 1: Generate AI script ─────────────────────────────────────

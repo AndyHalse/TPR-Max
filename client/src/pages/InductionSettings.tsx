@@ -19,7 +19,7 @@ import {
   BookOpen, Shield, Flame, HardHat, ClipboardList, Send, Monitor,
   ChevronDown, Settings, Mail, Loader2
 } from "lucide-react";
-import type { InductionQuestion } from "@shared/schema";
+import type { InductionQuestion, CompanySettings } from "@shared/schema";
 
 interface InductionSettingRow {
   id: string;
@@ -71,9 +71,10 @@ interface RoleCardProps {
   settings: InductionSettingRow | null;
   questions: InductionQuestion[];
   onQuestionsRefetch: () => void;
+  companySettings?: CompanySettings | null;
 }
 
-const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCardProps) => {
+const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySettings }: RoleCardProps) => {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -770,11 +771,16 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
               <div className="flex items-center justify-between">
                 <span className="text-purple-700 dark:text-purple-300">Model in use</span>
                 <Badge variant="outline" className="text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-600 text-xs">
-                  {settings?.modelType || 'GPT-5'}
+                  {companySettings?.openaiModel || settings?.modelType || 'GPT-5'}
                 </Badge>
               </div>
+              {companySettings?.openaiModel && companySettings.openaiModel !== (settings?.modelType || 'gpt-5') && (
+                <p className="text-purple-500 dark:text-purple-400 text-xs">
+                  Using company AI setting — change in Settings → AI
+                </p>
+              )}
               <p className="text-purple-600 dark:text-purple-300 leading-relaxed">
-                GPT-5 via Replit AI Integrations — billed to Replit credits, no personal API key required. GPT-Image-1 generates photorealistic workplace safety images.
+                AI model via Replit AI Integrations — billed to Replit credits, no personal API key required. GPT-Image-1 generates photorealistic workplace safety images.
               </p>
             </div>
             <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-100 dark:border-green-800 rounded-lg text-xs space-y-1.5">
@@ -808,6 +814,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch }: RoleCar
 export default function InductionSettings() {
   const [activeRole, setActiveRole] = useState<'visitor' | 'staff' | 'contractor'>('visitor');
   const queryClient = useQueryClient();
+
+  const { data: companySettings } = useQuery<CompanySettings>({ queryKey: ['/api/settings'] });
 
   const { data: allSettings = [] } = useQuery<InductionSettingRow[]>({
     queryKey: ['/api/induction/settings'],
@@ -917,6 +925,7 @@ export default function InductionSettings() {
               roleType={role}
               settings={settingsByRole[role] || null}
               questions={getQuestions(role)}
+              companySettings={companySettings}
               onQuestionsRefetch={() => {
                 getRefetch(role)();
                 queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
