@@ -12,6 +12,7 @@ import { simpleDatabaseService } from '../simpleDatabaseService';
 import { customerDbService } from '../customerDatabase';
 import { EmailService, emailService } from '../emailService';
 import * as isolatedSchema from '../isolatedSchema';
+import { insertVisitorSchema, insertPreBookingSchema } from '../isolatedSchema';
 import { eq, and, desc, gte, ne, or } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
