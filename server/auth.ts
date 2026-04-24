@@ -716,22 +716,27 @@ export class AuthService {
         console.log('✅ Developer user "Emma" created successfully for Customer 002 testing');
       }
 
-      // Initialize TestUser for free onboarding testing without subscription
-      const testPassword = process.env.TEST_USER_PASSWORD || 'TestUser2024!';
-      const existingTestUser = await storage.getUserByUsername('TestUser');
-      
-      if (existingTestUser) {
-        console.log('Test user "TestUser" already exists - updating credentials');
-        // updateUser will handle password hashing automatically
-        await storage.updateUser(existingTestUser.id, { password: testPassword });
-        console.log('Test user credentials updated successfully');
-      } else {
-        await storage.createUser({
-          username: 'TestUser',
-          password: testPassword, // createUser should handle hashing
-          customerId: 'test-customer-trial'
-        } as any);
-        console.log('✅ Test user "TestUser" created successfully for free trial testing');
+      // Initialize TestUser for free onboarding testing — development only
+      const testPassword = process.env.TEST_USER_PASSWORD;
+      if (!testPassword && process.env.NODE_ENV !== 'production') {
+        throw new Error('TEST_USER_PASSWORD environment variable is required in development');
+      }
+      if (process.env.NODE_ENV !== 'production' && testPassword) {
+        const existingTestUser = await storage.getUserByUsername('TestUser');
+
+        if (existingTestUser) {
+          console.log('Test user "TestUser" already exists - updating credentials');
+          // updateUser will handle password hashing automatically
+          await storage.updateUser(existingTestUser.id, { password: testPassword });
+          console.log('Test user credentials updated successfully');
+        } else {
+          await storage.createUser({
+            username: 'TestUser',
+            password: testPassword, // createUser should handle hashing
+            customerId: 'test-customer-trial'
+          } as any);
+          console.log('✅ Test user "TestUser" created successfully for free trial testing');
+        }
       }
     } catch (error) {
       console.error('Failed to initialize developer users:', error);
