@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import rateLimit from 'express-rate-limit';
+import { logger } from "./utils/logger";
 
 // ── BioStar 2 Live Event Log ────────────────────────────────────────────────
 // In-memory ring buffer: stores the last 200 webhook events per customer.
@@ -15887,12 +15888,10 @@ This is an automated notification from your visitor management system.`;
   // Database backup endpoint
   app.get("/api/system/backup", requireAuth, async (req, res) => {
     try {
-      console.log(`🔥 BACKUP ENDPOINT HIT! User:`, req.user?.username);
+      logger.info('Backup downloaded', { userId: req.user?.id, customerId: req.customerId });
 
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-
-      console.log(`🗄️ Creating backup for customer: ${context.customerId}`);
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
@@ -15951,7 +15950,6 @@ This is an automated notification from your visitor management system.`;
           const result = await custDb.execute(sql.raw(`SELECT * FROM "${table}"`));
           backupData.data[table] = result.rows as any[];
           totalRecords += result.rows.length;
-          console.log(`📋 Exported ${result.rows.length} records from ${table}`);
         } catch (err: any) {
           console.warn(`⚠️ Could not export table ${table}: ${err.message}`);
           backupData.data[table] = [];
@@ -15962,7 +15960,7 @@ This is an automated notification from your visitor management system.`;
       backupData.metadata.tables_exported = tablesToBackup.length;
 
       const backupContent = Buffer.from(JSON.stringify(backupData, null, 2));
-      console.log(`✅ Backup created for ${context.customerId} — ${totalRecords} records, ${backupContent.length} bytes`);
+      logger.info('Backup created', { customerId: context.customerId, totalRecords, bytes: backupContent.length });
 
       res.setHeader('Content-Type', 'application/octet-stream');
       res.setHeader('Content-Disposition', `attachment; filename="tprmax-backup-${context.customerId}-${timestamp}.bak"`);
@@ -15997,8 +15995,7 @@ This is an automated notification from your visitor management system.`;
         return res.status(403).json({ error: "Cannot restore a backup that belongs to a different account." });
       }
 
-      console.log(`🔄 Starting restore for customer: ${context.customerId}`);
-      console.log(`📊 Backup has ${backupData.metadata.total_records || '?'} records across ${Object.keys(backupData.data).length} tables`);
+      logger.info('Database restore started', { userId: req.user?.id, customerId: req.customerId });
 
       // Only restore tables that actually exist in our schema (whitelist for safety)
       const allowedTables = new Set([
@@ -16034,12 +16031,10 @@ This is an automated notification from your visitor management system.`;
       await custDb.transaction(async (tx) => {
         // Clear tables in reverse order to respect foreign key constraints
         if (clearExisting) {
-          console.log(`🗑️ Clearing existing data...`);
           const reversedTables = [...tablesToRestore].reverse();
           for (const table of reversedTables) {
             try {
               await tx.execute(sql.raw(`TRUNCATE TABLE "${table}" CASCADE`));
-              console.log(`🧹 Cleared: ${table}`);
             } catch (err: any) {
               console.warn(`⚠️ Could not clear ${table}: ${err.message}`);
             }
@@ -16052,8 +16047,6 @@ This is an automated notification from your visitor management system.`;
           if (!records || records.length === 0) continue;
 
           try {
-            console.log(`📥 Restoring ${records.length} records into ${table}...`);
-
             for (const record of records) {
               const columns = Object.keys(record);
               if (columns.length === 0) continue;
@@ -16074,7 +16067,6 @@ This is an automated notification from your visitor management system.`;
 
             restoredTables++;
             restoredRecords += records.length;
-            console.log(`✅ Restored ${records.length} records into ${table}`);
 
           } catch (error: any) {
             console.error(`❌ Error restoring table ${table}:`, error);
@@ -16083,7 +16075,7 @@ This is an automated notification from your visitor management system.`;
         }
       });
 
-      console.log(`🎉 Restore completed for ${context.customerId}: ${restoredRecords} records across ${restoredTables} tables`);
+      logger.info('Database restore completed', { customerId: context.customerId, restoredRecords, restoredTables });
 
       res.json({
         success: true,
