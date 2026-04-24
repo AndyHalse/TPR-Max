@@ -31,6 +31,7 @@ import MartynLaw from "@/pages/MartynLaw";
 import IncidentReports from "@/pages/IncidentReports";
 import PPM from "@/pages/PPM";
 import PPMWorkOrderMobile from "@/pages/PPMWorkOrderMobile";
+import HelpDesk from "@/pages/HelpDesk";
 import InductionSettings from "@/pages/InductionSettings";
 import EmailOutbox from "@/pages/EmailOutbox";
 import MeetingRooms from "@/pages/MeetingRooms";
@@ -368,6 +369,7 @@ function Router() {
             <Route path="/muster" component={EmergencyMuster} />
             <Route path="/incident-reports" component={IncidentReports} />
             <Route path="/ppm" component={PPM} />
+            <Route path="/helpdesk" component={HelpDesk} />
             <Route path="/martyn-law" component={MartynLaw} />
             <Route path="/fire-marshal-panel" component={FireMarshalPanel} />
             <Route path="/fire-marshal-mobile" component={FireMarshalMobile} />
