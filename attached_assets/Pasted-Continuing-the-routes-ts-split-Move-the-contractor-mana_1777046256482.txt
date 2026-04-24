@@ -1,0 +1,46 @@
+Continuing the routes.ts split. Move the contractor management routes.
+This is one of the largest sections — work carefully.
+
+In server/routes.ts, contractor routes are scattered across multiple ranges:
+  /api/contractors/...             (approximately lines 12602–19255)
+  /api/workers/...                 (approximately lines 17731–17812, 21673)
+  /api/card-offences/...           (approximately lines 17570–17730)
+  /api/card-issues/...             (approximately lines 17731–17812)
+  /api/uk-hs-documents/...         (approximately lines 19256–20607)
+  /api/nvq-qualifications/...      (approximately lines 18591–18669)
+  /api/co2/... and /api/sustainability-reports/...  (lines 18464–18591)
+
+Before cutting, search routes.ts for each of these path strings to get 
+the exact line numbers in the current file.
+
+Do the following:
+
+1. In server/routes/contractors.ts:
+   import type { Express } from 'express';
+   // Imports: requireAuth, databaseService, simpleDatabaseService,
+   // customerDbService, emailService, CO2CalculationService, 
+   // inductionService, ObjectStorageService, multer, websocketService,
+   // biostarService, paxtonService, logger, z, path,
+   // relevant schema imports (contractorCompanies, contractorWorkers,
+   // complianceDocuments, ramsDocuments, ukHSDocumentTemplates,
+   // workerDocumentAssignments, workerDocumentAcceptances, 
+   // nvqQualifications, insertNvqQualificationSchema, etc.)
+
+   export function registerContractorRoutes(app: Express): void {
+     // Paste all route handlers from all groups above, in line-order
+   }
+
+2. Cut all handlers from routes.ts.
+   After cutting, do a search for '/api/contractors' in routes.ts 
+   to confirm zero handlers remain in the old file.
+
+3. Fix relative import paths — there will be many.
+
+4. In server/routes/index.ts add the import and call.
+
+5. Test thoroughly:
+   - View contractor company list
+   - View a contractor company detail including compliance documents
+   - Check a contractor worker in and out
+   - View UK H&S document assignments
+   - View the CO2 sustainability report

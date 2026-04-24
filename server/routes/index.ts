@@ -10,6 +10,7 @@ import { registerReportRoutes } from './reports';
 import { registerRamsRoutes } from './rams';
 import { registerLoneWorkerRoutes } from './loneWorker';
 import { registerSettingsRoutes } from './settings';
+import { registerContractorRoutes } from './contractors';
 
 // Feature route modules will be registered here as they are migrated.
 // Billing routes are already split: see server/billingRoutes.ts
@@ -29,5 +30,6 @@ export async function registerSplitRoutes(
   registerRamsRoutes(app);
   registerLoneWorkerRoutes(app, server);
   registerSettingsRoutes(app, { setupAutomaticDailyReset });
+  registerContractorRoutes(app);
   // Domain route modules will be added here as each phase of the split is completed
 }
