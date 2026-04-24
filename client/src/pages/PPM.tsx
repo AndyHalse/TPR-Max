@@ -2419,6 +2419,22 @@ export default function PPM() {
     demoDataMutation.mutate();
   }
 
+  if (companySettings !== undefined && !companySettings.featurePPM) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="text-center max-w-md space-y-4">
+          <div className="p-4 rounded-full bg-muted inline-flex mx-auto">
+            <Wrench className="h-10 w-10 text-muted-foreground" />
+          </div>
+          <h2 className="text-xl font-semibold">PPM Module Not Available</h2>
+          <p className="text-muted-foreground">
+            The PPM module is not included in your current plan. Please contact ACS to upgrade.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">

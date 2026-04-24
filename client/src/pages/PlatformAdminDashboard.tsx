@@ -10,6 +10,7 @@ import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlatformAdminCustomerForm from "./PlatformAdminCustomerForm";
 import { ShieldCheck } from "lucide-react";
@@ -356,6 +357,34 @@ export default function PlatformAdminDashboard() {
         description: error.message || "Failed to update customer",
         variant: "destructive",
       });
+    },
+  });
+
+  // Fetch the selected customer's feature flags when the edit dialog opens
+  const { data: customerFeatures } = useQuery<{ featurePPM: boolean }>({
+    queryKey: ["/platform-admin/customers", editingCustomer?.id, "features"],
+    queryFn: async () => {
+      const response = await fetch(`/platform-admin/customers/${editingCustomer!.id}/features`, { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch features");
+      return response.json();
+    },
+    enabled: !!editingCustomer,
+  });
+
+  const [featurePPMOverride, setFeaturePPMOverride] = useState<boolean | null>(null);
+  const featurePPM = featurePPMOverride ?? customerFeatures?.featurePPM ?? false;
+
+  const updateFeaturesMutation = useMutation({
+    mutationFn: async ({ customerId, featurePPM }: { customerId: string; featurePPM: boolean }) => {
+      const response = await apiRequest("PATCH", `/platform-admin/customers/${customerId}/features`, { featurePPM });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
+      setFeaturePPMOverride(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update module features", variant: "destructive" });
     },
   });
 
@@ -887,7 +916,7 @@ export default function PlatformAdminDashboard() {
       </Dialog>
 
       {/* Edit Customer Dialog */}
-      <Dialog open={!!editingCustomer} onOpenChange={(open) => !open && setEditingCustomer(null)}>
+      <Dialog open={!!editingCustomer} onOpenChange={(open) => { if (!open) { setEditingCustomer(null); setFeaturePPMOverride(null); } }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Edit Customer</DialogTitle>
@@ -915,6 +944,25 @@ export default function PlatformAdminDashboard() {
                 onChange={(e) => setEditForm({ ...editForm, contactEmail: e.target.value })}
                 data-testid="input-edit-contact-email"
               />
+            </div>
+
+            <div className="border-t pt-4 mt-4">
+              <h3 className="text-sm font-semibold mb-3">Module Features</h3>
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <Label htmlFor="feature-ppm" className="text-sm font-medium">PPM (Planned Preventative Maintenance)</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Enable or disable the PPM module for this customer</p>
+                </div>
+                <Switch
+                  id="feature-ppm"
+                  checked={featurePPM}
+                  disabled={updateFeaturesMutation.isPending || !customerFeatures}
+                  onCheckedChange={(checked) => {
+                    setFeaturePPMOverride(checked);
+                    updateFeaturesMutation.mutate({ customerId: editingCustomer!.id, featurePPM: checked });
+                  }}
+                />
+              </div>
             </div>
 
             <div className="border-t pt-4 mt-4">

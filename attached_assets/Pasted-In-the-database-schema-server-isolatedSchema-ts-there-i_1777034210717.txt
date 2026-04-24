@@ -1,0 +1,45 @@
+In the database schema (server/isolatedSchema.ts), there is a field called 
+'featurePPM' (or similar) in the company settings table that is intended 
+to control whether a customer has access to the PPM module. However, no 
+PPM route currently checks this flag — every customer can access PPM 
+regardless of whether it is enabled for their account.
+
+Fix this as follows:
+
+1. Find the field name exactly as it appears in the schema 
+   (search isolatedSchema.ts for 'ppm' to find it — it may be called 
+   featurePPM, ppmEnabled, or similar).
+
+2. In server/routes.ts, find the first PPM route handler 
+   (search for the first instance of '/api/ppm' as a route path).
+
+3. Create a middleware function that can be applied to all PPM routes:
+
+   async function requirePPMFeature(req, res, next) {
+     const settings = await getCompanySettings(req.customerId); 
+     // use whatever the existing pattern is for fetching settings
+     if (!settings?.featurePPM) {
+       return res.status(403).json({ 
+         error: 'PPM module is not enabled for your account. Please contact support.' 
+       });
+     }
+     next();
+   }
+
+4. Apply this middleware to every PPM route. If the PPM routes are 
+   grouped together (e.g. all start with '/api/ppm'), you can apply it 
+   once using app.use('/api/ppm', requirePPMFeature) before the individual 
+   routes are defined. If they are scattered, apply it individually.
+
+5. In client/src/pages/PPM.tsx, check whether the settings object is 
+   already available from context. If so, add a check at the top of the 
+   component: if the PPM feature flag is false, render a message:
+   "The PPM module is not included in your current plan. 
+    Please contact ACS to upgrade."
+   rather than showing a blank page or an error.
+
+6. In the platform admin portal, confirm there is a way to toggle the 
+   featurePPM flag on or off per customer. If no such toggle exists, 
+   add one in the customer detail view in the platform admin section.
+
+Do not change any PPM business logic — only add the access gate.

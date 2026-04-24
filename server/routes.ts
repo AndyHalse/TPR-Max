@@ -25975,6 +25975,36 @@ This is an automated notification from your visitor management system.`;
     }
   });
 
+  // Platform admin: read per-customer feature flags
+  app.get("/platform-admin/customers/:customerId/features", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const settings = await simpleDatabaseService.getCompanySettings({ customerId, customerName: '' });
+      res.json({ featurePPM: settings?.featurePPM ?? false });
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'Failed to fetch customer features' });
+    }
+  });
+
+  // Platform admin: update per-customer feature flags
+  app.patch("/platform-admin/customers/:customerId/features", requirePlatformAdmin, async (req, res) => {
+    try {
+      const { customerId } = req.params;
+      const { featurePPM } = z.object({ featurePPM: z.boolean() }).parse(req.body);
+
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      await custDb.execute(sql.raw(`UPDATE "${schemaName}".company_settings SET feature_ppm = ${featurePPM}`));
+
+      res.json({ success: true, featurePPM });
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ success: false, error: 'featurePPM must be a boolean' });
+      }
+      res.status(500).json({ success: false, error: 'Failed to update customer features' });
+    }
+  });
+
   app.get("/platform-admin/admins", requirePlatformAdmin, async (req, res) => {
     try {
       const admins = await db
@@ -28134,6 +28164,23 @@ This is an automated notification from your visitor management system.`;
     }
     return d.toISOString().split('T')[0];
   }
+
+  // ── PPM feature gate ────────────────────────────────────────────────────────
+  const requirePPMFeature = async (req: any, res: any, next: any) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+      if (!settings?.featurePPM) {
+        return res.status(403).json({
+          error: 'PPM module is not enabled for your account. Please contact support.'
+        });
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  };
+  app.use('/api/ppm', requireAuth, requirePPMFeature);
 
   // PPM Assets
   app.get("/api/ppm/assets", requireAuth, async (req, res) => {
