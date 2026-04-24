@@ -419,17 +419,6 @@ export function registerOnboardingRoutes(app: Express): void {
   const signupSessions = new Map<string, any>();
   const SIGNUP_SESSION_TIMEOUT = 30 * 60 * 1000; // 30 minutes
 
-  // Induction video generation status tracking (per customer+roleType)
-  const inductionGenerationStatus = new Map<string, {
-    status: 'pending' | 'generating_script' | 'building_slides' | 'creating_questions' | 'saving' | 'done' | 'failed';
-    step: number;
-    totalSteps: number;
-    message: string;
-    startedAt: number;
-    completedAt?: number;
-    error?: string;
-  }>();
-
   // One-time startup: purge all legacy-format induction questions (videoId = roleType)
   // These are the source of the "2112 questions" accumulation bug.
   // New questions are stored with videoId = customerId-roleType, so legacy rows are safe to delete.

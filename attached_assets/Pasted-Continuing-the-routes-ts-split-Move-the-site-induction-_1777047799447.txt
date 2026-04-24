@@ -1,0 +1,49 @@
+Continuing the routes.ts split. Move the site induction routes.
+This is the largest single section in the file — approximately 10,700 lines.
+
+In server/routes.ts, induction routes run from approximately 
+lines 12166–22856. They handle all paths starting with:
+  /api/induction/...
+  /api/site-induction/...
+  /api/contractors/:id/send-induction    (line 12538 approximately)
+  /api/contractors/workers/:workerId/send-induction  (line 17747 approximately)
+
+IMPORTANT — there is a large embedded HTML/JavaScript template inside 
+the induction video playback handler (approximately line 22500) 
+and a helper function immediately before it:
+  patchInductionHtml(html)   (line 22517)
+Move both with the routes — do not try to extract the HTML template separately.
+
+Do the following:
+
+1. In server/routes/induction.ts:
+   import type { Express } from 'express';
+   // Imports: requireAuth, inductionService, databaseService,
+   // simpleDatabaseService, customerDbService, emailService, aiService,
+   // ObjectStorageService, logger, z, path,
+   // relevant schema imports (inductionSettings, inductionTokens, 
+   // inductionQuestions, aiGeneratedImages, insertInductionSettingsSchema,
+   // insertAiGeneratedImageSchema)
+
+   // Define helper before export:
+   function patchInductionHtml(html: string) { ... }
+
+   export function registerInductionRoutes(app: Express): void {
+     // Paste ALL handlers including the two contractor send-induction routes
+     // Keep the giant HTML template exactly as-is inside its handler
+   }
+
+2. This is a very large cut — copy the entire block carefully.
+   After pasting, search for '/api/induction' in routes.ts 
+   to confirm zero handlers remain in the old file.
+
+3. Fix relative import paths — there will be many.
+
+4. In server/routes/index.ts add the import and call.
+
+5. Test:
+   - Visit a public induction link (no login required)
+   - Complete an induction quiz and confirm completion is recorded
+   - In settings, view and save the induction configuration
+   - Send an induction link to a contractor worker
+   - If AI video generation is configured, confirm that endpoint still responds
