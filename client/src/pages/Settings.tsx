@@ -423,9 +423,7 @@ export default function Settings() {
   // Backup mutation
   const backupMutation = useMutation({
     mutationFn: async () => {
-      console.log('🚀 BACKUP MUTATION STARTED - Making API request...');
       const response = await apiRequest("GET", "/api/system/backup");
-      console.log('📥 BACKUP RESPONSE STATUS:', response.status);
       
       if (!response.ok) {
         const errorData = await response.json();
@@ -433,7 +431,6 @@ export default function Settings() {
         throw new Error(errorData.error || "Failed to create backup");
       }
       
-      console.log('✅ BACKUP SUCCESS - Creating blob...');
       return response.blob();
     },
     onSuccess: (blob) => {
@@ -461,7 +458,6 @@ export default function Settings() {
   });
 
   const handleBackupDatabase = () => {
-    console.log('🔥 BACKUP BUTTON CLICKED - Starting backup mutation...');
     backupMutation.mutate();
   };
 
@@ -558,14 +554,11 @@ export default function Settings() {
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (updates: Partial<InsertCompanySettings>) => {
-      console.log('Mutation function called with:', updates);
       const response = await apiRequest("PUT", "/api/settings", updates);
       const data = await response.json();
-      console.log('Mutation response:', data);
       return data;
     },
     onSuccess: (data) => {
-      console.log('Mutation success:', data);
       queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
       
       // Show auto-save success feedback
@@ -977,15 +970,12 @@ export default function Settings() {
     
     autoSaveTimeoutRef.current = setTimeout(() => {
       const updates = { ...pendingUpdatesRef.current };
-      console.log('Auto-saving all pending:', updates);
       pendingUpdatesRef.current = {};
       updateSettingsMutation.mutate(updates);
     }, 800);
   };
 
   const handleInputChange = (field: string, value: any) => {
-    console.log('Input changed:', field, '=', value);
-    
     // If background color changed, suggest text colors
     if (field === 'backgroundColor') {
       const suggestions = suggestTextColors(value);
@@ -997,7 +987,6 @@ export default function Settings() {
 
   const handleSave = () => {
     if (Object.keys(formData).length > 0) {
-      console.log('Manual save triggered with formData:', formData);
       updateSettingsMutation.mutate(formData);
       // Clear formData after successful manual save
       setFormData({});
@@ -1014,9 +1003,6 @@ export default function Settings() {
       // objectPath comes from ObjectUploader as /objects/uploads/objectId
       // We need to store just /uploads/objectId for the database
       const logoUrl = objectPath.replace('/objects', '');
-      console.log('Logo upload - objectPath:', objectPath);
-      console.log('Logo upload - saving logoUrl:', logoUrl);
-      
       // Use handleInputChange to trigger auto-save
       handleInputChange("logoUrl", logoUrl);
       
@@ -1039,14 +1025,11 @@ export default function Settings() {
       // objectPath comes from ObjectUploader as /objects/uploads/objectId
       // We need to store just /uploads/objectId for the database
       const bannerUrl = objectPath.replace('/objects', '');
-      console.log('Saving banner URL:', bannerUrl);
-      
       // Merge banner with any pending form data to avoid overwriting user input
       const updateData = {
         ...formData,
         bannerUrl: bannerUrl,
       };
-      console.log('Merging banner with form data:', updateData);
       
       await updateSettingsMutation.mutateAsync(updateData);
       // Clear form data after successful upload
