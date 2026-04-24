@@ -1,0 +1,668 @@
+import type { Express } from 'express';
+import { requireAuth } from '../auth';
+import { customerDbService } from '../customerDatabase';
+import { db } from '../db';
+import { eq, and, desc } from 'drizzle-orm';
+import * as isolatedSchema from '../isolatedSchema';
+import {
+  evacuations,
+  ramsDocuments,
+  ramsAcknowledgements,
+  ramsAuditLog,
+  insertRamsDocumentSchema,
+  insertRamsAcknowledgementSchema,
+} from '@shared/schema';
+
+// ─── Helper: build structured compliance requirements from live customer data ─
+
+async function buildComplianceRequirements(customerId: string, custDb: any) {
+  const esc2 = (s: any) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  const [settingsRows, zoneRows, martynRows, staffRows, preBookingRows, incidentRows, drillEvacRows] = await Promise.all([
+    custDb.select().from(isolatedSchema.companySettings).limit(1),
+    custDb.select({ id: isolatedSchema.evacuationZones.id }).from(isolatedSchema.evacuationZones).where(eq(isolatedSchema.evacuationZones.isActive, true)).limit(1),
+    custDb.select().from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1),
+    custDb.select({ id: isolatedSchema.staff.id }).from(isolatedSchema.staff).where(and(eq(isolatedSchema.staff.isFireMarshal, true), eq(isolatedSchema.staff.isActive, true))).limit(1),
+    custDb.select({ id: isolatedSchema.preBookings.id }).from(isolatedSchema.preBookings).limit(1),
+    custDb.select({ id: isolatedSchema.incidentReports.id }).from(isolatedSchema.incidentReports).where(eq(isolatedSchema.incidentReports.customerId, customerId)).limit(1),
+    db.select({ evacuationId: evacuations.evacuationId }).from(evacuations).where(and(eq(evacuations.customerId, customerId), eq(evacuations.status, "completed"), eq(evacuations.isDrill, true))).limit(1),
+  ]);
+
+  const settings = settingsRows[0];
+  const martynRow = martynRows[0] || null;
+
+  const hasZones = zoneRows.length > 0;
+  const hasFireMarshal = staffRows.length > 0;
+  const hasPreBookings = preBookingRows.length > 0;
+  const hasIncidentReports = incidentRows.length > 0;
+  const hasDrills = drillEvacRows.length > 0;
+  const hasEvacProcedure = !!(martynRow?.evacuationProcedure || martynRow?.actionPlan);
+  const featureIncidentReports = settings?.featureIncidentReports !== false;
+  const featureKiosk = settings?.featureKiosk === true;
+
+  const requirements = [
+    {
+      id: "personnel-tracking",
+      label: "Real-time personnel tracking",
+      legalObligation: "Premises must be able to account for all individuals on-site during an emergency or evacuation.",
+      tprFeature: "Visitor Management & Muster List",
+      active: true,
+      detail: "TPR Max tracks visitors, staff, and contractors in real time with live on-site lists and emergency muster functionality.",
+    },
+    {
+      id: "evacuation-procedure",
+      label: "Documented evacuation procedures",
+      legalObligation: "A written evacuation procedure must be in place and communicated to all relevant staff.",
+      tprFeature: "Martyn's Law Security Plan",
+      active: hasEvacProcedure,
+      detail: hasEvacProcedure
+        ? "Evacuation procedures are documented in the Martyn's Law security plan."
+        : "Add your evacuation procedure in the Martyn's Law section to complete this requirement.",
+    },
+    {
+      id: "fire-marshal",
+      label: "Fire marshal accountability",
+      legalObligation: "Named, trained individuals must be responsible for accounting for personnel during an evacuation.",
+      tprFeature: "Fire Marshal Static URLs",
+      active: hasFireMarshal,
+      detail: hasFireMarshal
+        ? "One or more staff members are designated as Fire Marshals with permanent emergency access links."
+        : "Designate at least one staff member as a Fire Marshal in Staff Management.",
+    },
+    {
+      id: "zone-evacuation",
+      label: "Zone-based evacuation management",
+      legalObligation: "For larger venues, evacuation must be coordinated by area/zone to ensure systematic accountability.",
+      tprFeature: "Zone-Based Evacuation",
+      active: hasZones,
+      detail: hasZones
+        ? "Evacuation zones are configured and active for zone-by-zone personnel sweep."
+        : "Configure evacuation zones in Settings → Zones to enable zone-based muster.",
+    },
+    {
+      id: "drill-recording",
+      label: "Evacuation drill recording",
+      legalObligation: "Regular evacuation drills must be conducted and recorded as evidence of preparedness.",
+      tprFeature: "Drill Mode & Incident Reports",
+      active: hasDrills,
+      detail: hasDrills
+        ? "At least one completed fire drill has been recorded and an incident report is available."
+        : "Run an evacuation drill using Drill Mode on the Muster page to satisfy this requirement.",
+    },
+    {
+      id: "post-event-reporting",
+      label: "Post-event incident reporting",
+      legalObligation: "Records of evacuation events and drills must be retained for audit purposes.",
+      tprFeature: "Incident Reports",
+      active: featureIncidentReports && hasIncidentReports,
+      detail: featureIncidentReports
+        ? (hasIncidentReports ? "Incident reports feature is enabled and at least one report has been generated." : "Incident Reports are enabled. Complete an evacuation or drill to generate your first report.")
+        : "Enable the Incident Reports feature in Settings to satisfy this requirement.",
+    },
+    {
+      id: "visitor-preregistration",
+      label: "Visitor pre-registration",
+      legalObligation: "Venues should maintain advance knowledge of expected visitors to support rapid accountability.",
+      tprFeature: "Pre-booking System",
+      active: hasPreBookings || featureKiosk,
+      detail: (hasPreBookings || featureKiosk)
+        ? "Visitor pre-booking or kiosk self-check-in is available to capture visitor details in advance."
+        : "Use the Pre-booking or Kiosk feature to pre-register expected visitors.",
+    },
+    {
+      id: "audit-trail",
+      label: "Audit trail and access records",
+      legalObligation: "A record of all individuals who access the premises must be maintained and available for inspection.",
+      tprFeature: "Visitor & Contractor Logs",
+      active: true,
+      detail: "TPR Max maintains a complete, tamper-evident log of all visitor, contractor, and staff access records.",
+    },
+  ];
+
+  const companyName = settings?.companyName || "Your Organisation";
+  const activeCount = requirements.filter(r => r.active).length;
+  const totalCount = requirements.length;
+  const compliancePercent = Math.round((activeCount / totalCount) * 100);
+
+  return { requirements, companyName, activeCount, totalCount, compliancePercent, esc: esc2 };
+}
+
+// ─── Helper: write an audit log entry ────────────────────────────────────────
+
+async function writeRamsAudit(
+  ramsDocumentId: string,
+  companyId: string | null,
+  action: string,
+  performedBy: string | null,
+  performedByName: string,
+  notes?: string,
+  metadata?: object,
+) {
+  try {
+    await db.insert(ramsAuditLog).values({
+      ramsDocumentId,
+      companyId,
+      action,
+      performedBy,
+      performedByName,
+      notes: notes || null,
+      metadata: metadata ? JSON.stringify(metadata) : null,
+    });
+  } catch (e) {
+    console.error("writeRamsAudit error:", e);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function registerRamsRoutes(app: Express): void {
+
+  // =========================================
+  // MARTYN'S LAW (UK PROTECT DUTY) ENDPOINTS
+  // =========================================
+
+  app.get("/api/martyn-law", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const rows = await custDb.select().from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
+      if (!rows.length) {
+        return res.json(null);
+      }
+      const row = rows[0];
+      res.json({
+        ...row,
+        checklistItems: row.checklistItems ? JSON.parse(row.checklistItems) : null,
+        evidenceLog: row.evidenceLog ? JSON.parse(row.evidenceLog) : null,
+      });
+    } catch (error: any) {
+      console.error("GET /api/martyn-law error:", error);
+      res.status(500).json({ error: "Failed to load Martyn's Law config" });
+    }
+  });
+
+  app.put("/api/martyn-law", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+
+      const {
+        venueType, venueCapacity, isInScope, scopeNotes,
+        supervisorName, supervisorRole, supervisorPhone, supervisorEmail,
+        siaProviderName, siaLicenseNumber, siaExpiryDate,
+        actionPlan, evacuationProcedure, lockdownProcedure, communicationPlan,
+        checklistItems, evidenceLog,
+        lastReviewedBy,
+      } = req.body;
+
+      const updateData: any = {
+        venueType: venueType ?? null,
+        venueCapacity: venueCapacity ?? null,
+        isInScope: isInScope ?? false,
+        scopeNotes: scopeNotes ?? null,
+        supervisorName: supervisorName ?? null,
+        supervisorRole: supervisorRole ?? null,
+        supervisorPhone: supervisorPhone ?? null,
+        supervisorEmail: supervisorEmail ?? null,
+        siaProviderName: siaProviderName ?? null,
+        siaLicenseNumber: siaLicenseNumber ?? null,
+        siaExpiryDate: siaExpiryDate ? new Date(siaExpiryDate) : null,
+        actionPlan: actionPlan ?? null,
+        evacuationProcedure: evacuationProcedure ?? null,
+        lockdownProcedure: lockdownProcedure ?? null,
+        communicationPlan: communicationPlan ?? null,
+        checklistItems: checklistItems ? JSON.stringify(checklistItems) : null,
+        evidenceLog: evidenceLog ? JSON.stringify(evidenceLog) : null,
+        lastReviewedAt: lastReviewedBy ? new Date() : undefined,
+        lastReviewedBy: lastReviewedBy ?? null,
+        updatedAt: new Date(),
+      };
+
+      const existing = await custDb.select({ id: isolatedSchema.martynLawConfig.id }).from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
+      let result: any;
+      if (existing.length) {
+        const updated = await custDb.update(isolatedSchema.martynLawConfig).set(updateData).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).returning();
+        result = updated[0];
+      } else {
+        const inserted = await custDb.insert(isolatedSchema.martynLawConfig).values({ ...updateData, customerId }).returning();
+        result = inserted[0];
+      }
+
+      res.json({
+        ...result,
+        checklistItems: result.checklistItems ? JSON.parse(result.checklistItems) : null,
+        evidenceLog: result.evidenceLog ? JSON.parse(result.evidenceLog) : null,
+      });
+    } catch (error: any) {
+      console.error("PUT /api/martyn-law error:", error);
+      res.status(500).json({ error: "Failed to save Martyn's Law config" });
+    }
+  });
+
+  // ============================================================
+  // MARTYN'S LAW COMPLIANCE REPORT ENDPOINTS
+  // ============================================================
+
+  app.get("/api/compliance/summary", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const { requirements, companyName, activeCount, totalCount, compliancePercent } = await buildComplianceRequirements(customerId, custDb);
+
+      res.json({
+        companyName,
+        compliancePercent,
+        activeCount,
+        totalCount,
+        requirements: requirements.map(r => ({
+          id: r.id,
+          label: r.label,
+          legalObligation: r.legalObligation,
+          tprFeature: r.tprFeature,
+          active: r.active,
+          detail: r.detail,
+        })),
+      });
+    } catch (error: any) {
+      console.error("GET /api/compliance/summary error:", error);
+      res.status(500).json({ error: "Failed to fetch compliance summary" });
+    }
+  });
+
+  app.get("/api/compliance/report", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId!;
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const { requirements, companyName, activeCount, totalCount, compliancePercent, esc } = await buildComplianceRequirements(customerId, custDb);
+
+      const complianceColor = compliancePercent >= 80 ? "#16a34a" : compliancePercent >= 50 ? "#d97706" : "#dc2626";
+      const complianceBg = compliancePercent >= 80 ? "#dcfce7" : compliancePercent >= 50 ? "#fef3c7" : "#fee2e2";
+      const dateStr = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+
+      const requirementRows = requirements.map(r => `
+        <tr>
+          <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; vertical-align:top;">
+            <div style="font-weight:600; font-size:13px; margin-bottom:2px;">${esc(r.label)}</div>
+            <div style="font-size:11px; color:#6b7280; margin-bottom:4px;">${esc(r.legalObligation)}</div>
+            <div style="font-size:11px; color:#3b82f6;">TPR Max: ${esc(r.tprFeature)}</div>
+          </td>
+          <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; text-align:center; vertical-align:middle; white-space:nowrap;">
+            ${r.active
+              ? '<span style="display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:#16a34a;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">&#10003; Enabled</span>'
+              : '<span style="display:inline-flex;align-items:center;gap:4px;background:#fef3c7;color:#d97706;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;">&#8869; Action needed</span>'
+            }
+          </td>
+        </tr>
+        ${!r.active ? `<tr><td colspan="2" style="padding:4px 12px 10px 12px; border-bottom:1px solid #e5e7eb; font-size:11px; color:#6b7280; font-style:italic;">${esc(r.detail)}</td></tr>` : ""}
+      `).join("");
+
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Martyn's Law Compliance Summary — ${esc(companyName)}</title>
+<style>
+  body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 28px; color: #1e293b; font-size: 14px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 24px 0 8px; color: #1e293b; border-bottom: 2px solid #e5e7eb; padding-bottom: 5px; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #f1f5f9; text-align: left; padding: 8px 12px; font-size: 12px; color: #64748b; border-bottom: 2px solid #e5e7eb; }
+  @media print { body { padding: 14px; } }
+</style>
+</head>
+<body>
+<div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:20px;">
+  <div>
+    <h1>Martyn's Law Compliance Summary</h1>
+    <div style="font-size:13px; color:#64748b;">Terrorism (Protection of Premises) Act 2025 — UK Protect Duty</div>
+    <div style="font-size:13px; color:#374151; margin-top:2px; font-weight:600;">${esc(companyName)}</div>
+  </div>
+  <div style="text-align:right; font-size:11px; color:#9ca3af;">
+    Generated: ${dateStr}<br>
+    TPR Max Visitor Management
+  </div>
+</div>
+
+<div style="background:${complianceBg}; border:1px solid ${complianceColor}; border-radius:8px; padding:16px 24px; display:flex; align-items:center; gap:24px; margin-bottom:24px;">
+  <div style="font-size:48px; font-weight:bold; color:${complianceColor}; line-height:1;">${compliancePercent}%</div>
+  <div>
+    <div style="font-weight:600; font-size:16px; color:#1e293b;">Overall Compliance Score</div>
+    <div style="font-size:13px; color:#6b7280; margin-bottom:6px;">${activeCount} of ${totalCount} requirements met</div>
+    <div style="background:#e5e7eb; height:10px; border-radius:5px; overflow:hidden; width:240px;">
+      <div style="background:${complianceColor}; height:100%; border-radius:5px; width:${compliancePercent}%;"></div>
+    </div>
+  </div>
+</div>
+
+<h2>Compliance Requirements</h2>
+<table>
+  <thead>
+    <tr>
+      <th style="width:76%;">Requirement</th>
+      <th style="width:24%; text-align:center;">Status</th>
+    </tr>
+  </thead>
+  <tbody>${requirementRows}</tbody>
+</table>
+
+<div style="margin-top:32px; padding-top:16px; border-top:1px solid #e5e7eb; font-size:11px; color:#9ca3af;">
+  <p style="margin:0 0 4px;">This compliance summary was generated by TPR Max Visitor Management for <strong>${esc(companyName)}</strong> on ${dateStr}.</p>
+  <p style="margin:0;">This document does not constitute legal advice or certification. For guidance, refer to the UK Home Office Martyn's Law factsheet at <strong>gov.uk/government/publications/martyns-law</strong>.</p>
+</div>
+</body>
+</html>`;
+
+      // Server-side PDF using Puppeteer (with HTML fallback, same pattern as incident reports)
+      try {
+        let puppeteer: any;
+        try {
+          puppeteer = await import('puppeteer');
+        } catch {
+          throw new Error('puppeteer_unavailable');
+        }
+        const browser = await puppeteer.default.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+        try {
+          const page = await browser.newPage();
+          await page.setContent(html, { waitUntil: 'networkidle0' });
+          const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '15mm', bottom: '15mm', left: '12mm', right: '12mm' }
+          });
+          await browser.close();
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `attachment; filename="martyn-law-compliance-${new Date().toISOString().slice(0,10)}.pdf"`);
+          return res.send(Buffer.from(pdfBuffer));
+        } catch (pdfErr) {
+          await browser.close();
+          throw pdfErr;
+        }
+      } catch (pdfGenerationErr) {
+        console.warn('[compliance-report] PDF unavailable, falling back to HTML:', (pdfGenerationErr as Error).message);
+        const printHtml = html.replace('</body>', '<script>window.onload=function(){window.print();}</script></body>');
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `inline; filename="martyn-law-compliance-${new Date().toISOString().slice(0,10)}.html"`);
+        return res.send(printHtml);
+      }
+    } catch (error: any) {
+      console.error("GET /api/compliance/report error:", error);
+      res.status(500).json({ error: "Failed to generate compliance report" });
+    }
+  });
+
+  // ============================================================
+  // RAMS MANAGEMENT ROUTES
+  // ============================================================
+
+  // GET /api/rams — list all RAMS documents (optionally filter by companyId or status)
+  app.get("/api/rams", requireAuth, async (req, res) => {
+    try {
+      const { companyId, status } = req.query as Record<string, string>;
+
+      const conditions: any[] = [eq(ramsDocuments.isActive, true)];
+      if (companyId) conditions.push(eq(ramsDocuments.companyId, companyId));
+      if (status) conditions.push(eq(ramsDocuments.status, status));
+
+      const docs = await db.select().from(ramsDocuments)
+        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .orderBy(desc(ramsDocuments.uploadedAt));
+
+      const enriched = await Promise.all(docs.map(async (doc) => {
+        const acks = await db.select().from(ramsAcknowledgements)
+          .where(eq(ramsAcknowledgements.ramsDocumentId, doc.id));
+        return { ...doc, acknowledgementCount: acks.length };
+      }));
+
+      res.json(enriched);
+    } catch (err: any) {
+      console.error("GET /api/rams error:", err);
+      res.status(500).json({ error: "Failed to fetch RAMS documents" });
+    }
+  });
+
+  // POST /api/rams — upload a new RAMS document
+  app.post("/api/rams", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const parsed = insertRamsDocumentSchema.safeParse(req.body);
+      if (!parsed.success) return res.status(400).json({ error: "Invalid RAMS data", details: parsed.error.flatten() });
+
+      const [created] = await db.insert(ramsDocuments).values({
+        ...parsed.data,
+        uploadedBy: userId,
+        status: "pending_review",
+      }).returning();
+
+      await writeRamsAudit(created.id, created.companyId || null, "uploaded", userId, userName || "System",
+        `RAMS document '${created.documentName}' v${created.version} uploaded`);
+
+      res.status(201).json(created);
+    } catch (err: any) {
+      console.error("POST /api/rams error:", err);
+      res.status(500).json({ error: "Failed to create RAMS document" });
+    }
+  });
+
+  // PUT /api/rams/:id — update a RAMS document (metadata only; use /new-version to upload a new file)
+  app.put("/api/rams/:id", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      const allowed = ["documentName", "jobDescription", "siteLocation", "workCategory", "expiryDate", "alertDaysBefore", "requiredBeforeAccess", "reviewNotes"];
+      const updates: Record<string, any> = {};
+      allowed.forEach((k) => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
+
+      const [updated] = await db.update(ramsDocuments).set(updates).where(eq(ramsDocuments.id, id)).returning();
+      await writeRamsAudit(id, existing.companyId || null, "updated", userId, userName || "System", `Metadata updated`);
+      res.json(updated);
+    } catch (err: any) {
+      console.error("PUT /api/rams/:id error:", err);
+      res.status(500).json({ error: "Failed to update RAMS document" });
+    }
+  });
+
+  // POST /api/rams/:id/approve — approve a RAMS document
+  app.post("/api/rams/:id/approve", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const { notes } = req.body;
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      const [updated] = await db.update(ramsDocuments).set({
+        status: "approved",
+        approvedBy: userId,
+        approvedAt: new Date(),
+        reviewedBy: userId,
+        reviewedAt: new Date(),
+        reviewNotes: notes || null,
+        rejectionReason: null,
+      }).where(eq(ramsDocuments.id, id)).returning();
+
+      await writeRamsAudit(id, existing.companyId || null, "approved", userId, userName || "System",
+        notes || "RAMS document approved for site access", { previousStatus: existing.status });
+
+      res.json(updated);
+    } catch (err: any) {
+      console.error("POST /api/rams/:id/approve error:", err);
+      res.status(500).json({ error: "Failed to approve RAMS document" });
+    }
+  });
+
+  // POST /api/rams/:id/reject — reject a RAMS document
+  app.post("/api/rams/:id/reject", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const { reason } = req.body;
+      if (!reason) return res.status(400).json({ error: "Rejection reason is required" });
+
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      const [updated] = await db.update(ramsDocuments).set({
+        status: "rejected",
+        reviewedBy: userId,
+        reviewedAt: new Date(),
+        rejectionReason: reason,
+      }).where(eq(ramsDocuments.id, id)).returning();
+
+      await writeRamsAudit(id, existing.companyId || null, "rejected", userId, userName || "System",
+        reason, { previousStatus: existing.status });
+
+      res.json(updated);
+    } catch (err: any) {
+      console.error("POST /api/rams/:id/reject error:", err);
+      res.status(500).json({ error: "Failed to reject RAMS document" });
+    }
+  });
+
+  // POST /api/rams/:id/new-version — upload a new version (supersedes current)
+  app.post("/api/rams/:id/new-version", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      await db.update(ramsDocuments).set({ isActive: false }).where(eq(ramsDocuments.id, id));
+
+      const [created] = await db.insert(ramsDocuments).values({
+        companyId: existing.companyId,
+        departmentId: existing.departmentId,
+        ramsIdRef: existing.ramsIdRef,
+        documentName: req.body.documentName || existing.documentName,
+        documentUrl: req.body.documentUrl || existing.documentUrl,
+        expiryDate: req.body.expiryDate ? new Date(req.body.expiryDate) : existing.expiryDate,
+        status: "pending_review",
+        uploadedBy: userId,
+        version: (existing.version || 1) + 1,
+        previousVersionId: id,
+        jobDescription: req.body.jobDescription || existing.jobDescription,
+        siteLocation: req.body.siteLocation || existing.siteLocation,
+        workCategory: req.body.workCategory || existing.workCategory,
+        requiredBeforeAccess: existing.requiredBeforeAccess,
+        alertDaysBefore: existing.alertDaysBefore,
+      }).returning();
+
+      await writeRamsAudit(created.id, created.companyId || null, "new_version", userId, userName || "System",
+        `New version v${created.version} created, superseding v${existing.version}`, { previousVersionId: id });
+
+      res.status(201).json(created);
+    } catch (err: any) {
+      console.error("POST /api/rams/:id/new-version error:", err);
+      res.status(500).json({ error: "Failed to create new RAMS version" });
+    }
+  });
+
+  // DELETE /api/rams/:id — soft-delete (archive) a RAMS document
+  app.delete("/api/rams/:id", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      await db.update(ramsDocuments).set({ isActive: false }).where(eq(ramsDocuments.id, id));
+      await writeRamsAudit(id, existing.companyId || null, "archived", userId, userName || "System", "Document archived");
+
+      res.json({ success: true });
+    } catch (err: any) {
+      console.error("DELETE /api/rams/:id error:", err);
+      res.status(500).json({ error: "Failed to archive RAMS document" });
+    }
+  });
+
+  // GET /api/rams/:id/acknowledgements — list worker acknowledgements for a RAMS document
+  app.get("/api/rams/:id/acknowledgements", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const acks = await db.select().from(ramsAcknowledgements)
+        .where(eq(ramsAcknowledgements.ramsDocumentId, id))
+        .orderBy(desc(ramsAcknowledgements.acknowledgedAt));
+      res.json(acks);
+    } catch (err: any) {
+      console.error("GET /api/rams/:id/acknowledgements error:", err);
+      res.status(500).json({ error: "Failed to fetch acknowledgements" });
+    }
+  });
+
+  // POST /api/rams/:id/acknowledge — worker digitally acknowledges a RAMS document
+  app.post("/api/rams/:id/acknowledge", requireAuth, async (req, res) => {
+    try {
+      const { userId, name: userName } = (req as any).user;
+      const { id } = req.params;
+      const { workerId, method, signatureData } = req.body;
+      if (!workerId) return res.status(400).json({ error: "workerId is required" });
+
+      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+
+      const [alreadyAcked] = await db.select().from(ramsAcknowledgements)
+        .where(and(eq(ramsAcknowledgements.ramsDocumentId, id), eq(ramsAcknowledgements.workerId, workerId)));
+      if (alreadyAcked) return res.status(409).json({ error: "Worker has already acknowledged this RAMS document", acknowledgement: alreadyAcked });
+
+      const [ack] = await db.insert(ramsAcknowledgements).values({
+        ramsDocumentId: id,
+        workerId,
+        companyId: existing.companyId || null,
+        method: method || "digital",
+        ipAddress: req.ip || null,
+        deviceInfo: req.headers["user-agent"] || null,
+        signatureData: signatureData || null,
+      }).returning();
+
+      await writeRamsAudit(id, existing.companyId || null, "acknowledged", workerId, userName || "Worker",
+        `Worker acknowledged RAMS document`, { workerId, method: method || "digital" });
+
+      res.status(201).json(ack);
+    } catch (err: any) {
+      console.error("POST /api/rams/:id/acknowledge error:", err);
+      res.status(500).json({ error: "Failed to record acknowledgement" });
+    }
+  });
+
+  // GET /api/rams/:id/audit — full audit trail for a RAMS document
+  app.get("/api/rams/:id/audit", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const logs = await db.select().from(ramsAuditLog)
+        .where(eq(ramsAuditLog.ramsDocumentId, id))
+        .orderBy(desc(ramsAuditLog.performedAt));
+      res.json(logs);
+    } catch (err: any) {
+      console.error("GET /api/rams/:id/audit error:", err);
+      res.status(500).json({ error: "Failed to fetch audit log" });
+    }
+  });
+
+  // GET /api/rams/:id — single RAMS document with full detail
+  app.get("/api/rams/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [doc] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+      if (!doc) return res.status(404).json({ error: "RAMS document not found" });
+
+      const [acks, audit, versions] = await Promise.all([
+        db.select().from(ramsAcknowledgements).where(eq(ramsAcknowledgements.ramsDocumentId, id)).orderBy(desc(ramsAcknowledgements.acknowledgedAt)),
+        db.select().from(ramsAuditLog).where(eq(ramsAuditLog.ramsDocumentId, id)).orderBy(desc(ramsAuditLog.performedAt)).limit(50),
+        doc.previousVersionId
+          ? db.select().from(ramsDocuments).where(eq(ramsDocuments.id, doc.previousVersionId))
+          : Promise.resolve([]),
+      ]);
+
+      res.json({ ...doc, acknowledgements: acks, auditLog: audit, previousVersion: versions[0] || null });
+    } catch (err: any) {
+      console.error("GET /api/rams/:id error:", err);
+      res.status(500).json({ error: "Failed to fetch RAMS document" });
+    }
+  });
+
+}
