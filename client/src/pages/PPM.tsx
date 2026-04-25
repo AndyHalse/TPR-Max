@@ -19,9 +19,10 @@ import {
   CheckCircle2, AlertTriangle, Clock, Package, ShieldCheck, BookOpen,
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
-  Layers, ChevronDown, ChevronRight, Bell, FileDown, BellOff, Scan,
+  Layers, ChevronDown, ChevronRight, Bell, FileDown, BellOff, Scan, CalendarDays,
 } from "lucide-react";
 import { Link } from "wouter";
+import PpmAnnualPlanner from "@/components/PpmAnnualPlanner";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1069,7 +1070,7 @@ function SchedulesTab() {
 
 // ─── Work Orders Tab ──────────────────────────────────────────────────────────
 
-function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }) {
+function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialStatusFilter?: string; initialWorkOrderId?: string }) {
   const { toast } = useToast();
   const { data: currentUser } = useQuery<{ id: string; username: string; role: string }>({ queryKey: ["/api/auth/me"] });
   const isAdmin = currentUser?.role === "admin";
@@ -1318,6 +1319,7 @@ function WorkOrdersTab({ initialStatusFilter }: { initialStatusFilter?: string }
 
   // Apply filters
   const filtered = workOrders.filter(w => {
+    if (initialWorkOrderId && w.id !== initialWorkOrderId) return false;
     if (filterStatus === "awaiting-cert") {
       if (!(w.status === "completed" && w.requiresCertificate && !w.certificateUploadedAt)) return false;
     } else if (filterStatus !== "all" && w.status !== filterStatus) return false;
@@ -2385,12 +2387,20 @@ export default function PPM() {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("assets");
   const [woStatusFilter, setWoStatusFilter] = useState<string | undefined>(undefined);
+  const [woHighlightId, setWoHighlightId] = useState<string | undefined>(undefined);
 
   const { data: companySettings } = useQuery<CompanySettings>({ queryKey: ["/api/settings"] });
   const notificationsEnabled = companySettings?.notifyOnDocumentExpiry !== false;
 
   function handleSummaryClick(filter?: string) {
     setWoStatusFilter(filter);
+    setWoHighlightId(undefined);
+    setActiveTab("work-orders");
+  }
+
+  function navigateToWorkOrder(id: string) {
+    setWoStatusFilter(undefined);
+    setWoHighlightId(id);
     setActiveTab("work-orders");
   }
 
@@ -2492,12 +2502,18 @@ export default function PPM() {
           <TabsTrigger value="work-orders" className="flex items-center gap-1.5">
             <ClipboardCheck className="h-4 w-4" />Work Orders
           </TabsTrigger>
+          <TabsTrigger value="annual-planner" className="flex items-center gap-1.5">
+            <CalendarDays className="h-4 w-4" />Annual Planner
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="assets" className="mt-4"><AssetsTab /></TabsContent>
         <TabsContent value="templates" className="mt-4"><TemplatesTab /></TabsContent>
         <TabsContent value="schedules" className="mt-4"><SchedulesTab /></TabsContent>
         <TabsContent value="work-orders" className="mt-4">
-          <WorkOrdersTab key={woStatusFilter ?? "none"} initialStatusFilter={woStatusFilter} />
+          <WorkOrdersTab key={`${woStatusFilter ?? "none"}-${woHighlightId ?? "none"}`} initialStatusFilter={woStatusFilter} initialWorkOrderId={woHighlightId} />
+        </TabsContent>
+        <TabsContent value="annual-planner" className="mt-4">
+          <PpmAnnualPlanner navigateToWorkOrder={navigateToWorkOrder} />
         </TabsContent>
       </Tabs>
     </div>

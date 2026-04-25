@@ -1,0 +1,105 @@
+Add a PPM Annual Planner tab to the existing PPM module in TPR Max. This is a 12-month grid view showing all assets against months of the year, colour-coded by maintenance status. It must read from existing live data via the current APIs, not mock data.
+
+1. New Tab — Annual Planner
+In client/src/pages/PPM.tsx, add a fifth tab called Annual Planner to the existing <TabsList> alongside Assets, Templates, Schedules, and Work Orders.
+The tab content should be a new component defined within PPM.tsx (or in a new file client/src/components/PpmAnnualPlanner.tsx if that's cleaner). It fetches from:
+
+GET /api/ppm/assets — for the row list (one row per asset)
+GET /api/ppm/work-orders — for cell data (status per asset per month)
+
+
+2. Grid Layout
+Header row: Jan · Feb · Mar · Apr · May · Jun · Jul · Aug · Sep · Oct · Nov · Dec (2026)
+Left column: Asset name (from ppmAssets), with a sub-line showing assetRef and category in grey
+Each cell represents whether there is a work order for that asset in that calendar month.
+Cell states:
+
+Overdue — red background #FDEAEA, red border #F09595, red ! badge — work order exists, status = overdue
+Due Soon — amber background #FEF3CD, amber border #F0C040 — work order exists, due within 14 days, status = scheduled or in_progress
+Complete — green background #EAF3DE, green border #97C459, tick icon — status = completed
+Scheduled — light blue/grey #F0F4F8, grey text — work order exists but not due soon
+No task — white, dash — no work order for that asset in that month
+Past months with no completion — light red tint if asset had tasks that are now overdue
+
+Use the month of dueDate to determine which column a work order belongs in.
+Where an asset has multiple work orders in the same month, show the worst-case status (overdue > due soon > scheduled > complete).
+Cell size: approximately 52px wide × 44px tall. Asset name column fixed at 220px. Make the table horizontally scrollable if needed.
+Summary row at the top (4 metric cards using the existing GlassCard component or similar):
+
+Total tasks this year
+Complete
+Overdue (red value)
+Due this month (amber value)
+
+Filter bar below metrics: filter by category (dropdown from existing ASSET_CATEGORIES constant) and by status. Both filters narrow which rows are shown.
+Highlight the current month column with a subtle teal left border and slightly darker header.
+
+3. Cell Click — Side Panel
+When a user clicks a non-empty cell, open a <Sheet> (side drawer — already imported in PPM.tsx) from the right, 360px wide, containing:
+
+Asset name (bold, large)
+Asset ref and category (grey sub-line)
+Month label (e.g. "April 2026")
+Status badge (using the existing WO_STATUSES styling from PPM.tsx)
+Task title (from work order)
+Due date
+Contractor name (contractorCompanyName)
+Worker name (contractorWorkerName)
+Notes (if any)
+A button: "View Work Order →" — clicking this should navigate to the Work Orders tab (set the active tab to work-orders) AND apply a filter so only that work order is shown. You can achieve this by lifting the active tab state and passing a navigateToWorkOrder(id) function down as a prop.
+
+If the cell has multiple work orders in the same month, list them all in the panel.
+
+4. Expand the Demo Data — Full 5-Storey Commercial Building
+Update the POST /api/ppm/demo-data route in server/routes.ts to seed a richer, realistic asset list for a 5-storey commercial office building with a basement plant room.
+Replace or extend DEMO_ASSETS with the following (do not delete existing assets — check by assetRef before inserting, skip if already present):
+Basement:
+- Gas Boiler 1 & 2 (BLR-001, BLR-002) — Mechanical — Plant Room
+- Cold Water Storage Tank (CWT-001) — Water Hygiene — Plant Room
+- Hot Water Calorifier (HWC-001) — Water Hygiene — Plant Room
+- Main Electrical Distribution Board (EDB-001) — Electrical — Sub-Station
+- Generator – Standby (GEN-001) — Electrical — Plant Room
+- Sprinkler System Control Valve (SPR-001) — Fire Safety — Plant Room
+
+Ground Floor:
+- Main Fire Alarm Panel (FAP-001) — Fire Safety — Reception
+- Access Control Panel (ACS-001) — Security — Reception
+- CCTV NVR System (CCTV-001) — Security — Reception
+- Passenger Lift A (LFT-001) — Lifts & Hoists — Lift Lobby
+- Passenger Lift B (LFT-002) — Lifts & Hoists — Lift Lobby
+- Emergency Lighting – Ground Floor (EL-GF) — Fire Safety — All Areas
+- Air Handling Unit – Ground Floor (AHU-GF) — HVAC — Plant Room
+
+Floors 1–4 (repeat pattern, suffix 01–04):
+- Air Handling Unit (AHU-01 to AHU-04) — HVAC — Floor X Plant
+- Emergency Lighting (EL-01 to EL-04) — Fire Safety — Floor X
+- Fan Coil Units – Floor X (FCU-01 to FCU-04) — HVAC — Floor X
+
+Roof:
+- Cooling Tower (CT-001) — HVAC — Roof Plant
+- Water Tank – Roof (WT-001) — Water Hygiene — Roof
+- Lightning Protection System (LPS-001) — Electrical — Roof
+Also add work orders for each asset spanning Jan–Dec 2026, matching their correct frequencies from the linked templates. Set a realistic spread of statuses:
+
+Jan–Mar completed (status = completed, completedDate set)
+Apr = mix of completed, overdue, and in_progress (to make the demo visually interesting right now)
+May onwards = scheduled with correct due dates
+
+Use the existing contractor data already in the system for contractorCompanyId if available, or leave null.
+
+5. No Breaking Changes
+
+Do not modify existing tab behaviour for Assets, Templates, Schedules, or Work Orders
+Do not alter any existing API routes — only extend POST /api/ppm/demo-data
+The Annual Planner tab must be hidden/disabled if featurePPM is false, consistent with the rest of the module
+Use existing UI components only: Badge, Button, Sheet, Select, GlassCard, Lucide icons — no new dependencies
+
+
+6. Quick Smoke Test
+After implementing, verify:
+
+Clicking "Load Demo Data" populates assets and creates work orders
+Annual Planner tab renders a grid with at least 25 rows and 12 columns
+April column shows at least one overdue cell (red) and one complete (green)
+Clicking a red cell opens the side panel with correct details
+"View Work Order →" button switches to the Work Orders tab

@@ -1529,16 +1529,46 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
 
-    // ── Demo assets ─────────────────────────────────────────────────────────
-    const DEMO_ASSETS = [
-      { name: "Air Handling Unit 1",             assetRef: "AHU-001", category: "HVAC",         location: "Plant Room 1",         manufacturer: "Daikin",        status: "active" },
-      { name: "Fire Alarm Panel – Main Building", assetRef: "FAP-001", category: "Fire Safety",  location: "Main Reception",       manufacturer: "Honeywell",     status: "active" },
-      { name: "Emergency Lighting System",        assetRef: "EL-001",  category: "Fire Safety",  location: "All Floors",           manufacturer: "Safescape",     status: "active" },
-      { name: "Gas Boiler – Plant Room",          assetRef: "BLR-001", category: "Mechanical",   location: "Plant Room 1",         manufacturer: "Worcester Bosch", status: "active" },
-      { name: "Access Control System",            assetRef: "ACS-001", category: "Security",     location: "Main Entrance",        manufacturer: "Honeywell",     status: "active" },
-      { name: "Passenger Lift – Block A",         assetRef: "LFT-001", category: "Mechanical",   location: "Block A – All Floors", manufacturer: "Schindler",     status: "active" },
-      { name: "Sprinkler System – Warehouse",     assetRef: "SPR-001", category: "Fire Safety",  location: "Warehouse",            manufacturer: "Viking",        status: "active" },
-      { name: "Electrical Distribution Board",    assetRef: "EDB-001", category: "Electrical",   location: "Sub-Station",          manufacturer: "Schneider Electric", status: "active" },
+    // ── All demo assets (checked by assetRef) ────────────────────────────────
+    const ALL_DEMO_ASSETS = [
+      // Original 8
+      { name: "Air Handling Unit 1",             assetRef: "AHU-001", category: "HVAC",           location: "Plant Room 1",              manufacturer: "Daikin",             status: "active" },
+      { name: "Fire Alarm Panel – Main Building", assetRef: "FAP-001", category: "Fire Safety",    location: "Ground Floor Reception",    manufacturer: "Honeywell",           status: "active" },
+      { name: "Emergency Lighting System",        assetRef: "EL-001",  category: "Fire Safety",    location: "All Floors",                manufacturer: "Safescape",           status: "active" },
+      { name: "Gas Boiler 1",                     assetRef: "BLR-001", category: "Mechanical",     location: "Basement Plant Room",       manufacturer: "Worcester Bosch",     status: "active" },
+      { name: "Access Control Panel",             assetRef: "ACS-001", category: "Security",       location: "Ground Floor Reception",    manufacturer: "Honeywell",           status: "active" },
+      { name: "Passenger Lift A",                 assetRef: "LFT-001", category: "Lifts & Hoists", location: "Ground Floor Lift Lobby",   manufacturer: "Schindler",           status: "active" },
+      { name: "Sprinkler System Control Valve",   assetRef: "SPR-001", category: "Fire Safety",    location: "Basement Plant Room",       manufacturer: "Viking",              status: "active" },
+      { name: "Main Electrical Distribution Board",assetRef: "EDB-001",category: "Electrical",     location: "Basement Sub-Station",      manufacturer: "Schneider Electric",  status: "active" },
+      // Additional basement
+      { name: "Gas Boiler 2",                     assetRef: "BLR-002", category: "Mechanical",     location: "Basement Plant Room",       manufacturer: "Worcester Bosch",     status: "active" },
+      { name: "Cold Water Storage Tank",          assetRef: "CWT-001", category: "Water Hygiene",  location: "Basement Plant Room",       manufacturer: "Ware",                status: "active" },
+      { name: "Hot Water Calorifier",             assetRef: "HWC-001", category: "Water Hygiene",  location: "Basement Plant Room",       manufacturer: "Andrews",             status: "active" },
+      { name: "Generator – Standby",              assetRef: "GEN-001", category: "Electrical",     location: "Basement Plant Room",       manufacturer: "Cummins",             status: "active" },
+      // Ground floor additions
+      { name: "CCTV NVR System",                  assetRef: "CCTV-001",category: "Security",       location: "Ground Floor Reception",    manufacturer: "Hikvision",           status: "active" },
+      { name: "Passenger Lift B",                 assetRef: "LFT-002", category: "Lifts & Hoists", location: "Ground Floor Lift Lobby",   manufacturer: "Schindler",           status: "active" },
+      { name: "Emergency Lighting – Ground Floor",assetRef: "EL-GF",   category: "Fire Safety",    location: "Ground Floor",              manufacturer: "Safescape",           status: "active" },
+      { name: "Air Handling Unit – Ground Floor", assetRef: "AHU-GF",  category: "HVAC",           location: "Ground Floor Plant Room",   manufacturer: "Daikin",              status: "active" },
+      // Floors 1–4 AHUs
+      { name: "Air Handling Unit – Floor 1",      assetRef: "AHU-01",  category: "HVAC",           location: "Floor 1 Plant Room",        manufacturer: "Daikin",              status: "active" },
+      { name: "Air Handling Unit – Floor 2",      assetRef: "AHU-02",  category: "HVAC",           location: "Floor 2 Plant Room",        manufacturer: "Daikin",              status: "active" },
+      { name: "Air Handling Unit – Floor 3",      assetRef: "AHU-03",  category: "HVAC",           location: "Floor 3 Plant Room",        manufacturer: "Daikin",              status: "active" },
+      { name: "Air Handling Unit – Floor 4",      assetRef: "AHU-04",  category: "HVAC",           location: "Floor 4 Plant Room",        manufacturer: "Daikin",              status: "active" },
+      // Floors 1–4 Emergency Lighting
+      { name: "Emergency Lighting – Floor 1",     assetRef: "EL-01",   category: "Fire Safety",    location: "Floor 1",                   manufacturer: "Safescape",           status: "active" },
+      { name: "Emergency Lighting – Floor 2",     assetRef: "EL-02",   category: "Fire Safety",    location: "Floor 2",                   manufacturer: "Safescape",           status: "active" },
+      { name: "Emergency Lighting – Floor 3",     assetRef: "EL-03",   category: "Fire Safety",    location: "Floor 3",                   manufacturer: "Safescape",           status: "active" },
+      { name: "Emergency Lighting – Floor 4",     assetRef: "EL-04",   category: "Fire Safety",    location: "Floor 4",                   manufacturer: "Safescape",           status: "active" },
+      // Floors 1–4 Fan Coil Units
+      { name: "Fan Coil Units – Floor 1",         assetRef: "FCU-01",  category: "HVAC",           location: "Floor 1",                   manufacturer: "Daikin",              status: "active" },
+      { name: "Fan Coil Units – Floor 2",         assetRef: "FCU-02",  category: "HVAC",           location: "Floor 2",                   manufacturer: "Daikin",              status: "active" },
+      { name: "Fan Coil Units – Floor 3",         assetRef: "FCU-03",  category: "HVAC",           location: "Floor 3",                   manufacturer: "Daikin",              status: "active" },
+      { name: "Fan Coil Units – Floor 4",         assetRef: "FCU-04",  category: "HVAC",           location: "Floor 4",                   manufacturer: "Daikin",              status: "active" },
+      // Roof
+      { name: "Cooling Tower",                    assetRef: "CT-001",  category: "HVAC",           location: "Roof Plant",                manufacturer: "Baltimore Aircoil",   status: "active" },
+      { name: "Water Tank – Roof",                assetRef: "WT-001",  category: "Water Hygiene",  location: "Roof",                      manufacturer: "Titan",               status: "active" },
+      { name: "Lightning Protection System",      assetRef: "LPS-001", category: "Electrical",     location: "Roof",                      manufacturer: "Erico",               status: "active" },
     ];
 
     // ── Demo templates ───────────────────────────────────────────────────────
@@ -1572,9 +1602,9 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
         checklist: JSON.stringify(["Inspect burner and heat exchanger","Clean all flue ways","Check gas pressure and flow rate","Test safety controls and thermostats","Check ventilation is adequate","Inspect all gas connections for leaks","Record flue gas analysis","Issue Gas Safe certificate"]),
       },
       {
-        name: "Annual Lift Thorough Examination",
+        name: "6-Monthly Lift Thorough Examination",
         description: "Thorough examination of passenger lift by a competent person in accordance with LOLER.",
-        category: "Mechanical", type: "statutory", regulationReference: "LOLER 1998", frequency: "custom", customDays: 183,
+        category: "Lifts & Hoists", type: "statutory", regulationReference: "LOLER 1998", frequency: "custom", customDays: 183,
         estimatedHours: "4",
         checklist: JSON.stringify(["Check all safety devices and buffers","Inspect ropes/belts and terminations","Test overload device","Test emergency brake","Check car and landing door interlocks","Inspect pit and overhead equipment","Test emergency communications","Complete LOLER thorough examination report"]),
       },
@@ -1599,21 +1629,28 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
         estimatedHours: "1.5",
         checklist: JSON.stringify(["Test all card readers for correct operation","Check barrier / door operation","Verify audit trail logging is active","Check backup battery health","Test door held-open alarms","Review access levels for leavers","Update firmware if required"]),
       },
+      {
+        name: "Monthly Water Hygiene Inspection",
+        description: "Monthly Legionella risk management inspection and temperature checks in accordance with L8.",
+        category: "Water Hygiene", type: "statutory", regulationReference: "HSE L8 / HTM 04-01", frequency: "monthly",
+        estimatedHours: "2",
+        checklist: JSON.stringify(["Check cold water temperature at sentinel outlets","Check hot water temperature at sentinel outlets","Inspect cold water storage tank","Check TMVs are operating correctly","Flush little-used outlets","Record all temperatures in log","Report any temperature failures immediately"]),
+      },
     ];
 
-    // Insert assets (skip if name already exists)
+    // Insert assets (check by assetRef to avoid duplicates)
     let assetsCreated = 0;
-    const assetIdMap: Record<string, string> = {};
-    for (const a of DEMO_ASSETS) {
+    const assetIdByRef: Record<string, string> = {};
+    for (const a of ALL_DEMO_ASSETS) {
       const existing = await custDb.select({ id: isolatedSchema.ppmAssets.id })
         .from(isolatedSchema.ppmAssets)
-        .where(eq(isolatedSchema.ppmAssets.name, a.name))
+        .where(eq(isolatedSchema.ppmAssets.assetRef, a.assetRef))
         .limit(1);
       if (existing[0]) {
-        assetIdMap[a.name] = existing[0].id;
+        assetIdByRef[a.assetRef] = existing[0].id;
       } else {
         const [inserted] = await custDb.insert(isolatedSchema.ppmAssets).values(a as any).returning({ id: isolatedSchema.ppmAssets.id });
-        assetIdMap[a.name] = inserted.id;
+        assetIdByRef[a.assetRef] = inserted.id;
         assetsCreated++;
       }
     }
@@ -1631,13 +1668,100 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
+    // ── Work orders: Jan–Dec 2026 ────────────────────────────────────────────
+    // Determine which months each category is serviced in
+    function getServiceMonths(category: string): number[] {
+      switch (category) {
+        case "HVAC":         return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
+        case "Fire Safety":  return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
+        case "Water Hygiene":return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
+        case "Security":     return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
+        case "Mechanical":   return [2,5,8,11];                    // quarterly
+        case "Electrical":   return [2,5,8,11];                    // quarterly
+        case "Lifts & Hoists":return [5,11];                       // 6-monthly
+        default:             return [2,5,8,11];                    // quarterly
+      }
+    }
+
+    function getTaskTitle(category: string, assetName: string): string {
+      switch (category) {
+        case "HVAC":          return `HVAC Service – ${assetName}`;
+        case "Fire Safety":   return `Fire Safety Inspection – ${assetName}`;
+        case "Water Hygiene": return `Water Hygiene Check – ${assetName}`;
+        case "Security":      return `Security System Check – ${assetName}`;
+        case "Mechanical":    return `Mechanical Service – ${assetName}`;
+        case "Electrical":    return `Electrical Inspection – ${assetName}`;
+        case "Lifts & Hoists":return `Lift Thorough Examination – ${assetName}`;
+        default:              return `Maintenance – ${assetName}`;
+      }
+    }
+
+    // Realistic status spread
+    function getWoStatus(monthIdx: number, assetPosition: number): { status: string; completedDate?: string; dueDate: string } {
+      const year = 2026;
+      const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+      const dueDate = `${year}-${String(monthIdx + 1).padStart(2,"0")}-${String(lastDay).padStart(2,"0")}`;
+
+      if (monthIdx <= 2) {
+        // Jan–Mar: all completed
+        return { status: "completed", completedDate: dueDate, dueDate };
+      }
+      if (monthIdx === 3) {
+        // April: mix
+        const mod = assetPosition % 3;
+        if (mod === 0) return { status: "completed", completedDate: "2026-04-28", dueDate };
+        if (mod === 1) return { status: "overdue", dueDate };
+        return { status: "in_progress", dueDate };
+      }
+      // May onwards: scheduled
+      return { status: "scheduled", dueDate };
+    }
+
+    let workOrdersCreated = 0;
+    let assetPosition = 0;
+    for (const asset of ALL_DEMO_ASSETS) {
+      const assetId = assetIdByRef[asset.assetRef];
+      if (!assetId) continue;
+      const months = getServiceMonths(asset.category);
+      const title = getTaskTitle(asset.category, asset.name);
+
+      for (const monthIdx of months) {
+        const { status, completedDate, dueDate } = getWoStatus(monthIdx, assetPosition);
+        // Skip if WO already exists for this asset + dueDate
+        const existing = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
+          .from(isolatedSchema.ppmWorkOrders)
+          .where(and(
+            eq(isolatedSchema.ppmWorkOrders.assetId, assetId),
+            eq(isolatedSchema.ppmWorkOrders.dueDate, dueDate),
+          ))
+          .limit(1);
+        if (existing[0]) continue;
+
+        await custDb.insert(isolatedSchema.ppmWorkOrders).values({
+          assetId,
+          title,
+          status,
+          dueDate,
+          completedDate: completedDate ?? null,
+          contractorCompanyName: monthIdx <= 2 ? "BuildRight Co" : null,
+          contractorWorkerName: monthIdx <= 2 ? "James Carter" : null,
+          notes: monthIdx === 3 && assetPosition % 3 === 1
+            ? "Work overdue — contractor visit rescheduled."
+            : null,
+        } as any);
+        workOrdersCreated++;
+      }
+      assetPosition++;
+    }
+
     res.json({
       success: true,
       assetsCreated,
       templatesCreated,
-      message: assetsCreated === 0 && templatesCreated === 0
+      workOrdersCreated,
+      message: assetsCreated === 0 && templatesCreated === 0 && workOrdersCreated === 0
         ? "Demo data already loaded — no duplicates created."
-        : `Created ${assetsCreated} asset${assetsCreated !== 1 ? "s" : ""} and ${templatesCreated} template${templatesCreated !== 1 ? "s" : ""}.`,
+        : `Created ${assetsCreated} asset${assetsCreated !== 1 ? "s" : ""}, ${templatesCreated} template${templatesCreated !== 1 ? "s" : ""}, and ${workOrdersCreated} work order${workOrdersCreated !== 1 ? "s" : ""}.`,
     });
   } catch (error: unknown) {
     console.error("POST /api/ppm/demo-data", error);
