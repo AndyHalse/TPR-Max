@@ -258,11 +258,38 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
       {/* ── Print-specific styles ── */}
       <style>{`
         @media print {
-          body > *:not(#ppm-planner-print-root) { display: none !important; }
-          #ppm-planner-print-root { display: block !important; }
+          /* Force colour printing (backgrounds, borders) */
+          * { -webkit-print-color-adjust: exact !important; color-adjust: exact !important; }
+
+          /* Hide everything, then reveal only the planner root and its children.
+             This works even when the root is deeply nested — unlike "body > * display:none"
+             which would hide the app shell that contains the planner. */
+          body * { visibility: hidden; }
+          #ppm-planner-print-root,
+          #ppm-planner-print-root * { visibility: visible; }
+
+          /* Lift the planner to the top-left so it fills the page */
+          #ppm-planner-print-root {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            max-width: none;
+          }
+
+          /* Hide controls that should not appear in the PDF */
           .no-print { display: none !important; }
-          .ppm-grid-table { position: static !important; }
-          .ppm-asset-col { position: static !important; }
+
+          /* Remove scroll containers and sticky positioning for the table */
+          .ppm-grid-table {
+            overflow: visible !important;
+            max-height: none !important;
+            max-width: none !important;
+          }
+          .ppm-grid-table table { width: 100% !important; }
+          .ppm-asset-col { position: static !important; background: white !important; }
+          thead th { position: static !important; background: #f9fafb !important; }
+
           @page { size: A3 landscape; margin: 12mm; }
         }
       `}</style>
