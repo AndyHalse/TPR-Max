@@ -1638,42 +1638,65 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       },
     ];
 
-    // Insert assets (check by assetRef to avoid duplicates)
+    // ── STEP 1: Wipe all existing PPM data (FK-safe order) ─────────────────
+    // Documents → Work Orders → Schedules → Assets → Groups → Templates
+    await custDb.delete(isolatedSchema.ppmWorkOrderDocuments);
+    await custDb.delete(isolatedSchema.ppmWorkOrders);
+    await custDb.delete(isolatedSchema.ppmSchedules);
+    await custDb.delete(isolatedSchema.ppmAssets);
+    await custDb.delete(isolatedSchema.ppmAssetGroups);
+    await custDb.delete(isolatedSchema.ppmTemplates);
+
+    // ── STEP 2: Asset groups — one per maintenance category ─────────────────
+    const DEMO_GROUPS = [
+      { name: "HVAC Systems",        description: "Air handling, fan coil units, cooling towers and ventilation plant" },
+      { name: "Fire Safety Systems", description: "Fire alarm panels, emergency lighting, sprinkler and suppression systems" },
+      { name: "Mechanical Services", description: "Boilers, pressure vessels and gas plant" },
+      { name: "Electrical Systems",  description: "Distribution boards, generators and lightning protection" },
+      { name: "Water Hygiene",       description: "Cold water storage, calorifiers and Legionella management" },
+      { name: "Security Systems",    description: "Access control, CCTV and intruder alarm systems" },
+      { name: "Lifts & Hoists",      description: "Passenger and goods lifts — LOLER thorough examinations" },
+    ];
+    const groupIdByCategory: Record<string, string> = {};
+    const categoryToGroup: Record<string, string> = {
+      "HVAC":           "HVAC Systems",
+      "Fire Safety":    "Fire Safety Systems",
+      "Mechanical":     "Mechanical Services",
+      "Electrical":     "Electrical Systems",
+      "Water Hygiene":  "Water Hygiene",
+      "Security":       "Security Systems",
+      "Lifts & Hoists": "Lifts & Hoists",
+    };
+    for (const g of DEMO_GROUPS) {
+      const [ins] = await custDb.insert(isolatedSchema.ppmAssetGroups)
+        .values(g).returning({ id: isolatedSchema.ppmAssetGroups.id });
+      // Map each category that uses this group name
+      for (const [cat, grpName] of Object.entries(categoryToGroup)) {
+        if (grpName === g.name) groupIdByCategory[cat] = ins.id;
+      }
+    }
+
+    // ── STEP 3: Insert assets (fresh — all prior data wiped above) ───────────
     let assetsCreated = 0;
     const assetIdByRef: Record<string, string> = {};
     for (const a of ALL_DEMO_ASSETS) {
-      const existing = await custDb.select({ id: isolatedSchema.ppmAssets.id })
-        .from(isolatedSchema.ppmAssets)
-        .where(eq(isolatedSchema.ppmAssets.assetRef, a.assetRef))
-        .limit(1);
-      if (existing[0]) {
-        assetIdByRef[a.assetRef] = existing[0].id;
-      } else {
-        const [inserted] = await custDb.insert(isolatedSchema.ppmAssets).values(a as any).returning({ id: isolatedSchema.ppmAssets.id });
-        assetIdByRef[a.assetRef] = inserted.id;
-        assetsCreated++;
-      }
+      const groupId = groupIdByCategory[a.category] ?? null;
+      const [inserted] = await custDb.insert(isolatedSchema.ppmAssets)
+        .values({ ...a, groupId } as any)
+        .returning({ id: isolatedSchema.ppmAssets.id });
+      assetIdByRef[a.assetRef] = inserted.id;
+      assetsCreated++;
     }
 
-    // Insert templates (skip if name already exists)
+    // ── STEP 4: Insert templates (fresh — table was wiped above) ─────────────
     let templatesCreated = 0;
-    for (const t of DEMO_TEMPLATES) {
-      const existing = await custDb.select({ id: isolatedSchema.ppmTemplates.id })
-        .from(isolatedSchema.ppmTemplates)
-        .where(eq(isolatedSchema.ppmTemplates.name, t.name))
-        .limit(1);
-      if (!existing[0]) {
-        await custDb.insert(isolatedSchema.ppmTemplates).values(t as any);
-        templatesCreated++;
-      }
-    }
-
-    // ── Build template ID map ─────────────────────────────────────────────────
-    const allTpls = await custDb
-      .select({ id: isolatedSchema.ppmTemplates.id, name: isolatedSchema.ppmTemplates.name })
-      .from(isolatedSchema.ppmTemplates);
     const templateIdByName: Record<string, string> = {};
-    for (const t of allTpls) templateIdByName[t.name] = t.id;
+    for (const t of DEMO_TEMPLATES) {
+      const [ins] = await custDb.insert(isolatedSchema.ppmTemplates)
+        .values(t as any).returning({ id: isolatedSchema.ppmTemplates.id });
+      templateIdByName[t.name] = ins.id;
+      templatesCreated++;
+    }
 
     // ── Contractor assignment per category ────────────────────────────────────
     const CATEGORY_CONTRACTOR: Record<string, { company: string; worker: string }> = {
@@ -1733,7 +1756,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       })),
     ];
 
-    // Insert schedules, track primary scheduleId per asset (prefer monthly over longer-cycle)
+    // ── STEP 5: Insert schedules (fresh) ─────────────────────────────────────
     let schedulesCreated = 0;
     const primaryScheduleIdByRef: Record<string, string> = {};
 
@@ -1742,46 +1765,27 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       if (!assetId) continue;
       const templateId = templateIdByName[s.templateName] ?? null;
 
-      const existing = await custDb.select({ id: isolatedSchema.ppmSchedules.id })
-        .from(isolatedSchema.ppmSchedules)
-        .where(and(
-          eq(isolatedSchema.ppmSchedules.assetId, assetId),
-          eq(isolatedSchema.ppmSchedules.title, s.templateName),
-        ))
-        .limit(1);
-
-      let scheduleId: string;
-      if (existing[0]) {
-        scheduleId = existing[0].id;
-      } else {
-        const [ins] = await custDb.insert(isolatedSchema.ppmSchedules).values({
-          assetId, templateId,
-          title: s.templateName,
-          frequency: s.frequency,
-          customDays: s.customDays ?? null,
-          startDate: "2026-01-01",
-          nextDueDate: s.nextDueDate,
-          status: "scheduled",
-          assignedTo: s.assignedTo ?? null,
-        } as any).returning({ id: isolatedSchema.ppmSchedules.id });
-        scheduleId = ins.id;
-        schedulesCreated++;
-      }
+      const [ins] = await custDb.insert(isolatedSchema.ppmSchedules).values({
+        assetId, templateId,
+        title: s.templateName,
+        frequency: s.frequency,
+        customDays: s.customDays ?? null,
+        startDate: "2026-01-01",
+        nextDueDate: s.nextDueDate,
+        status: "scheduled",
+        assignedTo: s.assignedTo ?? null,
+      } as any).returning({ id: isolatedSchema.ppmSchedules.id });
+      schedulesCreated++;
 
       // Keep the primary (most-frequently-recurring) schedule per asset
       const prev = primaryScheduleIdByRef[s.assetRef];
       if (!prev || s.frequency === "monthly") {
-        primaryScheduleIdByRef[s.assetRef] = scheduleId;
+        primaryScheduleIdByRef[s.assetRef] = ins.id;
       }
     }
 
-    // ── Work orders: Jan–Dec 2026 linked to their schedules ──────────────────
-    // Clear existing demo WOs for these assets so we always produce a clean state.
-    const demoAssetIds = Object.values(assetIdByRef).filter(Boolean);
-    if (demoAssetIds.length > 0) {
-      await custDb.delete(isolatedSchema.ppmWorkOrders)
-        .where(inArray(isolatedSchema.ppmWorkOrders.assetId, demoAssetIds));
-    }
+    // ── STEP 6: Work orders: Jan–Dec 2026 linked to their schedules ──────────
+    // (table already wiped in STEP 1 — insert fresh)
 
     // posIdx cycles the starting offset so quarterly/6-monthly assets hit different months,
     // spreading the maintenance load visibly across the whole year in the annual planner.
@@ -1858,16 +1862,6 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
       for (const monthIdx of months) {
         const rec = buildWoRecord(monthIdx, assetPosition, asset.category);
-
-        const existing = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
-          .from(isolatedSchema.ppmWorkOrders)
-          .where(and(
-            eq(isolatedSchema.ppmWorkOrders.assetId, assetId),
-            eq(isolatedSchema.ppmWorkOrders.dueDate, rec.dueDate),
-          ))
-          .limit(1);
-        if (existing[0]) continue;
-
         await custDb.insert(isolatedSchema.ppmWorkOrders).values({
           assetId,
           scheduleId,
@@ -1886,13 +1880,12 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
     res.json({
       success: true,
+      groupsCreated: DEMO_GROUPS.length,
       assetsCreated,
       templatesCreated,
-      workOrdersCreated,
       schedulesCreated,
-      message: assetsCreated === 0 && templatesCreated === 0 && workOrdersCreated === 0 && schedulesCreated === 0
-        ? "Demo data already loaded — no duplicates created."
-        : `Created ${assetsCreated} asset${assetsCreated !== 1 ? "s" : ""}, ${templatesCreated} template${templatesCreated !== 1 ? "s" : ""}, ${schedulesCreated} schedule${schedulesCreated !== 1 ? "s" : ""}, and ${workOrdersCreated} work order${workOrdersCreated !== 1 ? "s" : ""}.`,
+      workOrdersCreated,
+      message: `Demo data refreshed: ${DEMO_GROUPS.length} asset groups, ${assetsCreated} assets, ${templatesCreated} templates, ${schedulesCreated} schedules, and ${workOrdersCreated} work orders loaded fresh.`,
     });
   } catch (error: unknown) {
     console.error("POST /api/ppm/demo-data", error);
