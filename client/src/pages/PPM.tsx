@@ -2411,6 +2411,7 @@ export default function PPM() {
   const demoDataMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/ppm/demo-data").then(r => r.json()),
     onSuccess: (result: { assetsCreated: number; templatesCreated: number; message: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/asset-groups"] });
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] });
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] });
@@ -2425,7 +2426,7 @@ export default function PPM() {
   });
 
   function handleLoadDemo() {
-    if (!isEmpty && !confirm("Demo data will be added alongside your existing data. Continue?")) return;
+    if (!isEmpty && !confirm("This will wipe all existing PPM data (assets, schedules, work orders) and reload the demo dataset. Continue?")) return;
     demoDataMutation.mutate();
   }
 
