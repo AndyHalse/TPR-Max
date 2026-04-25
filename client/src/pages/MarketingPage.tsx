@@ -660,7 +660,7 @@ export default function MarketingPage() {
                 color: "text-emerald-600",
                 bg: "bg-emerald-50 dark:bg-emerald-900/20",
                 border: "border-emerald-200 dark:border-emerald-800",
-                desc: "Planned preventative maintenance with automated work orders, asset register, contractor assignment, and overdue alerts.",
+                desc: "Planned preventative maintenance with automated work orders, 12-month annual planner, compliance score, statutory badging, and overdue alert banner.",
               },
               {
                 icon: Building2,
@@ -1897,37 +1897,49 @@ export default function MarketingPage() {
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Statutory Compliance Built-In:</strong> Pre-loaded UK regulation references (BS 5839, BS 5266, LOLER, Gas Safe, BS 7671) on every template
+                        <strong>12-Month Annual Planner:</strong> Colour-coded grid showing every asset's maintenance status across the full year — overdue, in progress, scheduled and completed at a glance
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Automated Work Orders:</strong> Schedules automatically generate work orders at the right time — never miss a service interval again
+                        <strong>Live Compliance Score:</strong> Real-time percentage badge on the page header and planner — colour-coded green, amber, or red — so management knows the compliance position instantly
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Contractor Assignment:</strong> Assign work orders to contractors with a secure mobile QR link — contractors complete checklists on their phone, no app install needed
+                        <strong>Statutory "S" Badge:</strong> Any cell containing a statutory work order (LOLER, BS 5839, Gas Safe, EICR, L8) is automatically marked with an "S" — making audit preparation effortless
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Asset Register:</strong> Track every asset by location, category, manufacturer and service history with a full maintenance log
+                        <strong>Overdue Alert Banner:</strong> A prominent red banner appears instantly when any work order is overdue, with a direct link to the outstanding tasks — no hunting required
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Overdue Alerts:</strong> Dashboard flags overdue and upcoming work orders so nothing slips through the cracks
+                        <strong>Statutory Compliance Built-In:</strong> Pre-loaded UK regulation references (BS 5839, BS 5266, LOLER, Gas Safe, BS 7671) on every template — with certificate tracking for completed statutory tasks
                       </span>
                     </div>
                     <div className="flex items-center space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Document Attachments:</strong> Upload certificates, photos, and inspection reports directly to completed work orders
+                        <strong>Export CSV &amp; PDF:</strong> Download the full annual planner as a spreadsheet for board reports, or print a colour-coded A3 PDF for the maintenance folder
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Year Navigator:</strong> Switch between previous, current, and next year — historical records and forward planning in one view
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Contractor Assignment:</strong> Assign work orders to contractors with a secure mobile QR link — no app install needed
                       </span>
                     </div>
                   </div>
@@ -1944,49 +1956,94 @@ export default function MarketingPage() {
                 </div>
 
                 <div className="relative">
-                  <div className="rounded-xl shadow-2xl border border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 p-8">
-                    <div className="text-center mb-6">
-                      <Wrench className="h-16 w-16 text-emerald-600 mx-auto mb-4" />
-                      <h4 className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">
-                        PPM Work Order Dashboard
-                      </h4>
+                  <div className="rounded-xl shadow-2xl border border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 p-6">
+
+                    {/* Header row: compliance badge + title */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Wrench className="h-5 w-5 text-emerald-600" />
+                        <span className="font-bold text-emerald-800 dark:text-emerald-200 text-sm">Annual Planner 2026</span>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200">
+                        <ShieldCheck className="h-3 w-3" /> 84% compliant
+                      </span>
                     </div>
 
-                    {/* Work order list mockup */}
-                    <div className="space-y-3">
-                      {[
-                        { label: "Annual Fire Alarm Full Test", ref: "BS 5839-1", status: "Overdue", color: "bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300" },
-                        { label: "Monthly Emergency Lighting Test", ref: "BS 5266-1", status: "Due Today", color: "bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300" },
-                        { label: "Lift Thorough Examination", ref: "LOLER 1998", status: "Scheduled", color: "bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300" },
-                        { label: "Annual Boiler Gas Safety", ref: "Gas Safe Regs", status: "Completed", color: "bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300" },
-                      ].map((wo) => (
-                        <div key={wo.label} className="flex items-center justify-between bg-white/80 dark:bg-slate-800/80 rounded-lg p-3">
-                          <div className="flex-1 min-w-0 mr-2">
-                            <div className="flex items-center space-x-2">
-                              <CalendarCheck className="h-4 w-4 text-emerald-600 flex-shrink-0" />
-                              <span className="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">{wo.label}</span>
-                            </div>
-                            <p className="text-xs text-slate-400 ml-6">{wo.ref}</p>
-                          </div>
-                          <span className={`text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0 ${wo.color}`}>{wo.status}</span>
-                        </div>
+                    {/* Overdue alert banner */}
+                    <div className="flex items-center gap-2 px-3 py-2 mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs">
+                      <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                      <span><strong>3 overdue work orders</strong> — action required.</span>
+                      <span className="ml-auto text-red-600 font-medium">View now →</span>
+                    </div>
+
+                    {/* Mini annual planner grid */}
+                    <div className="overflow-hidden rounded-lg border border-emerald-200 dark:border-emerald-700 mb-4">
+                      <table className="w-full border-collapse text-[10px]">
+                        <thead>
+                          <tr className="bg-emerald-100/70 dark:bg-emerald-900/30">
+                            <th className="text-left px-2 py-1 text-slate-600 dark:text-slate-400 font-semibold border-r border-emerald-200 dark:border-emerald-700" style={{ minWidth: 90 }}>Asset</th>
+                            {["J","F","M","A","M","J","J","A","S","O","N","D"].map((m, i) => (
+                              <th key={m+i} className={`text-center px-0.5 py-1 font-medium ${i === 3 ? "text-teal-700 dark:text-teal-400" : "text-slate-500"}`}>{m}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { name: "Fire Alarm Panel", cells: ["done","done","done","over","sch","sch","sch","sch","sch","sch","sch","sch"], statutory: [0,1,2,3,4,5,6,7,8,9,10,11] },
+                            { name: "Lift — Block A", cells: ["","","","","","done","","","","","","done"], statutory: [5,11] },
+                            { name: "HVAC Unit 1", cells: ["done","","","prog","","","done","","","sch","",""], statutory: [] },
+                            { name: "Boiler Room", cells: ["done","done","done","over","sch","","","","","","",""], statutory: [0,1,2,3,4] },
+                          ].map(({ name, cells, statutory }) => (
+                            <tr key={name} className="border-t border-emerald-100 dark:border-emerald-800">
+                              <td className="px-2 py-1 text-slate-700 dark:text-slate-300 font-medium border-r border-emerald-200 dark:border-emerald-700 truncate" style={{ maxWidth: 90 }}>{name}</td>
+                              {cells.map((c, i) => {
+                                const bg = c === "done" ? "#EAF3DE" : c === "over" ? "#FDEAEA" : c === "prog" ? "#EBF5FB" : c === "sch" ? "#EBF5FB" : "#FFFFFF";
+                                const border = c === "done" ? "#97C459" : c === "over" ? "#F09595" : c === "prog" || c === "sch" ? "#90CAF9" : "#E5E7EB";
+                                const isStatutory = statutory.includes(i) && c !== "";
+                                return (
+                                  <td key={i} className="p-0.5">
+                                    <div className="relative flex items-center justify-center rounded" style={{ background: bg, border: `1px solid ${border}`, height: 16 }}>
+                                      {c === "done" && <span style={{ fontSize: 7, color: "#2E7D32" }}>✓</span>}
+                                      {c === "over" && <span style={{ fontSize: 7, color: "#C62828" }}>!</span>}
+                                      {c === "sch" && <span style={{ fontSize: 6, color: "#1565C0" }}>●</span>}
+                                      {c === "prog" && <span style={{ fontSize: 6, color: "#1565C0" }}>◑</span>}
+                                      {isStatutory && <span style={{ position: "absolute", top: 0, right: 1, fontSize: 6, fontWeight: 700, color: "#1565C0", lineHeight: 1 }}>S</span>}
+                                    </div>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Legend */}
+                    <div className="flex flex-wrap gap-2 text-[9px] text-slate-500 mb-4">
+                      {[["#EAF3DE","#97C459","Completed"],["#FDEAEA","#F09595","Overdue"],["#EBF5FB","#90CAF9","Scheduled"]].map(([bg,bd,label]) => (
+                        <span key={label} className="flex items-center gap-1">
+                          <span className="inline-block w-2.5 h-2.5 rounded-sm border" style={{ background: bg, borderColor: bd }} />{label}
+                        </span>
                       ))}
+                      <span className="flex items-center gap-1 border-l pl-2">
+                        <span className="inline-flex items-center justify-center w-2.5 h-2.5 rounded-sm border text-[6px] font-bold" style={{ background:"#EBF5FB", borderColor:"#90CAF9", color:"#1565C0" }}>S</span>Statutory
+                      </span>
                     </div>
 
                     {/* Summary counts */}
-                    <div className="grid grid-cols-3 gap-3 mt-4">
-                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-red-600">3</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">Overdue</div>
-                      </div>
-                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-blue-600">12</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">Scheduled</div>
-                      </div>
-                      <div className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-3 text-center">
-                        <div className="text-2xl font-bold text-green-600">47</div>
-                        <div className="text-xs text-slate-500 dark:text-slate-400">Completed</div>
-                      </div>
+                    <div className="grid grid-cols-5 gap-2">
+                      {[
+                        { label: "Total", value: 62, color: "text-slate-700 dark:text-slate-200" },
+                        { label: "Complete", value: 52, color: "text-green-600" },
+                        { label: "Overdue", value: 3, color: "text-red-600" },
+                        { label: "Scheduled", value: 7, color: "text-blue-600" },
+                        { label: "Score", value: "84%", color: "text-green-600" },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-2 text-center">
+                          <div className={`text-base font-bold ${color}`}>{value}</div>
+                          <div className="text-[9px] text-slate-400">{label}</div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
