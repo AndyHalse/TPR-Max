@@ -1668,134 +1668,75 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
-    // ── Work orders: Jan–Dec 2026 ────────────────────────────────────────────
-    // Determine which months each category is serviced in
-    function getServiceMonths(category: string): number[] {
-      switch (category) {
-        case "HVAC":         return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
-        case "Fire Safety":  return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
-        case "Water Hygiene":return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
-        case "Security":     return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
-        case "Mechanical":   return [2,5,8,11];                    // quarterly
-        case "Electrical":   return [2,5,8,11];                    // quarterly
-        case "Lifts & Hoists":return [5,11];                       // 6-monthly
-        default:             return [2,5,8,11];                    // quarterly
-      }
-    }
-
-    function getTaskTitle(category: string, assetName: string): string {
-      switch (category) {
-        case "HVAC":          return `HVAC Service – ${assetName}`;
-        case "Fire Safety":   return `Fire Safety Inspection – ${assetName}`;
-        case "Water Hygiene": return `Water Hygiene Check – ${assetName}`;
-        case "Security":      return `Security System Check – ${assetName}`;
-        case "Mechanical":    return `Mechanical Service – ${assetName}`;
-        case "Electrical":    return `Electrical Inspection – ${assetName}`;
-        case "Lifts & Hoists":return `Lift Thorough Examination – ${assetName}`;
-        default:              return `Maintenance – ${assetName}`;
-      }
-    }
-
-    // Realistic status spread
-    function getWoStatus(monthIdx: number, assetPosition: number): { status: string; completedDate?: string; dueDate: string } {
-      const year = 2026;
-      const lastDay = new Date(year, monthIdx + 1, 0).getDate();
-      const dueDate = `${year}-${String(monthIdx + 1).padStart(2,"0")}-${String(lastDay).padStart(2,"0")}`;
-
-      if (monthIdx <= 2) {
-        // Jan–Mar: all completed
-        return { status: "completed", completedDate: dueDate, dueDate };
-      }
-      if (monthIdx === 3) {
-        // April: mix
-        const mod = assetPosition % 3;
-        if (mod === 0) return { status: "completed", completedDate: "2026-04-28", dueDate };
-        if (mod === 1) return { status: "overdue", dueDate };
-        return { status: "in_progress", dueDate };
-      }
-      // May onwards: scheduled
-      return { status: "scheduled", dueDate };
-    }
-
-    let workOrdersCreated = 0;
-    let assetPosition = 0;
-    for (const asset of ALL_DEMO_ASSETS) {
-      const assetId = assetIdByRef[asset.assetRef];
-      if (!assetId) continue;
-      const months = getServiceMonths(asset.category);
-      const title = getTaskTitle(asset.category, asset.name);
-
-      for (const monthIdx of months) {
-        const { status, completedDate, dueDate } = getWoStatus(monthIdx, assetPosition);
-        const existing = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
-          .from(isolatedSchema.ppmWorkOrders)
-          .where(and(
-            eq(isolatedSchema.ppmWorkOrders.assetId, assetId),
-            eq(isolatedSchema.ppmWorkOrders.dueDate, dueDate),
-          ))
-          .limit(1);
-        if (existing[0]) continue;
-
-        await custDb.insert(isolatedSchema.ppmWorkOrders).values({
-          assetId,
-          title,
-          status,
-          dueDate,
-          completedDate: completedDate ?? null,
-          contractorCompanyName: monthIdx <= 2 ? "BuildRight Co" : null,
-          contractorWorkerName: monthIdx <= 2 ? "James Carter" : null,
-          notes: monthIdx === 3 && assetPosition % 3 === 1
-            ? "Work overdue — contractor visit rescheduled."
-            : null,
-        } as any);
-        workOrdersCreated++;
-      }
-      assetPosition++;
-    }
-
-    // ── Schedules: link each asset to its template(s) ────────────────────────
-    // Build a map of template name → id from the DB (handles both new and pre-existing)
+    // ── Build template ID map ─────────────────────────────────────────────────
     const allTpls = await custDb
       .select({ id: isolatedSchema.ppmTemplates.id, name: isolatedSchema.ppmTemplates.name })
       .from(isolatedSchema.ppmTemplates);
     const templateIdByName: Record<string, string> = {};
     for (const t of allTpls) templateIdByName[t.name] = t.id;
 
-    // Schedule definitions: assetRef → template name(s) with frequency overrides
+    // ── Contractor assignment per category ────────────────────────────────────
+    const CATEGORY_CONTRACTOR: Record<string, { company: string; worker: string }> = {
+      "HVAC":           { company: "CoolAir Services Ltd",    worker: "Tom Briggs"    },
+      "Fire Safety":    { company: "FireGuard UK Ltd",         worker: "Sarah Webb"    },
+      "Mechanical":     { company: "BuildRight Co",            worker: "James Carter"  },
+      "Electrical":     { company: "Volt-Safe Electrical Ltd", worker: "Raj Patel"     },
+      "Water Hygiene":  { company: "AquaSafe Hygiene Ltd",     worker: "Claire Morris" },
+      "Security":       { company: "SecureAccess Systems",     worker: "Dan Hughes"    },
+      "Lifts & Hoists": { company: "Schindler UK",             worker: "Mark Taylor"   },
+    };
+
+    // ── Due day within each month per category (staggered for realism) ─────────
+    function getCategoryDueDay(category: string): number {
+      switch (category) {
+        case "HVAC":           return 7;   // 1st week
+        case "Fire Safety":    return 14;  // 2nd week
+        case "Water Hygiene":  return 21;  // 3rd week
+        case "Security":       return 28;  // 4th week
+        case "Lifts & Hoists": return 10;  // early month
+        case "Mechanical":     return 12;  // mid-month
+        case "Electrical":     return 16;  // mid-month
+        default:               return 15;
+      }
+    }
+
+    // ── Schedules FIRST — so work orders can reference their scheduleId ────────
     type SchedDef = { assetRef: string; templateName: string; frequency: string; customDays?: number; nextDueDate: string; assignedTo?: string };
     const DEMO_SCHEDULES: SchedDef[] = [
       // HVAC – monthly
       ...(["AHU-001","AHU-GF","AHU-01","AHU-02","AHU-03","AHU-04","FCU-01","FCU-02","FCU-03","FCU-04","CT-001"] as const).map(r => ({
-        assetRef: r, templateName: "Monthly HVAC Filter Check", frequency: "monthly", nextDueDate: "2026-05-31", assignedTo: "CoolAir Services Ltd",
+        assetRef: r, templateName: "Monthly HVAC Filter Check", frequency: "monthly", nextDueDate: "2026-05-07", assignedTo: "CoolAir Services Ltd",
       })),
-      // Fire alarm panel – annual test
-      { assetRef: "FAP-001", templateName: "Annual Fire Alarm Full Test", frequency: "annual", nextDueDate: "2026-12-31", assignedTo: "FireGuard UK Ltd" },
-      // Emergency lighting – monthly
+      // Fire alarm panel – annual test + monthly emergency lighting
+      { assetRef: "FAP-001", templateName: "Annual Fire Alarm Full Test", frequency: "annual", nextDueDate: "2026-12-14", assignedTo: "FireGuard UK Ltd" },
       ...(["FAP-001","EL-001","EL-GF","EL-01","EL-02","EL-03","EL-04"] as const).map(r => ({
-        assetRef: r, templateName: "Monthly Emergency Lighting Functional Test", frequency: "monthly", nextDueDate: "2026-05-31", assignedTo: "FireGuard UK Ltd",
+        assetRef: r, templateName: "Monthly Emergency Lighting Functional Test", frequency: "monthly", nextDueDate: "2026-05-14", assignedTo: "FireGuard UK Ltd",
       })),
       // Sprinkler – quarterly
-      { assetRef: "SPR-001", templateName: "Quarterly Sprinkler System Inspection", frequency: "quarterly", nextDueDate: "2026-06-30", assignedTo: "FireGuard UK Ltd" },
-      // Boilers – annual
-      { assetRef: "BLR-001", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual", nextDueDate: "2026-12-31", assignedTo: "BuildRight Co" },
-      { assetRef: "BLR-002", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual", nextDueDate: "2026-12-31", assignedTo: "BuildRight Co" },
-      // Lifts – 6-monthly (LOLER)
-      { assetRef: "LFT-001", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom", customDays: 183, nextDueDate: "2026-06-30", assignedTo: "Schindler UK" },
-      { assetRef: "LFT-002", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom", customDays: 183, nextDueDate: "2026-06-30", assignedTo: "Schindler UK" },
+      { assetRef: "SPR-001", templateName: "Quarterly Sprinkler System Inspection", frequency: "quarterly", nextDueDate: "2026-06-14", assignedTo: "FireGuard UK Ltd" },
+      // Boilers – annual (quarterly service WOs, annual gas safety)
+      { assetRef: "BLR-001", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual", nextDueDate: "2026-12-12", assignedTo: "BuildRight Co" },
+      { assetRef: "BLR-002", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual", nextDueDate: "2026-12-12", assignedTo: "BuildRight Co" },
+      // Lifts – 6-monthly LOLER
+      { assetRef: "LFT-001", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom", customDays: 183, nextDueDate: "2026-06-10", assignedTo: "Schindler UK" },
+      { assetRef: "LFT-002", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom", customDays: 183, nextDueDate: "2026-06-10", assignedTo: "Schindler UK" },
       // Electrical – 5-yearly EICR
       ...(["EDB-001","GEN-001","LPS-001"] as const).map(r => ({
-        assetRef: r, templateName: "Fixed Wiring Inspection & Testing (EICR)", frequency: "custom", customDays: 1825, nextDueDate: "2031-01-31", assignedTo: "Volt-Safe Electrical Ltd",
+        assetRef: r, templateName: "Fixed Wiring Inspection & Testing (EICR)", frequency: "custom", customDays: 1825, nextDueDate: "2031-01-16", assignedTo: "Volt-Safe Electrical Ltd",
       })),
       // Security – monthly
-      { assetRef: "ACS-001", templateName: "Monthly Access Control System Check", frequency: "monthly", nextDueDate: "2026-05-31", assignedTo: "SecureAccess Systems" },
-      { assetRef: "CCTV-001", templateName: "Monthly Access Control System Check", frequency: "monthly", nextDueDate: "2026-05-31", assignedTo: "SecureAccess Systems" },
+      { assetRef: "ACS-001",  templateName: "Monthly Access Control System Check", frequency: "monthly", nextDueDate: "2026-05-28", assignedTo: "SecureAccess Systems" },
+      { assetRef: "CCTV-001", templateName: "Monthly Access Control System Check", frequency: "monthly", nextDueDate: "2026-05-28", assignedTo: "SecureAccess Systems" },
       // Water hygiene – monthly
       ...(["CWT-001","HWC-001","WT-001"] as const).map(r => ({
-        assetRef: r, templateName: "Monthly Water Hygiene Inspection", frequency: "monthly", nextDueDate: "2026-05-31", assignedTo: "AquaSafe Hygiene Ltd",
+        assetRef: r, templateName: "Monthly Water Hygiene Inspection", frequency: "monthly", nextDueDate: "2026-05-21", assignedTo: "AquaSafe Hygiene Ltd",
       })),
     ];
 
+    // Insert schedules, track primary scheduleId per asset (prefer monthly over longer-cycle)
     let schedulesCreated = 0;
+    const primaryScheduleIdByRef: Record<string, string> = {};
+
     for (const s of DEMO_SCHEDULES) {
       const assetId = assetIdByRef[s.assetRef];
       if (!assetId) continue;
@@ -1808,20 +1749,136 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
           eq(isolatedSchema.ppmSchedules.title, s.templateName),
         ))
         .limit(1);
-      if (existing[0]) continue;
 
-      await custDb.insert(isolatedSchema.ppmSchedules).values({
-        assetId,
-        templateId,
-        title: s.templateName,
-        frequency: s.frequency,
-        customDays: s.customDays ?? null,
-        startDate: "2026-01-01",
-        nextDueDate: s.nextDueDate,
-        status: "scheduled",
-        assignedTo: s.assignedTo ?? null,
-      } as any);
-      schedulesCreated++;
+      let scheduleId: string;
+      if (existing[0]) {
+        scheduleId = existing[0].id;
+      } else {
+        const [ins] = await custDb.insert(isolatedSchema.ppmSchedules).values({
+          assetId, templateId,
+          title: s.templateName,
+          frequency: s.frequency,
+          customDays: s.customDays ?? null,
+          startDate: "2026-01-01",
+          nextDueDate: s.nextDueDate,
+          status: "scheduled",
+          assignedTo: s.assignedTo ?? null,
+        } as any).returning({ id: isolatedSchema.ppmSchedules.id });
+        scheduleId = ins.id;
+        schedulesCreated++;
+      }
+
+      // Keep the primary (most-frequently-recurring) schedule per asset
+      const prev = primaryScheduleIdByRef[s.assetRef];
+      if (!prev || s.frequency === "monthly") {
+        primaryScheduleIdByRef[s.assetRef] = scheduleId;
+      }
+    }
+
+    // ── Work orders: Jan–Dec 2026 linked to their schedules ──────────────────
+    // Clear existing demo WOs for these assets so we always produce a clean state.
+    const demoAssetIds = Object.values(assetIdByRef).filter(Boolean);
+    if (demoAssetIds.length > 0) {
+      await custDb.delete(isolatedSchema.ppmWorkOrders)
+        .where(inArray(isolatedSchema.ppmWorkOrders.assetId, demoAssetIds));
+    }
+
+    function getServiceMonths(category: string): number[] {
+      switch (category) {
+        case "HVAC":          return [0,1,2,3,4,5,6,7,8,9,10,11];
+        case "Fire Safety":   return [0,1,2,3,4,5,6,7,8,9,10,11];
+        case "Water Hygiene": return [0,1,2,3,4,5,6,7,8,9,10,11];
+        case "Security":      return [0,1,2,3,4,5,6,7,8,9,10,11];
+        case "Mechanical":    return [2,5,8,11];
+        case "Electrical":    return [2,5,8,11];
+        case "Lifts & Hoists":return [5,11];
+        default:              return [2,5,8,11];
+      }
+    }
+
+    function getTaskTitle(category: string, assetName: string): string {
+      switch (category) {
+        case "HVAC":           return `HVAC Service – ${assetName}`;
+        case "Fire Safety":    return `Fire Safety Inspection – ${assetName}`;
+        case "Water Hygiene":  return `Water Hygiene Check – ${assetName}`;
+        case "Security":       return `Security System Check – ${assetName}`;
+        case "Mechanical":     return `Mechanical Service – ${assetName}`;
+        case "Electrical":     return `Electrical Inspection – ${assetName}`;
+        case "Lifts & Hoists": return `Lift Thorough Examination – ${assetName}`;
+        default:               return `Maintenance – ${assetName}`;
+      }
+    }
+
+    // Realistic spread: Jan–Feb all done; Mar mostly done, few overdue; Apr mix; May scheduled
+    function buildWoRecord(
+      monthIdx: number, assetPosition: number, category: string
+    ): { status: string; completedDate?: string; dueDate: string; notes?: string } {
+      const year = 2026;
+      const dueDay = getCategoryDueDay(category);
+      const lastDay = new Date(year, monthIdx + 1, 0).getDate();
+      const day = String(Math.min(dueDay, lastDay)).padStart(2, "0");
+      const mm   = String(monthIdx + 1).padStart(2, "0");
+      const dueDate = `${year}-${mm}-${day}`;
+
+      if (monthIdx <= 1) {
+        // Jan–Feb: all completed on time
+        return { status: "completed", completedDate: dueDate, dueDate };
+      }
+      if (monthIdx === 2) {
+        // March: 2/3 completed; 1/3 overdue (contractor missed visit)
+        if (assetPosition % 3 === 1) {
+          return { status: "overdue", dueDate, notes: "Contractor visit missed — rescheduled for April." };
+        }
+        return { status: "completed", completedDate: dueDate, dueDate };
+      }
+      if (monthIdx === 3) {
+        // April (current month): spread completed / overdue / in_progress
+        const mod = assetPosition % 3;
+        if (mod === 0) return { status: "completed", completedDate: `2026-04-${day}`, dueDate };
+        if (mod === 1) return { status: "overdue", dueDate, notes: "Work overdue — contractor visit rescheduled." };
+        return { status: "in_progress", dueDate };
+      }
+      // May onwards: scheduled
+      return { status: "scheduled", dueDate };
+    }
+
+    let workOrdersCreated = 0;
+    let assetPosition = 0;
+
+    for (const asset of ALL_DEMO_ASSETS) {
+      const assetId = assetIdByRef[asset.assetRef];
+      if (!assetId) continue;
+      const months    = getServiceMonths(asset.category);
+      const title     = getTaskTitle(asset.category, asset.name);
+      const scheduleId = primaryScheduleIdByRef[asset.assetRef] ?? null;
+      const contractor = CATEGORY_CONTRACTOR[asset.category];
+
+      for (const monthIdx of months) {
+        const rec = buildWoRecord(monthIdx, assetPosition, asset.category);
+
+        const existing = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
+          .from(isolatedSchema.ppmWorkOrders)
+          .where(and(
+            eq(isolatedSchema.ppmWorkOrders.assetId, assetId),
+            eq(isolatedSchema.ppmWorkOrders.dueDate, rec.dueDate),
+          ))
+          .limit(1);
+        if (existing[0]) continue;
+
+        await custDb.insert(isolatedSchema.ppmWorkOrders).values({
+          assetId,
+          scheduleId,
+          title,
+          status: rec.status,
+          dueDate: rec.dueDate,
+          completedDate: rec.completedDate ?? null,
+          contractorCompanyName: rec.status === "scheduled" ? null : contractor?.company ?? null,
+          contractorWorkerName:  rec.status === "scheduled" ? null : contractor?.worker  ?? null,
+          notes: rec.notes ?? null,
+        } as any);
+        workOrdersCreated++;
+      }
+      assetPosition++;
     }
 
     res.json({
@@ -1832,7 +1889,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       schedulesCreated,
       message: assetsCreated === 0 && templatesCreated === 0 && workOrdersCreated === 0 && schedulesCreated === 0
         ? "Demo data already loaded — no duplicates created."
-        : `Created ${assetsCreated} asset${assetsCreated !== 1 ? "s" : ""}, ${templatesCreated} template${templatesCreated !== 1 ? "s" : ""}, ${workOrdersCreated} work order${workOrdersCreated !== 1 ? "s" : ""}, and ${schedulesCreated} schedule${schedulesCreated !== 1 ? "s" : ""}.`,
+        : `Created ${assetsCreated} asset${assetsCreated !== 1 ? "s" : ""}, ${templatesCreated} template${templatesCreated !== 1 ? "s" : ""}, ${schedulesCreated} schedule${schedulesCreated !== 1 ? "s" : ""}, and ${workOrdersCreated} work order${workOrdersCreated !== 1 ? "s" : ""}.`,
     });
   } catch (error: unknown) {
     console.error("POST /api/ppm/demo-data", error);
