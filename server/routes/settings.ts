@@ -192,7 +192,7 @@ export function registerSettingsRoutes(
           smtpPassword,
           smtpHost,
           smtpPort,
-          smtpUser,
+          smtpUsername,
           twilioAuthToken,
           twilioAccountSid,
           twilioPhoneNumber,
