@@ -13,15 +13,15 @@ import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2, AlertTriangle, Clock, Minus, ChevronRight,
   Calendar, CheckSquare, ListTodo, Printer, Mail, Send,
+  ShieldCheck, FileDown,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const YEAR = 2026;
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const TODAY = new Date();
-const CURRENT_MONTH = TODAY.getFullYear() === YEAR ? TODAY.getMonth() : -1;
 
 const ASSET_CATEGORIES = [
   "HVAC", "Fire Safety", "Electrical", "Mechanical", "Water Hygiene",
@@ -51,6 +51,7 @@ interface PpmWorkOrder {
   contractorCompanyName?: string | null;
   contractorWorkerName?: string | null;
   notes?: string | null;
+  templateType?: string | null;
 }
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
@@ -137,6 +138,7 @@ interface Props {
 
 export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
   const { toast } = useToast();
+  const [year, setYear] = useState<number>(new Date().getFullYear());
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [panel, setPanel] = useState<PanelSelection | null>(null);
@@ -145,24 +147,31 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
   const [emailMsg, setEmailMsg] = useState("");
   const printRef = useRef<HTMLDivElement>(null);
 
+  const CURRENT_MONTH = new Date().getFullYear() === year ? new Date().getMonth() : -1;
+
   const { data: assets = [], isLoading: loadingAssets } = useQuery<PpmAsset[]>({
     queryKey: ["/api/ppm/assets"],
   });
 
   const { data: allWorkOrders = [], isLoading: loadingWOs } = useQuery<PpmWorkOrder[]>({
-    queryKey: ["/api/ppm/work-orders"],
+    queryKey: [`/api/ppm/work-orders?year=${year}`],
+    queryFn: async () => {
+      const res = await fetch(`/api/ppm/work-orders?year=${year}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch work orders");
+      return res.json();
+    },
   });
 
   const emailMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", "/api/ppm/annual-planner/email", {
         email: emailAddr,
-        year: YEAR,
+        year,
         message: emailMsg || undefined,
       });
     },
     onSuccess: () => {
-      toast({ title: "Report sent", description: `Annual Planner ${YEAR} emailed to ${emailAddr}.` });
+      toast({ title: "Report sent", description: `Annual Planner ${year} emailed to ${emailAddr}.` });
       setEmailOpen(false);
       setEmailAddr("");
       setEmailMsg("");
@@ -178,7 +187,7 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
     for (const wo of allWorkOrders) {
       if (!wo.assetId || !wo.dueDate) continue;
       const d = new Date(wo.dueDate);
-      if (d.getFullYear() !== YEAR) continue;
+      if (d.getFullYear() !== year) continue;
       const m = d.getMonth();
       if (!map.has(wo.assetId)) map.set(wo.assetId, new Map());
       const monthMap = map.get(wo.assetId)!;
@@ -186,13 +195,13 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
       monthMap.get(m)!.push(wo);
     }
     return map;
-  }, [allWorkOrders]);
+  }, [allWorkOrders, year]);
 
   // ── Summary metrics ───────────────────────────────────────────────────────
   const metrics = useMemo(() => {
     const yearWOs = allWorkOrders.filter(wo => {
       if (!wo.dueDate) return false;
-      return new Date(wo.dueDate).getFullYear() === YEAR;
+      return new Date(wo.dueDate).getFullYear() === year;
     });
     const totalTasks = yearWOs.length;
     const complete   = yearWOs.filter(wo => wo.status === "completed").length;
@@ -200,10 +209,11 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
     const thisMonth  = yearWOs.filter(wo => {
       if (!wo.dueDate) return false;
       const d = new Date(wo.dueDate);
-      return d.getMonth() === CURRENT_MONTH && d.getFullYear() === YEAR;
+      return d.getMonth() === CURRENT_MONTH && d.getFullYear() === year;
     }).length;
-    return { totalTasks, complete, overdue, thisMonth };
-  }, [allWorkOrders]);
+    const complianceScore = totalTasks > 0 ? Math.round((complete / totalTasks) * 100) : 0;
+    return { totalTasks, complete, overdue, thisMonth, complianceScore };
+  }, [allWorkOrders, year, CURRENT_MONTH]);
 
   // ── Filtered assets ───────────────────────────────────────────────────────
   const filteredAssets = useMemo(() => {
@@ -233,6 +243,37 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
   // ── Print ─────────────────────────────────────────────────────────────────
   function handlePrint() {
     window.print();
+  }
+
+  // ── CSV Export ─────────────────────────────────────────────────────────────
+  function handleExportCSV() {
+    const headers = ["Asset", "Asset Ref", "Category", "Location", ...MONTHS_FULL, "Total Tasks", "Complete", "Overdue"];
+
+    const rows = filteredAssets.map(asset => {
+      const monthMap = wosByAssetMonth.get(asset.id) ?? new Map();
+      let totalTasks = 0, complete = 0, overdue = 0;
+      const monthCells = MONTHS.map((_, mIdx) => {
+        const wos = monthMap.get(mIdx) ?? [];
+        totalTasks += wos.length;
+        complete += wos.filter(w => w.status === "completed").length;
+        overdue += wos.filter(w => w.status === "overdue").length;
+        const status = getCellStatus(wos);
+        return status === "empty" ? "" : CELL_CFG[status].label;
+      });
+      return [asset.name, asset.assetRef ?? "", asset.category ?? "", asset.location ?? "", ...monthCells, totalTasks, complete, overdue];
+    });
+
+    const csvContent = [headers, ...rows]
+      .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `PPM-Annual-Planner-${year}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   if (loading) {
@@ -297,8 +338,21 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
       <div id="ppm-planner-print-root" ref={printRef} className="space-y-4">
         {/* ── Toolbar ── */}
         <div className="flex items-center justify-between gap-2 no-print">
-          <h2 className="text-base font-semibold text-foreground">Annual Maintenance Planner — {YEAR}</h2>
-          <div className="flex gap-2">
+          <h2 className="text-base font-semibold text-foreground">Annual Maintenance Planner — {year}</h2>
+          <div className="flex items-center gap-2">
+            <Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+              <SelectTrigger className="w-24 h-8 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map(y => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="sm" className="gap-2 h-8" onClick={handleExportCSV}>
+              <FileDown className="h-3.5 w-3.5" /> Export CSV
+            </Button>
             <Button variant="outline" size="sm" className="gap-2 h-8" onClick={handlePrint}>
               <Printer className="h-3.5 w-3.5" /> Print / Export PDF
             </Button>
@@ -310,15 +364,15 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
 
         {/* Print header (only visible when printing) */}
         <div className="hidden print:block mb-4">
-          <h1 className="text-xl font-bold">PPM Annual Planner {YEAR}</h1>
+          <h1 className="text-xl font-bold">PPM Annual Planner {year}</h1>
           <p className="text-sm text-gray-500">Planned Preventive Maintenance Schedule — printed {new Date().toLocaleDateString("en-GB")}</p>
         </div>
 
         {/* ── Summary cards ── */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <GlassCard className="p-3 text-center">
             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
-              <ListTodo className="h-3.5 w-3.5" /> Total Tasks {YEAR}
+              <ListTodo className="h-3.5 w-3.5" /> Total Tasks {year}
             </p>
             <p className="text-2xl font-bold">{metrics.totalTasks}</p>
           </GlassCard>
@@ -339,6 +393,14 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
               <Clock className="h-3.5 w-3.5" /> Due This Month
             </p>
             <p className="text-2xl font-bold text-amber-600">{metrics.thisMonth}</p>
+          </GlassCard>
+          <GlassCard className="p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
+              <ShieldCheck className="h-3.5 w-3.5" /> Compliance Score
+            </p>
+            <p className={`text-2xl font-bold ${metrics.complianceScore >= 80 ? "text-green-600" : metrics.complianceScore >= 60 ? "text-amber-600" : "text-red-600"}`}>
+              {metrics.complianceScore}%
+            </p>
           </GlassCard>
         </div>
 
@@ -383,6 +445,10 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
               </span>
             );
           })}
+          <span className="flex items-center gap-1 border-l pl-3 ml-1">
+            <span className="inline-flex items-center justify-center w-3 h-3 rounded-sm border text-[7px] font-bold" style={{ background: "#EBF5FB", borderColor: "#90CAF9", color: "#1565C0" }}>S</span>
+            Statutory
+          </span>
         </div>
 
         {/* ── Grid ── */}
@@ -433,11 +499,13 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
                       const status = getCellStatus(wos);
                       const cfg = CELL_CFG[status];
                       const isCurrentMonth = mIdx === CURRENT_MONTH;
+                      const hasStatutory = wos.some(w => w.templateType === "statutory");
                       return (
                         <td
                           key={mIdx}
                           className={`border-r border-border last:border-r-0 text-center align-middle ${wos.length > 0 ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
                           style={{
+                            position: "relative",
                             minWidth: 52,
                             width: 52,
                             height: 44,
@@ -461,6 +529,17 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
                               cfg.icon ?? null
                             )}
                           </div>
+                          {status !== "empty" && hasStatutory && (
+                            <span
+                              style={{
+                                position: "absolute", top: 4, right: 5,
+                                fontSize: 8, fontWeight: 700,
+                                color: cfg.text, opacity: 0.85,
+                                lineHeight: 1,
+                                pointerEvents: "none",
+                              }}
+                            >S</span>
+                          )}
                         </td>
                       );
                     })}
@@ -482,7 +561,7 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
                     {[panel.asset.assetRef, panel.asset.category].filter(Boolean).join(" · ")}
                   </p>
                   <p className="text-sm font-medium text-primary mt-1">
-                    {MONTHS[panel.monthIdx]} {YEAR}
+                    {MONTHS[panel.monthIdx]} {year}
                   </p>
                 </SheetHeader>
 
@@ -498,9 +577,14 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
                       >
                         {/* Status badge */}
                         <div className="flex items-center justify-between gap-2">
-                          <Badge className={`text-xs border ${WO_BADGE[wo.status] ?? "bg-gray-100 text-gray-700 border-gray-200"}`}>
-                            {wo.status.replace("_", " ")}
-                          </Badge>
+                          <div className="flex items-center gap-1.5">
+                            <Badge className={`text-xs border ${WO_BADGE[wo.status] ?? "bg-gray-100 text-gray-700 border-gray-200"}`}>
+                              {wo.status.replace("_", " ")}
+                            </Badge>
+                            {wo.templateType === "statutory" && (
+                              <Badge className="text-xs border bg-purple-50 text-purple-700 border-purple-200">Statutory</Badge>
+                            )}
+                          </div>
                           {cfg.icon && (
                             <span style={{ color: cfg.text }}>{cfg.icon}</span>
                           )}
@@ -571,7 +655,7 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              Send the full {YEAR} maintenance schedule grid to a site manager or stakeholder.
+              Send the full {year} maintenance schedule grid to a site manager or stakeholder.
             </p>
             <div className="space-y-1.5">
               <Label htmlFor="planner-email">Recipient email address</Label>

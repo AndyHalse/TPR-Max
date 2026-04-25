@@ -359,9 +359,30 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
     if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders).orderBy(isolatedSchema.ppmWorkOrders.createdAt);
+
+    // Optional year filter — EXTRACT(YEAR FROM due_date) = year
+    const yearParam = req.query.year ? parseInt(req.query.year as string, 10) : null;
+    const yearCondition = yearParam ? sql`EXTRACT(YEAR FROM ${isolatedSchema.ppmWorkOrders.dueDate}) = ${yearParam}` : undefined;
+
+    const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+      .where(yearCondition)
+      .orderBy(isolatedSchema.ppmWorkOrders.createdAt);
+
     // Omit bearer token fields from list payload; use GET /api/ppm/work-orders/:id/token to get link
     const sanitized = rows.map(({ accessToken: _t, accessTokenExpiresAt: _e, ...rest }) => rest);
+
+    // Attach templateType via schedule → template join
+    const scheduleIds = [...new Set(sanitized.map(w => w.scheduleId).filter(Boolean))] as string[];
+    const templateTypeByScheduleId: Record<string, string | null> = {};
+    if (scheduleIds.length > 0) {
+      const schedRows = await custDb.select({
+        id: isolatedSchema.ppmSchedules.id,
+        templateType: isolatedSchema.ppmTemplates.type,
+      }).from(isolatedSchema.ppmSchedules)
+        .leftJoin(isolatedSchema.ppmTemplates, eq(isolatedSchema.ppmSchedules.templateId, isolatedSchema.ppmTemplates.id))
+        .where(inArray(isolatedSchema.ppmSchedules.id, scheduleIds));
+      for (const s of schedRows) templateTypeByScheduleId[s.id] = s.templateType ?? null;
+    }
 
     // Attach aggregated document expiry counts so the list view can show inline indicators
     const woIds = sanitized.map(w => w.id);
@@ -389,6 +410,7 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
 
     const withExpiry = sanitized.map(wo => ({
       ...wo,
+      templateType: wo.scheduleId ? (templateTypeByScheduleId[wo.scheduleId] ?? null) : null,
       expiredDocCount: expiryCounts[wo.id]?.expiredDocCount ?? 0,
       expiringSoonDocCount: expiryCounts[wo.id]?.expiringSoonDocCount ?? 0,
     }));
@@ -1849,6 +1871,8 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       return { status: "scheduled", dueDate };
     }
 
+    const STATUTORY_CATEGORIES = new Set(["Fire Safety", "Mechanical", "Electrical", "Water Hygiene", "Lifts & Hoists"]);
+
     let workOrdersCreated = 0;
     let assetPosition = 0;
 
@@ -1859,6 +1883,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       const title     = getTaskTitle(asset.category, asset.name);
       const scheduleId = primaryScheduleIdByRef[asset.assetRef] ?? null;
       const contractor = CATEGORY_CONTRACTOR[asset.category];
+      const requiresCertificate = STATUTORY_CATEGORIES.has(asset.category ?? "");
 
       for (const monthIdx of months) {
         const rec = buildWoRecord(monthIdx, assetPosition, asset.category);
@@ -1872,6 +1897,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
           contractorCompanyName: rec.status === "scheduled" ? null : contractor?.company ?? null,
           contractorWorkerName:  rec.status === "scheduled" ? null : contractor?.worker  ?? null,
           notes: rec.notes ?? null,
+          requiresCertificate,
         } as any);
         workOrdersCreated++;
       }

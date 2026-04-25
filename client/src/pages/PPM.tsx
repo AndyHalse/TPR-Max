@@ -98,6 +98,7 @@ interface PpmWorkOrder {
   createdAt?: string | null;
   expiredDocCount?: number;
   expiringSoonDocCount?: number;
+  templateType?: string | null;
 }
 
 interface PpmWorkOrderDocument {
@@ -2406,7 +2407,15 @@ export default function PPM() {
 
   const { data: assets = [] } = useQuery<PpmAsset[]>({ queryKey: ["/api/ppm/assets"] });
   const { data: templates = [] } = useQuery<PpmTemplate[]>({ queryKey: ["/api/ppm/templates"] });
+  const { data: pageWorkOrders = [] } = useQuery<PpmWorkOrder[]>({ queryKey: ["/api/ppm/work-orders"] });
   const isEmpty = assets.length === 0 && templates.length === 0;
+
+  const complianceScore = useMemo(() => {
+    const total = pageWorkOrders.length;
+    if (total === 0) return null;
+    const complete = pageWorkOrders.filter(w => w.status === "completed").length;
+    return Math.round((complete / total) * 100);
+  }, [pageWorkOrders]);
 
   const demoDataMutation = useMutation({
     mutationFn: () => apiRequest("POST", "/api/ppm/demo-data").then(r => r.json()),
@@ -2454,7 +2463,21 @@ export default function PPM() {
             <Wrench className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">Planned Preventative Maintenance</h1>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-2xl font-bold">Planned Preventative Maintenance</h1>
+              {complianceScore !== null && (
+                <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                  complianceScore >= 80
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : complianceScore >= 60
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : "bg-red-50 text-red-700 border-red-200"
+                }`}>
+                  <ShieldCheck className="h-3 w-3" />
+                  {complianceScore}% compliant
+                </span>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">Manage assets, maintenance templates, schedules and work orders.</p>
           </div>
         </div>
@@ -2488,6 +2511,28 @@ export default function PPM() {
           </div>
         </div>
       )}
+
+      {(() => {
+        const overdueCount = pageWorkOrders.filter(wo => wo.status === "overdue").length;
+        if (overdueCount === 0) return null;
+        return (
+          <div className="flex items-center gap-3 px-4 py-2.5 mb-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
+            <span>
+              <span className="font-semibold">{overdueCount} overdue work order{overdueCount !== 1 ? "s" : ""}</span>
+              {" "}— action required.
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="ml-auto h-7 text-red-700 hover:bg-red-100 text-xs"
+              onClick={() => setActiveTab("work-orders")}
+            >
+              View now →
+            </Button>
+          </div>
+        );
+      })()}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>

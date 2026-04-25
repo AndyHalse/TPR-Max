@@ -1,0 +1,155 @@
+CLAUDE CODE PROMPT — PPM Feature Enhancements (5 improvements)
+Work in the TPR Max codebase. All changes are in client/src/components/PpmAnnualPlanner.tsx, client/src/pages/PPM.tsx, and server/routes/ppm.ts. Do not touch any other files unless strictly necessary. Make all 5 changes below in sequence.
+
+FIX 0 — Verify and fix demo data work order seeding (do this first)
+In server/routes/ppm.ts, find the POST /api/ppm/demo-data route. After schedules are inserted, check whether work orders are being generated for each schedule across Jan–Dec 2026. If they are not, add the following seeding logic immediately after the schedule insertion loop:
+For each schedule created, generate work orders based on frequency:
+
+monthly — one work order per month Jan–Dec (12 total per asset)
+quarterly — one per quarter: Jan, Apr, Jul, Oct
+annual — one work order in the appropriate month based on nextDueDate
+custom (183 days = 6-monthly) — Jan and Jul
+
+For each work order, set:
+
+title — copy from the linked template name
+assetId — from the asset
+scheduleId — from the schedule
+dueDate — set to the correct date for that month (use the getCategoryDueDay stagger already defined in the file)
+status:
+
+Jan, Feb, Mar → "completed", set completedDate to the 3rd working day after due date
+Apr (current month) → mix: HVAC and Security assets = "overdue", Fire Safety and Water Hygiene = "completed", others = "in_progress"
+May–Dec → "scheduled"
+
+
+contractorCompanyName and contractorWorkerName — use the CATEGORY_CONTRACTOR map already defined
+requiresCertificate — true for statutory templates, false for non-statutory
+
+Skip inserting work orders for an asset/month combination if a work order already exists for that asset with a due date in the same calendar month (prevent duplicates on re-run).
+After inserting, return workOrdersCreated count in the JSON response alongside assetsCreated and templatesCreated.
+
+CHANGE 1 — Statutory badge on Annual Planner cells
+In PpmAnnualPlanner.tsx:
+Add templateType to the PpmWorkOrder interface:
+typescripttemplateType?: string | null;  // "statutory" | "non-statutory"
+The existing GET /api/ppm/work-orders route already joins template data — check if templateType or similar is returned. If not, update the work order query in server/routes/ppm.ts to also return the linked template's type field as templateType (left join on ppmTemplates via scheduleId → ppmSchedules.templateId).
+In the cell render, when status !== "empty" and any work order in the cell has templateType === "statutory", add a small "S" label in the top-right corner of the cell:
+tsx{hasStatutory && (
+  <span
+    style={{
+      position: "absolute", top: 2, right: 3,
+      fontSize: 8, fontWeight: 700,
+      color: cfg.text, opacity: 0.8,
+      lineHeight: 1,
+    }}
+  >S</span>
+)}
+Make each cell td position: relative to allow the absolute positioning.
+Add "S = Statutory" to the legend row beneath the existing colour key.
+
+CHANGE 2 — PPM Compliance Score card
+In PpmAnnualPlanner.tsx, update the metrics useMemo to also calculate:
+typescriptconst complianceScore = metrics.totalTasks > 0
+  ? Math.round((metrics.complete / metrics.totalTasks) * 100)
+  : 0;
+Add a fifth summary card to the metrics row (change the grid to grid-cols-2 md:grid-cols-5):
+tsx<GlassCard className="p-3 text-center">
+  <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
+    <ShieldCheck className="h-3.5 w-3.5" /> Compliance Score
+  </p>
+  <p className={`text-2xl font-bold ${complianceScore >= 80 ? "text-green-600" : complianceScore >= 60 ? "text-amber-600" : "text-red-600"}`}>
+    {complianceScore}%
+  </p>
+</GlassCard>
+Import ShieldCheck from lucide-react (add to the existing import line).
+Also add the same compliance score as a small badge to the PPM page header in PPM.tsx. Find where the page title "Planned Preventative Maintenance" is rendered. Fetch the work orders count using the existing useQuery for work orders (already fetched on the Work Orders tab — lift or share the query). Show a pill badge next to the title: green if ≥80%, amber if 60–79%, red if <60%. Label it "X% compliant".
+
+CHANGE 3 — CSV export from Annual Planner
+In PpmAnnualPlanner.tsx, add a handleExportCSV function:
+typescriptfunction handleExportCSV() {
+  const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const headers = ["Asset", "Asset Ref", "Category", "Location", ...MONTHS_FULL, "Total Tasks", "Complete", "Overdue"];
+  
+  const rows = filteredAssets.map(asset => {
+    const monthMap = wosByAssetMonth.get(asset.id) ?? new Map();
+    let totalTasks = 0, complete = 0, overdue = 0;
+    const monthCells = MONTHS.map((_, mIdx) => {
+      const wos = monthMap.get(mIdx) ?? [];
+      totalTasks += wos.length;
+      complete += wos.filter(w => w.status === "completed").length;
+      overdue += wos.filter(w => w.status === "overdue").length;
+      const status = getCellStatus(wos);
+      return status === "empty" ? "" : CELL_CFG[status].label;
+    });
+    return [asset.name, asset.assetRef ?? "", asset.category ?? "", asset.location ?? "", ...monthCells, totalTasks, complete, overdue];
+  });
+
+  const csvContent = [headers, ...rows]
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+    .join("\n");
+  
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `PPM-Annual-Planner-${YEAR}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+Add a "Export CSV" button to the toolbar, next to the existing "Print / Export PDF" button:
+tsx<Button variant="outline" size="sm" className="gap-2 h-8" onClick={handleExportCSV}>
+  <FileDown className="h-3.5 w-3.5" /> Export CSV
+</Button>
+FileDown is already imported.
+
+CHANGE 4 — Overdue alert banner on PPM page
+In PPM.tsx, immediately before the <Tabs> component, add a conditional alert banner. Use the existing workOrders query data (already fetched for the Work Orders tab):
+tsx{(() => {
+  const overdueCount = workOrders?.filter(wo => wo.status === "overdue").length ?? 0;
+  if (overdueCount === 0) return null;
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5 mb-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-sm">
+      <AlertTriangle className="h-4 w-4 shrink-0 text-red-600" />
+      <span>
+        <span className="font-semibold">{overdueCount} overdue work order{overdueCount !== 1 ? "s" : ""}</span>
+        {" "}— action required.
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="ml-auto h-7 text-red-700 hover:bg-red-100 text-xs"
+        onClick={() => setActiveTab("work-orders")}
+      >
+        View now →
+      </Button>
+    </div>
+  );
+})()}
+This requires that the activeTab state (already used for tab control in PPM.tsx) is wired to the <Tabs value={activeTab}> component. Check whether this is already the case — if tabs are currently uncontrolled, make them controlled by adding value={activeTab} onValueChange={setActiveTab} to the <Tabs> component and ensuring activeTab is initialised to "assets".
+
+CHANGE 5 — Year selector on Annual Planner
+In PpmAnnualPlanner.tsx:
+Replace the hardcoded const YEAR = 2026; with a state variable:
+typescriptconst [year, setYear] = useState<number>(new Date().getFullYear());
+Update CURRENT_MONTH to be derived from state:
+typescriptconst CURRENT_MONTH = new Date().getFullYear() === year ? new Date().getMonth() : -1;
+Update the work orders query to pass the year as a filter parameter — add ?year=${year} to the fetch URL: GET /api/ppm/work-orders?year=${year}.
+In server/routes/ppm.ts, update GET /api/ppm/work-orders to accept an optional year query param and filter dueDate to that year:
+typescriptconst year = req.query.year ? parseInt(req.query.year as string) : null;
+// Add to where clause if year is set:
+// WHERE EXTRACT(YEAR FROM due_date) = year
+// Use Drizzle: where(and(...existing..., year ? sql`EXTRACT(YEAR FROM ${table.dueDate}) = ${year}` : undefined))
+In the toolbar in PpmAnnualPlanner.tsx, add a year picker before the Print button:
+tsx<Select value={String(year)} onValueChange={v => setYear(Number(v))}>
+  <SelectTrigger className="w-28 h-8 text-sm">
+    <SelectValue />
+  </SelectTrigger>
+  <SelectContent>
+    {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map(y => (
+      <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+    ))}
+  </SelectContent>
+</Select>
+Update the metrics useMemo to recalculate when year changes (it will do so automatically since it depends on allWorkOrders which re-fetches when year changes).
+Update all hardcoded references to 2026 in the component (page heading, print header, CSV filename, email copy) to use the year variable.
