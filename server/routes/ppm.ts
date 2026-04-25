@@ -1783,16 +1783,19 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
         .where(inArray(isolatedSchema.ppmWorkOrders.assetId, demoAssetIds));
     }
 
-    function getServiceMonths(category: string): number[] {
+    // posIdx cycles the starting offset so quarterly/6-monthly assets hit different months,
+    // spreading the maintenance load visibly across the whole year in the annual planner.
+    function getServiceMonths(category: string, posIdx: number = 0): number[] {
+      const off = posIdx % 3; // rotates 0→1→2→0 per asset
       switch (category) {
-        case "HVAC":          return [0,1,2,3,4,5,6,7,8,9,10,11];
-        case "Fire Safety":   return [0,1,2,3,4,5,6,7,8,9,10,11];
-        case "Water Hygiene": return [0,1,2,3,4,5,6,7,8,9,10,11];
-        case "Security":      return [0,1,2,3,4,5,6,7,8,9,10,11];
-        case "Mechanical":    return [2,5,8,11];
-        case "Electrical":    return [2,5,8,11];
-        case "Lifts & Hoists":return [5,11];
-        default:              return [2,5,8,11];
+        case "HVAC":           return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly – always all 12
+        case "Fire Safety":    return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
+        case "Water Hygiene":  return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
+        case "Security":       return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
+        case "Mechanical":     return [off, off+3, off+6, off+9].filter(m => m < 12);  // staggered quarterly
+        case "Electrical":     return [off, off+3, off+6, off+9].filter(m => m < 12);  // staggered quarterly
+        case "Lifts & Hoists": return posIdx % 2 === 0 ? [5,11] : [2,8]; // Jun/Dec or Mar/Sep
+        default:               return [off, off+3, off+6, off+9].filter(m => m < 12);
       }
     }
 
@@ -1848,7 +1851,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     for (const asset of ALL_DEMO_ASSETS) {
       const assetId = assetIdByRef[asset.assetRef];
       if (!assetId) continue;
-      const months    = getServiceMonths(asset.category);
+      const months    = getServiceMonths(asset.category, assetPosition);
       const title     = getTaskTitle(asset.category, asset.name);
       const scheduleId = primaryScheduleIdByRef[asset.assetRef] ?? null;
       const contractor = CATEGORY_CONTRACTOR[asset.category];
