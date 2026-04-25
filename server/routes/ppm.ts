@@ -1727,7 +1727,6 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
       for (const monthIdx of months) {
         const { status, completedDate, dueDate } = getWoStatus(monthIdx, assetPosition);
-        // Skip if WO already exists for this asset + dueDate
         const existing = await custDb.select({ id: isolatedSchema.ppmWorkOrders.id })
           .from(isolatedSchema.ppmWorkOrders)
           .where(and(
@@ -1754,18 +1753,243 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       assetPosition++;
     }
 
+    // ── Schedules: link each asset to its template(s) ────────────────────────
+    // Build a map of template name → id from the DB (handles both new and pre-existing)
+    const allTpls = await custDb
+      .select({ id: isolatedSchema.ppmTemplates.id, name: isolatedSchema.ppmTemplates.name })
+      .from(isolatedSchema.ppmTemplates);
+    const templateIdByName: Record<string, string> = {};
+    for (const t of allTpls) templateIdByName[t.name] = t.id;
+
+    // Schedule definitions: assetRef → template name(s) with frequency overrides
+    type SchedDef = { assetRef: string; templateName: string; frequency: string; customDays?: number; nextDueDate: string; assignedTo?: string };
+    const DEMO_SCHEDULES: SchedDef[] = [
+      // HVAC – monthly
+      ...(["AHU-001","AHU-GF","AHU-01","AHU-02","AHU-03","AHU-04","FCU-01","FCU-02","FCU-03","FCU-04","CT-001"] as const).map(r => ({
+        assetRef: r, templateName: "Monthly HVAC Filter Check", frequency: "monthly", nextDueDate: "2026-05-31", assignedTo: "CoolAir Services Ltd",
+      })),
+      // Fire alarm panel – annual test
+      { assetRef: "FAP-001", templateName: "Annual Fire Alarm Full Test", frequency: "annual", nextDueDate: "2026-12-31", assignedTo: "FireGuard UK Ltd" },
+      // Emergency lighting – monthly
+      ...(["FAP-001","EL-001","EL-GF","EL-01","EL-02","EL-03","EL-04"] as const).map(r => ({
+        assetRef: r, templateName: "Monthly Emergency Lighting Functional Test", frequency: "monthly", nextDueDate: "2026-05-31", assignedTo: "FireGuard UK Ltd",
+      })),
+      // Sprinkler – quarterly
+      { assetRef: "SPR-001", templateName: "Quarterly Sprinkler System Inspection", frequency: "quarterly", nextDueDate: "2026-06-30", assignedTo: "FireGuard UK Ltd" },
+      // Boilers – annual
+      { assetRef: "BLR-001", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual", nextDueDate: "2026-12-31", assignedTo: "BuildRight Co" },
+      { assetRef: "BLR-002", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual", nextDueDate: "2026-12-31", assignedTo: "BuildRight Co" },
+      // Lifts – 6-monthly (LOLER)
+      { assetRef: "LFT-001", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom", customDays: 183, nextDueDate: "2026-06-30", assignedTo: "Schindler UK" },
+      { assetRef: "LFT-002", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom", customDays: 183, nextDueDate: "2026-06-30", assignedTo: "Schindler UK" },
+      // Electrical – 5-yearly EICR
+      ...(["EDB-001","GEN-001","LPS-001"] as const).map(r => ({
+        assetRef: r, templateName: "Fixed Wiring Inspection & Testing (EICR)", frequency: "custom", customDays: 1825, nextDueDate: "2031-01-31", assignedTo: "Volt-Safe Electrical Ltd",
+      })),
+      // Security – monthly
+      { assetRef: "ACS-001", templateName: "Monthly Access Control System Check", frequency: "monthly", nextDueDate: "2026-05-31", assignedTo: "SecureAccess Systems" },
+      { assetRef: "CCTV-001", templateName: "Monthly Access Control System Check", frequency: "monthly", nextDueDate: "2026-05-31", assignedTo: "SecureAccess Systems" },
+      // Water hygiene – monthly
+      ...(["CWT-001","HWC-001","WT-001"] as const).map(r => ({
+        assetRef: r, templateName: "Monthly Water Hygiene Inspection", frequency: "monthly", nextDueDate: "2026-05-31", assignedTo: "AquaSafe Hygiene Ltd",
+      })),
+    ];
+
+    let schedulesCreated = 0;
+    for (const s of DEMO_SCHEDULES) {
+      const assetId = assetIdByRef[s.assetRef];
+      if (!assetId) continue;
+      const templateId = templateIdByName[s.templateName] ?? null;
+
+      const existing = await custDb.select({ id: isolatedSchema.ppmSchedules.id })
+        .from(isolatedSchema.ppmSchedules)
+        .where(and(
+          eq(isolatedSchema.ppmSchedules.assetId, assetId),
+          eq(isolatedSchema.ppmSchedules.title, s.templateName),
+        ))
+        .limit(1);
+      if (existing[0]) continue;
+
+      await custDb.insert(isolatedSchema.ppmSchedules).values({
+        assetId,
+        templateId,
+        title: s.templateName,
+        frequency: s.frequency,
+        customDays: s.customDays ?? null,
+        startDate: "2026-01-01",
+        nextDueDate: s.nextDueDate,
+        status: "scheduled",
+        assignedTo: s.assignedTo ?? null,
+      } as any);
+      schedulesCreated++;
+    }
+
     res.json({
       success: true,
       assetsCreated,
       templatesCreated,
       workOrdersCreated,
-      message: assetsCreated === 0 && templatesCreated === 0 && workOrdersCreated === 0
+      schedulesCreated,
+      message: assetsCreated === 0 && templatesCreated === 0 && workOrdersCreated === 0 && schedulesCreated === 0
         ? "Demo data already loaded — no duplicates created."
-        : `Created ${assetsCreated} asset${assetsCreated !== 1 ? "s" : ""}, ${templatesCreated} template${templatesCreated !== 1 ? "s" : ""}, and ${workOrdersCreated} work order${workOrdersCreated !== 1 ? "s" : ""}.`,
+        : `Created ${assetsCreated} asset${assetsCreated !== 1 ? "s" : ""}, ${templatesCreated} template${templatesCreated !== 1 ? "s" : ""}, ${workOrdersCreated} work order${workOrdersCreated !== 1 ? "s" : ""}, and ${schedulesCreated} schedule${schedulesCreated !== 1 ? "s" : ""}.`,
     });
   } catch (error: unknown) {
     console.error("POST /api/ppm/demo-data", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to load demo data" });
+  }
+});
+
+// ── PPM Annual Planner — Email Report ───────────────────────────────────────
+
+// POST /api/ppm/annual-planner/email — send a formatted annual planner to an email address
+app.post("/api/ppm/annual-planner/email", requireAuth, async (req, res) => {
+  try {
+    const { email, year, message } = req.body as { email?: string; year?: number; message?: string };
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: "A valid recipient email address is required." });
+    }
+    const planYear = year ?? new Date().getFullYear();
+    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+    const assets = await custDb.select().from(isolatedSchema.ppmAssets).orderBy(isolatedSchema.ppmAssets.name);
+    const workOrders = await custDb.select().from(isolatedSchema.ppmWorkOrders);
+    const yearWOs = workOrders.filter(wo => wo.dueDate && new Date(wo.dueDate).getFullYear() === planYear);
+
+    // Build assetId → month → [wos] index
+    const woIndex = new Map<string, Map<number, typeof yearWOs>>();
+    for (const wo of yearWOs) {
+      if (!wo.assetId || !wo.dueDate) continue;
+      const m = new Date(wo.dueDate).getMonth();
+      if (!woIndex.has(wo.assetId)) woIndex.set(wo.assetId, new Map());
+      const mm = woIndex.get(wo.assetId)!;
+      if (!mm.has(m)) mm.set(m, []);
+      mm.get(m)!.push(wo);
+    }
+
+    const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    function statusColor(status: string): string {
+      switch (status) {
+        case "completed":   return "#2E7D32";
+        case "overdue":     return "#C62828";
+        case "in_progress": return "#1565C0";
+        case "scheduled":   return "#546E7A";
+        default:            return "#9CA3AF";
+      }
+    }
+    function statusBg(status: string): string {
+      switch (status) {
+        case "completed":   return "#EAF3DE";
+        case "overdue":     return "#FDEAEA";
+        case "in_progress": return "#EBF5FB";
+        case "scheduled":   return "#F0F4F8";
+        default:            return "#FFFFFF";
+      }
+    }
+    function bestStatus(wos: typeof yearWOs): string {
+      if (!wos || wos.length === 0) return "empty";
+      const priority = ["overdue","in_progress","scheduled","completed"];
+      for (const p of priority) { if (wos.some(w => w.status === p)) return p; }
+      return wos[0].status;
+    }
+
+    const totalTasks = yearWOs.length;
+    const complete = yearWOs.filter(w => w.status === "completed").length;
+    const overdue  = yearWOs.filter(w => w.status === "overdue").length;
+    const pct = totalTasks ? Math.round((complete / totalTasks) * 100) : 0;
+
+    const senderName = req.user!.username;
+
+    const headerRow = `<tr style="background:#1a2e4a;color:white;">
+      <th style="padding:8px 10px;text-align:left;font-size:12px;white-space:nowrap;min-width:200px;">Asset</th>
+      ${MONTHS.map(m => `<th style="padding:6px 4px;text-align:center;font-size:11px;min-width:44px;">${m}</th>`).join("")}
+    </tr>`;
+
+    const bodyRows = assets.map((asset, i) => {
+      const monthMap = woIndex.get(asset.id) ?? new Map();
+      const rowBg = i % 2 === 0 ? "#ffffff" : "#f7f9fb";
+      const cells = MONTHS.map((_, mIdx) => {
+        const wos = monthMap.get(mIdx) ?? [];
+        const st = bestStatus(wos);
+        if (st === "empty") return `<td style="padding:4px;text-align:center;background:${rowBg};border:1px solid #e5e7eb;">
+          <span style="display:inline-block;width:32px;height:22px;background:#f3f4f6;border-radius:3px;border:1px solid #d1d5db;"></span>
+        </td>`;
+        return `<td style="padding:4px;text-align:center;background:${rowBg};border:1px solid #e5e7eb;">
+          <span style="display:inline-block;width:32px;height:22px;background:${statusBg(st)};border-radius:3px;border:1px solid ${statusColor(st)};color:${statusColor(st)};font-size:9px;font-weight:700;line-height:22px;text-align:center;">
+            ${st === "completed" ? "✓" : st === "overdue" ? "!" : st === "in_progress" ? "→" : "·"}
+          </span>
+        </td>`;
+      }).join("");
+      return `<tr>
+        <td style="padding:6px 10px;font-size:12px;font-weight:600;white-space:nowrap;background:${rowBg};border:1px solid #e5e7eb;min-width:200px;">
+          ${asset.name}
+          <div style="font-size:10px;color:#6b7280;font-weight:400;">${[asset.assetRef, asset.category].filter(Boolean).join(" · ")}</div>
+        </td>
+        ${cells}
+      </tr>`;
+    }).join("");
+
+    const legend = `<tr>
+      ${[["#EAF3DE","#2E7D32","Completed"],["#FDEAEA","#C62828","Overdue"],["#EBF5FB","#1565C0","In Progress"],["#F0F4F8","#546E7A","Scheduled"],["#FFFFFF","#9CA3AF","No Task"]].map(([bg,c,label]) =>
+        `<td style="padding:4px 8px;"><span style="display:inline-block;width:12px;height:12px;background:${bg};border:1px solid ${c};border-radius:2px;vertical-align:middle;margin-right:4px;"></span><span style="font-size:11px;color:#374151;">${label}</span></td>`
+      ).join("")}
+    </tr>`;
+
+    const htmlBody = `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;color:#1a2e4a;background:#f0f4f8;margin:0;padding:0;">
+<div style="max-width:900px;margin:20px auto;background:white;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+  <div style="background:#1a2e4a;color:white;padding:24px 28px;">
+    <h1 style="margin:0 0 4px 0;font-size:22px;">PPM Annual Planner ${planYear}</h1>
+    <p style="margin:0;font-size:14px;opacity:0.8;">Planned Preventive Maintenance Schedule — generated ${new Date().toLocaleDateString("en-GB",{day:"2-digit",month:"long",year:"numeric"})}</p>
+  </div>
+  <div style="padding:20px 28px;background:#f0f4f8;display:flex;gap:24px;flex-wrap:wrap;">
+    <div style="background:white;border-radius:6px;padding:14px 20px;min-width:120px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="font-size:28px;font-weight:700;">${totalTasks}</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:2px;">Total Tasks</div>
+    </div>
+    <div style="background:white;border-radius:6px;padding:14px 20px;min-width:120px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="font-size:28px;font-weight:700;color:#2E7D32;">${complete}</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:2px;">Completed (${pct}%)</div>
+    </div>
+    <div style="background:white;border-radius:6px;padding:14px 20px;min-width:120px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="font-size:28px;font-weight:700;color:#C62828;">${overdue}</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:2px;">Overdue</div>
+    </div>
+    <div style="background:white;border-radius:6px;padding:14px 20px;min-width:120px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+      <div style="font-size:28px;font-weight:700;">${assets.length}</div>
+      <div style="font-size:11px;color:#6b7280;margin-top:2px;">Assets</div>
+    </div>
+  </div>
+  ${message ? `<div style="padding:16px 28px;background:#fffbeb;border-top:1px solid #fde68a;font-size:13px;color:#92400e;">${message.replace(/\n/g,"<br>")}</div>` : ""}
+  <div style="padding:20px 28px;">
+    <h2 style="font-size:15px;margin:0 0 12px 0;color:#1a2e4a;">12-Month Maintenance Grid</h2>
+    <div style="overflow-x:auto;">
+      <table style="border-collapse:collapse;min-width:600px;width:100%;font-family:Arial,sans-serif;">
+        <thead>${headerRow}</thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+    <table style="margin-top:12px;border-collapse:collapse;">${legend}</table>
+  </div>
+  <div style="padding:16px 28px;background:#f7f9fb;border-top:1px solid #e5e7eb;font-size:11px;color:#9ca3af;">
+    Sent by ${senderName} via TPR-Max PPM Module. This is an automated report — please do not reply to this email.
+  </div>
+</div>
+</body></html>`;
+
+    const emailSvc = new EmailService(context.customerId);
+    const sent = await emailSvc.sendEmail({
+      to: email,
+      subject: `PPM Annual Planner ${planYear} — Maintenance Schedule Report`,
+      html: htmlBody,
+    });
+
+    if (!sent) return res.status(500).json({ error: "Failed to send email. Check your email settings." });
+    res.json({ success: true, message: `Annual Planner ${planYear} sent to ${email}.` });
+  } catch (error: unknown) {
+    console.error("POST /api/ppm/annual-planner/email", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to send email" });
   }
 });
 
