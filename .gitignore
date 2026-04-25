@@ -25,3 +25,4 @@ data/
 # Generated temp files (runtime artefacts)
 /temp/*
 !/temp/.gitkeep
+dist/
