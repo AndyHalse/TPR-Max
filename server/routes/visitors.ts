@@ -1403,7 +1403,10 @@ This is an automated notification from your visitor management system.`;
         return res.status(400).json({ error: "QR code is required" });
       }
       
-      const resolvedCustomerId = bodyCustomerId || (req as any).customerId || 'dev-customer-001';
+      const resolvedCustomerId = bodyCustomerId || (req as any).customerId;
+      if (!resolvedCustomerId) {
+        return res.status(400).json({ error: 'customerId is required' });
+      }
       const context = simpleDatabaseService.createCustomerContext('xstation-device', resolvedCustomerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
@@ -1734,7 +1737,10 @@ This is an automated notification from your visitor management system.`;
   app.post("/api/paxton/webhook", async (req, res) => {
     try {
       const { customerId } = req.query;
-      const resolvedCustomerId = (customerId as string) || 'dev-customer-001';
+      const resolvedCustomerId = (customerId as string);
+      if (!resolvedCustomerId) {
+        return res.status(400).json({ error: 'customerId is required' });
+      }
       const customerDb = await customerDbService.getCustomerDatabase(resolvedCustomerId);
       const [settings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
 
