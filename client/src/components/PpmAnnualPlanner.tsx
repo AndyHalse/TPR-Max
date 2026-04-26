@@ -154,7 +154,7 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
   });
 
   const { data: allWorkOrders = [], isLoading: loadingWOs } = useQuery<PpmWorkOrder[]>({
-    queryKey: [`/api/ppm/work-orders?year=${year}`],
+    queryKey: ["/api/ppm/work-orders", year],
     queryFn: async () => {
       const res = await fetch(`/api/ppm/work-orders?year=${year}`, { credentials: "include" });
       if (!res.ok) throw new Error("Failed to fetch work orders");

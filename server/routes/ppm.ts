@@ -9,7 +9,7 @@ import { EmailService } from '../emailService';
 import { ObjectStorageService } from '../objectStorage';
 import { logger } from '../utils/logger';
 import * as isolatedSchema from '../isolatedSchema';
-import { eq, and, sql, desc, or, not, ne, isNotNull, gt, gte, lt, lte, inArray, count } from 'drizzle-orm';
+import { eq, and, sql, desc, or, not, ne, isNotNull, gt, gte, lt, lte, inArray, count, like } from 'drizzle-orm';
 import { ppmTokenCacheGet, ppmTokenCacheSet, ppmTokenCacheEvict, ppmPublicRateLimit } from '../routeState';
 
 // ─── Module-scope helpers ─────────────────────────────────────────────────────
@@ -360,9 +360,9 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
     const context = await simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
 
-    // Optional year filter — EXTRACT(YEAR FROM due_date) = year
+    // Optional year filter — match ISO date strings starting with "YYYY-"
     const yearParam = req.query.year ? parseInt(req.query.year as string, 10) : null;
-    const yearCondition = yearParam ? sql`EXTRACT(YEAR FROM ${isolatedSchema.ppmWorkOrders.dueDate}) = ${yearParam}` : undefined;
+    const yearCondition = yearParam ? like(isolatedSchema.ppmWorkOrders.dueDate, `${yearParam}-%`) : undefined;
 
     const rows = await custDb.select().from(isolatedSchema.ppmWorkOrders)
       .where(yearCondition)
