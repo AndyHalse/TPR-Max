@@ -1,7 +1,7 @@
 import type { Express } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, desc } from 'drizzle-orm';
 import { z } from 'zod';
 import { requirePlatformAdmin } from '../auth';
 import { db } from '../db';
