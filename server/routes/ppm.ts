@@ -1838,36 +1838,69 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
-    // Realistic spread: Jan–Feb all done; Mar mostly done, few overdue; Apr mix; May scheduled
+    // Build a work-order record for a given year + month, with realistic per-year statuses.
+    // 2024 — full historical year: all completed, small fraction overdue for realism
+    // 2025 — recent historical year: mostly completed, a few overdue late in the year
+    // 2026 — current year: Jan–Apr realistic mix; May+ scheduled
+    // 2027 — forward planning year: all scheduled
     function buildWoRecord(
-      monthIdx: number, assetPosition: number, category: string
+      year: number, monthIdx: number, assetPosition: number, category: string
     ): { status: string; completedDate?: string; dueDate: string; notes?: string } {
-      const year = 2026;
       const dueDay = getCategoryDueDay(category);
       const lastDay = new Date(year, monthIdx + 1, 0).getDate();
       const day = String(Math.min(dueDay, lastDay)).padStart(2, "0");
-      const mm   = String(monthIdx + 1).padStart(2, "0");
+      const mm  = String(monthIdx + 1).padStart(2, "0");
       const dueDate = `${year}-${mm}-${day}`;
 
-      if (monthIdx <= 1) {
-        // Jan–Feb: all completed on time
-        return { status: "completed", completedDate: dueDate, dueDate };
-      }
-      if (monthIdx === 2) {
-        // March: 2/3 completed; 1/3 overdue (contractor missed visit)
-        if (assetPosition % 3 === 1) {
-          return { status: "overdue", dueDate, notes: "Contractor visit missed — rescheduled for April." };
+      if (year === 2024) {
+        // Completed historical year — ~85% completed on time, ~10% completed late, ~5% overdue
+        const slot = (assetPosition + monthIdx) % 20;
+        if (slot === 3) return { status: "overdue", dueDate, notes: "Contractor unavailable — not completed." };
+        if (slot === 9) {
+          // completed a week late
+          const lateDay = String(Math.min(dueDay + 7, lastDay)).padStart(2, "0");
+          return { status: "completed", completedDate: `${year}-${mm}-${lateDay}`, dueDate, notes: "Completed 7 days late." };
         }
         return { status: "completed", completedDate: dueDate, dueDate };
       }
-      if (monthIdx === 3) {
-        // April (current month): spread completed / overdue / in_progress
-        const mod = assetPosition % 3;
-        if (mod === 0) return { status: "completed", completedDate: `2026-04-${day}`, dueDate };
-        if (mod === 1) return { status: "overdue", dueDate, notes: "Work overdue — contractor visit rescheduled." };
-        return { status: "in_progress", dueDate };
+
+      if (year === 2025) {
+        // Mostly done — Q1–Q3 all completed, Q4 has a few overdue
+        if (monthIdx >= 9 && (assetPosition + monthIdx) % 5 === 0) {
+          return { status: "overdue", dueDate, notes: "Outstanding — Q4 contractor scheduling issue." };
+        }
+        if (monthIdx >= 9 && (assetPosition + monthIdx) % 7 === 0) {
+          // completed a few days late
+          const lateDay = String(Math.min(dueDay + 5, lastDay)).padStart(2, "0");
+          return { status: "completed", completedDate: `${year}-${mm}-${lateDay}`, dueDate, notes: "Completed late." };
+        }
+        return { status: "completed", completedDate: dueDate, dueDate };
       }
-      // May onwards: scheduled
+
+      if (year === 2026) {
+        // Current year (today = April 2026)
+        if (monthIdx <= 1) {
+          return { status: "completed", completedDate: dueDate, dueDate };
+        }
+        if (monthIdx === 2) {
+          // March: 2/3 completed; 1/3 overdue
+          if (assetPosition % 3 === 1) {
+            return { status: "overdue", dueDate, notes: "Contractor visit missed — rescheduled for April." };
+          }
+          return { status: "completed", completedDate: dueDate, dueDate };
+        }
+        if (monthIdx === 3) {
+          // April: completed / overdue / in_progress spread
+          const mod = assetPosition % 3;
+          if (mod === 0) return { status: "completed", completedDate: `2026-04-${day}`, dueDate };
+          if (mod === 1) return { status: "overdue", dueDate, notes: "Work overdue — contractor visit rescheduled." };
+          return { status: "in_progress", dueDate };
+        }
+        // May onwards: scheduled
+        return { status: "scheduled", dueDate };
+      }
+
+      // 2027 — forward planning, all scheduled
       return { status: "scheduled", dueDate };
     }
 
@@ -1876,30 +1909,37 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     let workOrdersCreated = 0;
     let assetPosition = 0;
 
+    // Generate work orders for 4 years: 2024 (history), 2025 (recent), 2026 (current), 2027 (planned)
+    const PLANNER_YEARS = [2024, 2025, 2026, 2027];
+
     for (const asset of ALL_DEMO_ASSETS) {
       const assetId = assetIdByRef[asset.assetRef];
       if (!assetId) continue;
-      const months    = getServiceMonths(asset.category, assetPosition);
-      const title     = getTaskTitle(asset.category, asset.name);
+      const months     = getServiceMonths(asset.category, assetPosition);
+      const title      = getTaskTitle(asset.category, asset.name);
       const scheduleId = primaryScheduleIdByRef[asset.assetRef] ?? null;
       const contractor = CATEGORY_CONTRACTOR[asset.category];
       const requiresCertificate = STATUTORY_CATEGORIES.has(asset.category ?? "");
 
-      for (const monthIdx of months) {
-        const rec = buildWoRecord(monthIdx, assetPosition, asset.category);
-        await custDb.insert(isolatedSchema.ppmWorkOrders).values({
-          assetId,
-          scheduleId,
-          title,
-          status: rec.status,
-          dueDate: rec.dueDate,
-          completedDate: rec.completedDate ?? null,
-          contractorCompanyName: rec.status === "scheduled" ? null : contractor?.company ?? null,
-          contractorWorkerName:  rec.status === "scheduled" ? null : contractor?.worker  ?? null,
-          notes: rec.notes ?? null,
-          requiresCertificate,
-        } as any);
-        workOrdersCreated++;
+      for (const year of PLANNER_YEARS) {
+        for (const monthIdx of months) {
+          const rec = buildWoRecord(year, monthIdx, assetPosition, asset.category);
+          // For historical years: assign the contractor who did the work; future: leave blank
+          const showContractor = rec.status !== "scheduled";
+          await custDb.insert(isolatedSchema.ppmWorkOrders).values({
+            assetId,
+            scheduleId,
+            title,
+            status: rec.status,
+            dueDate: rec.dueDate,
+            completedDate: rec.completedDate ?? null,
+            contractorCompanyName: showContractor ? contractor?.company ?? null : null,
+            contractorWorkerName:  showContractor ? contractor?.worker  ?? null : null,
+            notes: rec.notes ?? null,
+            requiresCertificate,
+          } as any);
+          workOrdersCreated++;
+        }
       }
       assetPosition++;
     }
@@ -1911,7 +1951,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       templatesCreated,
       schedulesCreated,
       workOrdersCreated,
-      message: `Demo data refreshed: ${DEMO_GROUPS.length} asset groups, ${assetsCreated} assets, ${templatesCreated} templates, ${schedulesCreated} schedules, and ${workOrdersCreated} work orders loaded fresh.`,
+      message: `Demo data refreshed: ${DEMO_GROUPS.length} asset groups, ${assetsCreated} assets, ${templatesCreated} templates, ${schedulesCreated} schedules, and ${workOrdersCreated} work orders across 2024–2027. Use the year picker in the Annual Planner to navigate between years.`,
     });
   } catch (error: unknown) {
     console.error("POST /api/ppm/demo-data", error);
