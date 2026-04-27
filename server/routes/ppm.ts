@@ -1780,7 +1780,8 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
     // ── STEP 5: Insert schedules (fresh) ─────────────────────────────────────
     let schedulesCreated = 0;
-    const primaryScheduleIdByRef: Record<string, string> = {};
+    // Key: "assetRef:templateName" → scheduleId — used to link work orders to their exact schedule
+    const scheduleIdMap: Record<string, string> = {};
 
     for (const s of DEMO_SCHEDULES) {
       const assetId = assetIdByRef[s.assetRef];
@@ -1798,44 +1799,48 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
         assignedTo: s.assignedTo ?? null,
       } as any).returning({ id: isolatedSchema.ppmSchedules.id });
       schedulesCreated++;
-
-      // Keep the primary (most-frequently-recurring) schedule per asset
-      const prev = primaryScheduleIdByRef[s.assetRef];
-      if (!prev || s.frequency === "monthly") {
-        primaryScheduleIdByRef[s.assetRef] = ins.id;
-      }
+      scheduleIdMap[`${s.assetRef}:${s.templateName}`] = ins.id;
     }
 
     // ── STEP 6: Work orders: Jan–Dec 2026 linked to their schedules ──────────
     // (table already wiped in STEP 1 — insert fresh)
 
-    // posIdx cycles the starting offset so quarterly/6-monthly assets hit different months,
-    // spreading the maintenance load visibly across the whole year in the annual planner.
-    function getServiceMonths(category: string, posIdx: number = 0): number[] {
-      const off = posIdx % 3; // rotates 0→1→2→0 per asset
-      switch (category) {
-        case "HVAC":           return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly – always all 12
-        case "Fire Safety":    return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
-        case "Water Hygiene":  return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
-        case "Security":       return [0,1,2,3,4,5,6,7,8,9,10,11]; // monthly
-        case "Mechanical":     return [off, off+3, off+6, off+9].filter(m => m < 12);  // staggered quarterly
-        case "Electrical":     return [off, off+3, off+6, off+9].filter(m => m < 12);  // staggered quarterly
-        case "Lifts & Hoists": return posIdx % 2 === 0 ? [5,11] : [2,8]; // Jun/Dec or Mar/Sep
-        default:               return [off, off+3, off+6, off+9].filter(m => m < 12);
-      }
-    }
+    // Returns the months (0-indexed) in which work orders should be created for a schedule,
+    // based on the schedule's actual frequency rather than a crude category mapping.
+    function getScheduleMonths(
+      frequency: string,
+      customDays: number | undefined | null,
+      nextDueDate: string,
+      posIdx: number,
+      year: number
+    ): number[] {
+      if (frequency === "monthly") return [0,1,2,3,4,5,6,7,8,9,10,11];
 
-    function getTaskTitle(category: string, assetName: string): string {
-      switch (category) {
-        case "HVAC":           return `HVAC Service – ${assetName}`;
-        case "Fire Safety":    return `Fire Safety Inspection – ${assetName}`;
-        case "Water Hygiene":  return `Water Hygiene Check – ${assetName}`;
-        case "Security":       return `Security System Check – ${assetName}`;
-        case "Mechanical":     return `Mechanical Service – ${assetName}`;
-        case "Electrical":     return `Electrical Inspection – ${assetName}`;
-        case "Lifts & Hoists": return `Lift Thorough Examination – ${assetName}`;
-        default:               return `Maintenance – ${assetName}`;
+      if (frequency === "quarterly") {
+        // Anchor from the month in nextDueDate so quarters are realistic, not arbitrary
+        const startMonth = new Date(nextDueDate).getMonth();
+        return [0, 3, 6, 9].map(off => (startMonth + off) % 12).sort((a, b) => a - b);
       }
+
+      if (frequency === "annual") {
+        // Use the month from nextDueDate (e.g. "2026-12-12" → month 11)
+        return [new Date(nextDueDate).getMonth()];
+      }
+
+      if (frequency === "custom") {
+        const days = customDays ?? 0;
+        if (days >= 175 && days <= 190) {
+          // 6-monthly (e.g. LOLER 183 days): two visits per year, staggered by position
+          return posIdx % 2 === 0 ? [5, 11] : [2, 8]; // Jun+Dec or Mar+Sep
+        }
+        if (days >= 1800) {
+          // 5-yearly (e.g. EICR 1825 days): show once in 2024 as the baseline inspection;
+          // the next occurrence falls outside the 2024–2027 demo window (nextDueDate 2031)
+          return year === 2024 ? [0] : [];
+        }
+      }
+
+      return [];
     }
 
     // Build a work-order record for a given year + month, with realistic per-year statuses.
@@ -1907,24 +1912,35 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     const STATUTORY_CATEGORIES = new Set(["Fire Safety", "Mechanical", "Electrical", "Water Hygiene", "Lifts & Hoists"]);
 
     let workOrdersCreated = 0;
-    let assetPosition = 0;
 
     // Generate work orders for 4 years: 2024 (history), 2025 (recent), 2026 (current), 2027 (planned)
     const PLANNER_YEARS = [2024, 2025, 2026, 2027];
 
-    for (const asset of ALL_DEMO_ASSETS) {
-      const assetId = assetIdByRef[asset.assetRef];
+    // Build a quick lookup so we can get the full asset record inside the schedule loop
+    const assetByRef: Record<string, typeof ALL_DEMO_ASSETS[number]> = {};
+    for (const a of ALL_DEMO_ASSETS) assetByRef[a.assetRef] = a;
+
+    // Loop over schedules, not assets — each schedule has an explicit frequency so work
+    // orders are generated at the correct intervals (monthly / quarterly / annual / 6M / 5Y).
+    let schedPosition = 0;
+    for (const schedDef of DEMO_SCHEDULES) {
+      const assetId = assetIdByRef[schedDef.assetRef];
       if (!assetId) continue;
-      const months     = getServiceMonths(asset.category, assetPosition);
-      const title      = getTaskTitle(asset.category, asset.name);
-      const scheduleId = primaryScheduleIdByRef[asset.assetRef] ?? null;
+
+      const asset = assetByRef[schedDef.assetRef];
+      if (!asset) continue;
+
+      const scheduleId = scheduleIdMap[`${schedDef.assetRef}:${schedDef.templateName}`] ?? null;
       const contractor = CATEGORY_CONTRACTOR[asset.category];
       const requiresCertificate = STATUTORY_CATEGORIES.has(asset.category ?? "");
+      // Use the schedule's template name as the work order title for accuracy
+      const title = schedDef.templateName;
 
       for (const year of PLANNER_YEARS) {
+        const months = getScheduleMonths(schedDef.frequency, schedDef.customDays ?? null, schedDef.nextDueDate, schedPosition, year);
         for (const monthIdx of months) {
-          const rec = buildWoRecord(year, monthIdx, assetPosition, asset.category);
-          // For historical years: assign the contractor who did the work; future: leave blank
+          const rec = buildWoRecord(year, monthIdx, schedPosition, asset.category);
+          // For historical work orders: assign the contractor; future: leave blank
           const showContractor = rec.status !== "scheduled";
           await custDb.insert(isolatedSchema.ppmWorkOrders).values({
             assetId,
@@ -1941,7 +1957,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
           workOrdersCreated++;
         }
       }
-      assetPosition++;
+      schedPosition++;
     }
 
     res.json({

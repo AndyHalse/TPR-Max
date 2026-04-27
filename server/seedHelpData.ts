@@ -408,6 +408,109 @@ The integration can synchronise personnel between BioStar 2 and TPR-Max:
       helpfulCount: 0,
       notHelpfulCount: 0,
       viewCount: 0
+    },
+
+    // ─── PPM ANNUAL PLANNER ───────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Planned Preventative Maintenance"],
+      title: "Using the PPM Annual Planner",
+      slug: createSlug("Using the PPM Annual Planner"),
+      summary: "How to read and use the 12-month maintenance grid, filters, colour codes, Qty and Location columns, and demo data",
+      content: `# Using the PPM Annual Planner
+
+The PPM Annual Planner gives you a bird's-eye view of all your assets' maintenance across an entire calendar year — one row per asset, one column per month.
+
+## Opening the Planner
+1. Navigate to **PPM** in the main menu
+2. Click the **Annual Planner** tab
+3. Use the year selector (top-right) to switch between 2024 (history), 2025, 2026 (current), and 2027 (forward plan)
+
+## The Grid Columns
+
+Each row in the grid has the following columns, in order:
+
+| Column | What it shows |
+|--------|--------------|
+| **Asset** | Asset name and reference / category sub-text |
+| **Qty** | Number of maintenance schedules attached to this asset (a proxy count until a dedicated quantity field is added) |
+| **Location** | The asset's physical location (e.g. "Basement Plant Room"). Hover for the full text if it is truncated. Hidden on small screens. |
+| **Freq** | Coloured badge showing the maintenance frequency: **12M** annual, **6M** six-monthly, **3M** quarterly, **M** monthly, **W** weekly |
+| **Jan – Dec** | One cell per month. Cell colour indicates the work order status for that month (see legend below). |
+
+## Colour Legend
+
+- **Red** — Overdue: past due date, not completed
+- **Amber** — Due soon: due within 14 days
+- **Blue** — In Progress: work order has been started
+- **Green** — Completed: maintenance was carried out
+- **Light blue** — Scheduled: planned but not yet due
+- **Empty / grey** — No work order for this month (asset is not due, e.g. an annual asset in a non-due month)
+
+Click any coloured cell to open the full work order details.
+
+## Category Group Headers
+
+Assets are automatically grouped by maintenance category in this order:
+**Fire Safety → Water Hygiene → HVAC → Mechanical → Electrical → Security → Lifts & Hoists → Grounds → Cleaning → Other**
+
+Each group header shows the category name. Assets without a category appear at the bottom under **Other**.
+
+## Filtering Assets
+
+Use the filter bar above the grid to narrow the view:
+
+- **Search assets** — type any part of an asset name for an instant real-time match
+- **Category** — show only one maintenance category at a time
+- **Frequency** — filter by service interval (Annual, 6-Monthly, Quarterly, Monthly, Weekly)
+- **Status** — show only assets that have at least one Overdue / Scheduled / Completed work order in the selected year
+- **Clear filters** — resets all four filters at once
+
+When filters are active, the **Total Assets** stat card shows the filtered count vs the full total (e.g. "12 / 57").
+
+## Summary Cards
+
+Five cards at the top of the planner show counts for the selected year:
+
+- **Total Assets** — number of assets in view (filtered / total)
+- **Completed** — work orders with status "completed"
+- **Upcoming** — scheduled work orders not yet due
+- **Overdue** — work orders past their due date
+- **No Dates Recorded** — assets with no work orders in the selected year
+
+## Exporting the Planner
+
+- **Export CSV** — downloads a spreadsheet with asset name, reference, category, location, a cell status per month, plus totals
+- **Print / Export PDF** — opens the browser print dialog. The planner is formatted for A3 landscape for best results.
+- **Email Report** — sends the annual planner as a formatted HTML email to any address
+
+## Loading Demo Data
+
+If you are setting up TPR-Max for the first time, or want to see example data, click **"Load Demo Data"** in the PPM section (available to Administrators only).
+
+**Important: Loading demo data wipes all existing PPM assets, schedules, templates, and work orders before inserting fresh examples.** Do not use this on a live account with real data.
+
+The demo dataset includes:
+- 30 realistic UK facility assets across 7 categories (HVAC, Fire Safety, Mechanical, Electrical, Water Hygiene, Security, Lifts & Hoists)
+- Maintenance schedules with the correct statutory frequencies (monthly, quarterly, 6-monthly LOLER, annual, and 5-yearly EICR)
+- Work orders spread across 2024–2027 with realistic statuses:
+  - **2024**: Historical year — mostly completed, a small number of overdue entries for realism
+  - **2025**: Recent year — completed throughout, with a few late-year overdue entries
+  - **2026**: Current year — January–February completed; March split completed/overdue; April mix of completed/overdue/in-progress; May onwards all scheduled
+  - **2027**: Forward planning — all scheduled
+- Each work order is correctly linked to its schedule, so the Freq badge and month cells are accurate for each asset's maintenance interval
+
+After loading, use the year picker to navigate between years and explore the full four-year dataset.`,
+      targetPages: ["ppm", "/ppm", "annual-planner"],
+      searchKeywords: ["PPM", "annual planner", "maintenance grid", "12-month", "qty", "quantity", "location", "frequency", "LOLER", "EICR", "demo data", "colour legend", "filter", "category group"],
+      estimatedReadTime: 7,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: true,
+      sortOrder: 2,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
     }
   ];
 }
