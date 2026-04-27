@@ -1,0 +1,134 @@
+In server/routes/ppm.ts, node-cron is imported but never used. The PPM 
+system needs a daily cron job to:
+  1. Auto-generate work orders from schedules that are now due
+  2. Mark overdue work orders and send alerts to the admin
+  3. Send missing certificate alerts for completed work orders with no cert uploaded
+
+Add the following cron job at the END of the registerPPMRoutes function, 
+after all route definitions:
+
+// PPM Daily Cron — runs at 7:00am every day
+cron.schedule('0 7 * * *', async () => {
+  logger.info('[PPM Cron] Running daily PPM checks...');
+  
+  try {
+    // Get all active customers
+    const customers = await getActiveCustomers(); 
+    // Use whatever pattern the other crons in this codebase use 
+    // to get all active customer IDs and their database contexts
+
+    for (const customer of customers) {
+      try {
+        const customerDb = await getCustomerDatabase(customer.id);
+        const today = new Date().toISOString().split('T')[0];
+
+        // --- STEP 1: Auto-generate work orders from due schedules ---
+        const dueSchedules = await customerDb
+          .select()
+          .from(isolatedSchema.ppmSchedules)
+          .where(
+            and(
+              lte(isolatedSchema.ppmSchedules.nextDueDate, today),
+              ne(isolatedSchema.ppmSchedules.status, 'cancelled'),
+              ne(isolatedSchema.ppmSchedules.status, 'completed')
+            )
+          );
+
+        for (const schedule of dueSchedules) {
+          // Only create if no open work order already exists for this schedule
+          const existingOpen = await customerDb
+            .select()
+            .from(isolatedSchema.ppmWorkOrders)
+            .where(
+              and(
+                eq(isolatedSchema.ppmWorkOrders.scheduleId, schedule.id),
+                ne(isolatedSchema.ppmWorkOrders.status, 'completed'),
+                ne(isolatedSchema.ppmWorkOrders.status, 'cancelled')
+              )
+            );
+
+          if (existingOpen.length === 0) {
+            const token = randomBytes(24).toString('hex');
+            await customerDb.insert(isolatedSchema.ppmWorkOrders).values({
+              assetId: schedule.assetId,
+              scheduleId: schedule.id,
+              title: `Scheduled Maintenance — ${schedule.frequency}`,
+              dueDate: schedule.nextDueDate,
+              status: 'scheduled',
+              accessToken: token,
+              accessTokenExpiresAt: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+            });
+            logger.info(`[PPM Cron] Created work order for schedule ${schedule.id}`);
+          }
+        }
+
+        // --- STEP 2: Flag overdue work orders and send admin alert ---
+        const overdueWos = await customerDb
+          .select()
+          .from(isolatedSchema.ppmWorkOrders)
+          .where(
+            and(
+              lt(isolatedSchema.ppmWorkOrders.dueDate, today),
+              ne(isolatedSchema.ppmWorkOrders.status, 'completed'),
+              ne(isolatedSchema.ppmWorkOrders.status, 'cancelled'),
+              isNull(isolatedSchema.ppmWorkOrders.overdueAlertedAt)
+            )
+          );
+
+        if (overdueWos.length > 0) {
+          // Send admin alert email for overdue work orders
+          const settings = await getCompanySettings({ customerId: customer.id });
+          if (settings?.email) {
+            const emailSvc = new EmailService(customer.id);
+            const subject = `PPM Alert: ${overdueWos.length} overdue work order(s)`;
+            const html = `
+              <p>${overdueWos.length} work order(s) are overdue:</p>
+              <ul>
+                ${overdueWos.map(wo => 
+                  `<li>${wo.title} — due ${wo.dueDate}</li>`
+                ).join('')}
+              </ul>
+            `;
+            await emailSvc.sendEmail({
+              to: settings.email,
+              subject,
+              companyName: settings.companyName || 'TPR Max',
+              html,
+              text: subject
+            });
+          }
+
+          // Stamp overdueAlertedAt to prevent duplicate alerts
+          for (const wo of overdueWos) {
+            await customerDb
+              .update(isolatedSchema.ppmWorkOrders)
+              .set({ overdueAlertedAt: new Date() })
+              .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
+          }
+        }
+
+      } catch (customerError) {
+        logger.error(`[PPM Cron] Failed for customer ${customer.id}:`, customerError);
+        // Continue to next customer — don't let one failure stop all others
+      }
+    }
+
+    logger.info('[PPM Cron] Daily PPM checks complete');
+  } catch (error) {
+    logger.error('[PPM Cron] Fatal error:', error);
+  }
+}, {
+  timezone: 'Europe/London'
+});
+
+Use the same pattern for getActiveCustomers, getCustomerDatabase, and 
+getCompanySettings that the other crons in this codebase use 
+(look at how the daily reset cron in remaining.ts or the lone worker 
+cron in loneWorker.ts handle iterating over customers).
+
+Test by manually calling the functions inline (comment out the cron.schedule 
+wrapper temporarily and call the inner function directly) and checking:
+- A due schedule generates a new work order
+- An overdue work order triggers an admin email
+- A second run does NOT create duplicate work orders
+- A second run does NOT send a duplicate overdue alert
