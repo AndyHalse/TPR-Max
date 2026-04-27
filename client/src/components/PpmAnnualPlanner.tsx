@@ -753,7 +753,7 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
                               onClick={() => handleCellClick(asset, mIdx, wos)}
                             >
                               <div
-                                className="flex items-center justify-center gap-0.5 rounded mx-auto h-full"
+                                className="flex items-center justify-center rounded mx-auto h-full"
                                 style={{
                                   background: cfg.bg,
                                   border: `1px solid ${cfg.border}`,
@@ -764,7 +764,18 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
                                 {status === "empty" ? (
                                   <Minus className="h-3 w-3 opacity-30" />
                                 ) : (
-                                  cfg.icon ?? null
+                                  (() => {
+                                    // Pick the representative work order for this cell (matching the cell's priority status)
+                                    const repWo = wos.find(w => getWoStatus(w) === status) ?? wos[0];
+                                    const day = repWo?.dueDate
+                                      ? new Date(repWo.dueDate).getDate()
+                                      : null;
+                                    return day !== null ? (
+                                      <span style={{ fontSize: 13, fontWeight: 700, lineHeight: 1 }}>
+                                        {String(day).padStart(2, "0")}
+                                      </span>
+                                    ) : (cfg.icon ?? null);
+                                  })()
                                 )}
                               </div>
                               {status !== "empty" && hasStatutory && (
