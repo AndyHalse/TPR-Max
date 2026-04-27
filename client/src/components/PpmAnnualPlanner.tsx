@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, type CSSProperties } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +43,7 @@ interface PpmAsset {
 interface PpmWorkOrder {
   id: string;
   assetId?: string | null;
+  scheduleId?: string | null;
   title: string;
   status: string;
   dueDate?: string | null;
@@ -51,6 +52,52 @@ interface PpmWorkOrder {
   contractorWorkerName?: string | null;
   notes?: string | null;
   templateType?: string | null;
+}
+
+interface PpmSchedule {
+  id: string;
+  assetId: string;
+  frequency: string;
+  customDays?: number | null;
+}
+
+// ─── Frequency badge config ────────────────────────────────────────────────────
+
+const FREQ_BADGE_CFG: Record<string, { bg: string; color: string; border: string; label: string }> = {
+  "12M": { bg: "rgba(88,166,255,0.15)",  color: "#3b82f6", border: "1px solid rgba(59,130,246,0.3)",  label: "12M" },
+  "6M":  { bg: "rgba(168,85,247,0.15)", color: "#a855f7", border: "1px solid rgba(168,85,247,0.3)", label: "6M" },
+  "3M":  { bg: "rgba(249,115,22,0.15)", color: "#f97316", border: "1px solid rgba(249,115,22,0.3)", label: "3M" },
+  "M":   { bg: "rgba(34,197,94,0.15)",  color: "#22c55e", border: "1px solid rgba(34,197,94,0.3)",  label: "M" },
+  "W":   { bg: "rgba(239,68,68,0.15)",  color: "#ef4444", border: "1px solid rgba(239,68,68,0.3)",  label: "W" },
+};
+const UNKNOWN_FREQ_BADGE = { bg: "rgba(148,163,184,0.1)", color: "#94a3b8", border: "1px solid rgba(148,163,184,0.2)" };
+const BADGE_STYLE_BASE: CSSProperties = {
+  fontSize: 10, padding: "2px 6px", borderRadius: 4, fontWeight: 600, fontFamily: "monospace",
+  display: "inline-block", lineHeight: 1.4,
+};
+
+function freqToCode(frequency: string, customDays?: number | null): string {
+  switch (frequency) {
+    case "annual":
+    case "annually":    return "12M";
+    case "biannual":
+    case "biannually":
+    case "semi-annual": return "6M";
+    case "quarterly":   return "3M";
+    case "monthly":     return "M";
+    case "weekly":      return "W";
+    case "custom":
+      if (customDays) {
+        if (customDays >= 350)                         return "12M";
+        if (customDays >= 160 && customDays <= 200)    return "6M";
+        if (customDays >= 80  && customDays <= 100)    return "3M";
+        if (customDays >= 28  && customDays <= 35)     return "M";
+        if (customDays <= 7)                           return "W";
+        return `${customDays}d`;
+      }
+      return "custom";
+    default: return frequency || "—";
+  }
 }
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
@@ -140,6 +187,7 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
   const [year, setYear] = useState<number>(new Date().getFullYear());
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterFrequency, setFilterFrequency] = useState("all");
   const [panel, setPanel] = useState<PanelSelection | null>(null);
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailAddr, setEmailAddr] = useState("");
@@ -160,6 +208,22 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
       return res.json();
     },
   });
+
+  const { data: schedules = [], isLoading: loadingSchedules } = useQuery<PpmSchedule[]>({
+    queryKey: ["/api/ppm/schedules"],
+  });
+
+  // assetId → Set of canonical frequency codes (e.g. "12M", "6M", "M")
+  const assetFreqMap = useMemo(() => {
+    const map = new Map<string, Set<string>>();
+    for (const s of schedules) {
+      if (!s.assetId) continue;
+      const code = freqToCode(s.frequency, s.customDays);
+      if (!map.has(s.assetId)) map.set(s.assetId, new Set());
+      map.get(s.assetId)!.add(code);
+    }
+    return map;
+  }, [schedules]);
 
   const emailMutation = useMutation({
     mutationFn: async () => {
@@ -240,11 +304,15 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
         if (filterStatus === "scheduled" && !statuses.some(s => s === "scheduled" || s === "in_progress")) return false;
         if (filterStatus === "empty" && monthMap.size > 0) return false;
       }
+      if (filterFrequency !== "all") {
+        const freqSet = assetFreqMap.get(a.id);
+        if (!freqSet || !freqSet.has(filterFrequency)) return false;
+      }
       return true;
     });
-  }, [assets, filterCategory, filterStatus, wosByAssetMonth]);
+  }, [assets, filterCategory, filterStatus, filterFrequency, wosByAssetMonth, assetFreqMap]);
 
-  const loading = loadingAssets || loadingWOs;
+  const loading = loadingAssets || loadingWOs || loadingSchedules;
 
   // ── Cell click ────────────────────────────────────────────────────────────
   function handleCellClick(asset: PpmAsset, monthIdx: number, wos: PpmWorkOrder[]) {
@@ -436,8 +504,21 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
               <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>
           </Select>
-          {(filterCategory !== "all" || filterStatus !== "all") && (
-            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFilterCategory("all"); setFilterStatus("all"); }}>
+          <Select value={filterFrequency} onValueChange={setFilterFrequency}>
+            <SelectTrigger className="w-36 h-8 text-sm">
+              <SelectValue placeholder="All Frequencies" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Frequencies</SelectItem>
+              <SelectItem value="12M">12M — Annual</SelectItem>
+              <SelectItem value="6M">6M — Half-yearly</SelectItem>
+              <SelectItem value="3M">3M — Quarterly</SelectItem>
+              <SelectItem value="M">M — Monthly</SelectItem>
+              <SelectItem value="W">W — Weekly</SelectItem>
+            </SelectContent>
+          </Select>
+          {(filterCategory !== "all" || filterStatus !== "all" || filterFrequency !== "all") && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFilterCategory("all"); setFilterStatus("all"); setFilterFrequency("all"); }}>
               Clear filters
             </Button>
           )}
@@ -468,6 +549,9 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
               <tr className="bg-muted/50">
                 <th className="ppm-asset-col sticky left-0 bg-muted/80 z-10 text-left text-xs font-semibold text-muted-foreground px-3 py-2 border-b border-r border-border" style={{ minWidth: 220, width: 220 }}>
                   Asset
+                </th>
+                <th className="text-center text-xs font-semibold text-muted-foreground px-2 py-2 border-b border-r border-border" style={{ minWidth: 60, width: 60 }}>
+                  Freq
                 </th>
                 {MONTHS.map((m, i) => (
                   <th
@@ -502,6 +586,31 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
                       <p className="text-xs text-muted-foreground truncate">
                         {[asset.assetRef, asset.category].filter(Boolean).join(" · ")}
                       </p>
+                    </td>
+                    {/* Frequency badge column */}
+                    <td className="border-r border-border px-1 py-1 align-middle" style={{ minWidth: 60, width: 60 }}>
+                      <div className="flex flex-col items-center gap-0.5">
+                        {(() => {
+                          const freqSet = assetFreqMap.get(asset.id);
+                          if (!freqSet || freqSet.size === 0) {
+                            return (
+                              <span style={{ ...BADGE_STYLE_BASE, ...UNKNOWN_FREQ_BADGE }}>—</span>
+                            );
+                          }
+                          return Array.from(freqSet).map(code => {
+                            const cfg = FREQ_BADGE_CFG[code];
+                            return cfg ? (
+                              <span key={code} style={{ ...BADGE_STYLE_BASE, background: cfg.bg, color: cfg.color, border: cfg.border }}>
+                                {cfg.label}
+                              </span>
+                            ) : (
+                              <span key={code} style={{ ...BADGE_STYLE_BASE, ...UNKNOWN_FREQ_BADGE }}>
+                                {code || "—"}
+                              </span>
+                            );
+                          });
+                        })()}
+                      </div>
                     </td>
                     {/* Month cells */}
                     {MONTHS.map((_, mIdx) => {
