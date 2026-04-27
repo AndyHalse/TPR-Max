@@ -1732,17 +1732,23 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     };
 
     // ── Due day within each month per category (staggered for realism) ─────────
-    function getCategoryDueDay(category: string): number {
-      switch (category) {
-        case "HVAC":           return 7;   // 1st week
-        case "Fire Safety":    return 14;  // 2nd week
-        case "Water Hygiene":  return 21;  // 3rd week
-        case "Security":       return 28;  // 4th week
-        case "Lifts & Hoists": return 10;  // early month
-        case "Mechanical":     return 12;  // mid-month
-        case "Electrical":     return 16;  // mid-month
-        default:               return 15;
-      }
+    // Returns a realistic due-day for a work order, spread across the month so each
+    // individual asset/schedule gets its own day rather than all sharing one fixed date.
+    // Base day per category reflects typical contractor visit weeks; position index
+    // staggers assets within the same category by 2 days each (capped at 28).
+    function getDueDay(category: string, position: number): number {
+      const base: Record<string, number> = {
+        "HVAC":            3,
+        "Fire Safety":     4,
+        "Water Hygiene":   7,
+        "Security":       11,
+        "Lifts & Hoists":  8,
+        "Mechanical":      5,
+        "Electrical":     14,
+      };
+      const b = base[category] ?? 9;
+      // Stagger each schedule within a category by 2 days, wrapping within 0–9
+      return Math.min(28, b + (position % 10) * 2);
     }
 
     // ── Schedules FIRST — so work orders can reference their scheduleId ────────
@@ -1851,7 +1857,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     function buildWoRecord(
       year: number, monthIdx: number, assetPosition: number, category: string
     ): { status: string; completedDate?: string; dueDate: string; notes?: string } {
-      const dueDay = getCategoryDueDay(category);
+      const dueDay = getDueDay(category, assetPosition);
       const lastDay = new Date(year, monthIdx + 1, 0).getDate();
       const day = String(Math.min(dueDay, lastDay)).padStart(2, "0");
       const mm  = String(monthIdx + 1).padStart(2, "0");
