@@ -496,7 +496,8 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
           await custDb.update(isolatedSchema.ppmSchedules)
             .set({
               nextDueDate: newDue,
-              status: "scheduled",
+              // Don't resurrect a cancelled schedule — only reset status if it was active
+              ...(schedule.status !== "cancelled" ? { status: "scheduled" } : {}),
               lastCompletedDate: new Date().toISOString().split("T")[0],
             })
             .where(eq(isolatedSchema.ppmSchedules.id, schedule.id));
@@ -2280,7 +2281,8 @@ app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
             await custDb.update(isolatedSchema.ppmSchedules)
               .set({
                 nextDueDate: newDue,
-                status: "scheduled",
+                // Don't resurrect a cancelled schedule — only reset status if it was active
+                ...(schedule.status !== "cancelled" ? { status: "scheduled" } : {}),
                 lastCompletedDate: new Date().toISOString().split("T")[0],
               })
               .where(eq(isolatedSchema.ppmSchedules.id, schedule.id));
