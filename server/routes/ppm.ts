@@ -1,5 +1,5 @@
 import type { Express } from 'express';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import path from 'path';
 import cron from 'node-cron';
 import { requireAuth } from '../auth';
