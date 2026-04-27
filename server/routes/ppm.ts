@@ -1754,33 +1754,69 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     // ── Schedules FIRST — so work orders can reference their scheduleId ────────
     type SchedDef = { assetRef: string; templateName: string; frequency: string; customDays?: number; nextDueDate: string; assignedTo?: string };
     const DEMO_SCHEDULES: SchedDef[] = [
-      // HVAC – monthly
-      ...(["AHU-001","AHU-GF","AHU-01","AHU-02","AHU-03","AHU-04","FCU-01","FCU-02","FCU-03","FCU-04","CT-001"] as const).map(r => ({
-        assetRef: r, templateName: "Monthly HVAC Filter Check", frequency: "monthly", nextDueDate: "2026-05-07", assignedTo: "CoolAir Services Ltd",
+      // HVAC – quarterly filter & coil service (staggered across 3 quarter-cycles for realism)
+      // Group A (Jan/Apr/Jul/Oct): main AHUs
+      ...(["AHU-001","AHU-GF","AHU-01","AHU-02"] as const).map(r => ({
+        assetRef: r, templateName: "Quarterly HVAC Filter & Coil Service", frequency: "quarterly",
+        nextDueDate: "2026-01-03", assignedTo: "CoolAir Services Ltd",
       })),
-      // Fire alarm panel – annual test + monthly emergency lighting
-      { assetRef: "FAP-001", templateName: "Annual Fire Alarm Full Test", frequency: "annual", nextDueDate: "2026-12-14", assignedTo: "FireGuard UK Ltd" },
-      ...(["FAP-001","EL-001","EL-GF","EL-01","EL-02","EL-03","EL-04"] as const).map(r => ({
-        assetRef: r, templateName: "Monthly Emergency Lighting Functional Test", frequency: "monthly", nextDueDate: "2026-05-14", assignedTo: "FireGuard UK Ltd",
+      // Group B (Feb/May/Aug/Nov): upper-floor FCUs
+      ...(["FCU-01","FCU-02","FCU-03","FCU-04"] as const).map(r => ({
+        assetRef: r, templateName: "Quarterly HVAC Filter & Coil Service", frequency: "quarterly",
+        nextDueDate: "2026-02-15", assignedTo: "CoolAir Services Ltd",
       })),
-      // Sprinkler – quarterly
-      { assetRef: "SPR-001", templateName: "Quarterly Sprinkler System Inspection", frequency: "quarterly", nextDueDate: "2026-06-14", assignedTo: "FireGuard UK Ltd" },
-      // Boilers – annual (quarterly service WOs, annual gas safety)
-      { assetRef: "BLR-001", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual", nextDueDate: "2026-12-12", assignedTo: "BuildRight Co" },
-      { assetRef: "BLR-002", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual", nextDueDate: "2026-12-12", assignedTo: "BuildRight Co" },
-      // Lifts – 6-monthly LOLER
-      { assetRef: "LFT-001", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom", customDays: 183, nextDueDate: "2026-06-10", assignedTo: "Schindler UK" },
-      { assetRef: "LFT-002", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom", customDays: 183, nextDueDate: "2026-06-10", assignedTo: "Schindler UK" },
-      // Electrical – 5-yearly EICR
+      // Group C (Mar/Jun/Sep/Dec): remaining AHUs + cooling tower
+      ...(["AHU-03","AHU-04","CT-001"] as const).map(r => ({
+        assetRef: r, templateName: "Quarterly HVAC Filter & Coil Service", frequency: "quarterly",
+        nextDueDate: "2026-03-19", assignedTo: "CoolAir Services Ltd",
+      })),
+      // HVAC – annual full service for primary plant (belt/bearing/coil deep clean)
+      ...(["AHU-001","AHU-GF","CT-001"] as const).map(r => ({
+        assetRef: r, templateName: "Annual HVAC Full Plant Service", frequency: "annual",
+        nextDueDate: "2026-08-05", assignedTo: "CoolAir Services Ltd",
+      })),
+      // Fire safety – annual fire alarm full test
+      { assetRef: "FAP-001", templateName: "Annual Fire Alarm Full Test", frequency: "annual",
+        nextDueDate: "2026-12-06", assignedTo: "FireGuard UK Ltd" },
+      // Emergency lighting – quarterly functional test (BS 5266 minimum)
+      ...(["EL-001","EL-GF","EL-01","EL-02","EL-03","EL-04"] as const).map(r => ({
+        assetRef: r, templateName: "Quarterly Emergency Lighting Functional Test", frequency: "quarterly",
+        nextDueDate: "2026-01-08", assignedTo: "FireGuard UK Ltd",
+      })),
+      // Emergency lighting – annual 3-hour duration test (BS 5266 mandatory)
+      ...(["EL-001","EL-GF","EL-01","EL-02","EL-03","EL-04"] as const).map(r => ({
+        assetRef: r, templateName: "Annual Emergency Lighting Duration Test", frequency: "annual",
+        nextDueDate: "2026-10-08", assignedTo: "FireGuard UK Ltd",
+      })),
+      // Sprinkler – quarterly inspection + annual full flow test
+      { assetRef: "SPR-001", templateName: "Quarterly Sprinkler System Inspection", frequency: "quarterly",
+        nextDueDate: "2026-03-22", assignedTo: "FireGuard UK Ltd" },
+      { assetRef: "SPR-001", templateName: "Annual Sprinkler Full Flow Test", frequency: "annual",
+        nextDueDate: "2026-09-22", assignedTo: "FireGuard UK Ltd" },
+      // Boilers – annual gas safety check (staggered slightly between the two boilers)
+      { assetRef: "BLR-001", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual",
+        nextDueDate: "2026-11-05", assignedTo: "BuildRight Co" },
+      { assetRef: "BLR-002", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual",
+        nextDueDate: "2026-12-07", assignedTo: "BuildRight Co" },
+      // Lifts – 6-monthly LOLER thorough examination (statutory)
+      { assetRef: "LFT-001", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom",
+        customDays: 183, nextDueDate: "2026-06-12", assignedTo: "Schindler UK" },
+      { assetRef: "LFT-002", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom",
+        customDays: 183, nextDueDate: "2026-06-14", assignedTo: "Schindler UK" },
+      // Electrical – 5-yearly EICR (next due 2031)
       ...(["EDB-001","GEN-001","LPS-001"] as const).map(r => ({
-        assetRef: r, templateName: "Fixed Wiring Inspection & Testing (EICR)", frequency: "custom", customDays: 1825, nextDueDate: "2031-01-16", assignedTo: "Volt-Safe Electrical Ltd",
+        assetRef: r, templateName: "Fixed Wiring Inspection & Testing (EICR)", frequency: "custom",
+        customDays: 1825, nextDueDate: "2031-01-16", assignedTo: "Volt-Safe Electrical Ltd",
       })),
-      // Security – monthly
-      { assetRef: "ACS-001",  templateName: "Monthly Access Control System Check", frequency: "monthly", nextDueDate: "2026-05-28", assignedTo: "SecureAccess Systems" },
-      { assetRef: "CCTV-001", templateName: "Monthly Access Control System Check", frequency: "monthly", nextDueDate: "2026-05-28", assignedTo: "SecureAccess Systems" },
-      // Water hygiene – monthly
+      // Security – 6-monthly health check (ACS and CCTV on different 6M cycles)
+      { assetRef: "ACS-001",  templateName: "6-Monthly Access Control System Health Check", frequency: "custom",
+        customDays: 183, nextDueDate: "2026-05-25", assignedTo: "SecureAccess Systems" },
+      { assetRef: "CCTV-001", templateName: "6-Monthly CCTV System Health Check", frequency: "custom",
+        customDays: 183, nextDueDate: "2026-07-27", assignedTo: "SecureAccess Systems" },
+      // Water hygiene – monthly L8 inspection (legally required under HSE L8/ACOP)
       ...(["CWT-001","HWC-001","WT-001"] as const).map(r => ({
-        assetRef: r, templateName: "Monthly Water Hygiene Inspection", frequency: "monthly", nextDueDate: "2026-05-21", assignedTo: "AquaSafe Hygiene Ltd",
+        assetRef: r, templateName: "Monthly Water Hygiene Inspection", frequency: "monthly",
+        nextDueDate: "2026-05-21", assignedTo: "AquaSafe Hygiene Ltd",
       })),
     ];
 
