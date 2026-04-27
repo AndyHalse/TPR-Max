@@ -12,8 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2, AlertTriangle, Clock, Minus, ChevronRight,
-  Calendar, CheckSquare, ListTodo, Printer, Mail, Send,
-  ShieldCheck, FileDown,
+  Calendar, CheckSquare, ListTodo, Printer, Mail, Send, FileDown,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
@@ -199,21 +198,34 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
 
   // ── Summary metrics ───────────────────────────────────────────────────────
   const metrics = useMemo(() => {
-    const yearWOs = allWorkOrders.filter(wo => {
+    const todayMs = new Date().setHours(0, 0, 0, 0);
+
+    // Total unique assets in the planner (one row per asset)
+    const totalAssets = assets.length;
+
+    // Completed entries — work orders for the selected year with status 'completed'
+    const completed = allWorkOrders.filter(wo => wo.status === "completed").length;
+
+    // Upcoming — future due date, not overdue or completed
+    const upcoming = allWorkOrders.filter(wo => {
+      if (wo.status === "overdue" || wo.status === "completed") return false;
       if (!wo.dueDate) return false;
-      return new Date(wo.dueDate).getFullYear() === year;
-    });
-    const totalTasks = yearWOs.length;
-    const complete   = yearWOs.filter(wo => wo.status === "completed").length;
-    const overdue    = yearWOs.filter(wo => wo.status === "overdue").length;
-    const thisMonth  = yearWOs.filter(wo => {
-      if (!wo.dueDate) return false;
-      const d = new Date(wo.dueDate);
-      return d.getMonth() === CURRENT_MONTH && d.getFullYear() === year;
+      return new Date(wo.dueDate).getTime() >= todayMs;
     }).length;
-    const complianceScore = totalTasks > 0 ? Math.round((complete / totalTasks) * 100) : 0;
-    return { totalTasks, complete, overdue, thisMonth, complianceScore };
-  }, [allWorkOrders, year, CURRENT_MONTH]);
+
+    // Overdue — past due date and not completed
+    const overdue = allWorkOrders.filter(wo => {
+      if (wo.status === "completed") return false;
+      if (wo.status === "overdue") return true; // explicitly flagged
+      if (!wo.dueDate) return false;
+      return new Date(wo.dueDate).getTime() < todayMs;
+    }).length;
+
+    // No Dates Recorded — assets with zero work orders in the selected year
+    const noDates = assets.filter(a => !wosByAssetMonth.has(a.id)).length;
+
+    return { totalAssets, completed, upcoming, overdue, noDates };
+  }, [allWorkOrders, assets, wosByAssetMonth]);
 
   // ── Filtered assets ───────────────────────────────────────────────────────
   const filteredAssets = useMemo(() => {
@@ -372,15 +384,21 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <GlassCard className="p-3 text-center">
             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
-              <ListTodo className="h-3.5 w-3.5" /> Total Tasks {year}
+              <ListTodo className="h-3.5 w-3.5" /> Total Assets
             </p>
-            <p className="text-2xl font-bold">{metrics.totalTasks}</p>
+            <p className="text-2xl font-bold">{metrics.totalAssets}</p>
           </GlassCard>
           <GlassCard className="p-3 text-center">
             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
-              <CheckSquare className="h-3.5 w-3.5" /> Complete
+              <CheckSquare className="h-3.5 w-3.5" /> Completed
             </p>
-            <p className="text-2xl font-bold text-green-600">{metrics.complete}</p>
+            <p className="text-2xl font-bold text-green-600">{metrics.completed}</p>
+          </GlassCard>
+          <GlassCard className="p-3 text-center">
+            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
+              <Calendar className="h-3.5 w-3.5" /> Upcoming
+            </p>
+            <p className="text-2xl font-bold text-blue-600">{metrics.upcoming}</p>
           </GlassCard>
           <GlassCard className="p-3 text-center">
             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
@@ -390,17 +408,9 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
           </GlassCard>
           <GlassCard className="p-3 text-center">
             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
-              <Clock className="h-3.5 w-3.5" /> Due This Month
+              <Minus className="h-3.5 w-3.5" /> No Dates Recorded
             </p>
-            <p className="text-2xl font-bold text-amber-600">{metrics.thisMonth}</p>
-          </GlassCard>
-          <GlassCard className="p-3 text-center">
-            <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
-              <ShieldCheck className="h-3.5 w-3.5" /> Compliance Score
-            </p>
-            <p className={`text-2xl font-bold ${metrics.complianceScore >= 80 ? "text-green-600" : metrics.complianceScore >= 60 ? "text-amber-600" : "text-red-600"}`}>
-              {metrics.complianceScore}%
-            </p>
+            <p className="text-2xl font-bold text-muted-foreground">{metrics.noDates}</p>
           </GlassCard>
         </div>
 
