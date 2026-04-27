@@ -21,7 +21,7 @@ import {
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
   Layers, ChevronDown, ChevronRight, Bell, FileDown, BellOff, Scan, CalendarDays,
 } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import PpmAnnualPlanner from "@/components/PpmAnnualPlanner";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -2386,7 +2386,9 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
 
 export default function PPM() {
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("assets");
+  const search = useSearch();
+  const defaultTab = new URLSearchParams(search).get("view") === "planner" ? "annual-planner" : "assets";
+  const [activeTab, setActiveTab] = useState(defaultTab);
   const [woStatusFilter, setWoStatusFilter] = useState<string | undefined>(undefined);
   const [woHighlightId, setWoHighlightId] = useState<string | undefined>(undefined);
 
