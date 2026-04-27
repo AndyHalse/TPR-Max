@@ -665,11 +665,11 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
                         fontSize: 11,
                         fontWeight: 700,
                         letterSpacing: "0.06em",
-                        color: "#2563eb",
+                        color: "var(--fixed-text)",
                         textTransform: "uppercase",
                       }}
                     >
-                      // {cat}
+                      {cat}
                     </td>
                   </tr>
                   {/* ── Asset rows ── */}
