@@ -40,8 +40,8 @@ const CATEGORY_ORDER: string[] = [
   "Cleaning",
   "Other",
 ];
-// Total column count for colspan on group header rows: Asset + Freq + 12 months
-const TOTAL_COLS = 14;
+// Total column count for colspan on group header rows: Asset + Qty + Location + Freq + 12 months
+const TOTAL_COLS = 16;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -238,6 +238,18 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
       const code = freqToCode(s.frequency, s.customDays);
       if (!map.has(s.assetId)) map.set(s.assetId, new Set());
       map.get(s.assetId)!.add(code);
+    }
+    return map;
+  }, [schedules]);
+
+  // assetId → number of maintenance schedules attached to the asset.
+  // Used as the "Qty" display value — ppmAssets has no quantity field in the schema;
+  // schedule count is the most meaningful proxy available.
+  const scheduleCountMap = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of schedules) {
+      if (!s.assetId) continue;
+      map.set(s.assetId, (map.get(s.assetId) ?? 0) + 1);
     }
     return map;
   }, [schedules]);
@@ -609,6 +621,12 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
                 <th className="ppm-asset-col sticky left-0 bg-muted/80 z-10 text-left text-xs font-semibold text-muted-foreground px-3 py-2 border-b border-r border-border" style={{ minWidth: 220, width: 220 }}>
                   Asset
                 </th>
+                <th className="text-center text-xs font-semibold text-muted-foreground px-2 py-2 border-b border-r border-border" style={{ minWidth: 50, width: 50 }}>
+                  Qty
+                </th>
+                <th className="hidden md:table-cell text-left text-xs font-semibold text-muted-foreground px-2 py-2 border-b border-r border-border" style={{ minWidth: 120, width: 120 }}>
+                  Location
+                </th>
                 <th className="text-center text-xs font-semibold text-muted-foreground px-2 py-2 border-b border-r border-border" style={{ minWidth: 60, width: 60 }}>
                   Freq
                 </th>
@@ -668,6 +686,25 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
                           <p className="text-xs text-muted-foreground truncate">
                             {[asset.assetRef, asset.category].filter(Boolean).join(" · ")}
                           </p>
+                        </td>
+                        {/* Qty column — ppmAssets has no quantity field; shows count of
+                            maintenance schedules attached to this asset as a proxy */}
+                        <td className="border-r border-border px-1 py-1 text-center align-middle text-xs text-muted-foreground" style={{ minWidth: 50, width: 50 }}>
+                          {scheduleCountMap.get(asset.id) ?? "—"}
+                        </td>
+                        {/* Location column — hidden on mobile (< md breakpoint) */}
+                        <td
+                          className="hidden md:table-cell border-r border-border px-2 py-1 align-middle text-xs"
+                          style={{ minWidth: 120, width: 120 }}
+                          title={asset.location ?? undefined}
+                        >
+                          {asset.location ? (
+                            <span style={{ display: "block", maxWidth: 140, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {asset.location}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </td>
                         {/* Frequency badge column */}
                         <td className="border-r border-border px-1 py-1 align-middle" style={{ minWidth: 60, width: 60 }}>
