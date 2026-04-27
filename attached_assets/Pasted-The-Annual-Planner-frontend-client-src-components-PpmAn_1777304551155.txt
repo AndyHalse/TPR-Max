@@ -1,0 +1,95 @@
+The Annual Planner frontend (client/src/components/PpmAnnualPlanner.tsx) 
+calls POST /api/ppm/annual-planner/email but this endpoint does not exist 
+in the backend. It returns 404 when clicked.
+
+In server/routes/ppm.ts, add the following route inside the 
+registerPPMRoutes function, after the existing work order routes:
+
+app.post('/api/ppm/annual-planner/email', requireAuth, async (req, res) => {
+  try {
+    const context = req.customerContext;
+    const { email, year, message } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email address is required' });
+    }
+
+    const targetYear = year || new Date().getFullYear();
+
+    // Fetch data needed for the email
+    const customerDb = await getCustomerDatabase(context.customerId);
+    const settings = await getCompanySettings(context);
+    const companyName = settings?.companyName || 'TPR Max';
+
+    // Build a simple summary email with key stats
+    const workOrders = await customerDb
+      .select()
+      .from(isolatedSchema.ppmWorkOrders)
+      .where(like(isolatedSchema.ppmWorkOrders.dueDate, `${targetYear}-%`));
+
+    const completed = workOrders.filter(wo => wo.status === 'completed').length;
+    const overdue = workOrders.filter(wo => 
+      wo.status !== 'completed' && wo.status !== 'cancelled' && 
+      wo.dueDate < new Date().toISOString().split('T')[0]
+    ).length;
+    const upcoming = workOrders.filter(wo => 
+      wo.status !== 'completed' && wo.status !== 'cancelled' && 
+      wo.dueDate >= new Date().toISOString().split('T')[0]
+    ).length;
+
+    const emailSvc = new EmailService(context.customerId);
+    const subject = `${companyName} — PPM Annual Planner Report ${targetYear}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <h2 style="color: #1e40af;">${companyName} — PPM Annual Planner ${targetYear}</h2>
+        ${message ? `<p style="color: #374151;">${message}</p>` : ''}
+        <div style="background: #f9fafb; border-radius: 8px; padding: 20px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #374151;">Summary for ${targetYear}</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; color: #6b7280;">Total Work Orders</td>
+              <td style="padding: 8px 0; font-weight: bold;">${workOrders.length}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #16a34a;">Completed</td>
+              <td style="padding: 8px 0; font-weight: bold; color: #16a34a;">${completed}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #2563eb;">Upcoming</td>
+              <td style="padding: 8px 0; font-weight: bold; color: #2563eb;">${upcoming}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #dc2626;">Overdue</td>
+              <td style="padding: 8px 0; font-weight: bold; color: #dc2626;">${overdue}</td>
+            </tr>
+          </table>
+        </div>
+        <p style="color: #6b7280; font-size: 12px;">
+          This report was sent from the ${companyName} platform. 
+          Log in to view the full interactive Annual Planner.
+        </p>
+      </div>
+    `;
+
+    await emailSvc.sendEmail({
+      to: email,
+      subject,
+      companyName,
+      html,
+      text: `${companyName} PPM Annual Planner ${targetYear} — 
+             Total: ${workOrders.length}, Completed: ${completed}, 
+             Upcoming: ${upcoming}, Overdue: ${overdue}`
+    });
+
+    res.json({ success: true, message: `Report sent to ${email}` });
+  } catch (error) {
+    logger.error('Failed to send annual planner email:', error);
+    res.status(500).json({ error: 'Failed to send email' });
+  }
+});
+
+Use the same pattern for getCustomerDatabase, getCompanySettings, and 
+EmailService that the other PPM routes already use in this file.
+
+Test by clicking the Email Report button in the Annual Planner, 
+entering an email address, and confirming the email arrives.
