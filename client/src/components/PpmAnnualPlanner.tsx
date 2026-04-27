@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, type CSSProperties } from "react";
+import { useState, useMemo, useRef, Fragment, type CSSProperties } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
 import { Badge } from "@/components/ui/badge";
@@ -26,6 +26,22 @@ const ASSET_CATEGORIES = [
   "HVAC", "Fire Safety", "Electrical", "Mechanical", "Water Hygiene",
   "Security", "Lifts & Hoists", "Grounds", "Cleaning", "Other",
 ];
+
+// Category display order (and group header label). Unlisted categories sort last.
+const CATEGORY_ORDER: string[] = [
+  "Fire Safety",
+  "Water Hygiene",
+  "HVAC",
+  "Mechanical",
+  "Electrical",
+  "Security",
+  "Lifts & Hoists",
+  "Grounds",
+  "Cleaning",
+  "Other",
+];
+// Total column count for colspan on group header rows: Asset + Freq + 12 months
+const TOTAL_COLS = 14;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -185,6 +201,7 @@ interface Props {
 export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
   const { toast } = useToast();
   const [year, setYear] = useState<number>(new Date().getFullYear());
+  const [filterName, setFilterName] = useState("");
   const [filterCategory, setFilterCategory] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterFrequency, setFilterFrequency] = useState("all");
@@ -293,7 +310,9 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
 
   // ── Filtered assets ───────────────────────────────────────────────────────
   const filteredAssets = useMemo(() => {
+    const nameQ = filterName.trim().toLowerCase();
     return assets.filter(a => {
+      if (nameQ && !a.name.toLowerCase().includes(nameQ)) return false;
       if (filterCategory !== "all" && a.category !== filterCategory) return false;
       if (filterStatus !== "all") {
         const monthMap = wosByAssetMonth.get(a.id);
@@ -310,7 +329,35 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
       }
       return true;
     });
-  }, [assets, filterCategory, filterStatus, filterFrequency, wosByAssetMonth, assetFreqMap]);
+  }, [assets, filterName, filterCategory, filterStatus, filterFrequency, wosByAssetMonth, assetFreqMap]);
+
+  // ── Grouped assets (for category section headers) ─────────────────────────
+  const groupedAssets = useMemo(() => {
+    // Bucket assets by category; assets with no category go to "Other"
+    const buckets = new Map<string, typeof filteredAssets>();
+    for (const a of filteredAssets) {
+      const cat = (a.category && a.category.trim()) ? a.category.trim() : "Other";
+      if (!buckets.has(cat)) buckets.set(cat, []);
+      buckets.get(cat)!.push(a);
+    }
+    // Sort buckets by CATEGORY_ORDER; unknown categories come after, then "Other"
+    const ordered: { cat: string; assets: typeof filteredAssets }[] = [];
+    for (const cat of CATEGORY_ORDER) {
+      if (buckets.has(cat)) {
+        ordered.push({ cat, assets: buckets.get(cat)! });
+        buckets.delete(cat);
+      }
+    }
+    // Remaining unlisted categories (alphabetical), excluding "Other" (handled last)
+    const leftover = Array.from(buckets.keys()).filter(k => k !== "Other").sort();
+    for (const cat of leftover) {
+      ordered.push({ cat, assets: buckets.get(cat)! });
+    }
+    if (buckets.has("Other")) {
+      ordered.push({ cat: "Other", assets: buckets.get("Other")! });
+    }
+    return ordered;
+  }, [filteredAssets]);
 
   const loading = loadingAssets || loadingWOs || loadingSchedules;
 
@@ -454,7 +501,14 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
               <ListTodo className="h-3.5 w-3.5" /> Total Assets
             </p>
-            <p className="text-2xl font-bold">{metrics.totalAssets}</p>
+            {filteredAssets.length < metrics.totalAssets ? (
+              <p className="text-2xl font-bold">
+                {filteredAssets.length}
+                <span className="text-sm font-normal text-muted-foreground"> / {metrics.totalAssets}</span>
+              </p>
+            ) : (
+              <p className="text-2xl font-bold">{metrics.totalAssets}</p>
+            )}
           </GlassCard>
           <GlassCard className="p-3 text-center">
             <p className="text-xs text-muted-foreground mb-1 flex items-center justify-center gap-1">
@@ -484,6 +538,12 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
 
         {/* ── Filters ── */}
         <div className="flex flex-wrap gap-2 items-center no-print">
+          <Input
+            value={filterName}
+            onChange={e => setFilterName(e.target.value)}
+            placeholder="Search assets..."
+            className="h-8 text-sm w-48"
+          />
           <Select value={filterCategory} onValueChange={setFilterCategory}>
             <SelectTrigger className="w-44 h-8 text-sm">
               <SelectValue placeholder="All Categories" />
@@ -491,6 +551,19 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
               {ASSET_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filterFrequency} onValueChange={setFilterFrequency}>
+            <SelectTrigger className="w-36 h-8 text-sm">
+              <SelectValue placeholder="All Frequencies" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Frequencies</SelectItem>
+              <SelectItem value="12M">Annual (12M)</SelectItem>
+              <SelectItem value="6M">6-Monthly</SelectItem>
+              <SelectItem value="3M">Quarterly (3M)</SelectItem>
+              <SelectItem value="M">Monthly</SelectItem>
+              <SelectItem value="W">Weekly</SelectItem>
             </SelectContent>
           </Select>
           <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -504,25 +577,11 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
               <SelectItem value="completed">Completed</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={filterFrequency} onValueChange={setFilterFrequency}>
-            <SelectTrigger className="w-36 h-8 text-sm">
-              <SelectValue placeholder="All Frequencies" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Frequencies</SelectItem>
-              <SelectItem value="12M">12M — Annual</SelectItem>
-              <SelectItem value="6M">6M — Half-yearly</SelectItem>
-              <SelectItem value="3M">3M — Quarterly</SelectItem>
-              <SelectItem value="M">M — Monthly</SelectItem>
-              <SelectItem value="W">W — Weekly</SelectItem>
-            </SelectContent>
-          </Select>
-          {(filterCategory !== "all" || filterStatus !== "all" || filterFrequency !== "all") && (
-            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFilterCategory("all"); setFilterStatus("all"); setFilterFrequency("all"); }}>
+          {(filterName !== "" || filterCategory !== "all" || filterStatus !== "all" || filterFrequency !== "all") && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setFilterName(""); setFilterCategory("all"); setFilterStatus("all"); setFilterFrequency("all"); }}>
               Clear filters
             </Button>
           )}
-          <span className="text-xs text-muted-foreground ml-auto">{filteredAssets.length} asset{filteredAssets.length !== 1 ? "s" : ""}</span>
         </div>
 
         {/* ── Legend ── */}
@@ -573,98 +632,123 @@ export default function PpmAnnualPlanner({ navigateToWorkOrder }: Props) {
               </tr>
             </thead>
             <tbody>
-              {filteredAssets.map((asset, rowIdx) => {
-                const monthMap = wosByAssetMonth.get(asset.id) ?? new Map<number, PpmWorkOrder[]>();
-                return (
-                  <tr
-                    key={asset.id}
-                    className={`border-b border-border last:border-b-0 ${rowIdx % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/20"}`}
-                  >
-                    {/* Asset name column */}
-                    <td className="ppm-asset-col sticky left-0 z-10 px-3 py-1 border-r border-border text-sm" style={{ minWidth: 220, width: 220, background: rowIdx % 2 === 0 ? "white" : undefined }}>
-                      <p className="font-medium text-foreground truncate leading-tight">{asset.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {[asset.assetRef, asset.category].filter(Boolean).join(" · ")}
-                      </p>
+              {groupedAssets.map(({ cat, assets: groupAssets }) => (
+                <Fragment key={`grp-${cat}`}>
+                  {/* ── Category group header ── */}
+                  <tr key={`hdr-${cat}`}>
+                    <td
+                      colSpan={TOTAL_COLS}
+                      style={{
+                        background: "#f1f5f9",
+                        borderBottom: "1px solid #e2e8f0",
+                        borderTop: "1px solid #e2e8f0",
+                        padding: "4px 12px",
+                        fontFamily: "monospace",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        color: "#2563eb",
+                        textTransform: "uppercase",
+                      }}
+                    >
+                      // {cat}
                     </td>
-                    {/* Frequency badge column */}
-                    <td className="border-r border-border px-1 py-1 align-middle" style={{ minWidth: 60, width: 60 }}>
-                      <div className="flex flex-col items-center gap-0.5">
-                        {(() => {
-                          const freqSet = assetFreqMap.get(asset.id);
-                          if (!freqSet || freqSet.size === 0) {
-                            return (
-                              <span style={{ ...BADGE_STYLE_BASE, ...UNKNOWN_FREQ_BADGE }}>—</span>
-                            );
-                          }
-                          return Array.from(freqSet).map(code => {
-                            const cfg = FREQ_BADGE_CFG[code];
-                            return cfg ? (
-                              <span key={code} style={{ ...BADGE_STYLE_BASE, background: cfg.bg, color: cfg.color, border: cfg.border }}>
-                                {cfg.label}
-                              </span>
-                            ) : (
-                              <span key={code} style={{ ...BADGE_STYLE_BASE, ...UNKNOWN_FREQ_BADGE }}>
-                                {code || "—"}
-                              </span>
-                            );
-                          });
-                        })()}
-                      </div>
-                    </td>
-                    {/* Month cells */}
-                    {MONTHS.map((_, mIdx) => {
-                      const wos = monthMap.get(mIdx) ?? [];
-                      const status = getCellStatus(wos);
-                      const cfg = CELL_CFG[status];
-                      const isCurrentMonth = mIdx === CURRENT_MONTH;
-                      const hasStatutory = wos.some(w => w.templateType === "statutory");
-                      return (
-                        <td
-                          key={mIdx}
-                          className={`border-r border-border last:border-r-0 text-center align-middle ${wos.length > 0 ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
-                          style={{
-                            position: "relative",
-                            minWidth: 52,
-                            width: 52,
-                            height: 44,
-                            padding: 2,
-                            borderLeft: isCurrentMonth ? "2px solid #0d9488" : undefined,
-                          }}
-                          onClick={() => handleCellClick(asset, mIdx, wos)}
-                        >
-                          <div
-                            className="flex items-center justify-center gap-0.5 rounded mx-auto h-full"
-                            style={{
-                              background: cfg.bg,
-                              border: `1px solid ${cfg.border}`,
-                              color: cfg.text,
-                              minHeight: 36,
-                            }}
-                          >
-                            {status === "empty" ? (
-                              <Minus className="h-3 w-3 opacity-30" />
-                            ) : (
-                              cfg.icon ?? null
-                            )}
-                          </div>
-                          {status !== "empty" && hasStatutory && (
-                            <span
-                              style={{
-                                position: "absolute", top: 4, right: 5,
-                                fontSize: 8, fontWeight: 700,
-                                color: cfg.text, opacity: 0.85,
-                                lineHeight: 1,
-                                pointerEvents: "none",
-                              }}
-                            >S</span>
-                          )}
-                        </td>
-                      );
-                    })}
                   </tr>
-                );
-              })}
+                  {/* ── Asset rows ── */}
+                  {groupAssets.map((asset, rowIdx) => {
+                    const monthMap = wosByAssetMonth.get(asset.id) ?? new Map<number, PpmWorkOrder[]>();
+                    return (
+                      <tr
+                        key={asset.id}
+                        className={`border-b border-border last:border-b-0 ${rowIdx % 2 === 0 ? "bg-white dark:bg-background" : "bg-muted/20"}`}
+                      >
+                        {/* Asset name column */}
+                        <td className="ppm-asset-col sticky left-0 z-10 px-3 py-1 border-r border-border text-sm" style={{ minWidth: 220, width: 220, background: rowIdx % 2 === 0 ? "white" : undefined }}>
+                          <p className="font-medium text-foreground truncate leading-tight">{asset.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {[asset.assetRef, asset.category].filter(Boolean).join(" · ")}
+                          </p>
+                        </td>
+                        {/* Frequency badge column */}
+                        <td className="border-r border-border px-1 py-1 align-middle" style={{ minWidth: 60, width: 60 }}>
+                          <div className="flex flex-col items-center gap-0.5">
+                            {(() => {
+                              const freqSet = assetFreqMap.get(asset.id);
+                              if (!freqSet || freqSet.size === 0) {
+                                return (
+                                  <span style={{ ...BADGE_STYLE_BASE, ...UNKNOWN_FREQ_BADGE }}>—</span>
+                                );
+                              }
+                              return Array.from(freqSet).map(code => {
+                                const cfg = FREQ_BADGE_CFG[code];
+                                return cfg ? (
+                                  <span key={code} style={{ ...BADGE_STYLE_BASE, background: cfg.bg, color: cfg.color, border: cfg.border }}>
+                                    {cfg.label}
+                                  </span>
+                                ) : (
+                                  <span key={code} style={{ ...BADGE_STYLE_BASE, ...UNKNOWN_FREQ_BADGE }}>
+                                    {code || "—"}
+                                  </span>
+                                );
+                              });
+                            })()}
+                          </div>
+                        </td>
+                        {/* Month cells */}
+                        {MONTHS.map((_, mIdx) => {
+                          const wos = monthMap.get(mIdx) ?? [];
+                          const status = getCellStatus(wos);
+                          const cfg = CELL_CFG[status];
+                          const isCurrentMonth = mIdx === CURRENT_MONTH;
+                          const hasStatutory = wos.some(w => w.templateType === "statutory");
+                          return (
+                            <td
+                              key={mIdx}
+                              className={`border-r border-border last:border-r-0 text-center align-middle ${wos.length > 0 ? "cursor-pointer hover:opacity-80 transition-opacity" : ""}`}
+                              style={{
+                                position: "relative",
+                                minWidth: 52,
+                                width: 52,
+                                height: 44,
+                                padding: 2,
+                                borderLeft: isCurrentMonth ? "2px solid #0d9488" : undefined,
+                              }}
+                              onClick={() => handleCellClick(asset, mIdx, wos)}
+                            >
+                              <div
+                                className="flex items-center justify-center gap-0.5 rounded mx-auto h-full"
+                                style={{
+                                  background: cfg.bg,
+                                  border: `1px solid ${cfg.border}`,
+                                  color: cfg.text,
+                                  minHeight: 36,
+                                }}
+                              >
+                                {status === "empty" ? (
+                                  <Minus className="h-3 w-3 opacity-30" />
+                                ) : (
+                                  cfg.icon ?? null
+                                )}
+                              </div>
+                              {status !== "empty" && hasStatutory && (
+                                <span
+                                  style={{
+                                    position: "absolute", top: 4, right: 5,
+                                    fontSize: 8, fontWeight: 700,
+                                    color: cfg.text, opacity: 0.85,
+                                    lineHeight: 1,
+                                    pointerEvents: "none",
+                                  }}
+                                >S</span>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </Fragment>
+              ))}
             </tbody>
           </table>
         </div>
