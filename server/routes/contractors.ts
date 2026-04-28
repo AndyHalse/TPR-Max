@@ -832,10 +832,10 @@ export function registerContractorRoutes(app: Express): void {
   });
 
   // Send induction email to all workers from a company
-  app.post("/api/contractors/:companyId/send-induction-all", async (req, res) => {
+  app.post("/api/contractors/:companyId/send-induction-all", requireAuth, async (req, res) => {
     try {
       const { companyId } = req.params;
-      const bulkInductionContext = simpleDatabaseService.createDevelopmentContext();
+      const bulkInductionContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const workers = await databaseService.getWorkersByCompanyId(bulkInductionContext, companyId);
       
       const results = await Promise.all(
