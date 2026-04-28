@@ -392,11 +392,16 @@ function Router() {
 }
 
 function App() {
-  // Fetch CSRF token on app initialization
+  // Fetch CSRF token on app initialization and refresh it every 30 minutes
+  // so it never silently expires during a long working session (cookie lasts 8h)
   useEffect(() => {
-    fetch('/api/csrf-token', { credentials: 'include' })
-      .then(res => res.json())
-      .catch(err => console.error('Failed to fetch CSRF token:', err));
+    const refreshCsrfToken = () => {
+      fetch('/api/csrf-token', { credentials: 'include' })
+        .catch(err => console.error('Failed to fetch CSRF token:', err));
+    };
+    refreshCsrfToken();
+    const interval = setInterval(refreshCsrfToken, 30 * 60 * 1000); // every 30 min
+    return () => clearInterval(interval);
   }, []);
 
   return (

@@ -22,6 +22,15 @@ function getCsrfToken(): string | null {
   return null;
 }
 
+async function fetchFreshCsrfToken(): Promise<string | null> {
+  try {
+    await fetch('/api/csrf-token', { credentials: 'include' });
+    return getCsrfToken();
+  } catch {
+    return null;
+  }
+}
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -30,22 +39,41 @@ export async function apiRequest(
   try {
     console.log(`🚀 Making ${method} request to:`, url);
     
+    const isMutating = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
     const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
     
-    // Add CSRF token for non-safe methods (POST, PUT, DELETE, PATCH)
-    if (['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase())) {
+    // Add CSRF token for non-safe methods
+    if (isMutating) {
       const csrfToken = getCsrfToken();
       if (csrfToken) {
         headers['x-csrf-token'] = csrfToken;
       }
     }
     
-    const res = await fetch(url, {
+    let res = await fetch(url, {
       method,
       headers,
       body: data ? JSON.stringify(data) : undefined,
       credentials: "include",
     });
+
+    // If we got a CSRF error, refresh the token and retry once
+    if (res.status === 403 && isMutating) {
+      const body = await res.clone().json().catch(() => ({}));
+      if (body?.code === 'CSRF_INVALID') {
+        console.warn('⚠️ CSRF token expired — refreshing and retrying...');
+        const freshToken = await fetchFreshCsrfToken();
+        if (freshToken) {
+          headers['x-csrf-token'] = freshToken;
+          res = await fetch(url, {
+            method,
+            headers,
+            body: data ? JSON.stringify(data) : undefined,
+            credentials: "include",
+          });
+        }
+      }
+    }
 
     console.log(`📥 Response status: ${res.status} for ${url}`);
 

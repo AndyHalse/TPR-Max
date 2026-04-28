@@ -286,7 +286,7 @@ app.get('/api/csrf-token', (req, res) => {
     httpOnly: false, // Client needs to read this for header
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
-    maxAge: 60 * 60 * 1000 // 1 hour
+    maxAge: 8 * 60 * 60 * 1000 // 8 hours — covers a full working day
   });
   
   res.json({ csrfToken: token });
