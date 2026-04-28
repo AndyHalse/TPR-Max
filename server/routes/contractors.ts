@@ -233,9 +233,13 @@ export function registerContractorRoutes(app: Express): void {
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const parsedScheduledDate = new Date(req.body.scheduledDate);
+      if (!req.body.scheduledDate || isNaN(parsedScheduledDate.getTime())) {
+        return res.status(400).json({ error: "Pre-booking scheduled date is invalid." });
+      }
       const preBookingData = {
         ...req.body,
-        scheduledDate: new Date(req.body.scheduledDate)
+        scheduledDate: parsedScheduledDate
       };
       
       // Duplicate prevention: check for existing ACTIVE booking with same worker, company, date, and time
@@ -442,8 +446,12 @@ export function registerContractorRoutes(app: Express): void {
       }
       
       if (!worker) {
+        // Guard: ensure the pre-booking has a usable worker name before creating a record
+        if (!preBooking.workerName || !preBooking.workerName.trim()) {
+          return res.status(400).json({ error: "Pre-booking worker name is invalid." });
+        }
         // Create worker in customer database
-        const nameParts = preBooking.workerName.split(' ');
+        const nameParts = preBooking.workerName.trim().split(' ');
         const firstName = nameParts[0] || preBooking.workerName;
         const lastName = nameParts.slice(1).join(' ') || '';
         const workerId = randomUUID();
