@@ -1969,10 +1969,10 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       const dueDate = `${year}-${mm}-${day}`;
 
       if (year === CUR_YEAR - 2) {
-        // Completed historical year — ~85% completed on time, ~10% completed late, ~5% overdue
-        const slot = (assetPosition + monthIdx) % 20;
-        if (slot === 3) return { status: "overdue", dueDate, notes: "Contractor unavailable — not completed." };
-        if (slot === 9) {
+        // Two years ago — all fully completed. Occasional "completed late" entry for realism.
+        // Nothing is ever overdue: those jobs would have been resolved long ago.
+        const slot = (assetPosition + monthIdx) % 10;
+        if (slot === 4) {
           const lateDay = String(Math.min(dueDay + 7, lastDay)).padStart(2, "0");
           return { status: "completed", completedDate: `${year}-${mm}-${lateDay}`, dueDate, notes: "Completed 7 days late." };
         }
@@ -1980,37 +1980,30 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
 
       if (year === CUR_YEAR - 1) {
-        // Mostly done — Q1–Q3 all completed, Q4 has a few overdue
-        if (monthIdx >= 9 && (assetPosition + monthIdx) % 5 === 0) {
-          return { status: "overdue", dueDate, notes: "Outstanding — Q4 contractor scheduling issue." };
-        }
+        // Last year — all completed. A few late completions in Q4 for realism.
+        // Nothing is ever overdue: any missed job from last year would have been closed off.
         if (monthIdx >= 9 && (assetPosition + monthIdx) % 7 === 0) {
           const lateDay = String(Math.min(dueDay + 5, lastDay)).padStart(2, "0");
-          return { status: "completed", completedDate: `${year}-${mm}-${lateDay}`, dueDate, notes: "Completed late." };
+          return { status: "completed", completedDate: `${year}-${mm}-${lateDay}`, dueDate, notes: "Completed late — Q4 scheduling pressure." };
         }
         return { status: "completed", completedDate: dueDate, dueDate };
       }
 
       if (year === CUR_YEAR) {
-        // Current year — status depends on how the due date relates to today
-        if (monthIdx < CUR_MONTH - 1) {
-          // Well before current month: all completed
-          return { status: "completed", completedDate: dueDate, dueDate };
-        }
-        if (monthIdx === CUR_MONTH - 1) {
-          // Last full month: mostly completed; 1 in 3 missed (overdue)
-          if (assetPosition % 3 === 1) {
-            return { status: "overdue", dueDate, notes: "Contractor visit missed — rescheduled." };
-          }
+        // Current year. Rule: ONLY items whose due date falls within the last 14 days
+        // (i.e. this calendar month, due day ≤ today-14) may be overdue.
+        // Anything older than 2 weeks is already completed or resolved.
+        if (monthIdx < CUR_MONTH) {
+          // Any prior month this year: completed
           return { status: "completed", completedDate: dueDate, dueDate };
         }
         if (monthIdx === CUR_MONTH) {
-          // Current month: items due >14 days ago are realistically overdue; recent ones in-progress/completed
+          // Current month: items due more than 14 days ago = overdue (the realistic backlog)
           if (dueDay <= CUR_DAY - 14) {
             return { status: "overdue", dueDate, notes: "Work overdue — contractor visit rescheduled." };
           }
           if (dueDay <= CUR_DAY) {
-            // Due within last 14 days — half completed, half in-progress
+            // Due within the last 14 days — split between completed and in-progress
             const mod = assetPosition % 2;
             if (mod === 0) return { status: "completed", completedDate: dueDate, dueDate };
             return { status: "in_progress", dueDate };
