@@ -2427,6 +2427,7 @@ export default function PPM() {
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] });
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] });
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
       setActiveTab("assets");
       toast({
         title: "Demo data loaded",
@@ -2436,9 +2437,32 @@ export default function PPM() {
     onError: (error: unknown) => toastError(error, toast),
   });
 
+  const deleteDemoMutation = useMutation({
+    mutationFn: () => apiRequest("DELETE", "/api/ppm/demo-data").then(r => r.json()),
+    onSuccess: (result: { message: string }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/asset-groups"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/assets"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/templates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/schedules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      setActiveTab("assets");
+      toast({
+        title: "Demo data removed",
+        description: result.message,
+      });
+    },
+    onError: (error: unknown) => toastError(error, toast),
+  });
+
   function handleLoadDemo() {
     if (!isEmpty && !confirm("This will wipe all existing PPM data (assets, schedules, work orders) and reload the demo dataset. Continue?")) return;
     demoDataMutation.mutate();
+  }
+
+  function handleDeleteDemo() {
+    if (!confirm("This will permanently delete ALL demo PPM data and the demo contractor companies, leaving the system clean and ready for real use. Continue?")) return;
+    deleteDemoMutation.mutate();
   }
 
   if (companySettings !== undefined && !companySettings.featurePPM) {
@@ -2483,16 +2507,30 @@ export default function PPM() {
             <p className="text-sm text-muted-foreground">Manage assets, maintenance templates, schedules and work orders.</p>
           </div>
         </div>
-        <Button
-          variant={isEmpty ? "default" : "outline"}
-          size="sm"
-          onClick={handleLoadDemo}
-          disabled={demoDataMutation.isPending}
-          className={`shrink-0 gap-1.5 ${isEmpty ? "animate-pulse" : ""}`}
-        >
-          <Sparkles className="h-4 w-4" />
-          {demoDataMutation.isPending ? "Loading…" : "Load Demo Data"}
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          {!isEmpty && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDeleteDemo}
+              disabled={deleteDemoMutation.isPending || demoDataMutation.isPending}
+              className="gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:border-destructive/60 hover:bg-destructive/5"
+            >
+              <Trash2 className="h-4 w-4" />
+              {deleteDemoMutation.isPending ? "Deleting…" : "Delete All Demo Data"}
+            </Button>
+          )}
+          <Button
+            variant={isEmpty ? "default" : "outline"}
+            size="sm"
+            onClick={handleLoadDemo}
+            disabled={demoDataMutation.isPending || deleteDemoMutation.isPending}
+            className={`gap-1.5 ${isEmpty ? "animate-pulse" : ""}`}
+          >
+            <Sparkles className="h-4 w-4" />
+            {demoDataMutation.isPending ? "Loading…" : "Load Demo Data"}
+          </Button>
+        </div>
       </div>
 
       <DashboardSummary onWorkOrdersClick={handleSummaryClick} />

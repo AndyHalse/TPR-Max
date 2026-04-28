@@ -1812,71 +1812,78 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     }
 
     // ── Schedules FIRST — so work orders can reference their scheduleId ────────
+    // Dates are always relative to the current year so the demo looks live, not stale.
+    const _NOW = new Date();
+    const CUR_YEAR  = _NOW.getFullYear();
+    const CUR_MONTH = _NOW.getMonth();  // 0-indexed
+    const CUR_DAY   = _NOW.getDate();
+    const CY = CUR_YEAR; // shorthand
+
     type SchedDef = { assetRef: string; templateName: string; frequency: string; customDays?: number; nextDueDate: string; assignedTo?: string };
     const DEMO_SCHEDULES: SchedDef[] = [
       // HVAC – quarterly filter & coil service (staggered across 3 quarter-cycles for realism)
       // Group A (Jan/Apr/Jul/Oct): main AHUs
       ...(["AHU-001","AHU-GF","AHU-01","AHU-02"] as const).map(r => ({
         assetRef: r, templateName: "Quarterly HVAC Filter & Coil Service", frequency: "quarterly",
-        nextDueDate: "2026-01-03", assignedTo: "CoolAir Services Ltd",
+        nextDueDate: `${CY}-01-03`, assignedTo: "CoolAir Services Ltd",
       })),
       // Group B (Feb/May/Aug/Nov): upper-floor FCUs
       ...(["FCU-01","FCU-02","FCU-03","FCU-04"] as const).map(r => ({
         assetRef: r, templateName: "Quarterly HVAC Filter & Coil Service", frequency: "quarterly",
-        nextDueDate: "2026-02-15", assignedTo: "CoolAir Services Ltd",
+        nextDueDate: `${CY}-02-15`, assignedTo: "CoolAir Services Ltd",
       })),
       // Group C (Mar/Jun/Sep/Dec): remaining AHUs + cooling tower
       ...(["AHU-03","AHU-04","CT-001"] as const).map(r => ({
         assetRef: r, templateName: "Quarterly HVAC Filter & Coil Service", frequency: "quarterly",
-        nextDueDate: "2026-03-19", assignedTo: "CoolAir Services Ltd",
+        nextDueDate: `${CY}-03-19`, assignedTo: "CoolAir Services Ltd",
       })),
       // HVAC – annual full service for primary plant (belt/bearing/coil deep clean)
       ...(["AHU-001","AHU-GF","CT-001"] as const).map(r => ({
         assetRef: r, templateName: "Annual HVAC Full Plant Service", frequency: "annual",
-        nextDueDate: "2026-08-05", assignedTo: "CoolAir Services Ltd",
+        nextDueDate: `${CY}-08-05`, assignedTo: "CoolAir Services Ltd",
       })),
       // Fire safety – annual fire alarm full test
       { assetRef: "FAP-001", templateName: "Annual Fire Alarm Full Test", frequency: "annual",
-        nextDueDate: "2026-12-06", assignedTo: "FireGuard UK Ltd" },
+        nextDueDate: `${CY}-12-06`, assignedTo: "FireGuard UK Ltd" },
       // Emergency lighting – quarterly functional test (BS 5266 minimum)
       ...(["EL-001","EL-GF","EL-01","EL-02","EL-03","EL-04"] as const).map(r => ({
         assetRef: r, templateName: "Quarterly Emergency Lighting Functional Test", frequency: "quarterly",
-        nextDueDate: "2026-01-08", assignedTo: "FireGuard UK Ltd",
+        nextDueDate: `${CY}-01-08`, assignedTo: "FireGuard UK Ltd",
       })),
       // Emergency lighting – annual 3-hour duration test (BS 5266 mandatory)
       ...(["EL-001","EL-GF","EL-01","EL-02","EL-03","EL-04"] as const).map(r => ({
         assetRef: r, templateName: "Annual Emergency Lighting Duration Test", frequency: "annual",
-        nextDueDate: "2026-10-08", assignedTo: "FireGuard UK Ltd",
+        nextDueDate: `${CY}-10-08`, assignedTo: "FireGuard UK Ltd",
       })),
       // Sprinkler – quarterly inspection + annual full flow test
       { assetRef: "SPR-001", templateName: "Quarterly Sprinkler System Inspection", frequency: "quarterly",
-        nextDueDate: "2026-03-22", assignedTo: "FireGuard UK Ltd" },
+        nextDueDate: `${CY}-03-22`, assignedTo: "FireGuard UK Ltd" },
       { assetRef: "SPR-001", templateName: "Annual Sprinkler Full Flow Test", frequency: "annual",
-        nextDueDate: "2026-09-22", assignedTo: "FireGuard UK Ltd" },
+        nextDueDate: `${CY}-09-22`, assignedTo: "FireGuard UK Ltd" },
       // Boilers – annual gas safety check (staggered slightly between the two boilers)
       { assetRef: "BLR-001", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual",
-        nextDueDate: "2026-11-05", assignedTo: "BuildRight Co" },
+        nextDueDate: `${CY}-11-05`, assignedTo: "BuildRight Co" },
       { assetRef: "BLR-002", templateName: "Annual Boiler Service & Gas Safety Check", frequency: "annual",
-        nextDueDate: "2026-12-07", assignedTo: "BuildRight Co" },
+        nextDueDate: `${CY}-12-07`, assignedTo: "BuildRight Co" },
       // Lifts – 6-monthly LOLER thorough examination (statutory)
       { assetRef: "LFT-001", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom",
-        customDays: 183, nextDueDate: "2026-06-12", assignedTo: "Schindler UK" },
+        customDays: 183, nextDueDate: `${CY}-06-12`, assignedTo: "Schindler UK" },
       { assetRef: "LFT-002", templateName: "6-Monthly Lift Thorough Examination", frequency: "custom",
-        customDays: 183, nextDueDate: "2026-06-14", assignedTo: "Schindler UK" },
-      // Electrical – 5-yearly EICR (next due 2031)
+        customDays: 183, nextDueDate: `${CY}-06-14`, assignedTo: "Schindler UK" },
+      // Electrical – 5-yearly EICR (baseline done 2 years ago; next due in 5 years' time)
       ...(["EDB-001","GEN-001","LPS-001"] as const).map(r => ({
         assetRef: r, templateName: "Fixed Wiring Inspection & Testing (EICR)", frequency: "custom",
-        customDays: 1825, nextDueDate: "2031-01-16", assignedTo: "Volt-Safe Electrical Ltd",
+        customDays: 1825, nextDueDate: `${CY + 5}-01-16`, assignedTo: "Volt-Safe Electrical Ltd",
       })),
       // Security – 6-monthly health check (ACS and CCTV on different 6M cycles)
       { assetRef: "ACS-001",  templateName: "6-Monthly Access Control System Health Check", frequency: "custom",
-        customDays: 183, nextDueDate: "2026-05-25", assignedTo: "SecureAccess Systems" },
+        customDays: 183, nextDueDate: `${CY}-05-25`, assignedTo: "SecureAccess Systems" },
       { assetRef: "CCTV-001", templateName: "6-Monthly CCTV System Health Check", frequency: "custom",
-        customDays: 183, nextDueDate: "2026-07-27", assignedTo: "SecureAccess Systems" },
+        customDays: 183, nextDueDate: `${CY}-07-27`, assignedTo: "SecureAccess Systems" },
       // Water hygiene – monthly L8 inspection (legally required under HSE L8/ACOP)
       ...(["CWT-001","HWC-001","WT-001"] as const).map(r => ({
         assetRef: r, templateName: "Monthly Water Hygiene Inspection", frequency: "monthly",
-        nextDueDate: "2026-05-21", assignedTo: "AquaSafe Hygiene Ltd",
+        nextDueDate: `${CY}-05-21`, assignedTo: "AquaSafe Hygiene Ltd",
       })),
     ];
 
@@ -1895,7 +1902,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
         title: s.templateName,
         frequency: s.frequency,
         customDays: s.customDays ?? null,
-        startDate: "2026-01-01",
+        startDate: `${CUR_YEAR}-01-01`,
         nextDueDate: s.nextDueDate,
         status: "scheduled",
         assignedTo: s.assignedTo ?? null,
@@ -1936,9 +1943,9 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
           return posIdx % 2 === 0 ? [5, 11] : [2, 8]; // Jun+Dec or Mar+Sep
         }
         if (days >= 1800) {
-          // 5-yearly (e.g. EICR 1825 days): show once in 2024 as the baseline inspection;
-          // the next occurrence falls outside the 2024–2027 demo window (nextDueDate 2031)
-          return year === 2024 ? [0] : [];
+          // 5-yearly (e.g. EICR 1825 days): show once in (currentYear-2) as the baseline inspection;
+          // the next occurrence falls outside the 4-year demo window.
+          return year === CUR_YEAR - 2 ? [0] : [];
         }
       }
 
@@ -1946,10 +1953,12 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
     }
 
     // Build a work-order record for a given year + month, with realistic per-year statuses.
-    // 2024 — full historical year: all completed, small fraction overdue for realism
-    // 2025 — recent historical year: mostly completed, a few overdue late in the year
-    // 2026 — current year: Jan–Apr realistic mix; May+ scheduled
-    // 2027 — forward planning year: all scheduled
+    // All year comparisons are relative to CUR_YEAR so the demo looks current whenever it is run.
+    // CUR_YEAR-2  — full historical year: all completed, small fraction overdue for realism
+    // CUR_YEAR-1  — recent historical year: mostly completed, a few overdue late in the year
+    // CUR_YEAR    — current year: months before today completed/in-progress; future months scheduled
+    //               Items due >14 days ago within the current month show as overdue (realistic backlog)
+    // CUR_YEAR+1  — forward planning year: all scheduled
     function buildWoRecord(
       year: number, monthIdx: number, assetPosition: number, category: string
     ): { status: string; completedDate?: string; dueDate: string; notes?: string } {
@@ -1959,55 +1968,61 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       const mm  = String(monthIdx + 1).padStart(2, "0");
       const dueDate = `${year}-${mm}-${day}`;
 
-      if (year === 2024) {
+      if (year === CUR_YEAR - 2) {
         // Completed historical year — ~85% completed on time, ~10% completed late, ~5% overdue
         const slot = (assetPosition + monthIdx) % 20;
         if (slot === 3) return { status: "overdue", dueDate, notes: "Contractor unavailable — not completed." };
         if (slot === 9) {
-          // completed a week late
           const lateDay = String(Math.min(dueDay + 7, lastDay)).padStart(2, "0");
           return { status: "completed", completedDate: `${year}-${mm}-${lateDay}`, dueDate, notes: "Completed 7 days late." };
         }
         return { status: "completed", completedDate: dueDate, dueDate };
       }
 
-      if (year === 2025) {
+      if (year === CUR_YEAR - 1) {
         // Mostly done — Q1–Q3 all completed, Q4 has a few overdue
         if (monthIdx >= 9 && (assetPosition + monthIdx) % 5 === 0) {
           return { status: "overdue", dueDate, notes: "Outstanding — Q4 contractor scheduling issue." };
         }
         if (monthIdx >= 9 && (assetPosition + monthIdx) % 7 === 0) {
-          // completed a few days late
           const lateDay = String(Math.min(dueDay + 5, lastDay)).padStart(2, "0");
           return { status: "completed", completedDate: `${year}-${mm}-${lateDay}`, dueDate, notes: "Completed late." };
         }
         return { status: "completed", completedDate: dueDate, dueDate };
       }
 
-      if (year === 2026) {
-        // Current year (today = April 2026)
-        if (monthIdx <= 1) {
+      if (year === CUR_YEAR) {
+        // Current year — status depends on how the due date relates to today
+        if (monthIdx < CUR_MONTH - 1) {
+          // Well before current month: all completed
           return { status: "completed", completedDate: dueDate, dueDate };
         }
-        if (monthIdx === 2) {
-          // March: 2/3 completed; 1/3 overdue
+        if (monthIdx === CUR_MONTH - 1) {
+          // Last full month: mostly completed; 1 in 3 missed (overdue)
           if (assetPosition % 3 === 1) {
-            return { status: "overdue", dueDate, notes: "Contractor visit missed — rescheduled for April." };
+            return { status: "overdue", dueDate, notes: "Contractor visit missed — rescheduled." };
           }
           return { status: "completed", completedDate: dueDate, dueDate };
         }
-        if (monthIdx === 3) {
-          // April: completed / overdue / in_progress spread
-          const mod = assetPosition % 3;
-          if (mod === 0) return { status: "completed", completedDate: `2026-04-${day}`, dueDate };
-          if (mod === 1) return { status: "overdue", dueDate, notes: "Work overdue — contractor visit rescheduled." };
-          return { status: "in_progress", dueDate };
+        if (monthIdx === CUR_MONTH) {
+          // Current month: items due >14 days ago are realistically overdue; recent ones in-progress/completed
+          if (dueDay <= CUR_DAY - 14) {
+            return { status: "overdue", dueDate, notes: "Work overdue — contractor visit rescheduled." };
+          }
+          if (dueDay <= CUR_DAY) {
+            // Due within last 14 days — half completed, half in-progress
+            const mod = assetPosition % 2;
+            if (mod === 0) return { status: "completed", completedDate: dueDate, dueDate };
+            return { status: "in_progress", dueDate };
+          }
+          // Due later this month: scheduled
+          return { status: "scheduled", dueDate };
         }
-        // May onwards: scheduled
+        // Future months: scheduled
         return { status: "scheduled", dueDate };
       }
 
-      // 2027 — forward planning, all scheduled
+      // Next year — forward planning, all scheduled
       return { status: "scheduled", dueDate };
     }
 
@@ -2015,8 +2030,8 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
     let workOrdersCreated = 0;
 
-    // Generate work orders for 4 years: 2024 (history), 2025 (recent), 2026 (current), 2027 (planned)
-    const PLANNER_YEARS = [2024, 2025, 2026, 2027];
+    // Generate work orders for 4 years: (curYear-2) history, (curYear-1) recent, curYear current, (curYear+1) planned
+    const PLANNER_YEARS = [CUR_YEAR - 2, CUR_YEAR - 1, CUR_YEAR, CUR_YEAR + 1];
 
     // Build a quick lookup so we can get the full asset record inside the schedule loop
     const assetByRef: Record<string, typeof ALL_DEMO_ASSETS[number]> = {};
@@ -2070,11 +2085,67 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       templatesCreated,
       schedulesCreated,
       workOrdersCreated,
-      message: `Demo data refreshed: ${DEMO_GROUPS.length} asset groups, ${assetsCreated} assets, ${templatesCreated} templates, ${schedulesCreated} schedules, and ${workOrdersCreated} work orders across 2024–2027. ${contractorsSeeded > 0 ? `${contractorsSeeded} contractor companies added to Contractors.` : "Contractor companies already present."} Use the year picker in the Annual Planner to navigate between years.`,
+      message: `Demo data refreshed: ${DEMO_GROUPS.length} asset groups, ${assetsCreated} assets, ${templatesCreated} templates, ${schedulesCreated} schedules, and ${workOrdersCreated} work orders across ${CUR_YEAR - 2}–${CUR_YEAR + 1}. ${contractorsSeeded > 0 ? `${contractorsSeeded} contractor companies added to Contractors.` : "Contractor companies already present."} Use the year picker in the Annual Planner to navigate between years.`,
     });
   } catch (error: unknown) {
     console.error("POST /api/ppm/demo-data", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to load demo data" });
+  }
+});
+
+// ── PPM Demo Data — Delete ────────────────────────────────────────────────────
+// DELETE /api/ppm/demo-data — wipe all PPM data AND the seeded demo contractor
+// companies/workers, leaving the system clean and ready for real-life use.
+app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
+  if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+  try {
+    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+    const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+    // 1. Wipe all PPM data (same FK-safe order as the load step)
+    await custDb.delete(isolatedSchema.ppmWorkOrderDocuments);
+    await custDb.delete(isolatedSchema.ppmWorkOrders);
+    await custDb.delete(isolatedSchema.ppmSchedules);
+    await custDb.delete(isolatedSchema.ppmAssets);
+    await custDb.delete(isolatedSchema.ppmAssetGroups);
+    await custDb.delete(isolatedSchema.ppmTemplates);
+
+    // 2. Remove the 7 demo contractor companies (and their workers, which cascade)
+    const DEMO_COMPANY_NAMES = [
+      "CoolAir Services Ltd",
+      "FireGuard UK Ltd",
+      "BuildRight Co",
+      "Volt-Safe Electrical Ltd",
+      "AquaSafe Hygiene Ltd",
+      "SecureAccess Systems",
+      "Schindler UK",
+    ];
+    let companiesDeleted = 0;
+    for (const name of DEMO_COMPANY_NAMES) {
+      const [existing] = await custDb
+        .select({ id: isolatedSchema.contractorCompanies.id })
+        .from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.companyName, name))
+        .limit(1);
+      if (existing) {
+        // Delete workers first (FK constraint)
+        await custDb.delete(isolatedSchema.contractorWorkers)
+          .where(eq(isolatedSchema.contractorWorkers.companyId, existing.id));
+        await custDb.delete(isolatedSchema.contractorCompanies)
+          .where(eq(isolatedSchema.contractorCompanies.id, existing.id));
+        companiesDeleted++;
+      }
+    }
+
+    console.log(`✅ [PPM Demo] Deleted all demo data. ${companiesDeleted} contractor companies removed.`);
+    res.json({
+      success: true,
+      companiesDeleted,
+      message: `All demo data removed. ${companiesDeleted} demo contractor companies deleted. The system is ready for real-life use.`,
+    });
+  } catch (error: unknown) {
+    console.error("DELETE /api/ppm/demo-data", error);
+    res.status(500).json({ error: error instanceof Error ? error.message : "Failed to delete demo data" });
   }
 });
 
