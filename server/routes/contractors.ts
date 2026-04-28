@@ -464,27 +464,32 @@ export function registerContractorRoutes(app: Express): void {
         worker = newWorker;
       }
       
-      // Check worker status - only block for critical issues (inactive/red card)
-      // Induction and right-to-work are warnings for pre-booked contractors
+      // Check worker status — align with regular check-in blocking rules
+      const inductionCompleted = worker.inductionCompleted ?? false;
+      const rightToWorkStatus = worker.rightToWork ?? 'pending';
       const blockingIssues = [];
       const warnings = [];
+
       if (!worker.isActive) {
         blockingIssues.push("Worker account is inactive");
       }
       if (worker.currentCardStatus === 'red') {
         blockingIssues.push("Worker has active Red Card (site ban)");
       }
-      if (!worker.inductionCompleted) {
-        warnings.push("Induction not completed");
+      // Block if induction not completed (matches regular check-in)
+      if (!inductionCompleted) {
+        blockingIssues.push("Site induction not completed");
       }
-      if (worker.rightToWork !== 'valid') {
-        warnings.push(`Right to work status: ${worker.rightToWork || 'pending'}`);
+      // Block if right-to-work expired; warn for pending (pre-booking leniency)
+      if (rightToWorkStatus === 'expired') {
+        blockingIssues.push("Right to work has expired");
+      } else if (rightToWorkStatus !== 'valid') {
+        warnings.push(`Right to work not verified (status: ${rightToWorkStatus})`);
       }
-      
+
       if (blockingIssues.length > 0) {
         return res.status(400).json({ 
-          error: "Worker not cleared for check-in",
-          details: `Cannot check in: ${blockingIssues.join(', ')}`,
+          error: `Cannot check in: ${blockingIssues.join(' · ')}`,
           issues: blockingIssues
         });
       }
