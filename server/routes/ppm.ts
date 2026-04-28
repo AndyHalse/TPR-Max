@@ -1661,6 +1661,65 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       },
     ];
 
+    // ── STEP 0: Seed demo contractor companies and workers ───────────────────
+    // Safe to run multiple times — checks for existing entries before inserting.
+    const DEMO_CONTRACTORS = [
+      { company: "CoolAir Services Ltd",    firstName: "Tom",    lastName: "Briggs",  jobTitle: "HVAC Engineer",                   email: "tom.briggs@coolair-services.co.uk",    industry: "HVAC" },
+      { company: "FireGuard UK Ltd",         firstName: "Sarah",  lastName: "Webb",    jobTitle: "Fire Safety Engineer",            email: "sarah.webb@fireguard-uk.co.uk",        industry: "Fire Safety" },
+      { company: "BuildRight Co",            firstName: "James",  lastName: "Carter",  jobTitle: "Mechanical Engineer",             email: "james.carter@buildright.co.uk",        industry: "Mechanical" },
+      { company: "Volt-Safe Electrical Ltd", firstName: "Raj",    lastName: "Patel",   jobTitle: "Electrical Engineer",             email: "raj.patel@volt-safe.co.uk",            industry: "Electrical" },
+      { company: "AquaSafe Hygiene Ltd",     firstName: "Claire", lastName: "Morris",  jobTitle: "Water Hygiene Technician",        email: "claire.morris@aquasafe-hygiene.co.uk", industry: "Water Hygiene" },
+      { company: "SecureAccess Systems",     firstName: "Dan",    lastName: "Hughes",  jobTitle: "Security Systems Engineer",       email: "dan.hughes@secureaccess-systems.co.uk",industry: "Security" },
+      { company: "Schindler UK",             firstName: "Mark",   lastName: "Taylor",  jobTitle: "Lift Engineer (LOLER Competent)", email: "mark.taylor@schindler.com",            industry: "Lifts & Hoists" },
+    ];
+    let contractorsSeeded = 0;
+    for (const c of DEMO_CONTRACTORS) {
+      // Look up existing company by name (companyName is unique)
+      const [existingCompany] = await custDb
+        .select({ id: isolatedSchema.contractorCompanies.id })
+        .from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.companyName, c.company))
+        .limit(1);
+
+      let companyId: string;
+      if (existingCompany) {
+        companyId = existingCompany.id;
+      } else {
+        const [ins] = await custDb.insert(isolatedSchema.contractorCompanies).values({
+          companyName:       c.company,
+          contactEmail:      c.email,
+          contactFirstName:  c.firstName,
+          contactLastName:   c.lastName,
+          industry:          c.industry,
+          status:            "approved",
+        } as any).returning({ id: isolatedSchema.contractorCompanies.id });
+        companyId = ins.id;
+        contractorsSeeded++;
+      }
+
+      // Look up existing worker by name within this company
+      const [existingWorker] = await custDb
+        .select({ id: isolatedSchema.contractorWorkers.id })
+        .from(isolatedSchema.contractorWorkers)
+        .where(and(
+          eq(isolatedSchema.contractorWorkers.companyId, companyId),
+          eq(isolatedSchema.contractorWorkers.firstName, c.firstName),
+          eq(isolatedSchema.contractorWorkers.lastName,  c.lastName),
+        ))
+        .limit(1);
+
+      if (!existingWorker) {
+        await custDb.insert(isolatedSchema.contractorWorkers).values({
+          companyId,
+          firstName: c.firstName,
+          lastName:  c.lastName,
+          jobTitle:  c.jobTitle,
+          email:     c.email,
+        } as any);
+      }
+    }
+    console.log(`✅ [PPM Demo] Contractor companies seeded: ${contractorsSeeded} new, ${DEMO_CONTRACTORS.length - contractorsSeeded} already existed`);
+
     // ── STEP 1: Wipe all existing PPM data (FK-safe order) ─────────────────
     // Documents → Work Orders → Schedules → Assets → Groups → Templates
     await custDb.delete(isolatedSchema.ppmWorkOrderDocuments);
@@ -2005,12 +2064,13 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
 
     res.json({
       success: true,
+      contractorsSeeded,
       groupsCreated: DEMO_GROUPS.length,
       assetsCreated,
       templatesCreated,
       schedulesCreated,
       workOrdersCreated,
-      message: `Demo data refreshed: ${DEMO_GROUPS.length} asset groups, ${assetsCreated} assets, ${templatesCreated} templates, ${schedulesCreated} schedules, and ${workOrdersCreated} work orders across 2024–2027. Use the year picker in the Annual Planner to navigate between years.`,
+      message: `Demo data refreshed: ${DEMO_GROUPS.length} asset groups, ${assetsCreated} assets, ${templatesCreated} templates, ${schedulesCreated} schedules, and ${workOrdersCreated} work orders across 2024–2027. ${contractorsSeeded > 0 ? `${contractorsSeeded} contractor companies added to Contractors.` : "Contractor companies already present."} Use the year picker in the Annual Planner to navigate between years.`,
     });
   } catch (error: unknown) {
     console.error("POST /api/ppm/demo-data", error);
