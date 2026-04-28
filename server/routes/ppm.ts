@@ -1998,14 +1998,16 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
           return { status: "completed", completedDate: dueDate, dueDate };
         }
         if (monthIdx === CUR_MONTH) {
-          // Current month: items due more than 14 days ago = overdue (the realistic backlog)
-          if (dueDay <= CUR_DAY - 14) {
-            return { status: "overdue", dueDate, notes: "Work overdue — contractor visit rescheduled." };
+          // Items due MORE than 14 days ago are already completed — they were dealt with
+          if (dueDay < CUR_DAY - 14) {
+            return { status: "completed", completedDate: dueDate, dueDate };
           }
+          // Items due WITHIN the last 14 days: realistic mix of overdue and in-progress
+          // (these are the only ones that can appear as overdue — max age 2 weeks)
           if (dueDay <= CUR_DAY) {
-            // Due within the last 14 days — split between completed and in-progress
-            const mod = assetPosition % 2;
+            const mod = assetPosition % 3;
             if (mod === 0) return { status: "completed", completedDate: dueDate, dueDate };
+            if (mod === 1) return { status: "overdue", dueDate, notes: "Work overdue — contractor visit rescheduled." };
             return { status: "in_progress", dueDate };
           }
           // Due later this month: scheduled
