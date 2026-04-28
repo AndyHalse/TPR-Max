@@ -3685,7 +3685,10 @@ export function registerContractorRoutes(app: Express): void {
     }
   });
 
-  // DEV-ONLY: Test check-in endpoint without authentication for CO2 testing
+  // DEV-ONLY: CO2 calculation test endpoint.
+  // The entire app.post() registration is inside this NODE_ENV guard, so this route
+  // is never registered in production — production deployments cannot reach it.
+  // Uses a hardcoded 'Andy' customer context; must NEVER be made available outside development.
   if (process.env.NODE_ENV === 'development') {
     app.post("/api/dev/contractors/workers/:workerId/checkin", async (req, res) => {
       try {
