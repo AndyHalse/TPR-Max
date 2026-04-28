@@ -246,9 +246,10 @@ export function registerContractorRoutes(app: Express): void {
         const bDateStr = new Date(b.scheduledDate).toDateString();
         console.log(`  → id=${b.id?.slice(0,8)} worker="${b.workerName}" time="${b.scheduledTime}" date="${bDateStr}" status="${b.status}"`);
       });
+      const normalize = (s: string | undefined | null) => (s ?? '').toLowerCase().trim();
       const duplicate = existingBookings.find((b: any) => 
-        b.workerName === preBookingData.workerName &&
-        b.companyName === preBookingData.companyName &&
+        normalize(b.workerName) === normalize(preBookingData.workerName) &&
+        normalize(b.companyName) === normalize(preBookingData.companyName) &&
         new Date(b.scheduledDate).toDateString() === scheduledDateStr &&
         b.scheduledTime === preBookingData.scheduledTime &&
         b.status !== 'cancelled' &&
