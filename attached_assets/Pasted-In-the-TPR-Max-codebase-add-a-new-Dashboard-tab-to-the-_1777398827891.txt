@@ -1,0 +1,150 @@
+In the TPR Max codebase, add a new "Dashboard" tab to the PPM module as the first tab (before Assets). This gives management a high-level overview of their planned maintenance programme.
+
+---
+
+## STEP 1 — Add the Dashboard tab to PPM.tsx
+
+In client/src/pages/PPM.tsx, add a new tab trigger at the START of the tabs list:
+- Label: "Dashboard"
+- Value: "dashboard"
+- Icon: LayoutDashboard (from lucide-react)
+
+Add a corresponding TabsContent panel with value="dashboard" and render a new component: <PpmDashboard />
+
+Import PpmDashboard at the top of PPM.tsx from "@/components/PpmDashboard".
+
+---
+
+## STEP 2 — Create client/src/components/PpmDashboard.tsx
+
+This component should fetch its own data using React Query (useQuery), using the existing API endpoints:
+- GET /api/ppm/assets
+- GET /api/ppm/work-orders
+- GET /api/ppm/schedules
+
+Do NOT add any new backend endpoints — calculate everything from these three existing responses.
+
+Use Recharts for all charts (it is already in the project). Use the existing Tailwind/shadcn UI components for cards.
+
+---
+
+## DASHBOARD LAYOUT
+
+The dashboard is one scrollable page split into clear sections.
+
+### Section 1 — KPI Strip (5 stat cards in a row)
+
+Card 1: TOTAL ASSETS
+- Count of all assets where status === "active"
+- Label: "Active Assets"
+- Icon: Building2 (teal)
+
+Card 2: WORK ORDERS DUE THIS MONTH
+- Count of work orders where status is NOT "completed" or "cancelled" 
+  AND dueDate falls within the current calendar month
+- Label: "Due This Month"
+- Icon: CalendarClock (amber if >0, grey if 0)
+
+Card 3: OVERDUE
+- Count of work orders where status === "overdue" OR
+  (status not in ["completed","cancelled"] AND dueDate < today)
+- Label: "Overdue"
+- Icon: AlertTriangle — colour this card RED if count > 0, else grey
+
+Card 4: COMPLETED THIS MONTH
+- Count of work orders where status === "completed"
+  AND completedDate falls within the current calendar month
+- Label: "Completed This Month"
+- Icon: CheckCircle2 (green)
+
+Card 5: COMPLIANCE RATE
+- Percentage: (completed work orders / total non-cancelled work orders) × 100
+- Show as "XX%" 
+- Label: "Overall Completion Rate"
+- Icon: TrendingUp — colour green if ≥80%, amber if 50–79%, red if <50%
+
+---
+
+### Section 2 — Two charts side by side
+
+LEFT CHART: Work Order Status Breakdown (Donut/Pie chart, Recharts PieChart)
+Count work orders by status bucket:
+- "Completed" — status === "completed" — colour: #0d9488 (teal)
+- "In Progress" — status === "in_progress" — colour: #3b82f6 (blue)
+- "Overdue" — status === "overdue" OR (not completed/cancelled AND dueDate < today) — colour: #ef4444 (red)
+- "Scheduled" — status === "scheduled" AND dueDate >= today — colour: #94a3b8 (grey)
+- "Cancelled" — status === "cancelled" — colour: #e2e8f0 (light grey)
+
+Show a legend below. Show total work orders in the donut centre.
+
+RIGHT CHART: Monthly Completion Trend (Bar chart, Recharts BarChart)
+For the last 6 calendar months (including current month):
+- X axis: month name (e.g. "Nov", "Dec", "Jan")
+- Two bars per month:
+  - Completed (green #0d9488): work orders where completedDate falls in that month
+  - Overdue (red #ef4444): work orders where dueDate falls in that month AND status is overdue
+- Add a tooltip showing exact counts on hover
+
+---
+
+### Section 3 — Two more charts side by side
+
+LEFT CHART: Assets by Category (Horizontal Bar chart, Recharts BarChart layout="vertical")
+Group active assets by their category field.
+Expected categories: HVAC, Fire, Electrical, Plumbing, Lifts & Hoists, Gas, Water Hygiene, Security, Other
+Sort bars by count descending.
+Colour bars: #1e3a5f (navy). Label each bar with count on the right.
+
+RIGHT CHART: Statutory vs Non-Statutory Compliance (two stacked progress bars or grouped bars)
+For work orders that have a templateType:
+- "Statutory" work orders: show completed vs total as a percentage bar
+- "Non-Statutory" work orders: show completed vs total as a percentage bar
+
+Show the percentage and count (e.g. "8 / 12 — 67%") beneath each bar.
+Use teal for statutory, navy for non-statutory.
+
+---
+
+### Section 4 — Overdue & Attention Required (full width table)
+
+Heading: "Requires Attention" with an AlertTriangle icon (red) — only show this section if there are items
+
+Show a table of all work orders where status === "overdue" OR
+(status not in ["completed","cancelled"] AND dueDate < today):
+
+Columns:
+- Work Order title
+- Asset name (match via assetId)
+- Due Date (formatted as DD MMM YYYY, highlighted red if past today)
+- Assigned To (contractorCompanyName or "Unassigned")
+- Status chip (red "OVERDUE" chip using the existing chip/badge component)
+
+Sort by dueDate ascending (most overdue first). Limit to 10 rows. If more than 10, show "and X more overdue items" below the table.
+
+If no overdue items, do not show this section at all.
+
+---
+
+### Section 5 — Certificates Expiring Soon
+
+Heading: "Certificates Expiring Within 30 Days"
+
+To get this data: for each work order in the work-orders response, check the expiringSoonDocCount field (already returned by the API). 
+
+Show a simple list of work orders where expiringSoonDocCount > 0 OR expiredDocCount > 0, sorted by expiredDocCount descending.
+
+Show: work order title, asset name, "X expired / Y expiring soon" badge.
+
+If none, show a small green "All certificates are current" message.
+
+---
+
+## STYLING NOTES
+
+- Use the existing NAVY (#1e3a5f), TEAL (#0d9488), and white colour scheme throughout
+- Use shadcn Card and CardContent components for all stat cards and chart panels
+- Show a loading skeleton (use the existing Skeleton component) while data is fetching
+- On mobile (< md breakpoint), stack all cards and charts to single column
+- Add a "Last updated" timestamp below the KPI strip using the time the queries resolved
+
+The component should be entirely self-contained with no new API endpoints needed.

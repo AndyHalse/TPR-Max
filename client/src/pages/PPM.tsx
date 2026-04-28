@@ -20,9 +20,11 @@ import {
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
   Layers, ChevronDown, ChevronRight, Bell, FileDown, BellOff, Scan, CalendarDays,
+  LayoutDashboard,
 } from "lucide-react";
 import { Link, useSearch } from "wouter";
 import PpmAnnualPlanner from "@/components/PpmAnnualPlanner";
+import PpmDashboard from "@/components/PpmDashboard";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -2387,7 +2389,10 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
 export default function PPM() {
   const { toast } = useToast();
   const search = useSearch();
-  const defaultTab = new URLSearchParams(search).get("view") === "planner" ? "annual-planner" : "assets";
+  const searchParams = new URLSearchParams(search);
+  const defaultTab = searchParams.get("view") === "planner"
+    ? "annual-planner"
+    : searchParams.get("tab") ?? "dashboard";
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [woStatusFilter, setWoStatusFilter] = useState<string | undefined>(undefined);
   const [woHighlightId, setWoHighlightId] = useState<string | undefined>(undefined);
@@ -2576,6 +2581,9 @@ export default function PPM() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
+          <TabsTrigger value="dashboard" className="flex items-center gap-1.5">
+            <LayoutDashboard className="h-4 w-4" />Dashboard
+          </TabsTrigger>
           <TabsTrigger value="assets" className="flex items-center gap-1.5">
             <Building2 className="h-4 w-4" />Assets
           </TabsTrigger>
@@ -2592,6 +2600,7 @@ export default function PPM() {
             <CalendarDays className="h-4 w-4" />Annual Planner
           </TabsTrigger>
         </TabsList>
+        <TabsContent value="dashboard" className="mt-4"><PpmDashboard /></TabsContent>
         <TabsContent value="assets" className="mt-4"><AssetsTab /></TabsContent>
         <TabsContent value="templates" className="mt-4"><TemplatesTab /></TabsContent>
         <TabsContent value="schedules" className="mt-4"><SchedulesTab /></TabsContent>
