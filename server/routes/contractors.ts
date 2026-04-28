@@ -3984,45 +3984,49 @@ export function registerContractorRoutes(app: Express): void {
       }
 
       // Check for active evacuations and add contractor to accountability list if needed
-      const activeEvacuations = await db
-        .select()
-        .from(evacuations)
-        .where(and(
-          eq(evacuations.status, 'active'),
-          eq(evacuations.customerId, context.customerId)
-        ))
-        .orderBy(desc(evacuations.startedAt))
-        .limit(1);
-      
-      if (activeEvacuations.length > 0) {
-        const evacuation = activeEvacuations[0];
-        
-        // Check if contractor is already in accountability list
-        const existingRecord = await db
+      // evacuations is a global table (queried via global db with customerId filter);
+      // evacuationAccountability records are stored in the customer-isolated schema.
+      try {
+        const activeEvacuations = await db
           .select()
-          .from(evacuationAccountability)
+          .from(evacuations)
           .where(and(
-            eq(evacuationAccountability.evacuationId, evacuation.evacuationId),
-            eq(evacuationAccountability.personId, workerId)
+            eq(evacuations.status, 'active'),
+            eq(evacuations.customerId, context.customerId)
           ))
+          .orderBy(desc(evacuations.startedAt))
           .limit(1);
-        
-        if (existingRecord.length === 0) {
-          // Add contractor to evacuation accountability
-          await db.insert(evacuationAccountability).values({
-            customerId: context.customerId,
-            evacuationId: evacuation.evacuationId,
-            personId: workerId,
-            personType: 'contractor',
-            personName: `${worker.firstName} ${worker.lastName}`,
-            department: worker.department || '',
-            company: company.name || '',
-            lastKnownLocation: 'Just Checked In',
-            isAccountedFor: false
-          });
-          
-          console.log(`✅ Added contractor ${worker.firstName} ${worker.lastName} to active evacuation ${evacuation.evacuationId} accountability list`);
+
+        if (activeEvacuations.length > 0) {
+          const evacuation = activeEvacuations[0];
+          const checkinEvacDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+          // Check if contractor is already in accountability list
+          const existingRecord = await checkinEvacDb
+            .select()
+            .from(isolatedSchema.evacuationAccountability)
+            .where(and(
+              eq(isolatedSchema.evacuationAccountability.evacuationId, evacuation.evacuationId),
+              eq(isolatedSchema.evacuationAccountability.personId, workerId)
+            ))
+            .limit(1);
+
+          if (existingRecord.length === 0) {
+            await checkinEvacDb.insert(isolatedSchema.evacuationAccountability).values({
+              evacuationId: evacuation.evacuationId,
+              personId: workerId,
+              personType: 'contractor',
+              personName: `${worker.firstName} ${worker.lastName}`,
+              department: worker.department || '',
+              company: company.name || '',
+              lastKnownLocation: 'Just Checked In',
+              isAccountedFor: false
+            });
+            console.log(`✅ Added contractor ${worker.firstName} ${worker.lastName} to active evacuation ${evacuation.evacuationId} accountability list`);
+          }
         }
+      } catch (evacErr) {
+        console.error('Failed to update evacuation accountability on check-in:', evacErr);
       }
 
       websocketService.broadcastPersonnelUpdate(context.customerId, {
@@ -4090,6 +4094,32 @@ export function registerContractorRoutes(app: Express): void {
         });
       } catch (auditErr) {
         console.error('Failed to create check-out audit note:', auditErr);
+      }
+
+      // Remove contractor from evacuation accountability on checkout — they are no longer on site
+      try {
+        const checkoutActiveEvacs = await db
+          .select()
+          .from(evacuations)
+          .where(and(
+            eq(evacuations.status, 'active'),
+            eq(evacuations.customerId, context.customerId)
+          ))
+          .orderBy(desc(evacuations.startedAt))
+          .limit(1);
+
+        if (checkoutActiveEvacs.length > 0) {
+          const checkoutEvacDb = await customerDbService.getCustomerDatabase(context.customerId);
+          await checkoutEvacDb
+            .delete(isolatedSchema.evacuationAccountability)
+            .where(and(
+              eq(isolatedSchema.evacuationAccountability.evacuationId, checkoutActiveEvacs[0].evacuationId),
+              eq(isolatedSchema.evacuationAccountability.personId, workerId)
+            ));
+          console.log(`🚪 Removed contractor ${worker.firstName} ${worker.lastName} from evacuation ${checkoutActiveEvacs[0].evacuationId} accountability on checkout`);
+        }
+      } catch (evacErr) {
+        console.warn('Could not remove contractor from evacuation accountability on checkout:', evacErr);
       }
 
       websocketService.broadcastPersonnelUpdate(context.customerId, {
