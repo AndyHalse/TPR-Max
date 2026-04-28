@@ -82,34 +82,36 @@ export function registerContractorRoutes(app: Express): void {
         return res.status(403).json({ error: "Worker is not authorised to work on site. QR passes can only be issued to active, cleared workers." });
       }
 
+      // Refetch after update so resolvedWorker.qrCode reflects the saved DB state
+      let resolvedWorker = worker;
       if (!worker.qrCode) {
         const qrCode = 'CTR-' + randomUUID().replace(/-/g, '').substring(0, 12);
         await databaseService.updateContractorWorker(context, id, { qrCode } as any);
-        (worker as any).qrCode = qrCode;
+        resolvedWorker = (await databaseService.getContractorWorkerById(context, id)) ?? worker;
       }
 
       const settings = await databaseService.getCompanySettings(context);
-      const companyName = worker.companyName || 'Contractor';
+      const companyName = resolvedWorker.companyName || 'Contractor';
 
       const passPayload = {
         success: true,
         method,
-        qrCode: (worker as any).qrCode,
-        workerName: `${worker.firstName} ${worker.lastName}`,
+        qrCode: resolvedWorker.qrCode,
+        workerName: `${resolvedWorker.firstName} ${resolvedWorker.lastName}`,
         companyName,
-        email: worker.email,
+        email: resolvedWorker.email,
       };
 
       if (method === 'email') {
-        if (!worker.email) return res.status(400).json({ error: "Worker has no email address" });
+        if (!resolvedWorker.email) return res.status(400).json({ error: "Worker has no email address" });
         const emailSent = await emailService.forCustomer(req.customerId).sendContractorWorkerQrPass(
-          worker.email,
-          `${worker.firstName} ${worker.lastName}`,
+          resolvedWorker.email,
+          `${resolvedWorker.firstName} ${resolvedWorker.lastName}`,
           companyName,
-          (worker as any).qrCode,
+          resolvedWorker.qrCode!,
           settings
         );
-        return res.json({ ...passPayload, emailSent, message: emailSent ? `QR pass sent to ${worker.email}` : 'Failed to send email' });
+        return res.json({ ...passPayload, emailSent, message: emailSent ? `QR pass sent to ${resolvedWorker.email}` : 'Failed to send email' });
       }
 
       res.json({ ...passPayload, message: 'QR pass ready' });
@@ -3831,7 +3833,7 @@ export function registerContractorRoutes(app: Express): void {
 
       // Server-side H&S enforcement for contractors
       const contractorSettings = await databaseService.getCompanySettings(context);
-      if ((contractorSettings as any)?.hsRulesEnabled !== false && (contractorSettings as any)?.hsRulesRequireAcceptance && !hsRulesAccepted) {
+      if (contractorSettings?.hsRulesEnabled !== false && contractorSettings?.hsRulesRequireAcceptance && !hsRulesAccepted) {
         return res.status(400).json({
           error: "Health & Safety acceptance required",
           message: "You must accept the Health & Safety rules before checking in.",
