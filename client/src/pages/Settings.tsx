@@ -23,9 +23,12 @@ import { Save, Mail, Upload, Building2, Settings as SettingsIcon, Palette, Monit
 import { Link } from "wouter";
 import type { CompanySettings, InsertCompanySettings, Department, InsertDepartment, Report } from "@shared/schema";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
+
 import ContractorsHSManagement from "@/components/ContractorsHSManagement";
 import { DefaultTemplateManager } from "@/components/DefaultTemplateManager";
 import ZoneManagement from "@/pages/ZoneManagement";
+
+type CompanySettingsWithFlags = CompanySettings & { smtpPasswordSet?: boolean };
 
 export default function Settings() {
   const { toast } = useToast();
@@ -122,7 +125,7 @@ export default function Settings() {
     queryKey: ["/api/auth/me"],
   });
 
-  const { data: settings, isLoading } = useQuery<CompanySettings>({
+  const { data: settings, isLoading } = useQuery<CompanySettingsWithFlags>({
     queryKey: ["/api/settings"],
   });
 
@@ -1799,13 +1802,18 @@ export default function Settings() {
                     </div>
                     <Input
                       type="password"
-                      placeholder="Your email password or app-specific password"
-                      value={currentSettings?.smtpPassword || ""}
+                      placeholder={currentSettings?.smtpPasswordSet && !formData.smtpPassword ? "Password saved — leave blank to keep it" : "Your email password or app-specific password"}
+                      value={formData.smtpPassword || ""}
                       onChange={(e) => handleInputChange("smtpPassword", e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
                       data-testid="input-smtp-password"
                     />
-                    <p className="text-xs text-variable">Use app-specific password for Gmail/Outlook</p>
+                    {currentSettings?.smtpPasswordSet && !formData.smtpPassword && (
+                      <p className="text-xs text-green-600 dark:text-green-400">✓ Password is saved — type a new one only if you want to change it</p>
+                    )}
+                    {(!currentSettings?.smtpPasswordSet || formData.smtpPassword) && (
+                      <p className="text-xs text-variable">Use app-specific password for Gmail/Outlook</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">

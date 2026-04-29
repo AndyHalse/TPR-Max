@@ -190,9 +190,6 @@ export function registerSettingsRoutes(
           paxtonUsername,
           paxtonClientSecret,
           smtpPassword,
-          smtpHost,
-          smtpPort,
-          smtpUsername,
           twilioAuthToken,
           twilioAccountSid,
           twilioPhoneNumber,
@@ -206,8 +203,14 @@ export function registerSettingsRoutes(
           ...sanitizedSettings
         } = settings;
         
-        console.log(`[SETTINGS-API] Sending ${Object.keys(sanitizedSettings).length} fields to client, logoUrl=${sanitizedSettings.logoUrl || 'EMPTY'}`);
-        res.json(sanitizedSettings || {});
+        // Return a flag so the UI can show "password saved" without exposing the value
+        const responsePayload = {
+          ...sanitizedSettings,
+          smtpPasswordSet: !!(smtpPassword && smtpPassword.length > 0),
+        };
+        
+        console.log(`[SETTINGS-API] Sending ${Object.keys(responsePayload).length} fields to client, logoUrl=${responsePayload.logoUrl || 'EMPTY'}`);
+        res.json(responsePayload || {});
       } else {
         console.log(`[SETTINGS-API] No settings found - sending empty object`);
         res.json({});
@@ -615,6 +618,16 @@ export function registerSettingsRoutes(
     try {
       if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
       const updates = insertCompanySettingsSchema.partial().parse(req.body);
+      
+      // Never overwrite sensitive credential fields with empty strings — omit them if blank
+      const sensitiveFields = ['smtpPassword', 'biostarPassword', 'paxtonPassword', 'paxtonClientSecret',
+        'twilioAuthToken', 'eightByXApiSecret', 'clueApiKey', 'clueApiSecret',
+        'openaiApiKey', 'geminiApiKey', 'sendgridApiKey'] as const;
+      for (const field of sensitiveFields) {
+        if (field in updates && (updates as any)[field] === '') {
+          delete (updates as any)[field];
+        }
+      }
       
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
