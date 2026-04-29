@@ -105,7 +105,7 @@ export default function AiSettings() {
             <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash (Google)</SelectItem>
           </SelectContent>
         </Select>
-        {(currentSettings?.openaiModel || "gpt-4o").startsWith("claude-") && aiKeys !== undefined && !aiKeys.claude.hasKey && (
+        {(currentSettings?.openaiModel || "gpt-4o").startsWith("claude-") && aiKeyStatus !== undefined && !aiKeyStatus.claude.hasKey && (
           <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-xl text-sm text-yellow-800 dark:text-yellow-300">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-yellow-600 dark:text-yellow-400" />
             <span>Claude is selected but no Anthropic API key is configured. Add one in <strong>Settings → Integrations</strong>.</span>

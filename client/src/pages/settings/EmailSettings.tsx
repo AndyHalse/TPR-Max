@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useSettingsAutoSave } from "@/hooks/useSettingsAutoSave";
 import GlassCard from "@/components/GlassCard";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/comp
 export default function EmailSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
   const { toast } = useToast();
+  const [formData, setFormData] = useState<{ smtpPassword?: string }>({});
 
   const testEmailMutation = useMutation({
     mutationFn: async (email: string) => {
@@ -154,7 +156,7 @@ export default function EmailSettings() {
             type="password"
             placeholder={currentSettings?.smtpPasswordSet && !formData.smtpPassword ? "Password saved — leave blank to keep it" : "Your email password or app-specific password"}
             value={formData.smtpPassword || ""}
-            onChange={(e) => handleInputChange("smtpPassword", e.target.value)}
+            onChange={(e) => { setFormData(prev => ({ ...prev, smtpPassword: e.target.value })); handleInputChange("smtpPassword", e.target.value); }}
             className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
             data-testid="input-smtp-password"
           />
