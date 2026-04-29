@@ -134,22 +134,22 @@ export async function setupAutomaticDailyReset(specificCustomerId?: string) {
       try {
         settings = await simpleDatabaseService.getCompanySettings(context);
       } catch (err) {
-        console.log(`📅 Skipping daily reset schedule for customer ${customer.id} — no settings found`);
+        logger.info(`📅 Skipping daily reset schedule for customer ${customer.id} — no settings found`);
         continue;
       }
 
       if (!settings) {
-        console.log(`📅 Skipping daily reset schedule for customer ${customer.id} — no settings found`);
+        logger.info(`📅 Skipping daily reset schedule for customer ${customer.id} — no settings found`);
         continue;
       }
 
       if (settings?.enableDailyReset === false) {
-        console.log(`📅 Daily reset disabled for customer ${customer.id}`);
+        logger.info(`📅 Daily reset disabled for customer ${customer.id}`);
         continue;
       }
 
       if (settings?.enable24x7Operations === true) {
-        console.log(`📅 Daily reset skipped for customer ${customer.id} - 24/7 operations mode`);
+        logger.info(`📅 Daily reset skipped for customer ${customer.id} - 24/7 operations mode`);
         continue;
       }
 
@@ -162,17 +162,17 @@ export async function setupAutomaticDailyReset(specificCustomerId?: string) {
         ? `${minutes} ${hours} * * *`
         : `${minutes} ${hours} * * 1-5`;
 
-      console.log(`📅 Scheduling daily reset for customer ${customer.id} at ${resetTime} (${timezone}) — ${cronExpression}`);
+      logger.info(`📅 Scheduling daily reset for customer ${customer.id} at ${resetTime} (${timezone}) — ${cronExpression}`);
 
       const task = cron.schedule(cronExpression, async () => {
         try {
-          console.log(`🔄 Daily reset firing for customer ${customer.id} at ${new Date().toLocaleString()}`);
+          logger.info(`🔄 Daily reset firing for customer ${customer.id} at ${new Date().toLocaleString()}`);
 
           // Re-read settings fresh so any changes since startup take effect
           const currentSettings = await simpleDatabaseService.getCompanySettings(context);
 
           if (currentSettings?.enableDailyReset === false || currentSettings?.enable24x7Operations === true) {
-            console.log(`📅 Daily reset skipped for customer ${customer.id} — disabled in current settings`);
+            logger.info(`📅 Daily reset skipped for customer ${customer.id} — disabled in current settings`);
             return;
           }
 
@@ -180,7 +180,7 @@ export async function setupAutomaticDailyReset(specificCustomerId?: string) {
           if (!enableHolidayReset) {
             const isHoliday = await checkIfHoliday(new Date());
             if (isHoliday) {
-              console.log(`📅 Daily reset skipped for customer ${customer.id} — public holiday`);
+              logger.info(`📅 Daily reset skipped for customer ${customer.id} — public holiday`);
               return;
             }
           }
@@ -194,26 +194,26 @@ export async function setupAutomaticDailyReset(specificCustomerId?: string) {
             setTimeout(async () => {
               try {
                 const result = await performDailyReset(false, context);
-                console.log(`🔄 Automatic daily reset completed for customer ${customer.id}:`, result);
+                logger.info(`🔄 Automatic daily reset completed for customer ${customer.id}:`, result);
               } catch (err) {
-                console.error(`❌ Delayed daily reset failed for customer ${customer.id}:`, err);
+                logger.error(`❌ Delayed daily reset failed for customer ${customer.id}:`, err);
               }
             }, gracePeriodMinutes * 60 * 1000);
           } else {
             const result = await performDailyReset(false, context);
-            console.log(`🔄 Automatic daily reset completed for customer ${customer.id}:`, result);
+            logger.info(`🔄 Automatic daily reset completed for customer ${customer.id}:`, result);
           }
         } catch (error) {
-          console.error(`❌ Error in daily reset cron for customer ${customer.id}:`, error);
+          logger.error(`❌ Error in daily reset cron for customer ${customer.id}:`, error);
         }
       }, { timezone });
 
       dailyResetTasks.set(customer.id, task);
     }
 
-    console.log(`✅ Daily reset scheduled for ${dailyResetTasks.size} customer(s)`);
+    logger.info(`✅ Daily reset scheduled for ${dailyResetTasks.size} customer(s)`);
   } catch (error) {
-    console.error("❌ Error setting up automatic daily reset:", error);
+    logger.error("❌ Error setting up automatic daily reset:", error);
   }
 }
 
@@ -324,7 +324,7 @@ export function registerInductionRoutes(app: Express): void {
       });
       
     } catch (error) {
-      console.error('Error getting induction token:', error);
+      logger.error('Error getting induction token:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -392,7 +392,7 @@ export function registerInductionRoutes(app: Express): void {
 
       return res.status(404).json({ error: 'No video content available for this induction' });
     } catch (error) {
-      console.error('Error fetching induction video by token:', error);
+      logger.error('Error fetching induction video by token:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -437,7 +437,7 @@ export function registerInductionRoutes(app: Express): void {
       const fullPath = `${privateObjectDir}/induction-videos/${context.customerId}/${objectId}.${ext}`;
       const { bucketName, objectName } = parseObjectStoragePath(fullPath);
 
-      console.log(`📹 Uploading custom induction video: bucket=${bucketName} object=${objectName} size=${req.file.size}`);
+      logger.info(`📹 Uploading custom induction video: bucket=${bucketName} object=${objectName} size=${req.file.size}`);
       const bucket = objectStorageClient.bucket(bucketName);
       const file = bucket.file(objectName);
       await file.save(req.file.buffer, { contentType: mimeType, resumable: req.file.size > 5 * 1024 * 1024 });
@@ -451,10 +451,10 @@ export function registerInductionRoutes(app: Express): void {
         .set({ customVideoUrl: storedPath, updatedAt: new Date() })
         .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
 
-      console.log(`✅ Custom video saved: ${storedPath} for role=${roleType} customer=${context.customerId}`);
+      logger.info(`✅ Custom video saved: ${storedPath} for role=${roleType} customer=${context.customerId}`);
       return res.json({ success: true, url: storedPath });
     } catch (error: any) {
-      console.error('Error uploading induction video:', error);
+      logger.error('Error uploading induction video:', error);
       return res.status(500).json({ error: error.message || 'Failed to upload video' });
     }
   });
@@ -483,7 +483,7 @@ export function registerInductionRoutes(app: Express): void {
           const fullPath = `${privateObjectDir}${row.customVideoUrl}`;
           const { bucketName, objectName } = parseObjectStoragePath(fullPath);
           await objectStorageClient.bucket(bucketName).file(objectName).delete({ ignoreNotFound: true });
-          console.log(`🗑️ Deleted custom induction video: ${row.customVideoUrl}`);
+          logger.info(`🗑️ Deleted custom induction video: ${row.customVideoUrl}`);
         } catch (_delErr) {
           console.warn('Could not delete video from object storage (non-fatal)');
         }
@@ -496,7 +496,7 @@ export function registerInductionRoutes(app: Express): void {
 
       return res.json({ success: true });
     } catch (error: any) {
-      console.error('Error deleting induction video:', error);
+      logger.error('Error deleting induction video:', error);
       return res.status(500).json({ error: error.message || 'Failed to delete video' });
     }
   });
@@ -562,7 +562,7 @@ export function registerInductionRoutes(app: Express): void {
         file.createReadStream().pipe(res);
       }
     } catch (error) {
-      console.error('Error streaming custom induction video:', error);
+      logger.error('Error streaming custom induction video:', error);
       if (!res.headersSent) res.status(500).json({ error: 'Failed to stream video' });
     }
   });
@@ -612,7 +612,7 @@ export function registerInductionRoutes(app: Express): void {
 
       res.json({ questions: allQuestions });
     } catch (error) {
-      console.error('Error getting induction questions:', error);
+      logger.error('Error getting induction questions:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -665,7 +665,7 @@ export function registerInductionRoutes(app: Express): void {
             eq(inductionQuestions.roleType, roleType),
             eq(inductionQuestions.isActive, false)
           ));
-        console.log(`🧹 Nuclear cleanup: deleted all questions for ${roleType} (customer: ${customerId})`);
+        logger.info(`🧹 Nuclear cleanup: deleted all questions for ${roleType} (customer: ${customerId})`);
         res.json({ success: true, message: `All questions cleared for ${roleType}`, deleted: deletedCount });
       } else {
         // Standard: delete inactive + legacy (non-customerVideoId) questions
@@ -681,11 +681,11 @@ export function registerInductionRoutes(app: Express): void {
             eq(inductionQuestions.roleType, roleType),
             eq(inductionQuestions.videoId, roleType)
           ));
-        console.log(`🧹 Cleanup: deleted stale/inactive questions for ${roleType}`);
+        logger.info(`🧹 Cleanup: deleted stale/inactive questions for ${roleType}`);
         res.json({ success: true, message: `Cleaned up stale questions for ${roleType}` });
       }
     } catch (error) {
-      console.error('Error cleaning up questions:', error);
+      logger.error('Error cleaning up questions:', error);
       res.status(500).json({ error: 'Failed to cleanup questions' });
     }
   });
@@ -716,7 +716,7 @@ export function registerInductionRoutes(app: Express): void {
         .limit(100);
       res.json(rows);
     } catch (error) {
-      console.error('Error listing admin induction tokens:', error);
+      logger.error('Error listing admin induction tokens:', error);
       res.status(500).json({ error: 'Failed to load tokens' });
     }
   });
@@ -738,7 +738,7 @@ export function registerInductionRoutes(app: Express): void {
         .where(eq(inductionTokens.id, tokenId));
       res.json({ success: true });
     } catch (error) {
-      console.error('Error resetting quiz attempts:', error);
+      logger.error('Error resetting quiz attempts:', error);
       res.status(500).json({ error: 'Failed to reset quiz attempts' });
     }
   });
@@ -759,7 +759,7 @@ export function registerInductionRoutes(app: Express): void {
       
       res.json({ success: true });
     } catch (error) {
-      console.error('Error marking video watched:', error);
+      logger.error('Error marking video watched:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -817,7 +817,7 @@ export function registerInductionRoutes(app: Express): void {
       db.update(inductionTokens)
         .set({ inductionTopicsCovered: topicsCovered } as any)
         .where(eq(inductionTokens.id, tokenId))
-        .catch(err => console.error('⚠️ Failed to persist inductionTopicsCovered:', err));
+        .catch(err => logger.error('⚠️ Failed to persist inductionTopicsCovered:', err));
 
       // Await worker induction status update — must complete before response is sent
       let workerUpdateWarning: string | undefined;
@@ -865,13 +865,13 @@ export function registerInductionRoutes(app: Express): void {
           }
         }
       } catch (workerErr) {
-        console.error('⚠️ Failed to update worker induction record:', workerErr);
+        logger.error('⚠️ Failed to update worker induction record:', workerErr);
         workerUpdateWarning = 'Result recorded but worker record update failed — please contact support.';
       }
 
       res.json({ results, topicsCovered, ...(workerUpdateWarning ? { warning: workerUpdateWarning } : {}) });
     } catch (error) {
-      console.error('Error submitting quiz:', error);
+      logger.error('Error submitting quiz:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -896,7 +896,7 @@ export function registerInductionRoutes(app: Express): void {
         res.status(500).json({ error: 'Failed to send induction email' });
       }
     } catch (error) {
-      console.error('Error sending induction email:', error);
+      logger.error('Error sending induction email:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -940,7 +940,7 @@ export function registerInductionRoutes(app: Express): void {
         res.status(500).json({ error: 'Failed to send induction email' });
       }
     } catch (error) {
-      console.error('Error sending universal induction email:', error);
+      logger.error('Error sending universal induction email:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -994,10 +994,10 @@ export function registerInductionRoutes(app: Express): void {
         workerStatus: workerRaw.worker_status,
       };
 
-      console.log(`🔍 QR lookup found worker: ${worker.firstName} ${worker.lastName} (${worker.isCheckedIn ? 'checked in' : 'checked out'})`);
+      logger.info(`🔍 QR lookup found worker: ${worker.firstName} ${worker.lastName} (${worker.isCheckedIn ? 'checked in' : 'checked out'})`);
       res.json({ worker, companyName: companyRaw?.company_name || 'Unknown Company' });
     } catch (error) {
-      console.error('Error looking up worker by QR:', error);
+      logger.error('Error looking up worker by QR:', error);
       res.status(500).json({ error: 'Failed to look up worker' });
     }
   });
@@ -1007,7 +1007,7 @@ export function registerInductionRoutes(app: Express): void {
     try {
       const workerId = req.params.id;
       
-      console.log(`📋 API ROUTE - Getting contractor worker with ID: ${workerId}`);
+      logger.info(`📋 API ROUTE - Getting contractor worker with ID: ${workerId}`);
       
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -1017,13 +1017,13 @@ export function registerInductionRoutes(app: Express): void {
       const worker = await databaseService.getContractorWorkerById(context, workerId);
       
       if (!worker) {
-        console.log(`❌ API ROUTE - Worker not found: ${workerId}`);
+        logger.info(`❌ API ROUTE - Worker not found: ${workerId}`);
         return res.status(404).json({ error: "Contractor worker not found" });
       }
 
       // CRITICAL FIX: Database service already returns correctly mapped fields
       // Log all fields to verify they're properly mapped
-      console.log(`✅ API ROUTE - Retrieved contractor worker:`, {
+      logger.info(`✅ API ROUTE - Retrieved contractor worker:`, {
         id: worker.id,
         firstName: worker.firstName,
         lastName: worker.lastName,
@@ -1054,10 +1054,10 @@ export function registerInductionRoutes(app: Express): void {
         inductionCompleted: worker.inductionCompleted || false,
       };
 
-      console.log(`✅ API ROUTE - Sending response for worker: ${worker.firstName} ${worker.lastName}`);
+      logger.info(`✅ API ROUTE - Sending response for worker: ${worker.firstName} ${worker.lastName}`);
       res.json(responseWorker);
     } catch (error) {
-      console.error("❌ API ROUTE - Error fetching contractor worker:", error);
+      logger.error("❌ API ROUTE - Error fetching contractor worker:", error);
       res.status(500).json({ error: "Failed to fetch contractor worker" });
     }
   });
@@ -1069,7 +1069,7 @@ export function registerInductionRoutes(app: Express): void {
     
     try {
       const workerId = req.params.id;
-      console.log('🔄 Updating contractor worker', workerId, 'with data:', req.body);
+      logger.info('🔄 Updating contractor worker', workerId, 'with data:', req.body);
       
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -1111,37 +1111,37 @@ export function registerInductionRoutes(app: Express): void {
       // cscsStatus: Keep as string (valid, pending, expired, none) - DO NOT convert to boolean
       if (uiData.cscsStatus !== undefined) {
         mappedData.cscsStatus = uiData.cscsStatus; // Keep as string
-        console.log(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' (${typeof uiData.cscsStatus}) → cscsStatus: ${mappedData.cscsStatus}`);
+        logger.info(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' (${typeof uiData.cscsStatus}) → cscsStatus: ${mappedData.cscsStatus}`);
       }
       
       // inductionCompleted: Pass through directly - field name matches database
       if (uiData.inductionCompleted !== undefined) {
         mappedData.inductionCompleted = uiData.inductionCompleted;
-        console.log(`🔄 Mapped inductionCompleted: ${uiData.inductionCompleted} → inductionCompleted: ${mappedData.inductionCompleted}`);
+        logger.info(`🔄 Mapped inductionCompleted: ${uiData.inductionCompleted} → inductionCompleted: ${mappedData.inductionCompleted}`);
       }
       
       // IPAF Status: Map to database field if it exists (needs to be checked against schema)
       if (uiData.ipafStatus !== undefined) {
         // Note: Need to verify if ipafStatus field exists in database schema
         mappedData.ipafStatus = uiData.ipafStatus;
-        console.log(`🔄 Mapped ipafStatus: '${uiData.ipafStatus}' → ipafStatus: '${mappedData.ipafStatus}'`);
+        logger.info(`🔄 Mapped ipafStatus: '${uiData.ipafStatus}' → ipafStatus: '${mappedData.ipafStatus}'`);
       }
       
       // Safety training boolean fields - map to database fields if they exist
       if (uiData.asbestosAwareness !== undefined) {
         mappedData.asbestosAwareness = Boolean(uiData.asbestosAwareness);
-        console.log(`🔄 Mapped asbestosAwareness: ${uiData.asbestosAwareness} → asbestosAwareness: ${mappedData.asbestosAwareness}`);
+        logger.info(`🔄 Mapped asbestosAwareness: ${uiData.asbestosAwareness} → asbestosAwareness: ${mappedData.asbestosAwareness}`);
       }
       
       if (uiData.manualHandling !== undefined) {
         mappedData.manualHandling = Boolean(uiData.manualHandling);
-        console.log(`🔄 Mapped manualHandling: ${uiData.manualHandling} → manualHandling: ${mappedData.manualHandling}`);
+        logger.info(`🔄 Mapped manualHandling: ${uiData.manualHandling} → manualHandling: ${mappedData.manualHandling}`);
       }
 
       // needsEvacuationAssistance (PEEP flag): direct boolean passthrough
       if (uiData.needsEvacuationAssistance !== undefined) {
         mappedData.needsEvacuationAssistance = Boolean(uiData.needsEvacuationAssistance);
-        console.log(`🔄 Mapped needsEvacuationAssistance: ${uiData.needsEvacuationAssistance} → ${mappedData.needsEvacuationAssistance}`);
+        logger.info(`🔄 Mapped needsEvacuationAssistance: ${uiData.needsEvacuationAssistance} → ${mappedData.needsEvacuationAssistance}`);
       }
 
       // Boolean fields that can be passed through directly (only include fields that exist in database schema)
@@ -1155,12 +1155,12 @@ export function registerInductionRoutes(app: Express): void {
       // Always set updatedAt
       mappedData.updatedAt = new Date();
       
-      console.log('🗃️ Final mapped data for database:', mappedData);
-      console.log('🔍 ROUTE - About to validate with Zod schema...');
-      console.log('🔍 ROUTE - Critical fields before validation:');
-      console.log(`  - rightToWork: ${mappedData.rightToWork}`);
-      console.log(`  - cscsStatus: ${mappedData.cscsStatus}`);
-      console.log(`  - inductionCompleted: ${mappedData.inductionCompleted}`);
+      logger.info('🗃️ Final mapped data for database:', mappedData);
+      logger.info('🔍 ROUTE - About to validate with Zod schema...');
+      logger.info('🔍 ROUTE - Critical fields before validation:');
+      logger.info(`  - rightToWork: ${mappedData.rightToWork}`);
+      logger.info(`  - cscsStatus: ${mappedData.cscsStatus}`);
+      logger.info(`  - inductionCompleted: ${mappedData.inductionCompleted}`);
       
       // Validate mapped data with schema
       const validatedData = insertContractorWorkerSchema.partial().parse(mappedData);
@@ -1169,27 +1169,27 @@ export function registerInductionRoutes(app: Express): void {
       // The insertContractorWorkerSchema may be missing these fields, so we manually preserve them
       if (mappedData.inductionCompleted !== undefined) {
         validatedData.inductionCompleted = mappedData.inductionCompleted;
-        console.log(`🔧 MANUAL FIX: Preserved inductionCompleted: ${validatedData.inductionCompleted}`);
+        logger.info(`🔧 MANUAL FIX: Preserved inductionCompleted: ${validatedData.inductionCompleted}`);
       }
       
       if (mappedData.ipafStatus !== undefined) {
         validatedData.ipafStatus = mappedData.ipafStatus;
-        console.log(`🔧 MANUAL FIX: Preserved ipafStatus: ${validatedData.ipafStatus}`);
+        logger.info(`🔧 MANUAL FIX: Preserved ipafStatus: ${validatedData.ipafStatus}`);
       }
       
       if (mappedData.asbestosAwareness !== undefined) {
         validatedData.asbestosAwareness = mappedData.asbestosAwareness;
-        console.log(`🔧 MANUAL FIX: Preserved asbestosAwareness: ${validatedData.asbestosAwareness}`);
+        logger.info(`🔧 MANUAL FIX: Preserved asbestosAwareness: ${validatedData.asbestosAwareness}`);
       }
       
       if (mappedData.manualHandling !== undefined) {
         validatedData.manualHandling = mappedData.manualHandling;
-        console.log(`🔧 MANUAL FIX: Preserved manualHandling: ${validatedData.manualHandling}`);
+        logger.info(`🔧 MANUAL FIX: Preserved manualHandling: ${validatedData.manualHandling}`);
       }
       
       if (mappedData.transportMethod !== undefined) {
         validatedData.transportMethod = mappedData.transportMethod;
-        console.log(`🔧 MANUAL FIX: Preserved transportMethod: ${validatedData.transportMethod}`);
+        logger.info(`🔧 MANUAL FIX: Preserved transportMethod: ${validatedData.transportMethod}`);
       }
 
       if (mappedData.needsEvacuationAssistance !== undefined) {
@@ -1199,27 +1199,27 @@ export function registerInductionRoutes(app: Express): void {
       // MANUAL FIX: Preserve phone/phoneNumber — Zod strips 'phoneNumber' because shared schema uses 'phone'
       if (mappedData.phoneNumber !== undefined) {
         (validatedData as any).phoneNumber = mappedData.phoneNumber;
-        console.log(`🔧 MANUAL FIX: Preserved phoneNumber: ${mappedData.phoneNumber}`);
+        logger.info(`🔧 MANUAL FIX: Preserved phoneNumber: ${mappedData.phoneNumber}`);
       }
       if (mappedData.phone !== undefined && mappedData.phoneNumber === undefined) {
         (validatedData as any).phone = mappedData.phone;
-        console.log(`🔧 MANUAL FIX: Preserved phone: ${mappedData.phone}`);
+        logger.info(`🔧 MANUAL FIX: Preserved phone: ${mappedData.phone}`);
       }
 
       // MANUAL FIX: Preserve photoUrl in case Zod strips it
       if (mappedData.photoUrl !== undefined) {
         (validatedData as any).photoUrl = mappedData.photoUrl;
-        console.log(`🔧 MANUAL FIX: Preserved photoUrl: ${mappedData.photoUrl}`);
+        logger.info(`🔧 MANUAL FIX: Preserved photoUrl: ${mappedData.photoUrl}`);
       }
       
-      console.log('🔍 ROUTE - Zod validation completed. Result:');
-      console.log('🔍 ROUTE - Validated data keys:', Object.keys(validatedData));
-      console.log('🔍 ROUTE - Critical fields after validation:');
-      console.log(`  - rightToWork: ${validatedData.rightToWork}`);
-      console.log(`  - cscsStatus: ${validatedData.cscsStatus}`);
-      console.log(`  - inductionCompleted: ${validatedData.inductionCompleted}`);
+      logger.info('🔍 ROUTE - Zod validation completed. Result:');
+      logger.info('🔍 ROUTE - Validated data keys:', Object.keys(validatedData));
+      logger.info('🔍 ROUTE - Critical fields after validation:');
+      logger.info(`  - rightToWork: ${validatedData.rightToWork}`);
+      logger.info(`  - cscsStatus: ${validatedData.cscsStatus}`);
+      logger.info(`  - inductionCompleted: ${validatedData.inductionCompleted}`);
       
-      console.log('🔍 ROUTE - About to call databaseService.updateContractorWorker with:', validatedData);
+      logger.info('🔍 ROUTE - About to call databaseService.updateContractorWorker with:', validatedData);
       
       // Fetch current worker state BEFORE update for audit trail comparison
       const currentWorker = await databaseService.getContractorWorkerById(context, workerId);
@@ -1229,7 +1229,7 @@ export function registerInductionRoutes(app: Express): void {
       
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, validatedData);
       
-      console.log('🔍 ROUTE - databaseService.updateContractorWorker returned:', updatedWorker);
+      logger.info('🔍 ROUTE - databaseService.updateContractorWorker returned:', updatedWorker);
       
       if (!updatedWorker) {
         return res.status(404).json({ error: 'Contractor worker not found' });
@@ -1304,14 +1304,14 @@ export function registerInductionRoutes(app: Express): void {
                 changedBy: username,
               });
             } catch (noteErr) {
-              console.error(`Failed to create audit note for ${field}:`, noteErr);
+              logger.error(`Failed to create audit note for ${field}:`, noteErr);
             }
           }
         }
       }
       
       if (changes.length > 0) {
-        console.log(`📋 AUDIT: ${changes.length} changes recorded by ${username}: ${changes.join(', ')}`);
+        logger.info(`📋 AUDIT: ${changes.length} changes recorded by ${username}: ${changes.join(', ')}`);
       }
 
       // Response field mapping: Convert database field names back to UI field names
@@ -1324,14 +1324,14 @@ export function registerInductionRoutes(app: Express): void {
       res.json({ success: true, worker: responseData });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        console.error('❌ Zod validation error for contractor worker update:', error.errors);
-        console.error('❌ Mapped data that failed validation:', mappedData);
+        logger.error('❌ Zod validation error for contractor worker update:', error.errors);
+        logger.error('❌ Mapped data that failed validation:', mappedData);
         return res.status(400).json({ 
           error: 'Invalid data', 
           details: error.errors 
         });
       }
-      console.error('❌ Database error updating contractor worker:', error);
+      logger.error('❌ Database error updating contractor worker:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   });
@@ -1340,7 +1340,7 @@ export function registerInductionRoutes(app: Express): void {
   app.post('/api/contractors/workers/:id/reset-card', requireAuth, async (req, res) => {
     try {
       const workerId = req.params.id;
-      console.log('🟡 Resetting card to yellow for worker:', workerId);
+      logger.info('🟡 Resetting card to yellow for worker:', workerId);
       
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -1373,9 +1373,9 @@ export function registerInductionRoutes(app: Express): void {
       try {
         const db = await customerDbService.getCustomerDatabase(context.customerId);
         await db.insert(isolatedSchema.workerNotes).values(noteData);
-        console.log('✅ Created audit trail note for card reset');
+        logger.info('✅ Created audit trail note for card reset');
       } catch (noteError) {
-        console.error('⚠️ Failed to create audit note (continuing anyway):', noteError);
+        logger.error('⚠️ Failed to create audit note (continuing anyway):', noteError);
       }
       
       res.json({ 
@@ -1385,7 +1385,7 @@ export function registerInductionRoutes(app: Express): void {
       });
       
     } catch (error) {
-      console.error('❌ Error resetting card to yellow:', error);
+      logger.error('❌ Error resetting card to yellow:', error);
       res.status(500).json({ error: 'Failed to reset card status' });
     }
   });
@@ -1396,7 +1396,7 @@ export function registerInductionRoutes(app: Express): void {
       const workerId = req.params.id;
       const { changeType, notes } = req.body;
       
-      console.log('📝 Adding manual note for worker:', workerId);
+      logger.info('📝 Adding manual note for worker:', workerId);
       
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
@@ -1419,7 +1419,7 @@ export function registerInductionRoutes(app: Express): void {
       try {
         const db = await customerDbService.getCustomerDatabase(context.customerId);
         const [insertedNote] = await db.insert(isolatedSchema.workerNotes).values(noteData).returning();
-        console.log('✅ Created manual note successfully');
+        logger.info('✅ Created manual note successfully');
         
         res.json({ 
           success: true, 
@@ -1427,12 +1427,12 @@ export function registerInductionRoutes(app: Express): void {
           note: insertedNote 
         });
       } catch (noteError) {
-        console.error('❌ Failed to create manual note:', noteError);
+        logger.error('❌ Failed to create manual note:', noteError);
         res.status(500).json({ error: 'Failed to save note' });
       }
       
     } catch (error) {
-      console.error('❌ Error adding manual note:', error);
+      logger.error('❌ Error adding manual note:', error);
       res.status(500).json({ error: 'Failed to add note' });
     }
   });
@@ -1463,7 +1463,7 @@ export function registerInductionRoutes(app: Express): void {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
       res.json({ uploadURL });
     } catch (error) {
-      console.error('❌ Error getting upload URL:', error);
+      logger.error('❌ Error getting upload URL:', error);
       res.status(500).json({ error: 'Failed to get upload URL' });
     }
   });
@@ -1478,7 +1478,7 @@ export function registerInductionRoutes(app: Express): void {
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const db = await customerDbService.getCustomerDatabase(context.customerId);
       
-      console.log('📄 Creating document record for worker:', workerId);
+      logger.info('📄 Creating document record for worker:', workerId);
       
       // Validate worker exists
       const [worker] = await db
@@ -1522,7 +1522,7 @@ export function registerInductionRoutes(app: Express): void {
         .values(documentData)
         .returning();
       
-      console.log('✅ Document saved successfully:', newDocument.id);
+      logger.info('✅ Document saved successfully:', newDocument.id);
 
       // Reset expiryAlertedAt on any previous document of the same type for this worker
       // so the nightly cron can alert on the new document's expiry date
@@ -1537,7 +1537,7 @@ export function registerInductionRoutes(app: Express): void {
               ne(isolatedSchema.contractorDocuments.id, newDocument.id)
             ));
         } catch (resetErr) {
-          console.error('⚠️ Failed to reset expiryAlertedAt on previous worker documents (continuing):', resetErr);
+          logger.error('⚠️ Failed to reset expiryAlertedAt on previous worker documents (continuing):', resetErr);
         }
       }
 
@@ -1552,7 +1552,7 @@ export function registerInductionRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('⚠️ Failed to create document upload audit note (continuing):', auditErr);
+        logger.error('⚠️ Failed to create document upload audit note (continuing):', auditErr);
       }
 
       res.json({ 
@@ -1561,7 +1561,7 @@ export function registerInductionRoutes(app: Express): void {
       });
       
     } catch (error) {
-      console.error('❌ Error saving document:', error);
+      logger.error('❌ Error saving document:', error);
       res.status(500).json({ error: 'Failed to save document' });
     }
   });
@@ -1589,7 +1589,7 @@ export function registerInductionRoutes(app: Express): void {
       res.json(documents);
       
     } catch (error) {
-      console.error('❌ Error fetching documents:', error);
+      logger.error('❌ Error fetching documents:', error);
       res.status(500).json({ error: 'Failed to fetch documents' });
     }
   });
@@ -1603,7 +1603,7 @@ export function registerInductionRoutes(app: Express): void {
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const db = await customerDbService.getCustomerDatabase(context.customerId);
       
-      console.log('🗑️ Deleting document:', documentId);
+      logger.info('🗑️ Deleting document:', documentId);
       
       // Soft delete by setting isActive to false
       const [deletedDoc] = await db
@@ -1616,7 +1616,7 @@ export function registerInductionRoutes(app: Express): void {
           )
         ).returning();
       
-      console.log('✅ Document deleted successfully');
+      logger.info('✅ Document deleted successfully');
 
       // Audit trail — worker document deleted
       try {
@@ -1629,13 +1629,13 @@ export function registerInductionRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('⚠️ Failed to create document delete audit note (continuing):', auditErr);
+        logger.error('⚠️ Failed to create document delete audit note (continuing):', auditErr);
       }
 
       res.json({ success: true, message: 'Document deleted' });
       
     } catch (error) {
-      console.error('❌ Error deleting document:', error);
+      logger.error('❌ Error deleting document:', error);
       res.status(500).json({ error: 'Failed to delete document' });
     }
   });
@@ -1700,7 +1700,7 @@ export function registerInductionRoutes(app: Express): void {
               claudeKeyRow.authTag || ''
             );
             const { scanDocumentWithClaude } = await import('../claudeService');
-            console.log('⚠️ OpenAI scan failed — falling back to Claude:', result.error);
+            logger.info('⚠️ OpenAI scan failed — falling back to Claude:', result.error);
             if (pdfText !== undefined) {
               result = await scanDocumentWithClaude({ mimeType, pdfText, documentType, apiKey: claudeApiKey });
             } else {
@@ -1708,7 +1708,7 @@ export function registerInductionRoutes(app: Express): void {
             }
           }
         } catch (fallbackErr) {
-          console.error('❌ Claude fallback error:', fallbackErr);
+          logger.error('❌ Claude fallback error:', fallbackErr);
           // Keep the original OpenAI failure result
         }
       }
@@ -1738,7 +1738,7 @@ export function registerInductionRoutes(app: Express): void {
 
       return res.json({ fields: { expiryDate, issuedBy, policyNumber } });
     } catch (error) {
-      console.error('❌ Document scan error:', error);
+      logger.error('❌ Document scan error:', error);
       return res.status(500).json({ error: 'Failed to scan document' });
     }
   });
@@ -1772,7 +1772,7 @@ export function registerInductionRoutes(app: Express): void {
     
     cron.schedule(cronExpression, async () => {
       try {
-        console.log("Generating automatic report...");
+        logger.info("Generating automatic report...");
         
         const now = new Date();
         let fromDate = new Date();
@@ -1845,9 +1845,9 @@ export function registerInductionRoutes(app: Express): void {
           });
         }
         
-        console.log(`Automatic ${settings.reportFrequency} report sent:`, emailSent);
+        logger.info(`Automatic ${settings.reportFrequency} report sent:`, emailSent);
       } catch (error) {
-        console.error("Error in automatic report generation:", error);
+        logger.error("Error in automatic report generation:", error);
       }
     });
   };
@@ -1871,7 +1871,7 @@ export function registerInductionRoutes(app: Express): void {
         analysis
       });
     } catch (error) {
-      console.error("Failed to generate competitive analysis:", error);
+      logger.error("Failed to generate competitive analysis:", error);
       res.status(500).json({ error: "Failed to generate competitive analysis" });
     }
   });
@@ -1894,7 +1894,7 @@ export function registerInductionRoutes(app: Express): void {
         metrics
       });
     } catch (error) {
-      console.error("Failed to generate success metrics:", error);
+      logger.error("Failed to generate success metrics:", error);
       res.status(500).json({ error: "Failed to generate success metrics" });
     }
   });
@@ -1916,7 +1916,7 @@ export function registerInductionRoutes(app: Express): void {
         optimization
       });
     } catch (error) {
-      console.error("Failed to generate flow optimization:", error);
+      logger.error("Failed to generate flow optimization:", error);
       res.status(500).json({ error: "Failed to generate flow optimization" });
     }
   });
@@ -1940,7 +1940,7 @@ export function registerInductionRoutes(app: Express): void {
         pitch
       });
     } catch (error) {
-      console.error("Failed to generate sales pitch:", error);
+      logger.error("Failed to generate sales pitch:", error);
       res.status(500).json({ error: "Failed to generate sales pitch" });
     }
   });
@@ -1965,7 +1965,7 @@ export function registerInductionRoutes(app: Express): void {
         riskLevel: alert.toLowerCase().includes('immediate') ? 'high' : 'medium'
       });
     } catch (error) {
-      console.error("AI security alert error:", error);
+      logger.error("AI security alert error:", error);
       res.status(500).json({ error: "Failed to generate security alert" });
     }
   });
@@ -2053,7 +2053,7 @@ export function registerInductionRoutes(app: Express): void {
       res.send(backupContent);
 
     } catch (error: any) {
-      console.error("❌ Database backup error:", error);
+      logger.error("❌ Database backup error:", error);
       res.status(500).json({ error: "Failed to create database backup" });
     }
   });
@@ -2154,7 +2154,7 @@ export function registerInductionRoutes(app: Express): void {
             restoredRecords += records.length;
 
           } catch (error: any) {
-            console.error(`❌ Error restoring table ${table}:`, error);
+            logger.error(`❌ Error restoring table ${table}:`, error);
             errors.push({ table, error: error.message });
           }
         }
@@ -2174,7 +2174,7 @@ export function registerInductionRoutes(app: Express): void {
       });
 
     } catch (error: any) {
-      console.error("Database restore error:", error);
+      logger.error("Database restore error:", error);
       res.status(500).json({ error: "Failed to restore database" });
     }
   });
@@ -2196,7 +2196,7 @@ export function registerInductionRoutes(app: Express): void {
         analysis
       });
     } catch (error) {
-      console.error("AI photo analysis error:", error);
+      logger.error("AI photo analysis error:", error);
       res.status(500).json({ error: "Failed to analyze photo" });
     }
   });
@@ -2222,7 +2222,7 @@ export function registerInductionRoutes(app: Express): void {
         roi: roiAnalysis
       });
     } catch (error) {
-      console.error("AI ROI analysis error:", error);
+      logger.error("AI ROI analysis error:", error);
       res.status(500).json({ error: "Failed to generate ROI analysis" });
     }
   });
@@ -2246,7 +2246,7 @@ export function registerInductionRoutes(app: Express): void {
         sentiment
       });
     } catch (error) {
-      console.error("AI sentiment analysis error:", error);
+      logger.error("AI sentiment analysis error:", error);
       res.status(500).json({ error: "Failed to analyze visitor sentiment" });
     }
   });
@@ -2269,7 +2269,7 @@ export function registerInductionRoutes(app: Express): void {
         compliance
       });
     } catch (error) {
-      console.error("AI compliance analysis error:", error);
+      logger.error("AI compliance analysis error:", error);
       res.status(500).json({ error: "Failed to generate compliance analysis" });
     }
   });
@@ -2292,7 +2292,7 @@ export function registerInductionRoutes(app: Express): void {
         });
       }
 
-      console.log("🔍 Testing Biostar connection...");
+      logger.info("🔍 Testing Biostar connection...");
 
       // Test connection using new biostarService
       const result = await biostarService.testConnection({
@@ -2302,11 +2302,11 @@ export function registerInductionRoutes(app: Express): void {
         databaseId: settings.biostarDatabaseId || "1",
       });
       
-      console.log("✅ Biostar connection test result:", result);
+      logger.info("✅ Biostar connection test result:", result);
       
       res.json(result);
     } catch (error) {
-      console.error("❌ Biostar connection test failed:", error);
+      logger.error("❌ Biostar connection test failed:", error);
       res.status(500).json({ 
         connected: false, 
         message: "Connection test failed: " + (error as Error).message 
@@ -2340,11 +2340,11 @@ export function registerInductionRoutes(app: Express): void {
         databaseId: settings.biostarDatabaseId || "1",
       };
 
-      console.log('🔄 Starting manual Biostar sync (attendance + staff import)...');
+      logger.info('🔄 Starting manual Biostar sync (attendance + staff import)...');
 
       // --- Step 1: Get all Biostar users and import any new ones as staff ---
       const biostarUsers = await biostarService.getUsers(biostarConfig);
-      console.log(`👥 Biostar: ${biostarUsers.length} users fetched for staff import check`);
+      logger.info(`👥 Biostar: ${biostarUsers.length} users fetched for staff import check`);
 
       // Fetch existing staff to check for duplicates by biostarUserId
       const db = await customerDbService.getCustomerDatabase(customerId);
@@ -2400,9 +2400,9 @@ export function registerInductionRoutes(app: Express): void {
           try {
             await databaseService.updateStaff(context, staffId, updates as any);
             updatedCount++;
-            console.log(`🔄 Biostar: Updated staff "${bUser.name}" (Biostar ID: ${bUser.id}, Card: ${bUser.barcodeNumber || 'none'}, Member: ${bUser.memberNumber || 'none'})`);
+            logger.info(`🔄 Biostar: Updated staff "${bUser.name}" (Biostar ID: ${bUser.id}, Card: ${bUser.barcodeNumber || 'none'}, Member: ${bUser.memberNumber || 'none'})`);
           } catch (err: any) {
-            console.error(`❌ Biostar: Failed to update staff "${bUser.name}":`, err.message);
+            logger.error(`❌ Biostar: Failed to update staff "${bUser.name}":`, err.message);
           }
           continue;
         }
@@ -2448,15 +2448,15 @@ export function registerInductionRoutes(app: Express): void {
           existingEmails.add(email);
           existingEmployeeIds.add(employeeId);
           importedCount++;
-          console.log(`✅ Biostar: Imported staff "${firstName} ${lastName}" (Biostar ID: ${bUser.id}, Card: ${bUser.barcodeNumber || 'none'}, Member: ${bUser.memberNumber || 'none'})`);
+          logger.info(`✅ Biostar: Imported staff "${firstName} ${lastName}" (Biostar ID: ${bUser.id}, Card: ${bUser.barcodeNumber || 'none'}, Member: ${bUser.memberNumber || 'none'})`);
         } catch (err: any) {
-          console.error(`❌ Biostar: Failed to import user "${bUser.name}":`, err.message);
+          logger.error(`❌ Biostar: Failed to import user "${bUser.name}":`, err.message);
           importErrors.push(`${bUser.name}: ${err.message}`);
           skippedCount++;
         }
       }
 
-      console.log(`📊 Biostar staff import: ${importedCount} added, ${updatedCount} updated, ${skippedCount} skipped`);
+      logger.info(`📊 Biostar staff import: ${importedCount} added, ${updatedCount} updated, ${skippedCount} skipped`);
 
       // --- Step 2: Get current on-site users from event logs and update staff check-in status ---
       let onSiteUsers: any[] = [];
@@ -2472,7 +2472,7 @@ export function registerInductionRoutes(app: Express): void {
           syncDeviceRows.map(d => [String(d.id), d.role])
         );
         onSiteUsers = await biostarService.getCurrentOnSiteUsers(biostarConfig, syncDeviceRoles);
-        console.log(`📊 Biostar sync found ${onSiteUsers.length} users on-site`);
+        logger.info(`📊 Biostar sync found ${onSiteUsers.length} users on-site`);
 
         // Build set of BioStar user IDs currently on-site
         const onSiteIds = new Set(onSiteUsers.map((u: any) => String(u.userId)));
@@ -2487,14 +2487,14 @@ export function registerInductionRoutes(app: Express): void {
           .from(isolatedSchema.staff)
           .where(isNotNull(isolatedSchema.staff.biostarUserId));
 
-        console.log(`👥 Biostar: ${allBiostarStaff.length} staff linked to BioStar, reconciling against ${onSiteIds.size} on-site IDs`);
+        logger.info(`👥 Biostar: ${allBiostarStaff.length} staff linked to BioStar, reconciling against ${onSiteIds.size} on-site IDs`);
 
         const now = new Date();
         for (const staffMember of allBiostarStaff) {
           if (!staffMember.biostarUserId) continue;
           const shouldBeIn = onSiteIds.has(String(staffMember.biostarUserId));
 
-          console.log(`🔍 Biostar reconcile: staff biostarId=${staffMember.biostarUserId}, shouldBeIn=${shouldBeIn}, isCheckedIn=${staffMember.isCheckedIn}`);
+          logger.info(`🔍 Biostar reconcile: staff biostarId=${staffMember.biostarUserId}, shouldBeIn=${shouldBeIn}, isCheckedIn=${staffMember.isCheckedIn}`);
 
           if (shouldBeIn && !staffMember.isCheckedIn) {
             // BioStar says on-site but TPR shows off-site → check in
@@ -2503,7 +2503,7 @@ export function registerInductionRoutes(app: Express): void {
               .set({ isCheckedIn: true, checkedInAt: now, checkedOutAt: null, updatedAt: now })
               .where(eq(isolatedSchema.staff.id, staffMember.id));
             attendanceCheckedIn++;
-            console.log(`✅ Biostar attendance: Checked IN staff (biostar id ${staffMember.biostarUserId})`);
+            logger.info(`✅ Biostar attendance: Checked IN staff (biostar id ${staffMember.biostarUserId})`);
           } else if (!shouldBeIn && staffMember.isCheckedIn) {
             // BioStar says off-site but TPR shows on-site → check out
             await db
@@ -2511,12 +2511,12 @@ export function registerInductionRoutes(app: Express): void {
               .set({ isCheckedIn: false, checkedOutAt: now, updatedAt: now })
               .where(eq(isolatedSchema.staff.id, staffMember.id));
             attendanceCheckedOut++;
-            console.log(`✅ Biostar attendance: Checked OUT staff (biostar id ${staffMember.biostarUserId})`);
+            logger.info(`✅ Biostar attendance: Checked OUT staff (biostar id ${staffMember.biostarUserId})`);
           }
         }
 
         if (attendanceCheckedIn > 0 || attendanceCheckedOut > 0) {
-          console.log(`📊 Biostar attendance update: ${attendanceCheckedIn} checked in, ${attendanceCheckedOut} checked out`);
+          logger.info(`📊 Biostar attendance update: ${attendanceCheckedIn} checked in, ${attendanceCheckedOut} checked out`);
         }
       } catch (onSiteErr: any) {
         const msg = (onSiteErr as Error).message || String(onSiteErr);
@@ -2544,7 +2544,7 @@ export function registerInductionRoutes(app: Express): void {
         message: `Sync completed: ${importedCount} new staff imported, ${updatedCount} updated from Biostar${onSiteWarning ? " (on-site tracking unavailable)" : `, ${onSiteUsers.length} users on-site (${attendanceCheckedIn} checked in, ${attendanceCheckedOut} checked out)`}`,
       });
     } catch (error) {
-      console.error("❌ Biostar sync failed:", error);
+      logger.error("❌ Biostar sync failed:", error);
       res.status(500).json({ error: "Sync failed: " + (error as Error).message });
     }
   });
@@ -2591,7 +2591,7 @@ export function registerInductionRoutes(app: Express): void {
         message: `Found ${onSiteUsers.length} users on-site`
       });
     } catch (error) {
-      console.error("❌ Failed to get Biostar staff status:", error);
+      logger.error("❌ Failed to get Biostar staff status:", error);
       res.status(500).json({ 
         enabled: true, 
         onSiteUsers: [],
@@ -2671,7 +2671,7 @@ export function registerInductionRoutes(app: Express): void {
 
       res.json({ users: rows, total: rows.length });
     } catch (err: any) {
-      console.error("❌ BioStar scan-activity error:", err);
+      logger.error("❌ BioStar scan-activity error:", err);
       res.status(500).json({ users: [], error: err.message });
     }
   });
@@ -2776,7 +2776,7 @@ export function registerInductionRoutes(app: Express): void {
         staffReconciliation,
       });
     } catch (err: any) {
-      console.error("❌ BioStar diagnostics error:", err);
+      logger.error("❌ BioStar diagnostics error:", err);
       res.status(500).json({ enabled: true, error: err.message });
     }
   });
@@ -2792,7 +2792,7 @@ export function registerInductionRoutes(app: Express): void {
     const payload = req.body;
 
     // Log the raw payload so we can see exactly what BioStar sends
-    console.log(`📡 BioStar Webhook: received event for customer ${customerId}:`, JSON.stringify(payload).slice(0, 500));
+    logger.info(`📡 BioStar Webhook: received event for customer ${customerId}:`, JSON.stringify(payload).slice(0, 500));
 
     try {
       if (!customerId) return res.status(400).json({ error: "Missing customerId" });
@@ -2844,7 +2844,7 @@ export function registerInductionRoutes(app: Express): void {
             if (!isEntry && !isExit) isEntry = true; // default: treat as entry if code unclear
           }
           // IGNORE role: isEntry=false, isExit=false → event is silently dropped
-          console.log(`📡 BioStar Webhook: device "${deviceConfig.name}" (${deviceId}) role=${deviceConfig.role} → entry=${isEntry} exit=${isExit}`);
+          logger.info(`📡 BioStar Webhook: device "${deviceConfig.name}" (${deviceId}) role=${deviceConfig.role} → entry=${isEntry} exit=${isExit}`);
         } else {
           // Unknown device — auto-register it as ENTRY_EXIT so it shows up in the config UI
           try {
@@ -2852,7 +2852,7 @@ export function registerInductionRoutes(app: Express): void {
               .insert(isolatedSchema.biostarDevices)
               .values({ id: deviceId, name: deviceName || `Device ${deviceId}`, role: 'ENTRY_EXIT', direction: 'BOTH', syncedAt: new Date(), updatedAt: new Date() })
               .onConflictDoNothing();
-            console.log(`📟 BioStar Webhook: Auto-registered unknown device ${deviceId} ("${deviceName || 'unknown'}") as ENTRY_EXIT`);
+            logger.info(`📟 BioStar Webhook: Auto-registered unknown device ${deviceId} ("${deviceName || 'unknown'}") as ENTRY_EXIT`);
           } catch { /* ignore insert errors */ }
           // Fall back to event code logic for this event
           isEntry = biostarService.isEntryEvent(eventTypeCode);
@@ -2864,7 +2864,7 @@ export function registerInductionRoutes(app: Express): void {
         isExit = biostarService.isExitEvent(eventTypeCode);
       }
 
-      console.log(`📡 BioStar Webhook: userId=${userId} device=${deviceId} eventCode=${eventTypeCode} entry=${isEntry} exit=${isExit} method=${detectionMethod} time=${eventTime}`);
+      logger.info(`📡 BioStar Webhook: userId=${userId} device=${deviceId} eventCode=${eventTypeCode} entry=${isEntry} exit=${isExit} method=${detectionMethod} time=${eventTime}`);
 
       // Helper: build and push a live log event
       const deviceRole = (() => {
@@ -2885,7 +2885,7 @@ export function registerInductionRoutes(app: Express): void {
       });
 
       if (!isEntry && !isExit) {
-        console.log(`📡 BioStar Webhook: event ignored (role=IGNORE or unrecognised code)`);
+        logger.info(`📡 BioStar Webhook: event ignored (role=IGNORE or unrecognised code)`);
         pushBiostarEvent(customerId, makeLogEvent('ignored'));
         return res.json({ ok: true, action: 'ignored' });
       }
@@ -2908,23 +2908,23 @@ export function registerInductionRoutes(app: Express): void {
         await webhookDb.update(isolatedSchema.staff)
           .set({ isCheckedIn: true, checkedInAt: now, checkedOutAt: null, updatedAt: now })
           .where(eq(isolatedSchema.staff.id, staffMember.id));
-        console.log(`✅ BioStar Webhook: ${staffName} checked IN (device=${deviceId} event=${eventTypeCode})`);
+        logger.info(`✅ BioStar Webhook: ${staffName} checked IN (device=${deviceId} event=${eventTypeCode})`);
         pushBiostarEvent(customerId, makeLogEvent('checked_in', staffName));
         return res.json({ ok: true, action: 'checked_in', staff: staffName });
       } else if (isExit && staffMember.isCheckedIn) {
         await webhookDb.update(isolatedSchema.staff)
           .set({ isCheckedIn: false, checkedOutAt: now, updatedAt: now })
           .where(eq(isolatedSchema.staff.id, staffMember.id));
-        console.log(`✅ BioStar Webhook: ${staffName} checked OUT (device=${deviceId} event=${eventTypeCode})`);
+        logger.info(`✅ BioStar Webhook: ${staffName} checked OUT (device=${deviceId} event=${eventTypeCode})`);
         pushBiostarEvent(customerId, makeLogEvent('checked_out', staffName));
         return res.json({ ok: true, action: 'checked_out', staff: staffName });
       } else {
-        console.log(`📡 BioStar Webhook: ${staffName} already in correct state — no update`);
+        logger.info(`📡 BioStar Webhook: ${staffName} already in correct state — no update`);
         pushBiostarEvent(customerId, makeLogEvent('no_change', staffName));
         return res.json({ ok: true, action: 'no_change', currentState: staffMember.isCheckedIn ? 'checked_in' : 'checked_out' });
       }
     } catch (err: any) {
-      console.error(`❌ BioStar Webhook error for ${customerId}:`, err.message);
+      logger.error(`❌ BioStar Webhook error for ${customerId}:`, err.message);
       return res.status(500).json({ ok: false, error: err.message });
     }
   });
@@ -3010,7 +3010,7 @@ export function registerInductionRoutes(app: Express): void {
         fetchedAt: new Date().toISOString(),
       });
     } catch (err: any) {
-      console.error(`❌ BioStar live-events error: ${err.message}`);
+      logger.error(`❌ BioStar live-events error: ${err.message}`);
       const stale = liveEventCache.get(cacheKey);
       if (stale) return res.json({ events: stale.rows, source: 'stale_cache', error: err.message });
       res.json({ events: [], error: err.message });
@@ -3041,7 +3041,7 @@ export function registerInductionRoutes(app: Express): void {
       action,
     };
     pushBiostarEvent(customerId, testEvent);
-    console.log(`🧪 BioStar Live Log: test event injected for ${customerId} → action=${action}`);
+    logger.info(`🧪 BioStar Live Log: test event injected for ${customerId} → action=${action}`);
     res.json({ ok: true, event: testEvent });
   });
 
@@ -3105,7 +3105,7 @@ export function registerInductionRoutes(app: Express): void {
                   },
                 });
             }
-            console.log(`📟 Biostar: Synced ${bsDevices.length} devices for ${customerId}`);
+            logger.info(`📟 Biostar: Synced ${bsDevices.length} devices for ${customerId}`);
           }
         }
       }
@@ -3113,7 +3113,7 @@ export function registerInductionRoutes(app: Express): void {
       const devices = await devicesDb.select().from(isolatedSchema.biostarDevices).orderBy(isolatedSchema.biostarDevices.name);
       res.json(devices);
     } catch (err: any) {
-      console.error('❌ GET /api/biostar/devices error:', err.message);
+      logger.error('❌ GET /api/biostar/devices error:', err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -3141,7 +3141,7 @@ export function registerInductionRoutes(app: Express): void {
       const [device] = await devicesDb.select().from(isolatedSchema.biostarDevices).where(eq(isolatedSchema.biostarDevices.id, String(id)));
       res.json(device);
     } catch (err: any) {
-      console.error('❌ POST /api/biostar/devices error:', err.message);
+      logger.error('❌ POST /api/biostar/devices error:', err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -3170,10 +3170,10 @@ export function registerInductionRoutes(app: Express): void {
       await devicesDb.update(isolatedSchema.biostarDevices).set(updateData).where(eq(isolatedSchema.biostarDevices.id, deviceId));
       const [device] = await devicesDb.select().from(isolatedSchema.biostarDevices).where(eq(isolatedSchema.biostarDevices.id, deviceId));
       if (!device) return res.status(404).json({ error: 'Device not found' });
-      console.log(`📟 Biostar device ${deviceId} (${device.name}) updated: role=${device.role}`);
+      logger.info(`📟 Biostar device ${deviceId} (${device.name}) updated: role=${device.role}`);
       res.json(device);
     } catch (err: any) {
-      console.error('❌ PATCH /api/biostar/devices error:', err.message);
+      logger.error('❌ PATCH /api/biostar/devices error:', err.message);
       res.status(500).json({ error: err.message });
     }
   });
@@ -3226,7 +3226,7 @@ export function registerInductionRoutes(app: Express): void {
         await databaseService.checkOutVisitor(resetContext, visitor.id);
         resetCounts.visitorsCheckedOut++;
       } catch (error) {
-        console.error(`Failed to check out visitor ${visitor.id}:`, error);
+        logger.error(`Failed to check out visitor ${visitor.id}:`, error);
       }
     }
     
@@ -3236,7 +3236,7 @@ export function registerInductionRoutes(app: Express): void {
         await databaseService.checkOutStaff(resetContext, staffMember.id);
         resetCounts.staffCheckedOut++;
       } catch (error) {
-        console.error(`Failed to check out staff ${staffMember.id}:`, error);
+        logger.error(`Failed to check out staff ${staffMember.id}:`, error);
       }
     }
     
@@ -3246,7 +3246,7 @@ export function registerInductionRoutes(app: Express): void {
         await databaseService.checkOutContractorWorker(resetContext, contractor.id);
         resetCounts.contractorsCheckedOut++;
       } catch (error) {
-        console.error(`Failed to check out contractor ${contractor.id}:`, error);
+        logger.error(`Failed to check out contractor ${contractor.id}:`, error);
       }
     }
 
@@ -3258,7 +3258,7 @@ export function registerInductionRoutes(app: Express): void {
           .where(eq(isolatedSchema.members.id, member.id));
         resetCounts.membersCheckedOut++;
       } catch (error) {
-        console.error(`Failed to check out member ${member.id}:`, error);
+        logger.error(`Failed to check out member ${member.id}:`, error);
       }
     }
     
@@ -3268,7 +3268,7 @@ export function registerInductionRoutes(app: Express): void {
         lastDailyReset: resetTime.toISOString()
       });
     } catch (error) {
-      console.error("Failed to update lastDailyReset in settings:", error);
+      logger.error("Failed to update lastDailyReset in settings:", error);
     }
     
     // Send notification emails if configured
@@ -3298,13 +3298,13 @@ export function registerInductionRoutes(app: Express): void {
             try {
               await emailService.forCustomer(resetContext.customerId).sendEmail({ to: email, subject: subject, html: `<pre>${message}</pre>`, text: message  });
             } catch (error) {
-              console.error(`Failed to send reset notification to ${email}:`, error);
+              logger.error(`Failed to send reset notification to ${email}:`, error);
             }
           }
         }
       }
     } catch (error) {
-      console.error("Failed to send reset notification emails:", error);
+      logger.error("Failed to send reset notification emails:", error);
     }
     
     return {
@@ -3323,7 +3323,7 @@ export function registerInductionRoutes(app: Express): void {
       const result = await performDailyReset(true, manualContext);
       res.json(result);
     } catch (error) {
-      console.error("Error performing manual daily reset:", error);
+      logger.error("Error performing manual daily reset:", error);
       res.status(500).json({ error: "Failed to perform daily reset" });
     }
   });
@@ -3349,7 +3349,7 @@ export function registerInductionRoutes(app: Express): void {
         totalToCheckOut: currentVisitors.length + checkedInStaff.length + checkedInContractors.length + checkedInMembers.length
       });
     } catch (error) {
-      console.error("Error previewing daily reset:", error);
+      logger.error("Error previewing daily reset:", error);
       res.status(500).json({ error: "Failed to preview daily reset" });
     }
   });
@@ -3383,26 +3383,26 @@ export function registerInductionRoutes(app: Express): void {
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
       if (settings?.emailReportsEnabled) {
-        console.log("📧 Setting up overnight check-out notifications (daily at 6:00 AM)");
+        logger.info("📧 Setting up overnight check-out notifications (daily at 6:00 AM)");
         
         // Schedule overnight notification check at 6:00 AM every day
         cron.schedule('0 6 * * *', async () => {
           try {
-            console.log(`📧 Checking for overnight check-outs at ${new Date().toLocaleString()}`);
+            logger.info(`📧 Checking for overnight check-outs at ${new Date().toLocaleString()}`);
             await sendOvernightReport();
           } catch (error) {
-            console.error("❌ Error in overnight notification check:", error);
+            logger.error("❌ Error in overnight notification check:", error);
           }
         }, {
           timezone: settings?.dailyResetTimezone || "Europe/London"
         });
         
-        console.log("✅ Overnight check-out notifications scheduled successfully");
+        logger.info("✅ Overnight check-out notifications scheduled successfully");
       } else {
-        console.log("📧 Overnight notifications disabled - email reports not enabled");
+        logger.info("📧 Overnight notifications disabled - email reports not enabled");
       }
     } catch (error) {
-      console.error("❌ Error setting up overnight notifications:", error);
+      logger.error("❌ Error setting up overnight notifications:", error);
     }
   }
 
@@ -3451,7 +3451,7 @@ export function registerInductionRoutes(app: Express): void {
       const totalOvernight = overnightVisitors.length + overnightStaff.length + overnightContractors.length + overnightMembers.length;
       
       if (totalOvernight === 0) {
-        console.log("📧 No overnight check-outs detected - no email sent");
+        logger.info("📧 No overnight check-outs detected - no email sent");
         return;
       }
       
@@ -3519,13 +3519,13 @@ export function registerInductionRoutes(app: Express): void {
           await emailService.forCustomer(overnightContext.customerId).sendEmail({ to: email, subject: subject, html: `<pre>${message}</pre>`, text: message  });
           sentCount++;
         } catch (error) {
-          console.error(`Failed to send overnight report to ${email}:`, error);
+          logger.error(`Failed to send overnight report to ${email}:`, error);
         }
       }
       
-      console.log(`📧 Overnight report sent to ${sentCount} recipients - ${totalOvernight} personnel still on-site`);
+      logger.info(`📧 Overnight report sent to ${sentCount} recipients - ${totalOvernight} personnel still on-site`);
     } catch (error) {
-      console.error("Failed to send overnight report:", error);
+      logger.error("Failed to send overnight report:", error);
     }
   }
 
@@ -3590,7 +3590,7 @@ export function registerInductionRoutes(app: Express): void {
         try {
           await localEmailSvc.sendEmail({ to: email, subject: subject, html: `<pre>${message}</pre>`, text: message  });
         } catch (error) {
-          console.error(`Failed to send grace period notification to ${email}:`, error);
+          logger.error(`Failed to send grace period notification to ${email}:`, error);
         }
       }
       
@@ -3600,13 +3600,13 @@ export function registerInductionRoutes(app: Express): void {
         try {
           await localEmailSvc.sendEmail({ to: email, subject: `Admin: ${subject}`, html: `<pre>${message}</pre>`, text: message  });
         } catch (error) {
-          console.error(`Failed to send grace period admin notification to ${email}:`, error);
+          logger.error(`Failed to send grace period admin notification to ${email}:`, error);
         }
       }
       
-      console.log(`📧 Grace period notifications sent to ${recipients.length} personnel and ${adminRecipients.length} admins`);
+      logger.info(`📧 Grace period notifications sent to ${recipients.length} personnel and ${adminRecipients.length} admins`);
     } catch (error) {
-      console.error("Failed to send grace period notifications:", error);
+      logger.error("Failed to send grace period notifications:", error);
     }
   }
 
@@ -3711,7 +3711,7 @@ export function registerInductionRoutes(app: Express): void {
         }
       }
       if (cIn > 0 || cOut > 0) {
-        console.log(`🔄 Biostar poll [${customerId}]: ${cIn} checked in, ${cOut} checked out`);
+        logger.info(`🔄 Biostar poll [${customerId}]: ${cIn} checked in, ${cOut} checked out`);
       }
     } catch (err: any) {
       console.warn(`⚠️ Biostar attendance poll failed for ${customerId}: ${err.message}`);
@@ -3755,7 +3755,7 @@ export function registerInductionRoutes(app: Express): void {
           // so there is no need for intervals longer than 60 seconds.
           const rawInterval = Number(settings.biostarSyncInterval) || 30;
           const intervalSecs = Math.min(Math.max(30, rawInterval), 60);
-          console.log(`🔄 Biostar live attendance polling scheduled for ${customer.id} every ${intervalSecs}s`);
+          logger.info(`🔄 Biostar live attendance polling scheduled for ${customer.id} every ${intervalSecs}s`);
 
           // Run an immediate poll so status is live on startup/settings save
           pollBiostarAttendance(customer.id).catch(() => {});
@@ -3849,13 +3849,13 @@ export function registerInductionRoutes(app: Express): void {
                 await wsDb.update(isolatedSchema.staff)
                   .set({ isCheckedIn: true, checkedInAt: now, checkedOutAt: null, updatedAt: now })
                   .where(eq(isolatedSchema.staff.id, staffMember.id));
-                console.log(`✅ BioStar WS [${wsCustomerId}]: ${staffName} checked IN (device=${deviceId})`);
+                logger.info(`✅ BioStar WS [${wsCustomerId}]: ${staffName} checked IN (device=${deviceId})`);
                 pushBiostarEvent(wsCustomerId, { id: crypto.randomUUID(), ts: eventTime, customerId: wsCustomerId, userId, userName: staffName, deviceId, deviceName, eventCode: eventTypeCode, action: 'checked_in' });
               } else if (isExit) {
                 await wsDb.update(isolatedSchema.staff)
                   .set({ isCheckedIn: false, checkedOutAt: now, updatedAt: now })
                   .where(eq(isolatedSchema.staff.id, staffMember.id));
-                console.log(`🚪 BioStar WS [${wsCustomerId}]: ${staffName} checked OUT (device=${deviceId})`);
+                logger.info(`🚪 BioStar WS [${wsCustomerId}]: ${staffName} checked OUT (device=${deviceId})`);
                 pushBiostarEvent(wsCustomerId, { id: crypto.randomUUID(), ts: eventTime, customerId: wsCustomerId, userId, userName: staffName, deviceId, deviceName, eventCode: eventTypeCode, action: 'checked_out' });
               }
             } catch (wsEvtErr: any) {
@@ -3933,7 +3933,7 @@ export function registerInductionRoutes(app: Express): void {
       }).from(inductionSettings);
       res.json({ settings: globalRows });
     } catch (error) {
-      console.error('Error fetching induction settings:', error);
+      logger.error('Error fetching induction settings:', error);
       res.status(500).json({ error: 'Failed to fetch induction settings' });
     }
   });
@@ -3950,7 +3950,7 @@ export function registerInductionRoutes(app: Express): void {
       
       res.json({ setting });
     } catch (error) {
-      console.error('Error fetching role-specific induction settings:', error);
+      logger.error('Error fetching role-specific induction settings:', error);
       res.status(500).json({ error: 'Failed to fetch induction settings' });
     }
   });
@@ -3981,7 +3981,7 @@ export function registerInductionRoutes(app: Express): void {
           details: error.errors 
         });
       }
-      console.error('Error updating induction settings:', error);
+      logger.error('Error updating induction settings:', error);
       res.status(500).json({ error: 'Failed to update induction settings' });
     }
   });
@@ -4005,7 +4005,7 @@ export function registerInductionRoutes(app: Express): void {
 
       res.json({ success: true, roleType, ...updateFields });
     } catch (error) {
-      console.error('Error toggling induction setting:', error);
+      logger.error('Error toggling induction setting:', error);
       res.status(500).json({ error: 'Failed to update induction settings' });
     }
   });
@@ -4056,7 +4056,7 @@ export function registerInductionRoutes(app: Express): void {
         : `http://localhost:5000`;
       res.json({ success: true, token, inductionUrl: `${baseUrl}/induction/${token}` });
     } catch (error) {
-      console.error('Error creating kiosk induction token:', error);
+      logger.error('Error creating kiosk induction token:', error);
       res.status(500).json({ error: 'Failed to create induction token' });
     }
   });
@@ -4085,7 +4085,7 @@ export function registerInductionRoutes(app: Express): void {
         const roleSetting = inductionSettingsRows.find((s: any) => s.roleType === roleType);
         modelType = roleSetting?.modelType || 'gpt-5';
       } catch (_e) {
-        console.log('Using default model type');
+        logger.info('Using default model type');
       }
 
       const context = inductionQContext;
@@ -4095,7 +4095,7 @@ export function registerInductionRoutes(app: Express): void {
       // Company-wide AI setting (Settings → AI tab) takes priority over the per-role default.
       // Read both fields and normalise any UI label to an API model identifier.
       modelType = resolveInductionModel(settings?.openaiModel, settings?.aiModel, modelType);
-      console.log(`Induction generation using model: ${modelType}`);
+      logger.info(`Induction generation using model: ${modelType}`);
 
       const videoService = new VideoGenerationService(settings, undefined, context.customerId);
 
@@ -4116,7 +4116,7 @@ export function registerInductionRoutes(app: Express): void {
       const scriptContent = await videoService.generateInductionScript(roleType, 'interactive_slides', modelType, siteContextQ);
       
       // Generate AI questions based on the script content
-      console.log(`🧠 Generating AI questions for ${roleType} from script...`);
+      logger.info(`🧠 Generating AI questions for ${roleType} from script...`);
       const aiQuestions = await videoService.generateQuestionsFromScript(
         scriptContent.script, 
         scriptContent.scenes, 
@@ -4126,7 +4126,7 @@ export function registerInductionRoutes(app: Express): void {
       
       // Store AI-generated questions with clean delete-then-insert
       if (aiQuestions.length > 0) {
-        console.log(`💾 Storing ${aiQuestions.length} questions — deleting old ones first...`);
+        logger.info(`💾 Storing ${aiQuestions.length} questions — deleting old ones first...`);
         
         // DELETE all existing questions for this customer+roleType (clean slate)
         await db
@@ -4162,7 +4162,7 @@ export function registerInductionRoutes(app: Express): void {
           });
         }
         
-        console.log(`✅ Stored ${aiQuestions.length} questions for ${roleType} (customer: ${customerId})`);
+        logger.info(`✅ Stored ${aiQuestions.length} questions for ${roleType} (customer: ${customerId})`);
       }
       
       res.json({ 
@@ -4172,7 +4172,7 @@ export function registerInductionRoutes(app: Express): void {
       });
       
     } catch (error) {
-      console.error('Error generating AI questions:', error);
+      logger.error('Error generating AI questions:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       res.status(500).json({ 
         error: 'Failed to generate AI questions',
@@ -4239,7 +4239,7 @@ export function registerInductionRoutes(app: Express): void {
             videoFormat = roleSetting?.videoFormat || 'hybrid_enhanced';
             modelType = roleSetting?.modelType || 'gpt-5';
           } catch (_e) {
-            console.log('Using default video settings');
+            logger.info('Using default video settings');
           }
 
           // Company-wide AI setting (Settings → AI tab) takes priority over the per-role default.
@@ -4247,9 +4247,9 @@ export function registerInductionRoutes(app: Express): void {
           const context = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
           const companySettings = await simpleDatabaseService.getCompanySettings(context);
           modelType = resolveInductionModel(companySettings?.openaiModel, companySettings?.aiModel, modelType);
-          console.log(`Induction generation using model: ${modelType}`);
+          logger.info(`Induction generation using model: ${modelType}`);
 
-          console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
+          logger.info(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
           const videoService = new VideoGenerationService(companySettings, undefined, context.customerId);
 
           // Build site-specific context from company settings
@@ -4267,13 +4267,13 @@ export function registerInductionRoutes(app: Express): void {
 
           // ── Step 1: Generate AI script ─────────────────────────────────────
           setStatus('generating_script', 1, 'Generating AI safety script...');
-          console.log(`📝 Step 1: Generating induction script for ${roleType}...`);
+          logger.info(`📝 Step 1: Generating induction script for ${roleType}...`);
           const { script, scenes, totalDuration } = await videoService.generateInductionScript(roleType, videoFormat, modelType, siteContextV);
-          console.log(`✅ Script ready: ${scenes.length} scenes, ${Math.round(totalDuration / 60)} min`);
+          logger.info(`✅ Script ready: ${scenes.length} scenes, ${Math.round(totalDuration / 60)} min`);
 
           // ── Step 2: Build slides with AI images ────────────────────────────
           setStatus('building_slides', 2, `Building ${scenes.length} slides with AI images...`);
-          console.log(`🎨 Step 2: Generating images for ${scenes.length} scenes...`);
+          logger.info(`🎨 Step 2: Generating images for ${scenes.length} scenes...`);
 
           let sceneImages: string[] = [];
           let sceneAudio: string[] = [];
@@ -4289,21 +4289,21 @@ export function registerInductionRoutes(app: Express): void {
             sceneImages = await videoService.generateSceneImages(scenes);
           }
 
-          console.log(`✅ Images ready: ${sceneImages.filter(Boolean).length}/${scenes.length} generated`);
+          logger.info(`✅ Images ready: ${sceneImages.filter(Boolean).length}/${scenes.length} generated`);
 
           setStatus('building_slides', 2, 'Assembling HTML presentation...');
           const htmlContent = await videoService.createEnhancedHTMLPresentation(scenes, roleType, modelType, sceneImages, sceneAudio);
-          console.log(`✅ HTML presentation assembled (${Math.round(htmlContent.length / 1024)}KB)`);
+          logger.info(`✅ HTML presentation assembled (${Math.round(htmlContent.length / 1024)}KB)`);
 
           // ── Step 3: Generate quiz questions ────────────────────────────────
           setStatus('creating_questions', 3, 'Creating quiz questions...');
-          console.log(`🧠 Step 3: Generating AI quiz questions...`);
+          logger.info(`🧠 Step 3: Generating AI quiz questions...`);
           let questionsStored = 0;
           try {
             const aiQuestions = await videoService.generateQuestionsFromScript(script, scenes, roleType, modelType);
 
             if (aiQuestions.length > 0) {
-              console.log(`💾 Storing ${aiQuestions.length} questions (deleting old ones first)...`);
+              logger.info(`💾 Storing ${aiQuestions.length} questions (deleting old ones first)...`);
               // DELETE-then-INSERT: clean slate for this customer+roleType
               await db.delete(inductionQuestions).where(eq(inductionQuestions.videoId, customerVideoId));
               await db.delete(inductionQuestions).where(and(
@@ -4330,15 +4330,15 @@ export function registerInductionRoutes(app: Express): void {
                 });
               }
               questionsStored = aiQuestions.length;
-              console.log(`✅ Stored ${questionsStored} questions for ${roleType} (customer: ${customerId})`);
+              logger.info(`✅ Stored ${questionsStored} questions for ${roleType} (customer: ${customerId})`);
             }
           } catch (questionError) {
-            console.error('⚠️ Question generation failed (non-fatal):', questionError);
+            logger.error('⚠️ Question generation failed (non-fatal):', questionError);
           }
 
           // ── Step 4: Save video to customer-isolated database ───────────────
           setStatus('saving', 4, 'Saving video to database...');
-          console.log(`💾 Step 4: Saving video to customer database...`);
+          logger.info(`💾 Step 4: Saving video to customer database...`);
           let savedToDatabase = false;
 
           // ── Upload HTML to object storage (fast CDN delivery on mobile) ────
@@ -4356,7 +4356,7 @@ export function registerInductionRoutes(app: Express): void {
                 metadata: { cacheControl: 'public, max-age=3600' }
               });
               objStoragePath = fullObjPath;
-              console.log(`✅ Uploaded video to object storage: ${fullObjPath} (${Math.round(htmlContent.length / 1024)}KB raw, gzip on delivery)`);
+              logger.info(`✅ Uploaded video to object storage: ${fullObjPath} (${Math.round(htmlContent.length / 1024)}KB raw, gzip on delivery)`);
             }
           } catch (objErr) {
             console.warn('⚠️ Object storage upload failed (non-fatal, falling back to DB blob):', objErr);
@@ -4389,7 +4389,7 @@ export function registerInductionRoutes(app: Express): void {
                 .update(isolatedSchema.inductionSettings)
                 .set(videoData as any)
                 .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
-              console.log(`✅ Updated existing row in customer database (${Math.round(htmlContent.length / 1024)}KB HTML)`);
+              logger.info(`✅ Updated existing row in customer database (${Math.round(htmlContent.length / 1024)}KB HTML)`);
             } else {
               // No row yet — insert a fresh one (isolated DB was never seeded for this customer)
               await custDb
@@ -4403,12 +4403,12 @@ export function registerInductionRoutes(app: Express): void {
                   sendLinkEnabled: true,
                   ...videoData
                 } as any);
-              console.log(`✅ Inserted new row in customer database (${Math.round(htmlContent.length / 1024)}KB HTML)`);
+              logger.info(`✅ Inserted new row in customer database (${Math.round(htmlContent.length / 1024)}KB HTML)`);
             }
             savedToDatabase = true;
-            console.log(`✅ Saved to customer database (${Math.round(htmlContent.length / 1024)}KB HTML)`);
+            logger.info(`✅ Saved to customer database (${Math.round(htmlContent.length / 1024)}KB HTML)`);
           } catch (saveError) {
-            console.error('⚠️ Customer DB save failed:', saveError);
+            logger.error('⚠️ Customer DB save failed:', saveError);
           }
 
           // ── Step 5: Done ───────────────────────────────────────────────────
@@ -4418,10 +4418,10 @@ export function registerInductionRoutes(app: Express): void {
               : 'Video generated (database save failed — preview available)',
             { completedAt: Date.now() }
           );
-          console.log(`🎉 Generation complete for ${roleType} (customer: ${customerId})`);
+          logger.info(`🎉 Generation complete for ${roleType} (customer: ${customerId})`);
 
         } catch (asyncError: any) {
-          console.error('❌ Error in async video generation:', asyncError);
+          logger.error('❌ Error in async video generation:', asyncError);
           setStatus('failed', 0, 'Generation failed', {
             completedAt: Date.now(),
             error: asyncError.message || 'Unknown error'
@@ -4430,7 +4430,7 @@ export function registerInductionRoutes(app: Express): void {
       })();
       
     } catch (error: any) {
-      console.error('Error starting video generation:', error);
+      logger.error('Error starting video generation:', error);
       inductionGenerationStatus.set(statusKey, {
         status: 'failed',
         step: 0,
@@ -4488,7 +4488,7 @@ export function registerInductionRoutes(app: Express): void {
       });
       
     } catch (error) {
-      console.error('Error generating script:', error);
+      logger.error('Error generating script:', error);
       res.status(500).json({ error: 'Failed to generate script' });
     }
   });
@@ -4527,7 +4527,7 @@ export function registerInductionRoutes(app: Express): void {
               } catch (_streamErr) { /* fall through to generatedHtml */ }
             }
             if (setting.generatedHtml) {
-              console.log(`📄 Serving customer-isolated generatedHtml for ${roleType} (${req.customerId})`);
+              logger.info(`📄 Serving customer-isolated generatedHtml for ${roleType} (${req.customerId})`);
               res.setHeader('Content-Type', 'text/html; charset=utf-8');
               res.setHeader('Cache-Control', 'no-cache');
               res.send(patchInductionHtml(setting.generatedHtml));
@@ -4535,7 +4535,7 @@ export function registerInductionRoutes(app: Express): void {
             }
           }
         } catch (_custErr) {
-          console.log('⚠️ Customer DB lookup failed, falling back to global');
+          logger.info('⚠️ Customer DB lookup failed, falling back to global');
         }
       }
 
@@ -4551,7 +4551,7 @@ export function registerInductionRoutes(app: Express): void {
 
         // Prefer stored generatedHtml (clean, no base64 overhead)
         if ((setting as any).generatedHtml) {
-          console.log('📄 Serving global generatedHtml for', roleType);
+          logger.info('📄 Serving global generatedHtml for', roleType);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
           res.setHeader('Cache-Control', 'no-cache');
           res.send(patchInductionHtml((setting as any).generatedHtml));
@@ -4562,7 +4562,7 @@ export function registerInductionRoutes(app: Express): void {
         if (setting.videoUrl && setting.videoUrl.startsWith('data:text/html;base64,')) {
           const base64Content = setting.videoUrl.replace('data:text/html;base64,', '');
           const htmlContent = Buffer.from(base64Content, 'base64').toString('utf-8');
-          console.log('📄 Serving base64-decoded HTML for', roleType);
+          logger.info('📄 Serving base64-decoded HTML for', roleType);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
           res.setHeader('Cache-Control', 'no-cache');
           res.send(patchInductionHtml(htmlContent));
@@ -4571,7 +4571,7 @@ export function registerInductionRoutes(app: Express): void {
       }
 
       // No video found — return a clear message page instead of silently regenerating
-      console.log('❌ No video found for', roleType, '— returning placeholder');
+      logger.info('❌ No video found for', roleType, '— returning placeholder');
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.status(404).send(`
         <html>
@@ -4587,7 +4587,7 @@ export function registerInductionRoutes(app: Express): void {
       `);
       
     } catch (error) {
-      console.error('Error serving video content:', error);
+      logger.error('Error serving video content:', error);
       res.status(500).send(`
         <html>
           <body style="font-family: system-ui; padding: 40px; text-align: center; background: #f3f4f6;">
@@ -4815,7 +4815,7 @@ export function registerInductionRoutes(app: Express): void {
       res.send(htmlContent);
       
     } catch (error) {
-      console.error('Error generating video preview:', error);
+      logger.error('Error generating video preview:', error);
       res.status(500).send(`
         <html>
           <body style="font-family: system-ui; padding: 40px; text-align: center;">
