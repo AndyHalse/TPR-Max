@@ -306,6 +306,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addReportsDataColumnMigration,
     addHelpDeskMigration,
     addAiKeyColumnsMigration,
+    addInductionSettingsColumnsMigration,
   ];
 
   allMigrations.forEach(migration => {
@@ -2167,5 +2168,44 @@ const addAiKeyColumnsMigration: Migration = {
       }
     }
     console.log('✅ [045] customer_api_keys AI key columns ensured');
+  }
+};
+
+const addInductionSettingsColumnsMigration: Migration = {
+  version: '20260429_046_add_induction_settings_columns',
+  description: 'Add site induction, AI/video, QR reader, and CLUe integration columns to company_settings',
+  async up(db: any) {
+    const cols = [
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS site_address TEXT`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS induction_hazards TEXT`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS induction_ppe TEXT`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS assembly_point TEXT`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS first_aid_location TEXT`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS emergency_contact TEXT`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS induction_site_rules TEXT`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS ai_instructions_prompt TEXT DEFAULT 'Create comprehensive, engaging safety induction content'`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS video_quality_preference TEXT DEFAULT 'high'`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS enable_advanced_video_features BOOLEAN DEFAULT true`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS default_video_length TEXT DEFAULT '15'`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS qr_reader_enabled BOOLEAN DEFAULT false`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS qr_reader_device TEXT DEFAULT 'auto'`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS qr_code_format TEXT DEFAULT 'visigate'`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS qr_reader_settings TEXT DEFAULT '{}'`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS clue_enabled BOOLEAN DEFAULT false`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS clue_api_url TEXT DEFAULT 'https://api.suprema-clue.com'`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS clue_api_key TEXT DEFAULT ''`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS clue_api_secret TEXT DEFAULT ''`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS clue_organization_id TEXT DEFAULT ''`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS clue_webhook_secret TEXT DEFAULT ''`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS clue_dynamic_qr_enabled BOOLEAN DEFAULT true`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS clue_qr_validity_minutes TEXT DEFAULT '60'`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS clue_device_groups TEXT[] DEFAULT ARRAY[]::TEXT[]`,
+    ];
+    for (const sql of cols) {
+      try { await db.execute(sql); } catch (err: any) {
+        console.log(`⚠️ [046] company_settings column: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    console.log('✅ [046] Induction/AI/QR/CLUe settings columns ensured');
   }
 };

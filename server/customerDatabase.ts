@@ -555,6 +555,37 @@ export class CustomerDatabaseService {
       console.warn(`⚠️ CDM 2015 migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Ensure site induction + AI/video + QR + CLUe columns on company_settings
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS site_address TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS induction_hazards TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS induction_ppe TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS assembly_point TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS first_aid_location TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS emergency_contact TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS induction_site_rules TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS ai_instructions_prompt TEXT DEFAULT 'Create comprehensive, engaging safety induction content'`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS video_quality_preference TEXT DEFAULT 'high'`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS enable_advanced_video_features BOOLEAN DEFAULT true`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS default_video_length TEXT DEFAULT '15'`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS qr_reader_enabled BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS qr_reader_device TEXT DEFAULT 'auto'`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS qr_code_format TEXT DEFAULT 'visigate'`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS qr_reader_settings TEXT DEFAULT '{}'`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_enabled BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_api_url TEXT DEFAULT 'https://api.suprema-clue.com'`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_api_key TEXT DEFAULT ''`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_api_secret TEXT DEFAULT ''`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_organization_id TEXT DEFAULT ''`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_webhook_secret TEXT DEFAULT ''`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_dynamic_qr_enabled BOOLEAN DEFAULT true`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_qr_validity_minutes TEXT DEFAULT '60'`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_device_groups TEXT[] DEFAULT ARRAY[]::TEXT[]`);
+      console.log(`✅ Induction/AI/QR/CLUe settings columns ensured for ${schemaName}`);
+    } catch (err: any) {
+      console.warn(`⚠️ Induction settings column migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure admin user exists in this customer schema (critical for production)
     try {
       await this.ensureAdminUserExists(customerId, db);
