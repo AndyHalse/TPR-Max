@@ -249,6 +249,14 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/ppm/work-order/public')) {
       return next();
     }
+
+    // Skip CSRF for public induction token endpoints — accessed by contractors/visitors
+    // on mobile devices via emailed links; they have no CSRF cookie from the admin app.
+    // These endpoints are protected by the secret tokenId (UUID) instead.
+    if (req.originalUrl.endsWith('/video-watched') ||
+        req.originalUrl.endsWith('/submit-quiz')) {
+      return next();
+    }
     
     // Skip CSRF for login/logout and platform-admin auth only
     if (req.originalUrl === '/api/auth/login' || 

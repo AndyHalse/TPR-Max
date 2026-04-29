@@ -544,12 +544,17 @@ export default function SiteInduction() {
             <Button
               onClick={markVideoWatched}
               disabled={isCustomUpload && !tokenData?.videoWatched}
-              className="w-full"
+              className="w-full flex-col gap-0.5 h-auto py-3"
               size="lg"
               data-testid="button-complete-video"
             >
-              <CheckCircle className="w-4 h-4 mr-2" />
-              {hasAnyVideo ? 'I have watched the induction video — Continue to Quiz' : 'I have received my safety briefing — Continue to Quiz →'}
+              <span className="flex items-center gap-2 font-semibold">
+                <CheckCircle className="w-4 h-4 flex-shrink-0" />
+                Continue to Quiz
+              </span>
+              <span className="text-xs font-normal opacity-80">
+                {hasAnyVideo ? 'I confirm I have watched the induction video' : 'I confirm I have received my safety briefing'}
+              </span>
             </Button>
           </CardContent>
         </Card>
