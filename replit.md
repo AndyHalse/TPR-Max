@@ -93,6 +93,12 @@ The backend route layer has been split from a single monolithic `server/routes.t
 | `emergency.ts` | Emergency | `/api/emergency/*`, `/api/evacuation/*` |
 | `induction.ts` | Induction | `/api/induction/*` — also exports `setupAutomaticDailyReset` |
 | `ppm.ts` | PPM | `/api/ppm/*` |
-| `remaining.ts` | All other domains | `/api/ai/*`, `/api/help/*`, `/api/stats`, `/api/analytics/*`, `/api/thermal-passes/*`, `/api/qr-*`, `/api/passes/print/*`, `/api/import/*`, `/api/cdm/*`, `/api/helpdesk/*` |
+| `aiFeatures.ts` | AI image generation | `/api/ai/*` |
+| `analytics.ts` | Stats & analytics | `/api/stats`, `/api/activity/recent`, `/api/analytics/*`, `/api/voice-notifications/*` |
+| `passes.ts` | Passes & QR | `/api/passes/print/*`, `/api/qr-readers/*`, `/api/qr-scan/*` |
+| `imports.ts` | CSV/XLS import-export | `/api/import/*`, `/api/export/*`, `/api/*/template` |
+| `cdm.ts` | CDM 2015 + cron jobs | `/api/cdm/*` |
+| `helpdesk.ts` | Help Desk tickets | `/api/helpdesk/*` |
+| `remaining.ts` | Help system + health check | `/api/help/*`, `/api/health/settings-isolation` (dev only) |
 
 `server/routes.ts` is now a thin 63-line shell: runs shared DB migrations, registers billing routes, calls `registerSplitRoutes`, and initialises the WebSocket service. Shared in-memory state (ppmTokenCache, biostarLiveLog, etc.) lives in `server/routeState.ts`.

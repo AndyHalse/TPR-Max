@@ -15,6 +15,12 @@ import { registerEmergencyRoutes } from './emergency';
 import { registerInductionRoutes } from './induction';
 import { registerPPMRoutes } from './ppm';
 import { registerRemainingRoutes } from './remaining';
+import { registerAiFeatureRoutes } from './aiFeatures';
+import { registerPassRoutes } from './passes';
+import { registerAnalyticsRoutes } from './analytics';
+import { registerImportRoutes } from './imports';
+import { registerCdmRoutes } from './cdm';
+import { registerHelpdeskRoutes } from './helpdesk';
 
 export async function registerSplitRoutes(
   app: Express,
@@ -35,5 +41,11 @@ export async function registerSplitRoutes(
   registerEmergencyRoutes(app);
   registerInductionRoutes(app);
   registerPPMRoutes(app);
+  registerAiFeatureRoutes(app);
+  registerPassRoutes(app);
+  registerAnalyticsRoutes(app);
+  await registerImportRoutes(app);
+  await registerCdmRoutes(app);
+  registerHelpdeskRoutes(app);
   await registerRemainingRoutes(app, server);
 }
