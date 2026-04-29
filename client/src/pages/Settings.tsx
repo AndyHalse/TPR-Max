@@ -5,7 +5,7 @@ import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { generateQRCode } from "@/lib/qr-generator";
 import { ObjectUploader } from "@/components/ObjectUploader";
-import { ProfessionalThermalDesigner } from "@/components/professional-thermal-designer/ProfessionalThermalDesigner";
+import ThermalPassDesigner from "@/components/ThermalPassDesigner";
 import { IdCardDesignSystem } from "@/components/IdCardDesignSystem";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,12 +113,6 @@ export default function Settings() {
   const [selectedBackupFile, setSelectedBackupFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Test Printer state
-  const [showTestPrinterDialog, setShowTestPrinterDialog] = useState(false);
-  const [testPrinterType, setTestPrinterType] = useState<'tec' | 'zebra'>('tec');
-  const [testPrinterCode, setTestPrinterCode] = useState('');
-  const [testPrinterResult, setTestPrinterResult] = useState<{success: boolean; message: string} | null>(null);
-  const [isTestingPrinter, setIsTestingPrinter] = useState(false);
 
   // Get current user to access customerId
   const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role: string }>({
@@ -598,22 +592,6 @@ export default function Settings() {
     reader.readAsText(selectedBackupFile);
   };
 
-  const { data: detectedPrinters, refetch: refetchPrinters, isFetching: isDetectingPrinters } = useQuery<{
-    success: boolean;
-    platform: string;
-    printers: Array<{
-      name: string;
-      driver: string;
-      port: string;
-      status: string;
-      isOnline: boolean;
-    }>;
-    detectedAt: string;
-    message?: string;
-  }>({
-    queryKey: ["/api/printers/detect"],
-    staleTime: 60000, // Consider data fresh for 1 minute
-  });
 
   const updateSettingsMutation = useMutation({
     mutationFn: async (updates: Partial<InsertCompanySettings>) => {
@@ -1244,71 +1222,6 @@ export default function Settings() {
     testResetMutation.mutate();
   };
 
-  const handleTestPrinter = async (printerType: 'tec' | 'zebra') => {
-    setTestPrinterType(printerType);
-    setIsTestingPrinter(true);
-    setTestPrinterResult(null);
-    setShowTestPrinterDialog(true);
-
-    try {
-      const response = await apiRequest('POST', `/api/printers/test/${printerType}`);
-      const data = await response.json();
-
-      if (response.ok) {
-        setTestPrinterCode(data.code);
-        setTestPrinterResult({
-          success: true,
-          message: data.sent ? `Test print sent successfully to ${printerType.toUpperCase()} printer!` : 'Test code generated successfully!'
-        });
-      } else {
-        setTestPrinterResult({
-          success: false,
-          message: data.error || 'Failed to generate test code'
-        });
-      }
-    } catch (error) {
-      setTestPrinterResult({
-        success: false,
-        message: 'Network error while testing printer'
-      });
-    } finally {
-      setIsTestingPrinter(false);
-    }
-  };
-
-  const handleSendTestPrint = async () => {
-    if (!testPrinterCode || !testPrinterType) return;
-
-    setIsTestingPrinter(true);
-    try {
-      const response = await apiRequest('POST', `/api/printers/send/${testPrinterType}`, { 
-        code: testPrinterCode 
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        toast({
-          title: "Print Sent!",
-          description: `Test print sent to ${testPrinterType.toUpperCase()} printer at ${data.ip}:${data.port}`,
-        });
-      } else {
-        toast({
-          title: "Print Failed",
-          description: data.error || 'Failed to send print to printer',
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      toast({
-        title: "Network Error",
-        description: 'Failed to communicate with printer',
-        variant: "destructive",
-      });
-    } finally {
-      setIsTestingPrinter(false);
-    }
-  };
 
   const removeRecipient = (index: number) => {
     const currentRecipients = formData.reportRecipients || settings?.reportRecipients || [];
@@ -2508,471 +2421,40 @@ export default function Settings() {
             </TabsList>
 
             <TabsContent value="printer" className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <GlassCard>
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center">
-                      <Printer className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
-                      <h3 className="text-lg font-semibold text-fixed">Printer Configuration</h3>
+              <div className="space-y-6">
+                <div className="p-6 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-xl">
+                  <div className="flex items-start gap-4">
+                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Printer className="text-white" size={20} />
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => refetchPrinters()}
-                      disabled={isDetectingPrinters}
-                      className="flex items-center gap-2"
-                      data-testid="button-refresh-printers"
-                    >
-                      <RefreshCw className={`h-4 w-4 ${isDetectingPrinters ? 'animate-spin' : ''}`} />
-                      {isDetectingPrinters ? 'Detecting...' : 'Refresh Printers'}
-                    </Button>
-                  </div>
-
-                  {detectedPrinters && (
-                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Monitor className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
-                          Platform: {detectedPrinters.platform} • {detectedPrinters.printers.length} printers found
-                        </span>
-                      </div>
-                      <p className="text-xs text-blue-600 dark:text-blue-400">
-                        Last detected: {new Date(detectedPrinters.detectedAt).toLocaleString()}
+                    <div>
+                      <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100 mb-1">Browser Print — Recommended</h3>
+                      <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
+                        TPR Max uses your browser's built-in print dialog. When a visitor or contractor
+                        checks in, a pass opens automatically in a new tab. Press <strong>Ctrl+P</strong>
+                        (or <strong>Cmd+P</strong> on Mac) to print to any printer your computer can see.
                       </p>
-                      {detectedPrinters.message && (
-                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">{detectedPrinters.message}</p>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="selectedPrinter" className="text-sm font-medium text-fixed">
-                        Default Printer (Visitor Passes)
-                      </Label>
-                      <Select
-                        value={currentSettings?.selectedPrinter || "PDF Printer"}
-                        onValueChange={(value) => handleInputChange("selectedPrinter", value)}
-                      >
-                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-printer">
-                          <SelectValue placeholder="Select a printer" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {detectedPrinters?.printers?.map((printer) => (
-                            <SelectItem key={printer.name} value={printer.name}>
-                              <div className="flex items-center justify-between w-full">
-                                <span>{printer.name}</span>
-                                <div className="flex items-center gap-2 ml-2">
-                                  {printer.isOnline ? (
-                                    <Badge variant="default" className="bg-green-100 text-green-800 dark:text-green-300 text-xs">
-                                      {printer.status}
-                                    </Badge>
-                                  ) : (
-                                    <Badge variant="secondary" className="bg-red-100 text-red-600 text-xs">
-                                      {printer.status}
-                                    </Badge>
-                                  )}
-                                </div>
-                              </div>
-                            </SelectItem>
-                          )) || (
-                            <SelectItem value="No printers detected" disabled>
-                              No printers detected - Click "Refresh Printers"
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-variable">Select your installed printer or use PDF for testing</p>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="printQuality" className="text-sm font-medium text-fixed">
-                        Print Quality
-                      </Label>
-                      <Select
-                        value={currentSettings?.printQuality || "normal"}
-                        onValueChange={(value) => handleInputChange("printQuality", value)}
-                      >
-                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-print-quality">
-                          <SelectValue placeholder="Select print quality" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="draft">Draft (Fast)</SelectItem>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="high">High Quality</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-variable">Higher quality uses more ink but provides clearer text</p>
-                    </div>
-
-                    <div className="space-y-4 pt-4 border-t border-white/30 dark:border-slate-700/30">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-sm font-medium text-fixed">Auto-Print Passes</Label>
-                          <p className="text-xs text-variable">Automatically print visitor passes after check-in</p>
-                        </div>
-                        <Switch
-                          checked={currentSettings?.enableQrCodes !== false}
-                          onCheckedChange={(checked) => handleInputChange("enableQrCodes", checked)}
-                          data-testid="switch-auto-print"
-                        />
-                      </div>
+                      <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
+                        <li>&#10003; Works with any printer — USB, Wi-Fi, or network</li>
+                        <li>&#10003; No IP addresses, no TCP/IP configuration needed</li>
+                        <li>&#10003; Set paper size to 95 &times; 65 mm in the print dialog</li>
+                        <li>&#10003; Works in all modern browsers — Chrome, Edge, Firefox, Safari</li>
+                      </ul>
                     </div>
                   </div>
-                </GlassCard>
-
-                <GlassCard>
-                  <div className="flex items-center mb-6">
-                    <QrCode className="mr-3 text-blue-600 dark:text-blue-400" size={24} />
-                    <h3 className="text-lg font-semibold text-fixed">Barcode & QR Settings</h3>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="barcodeFormat" className="text-sm font-medium text-fixed">
-                        Barcode Format
-                      </Label>
-                      <Select
-                        value={currentSettings?.barcodeFormat || "QR_CODE"}
-                        onValueChange={(value) => handleInputChange("barcodeFormat", value)}
-                      >
-                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-barcode-format">
-                          <SelectValue placeholder="Select barcode format" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="QR_CODE">QR Code (Recommended)</SelectItem>
-                          <SelectItem value="DATA_MATRIX">Data Matrix</SelectItem>
-                          <SelectItem value="PDF417">PDF417</SelectItem>
-                          <SelectItem value="CODE128">Code 128</SelectItem>
-                          <SelectItem value="CODE39">Code 39</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <p className="text-xs text-variable">QR codes work best for mobile scanning</p>
-                    </div>
-
-                    <div className="space-y-4 pt-4 border-t border-white/30 dark:border-slate-700/30">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Label className="text-sm font-medium text-fixed">Enable 2D Barcodes</Label>
-                          <p className="text-xs text-variable">Use advanced 2D barcode formats for enhanced data storage</p>
-                        </div>
-                        <Switch
-                          checked={currentSettings?.enable2dBarcodes === true}
-                          onCheckedChange={(checked) => handleInputChange("enable2dBarcodes", checked)}
-                          data-testid="switch-2d-barcodes"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="p-4 rounded-xl border-2 border-dashed border-slate-300">
-                      <h4 className="font-semibold mb-3 text-sm flex items-center gap-2">
-                        <Barcode size={16} />
-                        Barcode Preview
-                      </h4>
-                      <div className="text-center">
-                        <div className="inline-block p-4 bg-white rounded border-2 border-dashed border-slate-400">
-                          {currentSettings?.barcodeFormat === "QR_CODE" ? (
-                            <QrCode size={48} className="text-fixed mx-auto" />
-                          ) : (
-                            <Barcode size={48} className="text-fixed mx-auto" />
-                          )}
-                        </div>
-                        <p className="text-xs text-variable mt-2">
-                          Sample {currentSettings?.barcodeFormat || "QR_CODE"} code
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </GlassCard>
-
-                <GlassCard>
-                  <div className="flex items-center mb-6">
-                    <Printer className="mr-3 text-purple-600" size={24} />
-                    <h3 className="text-lg font-semibold text-fixed">Thermal Printer Settings</h3>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium text-fixed">
-                        Printer Type
-                      </Label>
-                      <Select
-                        value={currentSettings?.thermalSelectedPrinter || "tec"}
-                        onValueChange={(value) => handleInputChange("thermalSelectedPrinter", value)}
-                      >
-                        <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-thermal-printer-type">
-                          <SelectValue placeholder="Select printer type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="tec">
-                            <div className="flex items-center gap-2">
-                              <Printer className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                              <span>Toshiba Tec TCPL (B-FV4D, B-EV4D)</span>
-                            </div>
-                          </SelectItem>
-                          <SelectItem value="zebra">
-                            <div className="flex items-center gap-2">
-                              <Zap className="h-4 w-4 text-purple-600" />
-                              <span>Zebra ZPL Printers</span>
-                            </div>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="mt-4 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-xl">
-                      <div className="flex items-start gap-3">
-                        <Info className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-semibold text-green-900 dark:text-green-100">Browser Print — Recommended for Cloud / SaaS</h4>
-                          <p className="text-xs text-green-700 dark:text-green-300 leading-relaxed">
-                            Browser printing works wherever TPR Max is hosted — including Replit cloud, Starlink, or any internet connection.
-                            When a visitor checks in, a print window opens in a new browser tab. Select your thermal printer
-                            from the browser's print dialog, set the paper size to <strong>95 × 65 mm</strong> with <strong>no margins</strong>,
-                            and click Print. No IP address or port configuration needed.
-                          </p>
-                          <div className="mt-2 space-y-1 text-xs text-green-600 dark:text-green-400">
-                            <p className="font-medium">Quick setup:</p>
-                            <ol className="list-decimal list-inside space-y-1 ml-2">
-                              <li>Connect your thermal printer to the <strong>reception PC</strong> (USB or local network)</li>
-                              <li>Install the printer driver on that PC so it appears in Windows/Mac print dialogs</li>
-                              <li>Allow pop-ups for this site in your browser settings</li>
-                              <li>Check in a visitor — the print window will open automatically</li>
-                            </ol>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl">
-                      <div className="flex items-start gap-3">
-                        <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100">TCP/IP Direct Print — On-Premises Only</h4>
-                          <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
-                            TPR Max can also send raw print commands directly to a printer over TCP/IP (port 9100).
-                            This requires the printer to be reachable from the server — it works when TPR Max runs on a local server
-                            on the same LAN as the printer, but <strong>will not work from Replit cloud</strong> unless you configure
-                            public port-forwarding on your router.
-                          </p>
-                          <div className="mt-2 space-y-1 text-xs text-blue-600 dark:text-blue-400">
-                            <p className="font-medium">Setup Instructions:</p>
-                            <ol className="list-decimal list-inside space-y-1 ml-2">
-                              <li>Connect your printer to your network (Ethernet or Wi-Fi)</li>
-                              <li>Print a network configuration page to find the printer's IP address</li>
-                              <li>Ensure port 9100 is accessible (check firewall settings if needed)</li>
-                              <li>Enter the printer IP address and port below</li>
-                              <li>For remote access from the cloud, configure port forwarding on your router</li>
-                            </ol>
-                          </div>
-                          <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                            <strong>Note:</strong> Both Toshiba Tec TCPL and Zebra ZPL printers support TCP/IP on port 9100.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {currentSettings?.thermalSelectedPrinter === "tec" && (
-                      <>
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-fixed">
-                            Toshiba Tec Printer Name
-                          </Label>
-                          <Input
-                            type="text"
-                            value={currentSettings?.tecPrinterName || "TEC B-FV4D Desktop Printer"}
-                            onChange={(e) => handleInputChange("tecPrinterName", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                            placeholder=""
-                            data-testid="input-tec-printer-name"
-                          />
-                          <p className="text-xs text-variable">Windows printer name (for local printing) or leave blank for network printing</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-fixed">
-                            Toshiba Tec Printer IP Address
-                          </Label>
-                          <Input
-                            type="text"
-                            value={currentSettings?.tecPrinterIp || ""}
-                            onChange={(e) => handleInputChange("tecPrinterIp", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                            placeholder=""
-                            data-testid="input-tec-ip"
-                          />
-                          <p className="text-xs text-variable">Network IP address of your Toshiba Tec printer for remote printing over the internet</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-fixed">
-                            Toshiba Tec Printer Port
-                          </Label>
-                          <Input
-                            type="number"
-                            value={currentSettings?.tecPrinterPort || "9100"}
-                            onChange={(e) => handleInputChange("tecPrinterPort", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                            placeholder=""
-                            data-testid="input-tec-port"
-                          />
-                          <p className="text-xs text-variable">Default: 9100 (standard thermal printer network port for TCP/IP connections)</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-fixed">
-                            Toshiba Tec Printer Model
-                          </Label>
-                          <Select
-                            value={currentSettings?.tecPrinterModel || "B-FV4D"}
-                            onValueChange={(value) => handleInputChange("tecPrinterModel", value)}
-                          >
-                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-tec-model">
-                              <SelectValue placeholder="Select Toshiba Tec model" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="B-FV4D">B-FV4D (Desktop Thermal)</SelectItem>
-                              <SelectItem value="B-FV4T">B-FV4T (Desktop Thermal Transfer)</SelectItem>
-                              <SelectItem value="B-EV4D">B-EV4D (Desktop Thermal)</SelectItem>
-                              <SelectItem value="B-EV4T">B-EV4T (Desktop Thermal Transfer)</SelectItem>
-                              <SelectItem value="B-SA4TP">B-SA4TP (Industrial)</SelectItem>
-                              <SelectItem value="B-SX4T">B-SX4T (Industrial)</SelectItem>
-                              <SelectItem value="B-SX5T">B-SX5T (Industrial)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-variable">Select your Toshiba Tec printer model for optimal TCPL generation</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-fixed">
-                            Label Size (Width x Height mm)
-                          </Label>
-                          <div className="grid grid-cols-2 gap-2">
-                            <Input
-                              type="number"
-                              value={currentSettings?.tecLabelWidth || "85"}
-                              onChange={(e) => handleInputChange("tecLabelWidth", e.target.value)}
-                              className="px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                              placeholder=""
-                              data-testid="input-tec-width"
-                            />
-                            <Input
-                              type="number"
-                              value={currentSettings?.tecLabelHeight || "65"}
-                              onChange={(e) => handleInputChange("tecLabelHeight", e.target.value)}
-                              className="px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                              placeholder=""
-                              data-testid="input-tec-height"
-                            />
-                          </div>
-                          <p className="text-xs text-variable">Standard visitor pass: 85mm x 65mm</p>
-                        </div>
-
-                        <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Printer className="h-4 w-4 text-purple-600" />
-                            <span className="text-sm font-medium text-purple-800">Toshiba Tec TCPL Support</span>
-                          </div>
-                          <p className="text-xs text-purple-600">
-                            Full TCPL (Toshiba Control Programming Language) support with QR codes, barcodes, and custom layouts.
-                            Professional thermal printing optimized for visitor and contractor passes.
-                          </p>
-                        </div>
-
-                        <Button
-                          type="button"
-                          onClick={() => handleTestPrinter('tec')}
-                          className="w-full mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-                          data-testid="button-test-tec"
-                        >
-                          <TestTube className="h-4 w-4 mr-2" />
-                          Test Toshiba Tec TCPL Code
-                        </Button>
-                      </>
-                    )}
-
-                    {currentSettings?.thermalSelectedPrinter === "zebra" && (
-                      <>
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-fixed">
-                            Zebra Printer IP Address
-                          </Label>
-                          <Input
-                            type="text"
-                            value={currentSettings?.zebraPrinterIp || ""}
-                            onChange={(e) => handleInputChange("zebraPrinterIp", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                            placeholder=""
-                            data-testid="input-zebra-ip"
-                          />
-                          <p className="text-xs text-variable">Network IP address of your Zebra printer for remote printing over the internet</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-fixed">
-                            Zebra Printer Port
-                          </Label>
-                          <Input
-                            type="number"
-                            value={currentSettings?.zebraPrinterPort || "9100"}
-                            onChange={(e) => handleInputChange("zebraPrinterPort", e.target.value)}
-                            className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
-                            placeholder=""
-                            data-testid="input-zebra-port"
-                          />
-                          <p className="text-xs text-variable">Default: 9100 (standard Zebra network port for TCP/IP connections)</p>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label className="text-sm font-medium text-fixed">
-                            Zebra Printer Model
-                          </Label>
-                          <Select
-                            value={currentSettings?.zebraPrinterModel || "GK420d"}
-                            onValueChange={(value) => handleInputChange("zebraPrinterModel", value)}
-                          >
-                            <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50" data-testid="select-zebra-model">
-                              <SelectValue placeholder="Select Zebra model" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="GK420d">GK420d (Desktop)</SelectItem>
-                              <SelectItem value="GK420t">GK420t (Desktop Thermal Transfer)</SelectItem>
-                              <SelectItem value="ZD420">ZD420 (Desktop)</SelectItem>
-                              <SelectItem value="ZD421">ZD421 (Healthcare)</SelectItem>
-                              <SelectItem value="ZD620">ZD620 (Premium Desktop)</SelectItem>
-                              <SelectItem value="ZT410">ZT410 (Industrial)</SelectItem>
-                              <SelectItem value="ZT420">ZT420 (Industrial)</SelectItem>
-                              <SelectItem value="LP2824">LP2824 (Legacy)</SelectItem>
-                              <SelectItem value="LP2844">LP2844 (Legacy)</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <p className="text-xs text-variable">Select your Zebra printer model for optimal ZPL generation</p>
-                        </div>
-
-                        <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-lg">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Zap className="h-4 w-4 text-purple-600" />
-                            <span className="text-sm font-medium text-purple-800">Zebra ZPL Support</span>
-                          </div>
-                          <p className="text-xs text-purple-600">
-                            Full ZPL (Zebra Programming Language) support with QR codes, barcodes, and custom layouts.
-                            Alternative thermal printing option for Zebra printer users.
-                          </p>
-                        </div>
-
-                        <Button
-                          type="button"
-                          onClick={() => handleTestPrinter('zebra')}
-                          className="w-full mt-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
-                          data-testid="button-test-zebra"
-                        >
-                          <TestTube className="h-4 w-4 mr-2" />
-                          Test Zebra ZPL Code
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </GlassCard>
+                </div>
+              
+                <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
+                  <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Print a Demo Pass</h4>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Preview how your visitor passes will look before going live.</p>
+                  <button
+                    type="button"
+                    onClick={() => window.open('/api/passes/print/visitor/demo', '_blank')}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Open Demo Pass
+                  </button>
+                </div>
               </div>
             </TabsContent>
 
@@ -3304,7 +2786,7 @@ export default function Settings() {
 
               {/* Show Physical Pass Designer only when e-Pass is disabled */}
               {!currentSettings?.ePassEnabled && (
-                <ProfessionalThermalDesigner />
+                <ThermalPassDesigner />
               )}
               
               {/* Show e-Pass preview when enabled */}
@@ -8524,122 +8006,6 @@ export default function Settings() {
               </Button>
             </DialogFooter>
           </form>
-        </DialogContent>
-      </Dialog>
-
-      {/* Test Printer Dialog */}
-      <Dialog open={showTestPrinterDialog} onOpenChange={setShowTestPrinterDialog}>
-        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <TestTube className="text-purple-600" size={24} />
-              {testPrinterType === 'tec' ? 'Toshiba Tec TCPL' : 'Zebra ZPL'} Test Code
-            </DialogTitle>
-            <DialogDescription>
-              Generated {testPrinterType === 'tec' ? 'TCPL' : 'ZPL'} code for testing your thermal printer configuration.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {isTestingPrinter && (
-              <div className="flex items-center justify-center p-8">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
-                  <p className="text-variable">Generating test code...</p>
-                </div>
-              </div>
-            )}
-
-            {testPrinterResult && (
-              <div className={`p-4 rounded-lg border ${testPrinterResult.success ? 'bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800' : 'bg-red-50 border-red-200'}`}>
-                <div className="flex items-center gap-2">
-                  {testPrinterResult.success ? (
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-600" />
-                  )}
-                  <p className={`text-sm font-medium ${testPrinterResult.success ? 'text-green-800 dark:text-green-300' : 'text-red-800'}`}>
-                    {testPrinterResult.message}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {testPrinterCode && (
-              <>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-fixed">
-                      Generated {testPrinterType === 'tec' ? 'TCPL' : 'ZPL'} Code
-                    </Label>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(testPrinterCode);
-                        toast({
-                          title: "Copied!",
-                          description: "Printer code copied to clipboard",
-                        });
-                      }}
-                      data-testid="button-copy-code"
-                    >
-                      <Copy className="h-4 w-4 mr-1" />
-                      Copy
-                    </Button>
-                  </div>
-                  <div className="bg-slate-900 text-green-400 p-4 rounded-lg font-mono text-xs overflow-x-auto max-h-96 overflow-y-auto">
-                    <pre>{testPrinterCode}</pre>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-                  <h4 className="text-sm font-semibold text-blue-900 mb-2">About {testPrinterType === 'tec' ? 'TCPL' : 'ZPL'} Code</h4>
-                  <p className="text-xs text-blue-700">
-                    {testPrinterType === 'tec' 
-                      ? 'TCPL (Toshiba Control Programming Language) is used to send print commands to Toshiba Tec thermal printers. This code includes sample text, barcodes, and QR codes.'
-                      : 'ZPL (Zebra Programming Language) is used to send print commands to Zebra thermal printers. This code includes sample text, barcodes, and QR codes.'}
-                  </p>
-                </div>
-
-                {currentSettings?.[testPrinterType === 'tec' ? 'tecPrinterIp' : 'zebraPrinterIp'] && (
-                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <Info className="h-4 w-4 text-purple-600 mt-0.5" />
-                      <div>
-                        <p className="text-sm font-medium text-purple-900 mb-1">Send to Network Printer</p>
-                        <p className="text-xs text-purple-700 mb-2">
-                          Printer IP: {currentSettings?.[testPrinterType === 'tec' ? 'tecPrinterIp' : 'zebraPrinterIp']}:{currentSettings?.[testPrinterType === 'tec' ? 'tecPrinterPort' : 'zebraPrinterPort']}
-                        </p>
-                        <Button
-                          type="button"
-                          onClick={handleSendTestPrint}
-                          disabled={isTestingPrinter}
-                          className="w-full bg-purple-600 hover:bg-purple-700"
-                          data-testid="button-send-test-print"
-                        >
-                          <Send className="h-4 w-4 mr-2" />
-                          {isTestingPrinter ? 'Sending...' : 'Send Test Print to Printer'}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowTestPrinterDialog(false)}
-              data-testid="button-close-test-dialog"
-            >
-              Close
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

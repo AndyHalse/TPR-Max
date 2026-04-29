@@ -15,7 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import PassPreviewModal from "@/components/PassPreviewModal";
 import { VisitorEditModal } from "@/components/VisitorEditModal";
-import { printVisitorPass } from "@/lib/printVisitorPass";
+
 import { useToast } from "@/hooks/use-toast";
 import { 
   Users, 
@@ -526,7 +526,7 @@ export default function Visitors() {
       } else {
         // Auto-print the pass after a short delay
         setTimeout(() => {
-          printVisitorPass({ visitor, staff, toast });
+          window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
         }, 500);
         // Show visitor pass preview (same as previous visitors)
         setShowPassPreview(true);
@@ -629,7 +629,7 @@ export default function Visitors() {
       } else {
         // Auto-print the pass after a short delay
         setTimeout(() => {
-          printVisitorPass({ visitor, staff, toast });
+          window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
         }, 500);
         setShowPassPreview(true);
         toast({

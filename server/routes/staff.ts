@@ -10,7 +10,6 @@ import { simpleDatabaseService } from '../simpleDatabaseService';
 import { customerDbService, CustomerDatabaseService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { websocketService } from '../websocketService';
-import { generateStaffWalletPass } from '../walletPassService';
 import * as isolatedSchema from '../isolatedSchema';
 import { insertStaffSchema, evacuationAccountability } from '../isolatedSchema';
 import { evacuations } from '@shared/schema';
@@ -944,22 +943,7 @@ export function registerStaffRoutes(app: Express): void {
       const companyName = settings?.companyName || 'TPR Max';
       const brandColor = settings?.accentColor || '#4f46e5';
 
-      const passBuffer = await generateStaffWalletPass({
-        qrCode: staffMember.qrCode,
-        staffName: `${staffMember.firstName} ${staffMember.lastName}`,
-        department: staffMember.department || '',
-        employeeId: staffMember.employeeId || staffMember.id,
-        companyName,
-        brandColor,
-      });
-
-      const safeName = `${staffMember.firstName}-${staffMember.lastName}`
-        .toLowerCase().replace(/[^a-z0-9-]/g, '-');
-
-      res.setHeader('Content-Type', 'application/vnd.apple.pkpass');
-      res.setHeader('Content-Disposition', `attachment; filename="${safeName}-pass.pkpass"`);
-      res.setHeader('Cache-Control', 'no-store');
-      res.send(passBuffer);
+      res.status(501).json({ error: 'Apple Wallet pass generation is not available in this deployment' });
     } catch (error) {
       console.error("Error generating wallet pass:", error);
       res.status(500).json({ error: "Failed to generate wallet pass" });

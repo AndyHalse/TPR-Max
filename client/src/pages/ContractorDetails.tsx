@@ -583,13 +583,8 @@ export default function ContractorDetails() {
     return `<div style="border:2px solid ${brandColor};border-radius:14px;padding:20px 18px;max-width:280px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;text-align:center;background:#fff;"><div style="background:${brandColor};margin:-20px -18px 12px -18px;border-radius:12px 12px 0 0;padding:14px 12px 10px 12px;">${logoHtml}<div style="color:#fff;font-size:15px;font-weight:700;">${companyName}</div><div style="color:rgba(255,255,255,0.8);font-size:10px;margin-top:2px;">CONTRACTOR CHECK-IN PASS</div></div><img src="${qrUrl}" style="width:180px;height:180px;margin:6px auto 10px;display:block;border-radius:8px;border:1px solid #e5e7eb;"><h3 style="margin:0 0 2px;font-size:16px;color:#111;">${workerName}</h3><p style="margin:2px 0;color:#555;font-size:13px;">${workerCompanyName}</p><div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e7eb;"><p style="margin:0;font-size:10px;color:#aaa;">Scan at kiosk to check in / check out</p></div></div>`;
   };
 
-  const handlePrintWorkerQrPass = (qrCode: string, workerName: string, workerCompanyName: string) => {
-    const passHtml = getBrandedWorkerPassHtml(qrCode, workerName, workerCompanyName);
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>QR Pass - ${workerName}</title></head><body style="margin:0;display:flex;justify-content:center;padding:20px;">${passHtml}</body></html>`);
-    printWindow.document.close();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+  const handlePrintWorkerQrPass = (workerId: string) => {
+    window.open(`/api/passes/print/contractor/${workerId}`, '_blank');
   };
 
   const handleDownloadWorkerQrPass = async (qrCode: string, workerName: string, workerCompanyName: string) => {
@@ -2495,11 +2490,7 @@ export default function ContractorDetails() {
                 variant="outline"
                 onClick={() => {
                   if (!qrPassWorker) return;
-                  sendWorkerQrPassMutation.mutate({ id: qrPassWorker.id, method: 'print' }, {
-                    onSuccess: (data: any) => {
-                      handlePrintWorkerQrPass(data.qrCode, data.workerName, (qrPassWorker as any).companyName || contractorData?.name || '');
-                    }
-                  });
+                  handlePrintWorkerQrPass(qrPassWorker.id);
                 }}
                 disabled={sendWorkerQrPassMutation.isPending}
                 className="w-full justify-start gap-3 h-14"

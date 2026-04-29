@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format, addDays } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { printVisitorPass } from "@/lib/printVisitorPass";
+
 import { Staff, PreBooking, InsertPreBooking, MeetingRoom } from "@shared/schema";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -291,7 +291,7 @@ export default function PreBooking() {
       
       // Auto-print the pass after a short delay
       setTimeout(() => {
-        printVisitorPass({ visitor, staff, toast });
+        window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
       }, 500);
       
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });

@@ -1001,44 +1001,6 @@ export const users = pgTable("users", {
 // Each customer now gets their own database with companySettings table (no customerId field needed)
 // This prevents schema conflicts and ensures true multi-tenant isolation
 
-// Printer Configurations table for advanced printer properties
-export const printerConfigurations = pgTable("printer_configurations", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  printerName: text("printer_name").notNull(),
-  printerType: text("printer_type").default("standard"), // standard, thermal, id_card, label
-  // Paper and Media Settings
-  paperSize: text("paper_size").default("A4"), // A4, A5, Letter, Legal, Custom, CR80, CR79
-  orientation: text("orientation").default("portrait"), // portrait, landscape
-  duplex: text("duplex").default("none"), // none, short_edge, long_edge
-  paperSource: text("paper_source").default("auto"), // auto, tray1, tray2, manual, envelope
-  // Quality Settings
-  printQuality: text("print_quality").default("normal"), // draft, normal, high, photo
-  colorMode: text("color_mode").default("color"), // color, grayscale, monochrome
-  resolution: text("resolution").default("600dpi"), // 300dpi, 600dpi, 1200dpi, 2400dpi
-  // Barcode and QR Code Settings
-  barcodeFormat: text("barcode_format").default("QR_CODE"), // QR_CODE, DATA_MATRIX, PDF417, CODE128
-  barcodeSize: text("barcode_size").default("medium"), // small, medium, large, xlarge
-  barcodePosition: text("barcode_position").default("bottom_right"), // top_left, top_right, bottom_left, bottom_right, center
-  // Thermal Printer Specific Settings
-  thermalSpeed: text("thermal_speed").default("medium"), // slow, medium, fast
-  thermalDensity: text("thermal_density").default("normal"), // light, normal, dark
-  labelWidth: text("label_width").default("4"), // inches: 2, 3, 4, 6
-  labelHeight: text("label_height").default("6"), // inches: 2, 3, 4, 6, 8
-  // ID Card Printer Specific Settings
-  cardType: text("card_type").default("pvc"), // pvc, pet, teslin, composite
-  cardThickness: text("card_thickness").default("30mil"), // 10mil, 20mil, 30mil, 40mil
-  printSides: text("print_sides").default("single"), // single, dual
-  encodingOptions: text("encoding_options").array().default([]), // magnetic, smart_card, proximity, mifare
-  // Advanced Settings
-  margins: text("margins").default('{"top": 0, "right": 0, "bottom": 0, "left": 0}'), // JSON string for custom margins
-  customSettings: text("custom_settings").default("{}"), // JSON string for printer-specific settings
-  // Status and Configuration
-  isDefault: boolean("is_default").default(false),
-  isActive: boolean("is_active").default(true),
-  lastUsed: timestamp("last_used"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
 
 // User invitations table for user management
 export const userInvitations = pgTable("user_invitations", {
@@ -1085,13 +1047,6 @@ export const insertReportSchema = createInsertSchema(reports).omit({
   generatedAt: true,
 });
 
-export const insertPrinterConfigurationSchema = createInsertSchema(printerConfigurations).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-  lastUsed: true,
-});
-
 export const insertPreBookingSchema = createInsertSchema(preBookings).omit({
   id: true,
   customerId: true,
@@ -1126,8 +1081,6 @@ export type SelectEvacuations = typeof evacuations.$inferSelect;
 export type SelectEvacuationAccountability = typeof evacuationAccountability.$inferSelect;
 export type UserInvitation = typeof userInvitations.$inferSelect;
 // REMOVED: CompanySettings types moved to isolatedSchema.ts for proper customer isolation
-export type PrinterConfiguration = typeof printerConfigurations.$inferSelect;
-export type InsertPrinterConfiguration = z.infer<typeof insertPrinterConfigurationSchema>;
 export type Report = typeof reports.$inferSelect;
 export type InsertReport = z.infer<typeof insertReportSchema>;
 export type PreBooking = typeof preBookings.$inferSelect;
@@ -2329,139 +2282,6 @@ export interface TransformedRoomBooking {
 // ===========================
 
 // Service instances registered for each customer location
-export const printServiceInstances = pgTable("print_service_instances", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  customerId: varchar("customer_id").notNull().references(() => customers.id),
-  
-  // Service identification
-  serviceName: text("service_name").notNull(), // User-friendly name like "Reception Desk"
-  machineId: text("machine_id").notNull(), // Windows machine identifier
-  apiToken: text("api_token").notNull().unique(), // Authentication token for this service
-  
-  // Service configuration
-  location: text("location"), // Physical location description
-  supportedPrinters: text("supported_printers").array(), // ['tec', 'zebra']
-  pollIntervalSeconds: integer("poll_interval_seconds").default(30).notNull(),
-  
-  // Status tracking
-  isActive: boolean("is_active").default(true).notNull(),
-  lastHeartbeat: timestamp("last_heartbeat"),
-  serviceVersion: text("service_version"),
-  
-  // Connection info
-  ipAddress: text("ip_address"),
-  computerName: text("computer_name"),
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-// Print job queue for Windows services to poll
-export const printQueue = pgTable("print_queue", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  customerId: varchar("customer_id").notNull().references(() => customers.id),
-  serviceInstanceId: varchar("service_instance_id").references(() => printServiceInstances.id),
-  
-  // Job details
-  jobType: text("job_type").notNull(), // 'visitor_pass', 'contractor_pass', 'muster_list', 'test_print'
-  printerType: text("printer_type").notNull(), // 'tec', 'zebra'
-  priority: integer("priority").default(1).notNull(), // 1=normal, 2=high, 3=urgent
-  
-  // Pass data (JSON)
-  visitorData: text("visitor_data"), // JSON string of visitor/contractor data
-  passElements: text("pass_elements"), // JSON string of design elements
-  printerSettings: text("printer_settings"), // JSON string of printer configuration
-  
-  // Job status
-  status: text("status").default("pending").notNull(), // pending, processing, completed, failed, cancelled
-  assignedAt: timestamp("assigned_at"),
-  startedAt: timestamp("started_at"),
-  completedAt: timestamp("completed_at"),
-  
-  // Error handling
-  errorMessage: text("error_message"),
-  retryCount: integer("retry_count").default(0).notNull(),
-  maxRetries: integer("max_retries").default(3).notNull(),
-  
-  // Audit trail
-  createdBy: varchar("created_by"), // User who initiated the print
-  requestSource: text("request_source").default("web_app").notNull(), // 'web_app', 'api', 'kiosk'
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
-// Print job history for audit and monitoring
-export const printJobHistory = pgTable("print_job_history", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  customerId: varchar("customer_id").notNull().references(() => customers.id),
-  printQueueId: varchar("print_queue_id").notNull().references(() => printQueue.id),
-  serviceInstanceId: varchar("service_instance_id").references(() => printServiceInstances.id),
-  
-  // Performance metrics
-  queueTimeMs: integer("queue_time_ms"), // Time from creation to assignment
-  processingTimeMs: integer("processing_time_ms"), // Time from start to completion
-  totalTimeMs: integer("total_time_ms"), // Total time from creation to completion
-  
-  // Technical details
-  generatedCode: text("generated_code"), // The TPL/ZPL code that was generated
-  codeLength: integer("code_length"), // Length of generated code
-  printerResponse: text("printer_response"), // Any response from printer
-  
-  // Results
-  wasSuccessful: boolean("was_successful").default(false).notNull(),
-  finalStatus: text("final_status").notNull(), // completed, failed, cancelled
-  errorDetails: text("error_details"),
-  
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-// Insert schemas for print queue
-export const insertPrintServiceInstanceSchema = createInsertSchema(printServiceInstances).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertPrintQueueSchema = createInsertSchema(printQueue).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertPrintJobHistorySchema = createInsertSchema(printJobHistory).omit({
-  id: true,
-  createdAt: true,
-});
-
-// Insert schemas for CO2 tracking
-export const insertCO2EmissionsDataSchema = createInsertSchema(co2EmissionsData).omit({
-  id: true,
-  calculatedAt: true,
-  lastUpdated: true,
-  createdAt: true,
-});
-
-export const insertCO2MonthlySummarySchema = createInsertSchema(co2MonthlySummaries).omit({
-  id: true,
-  createdAt: true,
-  updatedAt: true,
-});
-
-export const insertCO2SustainabilityReportSchema = createInsertSchema(co2SustainabilityReports).omit({
-  id: true,
-  generatedAt: true,
-  createdAt: true,
-});
-
-// Types for print queue
-export type PrintServiceInstance = typeof printServiceInstances.$inferSelect;
-export type InsertPrintServiceInstance = z.infer<typeof insertPrintServiceInstanceSchema>;
-export type PrintQueue = typeof printQueue.$inferSelect;
-export type InsertPrintQueue = z.infer<typeof insertPrintQueueSchema>;
-export type PrintJobHistory = typeof printJobHistory.$inferSelect;
-export type InsertPrintJobHistory = z.infer<typeof insertPrintJobHistorySchema>;
-
 // Types for CO2 tracking
 export type CO2EmissionsData = typeof co2EmissionsData.$inferSelect;
 export type InsertCO2EmissionsData = z.infer<typeof insertCO2EmissionsDataSchema>;

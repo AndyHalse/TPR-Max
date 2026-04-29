@@ -1,0 +1,463 @@
+This is a significant but focused refactor. TPR Max is a pure 
+cloud SaaS — it will never run on-premises. All direct TCP/IP 
+printer communication, Windows spooler integration, print job 
+queue services, and print agent code must be removed. Replace 
+everything with a single browser-based window.print() approach.
+
+Work through each step in order. Do not break existing check-in 
+or pass functionality — only the printing mechanism changes.
+
+═══════════════════════════════════════════════════════════════
+STEP 1 — DELETE SERVER SERVICE FILES
+═══════════════════════════════════════════════════════════════
+
+Delete these files entirely from the server/ directory:
+
+  server/zebraPrintService.ts
+  server/thermalPrintService.ts
+  server/tecThermalService.ts
+  server/directPrintService.ts
+  server/pdfPrintService.ts
+  server/windowsPrintService.ts
+  server/printJobQueue.ts
+  server/walletPassService.ts
+  server/tcplGenerator.ts  (if it exists)
+
+Remove any import statements referencing these files from:
+  server/routes/remaining.ts
+  server/routes/settings.ts
+  server/index.ts (or server/routes/index.ts)
+
+═══════════════════════════════════════════════════════════════
+STEP 2 — REMOVE ROUTE ENDPOINTS (server/routes/remaining.ts)
+═══════════════════════════════════════════════════════════════
+
+Remove ALL of the following route handlers from remaining.ts:
+
+  GET  /api/thermal-passes/design/:type
+  PUT  /api/thermal-passes/design/:type
+  POST /api/thermal-passes/print-tec-native
+  POST /api/thermal-passes/print-zebra
+  POST /api/thermal-passes/print-windows
+  POST /api/thermal-passes/print-muster
+  POST /api/thermal/generate-code
+  POST /api/thermal/test-print
+  POST /api/thermal/queue-print
+  POST /api/print-service/register
+  POST /api/print-service/heartbeat  (both copies)
+  GET  /api/print-service/poll/:apiToken  (both copies)
+  POST /api/print-service/job-status  (both copies)
+  POST /api/print-queue/add
+  POST /api/print-service/generate-token
+  GET  /service-installation-guide
+
+Keep this one route but rebuild it in Step 4:
+  POST /api/thermal-passes/pdf  ← REBUILD, don't delete
+
+═══════════════════════════════════════════════════════════════
+STEP 3 — REMOVE ROUTE ENDPOINTS (server/routes/settings.ts)
+═══════════════════════════════════════════════════════════════
+
+Remove ALL of the following route handlers from settings.ts:
+
+  GET  /api/printers/detect
+  GET  /api/printers/diagnostics
+  POST /api/printers/test-raw
+  POST /api/printers/test/tec
+  POST /api/printers/test/zebra
+  POST /api/printers/send/tec
+  POST /api/printers/send/zebra
+  GET  /api/printers/configurations
+  GET  /api/printers/configurations/:printerName
+  POST /api/printers/configurations
+  PUT  /api/printers/configurations/:id
+  DELETE /api/printers/configurations/:id
+  POST /api/printers/configurations/:id/set-default
+  GET  /api/printers/zebra/capabilities
+  GET  /api/printers/tec/compliance
+  GET  /api/printers/zebra/compliance
+
+═══════════════════════════════════════════════════════════════
+STEP 4 — REBUILD THE BROWSER PRINT ENDPOINT
+═══════════════════════════════════════════════════════════════
+
+Replace the old POST /api/thermal-passes/pdf handler with a new 
+implementation that generates a browser-printable HTML page.
+
+Also add two new convenience GET routes:
+  GET /api/passes/print/visitor/:visitorId
+  GET /api/passes/print/contractor/:workerId
+
+All three routes use the same logic:
+
+1. Require authentication (requireAuth middleware)
+2. Fetch the visitor or worker record and company settings 
+   from the customer's isolated database
+3. Generate a QR code as a base64 PNG data URI (use the existing 
+   QR generation library already in the project)
+4. Return a complete, self-contained HTML page as the response 
+   (Content-Type: text/html)
+
+The HTML page template:
+
+  <!DOCTYPE html>
+  <html>
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Pass — ${name}</title>
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      
+      body { 
+        font-family: Arial, sans-serif; 
+        background: #f5f5f5;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .instructions {
+        margin-bottom: 16px;
+        text-align: center;
+        color: #555;
+        font-size: 14px;
+      }
+
+      .instructions strong { color: #1e3a5f; }
+
+      .tip {
+        background: #e8f4f8;
+        border: 1px solid #b3d9e8;
+        border-radius: 6px;
+        padding: 10px 16px;
+        font-size: 12px;
+        color: #555;
+        margin-bottom: 16px;
+        max-width: 400px;
+        text-align: center;
+      }
+
+      .pass {
+        width: 95mm;
+        height: 65mm;
+        background: white;
+        border: 2px solid #1e3a5f;
+        border-radius: 4px;
+        padding: 4mm;
+        display: grid;
+        grid-template-columns: 1fr 22mm;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 2mm;
+        position: relative;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      }
+
+      .pass-header {
+        grid-column: 1 / 3;
+        background: #1e3a5f;
+        color: white;
+        padding: 2mm 3mm;
+        font-size: 11pt;
+        font-weight: bold;
+        letter-spacing: 1px;
+        border-radius: 2px;
+        text-transform: uppercase;
+      }
+
+      .pass-name {
+        font-size: 13pt;
+        font-weight: bold;
+        color: #1e3a5f;
+        line-height: 1.2;
+      }
+
+      .pass-company {
+        font-size: 9pt;
+        color: #444;
+        margin-top: 1mm;
+      }
+
+      .pass-host {
+        font-size: 8pt;
+        color: #666;
+      }
+
+      .pass-date {
+        font-size: 8pt;
+        color: #666;
+      }
+
+      .pass-qr {
+        grid-row: 2 / 5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .pass-qr img {
+        width: 20mm;
+        height: 20mm;
+      }
+
+      .pass-footer {
+        grid-column: 1 / 3;
+        border-top: 0.5px solid #ddd;
+        padding-top: 1.5mm;
+        font-size: 7pt;
+        color: #888;
+      }
+
+      .badge {
+        display: inline-block;
+        background: #0d9488;
+        color: white;
+        font-size: 7pt;
+        padding: 0.5mm 2mm;
+        border-radius: 2px;
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+
+      @media print {
+        body { 
+          background: white;
+          display: block;
+          padding: 0;
+          margin: 0;
+        }
+        .instructions, .tip, .print-btn { display: none !important; }
+        .pass {
+          width: 95mm;
+          height: 65mm;
+          margin: 0;
+          box-shadow: none;
+          border: 1px solid #1e3a5f;
+          page-break-after: avoid;
+        }
+        @page {
+          size: 95mm 65mm;
+          margin: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="instructions">
+      <strong>Pass ready to print</strong><br>
+      Click Print below or press Ctrl+P (Cmd+P on Mac)
+    </div>
+    <div class="tip">
+      💡 Set your printer paper size to <strong>95mm × 65mm</strong> in 
+      your print dialog for best results. For thermal printers, 
+      select your printer and choose "Fit to page".
+    </div>
+    <div class="pass">
+      <div class="pass-header">
+        <span class="badge">${roleType}</span>
+        &nbsp;&nbsp;${companyName}
+      </div>
+      <div class="pass-name">${visitorName}</div>
+      <div class="pass-qr">
+        <img src="${qrDataUri}" alt="QR Code" />
+      </div>
+      <div class="pass-company">${visitorCompany}</div>
+      <div class="pass-host">Host: ${hostName}</div>
+      <div class="pass-date">${formattedDate}</div>
+      <div class="pass-footer">
+        Please return to reception when leaving &nbsp;&nbsp; 
+        Ref: ${visitorRef}
+      </div>
+    </div>
+    <br>
+    <button class="print-btn" onclick="window.print()" 
+      style="margin-top:16px; padding:10px 32px; background:#1e3a5f; 
+             color:white; border:none; border-radius:6px; font-size:14px; 
+             cursor:pointer;">
+      🖨️ Print Pass
+    </button>
+    <script>
+      // Auto-trigger print after images load
+      window.addEventListener('load', function() {
+        setTimeout(function() { window.print(); }, 600);
+      });
+    </script>
+  </body>
+  </html>
+
+Substitute the template variables with real data from the database.
+Format the date as: DD/MM/YYYY, HH:MM
+
+═══════════════════════════════════════════════════════════════
+STEP 5 — UPDATE THE FRONTEND PRINT BUTTONS
+═══════════════════════════════════════════════════════════════
+
+In every place in the frontend that currently calls a printing 
+API (search for: thermal-passes, print-zebra, print-tec, 
+print-windows, queue-print, printJobQueue):
+
+Replace the API call with:
+
+  const printUrl = `/api/passes/print/visitor/${visitor.id}`;
+  const win = window.open(printUrl, '_blank', 'width=500,height=400');
+  if (!win) {
+    toast({
+      title: 'Popup blocked',
+      description: 'Please allow popups for this site. Click the 
+                    blocked popup icon in your browser address bar.',
+      variant: 'destructive'
+    });
+  }
+
+For contractor passes:
+  const printUrl = `/api/passes/print/contractor/${worker.id}`;
+
+Apply this replacement in:
+  - VisitorCheckIn.tsx (the "Print Pass" button after check-in)
+  - Visitors.tsx (any "Print Pass" action in visitor list/detail)
+  - ContractorDetails.tsx
+  - ContractorManagement.tsx
+  - ContractorKiosk.tsx
+  - KioskMode.tsx
+  - Any component with a "Print Test" button
+
+Also update the "Print Test" button in the Pass Designer 
+(ThermalPassDesigner.tsx or ProfessionalThermalDesigner.tsx) 
+to open: /api/passes/print/visitor/demo 
+
+Create a /api/passes/print/visitor/demo route that returns a 
+print page with dummy data (John Smith, Tech Solutions Ltd, 
+Host: Sarah Johnson) so customers can test without a real visitor.
+
+═══════════════════════════════════════════════════════════════
+STEP 6 — DELETE FRONTEND PRINTING UTILITY FILES
+═══════════════════════════════════════════════════════════════
+
+Delete these files:
+  client/src/lib/printVisitorPass.ts
+
+Delete the professional thermal designer components directory:
+  client/src/components/professional-thermal-designer/
+  (all files inside: ProfessionalThermalDesigner.tsx, 
+  ElementPropertyPanel.tsx, ThermalElement.ts, ThermalTemplates.ts)
+
+Keep these — they are still needed:
+  client/src/components/ThermalPassDesigner.tsx  ← keep, used for 
+    the visual pass layout designer (just fix the print button)
+  client/src/components/PassPreviewModal.tsx  ← keep
+  client/src/components/ContractorPassPreviewModal.tsx  ← keep
+
+═══════════════════════════════════════════════════════════════
+STEP 7 — SIMPLIFY THE PRINTER SETTINGS UI
+═══════════════════════════════════════════════════════════════
+
+In client/src/pages/Settings.tsx, find the Printer Settings tab 
+(the tab with "Printer Settings", "ID Cards", "Passes", "QR Readers").
+
+REMOVE from Printer Settings tab:
+- Any IP address input fields for Zebra or TEC printers
+- Any port number fields  
+- Any "Test Connection" or "Send Test Print" buttons
+- Any "Detect Printers" button
+- Any printer type dropdown (Zebra / TEC / Windows)
+- The "Print Service" / Windows service installation section
+- Any download link for the Windows print service agent
+
+KEEP in Printer Settings tab:
+- The Digital E-Pass Configuration toggle (keep this exactly as-is)
+- The "Physical Pass Active" / "Digital Pass Active" status badge
+
+REPLACE the removed printer config section with:
+
+  <div className="rounded-lg border p-6 bg-white">
+    <div className="flex items-center gap-3 mb-2">
+      <Printer className="h-5 w-5 text-teal-600" />
+      <h3 className="font-semibold text-gray-900">Physical Pass Printing</h3>
+    </div>
+    <p className="text-sm text-gray-600 mb-4">
+      When a visitor or contractor checks in, click "Print Pass" to open 
+      a print-ready page in your browser. Select your thermal printer 
+      (Zebra or Toshiba TEC) from the system print dialog.
+    </p>
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+      <strong>Printer setup tip:</strong> For best results on a 95mm × 65mm 
+      thermal label, set your printer's paper/label size before printing. 
+      In the print dialog, select your thermal printer, then choose 
+      <strong> More settings → Paper size → 95 × 65mm</strong> (or the 
+      closest available size).
+    </div>
+  </div>
+
+═══════════════════════════════════════════════════════════════
+STEP 8 — REMOVE DATABASE SCHEMA TABLES & TYPES
+═══════════════════════════════════════════════════════════════
+
+In shared/schema.ts, remove:
+  - The printerConfigurations table definition and all related types:
+    insertPrinterConfigurationSchema, PrinterConfiguration, 
+    InsertPrinterConfiguration
+  - The printServiceInstances table definition and all related types
+  - The printQueue table definition and all related types:
+    insertPrintQueueSchema, PrintQueue, InsertPrintQueue
+  - The printJobHistory table definition and all related types:
+    insertPrintJobHistorySchema, PrintJobHistory, InsertPrintJobHistory
+
+In server/isolatedSchema.ts (the customer-isolated schema):
+  Remove any printer-specific settings fields from companySettings:
+    - tecPrinterIp, tecPrinterPort
+    - zebraPrinterIp, zebraPrinterPort
+    - printerType, defaultPrinterName
+    - printServiceApiToken, printServiceUrl
+    - Any field containing "printer" or "print" in the name 
+      (except ePassEnabled and ePassDeliveryMethod — keep those)
+
+In server/migrationRunner.ts:
+  Remove any migration steps that ALTER TABLE to add printer 
+  columns (search for "tec_printer", "zebra_printer", port 9100)
+
+In server/bootstrapSchemaMigration.ts:
+  Remove any default values for printer ports (search for 9100)
+
+═══════════════════════════════════════════════════════════════
+STEP 9 — CLEAN UP REMAINING IMPORTS
+═══════════════════════════════════════════════════════════════
+
+After completing steps 1–8, search the entire codebase for any 
+remaining references to:
+  - zebraPrintService, ZebraPrintService
+  - thermalPrintService, ThermalPrintService
+  - tecThermalService, TecThermalService
+  - windowsPrintService, WindowsPrintService
+  - directPrintService, DirectPrintService
+  - pdfPrintService, PdfPrintService
+  - printJobQueue, PrintJobQueue
+  - walletPassService, WalletPassService
+  - printServiceInstances, printQueue, printJobHistory
+  - printerConfigurations
+
+For each reference found, remove the import statement and any 
+code that called the deleted function/class. If the removal 
+leaves a function empty or unreachable, remove the dead code too.
+
+═══════════════════════════════════════════════════════════════
+STEP 10 — VERIFY THE APP STILL WORKS
+═══════════════════════════════════════════════════════════════
+
+After all changes, confirm:
+
+1. The app compiles with no TypeScript errors
+2. Visitor check-in still works end-to-end
+3. Contractor check-in still works
+4. The "Print Pass" button opens a new browser tab with the 
+   print-ready HTML page containing the correct visitor/contractor data
+5. The Settings → Printer Settings tab renders without errors
+6. The Pass Designer tab still shows the visual designer 
+   with the Print Test button working via browser print
+7. Digital E-Pass (email) still sends when ePassEnabled is true
+
+If any TypeScript errors appear due to removed types being 
+referenced elsewhere, fix them by removing the reference or 
+replacing with the browser print approach above.

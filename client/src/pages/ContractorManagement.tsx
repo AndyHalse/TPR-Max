@@ -2520,14 +2520,8 @@ export default function ContractorManagement() {
       </div>`;
   };
 
-  const handlePrintWorkerQrPass = (qrCode: string, workerName: string, workerCompanyName: string) => {
-    const passHtml = getBrandedWorkerPassHtml(qrCode, workerName, workerCompanyName);
-    const printWindow = window.open('', '_blank', 'width=400,height=600');
-    if (!printWindow) return;
-    printWindow.document.write(`<html><head><title>Contractor QR Pass - ${workerName}</title></head><body style="margin:0;display:flex;justify-content:center;padding:20px;">${passHtml}</body></html>`);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
+  const handlePrintWorkerQrPass = (workerId: string) => {
+    window.open(`/api/passes/print/contractor/${workerId}`, '_blank');
   };
 
   const handleDownloadWorkerQrPass = async (qrCode: string, workerName: string, workerCompanyName: string) => {
@@ -5026,11 +5020,7 @@ export default function ContractorManagement() {
                 variant="outline"
                 onClick={() => {
                   if (!qrPassWorker) return;
-                  sendWorkerQrPassMutation.mutate({ id: qrPassWorker.id, method: 'print' }, {
-                    onSuccess: (data) => {
-                      handlePrintWorkerQrPass(data.qrCode, data.workerName, data.companyName || qrPassWorker.companyName);
-                    }
-                  });
+                  handlePrintWorkerQrPass(qrPassWorker.id);
                 }}
                 disabled={sendWorkerQrPassMutation.isPending}
                 className="w-full justify-start gap-3 h-14"

@@ -17,7 +17,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Key Features & Technical Implementations
 - **ID & Tracking**: Generates unique QR codes for visitor tracking and ID passes.
-- **Printing**: Supports multi-method thermal printing for TEC/Toshiba and Zebra printers.
+- **Printing**: Browser-native `window.print()` for visitor and contractor passes. Passes open in a new tab; user prints via the browser print dialog to any connected printer. No TCP/IP or network printer configuration required. Apple Wallet pass generation has been removed.
 - **Real-time Updates**: Implemented using optimistic updates via React Query.
 - **Feature Toggles**: Database-driven system for per-customer feature enablement/disablement.
 - **Reporting**: Customer-isolated report generation, viewing, and emailing, storing reports in each customer's specific PostgreSQL schema.
@@ -93,6 +93,6 @@ The backend route layer has been split from a single monolithic `server/routes.t
 | `emergency.ts` | Emergency | `/api/emergency/*`, `/api/evacuation/*` |
 | `induction.ts` | Induction | `/api/induction/*` — also exports `setupAutomaticDailyReset` |
 | `ppm.ts` | PPM | `/api/ppm/*` |
-| `remaining.ts` | All other domains | `/api/ai/*`, `/api/help/*`, `/api/stats`, `/api/analytics/*`, `/api/thermal-passes/*`, `/api/qr-*`, `/api/print-service/*`, `/api/import/*`, `/api/cdm/*`, `/api/helpdesk/*`, `/service-installation-guide` |
+| `remaining.ts` | All other domains | `/api/ai/*`, `/api/help/*`, `/api/stats`, `/api/analytics/*`, `/api/thermal-passes/*`, `/api/qr-*`, `/api/passes/print/*`, `/api/import/*`, `/api/cdm/*`, `/api/helpdesk/*` |
 
 `server/routes.ts` is now a thin 63-line shell: runs shared DB migrations, registers billing routes, calls `registerSplitRoutes`, and initialises the WebSocket service. Shared in-memory state (ppmTokenCache, biostarLiveLog, etc.) lives in `server/routeState.ts`.

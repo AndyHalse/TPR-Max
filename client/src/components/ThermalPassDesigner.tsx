@@ -205,14 +205,7 @@ export function ThermalPassDesigner() {
         const data = await response.json();
         const settings = data.settings;
         if (settings) {
-          if (settings.thermalSelectedPrinter) setSelectedPrinter(settings.thermalSelectedPrinter);
-          if (settings.thermalPrintMethod) setPrintMethod(settings.thermalPrintMethod);
           if (settings.thermalPrintQuality) setPrintQuality(settings.thermalPrintQuality);
-          if (settings.thermalPrinterSettings) {
-            const parsedSettings = JSON.parse(settings.thermalPrinterSettings);
-            setPrinterSettings(parsedSettings);
-          }
-          console.log(`🎯 Loaded saved printer settings`);
         }
       }
     } catch (error) {
@@ -222,37 +215,14 @@ export function ThermalPassDesigner() {
 
   const savePrinterSettings = async () => {
     try {
-      const updates = {
-        thermalSelectedPrinter: selectedPrinter,
-        thermalPrintMethod: printMethod,
-        thermalPrintQuality: printQuality,
-        thermalPrinterSettings: JSON.stringify(printerSettings),
-        thermalZebraSettings: JSON.stringify(zebraSettings)
-      };
-
-      const response = await fetch('/api/settings', {
+      const updates = { thermalPrintQuality: printQuality };
+      await fetch('/api/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates)
       });
-
-      if (response.ok) {
-        console.log(`🎯 Auto-saved printer settings`);
-        toast({
-          title: "Auto-saved",
-          description: "Thermal printer settings updated automatically",
-          className: "bg-green-50 border-green-200"
-        });
-      } else {
-        throw new Error('Failed to save settings');
-      }
     } catch (error) {
       console.error('Error saving printer settings:', error);
-      toast({
-        title: "Auto-save failed",
-        description: "Please try saving manually",
-        variant: "destructive",
-      });
     }
   };
 
@@ -262,10 +232,9 @@ export function ThermalPassDesigner() {
     loadCompanyData();
   }, [passType]);
 
-  // Auto-save printer settings when they change
   useEffect(() => {
     savePrinterSettings();
-  }, [selectedPrinter, printMethod, printQuality, printerSettings, zebraSettings]);
+  }, [printQuality]);
 
   // Handle element selection only
   const handleElementClick = (e: React.MouseEvent, elementId: string) => {
@@ -457,177 +426,15 @@ export function ThermalPassDesigner() {
     }
   };
 
-  const handleMultiPrint = async (method: 'direct' | 'browser' | 'windows') => {
+  const handleMultiPrint = async (_method?: string) => {
     setIsPrinting(true);
-    setPrintMethod(method);
-    
-    // Create print job tracking
-    const jobId = `job-${Date.now()}`;
-    const newJob = {
-      id: jobId,
-      status: 'queued' as const,
-      method,
-      printer: selectedPrinter,
-      timestamp: new Date().toLocaleTimeString('en-GB'),
-    };
-    
-    setPrintJobs(prev => [newJob, ...prev.slice(0, 4)]); // Keep last 5 jobs
-    setLastPrintStatus(`Preparing ${method} print job...`);
     
     try {
-      const visitorData = {
-        name: 'John Smith',
-        company: 'Tech Corp Ltd',
-        host: 'Sarah Johnson',
-        date: new Date().toLocaleDateString('en-GB'),
-        time: new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-        passId: `#${Math.random().toString(36).substr(2, 8).toUpperCase()}`,
-        qrCode: `VG-${Date.now()}`
-      };
-
-      // Update job status to printing
-      setPrintJobs(prev => prev.map(job => 
-        job.id === jobId ? { ...job, status: 'printing' } : job
-      ));
-      setLastPrintStatus(`Sending to ${selectedPrinter.toUpperCase()} printer...`);
-
-      let response;
-      const qualitySettings = getQualitySettings(printQuality);
-      
-      switch (method) {
-        case 'direct':
-          if (selectedPrinter === 'tec') {
-            response = await fetch('/api/thermal-passes/print-tec-native', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                data: visitorData,
-                printerSettings: { ...printerSettings, ...qualitySettings }
-              })
-            });
-          } else {
-            response = await fetch('/api/thermal-passes/print-zebra', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                elements: passElements,
-                data: {
-                  visitor: {
-                    id: 'temp-id',
-                    firstName: 'John',
-                    lastName: 'Smith',
-                    company: 'Tech Corp Ltd',
-                    email: 'john@techcorp.com',
-                    phone: '+44 1234 567890',
-                    checkedIn: true,
-                    checkedOut: false,
-                    checkinTime: new Date().toISOString(),
-                    host: 'Sarah Johnson',
-                    purpose: 'Meeting'
-                  },
-                  passType: passType,
-                  host: 'Sarah Johnson'
-                }
-              })
-            });
-          }
-          break;
-          
-        case 'browser':
-          response = await fetch('/api/thermal-passes/pdf', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              elements: passElements,
-              data: visitorData,
-              printerSettings: { ...printerSettings, ...qualitySettings }
-            })
-          });
-          
-          if (response.ok) {
-            const html = await response.text();
-            
-            // Open print page in new window
-            const printWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
-            if (printWindow) {
-              printWindow.document.write(html);
-              printWindow.document.close();
-              printWindow.focus();
-              
-              // Update job as completed
-              setPrintJobs(prev => prev.map(job => 
-                job.id === jobId ? { ...job, status: 'completed' } : job
-              ));
-              setLastPrintStatus('Print page opened - use browser print dialog');
-            } else {
-              // Fallback: create data URL and navigate
-              const dataUrl = 'data:text/html,' + encodeURIComponent(html);
-              window.open(dataUrl, '_blank');
-              
-              setPrintJobs(prev => prev.map(job => 
-                job.id === jobId ? { ...job, status: 'completed' } : job
-              ));
-              setLastPrintStatus('Print page opened (fallback method)');
-            }
-            
-            toast({
-              title: "🖨️ Print Page Opened",
-              description: "Use the browser's print dialog to print to your thermal printer"
-            });
-            return;
-          }
-          break;
-          
-        case 'windows':
-          response = await fetch('/api/thermal-passes/print-windows', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              elements: passElements,
-              data: visitorData,
-              printerSettings: { ...printerSettings, ...qualitySettings }
-            })
-          });
-          break;
-      }
-
-      if (response && response.ok) {
-        const result = await response.json();
-        
-        // Update job as completed
-        setPrintJobs(prev => prev.map(job => 
-          job.id === jobId ? { ...job, status: 'completed' } : job
-        ));
-        setLastPrintStatus(`Print completed via ${method}`);
-        
-        toast({
-          title: `✅ ${method.charAt(0).toUpperCase() + method.slice(1)} Print Success`,
-          description: `${result.message} (${result.method || method})`,
-        });
-      } else if (response) {
-        const error = await response.json();
-        
-        // Update job as failed
-        setPrintJobs(prev => prev.map(job => 
-          job.id === jobId ? { ...job, status: 'failed', error: error.error } : job
-        ));
-        setLastPrintStatus(`Print failed: ${error.error}`);
-        
-        throw new Error(error.error || `${method} printing failed`);
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : `Failed to print with ${method}`;
-      
-      // Update job as failed
-      setPrintJobs(prev => prev.map(job => 
-        job.id === jobId ? { ...job, status: 'failed', error: errorMessage } : job
-      ));
-      setLastPrintStatus(`Print failed: ${errorMessage}`);
-      
+      window.open('/api/passes/print/visitor/demo', '_blank');
+      setLastPrintStatus('Demo pass opened — use browser print dialog (Ctrl+P)');
       toast({
-        title: `${method.charAt(0).toUpperCase() + method.slice(1)} Print Error`,
-        description: errorMessage,
-        variant: "destructive"
+        title: "Print Preview Opened",
+        description: "Use your browser's print dialog to print the pass",
       });
     } finally {
       setIsPrinting(false);
@@ -724,39 +531,13 @@ export function ThermalPassDesigner() {
     }
   };
 
-  const testPrint = async () => {
-    setLastPrintStatus('Sending test print...');
-    
-    try {
-      const response = await fetch('/api/printers/test-raw', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          printer: selectedPrinter,
-          testType: 'simple'
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        setLastPrintStatus('Test print sent successfully');
-        toast({
-          title: "🧪 Test Print Sent",
-          description: result.message || 'Check your printer for test output',
-        });
-      } else {
-        throw new Error(result.error || 'Test print failed');
-      }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Test print failed';
-      setLastPrintStatus(`Test print failed: ${errorMessage}`);
-      toast({
-        title: "❌ Test Print Failed",
-        description: errorMessage,
-        variant: "destructive"
-      });
-    }
+  const testPrint = () => {
+    window.open('/api/passes/print/visitor/demo', '_blank');
+    setLastPrintStatus('Demo pass opened in new tab — use browser print dialog');
+    toast({
+      title: "Print Preview Opened",
+      description: "Use your browser's print dialog (Ctrl+P) to print the demo pass",
+    });
   };
 
   const handleThermalPrint = async () => {
@@ -1911,3 +1692,4 @@ export function ThermalPassDesigner() {
     </div>
   );
 }
+export default ThermalPassDesigner;
