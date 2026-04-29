@@ -2054,6 +2054,11 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
           const rec = buildWoRecord(year, monthIdx, schedPosition, asset.category);
           // For historical work orders: assign the contractor; future: leave blank
           const showContractor = rec.status !== "scheduled";
+          // For completed demo WOs that require a certificate, simulate one having been
+          // uploaded on the completion day — historical jobs are done and dusted.
+          const demoCertUploadedAt = (rec.status === "completed" && requiresCertificate && rec.completedDate)
+            ? new Date(rec.completedDate + "T09:00:00Z")
+            : null;
           await custDb.insert(isolatedSchema.ppmWorkOrders).values({
             assetId,
             scheduleId,
@@ -2065,6 +2070,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
             contractorWorkerName:  showContractor ? contractor?.worker  ?? null : null,
             notes: rec.notes ?? null,
             requiresCertificate,
+            certificateUploadedAt: demoCertUploadedAt,
           } as any);
           workOrdersCreated++;
         }
@@ -2626,7 +2632,8 @@ cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
               const completedDay = new Date(wo.completedDate + "T00:00:00Z");
               const msDiff = today.getTime() - completedDay.getTime();
               const daysDiff = msDiff / (1000 * 60 * 60 * 24);
-              if (daysDiff >= 2) missingCertWOs.push(wo);
+              // Only alert if completed 2–90 days ago; anything older is not actionable
+              if (daysDiff >= 2 && daysDiff <= 90) missingCertWOs.push(wo);
             }
             continue;
           }
