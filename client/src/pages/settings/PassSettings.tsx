@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Scan, Settings2, Eye, Download, Copy, CalendarPlus, Dock, BadgeCheck, Ticket } from "lucide-react";
+import { Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Scan, Settings2, Eye, Download, Copy, CalendarPlus, Dock, BadgeCheck, Ticket, Mail } from "lucide-react";
 
 export default function PassSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
-import { Users, UserPlus, UserCheck, Mail, Edit, Trash2, RefreshCw, Copy, Shield } from "lucide-react";
+import { Users, UserPlus, UserCheck, Mail, Edit, Trash2, RefreshCw, Copy, Shield, Info } from "lucide-react";
 
 export default function SecuritySettings() {
   const { toast } = useToast();
