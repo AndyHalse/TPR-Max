@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -17,7 +17,7 @@ import {
   Users, Video, FileQuestion, Eye, Sparkles, CheckCircle, XCircle,
   Maximize2, List, RefreshCw, Trash2, AlertCircle, Clock, ChevronRight,
   BookOpen, Shield, Flame, HardHat, ClipboardList, Send, Monitor,
-  ChevronDown, Settings, Mail, Loader2, Upload, Film, AlertTriangle
+  ChevronDown, Settings, Mail, Loader2, Upload, Film, AlertTriangle, Lock, RotateCcw
 } from "lucide-react";
 import type { InductionQuestion, CompanySettings } from "@shared/schema";
 
@@ -66,6 +66,113 @@ const CATEGORY_ICONS: Record<string, any> = {
   'Hazard Identification': AlertCircle,
   'Site Rules & Safe Working': ClipboardList,
 };
+
+interface InductionTokenRow {
+  id: string;
+  personName: string;
+  personEmail: string;
+  personType: string;
+  status: string;
+  quizAttempts: number | null;
+  quizPassed: boolean | null;
+  quizScore: number | null;
+  emailSent: boolean | null;
+  emailSentAt: string | null;
+  expiresAt: string;
+  createdAt: string;
+}
+
+function SentLinksSection() {
+  const { toast } = useToast();
+  const { data: tokens, isLoading, refetch } = useQuery<InductionTokenRow[]>({
+    queryKey: ['/api/induction/admin/tokens'],
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: (tokenId: string) => apiRequest('POST', `/api/induction/admin/tokens/${tokenId}/reset-attempts`),
+    onSuccess: () => {
+      toast({ title: 'Quiz Reset', description: 'The person can now retake the quiz.' });
+      refetch();
+    },
+    onError: () => {
+      toast({ title: 'Reset Failed', description: 'Could not reset quiz attempts.', variant: 'destructive' });
+    },
+  });
+
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const isExpired = (d: string) => new Date(d) < new Date();
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" />Sent Induction Links</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center">
+          <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!tokens || tokens.length === 0) {
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" />Sent Induction Links</CardTitle>
+          <CardDescription>Links sent to contractors, staff and visitors appear here.</CardDescription>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground text-center py-6">No links sent yet.</CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2"><Send className="h-4 w-4" />Sent Induction Links</CardTitle>
+        <CardDescription>Recent induction links sent to people. Use "Reset Quiz" if someone has used all their attempts.</CardDescription>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="divide-y">
+          {tokens.map(t => {
+            const attempts = t.quizAttempts ?? 0;
+            const locked = attempts >= 3 && !t.quizPassed;
+            const expired = isExpired(t.expiresAt);
+            return (
+              <div key={t.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm truncate">{t.personName}</span>
+                    <Badge variant="outline" className="text-xs capitalize">{t.personType}</Badge>
+                    {t.quizPassed && <Badge className="text-xs bg-green-100 text-green-800 border-green-200">Passed {t.quizScore}%</Badge>}
+                    {locked && <Badge className="text-xs bg-red-100 text-red-800 border-red-200 flex items-center gap-1"><Lock className="w-3 h-3" />Locked</Badge>}
+                    {expired && !t.quizPassed && <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200">Expired</Badge>}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {t.personEmail} · Sent {formatDate(t.createdAt)} · {attempts}/3 attempts
+                  </p>
+                </div>
+                {locked && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-xs border-red-300 text-red-700 hover:bg-red-50 shrink-0"
+                    onClick={() => resetMutation.mutate(t.id)}
+                    disabled={resetMutation.isPending}
+                  >
+                    {resetMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RotateCcw className="w-3 h-3 mr-1" />}
+                    Reset Quiz
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface RoleCardProps {
   roleType: 'visitor' | 'staff' | 'contractor';
@@ -1144,6 +1251,9 @@ export default function InductionSettings() {
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Sent Links — admin token management */}
+      <SentLinksSection />
 
       {/* Help / About */}
       <Card className="bg-amber-50 border-amber-200">

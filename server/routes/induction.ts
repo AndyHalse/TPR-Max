@@ -690,6 +690,59 @@ export function registerInductionRoutes(app: Express): void {
     }
   });
 
+  // ── Admin: list induction tokens for this customer ───────────────────────
+  app.get('/api/induction/admin/tokens', requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId;
+      if (!customerId) return res.status(403).json({ error: 'No customer context' });
+      const rows = await db
+        .select({
+          id: inductionTokens.id,
+          personName: inductionTokens.personName,
+          personEmail: inductionTokens.personEmail,
+          personType: inductionTokens.personType,
+          status: inductionTokens.status,
+          quizAttempts: inductionTokens.quizAttempts,
+          quizPassed: inductionTokens.quizPassed,
+          quizScore: inductionTokens.quizScore,
+          emailSent: inductionTokens.emailSent,
+          emailSentAt: inductionTokens.emailSentAt,
+          expiresAt: inductionTokens.expiresAt,
+          createdAt: inductionTokens.createdAt,
+        })
+        .from(inductionTokens)
+        .where(eq(inductionTokens.customerId, customerId))
+        .orderBy(desc(inductionTokens.createdAt))
+        .limit(100);
+      res.json(rows);
+    } catch (error) {
+      console.error('Error listing admin induction tokens:', error);
+      res.status(500).json({ error: 'Failed to load tokens' });
+    }
+  });
+
+  // ── Admin: reset quiz attempts so a person can retake ─────────────────────
+  app.post('/api/induction/admin/tokens/:tokenId/reset-attempts', requireAuth, async (req, res) => {
+    try {
+      const { tokenId } = req.params;
+      const customerId = req.customerId;
+      if (!customerId) return res.status(403).json({ error: 'No customer context' });
+      const [token] = await db
+        .select({ id: inductionTokens.id })
+        .from(inductionTokens)
+        .where(and(eq(inductionTokens.id, tokenId), eq(inductionTokens.customerId, customerId)));
+      if (!token) return res.status(404).json({ error: 'Token not found or not owned by your account' });
+      await db
+        .update(inductionTokens)
+        .set({ quizAttempts: 0, quizCompleted: false, quizCompletedAt: null, quizScore: 0, quizPassed: false, status: 'in_progress' })
+        .where(eq(inductionTokens.id, tokenId));
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error resetting quiz attempts:', error);
+      res.status(500).json({ error: 'Failed to reset quiz attempts' });
+    }
+  });
+
   app.post('/api/induction/:tokenId/video-watched', async (req, res) => {
     try {
       const { tokenId } = req.params;

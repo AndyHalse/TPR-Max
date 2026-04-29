@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, CheckCircle2, Clock, Play, AlertTriangle, Shield, HardHat, RefreshCw, ClipboardCheck } from "lucide-react";
+import { CheckCircle, CheckCircle2, Clock, Play, AlertTriangle, Shield, HardHat, RefreshCw, ClipboardCheck, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface InductionToken {
@@ -93,6 +93,7 @@ export default function SiteInduction() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
+  const [quizLocked, setQuizLocked] = useState<string | null>(null);
   const [quizResults, setQuizResults] = useState<{
     score: number;
     passed: boolean;
@@ -267,12 +268,13 @@ export default function SiteInduction() {
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
         if (res.status === 429) {
-          toast({
-            title: "Quiz Locked",
-            description: errData.error || "Please wait before retrying the quiz.",
-            variant: "destructive",
-            duration: 10000
-          });
+          const msg = errData.error || "Please wait before retrying the quiz.";
+          const isMaxAttempts = msg.toLowerCase().includes('maximum') || msg.toLowerCase().includes('contact');
+          if (isMaxAttempts) {
+            setQuizLocked(msg);
+          } else {
+            toast({ title: "Quiz Locked", description: msg, variant: "destructive", duration: 10000 });
+          }
           setQuizSubmitted(false);
           return;
         }
@@ -564,6 +566,27 @@ export default function SiteInduction() {
 
   const renderQuizStep = () => {
     const currentQuestion = questions[currentQuestionIndex];
+
+    // Check if already locked from previous attempts (at load time or after 429)
+    const alreadyMaxed = !quizLocked && tokenData && (tokenData.quizAttempts ?? 0) >= 3 && !tokenData.quizPassed;
+    const lockReason = quizLocked || (alreadyMaxed ? 'Maximum quiz attempts reached. Please contact the site administrator to reset your induction.' : null);
+
+    if (lockReason) {
+      return (
+        <div className="space-y-6">
+          <Card className="border-red-200">
+            <CardContent className="p-8 text-center space-y-4">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto">
+                <Lock className="w-8 h-8 text-red-500" />
+              </div>
+              <h2 className="text-xl font-bold text-gray-900">Quiz Locked</h2>
+              <p className="text-gray-600 max-w-sm mx-auto">{lockReason}</p>
+              <p className="text-sm text-gray-500">Once reset by your site manager, reload this page to try again.</p>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
 
     if (questions.length === 0) {
       return (
