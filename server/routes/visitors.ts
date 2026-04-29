@@ -218,6 +218,12 @@ export function registerVisitorRoutes(app: Express): void {
         console.log(`✅ Created new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
       }
       
+      // Reset ePassSent so the response only reflects what this request actually sent
+      if (visitor) {
+        visitor.ePassSent = false;
+        visitor.ePassSentAt = null;
+      }
+
       // Send e-Pass if enabled
       if (settings?.ePassEnabled && visitor) {
         console.log(`📧 E-Pass is enabled, sending digital pass to ${visitor.email || 'no email'}`);

@@ -3853,12 +3853,15 @@ export function registerContractorRoutes(app: Express): void {
       const passUrl = `${process.env.REPLIT_DOMAINS || process.env.APP_URL || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`}/pass/contractor/${workerId}`;
       
       // Mark worker as checked in using customer-isolated database service
+      // Reset ePassSent so stale flags from prior visits don't carry forward
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         qrCode: workerQrCode,
         isCheckedIn: true,
         checkedInAt: new Date(),
         hsRulesAccepted: contractorHsAccepted,
-        hsRulesAcceptedAt: contractorHsAcceptedAt
+        hsRulesAcceptedAt: contractorHsAcceptedAt,
+        ePassSent: false,
+        ePassSentAt: null
       });
 
       // Create a visit record for history tracking (each visit gets its own unique QR code)

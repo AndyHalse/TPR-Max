@@ -309,6 +309,8 @@ export class DatabaseService {
         isCheckedIn: true,
         checkedInAt: new Date(),
         checkedOutAt: null,
+        ePassSent: false,
+        ePassSentAt: null,
         updatedAt: new Date()
       })
       .where(eq(isolatedSchema.contractorWorkers.id, id))
@@ -664,6 +666,8 @@ export class DatabaseService {
         hsRulesAcceptanceToken: updates.hsRulesAcceptanceToken,
         ...(updates.hsRulesAccepted !== undefined ? { hsRulesAccepted: updates.hsRulesAccepted } : {}),
         ...(updates.hsRulesAcceptedAt !== undefined ? { hsRulesAcceptedAt: updates.hsRulesAcceptedAt } : {}),
+        ePassSent: false,
+        ePassSentAt: null,
         updatedAt: new Date()
       })
       .where(eq(isolatedSchema.visitors.id, id))
