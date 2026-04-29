@@ -138,6 +138,7 @@ function SentLinksSection() {
           {tokens.map(t => {
             const attempts = t.quizAttempts ?? 0;
             const locked = attempts >= 3 && !t.quizPassed;
+            const canReset = attempts >= 3; // show Reset for any fully-attempted token
             const expired = isExpired(t.expiresAt);
             return (
               <div key={t.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3">
@@ -153,11 +154,11 @@ function SentLinksSection() {
                     {t.personEmail} · Sent {formatDate(t.createdAt)} · {attempts}/3 attempts
                   </p>
                 </div>
-                {locked && (
+                {canReset && (
                   <Button
                     size="sm"
                     variant="outline"
-                    className="text-xs border-red-300 text-red-700 hover:bg-red-50 shrink-0"
+                    className={`text-xs shrink-0 ${locked ? 'border-red-300 text-red-700 hover:bg-red-50' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
                     onClick={() => resetMutation.mutate(t.id)}
                     disabled={resetMutation.isPending}
                   >
