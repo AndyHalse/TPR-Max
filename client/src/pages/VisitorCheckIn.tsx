@@ -195,9 +195,9 @@ export default function VisitorCheckIn() {
   // Function to automatically print visitor pass
   const printVisitorPass = async (visitor: Visitor) => {
     try {
-      const companyName = "Company Name";
-      const companyAddress = "Address not provided";
-      const companyLogo = null;
+      const companyName = settings?.companyName || "Company Name";
+      const companyAddress = settings?.address || "";
+      const companyLogo = settings?.logoUrl || null;
       
       // Find host staff member
       const hostStaff = staff?.find(s => s.id === visitor.hostStaffId);

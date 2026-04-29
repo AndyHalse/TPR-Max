@@ -2396,12 +2396,15 @@ export default function ContractorManagement() {
         setSelectedCompanyName(company?.name || "Unknown Company");
         setShowPassPreview(true);
         
+        // ePassEnabled tells us whether the toggle is on (but email failed)
+        // or simply off (physical pass mode). Only show destructive if it actually failed.
+        const ePassFailed = data.hasEmail && data.ePassEnabled && !data.ePassSent;
         toast({
           title: "Checked In",
-          description: data.hasEmail
+          description: ePassFailed
             ? "E-pass could not be sent — please print the physical pass below."
-            : "Contractor checked in. No email on file — printing physical pass.",
-          variant: data.hasEmail ? "destructive" : "default",
+            : "Contractor checked in. Please print the physical pass below.",
+          variant: ePassFailed ? "destructive" : "default",
           duration: 6000,
         });
       }

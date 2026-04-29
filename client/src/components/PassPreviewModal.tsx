@@ -95,11 +95,11 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
   };
 
   const printDefaultPass = (visitorData: any) => {
-    const companyName = "Company Name";
-    const companyAddress = "Address not provided";
-    const companyPhone = "";
-    const companyWebsite = "";
-    const companyLogo = null;
+    const companyName = settings?.companyName || "Company Name";
+    const companyAddress = settings?.address || "";
+    const companyPhone = settings?.phone || "";
+    const companyWebsite = settings?.website || "";
+    const companyLogo = settings?.logoUrl || null;
     
     // Direct printing with tenant-specific information
     const printWindow = window.open('', '_blank');

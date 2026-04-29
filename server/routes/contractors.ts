@@ -4055,13 +4055,19 @@ export function registerContractorRoutes(app: Express): void {
         action: 'checkin'
       });
 
+      const ePassConfigured = !!companySettings?.ePassEnabled;
       res.json({
         success: true,
         worker: updatedWorker,
         ePassSent: ePassSent,
+        ePassEnabled: ePassConfigured,
         hasEmail: !!worker.email,
         message: worker.email 
-          ? (ePassSent ? "E-Pass sent to worker's email" : "Check-in initiated (e-pass failed)")
+          ? (ePassSent 
+              ? "E-Pass sent to worker's email"
+              : ePassConfigured 
+                ? "Check-in initiated (e-pass failed to send)"
+                : "Check-in initiated — physical pass printing enabled")
           : "Check-in initiated (no email on file)"
       });
     } catch (error) {

@@ -161,36 +161,43 @@ export function ProfessionalThermalDesigner() {
     }
   };
 
-  // Test print function
+  // Test print function — generates a browser print dialog from the current design.
+  // This works with any printer visible to the OS (thermal, laser, PDF, etc.)
+  // and does NOT require a direct network connection to a thermal printer.
   const testPrint = async () => {
     try {
-      const response = await fetch('/api/thermal/test-print', {
+      // Ask the server to render the current design elements as a print-ready HTML page
+      const response = await fetch('/api/thermal-passes/pdf', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          printerType: selectedPrinter,
           elements: elements,
-          data: previewData,
-          settings: printerSettings,
-          customerId: 'dev-customer-001'
+          data: previewData
         })
       });
-      
-      if (response.ok) {
-        toast({
-          title: "Test Print Sent",
-          description: `Test print job sent to ${selectedPrinter === 'tec' ? 'TEC/Toshiba' : 'Zebra'} printer.`
-        });
-      } else {
-        throw new Error('Test print failed');
+
+      if (!response.ok) throw new Error('Could not generate print preview');
+
+      const htmlContent = await response.text();
+      const printWindow = window.open('', '_blank');
+      if (!printWindow) {
+        throw new Error('Popup blocked — please allow pop-ups for this site');
       }
-    } catch (error) {
+      printWindow.document.write(htmlContent);
+      printWindow.document.close();
+      printWindow.focus();
+      // Short delay lets any embedded images/fonts finish loading
+      setTimeout(() => printWindow.print(), 250);
+
       toast({
-        title: "Print Failed",
-        description: "Test print failed. Check printer connection.",
-        variant: "destructive"
+        title: "Print Dialog Opened",
+        description: "Select your printer in the browser print dialog.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Print Preview Failed",
+        description: error?.message || "Could not open the print dialog. Check your browser's pop-up settings.",
+        variant: "destructive",
       });
     }
   };
