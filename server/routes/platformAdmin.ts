@@ -9,6 +9,7 @@ import { db } from '../db';
 import * as sharedSchema from '@shared/schema';
 import { customerOnboardingService } from '../customerOnboardingService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
+import { logger } from '../utils/logger';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
@@ -36,21 +37,21 @@ export function registerPlatformAdminRoutes(app: Express): void {
         return res.status(400).json({ error: "Username and password are required" });
       }
       
-      console.log(`🔐 Platform admin login attempt: ${username}`);
+      logger.info(`Platform admin login attempt: ${username}`);
       
       // Authenticate platform admin
       const { PlatformAdminAuthService } = await import("../auth");
       const admin = await PlatformAdminAuthService.authenticatePlatformAdmin(username, password);
       
       if (!admin) {
-        console.log(`❌ Platform admin authentication failed: ${username}`);
+        logger.info(`Platform admin authentication failed: ${username}`);
         return res.status(401).json({ error: "Invalid username or password" });
       }
       
       // Regenerate session for security
       req.session.regenerate((regenerateErr) => {
         if (regenerateErr) {
-          console.error("❌ Platform admin session regeneration error:", regenerateErr);
+          logger.error("Platform admin session regeneration error:", regenerateErr);
           return res.status(500).json({ error: "Failed to create secure session" });
         }
         
@@ -60,11 +61,11 @@ export function registerPlatformAdminRoutes(app: Express): void {
         
         req.session.save((saveErr) => {
           if (saveErr) {
-            console.error("❌ Platform admin session save error:", saveErr);
+            logger.error("Platform admin session save error:", saveErr);
             return res.status(500).json({ error: "Failed to establish session" });
           }
           
-          console.log(`✅ Platform admin logged in successfully: ${username} (ID: ${admin.id})`);
+          logger.info(`Platform admin logged in successfully: ${username} (ID: ${admin.id})`);
           
           res.json({
             success: true,
@@ -80,7 +81,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
         });
       });
     } catch (error) {
-      console.error("❌ Platform admin login error:", error);
+      logger.error("Platform admin login error:", error);
       res.status(500).json({ error: "Login failed" });
     }
   });
@@ -91,10 +92,10 @@ export function registerPlatformAdminRoutes(app: Express): void {
   app.post("/platform-admin/auth/logout", (req, res) => {
     req.session.destroy((err) => {
       if (err) {
-        console.error("Platform admin session destroy error:", err);
+        logger.error("Platform admin session destroy error:", err);
         return res.status(500).json({ error: "Logout failed" });
       }
-      console.log(`🔓 Platform admin logged out`);
+      logger.info(`Platform admin logged out`);
       res.json({ success: true });
     });
   });
@@ -130,7 +131,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
         role: admin.role
       });
     } catch (error) {
-      console.error('Error in /platform-admin/auth/me:', error);
+      logger.error('Error in /platform-admin/auth/me:', error);
       return res.status(401).json({ error: "Authentication failed" });
     }
   });
@@ -145,7 +146,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
    */
   app.post("/platform-admin/customers", requirePlatformAdmin, async (req, res) => {
     try {
-      console.log(`📦 Platform admin initiating customer provisioning`);
+      logger.info(`Platform admin initiating customer provisioning`);
       
       // Validate request body against customer onboarding schema
       const onboardingData = customerOnboardingRequestSchema.parse(req.body);
@@ -156,12 +157,12 @@ export function registerPlatformAdminRoutes(app: Express): void {
         createSubscription: false, // Skip Stripe subscription
       };
       
-      console.log(`🔧 Provisioning customer without payment: ${provisioningRequest.companyName}`);
+      logger.info(`Provisioning customer without payment: ${provisioningRequest.companyName}`);
       
       // Provision customer directly using onboarding service
       const result = await customerOnboardingService.provisionCustomer(provisioningRequest);
       
-      console.log(`✅ Customer provisioned successfully by platform admin: ${result.customer.companyName}`);
+      logger.info(`Customer provisioned successfully by platform admin: ${result.customer.companyName}`);
       
       res.status(201).json({
         success: true,
@@ -171,7 +172,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
         loginUrl: result.loginUrl,
       });
     } catch (error) {
-      console.error('❌ Platform admin customer provisioning error:', error);
+      logger.error('Platform admin customer provisioning error:', error);
       
       if (error instanceof z.ZodError) {
         const messages = error.errors.map(e => e.message).join('. ');
@@ -216,7 +217,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
    */
   app.get("/platform-admin/customers", requirePlatformAdmin, async (req, res) => {
     try {
-      console.log(`📋 Platform admin requesting customer list`);
+      logger.info(`Platform admin requesting customer list`);
       
       // Get all customers from management database
       const customers = await db
@@ -224,7 +225,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
         .from(sharedSchema.customers)
         .orderBy(desc(sharedSchema.customers.createdAt));
       
-      console.log(`✅ Retrieved ${customers.length} customers`);
+      logger.info(`Retrieved ${customers.length} customers`);
       
       res.json({
         success: true,
@@ -242,7 +243,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
         }))
       });
     } catch (error) {
-      console.error('❌ Error fetching customers:', error);
+      logger.error('Error fetching customers:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch customers'
@@ -277,7 +278,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
         customer
       });
     } catch (error) {
-      console.error('❌ Error fetching customer:', error);
+      logger.error('Error fetching customer:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch customer'
@@ -318,14 +319,14 @@ export function registerPlatformAdminRoutes(app: Express): void {
         });
       }
       
-      console.log(`✅ Customer ${customerId} status updated: ${isActive ? 'active' : 'inactive'}`);
+      logger.info(`Customer ${customerId} status updated: ${isActive ? 'active' : 'inactive'}`);
       
       res.json({
         success: true,
         customer: updatedCustomer
       });
     } catch (error) {
-      console.error('❌ Error updating customer status:', error);
+      logger.error('Error updating customer status:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to update customer status'
@@ -349,11 +350,11 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
       await db.delete(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId));
 
-      console.log(`🗑️ Customer account deleted: ${customerName} (${customerId})`);
+      logger.info(`Customer account deleted: ${customerName} (${customerId})`);
 
       res.json({ success: true, message: `Customer "${customerName}" has been permanently deleted` });
     } catch (error) {
-      console.error('❌ Error deleting customer:', error);
+      logger.error('Error deleting customer:', error);
       res.status(500).json({ success: false, error: 'Failed to delete customer' });
     }
   });
@@ -401,14 +402,14 @@ export function registerPlatformAdminRoutes(app: Express): void {
         });
       }
       
-      console.log(`✅ Customer ${customerId} details updated`);
+      logger.info(`Customer ${customerId} details updated`);
       
       res.json({
         success: true,
         customer: updatedCustomer
       });
     } catch (error) {
-      console.error('❌ Error updating customer:', error);
+      logger.error('Error updating customer:', error);
       
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -434,7 +435,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
    */
   app.get("/platform-admin/branding", requirePlatformAdmin, async (req, res) => {
     try {
-      console.log(`🎨 Platform admin requesting branding settings`);
+      logger.info(`Platform admin requesting branding settings`);
       
       // Get branding settings (should be single row)
       const settings = await db
@@ -458,7 +459,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
           .returning();
         
         brandingSettings = newSettings[0];
-        console.log(`✅ Created default branding settings`);
+        logger.info(`Created default branding settings`);
       }
       
       res.json({
@@ -466,7 +467,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
         branding: brandingSettings
       });
     } catch (error) {
-      console.error('❌ Error fetching branding settings:', error);
+      logger.error('Error fetching branding settings:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch branding settings'
@@ -479,7 +480,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
    */
   app.put("/platform-admin/branding", requirePlatformAdmin, async (req, res) => {
     try {
-      console.log(`🎨 Platform admin updating branding settings`);
+      logger.info(`Platform admin updating branding settings`);
       
       const { primaryColor, secondaryColor, accentColor, logoUrl, faviconUrl, platformName, companyName } = req.body;
       
@@ -529,14 +530,14 @@ export function registerPlatformAdminRoutes(app: Express): void {
         updatedSettings = updated[0];
       }
       
-      console.log(`✅ Branding settings updated successfully`);
+      logger.info(`Branding settings updated successfully`);
       
       res.json({
         success: true,
         branding: updatedSettings
       });
     } catch (error) {
-      console.error('❌ Error updating branding settings:', error);
+      logger.error('Error updating branding settings:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to update branding settings'
@@ -571,7 +572,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
         });
       }
 
-      console.log(`📤 Uploading platform logo: ${req.file.originalname} (${req.file.mimetype}, ${req.file.size} bytes)`);
+      logger.info(`Uploading platform logo: ${req.file.originalname} (${req.file.mimetype}, ${req.file.size} bytes)`);
 
       const path = await import('path');
       const { objectStorageClient } = await import('../objectStorage');
@@ -595,14 +596,14 @@ export function registerPlatformAdminRoutes(app: Express): void {
       // Return just the filename - the frontend will use /public-objects/ prefix
       const logoUrl = fileName;
 
-      console.log(`✅ Logo uploaded successfully to object storage: ${fileName}`);
+      logger.info(`Logo uploaded successfully to object storage: ${fileName}`);
 
       res.json({
         success: true,
         logoUrl
       });
     } catch (error) {
-      console.error('❌ Error uploading logo:', error);
+      logger.error('Error uploading logo:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to upload logo'
@@ -681,14 +682,14 @@ export function registerPlatformAdminRoutes(app: Express): void {
         .set(updateData)
         .where(eq(isolatedSchema.users.id, adminUser.id));
 
-      console.log(`✅ Customer admin credentials updated for ${customer.companyName}`);
+      logger.info(`Customer admin credentials updated for ${customer.companyName}`);
 
       res.json({
         success: true,
         message: 'Credentials updated successfully'
       });
     } catch (error: any) {
-      console.error('❌ Error updating customer credentials:', error);
+      logger.error('Error updating customer credentials:', error);
       // Give a clear message if the username is already taken by another user
       if (error?.code === '23505' && error?.constraint?.includes('username')) {
         return res.status(409).json({
@@ -755,7 +756,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
       res.json({ success: true, admins });
     } catch (error) {
-      console.error('Error fetching platform admins:', error);
+      logger.error('Error fetching platform admins:', error);
       res.status(500).json({ error: 'Failed to fetch admins' });
     }
   });
@@ -805,10 +806,10 @@ export function registerPlatformAdminRoutes(app: Express): void {
           createdAt: sharedSchema.platformAdmins.createdAt,
         });
 
-      console.log(`✅ Platform admin created: ${username}`);
+      logger.info(`Platform admin created: ${username}`);
       res.json({ success: true, admin: newAdmin });
     } catch (error) {
-      console.error('Error creating platform admin:', error);
+      logger.error('Error creating platform admin:', error);
       res.status(500).json({ error: 'Failed to create admin' });
     }
   });
@@ -843,10 +844,10 @@ export function registerPlatformAdminRoutes(app: Express): void {
         return res.status(404).json({ error: 'Admin not found' });
       }
 
-      console.log(`✅ Platform admin updated: ${updated.username}`);
+      logger.info(`Platform admin updated: ${updated.username}`);
       res.json({ success: true, admin: updated });
     } catch (error) {
-      console.error('Error updating platform admin:', error);
+      logger.error('Error updating platform admin:', error);
       res.status(500).json({ error: 'Failed to update admin' });
     }
   });
@@ -869,10 +870,10 @@ export function registerPlatformAdminRoutes(app: Express): void {
         return res.status(404).json({ error: 'Admin not found' });
       }
 
-      console.log(`✅ Platform admin deleted: ${deleted.username}`);
+      logger.info(`Platform admin deleted: ${deleted.username}`);
       res.json({ success: true, message: `Admin ${deleted.username} deleted` });
     } catch (error) {
-      console.error('Error deleting platform admin:', error);
+      logger.error('Error deleting platform admin:', error);
       res.status(500).json({ error: 'Failed to delete admin' });
     }
   });

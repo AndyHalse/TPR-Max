@@ -32,6 +32,7 @@ import { VoiceNotificationService } from '../voiceNotificationService';
 import { biostarService } from '../biostarService';
 import { websocketService } from '../websocketService';
 import { z } from 'zod';
+import { logger } from '../utils/logger';
 
 export async function registerRemainingRoutes(app: Express, server: Server): Promise<void> {
   // AI Generated Images endpoints
@@ -43,7 +44,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         return res.status(400).json({ error: "slideType, title, and description are required" });
       }
 
-      console.log(`🎨 Generating AI safety image for ${slideType}: ${title}`);
+      logger.info(`Generating AI safety image for ${slideType}: ${title}`);
       
       // FIXED: Get customer context using authenticated session customerId
       if (!req.session?.customerId) {
@@ -68,14 +69,14 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         isActive: true
       });
 
-      console.log(`✅ AI safety image generated and saved: ${savedImage.id}`);
+      logger.info(`AI safety image generated and saved: ${savedImage.id}`);
       
       res.json({
         success: true,
         image: savedImage
       });
     } catch (error) {
-      console.error('Error generating AI safety image:', error);
+      logger.error('Error generating AI safety image:', error);
       res.status(500).json({ error: 'Failed to generate AI safety image' });
     }
   });
@@ -95,7 +96,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       
       res.json({ images });
     } catch (error) {
-      console.error('Error fetching AI safety images:', error);
+      logger.error('Error fetching AI safety images:', error);
       res.status(500).json({ error: 'Failed to fetch AI safety images' });
     }
   });
@@ -119,7 +120,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       
       res.json({ image });
     } catch (error) {
-      console.error('Error fetching AI safety image:', error);
+      logger.error('Error fetching AI safety image:', error);
       res.status(500).json({ error: 'Failed to fetch AI safety image' });
     }
   });
@@ -150,7 +151,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         image 
       });
     } catch (error) {
-      console.error('Error fetching AI safety image by type:', error);
+      logger.error('Error fetching AI safety image by type:', error);
       res.status(500).json({ error: 'Failed to fetch AI safety image' });
     }
   });
@@ -165,7 +166,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         .orderBy(helpCategories.sortOrder, helpCategories.name);
       res.json(categories);
     } catch (error) {
-      console.error('Error fetching help categories:', error);
+      logger.error('Error fetching help categories:', error);
       res.status(500).json({ error: 'Failed to fetch help categories' });
     }
   });
@@ -183,7 +184,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         .limit(10);
       res.json(articles);
     } catch (error) {
-      console.error('Error fetching featured help articles:', error);
+      logger.error('Error fetching featured help articles:', error);
       res.status(500).json({ error: 'Failed to fetch featured articles' });
     }
   });
@@ -204,7 +205,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         .limit(5);
       res.json(articles);
     } catch (error) {
-      console.error('Error fetching contextual help articles:', error);
+      logger.error('Error fetching contextual help articles:', error);
       res.status(500).json({ error: 'Failed to fetch contextual articles' });
     }
   });
@@ -222,7 +223,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         .orderBy(helpArticles.sortOrder);
       res.json(articles);
     } catch (error) {
-      console.error('Error fetching category help articles:', error);
+      logger.error('Error fetching category help articles:', error);
       res.status(500).json({ error: 'Failed to fetch category articles' });
     }
   });
@@ -240,7 +241,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         .limit(5);
       res.json(articles);
     } catch (error) {
-      console.error('Error fetching general help articles:', error);
+      logger.error('Error fetching general help articles:', error);
       res.status(500).json({ error: 'Failed to fetch help articles' });
     }
   });
@@ -266,7 +267,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         .limit(20);
       res.json(articles);
     } catch (error) {
-      console.error('Error searching help articles:', error);
+      logger.error('Error searching help articles:', error);
       res.status(500).json({ error: 'Failed to search articles' });
     }
   });
@@ -294,7 +295,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
 
       res.json({ success: true });
     } catch (error) {
-      console.error('Error tracking help interaction:', error);
+      logger.error('Error tracking help interaction:', error);
       res.status(500).json({ error: 'Failed to track interaction' });
     }
   });
@@ -350,7 +351,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         totalCompanies
       });
     } catch (error) {
-      console.error("Error fetching stats:", error);
+      logger.error("Error fetching stats:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -387,7 +388,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       
       res.json(logs);
     } catch (error) {
-      console.error("Failed to fetch voice notification logs:", error);
+      logger.error("Failed to fetch voice notification logs:", error);
       res.status(500).json({ error: "Failed to fetch voice notification logs" });
     }
   });
@@ -437,7 +438,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         res.status(500).json({ error: "Failed to send test voice notification" });
       }
     } catch (error) {
-      console.error("Failed to send test voice notification:", error);
+      logger.error("Failed to send test voice notification:", error);
       res.status(500).json({ error: "Failed to send test voice notification" });
     }
   });
@@ -457,7 +458,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       
       res.json(analytics);
     } catch (error) {
-      console.error("Failed to fetch voice notification analytics:", error);
+      logger.error("Failed to fetch voice notification analytics:", error);
       res.status(500).json({ error: "Failed to fetch voice notification analytics" });
     }
   });
@@ -477,7 +478,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       // For now return empty until we implement customer-isolated activity
       res.json([]);
     } catch (error) {
-      console.error("Failed to fetch recent activity:", error);
+      logger.error("Failed to fetch recent activity:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -498,7 +499,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       const departmentData = await databaseService.getDepartmentAnalytics(context);
       res.json(departmentData);
     } catch (error) {
-      console.error("Failed to fetch department analytics:", error);
+      logger.error("Failed to fetch department analytics:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -522,7 +523,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       const details = await databaseService.getDepartmentDetails(context, department);
       res.json(details);
     } catch (error) {
-      console.error("Failed to fetch department details:", error);
+      logger.error("Failed to fetch department details:", error);
       res.status(500).json({ error: "Failed to fetch department details" });
     }
   });
@@ -541,7 +542,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       const peakHoursData = await databaseService.getPeakHoursAnalytics(context);
       res.json(peakHoursData);
     } catch (error) {
-      console.error("Failed to fetch peak hours analytics:", error);
+      logger.error("Failed to fetch peak hours analytics:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -662,7 +663,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       res.setHeader("Content-Type", "text/html; charset=utf-8");
       res.send(html);
     } catch (error) {
-      console.error("Demo pass error:", error);
+      logger.error("Demo pass error:", error);
       res.status(500).send("<h1>Failed to generate demo pass</h1>");
     }
   });
@@ -712,7 +713,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(html);
     } catch (error) {
-      console.error('Browser print visitor error:', error);
+      logger.error('Browser print visitor error:', error);
       res.status(500).send('<h1>Failed to generate visitor pass</h1>');
     }
   });
@@ -762,7 +763,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       res.send(html);
     } catch (error) {
-      console.error('Browser print contractor error:', error);
+      logger.error('Browser print contractor error:', error);
       res.status(500).send('<h1>Failed to generate contractor pass</h1>');
     }
   });
@@ -779,7 +780,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('QR reader device detection error:', error);
+      logger.error('QR reader device detection error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to detect QR reader devices',
@@ -801,7 +802,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('QR reader test error:', error);
+      logger.error('QR reader test error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to test QR reader connection',
@@ -823,7 +824,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('QR reader detection error:', error);
+      logger.error('QR reader detection error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to detect QR reader devices',
@@ -848,7 +849,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       const result = await qrReaderService.processVisitorScan(qrData);
       
       // Log the scan activity
-      console.log(`📱 Visitor QR scan processed: ${qrData} -> ${result.action || 'unknown'}`);
+      logger.info(`Visitor QR scan processed: ${qrData} -> ${result.action || 'unknown'}`);
       
       res.json({
         success: result.success,
@@ -858,7 +859,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Visitor QR scan error:', error);
+      logger.error('Visitor QR scan error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to process visitor QR scan',
@@ -881,7 +882,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
 
       const result = await qrReaderService.processStaffScan(qrData);
       
-      console.log(`👥 Staff QR scan processed: ${qrData} -> ${result.action || 'unknown'}`);
+      logger.info(`Staff QR scan processed: ${qrData} -> ${result.action || 'unknown'}`);
       
       res.json({
         success: result.success,
@@ -891,7 +892,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Staff QR scan error:', error);
+      logger.error('Staff QR scan error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to process staff QR scan',
@@ -914,7 +915,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
 
       const result = await qrReaderService.processContractorScan(qrData);
       
-      console.log(`🔧 Contractor QR scan processed: ${qrData} -> ${result.action || 'unknown'}`);
+      logger.info(`Contractor QR scan processed: ${qrData} -> ${result.action || 'unknown'}`);
       
       res.json({
         success: result.success,
@@ -924,7 +925,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error('Contractor QR scan error:', error);
+      logger.error('Contractor QR scan error:', error);
       res.status(500).json({
         success: false,
         message: 'Failed to process contractor QR scan',
@@ -1080,7 +1081,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         message: 'QR code not recognised. Please check the code and try again.',
       });
     } catch (error) {
-      console.error('Universal QR scan error:', error);
+      logger.error('Universal QR scan error:', error);
       res.status(500).json({ success: false, message: 'Failed to process QR scan.' });
     }
   });
@@ -1215,11 +1216,11 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       testResults.summary.total = testResults.summary.passed + testResults.summary.failed;
       testResults.summary.successRate = `${((testResults.summary.passed / testResults.summary.total) * 100).toFixed(1)}%`;
 
-      console.log(`🏥 Health check completed: ${testResults.summary.successRate} success rate (${testResults.summary.passed}/${testResults.summary.total})`);
+      logger.info(`Health check completed: ${testResults.summary.successRate} success rate (${testResults.summary.passed}/${testResults.summary.total})`);
       
       res.json(testResults);
     } catch (error) {
-      console.error('Health check failed:', error);
+      logger.error('Health check failed:', error);
       res.status(500).json({ 
         error: 'Health check failed', 
         details: error.message,
@@ -1286,7 +1287,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       res.setHeader('Content-Disposition', 'attachment; filename=staff_import_template.csv');
       res.send(csv);
     } catch (error) {
-      console.error('Error generating staff template:', error);
+      logger.error('Error generating staff template:', error);
       res.status(500).json({ error: 'Failed to generate template' });
     }
   });
@@ -1333,7 +1334,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       res.setHeader('Content-Disposition', 'attachment; filename=visitors_import_template.csv');
       res.send(csv);
     } catch (error) {
-      console.error('Error generating visitors template:', error);
+      logger.error('Error generating visitors template:', error);
       res.status(500).json({ error: 'Failed to generate template' });
     }
   });
@@ -1376,7 +1377,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       res.setHeader('Content-Disposition', 'attachment; filename=contractors_import_template.csv');
       res.send(csv);
     } catch (error) {
-      console.error('Error generating contractors template:', error);
+      logger.error('Error generating contractors template:', error);
       res.status(500).json({ error: 'Failed to generate template' });
     }
   });
@@ -1452,7 +1453,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         results
       });
     } catch (error) {
-      console.error('Error importing staff:', error);
+      logger.error('Error importing staff:', error);
       res.status(500).json({ error: 'Failed to import staff', details: error.message });
     }
   });
@@ -1541,7 +1542,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         results
       });
     } catch (error) {
-      console.error('Error importing visitors:', error);
+      logger.error('Error importing visitors:', error);
       res.status(500).json({ error: 'Failed to import visitors', details: error.message });
     }
   });
@@ -1641,7 +1642,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         results
       });
     } catch (error) {
-      console.error('Error importing contractors:', error);
+      logger.error('Error importing contractors:', error);
       res.status(500).json({ error: 'Failed to import contractors', details: error.message });
     }
   });
@@ -1680,7 +1681,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       res.setHeader('Content-Disposition', 'attachment; filename=members_import_template.csv');
       res.send(csv);
     } catch (error) {
-      console.error('Error generating members template:', error);
+      logger.error('Error generating members template:', error);
       res.status(500).json({ error: 'Failed to generate template' });
     }
   });
@@ -1728,7 +1729,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
 
       res.json({ success: true, message: `Import complete: ${results.successful} successful, ${results.failed} failed`, results });
     } catch (error) {
-      console.error('Error importing members:', error);
+      logger.error('Error importing members:', error);
       res.status(500).json({ error: 'Failed to import members', details: error.message });
     }
   });
@@ -1772,7 +1773,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
             isActive:    true,
           });
           staffAdded++;
-        } catch (e) { console.warn('Sample staff insert failed:', (e as any).message); }
+        } catch (e) { logger.warn('Sample staff insert failed:', (e as any).message); }
       }
 
       // ── 10 sample visitors (past visits, not currently on-site) ──────────────
@@ -1795,7 +1796,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
             checkoutType: 'manual-reset',
           });
           visitorsAdded++;
-        } catch (e) { console.warn('Sample visitor insert failed:', (e as any).message); }
+        } catch (e) { logger.warn('Sample visitor insert failed:', (e as any).message); }
       }
 
       // ── 5 contractor companies, each with 3–6 workers ────────────────────────
@@ -1866,9 +1867,9 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
                 isActive:    true,
               });
               workersAdded++;
-            } catch (e) { console.warn('Sample worker insert failed:', (e as any).message); }
+            } catch (e) { logger.warn('Sample worker insert failed:', (e as any).message); }
           }
-        } catch (e) { console.warn('Sample contractor company insert failed:', (e as any).message); }
+        } catch (e) { logger.warn('Sample contractor company insert failed:', (e as any).message); }
       }
 
       // ── 10 sample members ────────────────────────────────────────────────────
@@ -1889,7 +1890,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
             isActive:         true,
           });
           membersAdded++;
-        } catch (e) { console.warn('Sample member insert failed:', (e as any).message); }
+        } catch (e) { logger.warn('Sample member insert failed:', (e as any).message); }
       }
 
       res.json({
@@ -1898,7 +1899,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
         results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded },
       });
     } catch (error) {
-      console.error('Error loading sample data:', error);
+      logger.error('Error loading sample data:', error);
       res.status(500).json({ error: 'Failed to load sample data', details: (error as any).message });
     }
   });
@@ -1919,7 +1920,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
   const cdmAlertHour = parseInt(process.env.PPM_ALERT_HOUR ?? "7", 10);
   cron.schedule(`0 ${cdmAlertHour} * * *`, async () => {
     try {
-      console.log("🏗️ [CDM Cron] Running daily F10 alert check…");
+      logger.info("[CDM Cron] Running daily F10 alert check…");
       const allCustomers = await customerDbService.getAllCustomers();
       // Use Europe/London date to match business-day semantics of the cron timezone
       const todayStr = new Date().toLocaleDateString("en-CA", { timeZone: "Europe/London" }); // YYYY-MM-DD
@@ -1969,7 +1970,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
           const recipients = Array.from(recipientSet);
 
           if (recipients.length === 0) {
-            console.warn(`[CDM Cron] No admin email configured for customer ${customer.id} — skipping`);
+            logger.warn(`[CDM Cron] No admin email configured for customer ${customer.id} — skipping`);
             continue;
           }
 
@@ -1999,7 +2000,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
           const sent = sendResults.every(Boolean);
 
           if (!sent) {
-            console.warn(`[CDM Cron] Email send failed for customer ${customer.id} — skipping f10_alert_sent_at update`);
+            logger.warn(`[CDM Cron] Email send failed for customer ${customer.id} — skipping f10_alert_sent_at update`);
             continue;
           }
 
@@ -2011,14 +2012,14 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
               .where(eq(isolatedSchema.cdmProjects.id, project.id));
           }
 
-          console.log(`✅ [CDM Cron] Sent F10 alert for ${overdue.length} project(s) to ${recipients.join(', ')} (customer ${customer.id})`);
+          logger.info(`[CDM Cron] Sent F10 alert for ${overdue.length} project(s) to ${recipients.join(', ')} (customer ${customer.id})`);
         } catch (custErr) {
-          console.error(`[CDM Cron] Error processing customer ${customer.id}:`, custErr);
+          logger.error(`[CDM Cron] Error processing customer ${customer.id}:`, custErr);
         }
       }
-      console.log("✅ [CDM Cron] Daily F10 check complete");
+      logger.info("[CDM Cron] Daily F10 check complete");
     } catch (error: unknown) {
-      console.error("❌ [CDM Cron] Fatal error:", error);
+      logger.error("[CDM Cron] Fatal error:", error);
     }
   }, { timezone: "Europe/London" });
 
@@ -2041,7 +2042,7 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       }
       res.json(projects);
     } catch (error) {
-      console.error("Error fetching CDM projects:", error);
+      logger.error("Error fetching CDM projects:", error);
       res.status(500).json({ error: "Failed to fetch CDM projects" });
     }
   });
@@ -2504,13 +2505,13 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
           throw pdfErr;
         }
       } catch (pdfErr) {
-        console.warn('[cdm-export-pdf] PDF generation unavailable, falling back to HTML:', (pdfErr as Error).message);
+        logger.warn('[cdm-export-pdf] PDF generation unavailable, falling back to HTML:', (pdfErr as Error).message);
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Content-Disposition', `attachment; filename="cdm-compliance-report${companyFileSlug}${filterFileSlug}-${new Date().toISOString().split('T')[0]}.html"`);
         return res.send(html);
       }
     } catch (error) {
-      console.error("Error generating CDM PDF:", error);
+      logger.error("Error generating CDM PDF:", error);
       res.status(500).json({ error: "Failed to generate CDM compliance report" });
     }
   });
@@ -2526,7 +2527,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       if (!project) return res.status(404).json({ error: "CDM project not found" });
       res.json(project);
     } catch (error) {
-      console.error("Error fetching CDM project:", error);
+      logger.error("Error fetching CDM project:", error);
       res.status(500).json({ error: "Failed to fetch CDM project" });
     }
   });
@@ -2574,7 +2575,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       }).returning();
       res.json(project);
     } catch (error) {
-      console.error("Error creating CDM project:", error);
+      logger.error("Error creating CDM project:", error);
       res.status(500).json({ error: "Failed to create CDM project" });
     }
   });
@@ -2627,7 +2628,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       if (!project) return res.status(404).json({ error: "CDM project not found" });
       res.json(project);
     } catch (error) {
-      console.error("Error updating CDM project:", error);
+      logger.error("Error updating CDM project:", error);
       res.status(500).json({ error: "Failed to update CDM project" });
     }
   });
@@ -2642,7 +2643,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
         .where(eq(isolatedSchema.cdmProjects.id, id));
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting CDM project:", error);
+      logger.error("Error deleting CDM project:", error);
       res.status(500).json({ error: "Failed to delete CDM project" });
     }
   });
@@ -2694,7 +2695,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       if (!project) return res.status(404).json({ error: "CDM project not found" });
       res.json(project);
     } catch (error) {
-      console.error("Error updating CDM project (PATCH):", error);
+      logger.error("Error updating CDM project (PATCH):", error);
       res.status(500).json({ error: "Failed to update CDM project" });
     }
   });
@@ -2720,7 +2721,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       if (!company) return res.status(404).json({ error: "Contractor company not found" });
       res.json(company);
     } catch (error) {
-      console.error("Error updating CDM accreditations:", error);
+      logger.error("Error updating CDM accreditations:", error);
       res.status(500).json({ error: "Failed to update CDM accreditations" });
     }
   });
@@ -2738,7 +2739,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
     const contractorExpiryAlertHour = isNaN(rawHour) || rawHour < 0 || rawHour > 23 ? 0 : rawHour;
     cron.schedule(`0 ${contractorExpiryAlertHour} * * *`, async () => {
       try {
-        console.log("🔧 [Contractor Expiry Cron] Running nightly contractor document expiry check…");
+        logger.info("[Contractor Expiry Cron] Running nightly contractor document expiry check…");
         const allCustomers = await customerDbService.getAllCustomers();
         const now = new Date();
 
@@ -2752,7 +2753,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
             const adminEmail = settings?.email as string | undefined;
 
             if (!adminEmail) {
-              console.log(`[Contractor Expiry Cron] No admin email configured for customer ${customer.id} — skipping`);
+              logger.info(`[Contractor Expiry Cron] No admin email configured for customer ${customer.id} — skipping`);
               continue;
             }
 
@@ -2776,7 +2777,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
               ));
 
             if (allAlertDocs.length === 0) {
-              console.log(`[Contractor Expiry Cron] No newly-expired or expiring-soon contractor documents for customer ${customer.id}`);
+              logger.info(`[Contractor Expiry Cron] No newly-expired or expiring-soon contractor documents for customer ${customer.id}`);
               continue;
             }
 
@@ -2904,17 +2905,17 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
               await custDb.update(isolatedSchema.contractorDocuments)
                 .set({ expiryAlertedAt: new Date() })
                 .where(inArray(isolatedSchema.contractorDocuments.id, alertedIds));
-              console.log(`📧 [Contractor Expiry Cron] Digest sent for ${expiredDocs.length} expired + ${expiringSoonDocs.length} expiring-soon document(s) (customer ${customer.id})`);
+              logger.info(`[Contractor Expiry Cron] Digest sent for ${expiredDocs.length} expired + ${expiringSoonDocs.length} expiring-soon document(s) (customer ${customer.id})`);
             }
           } catch (custErr) {
-            console.error(`[Contractor Expiry Cron] Error processing customer ${customer.id}:`, custErr);
+            logger.error(`[Contractor Expiry Cron] Error processing customer ${customer.id}:`, custErr);
           }
         }
       } catch (err) {
-        console.error("[Contractor Expiry Cron] Fatal error in nightly check:", err);
+        logger.error("[Contractor Expiry Cron] Fatal error in nightly check:", err);
       }
     }, { timezone: "Europe/London" });
-    console.log("✅ [Contractor Expiry Cron] Nightly contractor document expiry check scheduled");
+    logger.info("[Contractor Expiry Cron] Nightly contractor document expiry check scheduled");
   }
 
   // ── End CDM routes ──────────────────────────────────────────────────────────
@@ -2930,7 +2931,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
         .orderBy(sql`${isolatedSchema.helpDeskTickets.createdAt} DESC`);
       res.json(rows);
     } catch (error: unknown) {
-      console.error("GET /api/helpdesk/tickets", error);
+      logger.error("GET /api/helpdesk/tickets", error);
       res.status(500).json({ error: "Failed to fetch help desk tickets" });
     }
   });
@@ -2950,7 +2951,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
         .returning();
       res.status(201).json(row);
     } catch (error: unknown) {
-      console.error("POST /api/helpdesk/tickets", error);
+      logger.error("POST /api/helpdesk/tickets", error);
       res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create help desk ticket" });
     }
   });
@@ -2966,7 +2967,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       if (!row) return res.status(404).json({ error: "Ticket not found" });
       res.json(row);
     } catch (error: unknown) {
-      console.error("GET /api/helpdesk/tickets/:id", error);
+      logger.error("GET /api/helpdesk/tickets/:id", error);
       res.status(500).json({ error: "Failed to fetch help desk ticket" });
     }
   });
@@ -2993,7 +2994,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       if (!row) return res.status(404).json({ error: "Ticket not found" });
       res.json(row);
     } catch (error: unknown) {
-      console.error("PUT /api/helpdesk/tickets/:id", error);
+      logger.error("PUT /api/helpdesk/tickets/:id", error);
       res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update help desk ticket" });
     }
   });
@@ -3008,7 +3009,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       await custDb.delete(isolatedSchema.helpDeskTickets).where(eq(isolatedSchema.helpDeskTickets.id, id));
       res.json({ success: true });
     } catch (error: unknown) {
-      console.error("DELETE /api/helpdesk/tickets/:id", error);
+      logger.error("DELETE /api/helpdesk/tickets/:id", error);
       res.status(500).json({ error: "Failed to delete help desk ticket" });
     }
   });
@@ -3028,7 +3029,7 @@ ${grouped.size === 0 ? `<p style="color:#64748b;text-align:center;margin-top:40p
       const total = rows.reduce((sum, r) => sum + r.count, 0);
       res.json({ ...stats, total });
     } catch (error: unknown) {
-      console.error("GET /api/helpdesk/stats", error);
+      logger.error("GET /api/helpdesk/stats", error);
       res.status(500).json({ error: "Failed to fetch help desk stats" });
     }
   });

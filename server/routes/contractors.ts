@@ -47,6 +47,7 @@ import {
   isNotNull,
   like,
 } from 'drizzle-orm';
+import { logger } from '../utils/logger';
 
 // ─── Module-scope helpers ────────────────────────────────────────────────────
 
@@ -123,7 +124,7 @@ export function registerContractorRoutes(app: Express): void {
 
       res.json({ ...passPayload, message: 'QR pass ready' });
     } catch (error) {
-      console.error("Error sending contractor worker QR pass:", error);
+      logger.error("Error sending contractor worker QR pass:", error);
       res.status(500).json({ error: "Failed to send contractor worker QR pass" });
     }
   });
@@ -138,7 +139,7 @@ export function registerContractorRoutes(app: Express): void {
       const checkedInContractors = await databaseService.getCheckedInContractors(context);
       res.json(checkedInContractors);
     } catch (error) {
-      console.error("Failed to fetch checked-in contractors:", error);
+      logger.error("Failed to fetch checked-in contractors:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -160,11 +161,11 @@ export function registerContractorRoutes(app: Express): void {
       // Use customer-isolated database service to get all contractor workers
       const workers = await databaseService.getAllContractorWorkers(context);
       
-      console.log(`✅ Retrieved ${workers.length} contractor workers for customer ${context.customerId}`);
+      logger.info(`Retrieved ${workers.length} contractor workers for customer ${context.customerId}`);
       
       res.json(workers);
     } catch (error) {
-      console.error("Error fetching all workers:", error);
+      logger.error("Error fetching all workers:", error);
       res.status(500).json({ error: "Failed to fetch all workers" });
     }
   });
@@ -178,7 +179,7 @@ export function registerContractorRoutes(app: Express): void {
       const preBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings);
       res.json(preBookings);
     } catch (error) {
-      console.error("Error fetching contractor pre-bookings:", error);
+      logger.error("Error fetching contractor pre-bookings:", error);
       res.status(500).json({ error: "Failed to fetch contractor pre-bookings" });
     }
   });
@@ -195,7 +196,7 @@ export function registerContractorRoutes(app: Express): void {
         ));
       res.json(preBookings);
     } catch (error) {
-      console.error("Error fetching upcoming contractor pre-bookings:", error);
+      logger.error("Error fetching upcoming contractor pre-bookings:", error);
       res.status(500).json({ error: "Failed to fetch upcoming contractor pre-bookings" });
     }
   });
@@ -214,7 +215,7 @@ export function registerContractorRoutes(app: Express): void {
         ));
       res.json(preBookings);
     } catch (error) {
-      console.error("Error fetching today's contractor pre-bookings:", error);
+      logger.error("Error fetching today's contractor pre-bookings:", error);
       res.status(500).json({ error: "Failed to fetch today's contractor pre-bookings" });
     }
   });
@@ -233,7 +234,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json(preBooking);
     } catch (error) {
-      console.error("Error fetching contractor pre-booking:", error);
+      logger.error("Error fetching contractor pre-booking:", error);
       res.status(500).json({ error: "Failed to fetch contractor pre-booking" });
     }
   });
@@ -254,10 +255,10 @@ export function registerContractorRoutes(app: Express): void {
       // Duplicate prevention: check for existing ACTIVE booking with same worker, company, date, and time
       const existingBookings = await customerDb.select().from(isolatedSchema.contractorPreBookings);
       const scheduledDateStr = preBookingData.scheduledDate.toDateString();
-      console.log(`🔍 Duplicate check: worker="${preBookingData.workerName}", time="${preBookingData.scheduledTime}", date="${scheduledDateStr}", checking ${existingBookings.length} existing bookings`);
+      logger.info(`Duplicate check: worker="${preBookingData.workerName}", time="${preBookingData.scheduledTime}", date="${scheduledDateStr}", checking ${existingBookings.length} existing bookings`);
       existingBookings.forEach((b: any) => {
         const bDateStr = new Date(b.scheduledDate).toDateString();
-        console.log(`  → id=${b.id?.slice(0,8)} worker="${b.workerName}" time="${b.scheduledTime}" date="${bDateStr}" status="${b.status}"`);
+        logger.info(`→ id=${b.id?.slice(0,8)} worker="${b.workerName}" time="${b.scheduledTime}" date="${bDateStr}" status="${b.status}"`);
       });
       const normalize = (s: string | undefined | null) => (s ?? '').toLowerCase().trim();
       const duplicate = existingBookings.find((b: any) => 
@@ -268,7 +269,7 @@ export function registerContractorRoutes(app: Express): void {
         b.status !== 'cancelled' &&
         b.status !== 'completed'
       );
-      console.log(`🔍 Duplicate found: ${duplicate ? `YES - id=${duplicate.id?.slice(0,8)} status="${duplicate.status}"` : 'NO'}`);
+      logger.info(`Duplicate found: ${duplicate ? `YES - id=${duplicate.id?.slice(0,8)} status="${duplicate.status}"` : 'NO'}`);
       
       if (duplicate) {
         return res.status(409).json({ 
@@ -306,19 +307,19 @@ export function registerContractorRoutes(app: Express): void {
           );
           
           if (emailSent) {
-            console.log(`✅ Pre-booking pass with QR code sent to ${emailTarget}`);
+            logger.info(`Pre-booking pass with QR code sent to ${emailTarget}`);
             return res.json({ ...newPreBooking, emailSent: true });
           } else {
-            console.log(`⚠️ Failed to send pre-booking pass to ${emailTarget}`);
+            logger.info(`Failed to send pre-booking pass to ${emailTarget}`);
           }
         } catch (emailError) {
-          console.error("Failed to send contractor pre-booking pass:", emailError);
+          logger.error("Failed to send contractor pre-booking pass:", emailError);
         }
       }
       
       res.json({ ...newPreBooking, emailSent: false });
     } catch (error) {
-      console.error("Error creating contractor pre-booking:", error);
+      logger.error("Error creating contractor pre-booking:", error);
       res.status(500).json({ error: "Failed to create contractor pre-booking" });
     }
   });
@@ -345,7 +346,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json(updatedPreBooking);
     } catch (error) {
-      console.error("Error updating contractor pre-booking:", error);
+      logger.error("Error updating contractor pre-booking:", error);
       res.status(500).json({ error: "Failed to update contractor pre-booking" });
     }
   });
@@ -366,7 +367,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting contractor pre-booking:", error);
+      logger.error("Error deleting contractor pre-booking:", error);
       res.status(500).json({ error: "Failed to delete contractor pre-booking" });
     }
   });
@@ -431,7 +432,7 @@ export function registerContractorRoutes(app: Express): void {
       }
       
       if (!company) {
-        console.error(`❌ Company lookup failed for pre-booking. workerName: "${preBooking.workerName}", companyName: "${preBooking.companyName}". Available companies:`, allCompanies.map(c => ({ id: c.id, name: c.companyName })));
+        logger.error(`Company lookup failed for pre-booking. workerName: "${preBooking.workerName}", companyName: "${preBooking.companyName}". Available companies:`, allCompanies.map(c => ({ id: c.id, name: c.companyName })));
         return res.status(400).json({ 
           error: "Contractor company not found",
           details: `Company "${preBooking.companyName}" not found. Please add it first.`
@@ -556,7 +557,7 @@ export function registerContractorRoutes(app: Express): void {
         warnings: warnings
       });
     } catch (error) {
-      console.error("Error checking in contractor from pre-booking:", error);
+      logger.error("Error checking in contractor from pre-booking:", error);
       res.status(500).json({ error: "Failed to check in contractor" });
     }
   });
@@ -606,7 +607,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json(contractorsWithStats);
     } catch (error) {
-      console.error("Error fetching contractors:", error);
+      logger.error("Error fetching contractors:", error);
       res.status(500).json({ error: "Failed to fetch contractors" });
     }
   });
@@ -652,7 +653,7 @@ export function registerContractorRoutes(app: Express): void {
 
       res.json(contractorWithDetails);
     } catch (error) {
-      console.error('Error fetching contractor details:', error);
+      logger.error('Error fetching contractor details:', error);
       res.status(500).json({ error: "Failed to fetch contractor details" });
     }
   });
@@ -668,7 +669,7 @@ export function registerContractorRoutes(app: Express): void {
       const offences = await databaseService.getAllCardOffences(context);
       res.json(offences);
     } catch (error) {
-      console.error("Error fetching card offences:", error);
+      logger.error("Error fetching card offences:", error);
       res.status(500).json({ error: "Failed to fetch offences" });
     }
   });
@@ -680,7 +681,7 @@ export function registerContractorRoutes(app: Express): void {
       const [offence] = await offenceDb.insert(isolatedSchema.cardOffences).values(req.body).returning();
       res.status(201).json(offence);
     } catch (error) {
-      console.error("Error creating card offence:", error);
+      logger.error("Error creating card offence:", error);
       res.status(500).json({ error: "Failed to create offence" });
     }
   });
@@ -698,7 +699,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!updated) return res.status(404).json({ error: "Offence not found" });
       res.json(updated);
     } catch (error) {
-      console.error("Error updating card offence:", error);
+      logger.error("Error updating card offence:", error);
       res.status(500).json({ error: "Failed to update offence" });
     }
   });
@@ -711,7 +712,7 @@ export function registerContractorRoutes(app: Express): void {
       await db.delete(isolatedSchema.cardOffences).where(eq(isolatedSchema.cardOffences.id, id));
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting card offence:", error);
+      logger.error("Error deleting card offence:", error);
       res.status(500).json({ error: "Failed to delete offence" });
     }
   });
@@ -723,10 +724,10 @@ export function registerContractorRoutes(app: Express): void {
       
       // Override issuedBy with the actual authenticated user ID to ensure FK constraint is met
       const cardData = { ...req.body, issuedBy: req.user?.id || req.body.issuedBy };
-      console.log(`🔍 Card issue - session user ID: ${req.user?.id}, body issuedBy: ${req.body.issuedBy}`);
+      logger.info(`Card issue - session user ID: ${req.user?.id}, body issuedBy: ${req.body.issuedBy}`);
       const issue = await databaseService.createCardIssue(context, cardData);
       
-      console.log(`✅ Card issue created successfully for customer ${context.customerId}:`, issue);
+      logger.info(`Card issue created successfully for customer ${context.customerId}:`, issue);
       
       // Send email notification (async - don't block the response)
       (async () => {
@@ -741,7 +742,7 @@ export function registerContractorRoutes(app: Express): void {
             .where(eq(isolatedSchema.contractorWorkers.id, workerId));
           
           if (!worker) {
-            console.log(`⚠️ Card issue email skipped - worker not found: ${workerId}`);
+            logger.info(`Card issue email skipped - worker not found: ${workerId}`);
             return;
           }
           
@@ -785,7 +786,7 @@ export function registerContractorRoutes(app: Express): void {
           // Send the notification email
           const workerEmail = worker.workerEmail || worker.email;
           if (!workerEmail) {
-            console.log(`⚠️ Card issue email skipped - no email for worker: ${worker.firstName} ${worker.lastName}`);
+            logger.info(`Card issue email skipped - no email for worker: ID ${worker.id}`);
             return;
           }
           
@@ -806,15 +807,15 @@ export function registerContractorRoutes(app: Express): void {
             companySettings
           });
           
-          console.log(`📧 Card issue notification result:`, result);
+          logger.info(`Card issue notification result:`, result);
         } catch (emailError) {
-          console.error('❌ Failed to send card issue email (non-blocking):', emailError);
+          logger.error('Failed to send card issue email (non-blocking):', emailError);
         }
       })();
       
       res.status(201).json(issue);
     } catch (error) {
-      console.error("Error creating card issue:", error);
+      logger.error("Error creating card issue:", error);
       res.status(500).json({ error: "Failed to create card issue" });
     }
   });
@@ -827,7 +828,7 @@ export function registerContractorRoutes(app: Express): void {
         .where(eq(isolatedSchema.cardIssues.workerId, req.params.workerId));
       res.json(issues);
     } catch (error) {
-      console.error("Error fetching worker card issues:", error);
+      logger.error("Error fetching worker card issues:", error);
       res.status(500).json({ error: "Failed to fetch card issues" });
     }
   });
@@ -849,7 +850,7 @@ export function registerContractorRoutes(app: Express): void {
         res.status(500).json({ error: "Failed to send induction email" });
       }
     } catch (error) {
-      console.error("Error sending induction email:", error);
+      logger.error("Error sending induction email:", error);
       res.status(500).json({ error: "Failed to send induction email" });
     }
   });
@@ -880,7 +881,7 @@ export function registerContractorRoutes(app: Express): void {
         total: totalWorkers
       });
     } catch (error) {
-      console.error("Error sending bulk induction emails:", error);
+      logger.error("Error sending bulk induction emails:", error);
       res.status(500).json({ error: "Failed to send induction emails" });
     }
   });
@@ -894,7 +895,7 @@ export function registerContractorRoutes(app: Express): void {
         .where(eq(isolatedSchema.workerCertifications.workerId, req.params.workerId));
       res.json(certifications);
     } catch (error) {
-      console.error("Error fetching worker certifications:", error);
+      logger.error("Error fetching worker certifications:", error);
       res.status(500).json({ error: "Failed to fetch certifications" });
     }
   });
@@ -908,7 +909,7 @@ export function registerContractorRoutes(app: Express): void {
         .values(certificationData).returning();
       res.status(201).json(certification);
     } catch (error) {
-      console.error("Error creating worker certification:", error);
+      logger.error("Error creating worker certification:", error);
       res.status(500).json({ error: "Failed to create certification" });
     }
   });
@@ -943,7 +944,7 @@ export function registerContractorRoutes(app: Express): void {
           error: error.errors.map(e => e.message).join(", ")
         });
       }
-      console.error("Error in generate-description endpoint:", error);
+      logger.error("Error in generate-description endpoint:", error);
       res.status(500).json({ 
         error: "Internal server error while generating description" 
       });
@@ -993,7 +994,7 @@ export function registerContractorRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('⚠️ Failed to create company audit note (continuing):', auditErr);
+        logger.error('Failed to create company audit note (continuing):', auditErr);
       }
 
       res.json(contractor);
@@ -1001,7 +1002,7 @@ export function registerContractorRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid contractor data", details: error.errors });
       } else {
-        console.error("Error creating contractor:", error);
+        logger.error("Error creating contractor:", error);
         res.status(500).json({ error: "Failed to create contractor" });
       }
     }
@@ -1062,12 +1063,12 @@ export function registerContractorRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('⚠️ Failed to create company update audit note (continuing):', auditErr);
+        logger.error('Failed to create company update audit note (continuing):', auditErr);
       }
 
       res.json(contractor);
     } catch (error) {
-      console.error("Error updating contractor:", error);
+      logger.error("Error updating contractor:", error);
       res.status(500).json({ error: "Failed to update contractor" });
     }
   });
@@ -1109,7 +1110,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!updated) return res.status(404).json({ error: "Contractor not found" });
       res.json(updated);
     } catch (error) {
-      console.error("Error patching contractor:", error);
+      logger.error("Error patching contractor:", error);
       res.status(500).json({ error: "Failed to update contractor" });
     }
   });
@@ -1129,7 +1130,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting contractor:", error);
+      logger.error("Error deleting contractor:", error);
       res.status(500).json({ error: "Failed to delete contractor" });
     }
   });
@@ -1186,7 +1187,7 @@ export function registerContractorRoutes(app: Express): void {
         message: "CO2 emissions calculated successfully"
       });
     } catch (error) {
-      console.error("Error calculating CO2 emissions:", error);
+      logger.error("Error calculating CO2 emissions:", error);
       res.status(500).json({ error: error.message || "Failed to calculate CO2 emissions" });
     }
   });
@@ -1265,7 +1266,7 @@ export function registerContractorRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      console.error("Error bulk calculating CO2 emissions:", error);
+      logger.error("Error bulk calculating CO2 emissions:", error);
       res.status(500).json({ error: error.message || "Failed to calculate CO2 emissions" });
     }
   });
@@ -1288,7 +1289,7 @@ export function registerContractorRoutes(app: Express): void {
         data: summary
       });
     } catch (error) {
-      console.error("Error fetching CO2 summary:", error);
+      logger.error("Error fetching CO2 summary:", error);
       res.status(500).json({ error: "Failed to fetch CO2 summary" });
     }
   });
@@ -1315,7 +1316,7 @@ export function registerContractorRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      console.error("Error fetching worker CO2 data:", error);
+      logger.error("Error fetching worker CO2 data:", error);
       res.status(500).json({ error: "Failed to fetch worker CO2 data" });
     }
   });
@@ -1344,7 +1345,7 @@ export function registerContractorRoutes(app: Express): void {
         message: "Sustainability report generated successfully"
       });
     } catch (error) {
-      console.error("Error generating sustainability report:", error);
+      logger.error("Error generating sustainability report:", error);
       res.status(500).json({ error: "Failed to generate sustainability report" });
     }
   });
@@ -1386,7 +1387,7 @@ export function registerContractorRoutes(app: Express): void {
         data: mappedReports
       });
     } catch (error) {
-      console.error("Error fetching sustainability reports:", error);
+      logger.error("Error fetching sustainability reports:", error);
       res.status(500).json({ error: "Failed to fetch sustainability reports" });
     }
   });
@@ -1433,7 +1434,7 @@ export function registerContractorRoutes(app: Express): void {
         }
       });
     } catch (error) {
-      console.error("Error fetching sustainability report:", error);
+      logger.error("Error fetching sustainability report:", error);
       res.status(500).json({ error: "Failed to fetch sustainability report" });
     }
   });
@@ -1461,7 +1462,7 @@ export function registerContractorRoutes(app: Express): void {
         data: summary
       });
     } catch (error) {
-      console.error("Error fetching monthly CO2 summary:", error);
+      logger.error("Error fetching monthly CO2 summary:", error);
       res.status(500).json({ error: "Failed to fetch monthly CO2 summary" });
     }
   });
@@ -1513,7 +1514,7 @@ export function registerContractorRoutes(app: Express): void {
         message: "Transport method updated and CO2 emissions recalculated"
       });
     } catch (error) {
-      console.error("Error updating transport method:", error);
+      logger.error("Error updating transport method:", error);
       res.status(500).json({ error: "Failed to update transport method" });
     }
   });
@@ -1527,7 +1528,7 @@ export function registerContractorRoutes(app: Express): void {
         .where(eq(isolatedSchema.nvqQualifications.isActive, true));
       res.json(qualifications);
     } catch (error) {
-      console.error("Error fetching NVQ qualifications:", error);
+      logger.error("Error fetching NVQ qualifications:", error);
       res.status(500).json({ error: "Failed to fetch NVQ qualifications" });
     }
   });
@@ -1539,7 +1540,7 @@ export function registerContractorRoutes(app: Express): void {
       const qualifications = await nvqAllDb.select().from(isolatedSchema.nvqQualifications);
       res.json(qualifications);
     } catch (error) {
-      console.error("Error fetching all NVQ qualifications:", error);
+      logger.error("Error fetching all NVQ qualifications:", error);
       res.status(500).json({ error: "Failed to fetch all NVQ qualifications" });
     }
   });
@@ -1553,7 +1554,7 @@ export function registerContractorRoutes(app: Express): void {
         .values(qualificationData).returning();
       res.json(qualification);
     } catch (error) {
-      console.error("Error creating NVQ qualification:", error);
+      logger.error("Error creating NVQ qualification:", error);
       res.status(500).json({ error: "Failed to create NVQ qualification" });
     }
   });
@@ -1573,7 +1574,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json(qualification);
     } catch (error) {
-      console.error("Error updating NVQ qualification:", error);
+      logger.error("Error updating NVQ qualification:", error);
       res.status(500).json({ error: "Failed to update NVQ qualification" });
     }
   });
@@ -1593,7 +1594,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting NVQ qualification:", error);
+      logger.error("Error deleting NVQ qualification:", error);
       res.status(500).json({ error: "Failed to delete NVQ qualification" });
     }
   });
@@ -1609,7 +1610,7 @@ export function registerContractorRoutes(app: Express): void {
       const workers = await databaseService.getWorkersByCompanyId(context, companyId);
       res.json(workers);
     } catch (error) {
-      console.error("Error fetching workers:", error);
+      logger.error("Error fetching workers:", error);
       res.status(500).json({ error: "Failed to fetch workers" });
     }
   });
@@ -1643,7 +1644,7 @@ export function registerContractorRoutes(app: Express): void {
       // Use customer-isolated database service instead of old storage
       const worker = await databaseService.createContractorWorker(context, workerData);
       
-      console.log(`✅ Created contractor worker: ${workerData.firstName} ${workerData.lastName} (ID: ${worker.id}) for customer ${context.customerId}`);
+      logger.info(`Created contractor worker: ID ${workerData.id} (ID: ${worker.id}) for customer ${context.customerId}`);
 
       // Audit trail — worker created
       try {
@@ -1663,7 +1664,7 @@ export function registerContractorRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('⚠️ Failed to create worker audit note (continuing):', auditErr);
+        logger.error('Failed to create worker audit note (continuing):', auditErr);
       }
 
       res.json(worker);
@@ -1671,7 +1672,7 @@ export function registerContractorRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid worker data", details: error.errors });
       } else {
-        console.error("Error creating worker:", error);
+        logger.error("Error creating worker:", error);
         res.status(500).json({ error: "Failed to create worker" });
       }
     }
@@ -1691,7 +1692,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json(worker);
     } catch (error) {
-      console.error("Error updating worker:", error);
+      logger.error("Error updating worker:", error);
       res.status(500).json({ error: "Failed to update worker" });
     }
   });
@@ -1711,7 +1712,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting worker:", error);
+      logger.error("Error deleting worker:", error);
       res.status(500).json({ error: "Failed to delete worker" });
     }
   });
@@ -1729,7 +1730,7 @@ export function registerContractorRoutes(app: Express): void {
         ));
       res.json(documents);
     } catch (error) {
-      console.error("Error fetching documents:", error);
+      logger.error("Error fetching documents:", error);
       res.status(500).json({ error: "Failed to fetch documents" });
     }
   });
@@ -1747,7 +1748,7 @@ export function registerContractorRoutes(app: Express): void {
       const uploadURL = await objectStorageService.getObjectEntityUploadURL();
       res.json({ uploadURL });
     } catch (error) {
-      console.error('❌ Error getting company document upload URL:', error);
+      logger.error('Error getting company document upload URL:', error);
       res.status(500).json({ error: 'Failed to get upload URL' });
     }
   });
@@ -1793,7 +1794,7 @@ export function registerContractorRoutes(app: Express): void {
               ne(isolatedSchema.contractorDocuments.id, document.id)
             ));
         } catch (resetErr) {
-          console.error('⚠️ Failed to reset expiryAlertedAt on previous company documents (continuing):', resetErr);
+          logger.error('Failed to reset expiryAlertedAt on previous company documents (continuing):', resetErr);
         }
       }
 
@@ -1808,12 +1809,12 @@ export function registerContractorRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('⚠️ Failed to create company document audit note (continuing):', auditErr);
+        logger.error('Failed to create company document audit note (continuing):', auditErr);
       }
 
       res.json({ success: true, document });
     } catch (error) {
-      console.error("Error creating company document:", error);
+      logger.error("Error creating company document:", error);
       res.status(500).json({ error: "Failed to create document" });
     }
   });
@@ -1869,7 +1870,7 @@ export function registerContractorRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('⚠️ Failed to create company document update audit note (continuing):', auditErr);
+        logger.error('Failed to create company document update audit note (continuing):', auditErr);
       }
 
       // Fire-and-forget: notify admin only on genuine transition to expired
@@ -1918,14 +1919,14 @@ export function registerContractorRoutes(app: Express): void {
               });
             }
           } catch (emailErr) {
-            console.error('⚠️ Failed to send contractor compliance expiry alert email:', emailErr);
+            logger.error('Failed to send contractor compliance expiry alert email:', emailErr);
           }
         });
       }
 
       res.json({ success: true, document: updated });
     } catch (error) {
-      console.error("Error updating company document:", error);
+      logger.error("Error updating company document:", error);
       res.status(500).json({ error: "Failed to update document" });
     }
   });
@@ -1958,7 +1959,7 @@ export function registerContractorRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('⚠️ Failed to create company document delete audit note (continuing):', auditErr);
+        logger.error('Failed to create company document delete audit note (continuing):', auditErr);
       }
 
       // Fire-and-forget: notify admin that a compliance document was deleted
@@ -2000,13 +2001,13 @@ export function registerContractorRoutes(app: Express): void {
             });
           }
         } catch (emailErr) {
-          console.error('⚠️ Failed to send contractor compliance deletion alert email:', emailErr);
+          logger.error('Failed to send contractor compliance deletion alert email:', emailErr);
         }
       });
 
       res.json({ success: true, message: 'Document deleted' });
     } catch (error) {
-      console.error("Error deleting company document:", error);
+      logger.error("Error deleting company document:", error);
       res.status(500).json({ error: "Failed to delete document" });
     }
   });
@@ -2051,12 +2052,12 @@ export function registerContractorRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('⚠️ Failed to create document approval audit note (continuing):', auditErr);
+        logger.error('Failed to create document approval audit note (continuing):', auditErr);
       }
 
       res.json({ success: true, document: updated });
     } catch (error) {
-      console.error("Error approving company document:", error);
+      logger.error("Error approving company document:", error);
       res.status(500).json({ error: "Failed to approve document" });
     }
   });
@@ -2095,12 +2096,12 @@ export function registerContractorRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('⚠️ Failed to create company document delete audit note (continuing):', auditErr);
+        logger.error('Failed to create company document delete audit note (continuing):', auditErr);
       }
 
       res.json({ success: true, message: 'Document deleted' });
     } catch (error) {
-      console.error('❌ Error deleting company document:', error);
+      logger.error('Error deleting company document:', error);
       res.status(500).json({ error: 'Failed to delete document' });
     }
   });
@@ -2116,7 +2117,7 @@ export function registerContractorRoutes(app: Express): void {
         .orderBy(desc(isolatedSchema.companyNotes.changedAt));
       res.json(notes);
     } catch (error) {
-      console.error("Error fetching company notes:", error);
+      logger.error("Error fetching company notes:", error);
       res.status(500).json({ error: "Failed to fetch company notes" });
     }
   });
@@ -2131,7 +2132,7 @@ export function registerContractorRoutes(app: Express): void {
         .where(eq(isolatedSchema.documentApprovals.documentId, documentId));
       res.json(approvals);
     } catch (error) {
-      console.error("Error fetching document approvals:", error);
+      logger.error("Error fetching document approvals:", error);
       res.status(500).json({ error: "Failed to fetch document approvals" });
     }
   });
@@ -2176,7 +2177,7 @@ export function registerContractorRoutes(app: Express): void {
 
       res.json(approval);
     } catch (error) {
-      console.error("Error approving/rejecting document:", error);
+      logger.error("Error approving/rejecting document:", error);
       res.status(500).json({ error: "Failed to process document approval" });
     }
   });
@@ -2202,7 +2203,7 @@ export function registerContractorRoutes(app: Express): void {
       
       // If customer has no templates, copy default templates from dev-customer-001
       if (templates.length === 0) {
-        console.log(`🔄 Customer ${context.customerId} has no UK H&S templates, copying defaults...`);
+        logger.info(`Customer ${context.customerId} has no UK H&S templates, copying defaults...`);
         
         // Get default templates from dev-customer-001
         const defaultTemplates = await db
@@ -2234,13 +2235,13 @@ export function registerContractorRoutes(app: Express): void {
             .values(customerTemplates)
             .returning();
           
-          console.log(`✅ Copied ${templates.length} UK H&S templates for customer ${context.customerId}`);
+          logger.info(`Copied ${templates.length} UK H&S templates for customer ${context.customerId}`);
         }
       }
       
       res.json(templates);
     } catch (error) {
-      console.error('Error fetching UK H&S document templates:', error);
+      logger.error('Error fetching UK H&S document templates:', error);
       res.status(500).json({ error: 'Failed to fetch UK H&S document templates' });
     }
   });
@@ -2266,7 +2267,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json(template);
     } catch (error) {
-      console.error('Error fetching UK H&S document template:', error);
+      logger.error('Error fetching UK H&S document template:', error);
       res.status(500).json({ error: 'Failed to fetch UK H&S document template' });
     }
   });
@@ -2317,10 +2318,10 @@ export function registerContractorRoutes(app: Express): void {
         ))
         .returning();
       
-      console.log(`✅ Updated UK H&S template ${templateId} for customer ${context.customerId}`);
+      logger.info(`Updated UK H&S template ${templateId} for customer ${context.customerId}`);
       res.json(updatedTemplate);
     } catch (error) {
-      console.error('Error updating UK H&S document template:', error);
+      logger.error('Error updating UK H&S document template:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Invalid request data', details: error.errors });
       }
@@ -2373,10 +2374,10 @@ export function registerContractorRoutes(app: Express): void {
         })
         .returning();
       
-      console.log(`✅ Created new UK H&S template ${newTemplate.id} for customer ${context.customerId}`);
+      logger.info(`Created new UK H&S template ${newTemplate.id} for customer ${context.customerId}`);
       res.status(201).json(newTemplate);
     } catch (error) {
-      console.error('Error creating UK H&S document template:', error);
+      logger.error('Error creating UK H&S document template:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Invalid request data', details: error.errors });
       }
@@ -2435,10 +2436,10 @@ export function registerContractorRoutes(app: Express): void {
         ))
         .returning();
       
-      console.log(`✅ Deleted UK H&S template ${templateId} for customer ${context.customerId}`);
+      logger.info(`Deleted UK H&S template ${templateId} for customer ${context.customerId}`);
       res.json({ success: true, message: 'Template deleted successfully' });
     } catch (error) {
-      console.error('Error deleting UK H&S document template:', error);
+      logger.error('Error deleting UK H&S document template:', error);
       res.status(500).json({ error: 'Failed to delete UK H&S document template' });
     }
   });
@@ -2472,10 +2473,10 @@ export function registerContractorRoutes(app: Express): void {
         ))
         .orderBy(ukHSDocumentTemplates.documentCode);
       
-      console.log(`✅ Retrieved ${defaultTemplates.length} default UK H&S templates for customer ${context.customerId}`);
+      logger.info(`Retrieved ${defaultTemplates.length} default UK H&S templates for customer ${context.customerId}`);
       res.json(defaultTemplates);
     } catch (error) {
-      console.error('Error fetching default UK H&S document templates:', error);
+      logger.error('Error fetching default UK H&S document templates:', error);
       res.status(500).json({ error: 'Failed to fetch default UK H&S document templates' });
     }
   });
@@ -2536,10 +2537,10 @@ export function registerContractorRoutes(app: Express): void {
         ))
         .returning();
       
-      console.log(`✅ Updated default UK H&S template ${templateId} (${existingTemplate.documentCode}) for customer ${context.customerId}`);
+      logger.info(`Updated default UK H&S template ${templateId} (${existingTemplate.documentCode}) for customer ${context.customerId}`);
       res.json(updatedTemplate);
     } catch (error) {
-      console.error('Error updating default UK H&S document template:', error);
+      logger.error('Error updating default UK H&S document template:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: 'Invalid request data', details: error.errors });
       }
@@ -2593,10 +2594,10 @@ export function registerContractorRoutes(app: Express): void {
         ))
         .returning();
       
-      console.log(`✅ Reset default UK H&S template ${templateId} to system default for customer ${context.customerId}`);
+      logger.info(`Reset default UK H&S template ${templateId} to system default for customer ${context.customerId}`);
       res.json(resetTemplate);
     } catch (error) {
-      console.error('Error resetting default UK H&S document template:', error);
+      logger.error('Error resetting default UK H&S document template:', error);
       res.status(500).json({ error: 'Failed to reset default UK H&S document template' });
     }
   });
@@ -2636,10 +2637,10 @@ export function registerContractorRoutes(app: Express): void {
               customerId: context.customerId
             });
             userId = newUser.id;
-            console.log(`✅ Created customer user record for ${authUser.username}`);
+            logger.info(`Created customer user record for ${authUser.username}`);
           }
         } catch (error) {
-          console.error('Failed to create customer user record:', error);
+          logger.error('Failed to create customer user record:', error);
         }
       }
       
@@ -2657,7 +2658,7 @@ export function registerContractorRoutes(app: Express): void {
           // Get worker and company details for validation
           const worker = await databaseService.getContractorWorkerById(context, workerId);
           if (!worker) {
-            console.warn(`Worker ${workerId} not found, skipping assignment`);
+            logger.warn(`Worker ${workerId} not found, skipping assignment`);
             continue;
           }
           
@@ -2676,7 +2677,7 @@ export function registerContractorRoutes(app: Express): void {
               ));
             
             if (existingAssignment) {
-              console.warn(`Assignment already exists for worker ${workerId} and template ${templateId}, skipping`);
+              logger.warn(`Assignment already exists for worker ${workerId} and template ${templateId}, skipping`);
               continue;
             }
             
@@ -2691,7 +2692,7 @@ export function registerContractorRoutes(app: Express): void {
               ));
             
             if (!template) {
-              console.warn(`Template ${templateId} not found or not accessible, skipping assignment`);
+              logger.warn(`Template ${templateId} not found or not accessible, skipping assignment`);
               continue;
             }
             
@@ -2721,7 +2722,7 @@ export function registerContractorRoutes(app: Express): void {
         
         // If no new assignments needed, that's actually a success case
         if (newAssignments.length === 0) {
-          console.log('✅ All H&S documents already assigned to selected workers - no new assignments needed');
+          logger.info('All H&S documents already assigned to selected workers - no new assignments needed');
           return []; // Return empty array instead of throwing error
         }
         
@@ -2753,7 +2754,7 @@ export function registerContractorRoutes(app: Express): void {
           details: error.errors 
         });
       }
-      console.error('Error assigning UK H&S documents:', error);
+      logger.error('Error assigning UK H&S documents:', error);
       res.status(500).json({ error: 'Failed to assign UK H&S documents' });
     }
   });
@@ -2776,7 +2777,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json(assignments);
     } catch (error) {
-      console.error('Error fetching worker document assignments:', error);
+      logger.error('Error fetching worker document assignments:', error);
       res.status(500).json({ error: 'Failed to fetch worker document assignments' });
     }
   });
@@ -2811,7 +2812,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json(assignments);
     } catch (error) {
-      console.error('Error fetching company document assignments:', error);
+      logger.error('Error fetching company document assignments:', error);
       res.status(500).json({ error: 'Failed to fetch company document assignments' });
     }
   });
@@ -2918,7 +2919,7 @@ export function registerContractorRoutes(app: Express): void {
               changedAt: sentAt,
             });
           } catch (noteErr) {
-            console.warn(`[H&S Email] Could not write worker note for ${worker.id}:`, noteErr);
+            logger.warn(`[H&S Email] Could not write worker note for ${worker.id}:`, noteErr);
           }
 
           // Write company audit note (non-fatal)
@@ -2932,20 +2933,20 @@ export function registerContractorRoutes(app: Express): void {
                 changedAt: sentAt,
               });
             } catch (noteErr) {
-              console.warn(`[H&S Email] Could not write company note for ${company.id}:`, noteErr);
+              logger.warn(`[H&S Email] Could not write company note for ${company.id}:`, noteErr);
             }
           }
 
           emailsSent++;
-          console.log(`✅ H&S email sent to ${worker.email} for document "${template.documentName}"`);
+          logger.info(`H&S email sent to [email] for document "${template.documentName}"`);
           
         } catch (assignmentError: any) {
-          console.error(`Failed to process assignment ${assignment.id}:`, assignmentError);
+          logger.error(`Failed to process assignment ${assignment.id}:`, assignmentError);
           errors.push(`Assignment ${assignment.id}: ${assignmentError.message}`);
         }
       }
       
-      console.log(`✅ Sent ${emailsSent}/${assignments.length} H&S document emails for customer ${context.customerId}`);
+      logger.info(`Sent ${emailsSent}/${assignments.length} H&S document emails for customer ${context.customerId}`);
       res.json({ 
         emailsSent,
         errors,
@@ -2955,7 +2956,7 @@ export function registerContractorRoutes(app: Express): void {
       });
       
     } catch (error: any) {
-      console.error('Error sending UK H&S document emails:', error);
+      logger.error('Error sending UK H&S document emails:', error);
       res.status(500).json({ error: 'Failed to send UK H&S document emails' });
     }
   });
@@ -3131,7 +3132,7 @@ export function registerContractorRoutes(app: Express): void {
           details: error.errors 
         });
       }
-      console.error('Error fetching document for acceptance:', error);
+      logger.error('Error fetching document for acceptance:', error);
       res.status(500).json({ error: 'Failed to fetch document for acceptance' });
     }
   });
@@ -3242,7 +3243,7 @@ export function registerContractorRoutes(app: Express): void {
       if (error.message === 'Document has already been accepted') {
         return res.status(400).json({ error: error.message });
       }
-      console.error('Error accepting document:', error);
+      logger.error('Error accepting document:', error);
       res.status(500).json({ error: 'Failed to accept document' });
     }
   });
@@ -3365,7 +3366,7 @@ export function registerContractorRoutes(app: Express): void {
       });
       
     } catch (error) {
-      console.error('Error generating auto-fill data:', error);
+      logger.error('Error generating auto-fill data:', error);
       res.status(500).json({ error: 'Failed to generate auto-fill data' });
     }
   });
@@ -3392,7 +3393,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json(acceptances);
     } catch (error) {
-      console.error('Error fetching worker document acceptances:', error);
+      logger.error('Error fetching worker document acceptances:', error);
       res.status(500).json({ error: 'Failed to fetch worker document acceptances' });
     }
   });
@@ -3461,7 +3462,7 @@ export function registerContractorRoutes(app: Express): void {
       });
       
     } catch (error) {
-      console.error('Error fetching company compliance status:', error);
+      logger.error('Error fetching company compliance status:', error);
       res.status(500).json({ error: 'Failed to fetch company compliance status' });
     }
   });
@@ -3486,13 +3487,13 @@ export function registerContractorRoutes(app: Express): void {
           .orderBy(desc(workerDocumentAssignments.assignedAt))
           .limit(500);
       } catch (dbError) {
-        console.error('Database query failed for H&S assignments:', dbError);
+        logger.error('Database query failed for H&S assignments:', dbError);
         assignments = [];
       }
-      console.log(`✅ Retrieved ${assignments.length} H&S document assignments for customer ${context.customerId}`);
+      logger.info(`Retrieved ${assignments.length} H&S document assignments for customer ${context.customerId}`);
       res.status(200).json(assignments);
     } catch (error) {
-      console.error('Error fetching H&S document assignments:', error);
+      logger.error('Error fetching H&S document assignments:', error);
       res.status(500).json({ error: 'Failed to fetch document assignments' });
     }
   });
@@ -3526,10 +3527,10 @@ export function registerContractorRoutes(app: Express): void {
         ))
         .orderBy(desc(workerDocumentAssignments.assignedAt));
       
-      console.log(`✅ Retrieved ${assignments.length} H&S document assignments for company ${companyId} and customer ${context.customerId}`);
+      logger.info(`Retrieved ${assignments.length} H&S document assignments for company ${companyId} and customer ${context.customerId}`);
       res.json(assignments);
     } catch (error) {
-      console.error('Error fetching company document assignments:', error);
+      logger.error('Error fetching company document assignments:', error);
       res.status(500).json({ error: 'Failed to fetch company document assignments' });
     }
   });
@@ -3544,7 +3545,7 @@ export function registerContractorRoutes(app: Express): void {
         const { workerId } = req.params;
         const { purpose, hostStaffId, hostName, hsRulesAccepted } = req.body;
         
-        console.log(`🧪 DEV-ONLY: Testing check-in for worker ${workerId}`);
+        logger.info(`DEV-ONLY: Testing check-in for worker ${workerId}`);
         
         // Get customer context (use default for dev testing)
         const context = simpleDatabaseService.createCustomerContext('Andy');
@@ -3562,15 +3563,15 @@ export function registerContractorRoutes(app: Express): void {
           return res.status(404).json({ error: "Contractor company not found" });
         }
 
-        console.log(`🌱 DEV: Testing CO2 calculation for ${worker.firstName} ${worker.lastName}`);
-        console.log(`📍 Postcode: ${worker.postcode}, Transport: ${worker.transportMethod}`);
-        console.log(`🏢 Company address: ${company.address}`);
+        logger.info(`DEV: Testing CO2 calculation for ID ${worker.id}`);
+        logger.info(`Postcode: ${worker.postcode}, Transport: ${worker.transportMethod}`);
+        logger.info(`Company address: ${company.address}`);
 
         // Calculate CO2 emissions for this worker's commute
         let co2CalculationResult = null;
         if (worker.postcode && company.address) {
           try {
-            console.log(`🌱 Calculating CO2 emissions for ${worker.firstName} ${worker.lastName}`);
+            logger.info(`Calculating CO2 emissions for ID ${worker.id}`);
             
             const co2Calculator = new CO2CalculationService(databaseService);
             co2CalculationResult = await co2Calculator.calculateWorkerCO2Emissions(
@@ -3585,13 +3586,13 @@ export function registerContractorRoutes(app: Express): void {
               }
             );
             
-            console.log(`✅ CO2 emissions calculated: ${co2CalculationResult.monthlyCO2kg} kg/month for ${worker.firstName} ${worker.lastName}`);
+            logger.info(`CO2 emissions calculated: ${co2CalculationResult.monthlyCO2kg} kg/month for ID ${worker.id}`);
           } catch (co2Error) {
-            console.error(`❌ Failed to calculate CO2 emissions for ${worker.firstName} ${worker.lastName}:`, co2Error);
+            logger.error(`Failed to calculate CO2 emissions for ID ${worker.id}:`, co2Error);
             return res.status(500).json({ error: `CO2 calculation failed: ${co2Error.message}` });
           }
         } else {
-          console.log(`⚠️ Skipping CO2 calculation for ${worker.firstName} ${worker.lastName} - missing postcode or company address`);
+          logger.info(`Skipping CO2 calculation for ID ${worker.id} - missing postcode or company address`);
         }
 
         res.json({
@@ -3609,7 +3610,7 @@ export function registerContractorRoutes(app: Express): void {
           co2Result: co2CalculationResult
         });
       } catch (error) {
-        console.error("DEV: Error in CO2 test check-in:", error);
+        logger.error("DEV: Error in CO2 test check-in:", error);
         res.status(500).json({ error: `DEV test failed: ${error.message}` });
       }
     });
@@ -3691,7 +3692,7 @@ export function registerContractorRoutes(app: Express): void {
       const contractorHsAccepted = hsRulesAccepted === true || worker.hsRulesAccepted || false;
       const contractorHsAcceptedAt = hsRulesAccepted === true ? new Date() : worker.hsRulesAcceptedAt;
 
-      console.log(`🔄 Starting contractor check-in for: ${worker.firstName} ${worker.lastName} from ${company.name}`);
+      logger.info(`Starting contractor check-in for: ID ${worker.id} from ${company.name}`);
       
       // Worker's permanent QR code (their identity/pass) — generate once if missing
       const workerQrCode = worker.qrCode || `CTR-${randomUUID().replace(/-/g, '').substring(0, 12)}`;
@@ -3725,7 +3726,7 @@ export function registerContractorRoutes(app: Express): void {
       };
       
       await databaseService.createContractorVisit(context, visitData);
-      console.log(`📋 Created visit record for ${worker.firstName} ${worker.lastName}`);
+      logger.info(`Created visit record for ID ${worker.id}`);
 
       // Create audit trail entry for check-in
       try {
@@ -3739,14 +3740,14 @@ export function registerContractorRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('Failed to create check-in audit note:', auditErr);
+        logger.error('Failed to create check-in audit note:', auditErr);
       }
 
       // Calculate CO2 emissions for this worker's commute
       let co2CalculationResult = null;
       if (worker.postcode && company.address) {
         try {
-          console.log(`🌱 Calculating CO2 emissions for ${worker.firstName} ${worker.lastName}`);
+          logger.info(`Calculating CO2 emissions for ID ${worker.id}`);
           
           const co2Calculator = new CO2CalculationService(databaseService);
           co2CalculationResult = await co2Calculator.calculateWorkerCO2Emissions(
@@ -3761,13 +3762,13 @@ export function registerContractorRoutes(app: Express): void {
             }
           );
           
-          console.log(`✅ CO2 emissions calculated: ${co2CalculationResult.monthlyCO2kg} kg/month for ${worker.firstName} ${worker.lastName}`);
+          logger.info(`CO2 emissions calculated: ${co2CalculationResult.monthlyCO2kg} kg/month for ID ${worker.id}`);
         } catch (co2Error) {
-          console.error(`❌ Failed to calculate CO2 emissions for ${worker.firstName} ${worker.lastName}:`, co2Error);
+          logger.error(`Failed to calculate CO2 emissions for ID ${worker.id}:`, co2Error);
           // Don't fail the check-in if CO2 calculation fails
         }
       } else {
-        console.log(`⚠️ Skipping CO2 calculation for ${worker.firstName} ${worker.lastName} - missing postcode or company address`);
+        logger.info(`Skipping CO2 calculation for ID ${worker.id} - missing postcode or company address`);
       }
 
       let ePassSent = false;
@@ -3783,19 +3784,19 @@ export function registerContractorRoutes(app: Express): void {
           try {
             companySettings = await simpleDatabaseService.getCompanySettings(context);
           } catch (settingsErr) {
-            console.warn(`⚠️ First settings fetch failed for e-pass, retrying in 300ms...`, settingsErr);
+            logger.warn(`First settings fetch failed for e-pass, retrying in 300ms...`, settingsErr);
             await new Promise(r => setTimeout(r, 300));
             try {
               companySettings = await simpleDatabaseService.getCompanySettings(context);
-              console.log(`✅ Settings retry succeeded`);
+              logger.info(`Settings retry succeeded`);
             } catch (retryErr) {
-              console.error(`❌ Settings retry also failed — e-pass will be skipped:`, retryErr);
+              logger.error(`Settings retry also failed — e-pass will be skipped:`, retryErr);
             }
           }
           
           // Check if e-Pass is enabled in settings
           if (companySettings?.ePassEnabled) {
-            console.log(`📧 Sending contractor e-pass to ${worker.email}`);
+            logger.info(`Sending contractor e-pass to [email]`);
             
             const emailService = new EmailService(req.customerId);
             
@@ -3813,17 +3814,17 @@ export function registerContractorRoutes(app: Express): void {
             
             if (emailSentSuccessfully) {
               ePassSent = true;
-              console.log(`✅ E-Pass sent successfully to contractor ${worker.email}`);
+              logger.info(`E-Pass sent successfully to contractor [email]`);
             } else {
-              console.log(`⚠️ E-pass send returned false for ${worker.email} — physical pass will be shown`);
+              logger.info(`E-pass send returned false for [email] — physical pass will be shown`);
             }
           } else if (companySettings) {
-            console.log(`📧 E-Pass disabled in settings, skipping for ${worker.email}`);
+            logger.info(`E-Pass disabled in settings, skipping for [email]`);
           } else {
-            console.error(`❌ Could not load settings — e-pass skipped for ${worker.email}`);
+            logger.error(`Could not load settings — e-pass skipped for [email]`);
           }
         } catch (emailError) {
-          console.error("Failed to send contractor e-pass:", emailError);
+          logger.error("Failed to send contractor e-pass:", emailError);
           // Don't fail the check-in if email fails
         }
       }
@@ -3845,10 +3846,10 @@ export function registerContractorRoutes(app: Express): void {
               checkedInAt: new Date(),
               companyName: companySettings?.companyName || 'TPR Max',
             });
-            console.log(`📧 Arrival notification sent to host ${hostStaff.firstName} ${hostStaff.lastName} (${hostStaff.email})`);
+            logger.info(`Arrival notification sent to host ID ${hostStaff.id} ([email])`);
           }
         } catch (notifyError) {
-          console.error('Failed to send arrival notification to host:', notifyError);
+          logger.error('Failed to send arrival notification to host:', notifyError);
         }
       }
 
@@ -3891,11 +3892,11 @@ export function registerContractorRoutes(app: Express): void {
               lastKnownLocation: 'Just Checked In',
               isAccountedFor: false
             });
-            console.log(`✅ Added contractor ${worker.firstName} ${worker.lastName} to active evacuation ${evacuation.evacuationId} accountability list`);
+            logger.info(`Added contractor ID ${worker.id} to active evacuation ${evacuation.evacuationId} accountability list`);
           }
         }
       } catch (evacErr) {
-        console.error('Failed to update evacuation accountability on check-in:', evacErr);
+        logger.error('Failed to update evacuation accountability on check-in:', evacErr);
       }
 
       websocketService.broadcastPersonnelUpdate(context.customerId, {
@@ -3921,7 +3922,7 @@ export function registerContractorRoutes(app: Express): void {
           : "Check-in initiated (no email on file)"
       });
     } catch (error) {
-      console.error("Error checking in worker:", error);
+      logger.error("Error checking in worker:", error);
       res.status(500).json({ error: "Failed to check in worker" });
     }
   });
@@ -3953,7 +3954,7 @@ export function registerContractorRoutes(app: Express): void {
         await databaseService.updateContractorVisit(context, currentVisit.id, {
           checkedOutAt: new Date()
         });
-        console.log(`📋 Completed visit record for ${worker.firstName} ${worker.lastName}`);
+        logger.info(`Completed visit record for ID ${worker.id}`);
       }
 
       // Create audit trail entry for check-out
@@ -3968,7 +3969,7 @@ export function registerContractorRoutes(app: Express): void {
           changedBy: username,
         });
       } catch (auditErr) {
-        console.error('Failed to create check-out audit note:', auditErr);
+        logger.error('Failed to create check-out audit note:', auditErr);
       }
 
       // Remove contractor from evacuation accountability on checkout — they are no longer on site
@@ -3991,10 +3992,10 @@ export function registerContractorRoutes(app: Express): void {
               eq(isolatedSchema.evacuationAccountability.evacuationId, checkoutActiveEvacs[0].evacuationId),
               eq(isolatedSchema.evacuationAccountability.personId, workerId)
             ));
-          console.log(`🚪 Removed contractor ${worker.firstName} ${worker.lastName} from evacuation ${checkoutActiveEvacs[0].evacuationId} accountability on checkout`);
+          logger.info(`Removed contractor ID ${worker.id} from evacuation ${checkoutActiveEvacs[0].evacuationId} accountability on checkout`);
         }
       } catch (evacErr) {
-        console.warn('Could not remove contractor from evacuation accountability on checkout:', evacErr);
+        logger.warn('Could not remove contractor from evacuation accountability on checkout:', evacErr);
       }
 
       websocketService.broadcastPersonnelUpdate(context.customerId, {
@@ -4017,10 +4018,10 @@ export function registerContractorRoutes(app: Express): void {
           await contractorLwDb.update(isolatedSchema.contractorWorkers)
             .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
             .where(sql`${isolatedSchema.contractorWorkers.id} = ${workerId}`);
-          console.log(`🛡️ Auto-ended lone worker session for contractor ${workerId} on checkout`);
+          logger.info(`Auto-ended lone worker session for contractor ${workerId} on checkout`);
         }
       } catch (lwErr) {
-        console.warn('Could not auto-end lone worker session on contractor checkout:', lwErr);
+        logger.warn('Could not auto-end lone worker session on contractor checkout:', lwErr);
       }
 
       res.json({
@@ -4029,7 +4030,7 @@ export function registerContractorRoutes(app: Express): void {
         message: "Worker checked out successfully"
       });
     } catch (error) {
-      console.error("Error checking out worker:", error);
+      logger.error("Error checking out worker:", error);
       res.status(500).json({ error: "Failed to check out worker" });
     }
   });
@@ -4064,7 +4065,7 @@ export function registerContractorRoutes(app: Express): void {
 
       res.json(formattedVisits);
     } catch (error) {
-      console.error("Error fetching contractor visit history:", error);
+      logger.error("Error fetching contractor visit history:", error);
       res.status(500).json({ error: "Failed to fetch visit history" });
     }
   });
@@ -4088,7 +4089,7 @@ export function registerContractorRoutes(app: Express): void {
       
       res.json(sortedNotes);
     } catch (error) {
-      console.error("Error fetching worker notes:", error);
+      logger.error("Error fetching worker notes:", error);
       res.status(500).json({ error: "Failed to fetch worker notes" });
     }
   });
@@ -4115,7 +4116,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!company) return res.status(404).json({ error: "Contractor company not found" });
       res.json(company);
     } catch (error) {
-      console.error("Error updating contractor CDM fields:", error);
+      logger.error("Error updating contractor CDM fields:", error);
       res.status(500).json({ error: "Failed to update contractor CDM fields" });
     }
   });

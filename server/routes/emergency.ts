@@ -19,6 +19,7 @@ import {
 import { z } from 'zod';
 import { eq, and, sql, desc, inArray, gte, lt, or, not } from 'drizzle-orm';
 import { db } from '../db';
+import { logger } from '../utils/logger';
 
 // ─── Module-scope helper ────────────────────────────────────────────────────
 
@@ -95,7 +96,7 @@ export function registerEmergencyRoutes(app: Express): void {
       const customerId = req.customerId;
       let accountabilityMap = new Map<string, boolean>();
       
-      console.log(`📋 MUSTER: Building accountability map for customer: ${customerId}`);
+      logger.info(`MUSTER: Building accountability map for customer: ${customerId}`);
       
       if (customerId) {
         const activeEvacs = await db
@@ -108,10 +109,10 @@ export function registerEmergencyRoutes(app: Express): void {
           .orderBy(desc(evacuations.createdAt))
           .limit(1);
         
-        console.log(`📋 MUSTER: Found ${activeEvacs.length} active evacuations for customer ${customerId}`);
+        logger.info(`MUSTER: Found ${activeEvacs.length} active evacuations for customer ${customerId}`);
         
         if (activeEvacs.length > 0) {
-          console.log(`📋 MUSTER: Active evacuation ID: ${activeEvacs[0].evacuationId}`);
+          logger.info(`MUSTER: Active evacuation ID: ${activeEvacs[0].evacuationId}`);
           const accountabilityRecords = await db
             .select()
             .from(evacuationAccountability)
@@ -120,14 +121,14 @@ export function registerEmergencyRoutes(app: Express): void {
               eq(evacuationAccountability.customerId, customerId)
             ));
           
-          console.log(`📋 MUSTER: Found ${accountabilityRecords.length} accountability records, ${accountabilityRecords.filter(r => r.isAccountedFor).length} marked safe`);
+          logger.info(`MUSTER: Found ${accountabilityRecords.length} accountability records, ${accountabilityRecords.filter(r => r.isAccountedFor).length} marked safe`);
           
           accountabilityRecords.forEach(record => {
             accountabilityMap.set(record.personId, record.isAccountedFor);
           });
         }
       } else {
-        console.log(`⚠️ MUSTER: No customerId available - accountability data will be empty`);
+        logger.info(`MUSTER: No customerId available - accountability data will be empty`);
       }
       
       // Build zone name lookup map for last-known-location display
@@ -202,7 +203,7 @@ export function registerEmergencyRoutes(app: Express): void {
       
       res.json(musterList);
     } catch (error) {
-      console.error("Failed to fetch muster list:", error);
+      logger.error("Failed to fetch muster list:", error);
       res.status(500).json({ error: "Failed to fetch muster list" });
     }
   });
@@ -280,7 +281,7 @@ export function registerEmergencyRoutes(app: Express): void {
         message: `Emergency evacuation initiated. ${evacuationData.notificationsSent} notifications sent.`
       });
     } catch (error) {
-      console.error("Failed to initiate emergency evacuation:", error);
+      logger.error("Failed to initiate emergency evacuation:", error);
       res.status(500).json({ error: "Failed to initiate emergency evacuation" });
     }
   });
@@ -302,17 +303,17 @@ export function registerEmergencyRoutes(app: Express): void {
       }
       const context = { customerId: req.session.customerId };
       
-      console.log(`\n🚨 EMERGENCY ACTIVATION - PRE-FLIGHT VALIDATION`);
-      console.log(`============================================`);
-      console.log(`Customer ID: ${context.customerId}`);
-      console.log(`Activated by: ${activatedBy}`);
+      logger.info(`\n EMERGENCY ACTIVATION - PRE-FLIGHT VALIDATION`);
+      logger.info(`============================================`);
+      logger.info(`Customer ID: ${context.customerId}`);
+      logger.info(`Activated by: ${activatedBy}`);
       
       // PRE-FLIGHT CHECK 1: Verify customer database exists and is accessible
       try {
         await customerDbService.getCustomerDatabase(context.customerId);
-        console.log(`✅ Customer database accessible`);
+        logger.info(`Customer database accessible`);
       } catch (error) {
-        console.error(`❌ CRITICAL ERROR: Customer database not accessible for ${context.customerId}`);
+        logger.error(`CRITICAL ERROR: Customer database not accessible for ${context.customerId}`);
         return res.status(500).json({
           error: "System not ready",
           message: "Emergency system database is not accessible. Please contact support immediately."
@@ -322,13 +323,13 @@ export function registerEmergencyRoutes(app: Express): void {
       // PRE-FLIGHT CHECK 2: Load company settings
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
       if (!companySettings) {
-        console.error(`❌ CRITICAL ERROR: Company settings not found for customer ${context.customerId}`);
+        logger.error(`CRITICAL ERROR: Company settings not found for customer ${context.customerId}`);
         return res.status(500).json({
           error: "Configuration error",
           message: "Company settings could not be loaded. Please contact support."
         });
       }
-      console.log(`✅ Company settings loaded`);
+      logger.info(`Company settings loaded`);
       
       // Get all people currently on site
       const checkedInStaff = await databaseService.getCheckedInStaff(context);
@@ -346,7 +347,7 @@ export function registerEmergencyRoutes(app: Express): void {
             .where(eq(isolatedSchema.members.isCheckedIn, true));
         }
       } catch (e) {
-        console.log(`⚠️ Members query failed during evacuation: ${e}`);
+        logger.info(`Members query failed during evacuation: ${e}`);
       }
       
       // PRE-FLIGHT CHECK 3: Validate Fire Marshals have emergency URLs
@@ -359,7 +360,7 @@ export function registerEmergencyRoutes(app: Express): void {
       const fireMarshalsMissingUrls = allFireMarshals.filter(fm => !fm.fireMarshalUrlId);
       if (fireMarshalsMissingUrls.length > 0) {
         const names = fireMarshalsMissingUrls.map(fm => `${fm.firstName} ${fm.lastName}`).join(', ');
-        console.log(`⚠️ Auto-generating emergency URLs for ${fireMarshalsMissingUrls.length} Fire Marshal(s): ${names}`);
+        logger.info(`Auto-generating emergency URLs for ${fireMarshalsMissingUrls.length} Fire Marshal(s): ${names}`);
         // Auto-fix: generate missing URLs rather than blocking the emergency
         const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
         for (const fm of fireMarshalsMissingUrls) {
@@ -369,16 +370,16 @@ export function registerEmergencyRoutes(app: Express): void {
             .set({ fireMarshalUrlId: newUrlId })
             .where(eq(isolatedSchema.staff.id, fm.id));
           fm.fireMarshalUrlId = newUrlId;
-          console.log(`🔥 AUTO-GENERATED Fire Marshal URL for ${fm.firstName} ${fm.lastName}: ${newUrlId}`);
+          logger.info(`AUTO-GENERATED Fire Marshal URL for ID ${fm.id}: ${newUrlId}`);
         }
       }
-      console.log(`✅ All ${allFireMarshals.length} Fire Marshals have emergency URLs`);
+      logger.info(`All ${allFireMarshals.length} Fire Marshals have emergency URLs`);
       
-      console.log(`✅ PRE-FLIGHT CHECKS PASSED - Emergency activation proceeding`);
+      logger.info(`PRE-FLIGHT CHECKS PASSED - Emergency activation proceeding`);
       if (zoneFilter) {
-        console.log(`🗺️ Zone-based evacuation: filtering to ${zoneFilter.size} selected zones`);
+        logger.info(`Zone-based evacuation: filtering to ${zoneFilter.size} selected zones`);
       }
-      console.log(`============================================\n`);
+      logger.info(`============================================\n`);
       
       // Apply zone filter ONLY to staff - visitors, contractors, and members always get notified
       const filteredStaff = zoneFilter ? checkedInStaff.filter((s: any) => s.zoneId && zoneFilter.has(s.zoneId)) : checkedInStaff;
@@ -387,7 +388,7 @@ export function registerEmergencyRoutes(app: Express): void {
       const filteredMembers = checkedInMembers;
       
       if (zoneFilter) {
-        console.log(`🗺️ Zone filter applied to STAFF ONLY: ${filteredStaff.length} staff in zones, ${filteredVisitors.length} visitors (all), ${filteredContractors.length} contractors (all), ${filteredMembers.length} members (all)`);
+        logger.info(`Zone filter applied to STAFF ONLY: ${filteredStaff.length} staff in zones, ${filteredVisitors.length} visitors (all), ${filteredContractors.length} contractors (all), ${filteredMembers.length} members (all)`);
       }
       
       if (filteredStaff.length === 0 && filteredVisitors.length === 0 && filteredContractors.length === 0 && filteredMembers.length === 0) {
@@ -423,7 +424,7 @@ export function registerEmergencyRoutes(app: Express): void {
           zoneNameMapForReport.set(zone.id, zone.name);
         }
       } catch (e) {
-        console.log(`⚠️ Could not load zones for report: ${e}`);
+        logger.info(`Could not load zones for report: ${e}`);
       }
 
       const resolveZoneLocation = (zoneId: string | null | undefined): string => {
@@ -518,13 +519,13 @@ export function registerEmergencyRoutes(app: Express): void {
       // Only send regular evacuation emails to non-Fire Marshal staff (filtered by zone if applicable)
       const regularStaff = filteredStaff.filter(s => !fireMarshalIds.has(s.id));
       
-      console.log(`\n📧 SENDING EVACUATION ALERTS TO ALL PERSONNEL`);
-      console.log(`============================================`);
-      console.log(`Regular staff to notify: ${regularStaff.length}`);
-      console.log(`Fire Marshals (separate alert): ${fireMarshals.length}`);
-      console.log(`Visitors to notify: ${currentVisitors.length}`);
-      console.log(`Contractors to notify: ${checkedInContractors.length}`);
-      console.log(`============================================\n`);
+      logger.info(`\n SENDING EVACUATION ALERTS TO ALL PERSONNEL`);
+      logger.info(`============================================`);
+      logger.info(`Regular staff to notify: ${regularStaff.length}`);
+      logger.info(`Fire Marshals (separate alert): ${fireMarshals.length}`);
+      logger.info(`Visitors to notify: ${currentVisitors.length}`);
+      logger.info(`Contractors to notify: ${checkedInContractors.length}`);
+      logger.info(`============================================\n`);
       
       // Send to all regular staff (excluding Fire Marshals)
       for (const staff of regularStaff) {
@@ -541,7 +542,7 @@ export function registerEmergencyRoutes(app: Express): void {
               staff.email
             );
             
-            console.log(`📨 Sending evacuation alert to staff: ${staff.firstName} ${staff.lastName} (${staff.email})`);
+            logger.info(`Sending evacuation alert to staff: ID ${staff.id} ([email])`);
             const sent = await customEmailService.sendEvacuationAlert(
               staff.email,
               `${staff.firstName} ${staff.lastName}`,
@@ -551,13 +552,13 @@ export function registerEmergencyRoutes(app: Express): void {
               drillMode
             );
             if (sent) {
-              console.log(`✅ Successfully sent to ${staff.firstName} ${staff.lastName}`);
+              logger.info(`Successfully sent to ID ${staff.id}`);
               evacuationData.notificationsSent++;
             } else {
-              console.log(`❌ Failed to send to ${staff.firstName} ${staff.lastName}`);
+              logger.info(`Failed to send to ID ${staff.id}`);
             }
           } catch (error) {
-            console.error(`❌ ERROR sending to staff ${staff.firstName} ${staff.lastName}:`, error);
+            logger.error(`ERROR sending to staff ID ${staff.id}:`, error);
             errors.push(`Failed to notify ${staff.firstName} ${staff.lastName}: ${error}`);
           }
         }
@@ -567,7 +568,7 @@ export function registerEmergencyRoutes(app: Express): void {
       for (const visitor of filteredVisitors) {
         if (visitor.email) {
           try {
-            console.log(`📨 Sending evacuation alert to VISITOR: ${visitor.firstName} ${visitor.lastName} (${visitor.email})`);
+            logger.info(`Sending evacuation alert to VISITOR: ID ${visitor.id} ([email])`);
             
             // Generate safety token for this visitor
             const safetyToken = await generateSafetyToken(
@@ -590,18 +591,18 @@ export function registerEmergencyRoutes(app: Express): void {
             );
             
             if (sent) {
-              console.log(`✅ Successfully sent to visitor ${visitor.firstName} ${visitor.lastName}`);
+              logger.info(`Successfully sent to visitor ID ${visitor.id}`);
               evacuationData.notificationsSent++;
             } else {
-              console.log(`❌ Failed to send to visitor ${visitor.firstName} ${visitor.lastName}`);
+              logger.info(`Failed to send to visitor ID ${visitor.id}`);
               errors.push(`Failed to notify visitor ${visitor.firstName} ${visitor.lastName}: Email send returned false`);
             }
           } catch (error) {
-            console.error(`❌ ERROR sending to visitor ${visitor.firstName} ${visitor.lastName}:`, error);
+            logger.error(`ERROR sending to visitor ID ${visitor.id}:`, error);
             errors.push(`Failed to notify visitor ${visitor.firstName} ${visitor.lastName}: ${error instanceof Error ? error.message : String(error)}`);
           }
         } else {
-          console.warn(`⚠️ Visitor ${visitor.firstName} ${visitor.lastName} has no email address`);
+          logger.warn(`Visitor ID ${visitor.id} has no email address`);
         }
       }
       
@@ -609,7 +610,7 @@ export function registerEmergencyRoutes(app: Express): void {
       for (const contractor of filteredContractors) {
         if (contractor.email) {
           try {
-            console.log(`📨 Sending evacuation alert to CONTRACTOR: ${contractor.firstName} ${contractor.lastName} (${contractor.email})`);
+            logger.info(`Sending evacuation alert to CONTRACTOR: ID ${contractor.id} ([email])`);
             
             // Generate safety token for this contractor
             const safetyToken = await generateSafetyToken(
@@ -632,48 +633,48 @@ export function registerEmergencyRoutes(app: Express): void {
             );
             
             if (sent) {
-              console.log(`✅ Successfully sent to contractor ${contractor.firstName} ${contractor.lastName}`);
+              logger.info(`Successfully sent to contractor ID ${contractor.id}`);
               evacuationData.notificationsSent++;
             } else {
-              console.log(`❌ Failed to send to contractor ${contractor.firstName} ${contractor.lastName}`);
+              logger.info(`Failed to send to contractor ID ${contractor.id}`);
               errors.push(`Failed to notify contractor ${contractor.firstName} ${contractor.lastName}: Email send returned false`);
             }
           } catch (error) {
-            console.error(`❌ ERROR sending to contractor ${contractor.firstName} ${contractor.lastName}:`, error);
+            logger.error(`ERROR sending to contractor ID ${contractor.id}:`, error);
             errors.push(`Failed to notify contractor ${contractor.firstName} ${contractor.lastName}: ${error instanceof Error ? error.message : String(error)}`);
           }
         } else {
-          console.warn(`⚠️ Contractor ${contractor.firstName} ${contractor.lastName} has no email address`);
+          logger.warn(`Contractor ID ${contractor.id} has no email address`);
         }
       }
       
       // Log summary of regular evacuation emails sent
-      console.log(`\n📊 EVACUATION EMAIL SUMMARY (Regular Personnel)`);
-      console.log(`============================================`);
-      console.log(`✅ Successfully sent: ${evacuationData.notificationsSent} emails`);
-      console.log(`❌ Failed: ${errors.length} errors`);
+      logger.info(`\n EVACUATION EMAIL SUMMARY (Regular Personnel)`);
+      logger.info(`============================================`);
+      logger.info(`Successfully sent: ${evacuationData.notificationsSent} emails`);
+      logger.info(`Failed: ${errors.length} errors`);
       if (errors.length > 0) {
-        console.log(`\nErrors:`);
-        errors.forEach(err => console.log(`  - ${err}`));
+        logger.info(`\nErrors:`);
+        errors.forEach(err => logger.info(`- ${err}`));
       }
-      console.log(`============================================\n`);
+      logger.info(`============================================\n`);
       
       // Track Fire Marshal emails separately
       let fireMarshalEmailsSent = 0;
       
       // Now send Fire Marshal-specific alerts (fireMarshals already identified above)
-      console.log(`\n🚨 EMERGENCY ACTIVATION - FIRE MARSHAL NOTIFICATION`);
-      console.log(`============================================`);
-      console.log(`Found ${fireMarshals.length} Fire Marshals:`, fireMarshals.map(m => `${m.firstName} ${m.lastName}`));
-      console.log(`Base URL: ${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}`);
-      console.log(`============================================\n`);
+      logger.info(`\n EMERGENCY ACTIVATION - FIRE MARSHAL NOTIFICATION`);
+      logger.info(`============================================`);
+      logger.info(`Found ${fireMarshals.length} Fire Marshals:`, fireMarshals.map(m => `ID ${m.id}`));
+      logger.info(`Base URL: ${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}`);
+      logger.info(`============================================\n`);
       
       for (const marshal of fireMarshals) {
         if (marshal.email) {
           try {
             // NEW: Use static Fire Marshal URL ID instead of temporary tokens
             if (!marshal.fireMarshalUrlId) {
-              console.warn(`⚠️ Fire Marshal ${marshal.firstName} ${marshal.lastName} has no URL ID, skipping email`);
+              logger.warn(`Fire Marshal ID ${marshal.id} has no URL ID, skipping email`);
               errors.push(`Fire Marshal ${marshal.firstName} ${marshal.lastName} cannot be notified - no emergency access URL configured`);
               continue;
             }
@@ -684,12 +685,12 @@ export function registerEmergencyRoutes(app: Express): void {
               : 'http://localhost:5000';
             const marshalUrl = `${baseUrl}/fire-marshal/${marshal.fireMarshalUrlId}`;
             
-            console.log(`\n✅ FIRE MARSHAL STATIC URL:`);
-            console.log(`   Name: ${marshal.firstName} ${marshal.lastName}`);
-            console.log(`   Email: ${marshal.email}`);
-            console.log(`   URL ID: ${marshal.fireMarshalUrlId}`);
-            console.log(`   🔗 PERMANENT URL: ${marshalUrl}`);
-            console.log(`   ⚡ No expiration - can be saved as favorite!\n`);
+            logger.info(`\n FIRE MARSHAL STATIC URL:`);
+            logger.info(`Name: ID ${marshal.id}`);
+            logger.info(`Email: [email]`);
+            logger.info(`URL ID: ${marshal.fireMarshalUrlId}`);
+            logger.info(`PERMANENT URL: ${marshalUrl}`);
+            logger.info(`No expiration - can be saved as favorite!\n`);
             
             // Send Fire Marshal alert with static URL (updated email template will use this)
             await EmergencyEmailService.sendFireMarshalAlert({
@@ -709,9 +710,9 @@ export function registerEmergencyRoutes(app: Express): void {
             }, req.customerId);
             
             fireMarshalEmailsSent++;
-            console.log(`✅ EMAIL SENT to ${marshal.email} with static URL: ${marshalUrl}`);
+            logger.info(`EMAIL SENT to [email] with static URL: ${marshalUrl}`);
           } catch (error) {
-            console.error(`Failed to send Fire Marshal alert to ${marshal.firstName}:`, error);
+            logger.error(`Failed to send Fire Marshal alert to [name]:`, error);
             errors.push(`Failed to notify Fire Marshal ${marshal.firstName} ${marshal.lastName}: ${error instanceof Error ? error.message : String(error)}`);
           }
         }
@@ -719,17 +720,17 @@ export function registerEmergencyRoutes(app: Express): void {
       
       // CRITICAL: Final summary showing TOTAL emails sent (life-safety requirement)
       const totalEmailsSent = evacuationData.notificationsSent + fireMarshalEmailsSent;
-      console.log(`\n🚨 FINAL EMERGENCY EMAIL SUMMARY (LIFE-SAFETY CRITICAL)`);
-      console.log(`============================================`);
-      console.log(`📧 Regular evacuation emails: ${evacuationData.notificationsSent}`);
-      console.log(`🔥 Fire Marshal alerts: ${fireMarshalEmailsSent}`);
-      console.log(`✅ TOTAL EMAILS SENT: ${totalEmailsSent}`);
-      console.log(`❌ Total failures: ${errors.length}`);
+      logger.info(`\n FINAL EMERGENCY EMAIL SUMMARY (LIFE-SAFETY CRITICAL)`);
+      logger.info(`============================================`);
+      logger.info(`Regular evacuation emails: ${evacuationData.notificationsSent}`);
+      logger.info(`Fire Marshal alerts: ${fireMarshalEmailsSent}`);
+      logger.info(`TOTAL EMAILS SENT: ${totalEmailsSent}`);
+      logger.info(`Total failures: ${errors.length}`);
       if (errors.length > 0) {
-        console.log(`\nAll Errors:`);
-        errors.forEach(err => console.log(`  - ${err}`));
+        logger.info(`\nAll Errors:`);
+        errors.forEach(err => logger.info(`- ${err}`));
       }
-      console.log(`============================================\n`);
+      logger.info(`============================================\n`);
       
       res.json({
         success: true,
@@ -742,7 +743,7 @@ export function registerEmergencyRoutes(app: Express): void {
         errors: errors.length > 0 ? errors : undefined
       });
     } catch (error) {
-      console.error("Error activating emergency:", error);
+      logger.error("Error activating emergency:", error);
       res.status(500).json({ 
         error: "Failed to activate emergency",
         message: "An unexpected error occurred while activating the emergency system." 
@@ -758,7 +759,7 @@ export function registerEmergencyRoutes(app: Express): void {
         return res.status(401).json({ error: "Not authenticated" });
       }
 
-      console.log(`🔍 Checking evacuation status for customer: ${customerId}`);
+      logger.info(`Checking evacuation status for customer: ${customerId}`);
 
       // Check for active evacuations for the customer only
       const activeEvacuations = await db
@@ -787,7 +788,7 @@ export function registerEmergencyRoutes(app: Express): void {
         });
       }
     } catch (error) {
-      console.error("Error checking active evacuation:", error);
+      logger.error("Error checking active evacuation:", error);
       res.status(500).json({ error: "Failed to check evacuation status" });
     }
   });
@@ -804,13 +805,13 @@ export function registerEmergencyRoutes(app: Express): void {
       
       const emergencyContext = simpleDatabaseService.createDevelopmentContext();
       const validatedStaff = await databaseService.validateEmergencyToken(emergencyContext, emergencyToken);
-      console.log(`🔍 EMERGENCY TOKEN VALIDATION: ${validatedStaff ? 'SUCCESS - ' + validatedStaff.firstName + ' (Customer: ' + (validatedStaff as any).customerId + ')' : 'FAILED - No matching staff found'}`);
+      logger.info(`EMERGENCY TOKEN VALIDATION: ${validatedStaff ? 'SUCCESS - ' + validatedStaff.firstName + ' (Customer: ' + (validatedStaff as any).customerId + ')' : 'FAILED - No matching staff found'}`);
       
       if (!validatedStaff) {
         return res.status(401).json({ error: "Invalid or expired emergency token", code: "TOKEN_INVALID" });
       }
       
-      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} accessed emergency/active for customer: ${(validatedStaff as any).customerId}`);
+      logger.info(`Fire Marshal ID ${validatedStaff.id} accessed emergency/active for customer: ${(validatedStaff as any).customerId}`);
       
       // Check for active evacuations for the Fire Marshal's customer only
       const activeEvacuations = await db
@@ -837,7 +838,7 @@ export function registerEmergencyRoutes(app: Express): void {
         });
       }
     } catch (error) {
-      console.error("Error checking active evacuation:", error);
+      logger.error("Error checking active evacuation:", error);
       res.status(500).json({ error: "Failed to check evacuation status" });
     }
   });
@@ -870,7 +871,7 @@ export function registerEmergencyRoutes(app: Express): void {
         return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
       }
       
-      console.log(`✅ Fire Marshal ${validatedStaff.firstName} ${validatedStaff.lastName} (Customer: ${customerId}) accessed accountability list`);
+      logger.info(`Fire Marshal ID ${validatedStaff.id} (Customer: ${customerId}) accessed accountability list`);
       
       const requestedEvacuationId = req.params.evacuationId;
       
@@ -892,7 +893,7 @@ export function registerEmergencyRoutes(app: Express): void {
         evacuation = latestEvacs;
         evacuationId = latestEvacs[0].evacuationId;
         if (requestedEvacuationId && requestedEvacuationId !== evacuationId) {
-          console.log(`🔄 Accountability: Resolved stale evacuationId ${requestedEvacuationId} -> latest: ${evacuationId}`);
+          logger.info(`Accountability: Resolved stale evacuationId ${requestedEvacuationId} -> latest: ${evacuationId}`);
         }
       } else if (requestedEvacuationId) {
         const specificEvac = await db
@@ -949,7 +950,7 @@ export function registerEmergencyRoutes(app: Express): void {
         musterPoints: evacuationRecord.musterPoints || ['Main Car Park', 'Side Entrance', 'Rear Assembly']
       });
     } catch (error) {
-      console.error("Error fetching accountability list:", error);
+      logger.error("Error fetching accountability list:", error);
       res.status(500).json({ error: "Failed to fetch accountability list" });
     }
   });
@@ -978,7 +979,7 @@ export function registerEmergencyRoutes(app: Express): void {
         }
         validatedStaff = marshal.marshal;
         customerId = marshal.customerId;
-        console.log(`✅ Fire Marshal URL authenticated: ${validatedStaff.firstName} ${validatedStaff.lastName} (${customerId})`);
+        logger.info(`Fire Marshal URL authenticated: ID ${validatedStaff.id} (${customerId})`);
       } else {
         return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
       }
@@ -987,8 +988,8 @@ export function registerEmergencyRoutes(app: Express): void {
       const { musterPoint, evacuationId: requestedEvacuationId, marshalName: providedMarshal } = req.body;
       const marshalName = providedMarshal || `${validatedStaff.firstName} ${validatedStaff.lastName}`;
       
-      console.log(`📍 MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${requestedEvacuationId}, Fire Marshal: ${marshalName} (Customer: ${customerId}), MusterPoint: ${musterPoint}`);
-      console.log(`✅ Validated Fire Marshal: ${validatedStaff.firstName} ${validatedStaff.lastName} (${validatedStaff.email})`);
+      logger.info(`MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${requestedEvacuationId}, Fire Marshal: ${marshalName} (Customer: ${customerId}), MusterPoint: ${musterPoint}`);
+      logger.info(`Validated Fire Marshal: ID ${validatedStaff.id} ([email])`);
       
       let evacuation;
       let evacuationId = requestedEvacuationId;
@@ -1009,13 +1010,13 @@ export function registerEmergencyRoutes(app: Express): void {
         evacuationId = latestActiveEvac[0].evacuationId;
         evacuation = latestActiveEvac;
         if (evacuationId !== requestedEvacuationId) {
-          console.log(`🔄 Resolved stale evacuationId ${requestedEvacuationId} -> latest active: ${evacuationId}`);
+          logger.info(`Resolved stale evacuationId ${requestedEvacuationId} -> latest active: ${evacuationId}`);
         }
       }
       
       // Handle 'standalone' mode or no active evacuation - auto-create one
       if (!evacuation || evacuation.length === 0) {
-        console.log(`🔥 STANDALONE MODE: Fire Marshal ${marshalName} marking person safe without active evacuation - auto-creating emergency evacuation`);
+        logger.info(`STANDALONE MODE: Fire Marshal ${marshalName} marking person safe without active evacuation - auto-creating emergency evacuation`);
         
         // Auto-create an emergency evacuation on-demand
         const newEvacuationId = `fire-marshal-${Date.now()}`;
@@ -1100,14 +1101,14 @@ export function registerEmergencyRoutes(app: Express): void {
           .set({ totalPeopleOnSite: accountabilityRecords.length })
           .where(eq(evacuations.evacuationId, newEvacuationId));
         
-        console.log(`✅ Auto-created emergency evacuation: ${newEvacuationId} with ${accountabilityRecords.length} people`);
+        logger.info(`Auto-created emergency evacuation: ${newEvacuationId} with ${accountabilityRecords.length} people`);
         
         // Use the newly created evacuation ID for the rest of the function
         evacuationId = newEvacuationId;
       }
       
       const customerIdFinal = evacuation[0].customerId;
-      console.log(`📋 Found evacuation for customer: ${customerIdFinal}`);
+      logger.info(`Found evacuation for customer: ${customerIdFinal}`);
       
       // Update evacuationAccountability record with customer context
       const result = await db
@@ -1128,10 +1129,10 @@ export function registerEmergencyRoutes(app: Express): void {
         )
         .returning();
 
-      console.log(`✅ Update result: ${result.length} rows updated`);
+      logger.info(`Update result: ${result.length} rows updated`);
 
       if (result.length === 0) {
-        console.log(`⚠️ Person not in accountability table - creating record (late check-in). PersonID: ${personId}, EvacID: ${evacuationId}`);
+        logger.info(`Person not in accountability table - creating record (late check-in). PersonID: ${personId}, EvacID: ${evacuationId}`);
         
         let personName = 'Unknown';
         let personType = 'staff';
@@ -1186,10 +1187,10 @@ export function registerEmergencyRoutes(app: Express): void {
         }).returning();
         
         if (insertResult.length > 0) {
-          console.log(`✅ Created accountability record and marked safe: ${personName}`);
+          logger.info(`Created accountability record and marked safe: ${personName}`);
           result.push(insertResult[0]);
         } else {
-          console.error(`❌ Failed to create accountability record for PersonID: ${personId}`);
+          logger.error(`Failed to create accountability record for PersonID: ${personId}`);
           return res.status(500).json({ error: "Failed to create accountability record" });
         }
       }
@@ -1213,7 +1214,7 @@ export function registerEmergencyRoutes(app: Express): void {
         })
         .where(eq(evacuations.evacuationId, evacuationId));
       
-      console.log(`✅ Person marked safe successfully - ${result[0].personName} at ${musterPoint}`);
+      logger.info(`Person marked safe successfully - ${result[0].personName} at ${musterPoint}`);
       
       // CRITICAL: Broadcast WebSocket update to all connected Fire Marshals for real-time sync
       if (customerId && evacuationId) {
@@ -1224,7 +1225,7 @@ export function registerEmergencyRoutes(app: Express): void {
           isAccountedFor: result[0].isAccountedFor,
           musterPoint: result[0].musterPoint
         });
-        console.log(`📡 WebSocket broadcast sent for ${result[0].personName} (Customer: ${customerId}, Evacuation: ${evacuationId})`);
+        logger.info(`WebSocket broadcast sent for ${result[0].personName} (Customer: ${customerId}, Evacuation: ${evacuationId})`);
       }
       
       res.json({ 
@@ -1236,8 +1237,8 @@ export function registerEmergencyRoutes(app: Express): void {
         evacuationId  // Include evacuation ID for frontend to track
       });
     } catch (error) {
-      console.error("❌ Error marking person safe:", error);
-      console.error("Error details:", error instanceof Error ? error.message : String(error));
+      logger.error("Error marking person safe:", error);
+      logger.error("Error details:", error instanceof Error ? error.message : String(error));
       res.status(500).json({ error: "Failed to update accountability status" });
     }
   });
@@ -1414,10 +1415,10 @@ export function registerEmergencyRoutes(app: Express): void {
         musterPoint: 'QR Scan'
       });
 
-      console.log(`📷 QR mark-safe: ${personName} (${personType}) by ${marshalName}`);
+      logger.info(`QR mark-safe: ${personName} (${personType}) by ${marshalName}`);
       return res.json({ success: true, personName, personType, personId, evacuationId, message: `${personName} marked safe.` });
     } catch (error) {
-      console.error("❌ QR mark-safe error:", error);
+      logger.error("QR mark-safe error:", error);
       res.status(500).json({ success: false, message: "Failed to process QR scan." });
     }
   });
@@ -1487,7 +1488,7 @@ export function registerEmergencyRoutes(app: Express): void {
 
       res.json({ success: true, personId, personName: result[0].personName, isAccountedFor: false });
     } catch (error) {
-      console.error("❌ Error unmarking person safe:", error);
+      logger.error("Error unmarking person safe:", error);
       res.status(500).json({ error: "Failed to unmark person" });
     }
   });
@@ -1534,7 +1535,7 @@ export function registerEmergencyRoutes(app: Express): void {
             );
             sent++;
           } catch (error) {
-            console.error(`Failed to send update to ${marshal.firstName}:`, error);
+            logger.error(`Failed to send update to [name]:`, error);
           }
         }
       }
@@ -1546,7 +1547,7 @@ export function registerEmergencyRoutes(app: Express): void {
         total: fireMarshals.length
       });
     } catch (error) {
-      console.error("Error sending Fire Marshal update:", error);
+      logger.error("Error sending Fire Marshal update:", error);
       res.status(500).json({ error: "Failed to send update" });
     }
   });
@@ -1638,10 +1639,10 @@ export function registerEmergencyRoutes(app: Express): void {
         await nudgePerson(c.id, c.firstName, c.lastName, (c as any).email, 'contractor');
       }
 
-      console.log(`📧 NUDGE UNACCOUNTED: Sent ${nudgesSent} nudge emails, ${nudgesSkipped} already safe or no email`);
+      logger.info(`NUDGE UNACCOUNTED: Sent ${nudgesSent} nudge emails, ${nudgesSkipped} already safe or no email`);
       res.json({ sent: nudgesSent, skipped: nudgesSkipped, errors });
     } catch (error) {
-      console.error("Error sending nudge emails:", error);
+      logger.error("Error sending nudge emails:", error);
       res.status(500).json({ error: "Failed to send nudge emails" });
     }
   });
@@ -1787,11 +1788,11 @@ export function registerEmergencyRoutes(app: Express): void {
       // Update rate limit map
       emailPersonRateLimit.set(rateLimitKey, now);
 
-      console.log(`📧 INDIVIDUAL NUDGE: Sent reminder to ${personName} (${personEmail}) during evacuation ${evacuationId}`);
+      logger.info(`INDIVIDUAL NUDGE: Sent reminder to ${personName} (${personEmail}) during evacuation ${evacuationId}`);
 
       res.json({ success: true, message: `Reminder sent to ${personName}` });
     } catch (error) {
-      console.error("Error sending individual reminder:", error);
+      logger.error("Error sending individual reminder:", error);
       res.status(500).json({ error: "Failed to send reminder email" });
     }
   });
@@ -1825,12 +1826,12 @@ export function registerEmergencyRoutes(app: Express): void {
         validatedStaff = marshal.marshal;
         customerId = marshal.customerId;
         validatedStaff.customerId = customerId;
-        console.log(`✅ Fire Marshal URL authenticated: ${validatedStaff.firstName} ${validatedStaff.lastName} (${customerId})`);
+        logger.info(`Fire Marshal URL authenticated: ID ${validatedStaff.id} (${customerId})`);
       } else if ((req.session as any)?.userId && (req.session as any)?.customerId) {
         // Admin session auth — allows admins on the Muster page to end an evacuation
         customerId = (req.session as any).customerId;
         validatedStaff = { firstName: 'Admin', lastName: '(session)', customerId };
-        console.log(`✅ Session-authenticated admin ending evacuation for customer: ${customerId}`);
+        logger.info(`Session-authenticated admin ending evacuation for customer: ${customerId}`);
       } else {
         return res.status(401).json({ error: "Authentication required", code: "AUTH_REQUIRED" });
       }
@@ -1857,7 +1858,7 @@ export function registerEmergencyRoutes(app: Express): void {
       if (latestEvacs.length > 0) {
         evacuationId = latestEvacs[0].evacuationId;
         if (requestedEvacuationId && requestedEvacuationId !== evacuationId) {
-          console.log(`🔄 Complete Evacuation: Resolved stale evacuationId ${requestedEvacuationId} -> latest: ${evacuationId}`);
+          logger.info(`Complete Evacuation: Resolved stale evacuationId ${requestedEvacuationId} -> latest: ${evacuationId}`);
         }
       } else if (requestedEvacuationId) {
         const specificEvac = await db
@@ -1877,7 +1878,7 @@ export function registerEmergencyRoutes(app: Express): void {
         return res.status(404).json({ error: "No active evacuation found" });
       }
 
-      console.log(`🏁 COMPLETE EVACUATION - EvacID: ${evacuationId}, Mode: ${checkOutMode}, By: ${validatedStaff.firstName} ${validatedStaff.lastName} (Customer: ${customerId})`);
+      logger.info(`COMPLETE EVACUATION - EvacID: ${evacuationId}, Mode: ${checkOutMode}, By: ID ${validatedStaff.id} (Customer: ${customerId})`);
       
       const context = { customerId };
 
@@ -1907,23 +1908,23 @@ export function registerEmergencyRoutes(app: Express): void {
           custDb.select({ id: isolatedSchema.contractorWorkers.id }).from(isolatedSchema.contractorWorkers).where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true)),
         ]);
 
-        console.log(`📤 Checking out all on-site: ${onSiteStaff.length} staff, ${onSiteVisitors.length} visitors, ${onSiteContractors.length} contractors`);
+        logger.info(`Checking out all on-site: ${onSiteStaff.length} staff, ${onSiteVisitors.length} visitors, ${onSiteContractors.length} contractors`);
 
         for (const s of onSiteStaff) {
           try { await databaseService.checkOutStaff(context, s.id); staffCheckedOut++; checkedOutCount++; }
-          catch (e: any) { console.error(`❌ Failed to check out staff ${s.id}:`, e.message); }
+          catch (e: any) { logger.error(`Failed to check out staff ${s.id}:`, e.message); }
         }
         for (const v of onSiteVisitors) {
           try { await databaseService.checkOutVisitor(context, v.id); visitorsCheckedOut++; checkedOutCount++; }
-          catch (e: any) { console.error(`❌ Failed to check out visitor ${v.id}:`, e.message); }
+          catch (e: any) { logger.error(`Failed to check out visitor ${v.id}:`, e.message); }
         }
         for (const c of onSiteContractors) {
           try { await databaseService.checkOutContractorWorker(context, c.id); contractorsCheckedOut++; checkedOutCount++; }
-          catch (e: any) { console.error(`❌ Failed to check out contractor ${c.id}:`, e.message); }
+          catch (e: any) { logger.error(`Failed to check out contractor ${c.id}:`, e.message); }
         }
       }
 
-      console.log(`✅ Evacuation completed - Mode: ${checkOutMode}, Checked out: ${checkedOutCount} people`);
+      logger.info(`Evacuation completed - Mode: ${checkOutMode}, Checked out: ${checkedOutCount} people`);
 
       // Auto-save incident report record for this completed evacuation
       try {
@@ -1969,7 +1970,7 @@ export function registerEmergencyRoutes(app: Express): void {
             generatedAt: new Date(),
             reportUrl,
           });
-          console.log(`📄 Incident report record saved for evacuation ${evacuationId}`);
+          logger.info(`Incident report record saved for evacuation ${evacuationId}`);
 
           // ── Email incident report summary to all designated Fire Marshals ──
           try {
@@ -2148,10 +2149,10 @@ ${fmPhotos.map((ph: any) => {
                   const pdfBuf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } });
                   await browser.close();
                   pdfAttachment = { filename: `incident-report-${evacuationId}.pdf`, content: Buffer.from(pdfBuf), contentType: 'application/pdf', contentDisposition: 'attachment' };
-                  console.log(`📄 Incident report PDF generated (${pdfBuf.byteLength} bytes)`);
+                  logger.info(`Incident report PDF generated (${pdfBuf.byteLength} bytes)`);
                 } catch (e: any) { try { await browser.close(); } catch { } throw e; }
               } catch (pdfErr: any) {
-                console.warn(`⚠️ PDF generation failed for FM email (${pdfErr.message}), attaching HTML instead`);
+                logger.warn(`PDF generation failed for FM email (${pdfErr.message}), attaching HTML instead`);
                 pdfAttachment = { filename: `incident-report-${evacuationId}.pdf.html`, content: reportHtml, contentType: 'text/html', contentDisposition: 'attachment' };
               }
 
@@ -2209,19 +2210,19 @@ ${fmPhotos.map((ph: any) => {
                 });
                 if (ok) sent++;
               }
-              console.log(`📧 Incident report emailed to ${sent}/${fmWithEmail.length} Fire Marshal(s) with PDF attachment`);
+              logger.info(`Incident report emailed to ${sent}/${fmWithEmail.length} Fire Marshal(s) with PDF attachment`);
             } else {
-              console.log(`📧 No Fire Marshals with email found — skipping incident report email`);
+              logger.info(`No Fire Marshals with email found — skipping incident report email`);
             }
           } catch (fmEmailErr: any) {
-            console.error(`⚠️ Failed to email incident report to Fire Marshals: ${fmEmailErr.message}`);
+            logger.error(`Failed to email incident report to Fire Marshals: ${fmEmailErr.message}`);
           }
 
         } else {
-          console.log(`📄 Incident report already exists for evacuation ${evacuationId}, skipping duplicate insert`);
+          logger.info(`Incident report already exists for evacuation ${evacuationId}, skipping duplicate insert`);
         }
       } catch (reportErr: any) {
-        console.error(`⚠️ Failed to save incident report record: ${reportErr.message}`);
+        logger.error(`Failed to save incident report record: ${reportErr.message}`);
       }
 
       // Reset isAccountedFor for ALL personnel so the next evacuation starts clean
@@ -2233,9 +2234,9 @@ ${fmPhotos.map((ph: any) => {
           resetDb.update(isolatedSchema.contractorWorkers).set({ isAccountedFor: false }),
           resetDb.update(isolatedSchema.members).set({ isAccountedFor: false }),
         ]);
-        console.log(`🔄 Accounted status reset for all personnel (customer: ${customerId})`);
+        logger.info(`Accounted status reset for all personnel (customer: ${customerId})`);
       } catch (resetErr: any) {
-        console.error(`⚠️ Failed to reset accounted status: ${resetErr.message}`);
+        logger.error(`Failed to reset accounted status: ${resetErr.message}`);
       }
 
       res.json({
@@ -2253,7 +2254,7 @@ ${fmPhotos.map((ph: any) => {
         }
       });
     } catch (error) {
-      console.error("❌ Error completing evacuation:", error);
+      logger.error("Error completing evacuation:", error);
       res.status(500).json({ error: "Failed to complete evacuation" });
     }
   });
@@ -2634,7 +2635,7 @@ ${evacuationPhotosData.length > 0 ? `
                   eq(evacuations.customerId, customerId)
                 ));
             } catch (updateErr) {
-              console.warn('[incident-report] Could not persist reportPdfUrl:', updateErr);
+              logger.warn('[incident-report] Could not persist reportPdfUrl:', updateErr);
             }
 
             res.setHeader('Content-Type', 'application/pdf');
@@ -2646,7 +2647,7 @@ ${evacuationPhotosData.length > 0 ? `
           }
         } catch (pdfGenerationErr) {
           // Chrome binary not installed or Puppeteer unavailable — serve as printable HTML
-          console.warn('[incident-report] PDF generation unavailable, falling back to HTML:', (pdfGenerationErr as Error).message);
+          logger.warn('[incident-report] PDF generation unavailable, falling back to HTML:', (pdfGenerationErr as Error).message);
           res.setHeader('Content-Type', 'text/html; charset=utf-8');
           res.setHeader('Content-Disposition', `attachment; filename="incident-report-${evacuationId}.html"`);
           return res.send(html);
@@ -2658,7 +2659,7 @@ ${evacuationPhotosData.length > 0 ? `
       res.setHeader('Content-Disposition', `inline; filename="incident-report-${evacuationId}.html"`);
       res.send(html);
     } catch (error) {
-      console.error("Error generating incident report:", error);
+      logger.error("Error generating incident report:", error);
       res.status(500).json({ error: "Failed to generate incident report" });
     }
   });
@@ -2739,9 +2740,9 @@ ${evacuationPhotosData.length > 0 ? `
               reportUrl: `/api/emergency/incident-report/${evac.evacuationId}`,
             }).returning();
             if (inserted) existingByEvacId.set(evac.evacuationId, inserted);
-            console.log(`📄 Back-filled incident report for evacuation ${evac.evacuationId}`);
+            logger.info(`Back-filled incident report for evacuation ${evac.evacuationId}`);
           } catch (backfillErr: any) {
-            console.error(`⚠️ Failed to back-fill incident report for ${evac.evacuationId}: ${backfillErr.message}`);
+            logger.error(`Failed to back-fill incident report for ${evac.evacuationId}: ${backfillErr.message}`);
           }
         }
       }
@@ -2757,7 +2758,7 @@ ${evacuationPhotosData.length > 0 ? `
 
       res.json(allReports);
     } catch (error) {
-      console.error("Error fetching incident reports:", error);
+      logger.error("Error fetching incident reports:", error);
       res.status(500).json({ error: "Failed to fetch incident reports" });
     }
   });
@@ -2786,7 +2787,7 @@ ${evacuationPhotosData.length > 0 ? `
 
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting incident report:", error);
+      logger.error("Error deleting incident report:", error);
       res.status(500).json({ error: "Failed to delete incident report" });
     }
   });
@@ -2858,10 +2859,10 @@ ${evacuationPhotosData.length > 0 ? `
         });
       }
 
-      console.log(`🔄 Incident report refreshed for evacuation ${evacuationId}: ${accountedCt}/${totalCt} accounted (${pct}%)`);
+      logger.info(`Incident report refreshed for evacuation ${evacuationId}: ${accountedCt}/${totalCt} accounted (${pct}%)`);
       res.json({ success: true, totalOnSite: totalCt, accountedFor: accountedCt, unaccounted: unaccountedCt, completionPct: pct });
     } catch (error) {
-      console.error("Error refreshing incident report:", error);
+      logger.error("Error refreshing incident report:", error);
       res.status(500).json({ error: "Failed to refresh incident report" });
     }
   });
@@ -2927,10 +2928,10 @@ ${evacuationPhotosData.length > 0 ? `
         addedByType,
       }).returning();
 
-      console.log(`📝 [evacuation-note] Saved note for evacuation ${evacuationId} by ${addedBy}`);
+      logger.info(`[evacuation-note] Saved note for evacuation ${evacuationId} by ${addedBy}`);
       return res.json({ success: true, note });
     } catch (error) {
-      console.error("Error saving evacuation note:", error);
+      logger.error("Error saving evacuation note:", error);
       return res.status(500).json({ error: "Failed to save note" });
     }
   });
@@ -2954,7 +2955,7 @@ ${evacuationPhotosData.length > 0 ? `
         return res.json([]);
       }
     } catch (error) {
-      console.error("Error fetching evacuation notes:", error);
+      logger.error("Error fetching evacuation notes:", error);
       return res.status(500).json({ error: "Failed to fetch notes" });
     }
   });
@@ -3022,10 +3023,10 @@ ${evacuationPhotosData.length > 0 ? `
         addedByType,
       }).returning();
 
-      console.log(`📸 [evacuation-photo] Saved photo for evacuation ${evacuationId} by ${addedBy}`);
+      logger.info(`[evacuation-photo] Saved photo for evacuation ${evacuationId} by ${addedBy}`);
       return res.json({ success: true, photo });
     } catch (error) {
-      console.error("Error saving evacuation photo:", error);
+      logger.error("Error saving evacuation photo:", error);
       return res.status(500).json({ error: "Failed to save photo" });
     }
   });
@@ -3049,7 +3050,7 @@ ${evacuationPhotosData.length > 0 ? `
         return res.json([]);
       }
     } catch (error) {
-      console.error("Error fetching evacuation photos:", error);
+      logger.error("Error fetching evacuation photos:", error);
       return res.status(500).json({ error: "Failed to fetch photos" });
     }
   });
@@ -3089,7 +3090,7 @@ ${evacuationPhotosData.length > 0 ? `
 
       res.json(sweeps);
     } catch (error) {
-      console.error("Failed to fetch zone sweeps:", error);
+      logger.error("Failed to fetch zone sweeps:", error);
       res.status(500).json({ error: "Failed to fetch zone sweeps" });
     }
   });
@@ -3198,10 +3199,10 @@ ${evacuationPhotosData.length > 0 ? `
         })
         .returning();
 
-      console.log(`✅ Zone swept: ${zoneName} by ${sweptByName} for evacuation ${evacuationId}`);
+      logger.info(`Zone swept: ${zoneName} by ${sweptByName} for evacuation ${evacuationId}`);
       res.json({ success: true, sweep });
     } catch (error) {
-      console.error("Failed to record zone sweep:", error);
+      logger.error("Failed to record zone sweep:", error);
       res.status(500).json({ error: "Failed to record zone sweep" });
     }
   });
@@ -3318,7 +3319,7 @@ ${evacuationPhotosData.length > 0 ? `
         zones: zoneStats,
       });
     } catch (error) {
-      console.error("Error fetching monitor data:", error);
+      logger.error("Error fetching monitor data:", error);
       res.status(500).json({ error: "Failed to fetch monitor data" });
     }
   });
@@ -3385,7 +3386,7 @@ ${evacuationPhotosData.length > 0 ? `
         } : null,
       });
     } catch (error) {
-      console.error("Error validating incident monitor URL:", error);
+      logger.error("Error validating incident monitor URL:", error);
       res.status(500).json({ error: "Failed to validate monitor link" });
     }
   });
@@ -3549,7 +3550,7 @@ ${evacuationPhotosData.length > 0 ? `
         zones: zoneStats,
       });
     } catch (error) {
-      console.error("Error fetching incident monitor muster data:", error);
+      logger.error("Error fetching incident monitor muster data:", error);
       res.status(500).json({ error: "Failed to fetch muster data" });
     }
   });
@@ -3590,7 +3591,7 @@ ${evacuationPhotosData.length > 0 ? `
         url: `${baseUrl}/incident-monitor/${newUrlId}`,
       });
     } catch (error) {
-      console.error("Error generating incident monitor URL:", error);
+      logger.error("Error generating incident monitor URL:", error);
       res.status(500).json({ error: "Failed to generate monitor URL" });
     }
   });
@@ -3616,7 +3617,7 @@ ${evacuationPhotosData.length > 0 ? `
 
       res.json(points);
     } catch (error) {
-      console.error("Error fetching muster points:", error);
+      logger.error("Error fetching muster points:", error);
       res.status(500).json({ error: "Failed to fetch muster points" });
     }
   });
@@ -3686,7 +3687,7 @@ ${evacuationPhotosData.length > 0 ? `
         evacuationActive: !!activeEvacuation
       });
     } catch (error) {
-      console.error("Error fetching muster points with stats:", error);
+      logger.error("Error fetching muster points with stats:", error);
       res.status(500).json({ error: "Failed to fetch muster points stats" });
     }
   });
@@ -3718,7 +3719,7 @@ ${evacuationPhotosData.length > 0 ? `
 
       res.json(newPoint);
     } catch (error) {
-      console.error("Error creating muster point:", error);
+      logger.error("Error creating muster point:", error);
       res.status(500).json({ error: "Failed to create muster point" });
     }
   });
@@ -3753,7 +3754,7 @@ ${evacuationPhotosData.length > 0 ? `
 
       res.json(updatedPoint);
     } catch (error) {
-      console.error("Error updating muster point:", error);
+      logger.error("Error updating muster point:", error);
       res.status(500).json({ error: "Failed to update muster point" });
     }
   });
@@ -3775,7 +3776,7 @@ ${evacuationPhotosData.length > 0 ? `
 
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting muster point:", error);
+      logger.error("Error deleting muster point:", error);
       res.status(500).json({ error: "Failed to delete muster point" });
     }
   });
@@ -3823,7 +3824,7 @@ ${evacuationPhotosData.length > 0 ? `
         count: defaultMusterPoints.length 
       });
     } catch (error) {
-      console.error("Error initializing default muster points:", error);
+      logger.error("Error initializing default muster points:", error);
       res.status(500).json({ error: "Failed to initialize default muster points" });
     }
   });
@@ -3868,7 +3869,7 @@ ${evacuationPhotosData.length > 0 ? `
         evacuationId: activeEvacuations[0]?.evacuationId
       });
     } catch (error) {
-      console.error("Error validating token:", error);
+      logger.error("Error validating token:", error);
       res.status(500).json({ 
         error: "Token validation failed",
         message: "Unable to validate emergency access token." 
@@ -3881,13 +3882,13 @@ ${evacuationPhotosData.length > 0 ? `
     try {
       const { urlId } = req.params;
       
-      console.log(`🔍 Fire Marshal URL ID authentication attempt: ${urlId}`);
+      logger.info(`Fire Marshal URL ID authentication attempt: ${urlId}`);
       
       // Find Fire Marshal by URL ID across all customers using DatabaseService
       const result = await databaseService.findFireMarshalByUrlId(urlId);
       
       if (!result) {
-        console.log(`❌ No Fire Marshal found with URL ID: ${urlId}`);
+        logger.info(`No Fire Marshal found with URL ID: ${urlId}`);
         return res.status(401).json({
           error: "Invalid Fire Marshal link",
           message: "This Fire Marshal access link is not valid."
@@ -3898,7 +3899,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       // Verify they are an active Fire Marshal
       if (!marshal.isFireMarshal || !marshal.isActive) {
-        console.log(`❌ Staff member found but not an active Fire Marshal: ${marshal.firstName} ${marshal.lastName}`);
+        logger.info(`Staff member found but not an active Fire Marshal: ID ${marshal.id}`);
         return res.status(403).json({
           error: "Access denied",
           message: "You are not authorized as an active Fire Marshal."
@@ -3920,9 +3921,9 @@ ${evacuationPhotosData.length > 0 ? `
       const customerRecord = await db.select().from(sharedSchema.customers).where(eq(sharedSchema.customers.id, customerId)).limit(1);
       const companyName = customerRecord[0]?.companyName || 'Unknown Company';
       
-      console.log(`✅ Fire Marshal authenticated: ${marshal.firstName} ${marshal.lastName}`);
-      console.log(`   Customer: ${customerId} (${companyName})`);
-      console.log(`   Active Evacuation: ${activeEvacuation ? activeEvacuation.evacuationId : 'None'}`);
+      logger.info(`Fire Marshal authenticated: ID ${marshal.id}`);
+      logger.info(`Customer: ${customerId} (${companyName})`);
+      logger.info(`Active Evacuation: ${activeEvacuation ? activeEvacuation.evacuationId : 'None'}`);
       
       res.json({
         valid: true,
@@ -3943,7 +3944,7 @@ ${evacuationPhotosData.length > 0 ? `
         } : null
       });
     } catch (error) {
-      console.error("❌ Error validating Fire Marshal URL:", error);
+      logger.error("Error validating Fire Marshal URL:", error);
       res.status(500).json({ 
         error: "Authentication failed",
         message: "Unable to validate Fire Marshal access." 
@@ -3999,7 +4000,7 @@ ${evacuationPhotosData.length > 0 ? `
         .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true))
         .orderBy(desc(isolatedSchema.contractorWorkers.checkedInAt));
       
-      console.log(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInContractors.length} workers currently checked in`);
+      logger.info(`CHECKED-IN CONTRACTORS: Found ${checkedInContractors.length} workers currently checked in`);
       
       let checkedInMembers: any[] = [];
       try {
@@ -4028,7 +4029,7 @@ ${evacuationPhotosData.length > 0 ? `
         .orderBy(desc(evacuations.createdAt))
         .limit(1);
       
-      console.log(`🔍 Active evacuation query result: ${activeEvacuation.length} evacuations found for customer ${customerId}`);
+      logger.info(`Active evacuation query result: ${activeEvacuation.length} evacuations found for customer ${customerId}`);
       
       let accountabilityMap = new Map<string, any>();
       
@@ -4047,9 +4048,9 @@ ${evacuationPhotosData.length > 0 ? `
           accountabilityMap.set(record.personId, record);
         });
         
-        console.log(`✅ Loaded ${accountabilityRecords.length} accountability records from PUBLIC SCHEMA for evacuation ${activeEvacuation[0].evacuationId}`);
+        logger.info(`Loaded ${accountabilityRecords.length} accountability records from PUBLIC SCHEMA for evacuation ${activeEvacuation[0].evacuationId}`);
       } else {
-        console.log(`⚠️ No active evacuation found for customer ${customerId} - accountability status will default to false`);
+        logger.info(`No active evacuation found for customer ${customerId} - accountability status will default to false`);
       }
       
       // Combine all personnel for Fire Marshal view with REAL accountability status
@@ -4134,7 +4135,7 @@ ${evacuationPhotosData.length > 0 ? `
         evacuationId: activeEvacuation.length > 0 ? activeEvacuation[0].evacuationId : null
       });
     } catch (error) {
-      console.error("❌ Error fetching Fire Marshal personnel:", error);
+      logger.error("Error fetching Fire Marshal personnel:", error);
       res.status(500).json({ 
         error: "Failed to fetch personnel",
         message: "Unable to retrieve on-site personnel data." 
@@ -4378,10 +4379,10 @@ ${evacuationPhotosData.length > 0 ? `
         </html>
       `);
       
-      console.log(`✅ SELF MARK-SAFE: ${tokenRecord.personName} (${tokenRecord.personType}) marked safe via email token`);
+      logger.info(`SELF MARK-SAFE: ${tokenRecord.personName} (${tokenRecord.personType}) marked safe via email token`);
       
     } catch (error) {
-      console.error("❌ Error processing mark-safe token:", error);
+      logger.error("Error processing mark-safe token:", error);
       res.status(500).send(`
         <!DOCTYPE html>
         <html>
@@ -4455,7 +4456,7 @@ ${evacuationPhotosData.length > 0 ? `
         }
       });
     } catch (error) {
-      console.error("Error fetching Fire Marshal link:", error);
+      logger.error("Error fetching Fire Marshal link:", error);
       res.status(500).json({ error: "Failed to fetch emergency link" });
     }
   });
@@ -4550,7 +4551,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       res.json(musterList);
     } catch (error) {
-      console.error("Failed to fetch emergency muster list:", error);
+      logger.error("Failed to fetch emergency muster list:", error);
       res.status(500).json({ error: "Failed to fetch emergency muster list" });
     }
   });
@@ -4574,7 +4575,7 @@ ${evacuationPhotosData.length > 0 ? `
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.json({ zones, marshalZoneId });
     } catch (error) {
-      console.error("Failed to fetch zones for fire marshal by URL ID:", error);
+      logger.error("Failed to fetch zones for fire marshal by URL ID:", error);
       res.status(500).json({ error: "Failed to fetch zones" });
     }
   });
@@ -4600,7 +4601,7 @@ ${evacuationPhotosData.length > 0 ? `
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       res.json({ zones, marshalZoneId });
     } catch (error) {
-      console.error("Failed to fetch zones for fire marshal:", error);
+      logger.error("Failed to fetch zones for fire marshal:", error);
       res.status(500).json({ error: "Failed to fetch zones" });
     }
   });
@@ -4672,7 +4673,7 @@ ${evacuationPhotosData.length > 0 ? `
             success = true;
           }
         } catch (e) {
-          console.error('Failed to toggle member accounted status:', e);
+          logger.error('Failed to toggle member accounted status:', e);
         }
       } else {
         return res.status(400).json({ error: "Invalid person type" });
@@ -4702,7 +4703,7 @@ ${evacuationPhotosData.length > 0 ? `
         accounted: !accounted // Status after toggle
       });
     } catch (error) {
-      console.error("Failed to toggle accounted status:", error);
+      logger.error("Failed to toggle accounted status:", error);
       res.status(500).json({ error: "Failed to toggle accounted status" });
     }
   });
@@ -4734,7 +4735,7 @@ ${evacuationPhotosData.length > 0 ? `
       const companies = uniqueCompanies;
       res.json(companies);
     } catch (error) {
-      console.error("Error fetching companies:", error);
+      logger.error("Error fetching companies:", error);
       res.status(500).json({ error: "Failed to fetch companies" });
     }
   });
@@ -4754,7 +4755,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       res.json(allMembers);
     } catch (error) {
-      console.error("Failed to fetch members:", error);
+      logger.error("Failed to fetch members:", error);
       res.status(500).json({ error: "Failed to fetch members" });
     }
   });
@@ -4778,7 +4779,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       res.status(201).json(newMember);
     } catch (error) {
-      console.error("Failed to create member:", error);
+      logger.error("Failed to create member:", error);
       res.status(500).json({ error: "Failed to create member" });
     }
   });
@@ -4804,7 +4805,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       res.json(updated);
     } catch (error) {
-      console.error("Failed to update member:", error);
+      logger.error("Failed to update member:", error);
       res.status(500).json({ error: "Failed to update member" });
     }
   });
@@ -4829,7 +4830,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       res.json({ message: "Member removed successfully" });
     } catch (error) {
-      console.error("Failed to delete member:", error);
+      logger.error("Failed to delete member:", error);
       res.status(500).json({ error: "Failed to delete member" });
     }
   });
@@ -4867,7 +4868,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       res.json(updated);
     } catch (error) {
-      console.error("Failed to check in member:", error);
+      logger.error("Failed to check in member:", error);
       res.status(500).json({ error: "Failed to check in member" });
     }
   });
@@ -4904,7 +4905,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       res.json(updated);
     } catch (error) {
-      console.error("Failed to check out member:", error);
+      logger.error("Failed to check out member:", error);
       res.status(500).json({ error: "Failed to check out member" });
     }
   });
@@ -4928,7 +4929,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       res.json(checkedIn);
     } catch (error) {
-      console.error("Failed to fetch checked-in members:", error);
+      logger.error("Failed to fetch checked-in members:", error);
       res.status(500).json({ error: "Failed to fetch checked-in members" });
     }
   });
@@ -4991,7 +4992,7 @@ ${evacuationPhotosData.length > 0 ? `
         message: result.message 
       });
     } catch (error) {
-      console.error("Error processing CLUe webhook:", error);
+      logger.error("Error processing CLUe webhook:", error);
       res.status(500).json({ error: "Failed to process webhook" });
     }
   });
@@ -5060,7 +5061,7 @@ ${evacuationPhotosData.length > 0 ? `
         accessUrl: qrResponse.access_url
       });
     } catch (error) {
-      console.error("Error generating CLUe QR code:", error);
+      logger.error("Error generating CLUe QR code:", error);
       res.status(500).json({ error: "Failed to generate QR code" });
     }
   });
@@ -5090,7 +5091,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       res.json(testResult);
     } catch (error) {
-      console.error("Error testing CLUe connection:", error);
+      logger.error("Error testing CLUe connection:", error);
       res.status(500).json({ 
         success: false, 
         message: "Failed to test connection",
@@ -5140,7 +5141,7 @@ ${evacuationPhotosData.length > 0 ? `
         timestamp: new Date().toISOString()
       });
     } catch (error) {
-      console.error("Error syncing with CLUe:", error);
+      logger.error("Error syncing with CLUe:", error);
       res.status(500).json({ error: "Failed to sync with CLUe platform" });
     }
   });
@@ -5174,7 +5175,7 @@ ${evacuationPhotosData.length > 0 ? `
         count: devices.length
       });
     } catch (error) {
-      console.error("Error fetching CLUe devices:", error);
+      logger.error("Error fetching CLUe devices:", error);
       res.status(500).json({ error: "Failed to fetch devices" });
     }
   });
@@ -5270,7 +5271,7 @@ ${evacuationPhotosData.length > 0 ? `
       }
       
       if (!updated) {
-        console.log('Person not found - personId:', personId, 'type:', type);
+        logger.info('Person not found - personId:', personId, 'type:', type);
         return res.status(404).json({ error: "Person not found" });
       }
       
@@ -5299,7 +5300,7 @@ ${evacuationPhotosData.length > 0 ? `
               eq(evacuationAccountability.personId, personId),
               eq(evacuationAccountability.customerId, context.customerId)
             ));
-          console.log(`✅ Updated evacuationAccountability: ${personName} -> ${newStatus ? 'SAFE' : 'UNSAFE'}`);
+          logger.info(`Updated evacuationAccountability: ${personName} -> ${newStatus ? 'SAFE' : 'UNSAFE'}`);
         } else {
           await db.insert(evacuationAccountability).values({
             evacuationId: activeEvacuation.evacuationId,
@@ -5311,7 +5312,7 @@ ${evacuationPhotosData.length > 0 ? `
             accountedBy: newStatus ? (req.user?.username || 'System') : null,
             accountedAt: newStatus ? new Date() : null,
           });
-          console.log(`✅ Created evacuationAccountability: ${personName} -> ${newStatus ? 'SAFE' : 'UNSAFE'}`);
+          logger.info(`Created evacuationAccountability: ${personName} -> ${newStatus ? 'SAFE' : 'UNSAFE'}`);
         }
         
         const accountedCount = await db
@@ -5353,7 +5354,7 @@ ${evacuationPhotosData.length > 0 ? `
       
       res.json({ success: true, personId, type, accounted: newStatus });
     } catch (error) {
-      console.error("Failed to toggle accounted status:", error);
+      logger.error("Failed to toggle accounted status:", error);
       res.status(500).json({ error: "Failed to toggle accounted status" });
     }
   });
@@ -5404,7 +5405,7 @@ ${evacuationPhotosData.length > 0 ? `
             allowedPersonIds = new Set(inZone.map(r => r.personId));
           }
         } catch (e) {
-          console.warn('[mark-all-safe] Zone filter lookup failed, falling back to all:', e);
+          logger.warn('[mark-all-safe] Zone filter lookup failed, falling back to all:', e);
         }
       }
 
@@ -5457,7 +5458,7 @@ ${evacuationPhotosData.length > 0 ? `
             });
           }
         } catch (e) {
-          console.error(`Failed to update accountability for ${personName}:`, e);
+          logger.error(`Failed to update accountability for ${personName}:`, e);
         }
       };
 
@@ -5542,7 +5543,7 @@ ${evacuationPhotosData.length > 0 ? `
 
       const totalPersonnel = checkedInStaff.length + currentVisitors.length + checkedInContractors.length + memberCount;
 
-      console.log(`✅ Mark-all-safe: Updated ${updatedCount}/${totalPersonnel} personnel + evacuation_accountability for evacuation ${activeEvacuation?.evacuationId}`);
+      logger.info(`Mark-all-safe: Updated ${updatedCount}/${totalPersonnel} personnel + evacuation_accountability for evacuation ${activeEvacuation?.evacuationId}`);
 
       res.json({
         success: true,
@@ -5552,7 +5553,7 @@ ${evacuationPhotosData.length > 0 ? `
         errors: errors.length > 0 ? errors : undefined
       });
     } catch (error) {
-      console.error("Failed to mark all safe:", error);
+      logger.error("Failed to mark all safe:", error);
       res.status(500).json({ error: "Failed to mark all personnel as safe" });
     }
   });
@@ -5567,7 +5568,7 @@ ${evacuationPhotosData.length > 0 ? `
       // For now return empty until we implement customer-isolated muster export
       res.csv([]);
     } catch (error) {
-      console.error("Failed to export muster list:", error);
+      logger.error("Failed to export muster list:", error);
       res.status(500).json({ error: "Failed to export muster list" });
     }
   });
@@ -5637,7 +5638,7 @@ ${evacuationPhotosData.length > 0 ? `
           await localEmailService.sendEmergencyAlert(email, subject, message);
           sentCount++;
         } catch (error) {
-          console.error(`Failed to send emergency alert to ${email}:`, error);
+          logger.error(`Failed to send emergency alert to ${email}:`, error);
         }
       }
       
@@ -5649,7 +5650,7 @@ ${evacuationPhotosData.length > 0 ? `
         totalPersonnel: currentVisitors.length + checkedInStaff.length + checkedInContractors.length
       });
     } catch (error) {
-      console.error("Failed to send emergency alerts:", error);
+      logger.error("Failed to send emergency alerts:", error);
       res.status(500).json({ error: "Failed to send emergency alerts" });
     }
   });

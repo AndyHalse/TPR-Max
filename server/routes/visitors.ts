@@ -21,6 +21,7 @@ import { paxtonService } from '../paxtonService';
 import { eq, and, desc, gte, ne, or } from 'drizzle-orm';
 import { randomUUID, randomBytes } from 'crypto';
 import { z } from 'zod';
+import { logger } from '../utils/logger';
 
 export function registerVisitorRoutes(app: Express): void {
 
@@ -69,7 +70,7 @@ export function registerVisitorRoutes(app: Express): void {
       
       // Send emergency evacuation email directly to the visitor
       if (!visitor.email) {
-        console.warn(`⚠️ Cannot send emergency notification to visitor ${visitor.firstName} ${visitor.lastName} — no email address on record`);
+        logger.warn(`Cannot send emergency notification to visitor ID ${visitor.id} — no email address on record`);
         return res.status(400).json({
           error: "No visitor email on record",
           message: "This visitor did not provide an email address at check-in"
@@ -102,7 +103,7 @@ export function registerVisitorRoutes(app: Express): void {
         });
       }
     } catch (error) {
-      console.error("Failed to send visitor emergency notification:", error);
+      logger.error("Failed to send visitor emergency notification:", error);
       res.status(500).json({ error: "Failed to send emergency notification" });
     }
   });
@@ -131,7 +132,7 @@ export function registerVisitorRoutes(app: Express): void {
       const visitors = await databaseService.getCurrentVisitors(context);
       res.json(visitors);
     } catch (error) {
-      console.error("Failed to fetch current visitors:", error);
+      logger.error("Failed to fetch current visitors:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -151,7 +152,7 @@ export function registerVisitorRoutes(app: Express): void {
       const todayVisitors = await databaseService.getTodaysVisitors(context);
       res.json(todayVisitors);
     } catch (error) {
-      console.error("Error fetching today visitors:", error);
+      logger.error("Error fetching today visitors:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -186,7 +187,7 @@ export function registerVisitorRoutes(app: Express): void {
       const hsAccepted = req.body.hsRulesAccepted === true;
       const hsAcceptedAt = hsAccepted ? new Date() : undefined;
       
-      console.log(`🔍 Checking for duplicate: ${visitorData.firstName} ${visitorData.lastName} from ${visitorData.company || 'no company'}`);
+      logger.info(`Checking for duplicate: ID ${visitorData.id} from ${visitorData.company || 'no company'}`);
       
       // Check if visitor already exists
       const existingVisitor = await databaseService.findExistingVisitor(context, visitorData.firstName, visitorData.lastName, visitorData.company || undefined);
@@ -196,7 +197,7 @@ export function registerVisitorRoutes(app: Express): void {
       if (existingVisitor) {
         // If visitor exists but is checked out, check them in again
         if (!existingVisitor.isCheckedIn) {
-          console.log(`🔄 Checking in existing visitor: ${visitorData.firstName} ${visitorData.lastName}`);
+          logger.info(`Checking in existing visitor: ID ${visitorData.id}`);
           // Generate H&S token for existing visitors if they don't have one
           const hsToken = existingVisitor.hsRulesAcceptanceToken || randomBytes(16).toString('hex');
           visitor = await databaseService.checkInExistingVisitor(context, existingVisitor.id, {
@@ -208,7 +209,7 @@ export function registerVisitorRoutes(app: Express): void {
           });
         } else {
           // Visitor is already checked in
-          console.log(`⚠️ Visitor already checked in: ${visitorData.firstName} ${visitorData.lastName}`);
+          logger.info(`Visitor already checked in: ID ${visitorData.id}`);
           res.status(409).json({ 
             error: "Visitor already checked in", 
             visitor: existingVisitor,
@@ -224,7 +225,7 @@ export function registerVisitorRoutes(app: Express): void {
           hsRulesAcceptanceToken: hsToken,
           ...(hsAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: hsAcceptedAt } : {})
         });
-        console.log(`✅ Created new visitor: ${visitorData.firstName} ${visitorData.lastName}`);
+        logger.info(`Created new visitor: ID ${visitorData.id}`);
       }
       
       // Reset ePassSent so the response only reflects what this request actually sent
@@ -239,7 +240,16 @@ export function registerVisitorRoutes(app: Express): void {
 
       // Send e-Pass if enabled
       if (settings?.ePassEnabled && visitor) {
-        console.log(`📧 E-Pass is enabled, sending digital pass to ${visitor.email || 'no email'}`);
+        logger.info(`E-Pass is enabled, sending digital pass`);
+
+        if (!process.env.APP_URL) {
+          logger.error('APP_URL environment variable is not set — e-pass links will be broken');
+        }
+        const baseUrl = process.env.APP_URL || '';
+
+        if (!baseUrl) {
+          logger.warn('Skipping e-pass send: APP_URL is not configured');
+        } else {
         
         // Get host information if available
         let host = null;
@@ -248,7 +258,6 @@ export function registerVisitorRoutes(app: Express): void {
         }
         
         // Generate e-Pass URL
-        const baseUrl = process.env.REPLIT_DOMAINS || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
         const ePassUrl = `${baseUrl}/epass/${visitor.id}`;
         
         // Update visitor with e-Pass URL
@@ -275,10 +284,10 @@ export function registerVisitorRoutes(app: Express): void {
               });
               ePassActuallySent = true;
               ePassActuallySentAt = sentAt;
-              console.log(`✅ E-Pass sent successfully to ${visitor.email}`);
+              logger.info(`E-Pass sent successfully to [email]`);
             }
           } catch (emailError) {
-            console.error('Failed to send e-Pass email:', emailError);
+            logger.error('Failed to send e-Pass email:', emailError);
           }
         }
         
@@ -294,14 +303,14 @@ export function registerVisitorRoutes(app: Express): void {
               const voiceNotification = await voiceService.sendVisitorArrivalNotification(host, visitor);
               
               if (voiceNotification) {
-                console.log(`📞 Voice notification sent to host ${host.firstName} ${host.lastName}`);
+                logger.info(`Voice notification sent to host ID ${host.id}`);
                 notificationSent = true;
               } else {
-                console.log(`⚠️ Voice notification not sent - falling back to email`);
+                logger.info(`Voice notification not sent - falling back to email`);
               }
             } catch (voiceError) {
-              console.error('Failed to send voice notification to host:', voiceError);
-              console.log(`📧 Falling back to email notification`);
+              logger.error('Failed to send voice notification to host:', voiceError);
+              logger.info(`Falling back to email notification`);
             }
           }
           
@@ -321,10 +330,10 @@ export function registerVisitorRoutes(app: Express): void {
                 checkedInAt: new Date(),
                 companyName: settings?.companyName || 'TPR Max',
               });
-              console.log(`✅ Arrival notification sent to host ${host.email}`);
+              logger.info(`Arrival notification sent to host [email]`);
               notificationSent = true;
             } catch (emailError) {
-              console.error('Failed to send arrival notification to host:', emailError);
+              logger.error('Failed to send arrival notification to host:', emailError);
             }
           }
           
@@ -339,6 +348,7 @@ export function registerVisitorRoutes(app: Express): void {
         // Add e-Pass info to response
         visitor.ePassSent = true;
         visitor.ePassUrl = ePassUrl;
+        } // close else (APP_URL is set)
       }
 
       // Create visitor history for returning visitor check-in, now that ePass status is known
@@ -399,7 +409,7 @@ export function registerVisitorRoutes(app: Express): void {
             isAccountedFor: false
           });
           
-          console.log(`✅ Added visitor ${visitor.firstName} ${visitor.lastName} to active evacuation ${evacuation.evacuationId} accountability list`);
+          logger.info(`Added visitor ID ${visitor.id} to active evacuation ${evacuation.evacuationId} accountability list`);
         }
       }
       
@@ -412,7 +422,7 @@ export function registerVisitorRoutes(app: Express): void {
       
       res.json(visitor);
     } catch (error) {
-      console.error("❌ Error during visitor check-in:", error);
+      logger.error("Error during visitor check-in:", error);
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid visitor data", details: error.errors });
       } else {
@@ -441,7 +451,7 @@ export function registerVisitorRoutes(app: Express): void {
       
       res.json(visitor);
     } catch (error) {
-      console.error("Error updating visitor:", error);
+      logger.error("Error updating visitor:", error);
       res.status(500).json({ error: "Failed to update visitor" });
     }
   });
@@ -470,7 +480,7 @@ export function registerVisitorRoutes(app: Express): void {
       
       res.json(visitor);
     } catch (error) {
-      console.error("Error checking out visitor:", error);
+      logger.error("Error checking out visitor:", error);
       res.status(500).json({ error: "Failed to check out visitor" });
     }
   });
@@ -501,7 +511,11 @@ export function registerVisitorRoutes(app: Express): void {
       }
       
       // Generate e-Pass URL
-      const baseUrl = process.env.REPLIT_DOMAINS || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`;
+      if (!process.env.APP_URL) {
+        logger.error('APP_URL environment variable is not set — e-pass links will be broken');
+        return res.status(500).json({ error: 'APP_URL is not configured — cannot generate e-pass link' });
+      }
+      const baseUrl = process.env.APP_URL || '';
       const ePassUrl = `${baseUrl}/epass/${visitor.id}`;
       
       // Update visitor email if provided
@@ -526,20 +540,20 @@ export function registerVisitorRoutes(app: Express): void {
               ePassSentAt: new Date(),
               ePassUrl: ePassUrl
             });
-            console.log(`✅ E-Pass sent successfully to ${visitor.email}`);
+            logger.info(`E-Pass sent successfully to [email]`);
             res.json({ success: true, message: `E-Pass sent to ${visitor.email}` });
           } else {
             res.status(500).json({ error: "Failed to send e-Pass email" });
           }
         } catch (emailError) {
-          console.error('Failed to send e-Pass email:', emailError);
+          logger.error('Failed to send e-Pass email:', emailError);
           res.status(500).json({ error: "Failed to send e-Pass email", details: emailError instanceof Error ? emailError.message : String(emailError) });
         }
       } else {
         res.status(400).json({ error: "No email address available for visitor" });
       }
     } catch (error) {
-      console.error("Error sending e-Pass:", error);
+      logger.error("Error sending e-Pass:", error);
       res.status(500).json({ error: "Failed to send e-Pass" });
     }
   });
@@ -608,7 +622,7 @@ export function registerVisitorRoutes(app: Express): void {
         `);
       }
       
-      console.log(`✅ H&S Rules accepted by contractor: ${worker.firstName} ${worker.lastName} - Now fully checked in`);
+      logger.info(`H&S Rules accepted by contractor: ID ${worker.id} - Now fully checked in`);
       res.send(`
         <html>
           <body style="font-family: Arial; text-align: center; padding: 50px;">
@@ -622,7 +636,7 @@ export function registerVisitorRoutes(app: Express): void {
         </html>
       `);
     } catch (error) {
-      console.error("Error accepting contractor H&S rules:", error);
+      logger.error("Error accepting contractor H&S rules:", error);
       res.status(500).send(`
         <html>
           <body style="font-family: Arial; text-align: center; padding: 50px;">
@@ -663,7 +677,7 @@ export function registerVisitorRoutes(app: Express): void {
         return res.status(500).json({ error: "Failed to update H&S acceptance" });
       }
       
-      console.log(`✅ H&S Rules accepted by contractor: ${worker.firstName} ${worker.lastName} - Now fully checked in`);
+      logger.info(`H&S Rules accepted by contractor: ID ${worker.id} - Now fully checked in`);
       res.json({ 
         success: true, 
         message: "Health & Safety Rules accepted successfully and contractor checked in",
@@ -671,7 +685,7 @@ export function registerVisitorRoutes(app: Express): void {
         checkedIn: true
       });
     } catch (error) {
-      console.error("Error accepting contractor H&S rules:", error);
+      logger.error("Error accepting contractor H&S rules:", error);
       res.status(500).json({ error: "Failed to accept H&S rules" });
     }
   });
@@ -743,7 +757,7 @@ export function registerVisitorRoutes(app: Express): void {
         `);
       }
       
-      console.log(`✅ H&S Rules accepted by visitor: ${visitor.firstName} ${visitor.lastName}`);
+      logger.info(`H&S Rules accepted by visitor: ID ${visitor.id}`);
       res.send(`
         <html>
           <body style="font-family: Arial; text-align: center; padding: 50px;">
@@ -756,7 +770,7 @@ export function registerVisitorRoutes(app: Express): void {
         </html>
       `);
     } catch (error) {
-      console.error("Error accepting H&S rules:", error);
+      logger.error("Error accepting H&S rules:", error);
       res.status(500).send(`
         <html>
           <body style="font-family: Arial; text-align: center; padding: 50px;">
@@ -802,14 +816,14 @@ export function registerVisitorRoutes(app: Express): void {
         return res.status(500).json({ error: "Failed to update H&S acceptance" });
       }
       
-      console.log(`✅ H&S Rules accepted by visitor: ${visitor.firstName} ${visitor.lastName}`);
+      logger.info(`H&S Rules accepted by visitor: ID ${visitor.id}`);
       res.json({ 
         success: true, 
         message: "Health & Safety Rules accepted successfully",
         acceptedAt: updatedVisitor.hsRulesAcceptedAt
       });
     } catch (error) {
-      console.error("Error accepting H&S rules:", error);
+      logger.error("Error accepting H&S rules:", error);
       res.status(500).json({ error: "Failed to accept H&S rules" });
     }
   });
@@ -822,7 +836,7 @@ export function registerVisitorRoutes(app: Express): void {
       const { workerId } = req.params;
       const { token } = req.query as { token?: string };
 
-      console.log(`🔐 Processing H&S rules acceptance for contractor worker ${workerId}`);
+      logger.info(`Processing H&S rules acceptance for contractor worker ${workerId}`);
 
       if (!token) {
         return res.status(400).json({ error: "Token is required" });
@@ -837,17 +851,17 @@ export function registerVisitorRoutes(app: Express): void {
       // Get the contractor worker using customer-isolated database
       const worker = await databaseService.getContractorWorkerById(context, workerId);
       if (!worker) {
-        console.log(`❌ Contractor worker ${workerId} not found`);
+        logger.info(`Contractor worker ${workerId} not found`);
         return res.status(404).json({ error: "Worker not found" });
       }
 
       if (worker.hsRulesAcceptanceToken !== token) {
-        console.log(`❌ Invalid token for contractor worker ${workerId}`);
+        logger.info(`Invalid token for contractor worker ${workerId}`);
         return res.status(400).json({ error: "Invalid token" });
       }
 
       if (worker.hsRulesAccepted) {
-        console.log(`ℹ️ H&S rules already accepted for contractor worker ${workerId}`);
+        logger.info(`ℹ H&S rules already accepted for contractor worker ${workerId}`);
         return res.status(200).json({ 
           message: "H&S rules already accepted",
           worker: { 
@@ -867,7 +881,7 @@ export function registerVisitorRoutes(app: Express): void {
         hsRulesAcceptanceToken: null // Clear the token after use
       });
 
-      console.log(`✅ H&S rules accepted for contractor worker ${workerId}`);
+      logger.info(`H&S rules accepted for contractor worker ${workerId}`);
       res.json({ 
         message: "H&S rules accepted successfully",
         worker: {
@@ -880,7 +894,7 @@ export function registerVisitorRoutes(app: Express): void {
       });
 
     } catch (error) {
-      console.error("Error accepting H&S rules for contractor worker:", error);
+      logger.error("Error accepting H&S rules for contractor worker:", error);
       res.status(500).json({ error: "Failed to accept H&S rules" });
     }
   });
@@ -920,7 +934,7 @@ export function registerVisitorRoutes(app: Express): void {
       const history = await databaseService.getVisitorHistory(context, id);
       res.json(history);
     } catch (error) {
-      console.error("Error fetching visitor history:", error);
+      logger.error("Error fetching visitor history:", error);
       res.status(500).json({ error: "Failed to fetch visitor history" });
     }
   });
@@ -937,7 +951,7 @@ export function registerVisitorRoutes(app: Express): void {
       const preBookings = await customerDb.select().from(isolatedSchema.preBookings);
       res.json(preBookings);
     } catch (error) {
-      console.log("⚠️ getAllPreBookings failed - returning empty array:", (error as any).message);
+      logger.info("getAllPreBookings failed - returning empty array:", (error as any).message);
       res.json([]);
     }
   });
@@ -961,7 +975,7 @@ export function registerVisitorRoutes(app: Express): void {
         .orderBy(isolatedSchema.preBookings.visitDate);
       res.json(preBookings);
     } catch (error) {
-      console.log("⚠️ getUpcomingPreBookings failed - returning empty array:", (error as any).message);
+      logger.info("getUpcomingPreBookings failed - returning empty array:", (error as any).message);
       res.json([]);
     }
   });
@@ -981,7 +995,7 @@ export function registerVisitorRoutes(app: Express): void {
       // For now return empty until we implement customer-isolated search
       res.json([]);
     } catch (error) {
-      console.error("Error searching visitors:", error);
+      logger.error("Error searching visitors:", error);
       res.status(500).json({ message: "Failed to search visitors" });
     }
   });
@@ -997,7 +1011,7 @@ export function registerVisitorRoutes(app: Express): void {
       const preBookings = await (storage as any).searchPreBookings(q);
       res.json(preBookings);
     } catch (error) {
-      console.error("Error searching pre-bookings:", error);
+      logger.error("Error searching pre-bookings:", error);
       res.status(500).json({ message: "Failed to search pre-bookings" });
     }
   });
@@ -1063,7 +1077,7 @@ export function registerVisitorRoutes(app: Express): void {
       try {
         hostStaff = preBooking.hostStaffId ? await databaseService.getStaffById(context, preBooking.hostStaffId) : undefined;
       } catch (dbError) {
-        console.error(`Error fetching staff for pre-booking:`, dbError);
+        logger.error(`Error fetching staff for pre-booking:`, dbError);
       }
       
       const meetingRoom = null;
@@ -1086,13 +1100,13 @@ export function registerVisitorRoutes(app: Express): void {
               .set({ emailSent: true, emailSentAt: new Date() })
               .where(eq(isolatedSchema.preBookings.id, preBooking.id));
           } else {
-            console.log(`⚠️ Pre-booking invitation email failed to send to ${preBooking.visitorEmail}`);
+            logger.info(`Pre-booking invitation email failed to send to ${preBooking.visitorEmail}`);
           }
         } catch (emailError) {
-          console.error("Failed to send visitor invitation email:", emailError);
+          logger.error("Failed to send visitor invitation email:", emailError);
         }
       } else {
-        console.log("⚠️ No host staff found, skipping pre-booking email");
+        logger.info("No host staff found, skipping pre-booking email");
       }
       
       res.json(preBooking);
@@ -1100,7 +1114,7 @@ export function registerVisitorRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid pre-booking data", details: error.errors });
       } else {
-        console.error("Error creating pre-booking:", error);
+        logger.error("Error creating pre-booking:", error);
         res.status(500).json({ error: "Failed to create pre-booking" });
       }
     }
@@ -1151,7 +1165,7 @@ export function registerVisitorRoutes(app: Express): void {
       
       res.json({ success: emailSent, preBooking });
     } catch (error) {
-      console.error("Error sending visitor invitation:", error);
+      logger.error("Error sending visitor invitation:", error);
       res.status(500).json({ error: "Failed to send visitor invitation" });
     }
   });
@@ -1164,7 +1178,7 @@ export function registerVisitorRoutes(app: Express): void {
       }
       
       if (deviceType === 'xstation' && deviceIp) {
-        console.log(`X-Station QR scan from ${deviceIp}: ${qrCode}`);
+        logger.info(`X-Station QR scan from ${deviceIp}: ${qrCode}`);
       }
       
       const username = req.user!.username;
@@ -1235,11 +1249,11 @@ export function registerVisitorRoutes(app: Express): void {
         .set({ isCheckedIn: true, checkedInAt: new Date(), visitorId: visitor.id })
         .where(eq(isolatedSchema.preBookings.id, preBooking.id));
       
-      console.log(`✅ Visitor checked in from pre-booking: ${visitor.firstName} ${visitor.lastName} (ID: ${visitor.id}) in customer DB`);
+      logger.info(`Visitor checked in from pre-booking: ID ${visitor.id} (ID: ${visitor.id}) in customer DB`);
       
       res.json({ visitor, preBooking });
     } catch (error) {
-      console.error("Error checking in pre-booking:", error);
+      logger.error("Error checking in pre-booking:", error);
       res.status(500).json({ error: "Failed to check in pre-booking" });
     }
   });
@@ -1277,7 +1291,7 @@ export function registerVisitorRoutes(app: Express): void {
       const firstName = preBooking.visitorFirstName;
       const lastName = preBooking.visitorLastName;
       
-      console.log(`🔍 Pre-booking manual check-in: ${firstName} ${lastName} from ${preBooking.company || 'no company'}`);
+      logger.info(`Pre-booking manual check-in: ${firstName} ${lastName} from ${preBooking.company || 'no company'}`);
       
       const existingVisitors = await customerDb.select().from(isolatedSchema.visitors)
         .where(and(
@@ -1288,14 +1302,14 @@ export function registerVisitorRoutes(app: Express): void {
       const existingVisitor = existingVisitors[0];
       
       if (existingVisitor) {
-        console.log(`❌ DUPLICATE FOUND in pre-booking: ${existingVisitor.firstName} ${existingVisitor.lastName} (ID: ${existingVisitor.id}) is already checked in`);
+        logger.info(`DUPLICATE FOUND in pre-booking: ID ${existingVisitor.id} (ID: ${existingVisitor.id}) is already checked in`);
         return res.status(400).json({ 
           error: "Visitor already checked in", 
           details: `${firstName} ${lastName} from ${preBooking.company || 'this company'} is already on-site.`
         });
       }
       
-      console.log(`✅ No duplicate found in pre-booking, creating new visitor: ${firstName} ${lastName}`);
+      logger.info(`No duplicate found in pre-booking, creating new visitor: ${firstName} ${lastName}`);
       
       // Look up the host staff member in the customer database by their ID
       let hostStaffInCustomerDb = null;
@@ -1309,7 +1323,7 @@ export function registerVisitorRoutes(app: Express): void {
         hostStaffInCustomerDb = hostStaffResults[0];
         
         if (!hostStaffInCustomerDb) {
-          console.log(`⚠️ Warning: Host staff ${preBooking.hostStaffId} not found in customer database`);
+          logger.info(`Warning: Host staff ${preBooking.hostStaffId} not found in customer database`);
         }
       }
 
@@ -1416,9 +1430,9 @@ This is an automated notification from your visitor management system.`;
             text
           });
           
-          console.log(`📧 Check-in notification sent to host: ${hostStaffInCustomerDb.email}`);
+          logger.info(`Check-in notification sent to host: [email]`);
         } catch (emailError) {
-          console.error('Failed to send check-in notification email:', emailError);
+          logger.error('Failed to send check-in notification email:', emailError);
           // Don't fail the check-in if email fails
         }
       }
@@ -1430,7 +1444,7 @@ This is an automated notification from your visitor management system.`;
         message: "Visitor checked in manually successfully"
       });
     } catch (error) {
-      console.error("Manual pre-booking check-in error:", error);
+      logger.error("Manual pre-booking check-in error:", error);
       res.status(500).json({ error: "Failed to manually check in visitor" });
     }
   });
@@ -1439,7 +1453,7 @@ This is an automated notification from your visitor management system.`;
     try {
       const { qrCode, deviceIp, action = 'checkin', timestamp, customerId: bodyCustomerId } = req.body;
       
-      console.log(`X-Station QR scan event:`, { deviceIp, action, qrCode, timestamp });
+      logger.info(`X-Station QR scan event:`, { deviceIp, action, qrCode, timestamp });
       
       if (!qrCode) {
         return res.status(400).json({ error: "QR code is required" });
@@ -1463,11 +1477,11 @@ This is an automated notification from your visitor management system.`;
           const expectedHmac = crypto.createHmac('sha256', secret).update(payload).digest('hex').substring(0, 12);
           
           if (providedHmac !== expectedHmac) {
-            console.warn(`⚠️ Invalid QR signature for meeting scan: ${qrCode}`);
+            logger.warn(`Invalid QR signature for meeting scan: ${qrCode}`);
             return res.status(403).json({ error: "Invalid QR code signature" });
           }
           
-          console.log(`📅 Meeting room QR scan (verified): booking=${bookingId}, type=${attendeeType}, id=${attendeeId}`);
+          logger.info(`Meeting room QR scan (verified): booking=${bookingId}, type=${attendeeType}, id=${attendeeId}`);
           
           const [roomBooking] = await customerDb.select().from(isolatedSchema.roomBookings)
             .where(eq(isolatedSchema.roomBookings.id, bookingId)).limit(1);
@@ -1595,7 +1609,7 @@ This is an automated notification from your visitor management system.`;
       
       return res.status(404).json({ error: "QR code not recognized" });
     } catch (error) {
-      console.error("X-Station QR scan error:", error);
+      logger.error("X-Station QR scan error:", error);
       res.status(500).json({ error: "Failed to process X-Station QR scan" });
     }
   });
@@ -1792,10 +1806,10 @@ This is an automated notification from your visitor management system.`;
         return res.status(401).json({ error: "Invalid webhook signature" });
       }
 
-      console.log(`Paxton webhook event: ${result.eventType}`, result.data);
+      logger.info(`Paxton webhook event: ${result.eventType}`, result.data);
       res.json({ received: true, eventType: result.eventType });
     } catch (error: any) {
-      console.error("Paxton webhook error:", error);
+      logger.error("Paxton webhook error:", error);
       res.status(500).json({ error: "Webhook processing failed" });
     }
   });
@@ -1912,7 +1926,7 @@ This is an automated notification from your visitor management system.`;
         return visitDate >= targetDate && visitDate <= endDate;
       });
       
-      console.log(`📅 Diary query: customer=${context.customerId}, targetDate=${targetDate.toISOString()}, endDate=${endDate.toISOString()}, found ${visitorPreBookings.length} visitor pre-bookings`);
+      logger.info(`Diary query: customer=${context.customerId}, targetDate=${targetDate.toISOString()}, endDate=${endDate.toISOString()}, found ${visitorPreBookings.length} visitor pre-bookings`);
       
       const allStaff = await customerDb.select().from(isolatedSchema.staff);
       const staffMap = new Map(allStaff.map((s: any) => [s.id, s]));
@@ -1936,7 +1950,7 @@ This is an automated notification from your visitor management system.`;
           return scheduledDate >= targetDate && scheduledDate <= endDate;
         });
       } catch (contractorError) {
-        console.log("Note: contractor_prebookings table may not exist yet:", (contractorError as any).message);
+        logger.info("Note: contractor_prebookings table may not exist yet:", (contractorError as any).message);
       }
       
       const enrichedContractors = contractorBookings.map((booking: any) => {
@@ -1974,7 +1988,7 @@ This is an automated notification from your visitor management system.`;
           });
         }
       } catch (roomBookingError) {
-        console.log("Note: room_bookings table may not exist yet:", (roomBookingError as any).message);
+        logger.info("Note: room_bookings table may not exist yet:", (roomBookingError as any).message);
       }
       
       res.json({
@@ -1983,7 +1997,7 @@ This is an automated notification from your visitor management system.`;
         roomBookings: roomBookingsForDiary,
       });
     } catch (error) {
-      console.error("Error fetching reception diary:", error);
+      logger.error("Error fetching reception diary:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {

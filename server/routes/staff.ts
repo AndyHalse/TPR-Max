@@ -17,6 +17,7 @@ import { db } from '../db';
 import { eq, and, desc, sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
+import { logger } from '../utils/logger';
 
 const staffAuthSchema = z.object({
   email: z.string().email(),
@@ -66,7 +67,7 @@ function shouldBeFireMarshal(staffData: any): boolean {
   return false;
 }
 
-function generateIdCardHtml(staff: any, design: any[]) {
+function generateIdCardHtml(staff: any, design: any[], settings?: any) {
   const cardWidth = 323; // CR80 width in pixels (85.60mm * 3.78 px/mm)
   const cardHeight = 204; // CR80 height in pixels (53.98mm * 3.78 px/mm)
   
@@ -147,7 +148,7 @@ function generateIdCardHtml(staff: any, design: any[]) {
               display: flex;
               align-items: center;
             ">
-              ACS Safety & Security Ltd
+              ${settings?.companyName || 'Site Operator'}
             </div>`;
           break;
           
@@ -277,7 +278,7 @@ export function registerStaffRoutes(app: Express): void {
       const departments = await databaseService.getAllDepartments(context);
       res.json(departments);
     } catch (error) {
-      console.error("Failed to fetch departments:", error);
+      logger.error("Failed to fetch departments:", error);
       res.status(500).json({ error: "Failed to fetch departments" });
     }
   });
@@ -295,7 +296,7 @@ export function registerStaffRoutes(app: Express): void {
       const department = await databaseService.createDepartment(context, departmentData);
       res.status(201).json(department);
     } catch (error) {
-      console.error("Failed to create department:", error);
+      logger.error("Failed to create department:", error);
       res.status(500).json({ error: "Failed to create department" });
     }
   });
@@ -318,7 +319,7 @@ export function registerStaffRoutes(app: Express): void {
       }
       res.json(department);
     } catch (error) {
-      console.error("Failed to update department:", error);
+      logger.error("Failed to update department:", error);
       res.status(500).json({ error: "Failed to update department" });
     }
   });
@@ -338,7 +339,7 @@ export function registerStaffRoutes(app: Express): void {
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Failed to delete department:", error);
+      logger.error("Failed to delete department:", error);
       res.status(500).json({ error: "Failed to delete department" });
     }
   });
@@ -357,7 +358,7 @@ export function registerStaffRoutes(app: Express): void {
         .orderBy(isolatedSchema.evacuationZones.displayOrder);
       res.json(zones);
     } catch (error) {
-      console.error("Failed to fetch zones:", error);
+      logger.error("Failed to fetch zones:", error);
       res.status(500).json({ error: "Failed to fetch zones" });
     }
   });
@@ -384,7 +385,7 @@ export function registerStaffRoutes(app: Express): void {
         .returning();
       res.status(201).json(zone);
     } catch (error) {
-      console.error("Failed to create zone:", error);
+      logger.error("Failed to create zone:", error);
       res.status(500).json({ error: "Failed to create zone" });
     }
   });
@@ -414,7 +415,7 @@ export function registerStaffRoutes(app: Express): void {
       }
       res.json(zone);
     } catch (error) {
-      console.error("Failed to update zone:", error);
+      logger.error("Failed to update zone:", error);
       res.status(500).json({ error: "Failed to update zone" });
     }
   });
@@ -433,7 +434,7 @@ export function registerStaffRoutes(app: Express): void {
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Failed to delete zone:", error);
+      logger.error("Failed to delete zone:", error);
       res.status(500).json({ error: "Failed to delete zone" });
     }
   });
@@ -454,7 +455,7 @@ export function registerStaffRoutes(app: Express): void {
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Failed to reorder zones:", error);
+      logger.error("Failed to reorder zones:", error);
       res.status(500).json({ error: "Failed to reorder zones" });
     }
   });
@@ -469,7 +470,7 @@ export function registerStaffRoutes(app: Express): void {
       const names = await databaseService.getDepartmentNames(context);
       res.json(names);
     } catch (error) {
-      console.error("Failed to fetch department names:", error);
+      logger.error("Failed to fetch department names:", error);
       res.status(500).json({ error: "Failed to fetch department names" });
     }
   });
@@ -495,7 +496,7 @@ export function registerStaffRoutes(app: Express): void {
       const allStaff = await databaseService.getAllStaff(context);
       res.json(allStaff);
     } catch (error) {
-      console.error("Error fetching staff by company:", error);
+      logger.error("Error fetching staff by company:", error);
       res.status(500).json({ error: "Failed to fetch staff" });
     }
   });
@@ -523,7 +524,7 @@ export function registerStaffRoutes(app: Express): void {
       
       res.json(filteredStaff);
     } catch (error) {
-      console.error("Error fetching staff by company:", error);
+      logger.error("Error fetching staff by company:", error);
       res.status(500).json({ error: "Failed to fetch staff for company" });
     }
   });
@@ -543,7 +544,7 @@ export function registerStaffRoutes(app: Express): void {
       if (shouldBeFireMarshal(staffData) && !staffData.fireMarshalUrlId) {
         staffData.fireMarshalUrlId = generateFireMarshalUrlId();
         staffData.isFireMarshal = true;
-        console.log(`🔥 AUTO-GENERATED Fire Marshal URL for ${staffData.firstName} ${staffData.lastName}: ${staffData.fireMarshalUrlId}`);
+        logger.info(`AUTO-GENERATED Fire Marshal URL for ID ${staffData.id}: ${staffData.fireMarshalUrlId}`);
       }
       
       // Use customer-isolated database service for creating staff
@@ -576,7 +577,7 @@ export function registerStaffRoutes(app: Express): void {
         const existingStaff = await databaseService.getStaffById(context, id);
         if (existingStaff && !existingStaff.fireMarshalUrlId) {
           updates.fireMarshalUrlId = generateFireMarshalUrlId();
-          console.log(`🔥 AUTO-GENERATED Fire Marshal URL for ${existingStaff.firstName} ${existingStaff.lastName}: ${updates.fireMarshalUrlId}`);
+          logger.info(`AUTO-GENERATED Fire Marshal URL for ID ${existingStaff.id}: ${updates.fireMarshalUrlId}`);
         }
       }
       
@@ -616,7 +617,7 @@ export function registerStaffRoutes(app: Express): void {
       
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Failed to delete staff member:", error?.message || error);
+      logger.error("Failed to delete staff member:", error?.message || error);
       res.status(500).json({ error: "Failed to delete staff member" });
     }
   });
@@ -724,7 +725,7 @@ export function registerStaffRoutes(app: Express): void {
             isAccountedFor: false
           });
           
-          console.log(`✅ Added ${staff.firstName} ${staff.lastName} to active evacuation ${evacuation.evacuationId} accountability list`);
+          logger.info(`Added ID ${staff.id} to active evacuation ${evacuation.evacuationId} accountability list`);
         }
       }
       
@@ -737,7 +738,7 @@ export function registerStaffRoutes(app: Express): void {
       
       res.json({ success: true, staff });
     } catch (error) {
-      console.error("Error checking in staff:", error);
+      logger.error("Error checking in staff:", error);
       res.status(500).json({ error: "Failed to check in staff member" });
     }
   });
@@ -778,15 +779,15 @@ export function registerStaffRoutes(app: Express): void {
           await customerDb.update(isolatedSchema.staff)
             .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
             .where(sql`${isolatedSchema.staff.id} = ${id}`);
-          console.log(`🛡️ Auto-ended lone worker session for staff ${id} on checkout`);
+          logger.info(`Auto-ended lone worker session for staff ${id} on checkout`);
         }
       } catch (lwErr) {
-        console.warn('Could not auto-end lone worker session on checkout:', lwErr);
+        logger.warn('Could not auto-end lone worker session on checkout:', lwErr);
       }
 
       res.json({ success: true, staff });
     } catch (error) {
-      console.error("Error checking out staff:", error);
+      logger.error("Error checking out staff:", error);
       res.status(500).json({ error: "Failed to check out staff member" });
     }
   });
@@ -856,7 +857,7 @@ export function registerStaffRoutes(app: Express): void {
         message: `${foundStaff.firstName} ${foundStaff.lastName} checked in successfully`
       });
     } catch (error) {
-      console.error("Error processing staff QR check-in:", error);
+      logger.error("Error processing staff QR check-in:", error);
       res.status(500).json({ error: "Failed to process staff QR check-in" });
     }
   });
@@ -916,7 +917,7 @@ export function registerStaffRoutes(app: Express): void {
       
       res.json({ ...passPayload, message: 'QR pass ready' });
     } catch (error) {
-      console.error("Error sending staff QR pass:", error);
+      logger.error("Error sending staff QR pass:", error);
       res.status(500).json({ error: "Failed to send staff QR pass" });
     }
   });
@@ -945,7 +946,7 @@ export function registerStaffRoutes(app: Express): void {
 
       res.status(501).json({ error: 'Apple Wallet pass generation is not available in this deployment' });
     } catch (error) {
-      console.error("Error generating wallet pass:", error);
+      logger.error("Error generating wallet pass:", error);
       res.status(500).json({ error: "Failed to generate wallet pass" });
     }
   });
@@ -966,8 +967,8 @@ export function registerStaffRoutes(app: Express): void {
 
       // Here you would integrate with actual printer hardware
       // For now, we'll simulate the printing process
-      console.log(`🖨️ Printing ID card for staff: ${staff.firstName} ${staff.lastName}`);
-      console.log(`📐 Design elements:`, design);
+      logger.info(`Printing ID card for staff: ID ${staff.id}`);
+      logger.info(`Design elements:`, design);
       
       // Use dedicated ID Card Staff Printer (CR80 Format)
       const printJob = {
@@ -990,7 +991,7 @@ export function registerStaffRoutes(app: Express): void {
         printJob
       });
     } catch (error) {
-      console.error("Error printing ID card:", error);
+      logger.error("Error printing ID card:", error);
       res.status(500).json({ error: "Failed to print ID card" });
     }
   });
@@ -1022,7 +1023,7 @@ export function registerStaffRoutes(app: Express): void {
         templates
       });
     } catch (error) {
-      console.error("Error fetching ID card templates:", error);
+      logger.error("Error fetching ID card templates:", error);
       res.status(500).json({ error: "Failed to fetch templates" });
     }
   });
@@ -1045,14 +1046,14 @@ export function registerStaffRoutes(app: Express): void {
         return res.status(404).json({ error: "Staff member not found" });
       }
 
-      console.log(`🧪 Test printing ID card for: ${staff.firstName} ${staff.lastName}`);
-      console.log(`🎨 Using design with ${design?.length || 0} elements`);
+      logger.info(`Test printing ID card for: ID ${staff.id}`);
+      logger.info(`Using design with ${design?.length || 0} elements`);
       
       // Get the actual selected printer from settings
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const actualPrinter = settings?.idCardPrinter || "Magicard Enduro+ (V2)";
-      console.log(`🖨️ Sending to ID Card Staff Printer: ${actualPrinter} (CR80 Format)`);
+      logger.info(`Sending to ID Card Staff Printer: ${actualPrinter} (CR80 Format)`);
       
       // Create actual print job for Windows printer
       let printStatus = "completed";
@@ -1065,7 +1066,7 @@ export function registerStaffRoutes(app: Express): void {
         const path = await import("path");
         
         // Generate HTML content for the ID card
-        const cardHtml = generateIdCardHtml(staff, design);
+        const cardHtml = generateIdCardHtml(staff, design, settings);
         
         // Create temporary HTML file
         const tempDir = path.join(process.cwd(), 'temp');
@@ -1076,7 +1077,7 @@ export function registerStaffRoutes(app: Express): void {
         const tempFile = path.join(tempDir, `id-card-${staff.id}-${Date.now()}.html`);
         fs.writeFileSync(tempFile, cardHtml, 'utf8');
         
-        console.log(`📄 Generated HTML file: ${tempFile}`);
+        logger.info(`Generated HTML file: ${tempFile}`);
         
         const selectedPrinter = settings?.idCardPrinter || "PDF Printer (Testing)";
         
@@ -1086,52 +1087,52 @@ export function registerStaffRoutes(app: Express): void {
         if (isRealWindows) {
           try {
             // Use PowerShell to print the HTML file to the specified printer
-            console.log(`🖨️ Using selected ID card printer: ${selectedPrinter}`);
+            logger.info(`Using selected ID card printer: ${selectedPrinter}`);
             
             // For PDF printer, just open the file
             if (selectedPrinter.includes('PDF') || selectedPrinter.includes('pdf')) {
               const printCommand = `powershell.exe -Command "Start-Process -FilePath '${tempFile}'"`;
-              console.log(`📄 Opening PDF file: ${printCommand}`);
+              logger.info(`Opening PDF file: ${printCommand}`);
               execSync(printCommand, { encoding: 'utf8', timeout: 30000 });
-              console.log(`✅ PDF file opened successfully`);
+              logger.info(`PDF file opened successfully`);
             } else {
               // Enhanced printer handling for Magicard and other card printers
-              console.log(`🔧 Preparing ${selectedPrinter} for printing...`);
+              logger.info(`Preparing ${selectedPrinter} for printing...`);
               
               // Step 1: Wake up Magicard printers specifically
               if (selectedPrinter.includes('Magicard')) {
-                console.log(`🔔 Waking up Magicard printer...`);
+                logger.info(`Waking up Magicard printer...`);
                 try {
                   const wakeCommand = `powershell.exe -Command "Get-Printer -Name '${selectedPrinter}' | Set-Printer -Comment 'VisiGate-Wake-${Date.now()}'"`; 
                   execSync(wakeCommand, { encoding: 'utf8', timeout: 10000 });
-                  console.log(`✅ Magicard wake-up command sent`);
+                  logger.info(`Magicard wake-up command sent`);
                 } catch (wakeError) {
-                  console.log(`⚠️ Wake-up command failed, continuing: ${wakeError instanceof Error ? wakeError.message : String(wakeError)}`);
+                  logger.info(`Wake-up command failed, continuing: ${wakeError instanceof Error ? wakeError.message : String(wakeError)}`);
                 }
               }
               
               // Step 2: Clear any stuck print jobs in the queue
-              console.log(`🧹 Clearing print queue for ${selectedPrinter}...`);
+              logger.info(`Clearing print queue for ${selectedPrinter}...`);
               try {
                 const clearQueueCommand = `powershell.exe -Command "Get-PrintJob -PrinterName '${selectedPrinter}' | Remove-PrintJob -Confirm:$false"`;
                 execSync(clearQueueCommand, { encoding: 'utf8', timeout: 10000 });
-                console.log(`✅ Print queue cleared`);
+                logger.info(`Print queue cleared`);
               } catch (clearError) {
-                console.log(`ℹ️ No existing jobs to clear: ${clearError instanceof Error ? clearError.message : String(clearError)}`);
+                logger.info(`ℹ No existing jobs to clear: ${clearError instanceof Error ? clearError.message : String(clearError)}`);
               }
               
               // Step 3: Check printer status
-              console.log(`🔍 Checking printer status...`);
+              logger.info(`Checking printer status...`);
               try {
                 const statusCommand = `powershell.exe -Command "Get-Printer -Name '${selectedPrinter}' | Select-Object Name, PrinterStatus, JobCount, Comment"`;
                 const statusResult = execSync(statusCommand, { encoding: 'utf8', timeout: 10000 });
-                console.log(`📊 Printer status:\n${statusResult}`);
+                logger.info(`Printer status:\n${statusResult}`);
               } catch (statusError) {
-                console.log(`⚠️ Status check failed: ${statusError instanceof Error ? statusError.message : String(statusError)}`);
+                logger.info(`Status check failed: ${statusError instanceof Error ? statusError.message : String(statusError)}`);
               }
               
               // Step 4: Send print job using enhanced method for card printers
-              console.log(`🖨️ Sending print job to Windows print spooler...`);
+              logger.info(`Sending print job to Windows print spooler...`);
               
               // Use rundll32 method which works better with specialized printers like Magicard
               const enhancedPrintCommand = `powershell.exe -Command "
@@ -1155,11 +1156,11 @@ export function registerStaffRoutes(app: Express): void {
                 }"`;
               
               const printResult = execSync(enhancedPrintCommand, { encoding: 'utf8', timeout: 45000 });
-              console.log(`✅ Enhanced print result:\n${printResult}`);
+              logger.info(`Enhanced print result:\n${printResult}`);
               
               // For Magicard, also try a direct printer command
               if (selectedPrinter.includes('Magicard')) {
-                console.log(`🎯 Sending additional Magicard-specific command...`);
+                logger.info(`Sending additional Magicard-specific command...`);
                 try {
                   const magicardCommand = `powershell.exe -Command "
                     # Additional Magicard wake-up and status check
@@ -1167,13 +1168,13 @@ export function registerStaffRoutes(app: Express): void {
                       Write-Output \\"Printer: $($_.Name), Status: $($_.PrinterStatus), State: $($_.PrinterState)\\"
                     }"`;
                   const magicardResult = execSync(magicardCommand, { encoding: 'utf8', timeout: 15000 });
-                  console.log(`🔧 Magicard status check:\n${magicardResult}`);
+                  logger.info(`Magicard status check:\n${magicardResult}`);
                 } catch (magicardError) {
-                  console.log(`⚠️ Magicard status check failed: ${magicardError instanceof Error ? magicardError.message : String(magicardError)}`);
+                  logger.info(`Magicard status check failed: ${magicardError instanceof Error ? magicardError.message : String(magicardError)}`);
                 }
               }
               
-              console.log(`✅ Enhanced print job sent successfully to ${selectedPrinter}`);
+              logger.info(`Enhanced print job sent successfully to ${selectedPrinter}`);
             }
             
             // Clean up temp file after a delay
@@ -1181,56 +1182,56 @@ export function registerStaffRoutes(app: Express): void {
               try {
                 if (fs.existsSync(tempFile)) {
                   fs.unlinkSync(tempFile);
-                  console.log(`🗑️ Cleaned up temp file: ${tempFile}`);
+                  logger.info(`Cleaned up temp file: ${tempFile}`);
                 }
               } catch (cleanupError) {
-                console.warn(`⚠️ Failed to cleanup temp file: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
+                logger.warn(`Failed to cleanup temp file: ${cleanupError instanceof Error ? cleanupError.message : String(cleanupError)}`);
               }
             }, 5000);
             
           } catch (printError) {
-            console.error(`❌ Windows print command failed:`, printError);
+            logger.error(`Windows print command failed:`, printError);
             
             // CRITICAL FALLBACK: Force Windows print using multiple methods
             try {
-              console.log(`🔄 Attempting DIRECT Windows printing methods...`);
+              logger.info(`Attempting DIRECT Windows printing methods...`);
               
               // Method A: Copy directly to printer (works with most Windows printers)
               const directCopyCmd = `copy "${tempFile}" "${selectedPrinter}"`;
               execSync(directCopyCmd, { encoding: 'utf8', timeout: 15000 });
-              console.log(`✅ Direct copy to printer executed`);
+              logger.info(`Direct copy to printer executed`);
               
               // Method B: Use Windows system print command
               const sysPrintCmd = `print /D:"${selectedPrinter}" "${tempFile}"`;
               execSync(sysPrintCmd, { encoding: 'utf8', timeout: 15000 });
-              console.log(`✅ System print command executed`);
+              logger.info(`System print command executed`);
               
               // Method C: PowerShell Out-Printer (most reliable)
               const psPrintCmd = `powershell.exe -Command "Get-Content '${tempFile}' | Out-Printer -Name '${selectedPrinter}'"`;
               execSync(psPrintCmd, { encoding: 'utf8', timeout: 15000 });
-              console.log(`✅ PowerShell Out-Printer executed`);
+              logger.info(`PowerShell Out-Printer executed`);
               
               printStatus = "completed";
               
             } catch (fallbackError) {
-              console.error(`❌ ALL print methods failed:`, fallbackError);
+              logger.error(`ALL print methods failed:`, fallbackError);
               printStatus = "failed";
               printError = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
             }
           }
         } else {
           // Running in Replit simulation
-          console.log(`⚠️  SIMULATION ENVIRONMENT DETECTED`);
-          console.log(`💡 To enable REAL printing:`);
-          console.log(`   1. Download this project to your Windows PC`);
-          console.log(`   2. Run: npm install && npm run dev`);
-          console.log(`   3. Connect your Magicard Enduro+ (V2) printer`);
-          console.log(`   4. The system will then send actual jobs to Windows print spooler`);
+          logger.info(`SIMULATION ENVIRONMENT DETECTED`);
+          logger.info(`To enable REAL printing:`);
+          logger.info(`1. Download this project to your Windows PC`);
+          logger.info(`2. Run: npm install && npm run dev`);
+          logger.info(`3. Connect your Magicard Enduro+ (V2) printer`);
+          logger.info(`4. The system will then send actual jobs to Windows print spooler`);
           printStatus = "simulated";
         }
         
       } catch (error) {
-        console.error(`❌ Print job creation failed:`, error);
+        logger.error(`Print job creation failed:`, error);
         printStatus = "failed";
         printError = error instanceof Error ? error.message : String(error);
       }
@@ -1263,7 +1264,7 @@ export function registerStaffRoutes(app: Express): void {
         printJob: testPrintJob
       });
     } catch (error) {
-      console.error("Error test printing ID card:", error);
+      logger.error("Error test printing ID card:", error);
       res.status(500).json({ error: "Failed to test print ID card" });
     }
   });
@@ -1277,7 +1278,7 @@ export function registerStaffRoutes(app: Express): void {
       const checkedInStaff = await databaseService.getCheckedInStaff(context);
       res.json(checkedInStaff);
     } catch (error) {
-      console.error("Failed to fetch checked-in staff:", error);
+      logger.error("Failed to fetch checked-in staff:", error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -1312,7 +1313,7 @@ export function registerStaffRoutes(app: Express): void {
       const timeAttendance = await databaseService.getStaffTimeAndAttendance(context, fromDate, toDate);
       res.json(timeAttendance);
     } catch (error) {
-      console.error("Failed to fetch time and attendance data:", error);
+      logger.error("Failed to fetch time and attendance data:", error);
       res.status(500).json({ error: "Failed to fetch time and attendance data" });
     }
   });
@@ -1342,7 +1343,7 @@ export function registerStaffRoutes(app: Express): void {
         idCardDesign: designData
       });
       
-      console.log(`💾 ID card design saved with ${elements.length} elements FOR CUSTOMER: ${context.customerId}`);
+      logger.info(`ID card design saved with ${elements.length} elements FOR CUSTOMER: ${context.customerId}`);
       
       res.json({
         success: true,
@@ -1350,7 +1351,7 @@ export function registerStaffRoutes(app: Express): void {
         design: JSON.parse(settings?.idCardDesign || '{}')
       });
     } catch (error) {
-      console.error("Error saving ID card design:", error);
+      logger.error("Error saving ID card design:", error);
       res.status(500).json({ error: "Failed to save ID card design" });
     }
   });
@@ -1364,13 +1365,13 @@ export function registerStaffRoutes(app: Express): void {
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const designData = settings?.idCardDesign || '[]';
       
-      console.log(`🎨 Loading ID card design FOR CUSTOMER: ${context.customerId}`);
+      logger.info(`Loading ID card design FOR CUSTOMER: ${context.customerId}`);
       
       let parsedDesign;
       try {
         parsedDesign = JSON.parse(designData);
       } catch (parseError) {
-        console.warn("Invalid design data, returning default:", parseError);
+        logger.warn("Invalid design data, returning default:", parseError);
         parsedDesign = { elements: [], background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)', cardSize: 'CR80' };
       }
       
@@ -1379,7 +1380,7 @@ export function registerStaffRoutes(app: Express): void {
         design: parsedDesign
       });
     } catch (error) {
-      console.error("Error loading ID card design:", error);
+      logger.error("Error loading ID card design:", error);
       res.status(500).json({ error: "Failed to load ID card design" });
     }
   });
@@ -1412,10 +1413,10 @@ export function registerStaffRoutes(app: Express): void {
         isActive: true
       };
       
-      console.log(`✅ Staff info retrieved for user ${username} and customer ${targetCustomerId}`);
+      logger.info(`Staff info retrieved for user ${username} and customer ${targetCustomerId}`);
       res.json(staffInfo);
     } catch (error) {
-      console.error('Error fetching staff info:', error);
+      logger.error('Error fetching staff info:', error);
       res.status(500).json({ error: 'Failed to fetch staff information' });
     }
   });
@@ -1436,10 +1437,10 @@ export function registerStaffRoutes(app: Express): void {
         isActive: true
       };
       
-      console.log(`✅ Staff info retrieved for user ${username} and customer ${context.customerId}`);
+      logger.info(`Staff info retrieved for user ${username} and customer ${context.customerId}`);
       res.json(staffInfo);
     } catch (error) {
-      console.error('Error fetching staff info:', error);
+      logger.error('Error fetching staff info:', error);
       res.status(500).json({ error: 'Failed to fetch staff information' });
     }
   });
@@ -1497,13 +1498,13 @@ export function registerStaffRoutes(app: Express): void {
         try {
           await sendFirstWelfareEmail(customerDb, { ...session, personEmail: staffMember.email }, token, settings, baseUrl);
         } catch (emailErr: any) {
-          console.error(`🛡️ Lone worker session ${session.id} started but welfare email failed to send:`, emailErr?.message || emailErr);
+          logger.error(`Lone worker session ${session.id} started but welfare email failed to send:`, emailErr?.message || emailErr);
         }
       }
 
       res.json({ success: true, session, deadline });
     } catch (err: any) {
-      console.error('POST /api/staff/:id/lone-worker/start error:', err);
+      logger.error('POST /api/staff/:id/lone-worker/start error:', err);
       res.status(500).json({ error: 'Failed to start lone worker session' });
     }
   });
@@ -1526,7 +1527,7 @@ export function registerStaffRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (err: any) {
-      console.error('POST /api/staff/:id/lone-worker/end error:', err);
+      logger.error('POST /api/staff/:id/lone-worker/end error:', err);
       res.status(500).json({ error: 'Failed to end lone worker session' });
     }
   });

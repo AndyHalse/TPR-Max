@@ -13,6 +13,7 @@ import { randomUUID } from 'crypto';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { eq } from 'drizzle-orm';
+import { logger } from '../utils/logger';
 
 // ─── Logo token helpers ───────────────────────────────────────────────────────
 
@@ -60,13 +61,13 @@ export function registerSettingsRoutes(
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
       if (!settings?.logoUrl) {
-        console.log(`[LOGO] No logo URL in settings for customer ${customerId}`);
+        logger.info(`[LOGO] No logo URL in settings for customer ${customerId}`);
         return res.status(404).json({ error: "No logo configured" });
       }
       
       const rawLogoUrl = settings.logoUrl;
       const normalizedUrl = rawLogoUrl.replace(/^\/objects/, '').replace(/^\/+/, '/');
-      console.log(`[LOGO] Public logo request for customer ${customerId}: raw=${rawLogoUrl}, normalized=${normalizedUrl}`);
+      logger.info(`[LOGO] Public logo request for customer ${customerId}: raw=${rawLogoUrl}, normalized=${normalizedUrl}`);
       
       const objectStorageService = new ObjectStorageService();
       
@@ -98,10 +99,10 @@ export function registerSettingsRoutes(
         // All paths exhausted
       }
       
-      console.log(`[LOGO] Public logo not found for customer ${customerId}`);
+      logger.info(`[LOGO] Public logo not found for customer ${customerId}`);
       return res.status(404).json({ error: "Logo file not found" });
     } catch (error) {
-      console.error(`[LOGO] Error serving public logo:`, error);
+      logger.error(`[LOGO] Error serving public logo:`, error);
       return res.status(500).json({ error: "Failed to serve logo" });
     }
   });
@@ -113,54 +114,54 @@ export function registerSettingsRoutes(
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
       if (!settings?.logoUrl) {
-        console.log(`[LOGO] No logo URL in settings for customer ${req.customerId}`);
+        logger.info(`[LOGO] No logo URL in settings for customer ${req.customerId}`);
         return res.status(404).json({ error: "No logo configured" });
       }
       
       const rawLogoUrl = settings.logoUrl;
       const normalizedUrl = rawLogoUrl.replace(/^\/objects/, '').replace(/^\/+/, '/');
-      console.log(`[LOGO] Serving logo for customer ${req.customerId}: raw=${rawLogoUrl}, normalized=${normalizedUrl}`);
+      logger.info(`[LOGO] Serving logo for customer ${req.customerId}: raw=${rawLogoUrl}, normalized=${normalizedUrl}`);
       
       const objectStorageService = new ObjectStorageService();
       
       try {
         const objectPath = `/objects${normalizedUrl}`;
-        console.log(`[LOGO] Trying private path: ${objectPath}`);
+        logger.info(`[LOGO] Trying private path: ${objectPath}`);
         const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
-        console.log(`[LOGO] Found logo in private storage`);
+        logger.info(`[LOGO] Found logo in private storage`);
         return objectStorageService.downloadObject(objectFile, res, 86400);
       } catch (privateErr: any) {
-        console.log(`[LOGO] Private storage failed: ${privateErr?.message || 'unknown error'}`);
+        logger.info(`[LOGO] Private storage failed: ${privateErr?.message || 'unknown error'}`);
       }
       
       try {
         const fileName = normalizedUrl.replace(/^\/?(uploads\/)?/, '');
-        console.log(`[LOGO] Trying public path: ${fileName}`);
+        logger.info(`[LOGO] Trying public path: ${fileName}`);
         const publicFile = await objectStorageService.searchPublicObject(fileName);
         if (publicFile) {
-          console.log(`[LOGO] Found logo in public storage`);
+          logger.info(`[LOGO] Found logo in public storage`);
           return objectStorageService.downloadObject(publicFile, res, 86400);
         }
       } catch (publicErr: any) {
-        console.log(`[LOGO] Public storage failed: ${publicErr?.message || 'unknown error'}`);
+        logger.info(`[LOGO] Public storage failed: ${publicErr?.message || 'unknown error'}`);
       }
       
       try {
         const fullFileName = normalizedUrl.replace(/^\//, '');
-        console.log(`[LOGO] Trying full public path: ${fullFileName}`);
+        logger.info(`[LOGO] Trying full public path: ${fullFileName}`);
         const publicFile2 = await objectStorageService.searchPublicObject(fullFileName);
         if (publicFile2) {
-          console.log(`[LOGO] Found logo in public storage (full path)`);
+          logger.info(`[LOGO] Found logo in public storage (full path)`);
           return objectStorageService.downloadObject(publicFile2, res, 86400);
         }
       } catch (fullErr: any) {
-        console.log(`[LOGO] Full public path failed: ${fullErr?.message || 'unknown error'}`);
+        logger.info(`[LOGO] Full public path failed: ${fullErr?.message || 'unknown error'}`);
       }
       
-      console.log(`[LOGO] Logo not found in any storage path for customer ${req.customerId}`);
+      logger.info(`[LOGO] Logo not found in any storage path for customer ${req.customerId}`);
       return res.status(404).json({ error: "Logo file not found in storage" });
     } catch (error) {
-      console.error(`[LOGO] Error serving logo:`, error);
+      logger.error(`[LOGO] Error serving logo:`, error);
       return res.status(500).json({ error: "Failed to serve logo" });
     }
   });
@@ -176,7 +177,7 @@ export function registerSettingsRoutes(
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
-      console.log(`[SETTINGS-API] customer=${context.customerId} logo=${settings?.logoUrl || 'NONE'} bg=${settings?.backgroundColor || 'NONE'} accent=${settings?.accentColor || 'NONE'} company=${settings?.companyName || 'NONE'}`);
+      logger.info(`[SETTINGS-API] customer=${context.customerId} logo=${settings?.logoUrl || 'NONE'} bg=${settings?.backgroundColor || 'NONE'} accent=${settings?.accentColor || 'NONE'} company=${settings?.companyName || 'NONE'}`);
       
       if (settings) {
         const {
@@ -208,14 +209,14 @@ export function registerSettingsRoutes(
           smtpPasswordSet: !!(smtpPassword && smtpPassword.length > 0),
         };
         
-        console.log(`[SETTINGS-API] Sending ${Object.keys(responsePayload).length} fields to client, logoUrl=${responsePayload.logoUrl || 'EMPTY'}`);
+        logger.info(`[SETTINGS-API] Sending ${Object.keys(responsePayload).length} fields to client, logoUrl=${responsePayload.logoUrl || 'EMPTY'}`);
         res.json(responsePayload || {});
       } else {
-        console.log(`[SETTINGS-API] No settings found - sending empty object`);
+        logger.info(`[SETTINGS-API] No settings found - sending empty object`);
         res.json({});
       }
     } catch (error) {
-      console.error('Settings fetch error:', error);
+      logger.error('Settings fetch error:', error);
       res.status(500).json({ error: "Failed to fetch company settings" });
     }
   });
@@ -237,7 +238,7 @@ export function registerSettingsRoutes(
         await simpleDatabaseService.getCompanySettings(context);
         status.database = true;
       } catch (dbError) {
-        console.error("Database status check failed:", dbError);
+        logger.error("Database status check failed:", dbError);
       }
 
       try {
@@ -251,7 +252,7 @@ export function registerSettingsRoutes(
           status.email = !!(settings?.smtpHost && settings?.smtpUsername && settings?.smtpPassword && settings?.smtpFromName);
         }
       } catch (emailError) {
-        console.error("Email status check failed:", emailError);
+        logger.error("Email status check failed:", emailError);
       }
 
       status.authentication = true;
@@ -263,7 +264,7 @@ export function registerSettingsRoutes(
         await simpleDatabaseService.getCompanySettings(context);
         status.storage = true;
       } catch (storageError) {
-        console.error("Storage status check failed:", storageError);
+        logger.error("Storage status check failed:", storageError);
       }
 
       res.json({
@@ -275,7 +276,7 @@ export function registerSettingsRoutes(
         appName: "TPR Max",
       });
     } catch (error) {
-      console.error("System status check failed:", error);
+      logger.error("System status check failed:", error);
       res.status(500).json({ 
         error: "Failed to check system status",
         services: {
@@ -333,7 +334,7 @@ export function registerSettingsRoutes(
         claude: { serviceType: 'claude', ...formatKeyStatus(claudeKey) },
       });
     } catch (error) {
-      console.error("Error fetching AI keys:", error);
+      logger.error("Error fetching AI keys:", error);
       res.status(500).json({ error: "Failed to fetch API keys" });
     }
   });
@@ -468,7 +469,7 @@ export function registerSettingsRoutes(
         results 
       });
     } catch (error) {
-      console.error("Error saving AI keys:", error);
+      logger.error("Error saving AI keys:", error);
       res.status(500).json({ error: "Failed to save API keys" });
     }
   });
@@ -576,7 +577,7 @@ export function registerSettingsRoutes(
       
       res.json(testResult!);
     } catch (error) {
-      console.error("Error testing AI key:", error);
+      logger.error("Error testing AI key:", error);
       res.status(500).json({ error: "Failed to test API key" });
     }
   });
@@ -608,7 +609,7 @@ export function registerSettingsRoutes(
         message: `${serviceType} API key has been revoked successfully` 
       });
     } catch (error) {
-      console.error("Error revoking AI key:", error);
+      logger.error("Error revoking AI key:", error);
       res.status(500).json({ error: "Failed to revoke API key" });
     }
   });
@@ -633,19 +634,19 @@ export function registerSettingsRoutes(
       
       const settings = await simpleDatabaseService.updateCompanySettings(context, updates);
       
-      console.log(`💾 Updated company settings FOR CUSTOMER: ${context.customerId}`);
+      logger.info(`Updated company settings FOR CUSTOMER: ${context.customerId}`);
 
       const dailyResetFields = ['enableDailyReset', 'dailyResetTime', 'dailyResetTimezone', 'gracePeriodMinutes', 'enableWeekendReset', 'enable24x7Operations', 'enableHolidayReset'];
       if (dailyResetFields.some(f => f in updates) && setupAutomaticDailyReset) {
-        console.log(`📅 Daily reset settings changed for customer ${context.customerId} — rescheduling`);
+        logger.info(`Daily reset settings changed for customer ${context.customerId} — rescheduling`);
         setupAutomaticDailyReset(context.customerId).catch(err => 
-          console.error('Failed to reschedule daily reset after settings change:', err)
+          logger.error('Failed to reschedule daily reset after settings change:', err)
         );
       }
 
       res.json(settings);
     } catch (error) {
-      console.error('Settings update error:', error);
+      logger.error('Settings update error:', error);
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid settings data", details: error.errors });
       } else {
@@ -657,7 +658,7 @@ export function registerSettingsRoutes(
   // Windows printer detection endpoint
   app.post("/api/objects/upload", requireAuth, async (req, res) => {
     try {
-      console.log("[UPLOAD] POST /api/objects/upload received, body keys:", Object.keys(req.body || {}));
+      logger.info("[UPLOAD] POST /api/objects/upload received, body keys:", Object.keys(req.body || {}));
       const { data, mimeType } = req.body;
       if (!data || !mimeType) {
         return res.status(400).json({ error: "Missing data or mimeType" });
@@ -670,27 +671,27 @@ export function registerSettingsRoutes(
       const parts = fullPath.slice(1).split("/");
       const bucketName = parts[0];
       const objectName = parts.slice(1).join("/");
-      console.log(`[UPLOAD] Saving to bucket=${bucketName} object=${objectName} mimeType=${mimeType} size=${buffer.length}`);
+      logger.info(`[UPLOAD] Saving to bucket=${bucketName} object=${objectName} mimeType=${mimeType} size=${buffer.length}`);
       const bucket = objectStorageClient.bucket(bucketName);
       const file = bucket.file(objectName);
       await file.save(buffer, { contentType: mimeType, resumable: false });
       const objectPath = `/objects/uploads/${objectId}`;
-      console.log(`[UPLOAD] Success: objectPath=${objectPath}`);
+      logger.info(`[UPLOAD] Success: objectPath=${objectPath}`);
       return res.json({ objectPath });
     } catch (error) {
-      console.error("[UPLOAD] Error uploading file:", error);
+      logger.error("[UPLOAD] Error uploading file:", error);
       res.status(500).json({ error: "Failed to upload file", detail: String(error) });
     }
   });
 
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
-      console.log(`[OBJECTS] Serving object: ${req.path}`);
+      logger.info(`[OBJECTS] Serving object: ${req.path}`);
       const objectStorageService = new ObjectStorageService();
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);
       objectStorageService.downloadObject(objectFile, res);
     } catch (error) {
-      console.error(`[OBJECTS] Error accessing object ${req.path}:`, error);
+      logger.error(`[OBJECTS] Error accessing object ${req.path}:`, error);
       if (error instanceof ObjectNotFoundError) {
         return res.sendStatus(404);
       }
@@ -708,7 +709,7 @@ export function registerSettingsRoutes(
       }
       objectStorageService.downloadObject(file, res);
     } catch (error) {
-      console.error("Error searching for public object:", error);
+      logger.error("Error searching for public object:", error);
       return res.status(500).json({ error: "Internal server error" });
     }
   });
@@ -762,7 +763,7 @@ export function registerSettingsRoutes(
         );
 
         if (!emailSent) {
-          console.warn("Failed to send invitation email, but invitation was created");
+          logger.warn("Failed to send invitation email, but invitation was created");
         }
       }
 
@@ -778,7 +779,7 @@ export function registerSettingsRoutes(
         }
       });
     } catch (error) {
-      console.error("Failed to create invitation:", error);
+      logger.error("Failed to create invitation:", error);
       res.status(500).json({ error: "Failed to create invitation" });
     }
   });
@@ -798,7 +799,7 @@ export function registerSettingsRoutes(
         invitedBy: inv.invitedBy
       })));
     } catch (error) {
-      console.error("Failed to fetch invitations:", error);
+      logger.error("Failed to fetch invitations:", error);
       res.status(500).json({ error: "Failed to fetch invitations" });
     }
   });
@@ -857,7 +858,7 @@ export function registerSettingsRoutes(
         user: { id: newUser.id, username: newUser.username, email: newUser.email }
       });
     } catch (error) {
-      console.error("Failed to accept invitation:", error);
+      logger.error("Failed to accept invitation:", error);
       res.status(500).json({ error: "Failed to accept invitation" });
     }
   });
@@ -875,7 +876,7 @@ export function registerSettingsRoutes(
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Failed to delete invitation:", error);
+      logger.error("Failed to delete invitation:", error);
       res.status(500).json({ error: "Failed to delete invitation" });
     }
   });
@@ -921,7 +922,7 @@ export function registerSettingsRoutes(
 
       res.json([...safeUsers, ...safePendingInvitations]);
     } catch (error) {
-      console.error("Failed to fetch users:", error);
+      logger.error("Failed to fetch users:", error);
       res.status(500).json({ error: "Failed to fetch users" });
     }
   });
@@ -974,7 +975,7 @@ export function registerSettingsRoutes(
         }
       });
     } catch (error) {
-      console.error("Failed to create user manually:", error);
+      logger.error("Failed to create user manually:", error);
       res.status(500).json({ error: "Failed to create user account" });
     }
   });
@@ -1041,7 +1042,7 @@ export function registerSettingsRoutes(
         }
       });
     } catch (error) {
-      console.error("Failed to update user:", error);
+      logger.error("Failed to update user:", error);
       res.status(500).json({ error: "Failed to update user" });
     }
   });
@@ -1064,7 +1065,7 @@ export function registerSettingsRoutes(
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Failed to delete user:", error);
+      logger.error("Failed to delete user:", error);
       res.status(500).json({ error: "Failed to delete user" });
     }
   });

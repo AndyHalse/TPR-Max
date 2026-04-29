@@ -1,0 +1,66 @@
+Fix the following code quality issues across the TPR Max codebase.
+
+---
+
+FIX 1 — Replace console.log with structured logging
+
+In the following server route files, replace all console.log() 
+and console.error() calls with the winston logger that is already 
+a project dependency:
+
+  server/routes/visitors.ts
+  server/routes/contractors.ts
+  server/routes/settings.ts
+  server/routes/staff.ts
+  server/routes/emergency.ts
+  server/routes/remaining.ts
+  server/routes/platformAdmin.ts
+
+At the top of each file, add:
+  import { createLogger } from '../utils/logger';
+  const logger = createLogger('routes/visitors'); // adjust name per file
+
+Replace:
+  console.log('...')    →  logger.info('...')
+  console.error('...')  →  logger.error('...')
+  console.warn('...')   →  logger.warn('...')
+
+Remove all emoji prefixes from log messages (🎨, 🤖, ✅ etc.) — 
+these are not appropriate in production logs.
+
+Do NOT log customer names, email addresses, or personal data 
+at info level. If a log message currently includes a person's 
+name or email, replace it with an anonymised reference:
+  e.g. "Visitor checked in: John Smith" → "Visitor checked in: ID ${visitor.id}"
+
+---
+
+FIX 2 — Fix hardcoded ACS company name in staff ID cards 
+(server/routes/staff.ts)
+
+Find the line that hardcodes "ACS Safety & Security Ltd" in the 
+ID card or badge template (approximately line 1,023).
+
+Replace the hardcoded string with the customer's own company 
+name from their settings:
+  const companyName = settings?.companyName || 'Site Operator';
+
+Use companyName wherever the hardcoded string currently appears.
+
+---
+
+FIX 3 — Fix e-pass URL fallback (server/routes/visitors.ts)
+
+Find where the e-pass link URL is constructed. There is a 
+fallback to a repl.co development domain when APP_URL is not set.
+
+Replace the fallback:
+  BEFORE: || 'https://tprmax.repl.co'  (or similar)
+  AFTER:  
+  if (!process.env.APP_URL) {
+    logger.error('APP_URL environment variable is not set — e-pass links will be broken');
+  }
+  const baseUrl = process.env.APP_URL || '';
+
+If baseUrl is empty, skip sending the e-pass email entirely 
+and return a server-side warning rather than sending a broken link.
