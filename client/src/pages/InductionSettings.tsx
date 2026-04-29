@@ -137,8 +137,8 @@ function SentLinksSection() {
         <div className="divide-y">
           {tokens.map(t => {
             const attempts = t.quizAttempts ?? 0;
-            const locked = attempts >= 3 && !t.quizPassed;
-            const canReset = attempts >= 3; // show Reset for any fully-attempted token
+            const locked = attempts >= 5 && !t.quizPassed;
+            const canReset = attempts >= 5; // show Reset for any fully-attempted token
             const expired = isExpired(t.expiresAt);
             return (
               <div key={t.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3">

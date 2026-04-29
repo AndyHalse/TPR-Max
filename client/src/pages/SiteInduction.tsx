@@ -568,8 +568,8 @@ export default function SiteInduction() {
     const currentQuestion = questions[currentQuestionIndex];
 
     // Check if already locked from previous attempts (at load time or after 429)
-    const alreadyMaxed = !quizLocked && tokenData && (tokenData.quizAttempts ?? 0) >= 3 && !tokenData.quizPassed;
-    const lockReason = quizLocked || (alreadyMaxed ? 'Maximum quiz attempts reached. Please contact the site administrator to reset your induction.' : null);
+    const alreadyMaxed = !quizLocked && tokenData && (tokenData.quizAttempts ?? 0) >= 5 && !tokenData.quizPassed;
+    const lockReason = quizLocked || (alreadyMaxed ? 'Maximum quiz attempts reached. You have used all 5 attempts. Please contact the site operator to request a new induction link.' : null);
 
     if (lockReason) {
       return (
@@ -693,7 +693,7 @@ export default function SiteInduction() {
             
             {quizResults && !quizResults.passed && (() => {
               const attemptsUsed = tokenData.quizAttempts ?? 0;
-              const attemptsRemaining = Math.max(0, 3 - attemptsUsed);
+              const attemptsRemaining = Math.max(0, 5 - attemptsUsed);
               return (
                 <div className="mt-6 max-w-lg mx-auto px-2 space-y-4">
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center space-y-4">
@@ -705,8 +705,8 @@ export default function SiteInduction() {
                       </p>
                       <p className="text-sm text-amber-700 mt-1">
                         {attemptsRemaining > 0
-                          ? `You have ${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} remaining`
-                          : 'You have used all 3 attempts'}
+                          ? `You have ${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} remaining (${attemptsUsed}/5 used)`
+                          : 'You have reached the maximum number of attempts (5)'}
                       </p>
                     </div>
                     {attemptsRemaining > 0 ? (
@@ -719,7 +719,7 @@ export default function SiteInduction() {
                       </Button>
                     ) : (
                       <p className="text-sm text-amber-800 bg-amber-100 border border-amber-200 rounded-lg px-4 py-3">
-                        Please contact the site administrator to arrange a reset of your induction attempt.
+                        Please contact the site operator for assistance.
                       </p>
                     )}
                   </div>

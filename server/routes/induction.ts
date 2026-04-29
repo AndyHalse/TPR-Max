@@ -746,7 +746,15 @@ export function registerInductionRoutes(app: Express): void {
   app.post('/api/induction/:tokenId/video-watched', async (req, res) => {
     try {
       const { tokenId } = req.params;
-      
+
+      const [tokenRecord] = await db.select().from(inductionTokens).where(eq(inductionTokens.id, tokenId));
+      if (!tokenRecord) {
+        return res.status(404).json({ error: 'Induction link not found.' });
+      }
+      if (new Date() > new Date(tokenRecord.expiresAt)) {
+        return res.status(410).json({ error: 'This induction link has expired. Please contact the site operator for a new invitation.' });
+      }
+
       await inductionService.markVideoWatched(tokenId);
       
       res.json({ success: true });
@@ -765,13 +773,21 @@ export function registerInductionRoutes(app: Express): void {
         return res.status(400).json({ error: 'Invalid answers format' });
       }
 
-      // Rate limiting: max 3 attempts, and enforce a 10-minute cooldown between attempts
+      // Rate limiting: max 5 attempts, and enforce a 10-minute cooldown between failed attempts
       const [tokenRecord] = await db.select().from(inductionTokens).where(eq(inductionTokens.id, tokenId));
       if (!tokenRecord) {
-        return res.status(404).json({ error: 'Induction token not found' });
+        return res.status(404).json({ error: 'Induction link not found.' });
       }
-      if ((tokenRecord.quizAttempts ?? 0) >= 3) {
-        return res.status(429).json({ error: 'Maximum quiz attempts reached. Please contact the site administrator to reset your induction.' });
+      if (new Date() > new Date(tokenRecord.expiresAt)) {
+        return res.status(410).json({ error: 'This induction link has expired. Please contact the site operator for a new invitation.' });
+      }
+      if ((tokenRecord.quizAttempts ?? 0) >= 5) {
+        return res.status(429).json({
+          error: 'Maximum quiz attempts reached.',
+          message: 'You have used all 5 attempts. Please contact the site operator to request a new induction link.',
+          attemptsUsed: tokenRecord.quizAttempts ?? 0,
+          maxAttempts: 5
+        });
       }
       if (tokenRecord.quizCompletedAt && !tokenRecord.quizPassed) {
         const msSinceLast = Date.now() - new Date(tokenRecord.quizCompletedAt).getTime();
@@ -803,12 +819,11 @@ export function registerInductionRoutes(app: Express): void {
         .where(eq(inductionTokens.id, tokenId))
         .catch(err => console.error('⚠️ Failed to persist inductionTopicsCovered:', err));
 
-      // Fire-and-forget: update inductionCompleted on worker/staff/visitor + write worker_note
-      (async () => {
-        try {
-          const [token] = await db.select().from(inductionTokens).where(eq(inductionTokens.id, tokenId));
-          if (!token?.customerId) return;
-
+      // Await worker induction status update — must complete before response is sent
+      let workerUpdateWarning: string | undefined;
+      try {
+        const [token] = await db.select().from(inductionTokens).where(eq(inductionTokens.id, tokenId));
+        if (token?.customerId) {
           const noteCtx = simpleDatabaseService.createCustomerContext('system', token.customerId);
           const noteDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(noteCtx.customerId);
           const now = new Date();
@@ -848,12 +863,13 @@ export function registerInductionRoutes(app: Express): void {
               changedBy: 'system',
             });
           }
-        } catch (noteErr) {
-          console.error('⚠️ Failed to update induction record (non-fatal):', noteErr);
         }
-      })();
+      } catch (workerErr) {
+        console.error('⚠️ Failed to update worker induction record:', workerErr);
+        workerUpdateWarning = 'Result recorded but worker record update failed — please contact support.';
+      }
 
-      res.json({ results, topicsCovered });
+      res.json({ results, topicsCovered, ...(workerUpdateWarning ? { warning: workerUpdateWarning } : {}) });
     } catch (error) {
       console.error('Error submitting quiz:', error);
       res.status(500).json({ error: 'Internal server error' });
