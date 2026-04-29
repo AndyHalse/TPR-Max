@@ -416,8 +416,18 @@ export class VideoGenerationService {
       console.log(`🔧 Starting script generation with comprehensive logging...`);
       console.log(`🔧 Company settings available: ${this.companySettings ? 'YES' : 'NO'}`);
       
-      // Company-wide AI setting takes priority; per-role modelType param is a fallback
-      let selectedModel = this.companySettings?.openaiModel || modelType || "gpt-5";
+      // Company-wide AI setting takes priority; per-role modelType param is a fallback.
+      // Read both openaiModel (induction field) and aiModel (Settings UI field) and
+      // normalise any human-readable UI label to the actual API model identifier.
+      const UI_TO_API: Record<string, string> = {
+        'Claude 3.5 Sonnet (Anthropic)': 'claude-3-5-sonnet-20241022',
+        'Claude 3 Opus (Anthropic)':     'claude-3-opus-20240229',
+        'Claude 3 Haiku (Anthropic)':    'claude-3-haiku-20240307',
+        'GPT-4':                          'gpt-4',
+        'GPT-4o':                         'gpt-4o',
+      };
+      const rawModel = this.companySettings?.openaiModel || (this.companySettings as any)?.aiModel || modelType || 'claude-3-5-sonnet-20241022';
+      let selectedModel = UI_TO_API[rawModel] ?? rawModel;
 
       if (!selectedModel.startsWith('claude-') && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         throw new Error('CRITICAL: Replit AI Integrations OpenAI key not configured (AI_INTEGRATIONS_OPENAI_API_KEY)');

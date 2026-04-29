@@ -30,6 +30,29 @@ import { db } from '../db';
 
 // ─── Module-scope helpers ────────────────────────────────────────────────────
 
+/**
+ * Resolve the AI model to use for induction generation.
+ *
+ * Priority: openaiModel (induction field) → aiModel (Settings UI field) → caller fallback → hardcoded default.
+ * Also normalises human-readable UI dropdown labels (e.g. "Claude 3.5 Sonnet (Anthropic)") to
+ * the actual API model identifiers expected by the generation service.
+ */
+function resolveInductionModel(
+  openaiModel?: string | null,
+  aiModel?: string | null,
+  fallback?: string
+): string {
+  const raw = openaiModel || aiModel || fallback || 'claude-3-5-sonnet-20241022';
+  const UI_TO_API: Record<string, string> = {
+    'Claude 3.5 Sonnet (Anthropic)': 'claude-3-5-sonnet-20241022',
+    'Claude 3 Opus (Anthropic)':     'claude-3-opus-20240229',
+    'Claude 3 Haiku (Anthropic)':    'claude-3-haiku-20240307',
+    'GPT-4':                          'gpt-4',
+    'GPT-4o':                         'gpt-4o',
+  };
+  return UI_TO_API[raw] ?? raw;
+}
+
 // Induction video generation status tracking (per customer+roleType)
 const inductionGenerationStatus = new Map<string, {
   status: 'pending' | 'generating_script' | 'building_slides' | 'creating_questions' | 'saving' | 'done' | 'failed';
@@ -3780,8 +3803,10 @@ export function registerInductionRoutes(app: Express): void {
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
 
-      // Company-wide AI setting (Settings → AI tab) takes priority over the per-role default
-      modelType = settings?.openaiModel || modelType;
+      // Company-wide AI setting (Settings → AI tab) takes priority over the per-role default.
+      // Read both fields and normalise any UI label to an API model identifier.
+      modelType = resolveInductionModel(settings?.openaiModel, settings?.aiModel, modelType);
+      console.log(`Induction generation using model: ${modelType}`);
 
       const videoService = new VideoGenerationService(settings, undefined, context.customerId);
 
@@ -3915,10 +3940,12 @@ export function registerInductionRoutes(app: Express): void {
             console.log('Using default video settings');
           }
 
-          // Company-wide AI setting (Settings → AI tab) takes priority over the per-role default
+          // Company-wide AI setting (Settings → AI tab) takes priority over the per-role default.
+          // Read both fields and normalise any UI label to an API model identifier.
           const context = simpleDatabaseService.createCustomerContext(req.user!.username, customerId);
           const companySettings = await simpleDatabaseService.getCompanySettings(context);
-          modelType = companySettings?.openaiModel || modelType;
+          modelType = resolveInductionModel(companySettings?.openaiModel, companySettings?.aiModel, modelType);
+          console.log(`Induction generation using model: ${modelType}`);
 
           console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
           const videoService = new VideoGenerationService(companySettings, undefined, context.customerId);
