@@ -1,0 +1,111 @@
+Fix the following security issues in the TPR Max codebase.
+Work through each one independently.
+
+---
+
+FIX 1 — Remove duplicate contractor route (contractors.ts)
+
+Search for two definitions of:
+  app.get("/api/contractors/:id", ...)
+  
+Keep only the first (complete, correct) definition. 
+Delete the second entirely. 
+Confirm only one handler exists for this path.
+
+---
+
+FIX 2 — Implement visitor emergency notification (visitors.ts)
+
+Find sendVisitorEmergencyNotification() — it currently returns 
+false and does nothing.
+
+Implement it to send an email to the visitor's email address 
+(if provided at check-in) using the existing email service 
+pattern used elsewhere in the codebase.
+
+The email subject: "URGENT: Emergency Evacuation — [Site Name]"
+Body: "An emergency evacuation has been activated at [company name]. 
+Please make your way to the nearest assembly point immediately 
+and check in with a Fire Marshal. 
+Your safety is our priority."
+
+If the visitor has no email address on record, log a warning 
+and return false gracefully (no crash).
+
+---
+
+FIX 3 — Replace Math.random() tokens with crypto.randomBytes 
+(visitors.ts, contractors.ts)
+
+Search for all uses of Math.random() used to generate tokens, 
+references, or IDs. Replace each with:
+
+  import { randomBytes } from 'crypto';
+  const token = randomBytes(16).toString('hex');
+
+This applies to visitor token generation and any contractor 
+token generation that uses Math.random().
+
+---
+
+FIX 4 — Remove test data generator endpoint (contractors.ts)
+
+Find and delete the route for "generate-test-workers" 
+(or similar — search for "john.smith@steelworks" or 
+"generate-test" in contractors.ts).
+
+Delete the entire route handler. It must not exist in production.
+
+---
+
+FIX 5 — Add rate limiting to platform admin login 
+(server/routes/platformAdmin.ts)
+
+Import the same rate limiter used for other auth routes in 
+server/index.ts. Apply it to the platform admin login endpoint:
+
+  const platformAdminLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,  // 15 minutes
+    max: 10,
+    message: { error: 'Too many login attempts. Try again in 15 minutes.' }
+  });
+
+Apply platformAdminLimiter as middleware on the admin login route.
+
+---
+
+FIX 6 — Audit and fix raw SQL schema name injection 
+(server/routes/platformAdmin.ts)
+
+Search for sql.raw() calls where a schemaName variable is 
+interpolated. 
+
+Add strict validation before any raw SQL execution:
+  
+  // Only allow schema names matching this exact pattern
+  if (!/^[a-z0-9_]{3,63}$/.test(schemaName)) {
+    throw new Error('Invalid schema name');
+  }
+
+Add this validation check in every place schemaName is used 
+in a sql.raw() call.
+
+---
+
+FIX 7 — Harden the development auth bypass (server/auth.ts)
+
+Find isDevAuthBypass() or similar. Currently gated only by 
+NODE_ENV === 'development'.
+
+Add an additional explicit flag requirement:
+
+  function isDevAuthBypass(): boolean {
+    return (
+      process.env.NODE_ENV === 'development' && 
+      process.env.ALLOW_DEV_AUTH_BYPASS === 'true'  // must be explicitly set
+    );
+  }
+
+This means even a misconfigured NODE_ENV in production cannot 
+enable the bypass unless ALLOW_DEV_AUTH_BYPASS is also 
+explicitly set to 'true'.

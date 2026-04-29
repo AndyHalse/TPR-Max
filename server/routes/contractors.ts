@@ -31,7 +31,7 @@ import {
   documentAutoFillMapping,
 } from '@shared/schema';
 import { z } from 'zod';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import {
   eq,
   and,
@@ -913,41 +913,6 @@ export function registerContractorRoutes(app: Express): void {
     }
   });
 
-  app.get("/api/contractors/:id", requireAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const dupContractorContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const contractor = await databaseService.getContractorCompany(dupContractorContext, id);
-      
-      if (!contractor) {
-        return res.status(404).json({ error: "Contractor not found" });
-      }
-      
-      const workers = await databaseService.getWorkersByCompanyId(dupContractorContext, id);
-      const dupDocsDb = await customerDbService.getCustomerDatabase(dupContractorContext.customerId);
-      const documents = await dupDocsDb.select().from(isolatedSchema.contractorDocuments)
-        .where(eq(isolatedSchema.contractorDocuments.companyId, id));
-      
-      // Use existing compliance score without AI calculation for performance
-      const safetyRating = contractor.complianceScore || "A+";
-      const safetyScore = 100;
-      const safetyReasoning = "Safety rating based on worker compliance";
-      
-      res.json({ 
-        ...contractor, 
-        workers, 
-        documents, 
-        complianceScore: safetyRating,
-        safetyScore,
-        safetyReasoning,
-        lastUpdated: new Date().toISOString() // Force cache refresh
-      });
-    } catch (error) {
-      console.error("Error fetching contractor:", error);
-      res.status(500).json({ error: "Failed to fetch contractor" });
-    }
-  });
-
   // OpenAI auto-populate company description endpoint
   app.post("/api/contractors/generate-description", requireAuth, async (req, res) => {
     try {
@@ -1146,131 +1111,6 @@ export function registerContractorRoutes(app: Express): void {
     } catch (error) {
       console.error("Error patching contractor:", error);
       res.status(500).json({ error: "Failed to update contractor" });
-    }
-  });
-
-  // Generate test workers for all contractor companies
-  app.post("/api/contractors/generate-test-workers", requireAuth, async (req, res) => {
-    try {
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      let companies = await databaseService.getAllContractorCompanies(context);
-      
-      // If no companies exist, create some test companies first
-      if (companies.length === 0) {
-        const testCompanies = [
-          {
-            customerId: context.customerId, // Add customer isolation
-            name: "Steel Works Ltd",
-            contactFirstName: "John",
-            contactLastName: "Smith",
-            email: "john.smith@steelworks.co.uk",
-            phone: "+44 1234 567890",
-            address: "123 Industrial Estate, Manchester M1 1AA"
-          },
-          {
-            customerId: context.customerId, // Add customer isolation
-            name: "Prime Construction",
-            contactFirstName: "Sarah",
-            contactLastName: "Johnson",
-            email: "sarah@primeconstruction.co.uk", 
-            phone: "+44 2034 567891",
-            address: "456 Building Road, London E1 4AB"
-          },
-          {
-            customerId: context.customerId, // Add customer isolation
-            name: "Elite Engineering Services",
-            contactFirstName: "Mike",
-            contactLastName: "Wilson",
-            email: "mike.wilson@eliteeng.co.uk",
-            phone: "+44 3456 789012",
-            address: "789 Tech Park, Birmingham B2 5CD"
-          }
-        ];
-        
-        for (const companyData of testCompanies) {
-          await databaseService.createContractorCompany(context, companyData);
-        }
-        
-        // Refresh companies list
-        companies = await databaseService.getAllContractorCompanies(context);
-        console.log(`Created ${testCompanies.length} test contractor companies`);
-      }
-      const workerNames = [
-        "James Wilson", "Sarah Connor", "Michael Brown", "Emma Thompson", "David Miller",
-        "Lisa Anderson", "Robert Taylor", "Jennifer Davis", "Christopher Moore", "Amanda Clark",
-        "Matthew Garcia", "Jessica Rodriguez", "Daniel Lewis", "Ashley Martinez", "John Walker",
-        "Maria Gonzalez", "William Hall", "Elizabeth Allen", "Joseph Young", "Helen King"
-      ];
-      
-      const trades = [
-        "Electrician", "Plumber", "Welder", "Carpenter", "HVAC Technician",
-        "Pipefitter", "Machinist", "Mechanic", "Inspector", "Supervisor",
-        "Foreman", "Rigger", "Crane Operator", "Safety Officer", "Quality Control"
-      ];
-
-      let workersCreated = 0;
-      
-      for (const company of companies) {
-        // Skip if company already has workers
-        const existingWorkers = await databaseService.getWorkersByCompanyId(context, company.id);
-        if (existingWorkers.length > 0) {
-          console.log(`Skipping ${company.name} - already has ${existingWorkers.length} workers`);
-          continue;
-        }
-        
-        // Generate 2-4 workers per company
-        const workerCount = Math.floor(Math.random() * 3) + 2;
-        
-        for (let i = 0; i < workerCount; i++) {
-          const randomName = workerNames[Math.floor(Math.random() * workerNames.length)];
-          const randomTrade = trades[Math.floor(Math.random() * trades.length)];
-          
-          const nameParts = randomName.split(' ');
-          const firstName = nameParts[0];
-          const lastName = nameParts[1];
-          
-          console.log(`Creating worker: ${firstName} ${lastName} (${randomTrade}) for ${company.name}`);
-          
-          // Generate H&S acceptance token for test worker
-          const hsToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-          
-          const worker = {
-            companyId: company.id,
-            firstName: firstName,
-            lastName: `${lastName} (${randomTrade})`,
-            email: `${randomName.toLowerCase().replace(/\s+/g, '.')}@${company.name.toLowerCase().replace(/\s+/g, '')}.com`,
-            phone: `+44 ${Math.floor(Math.random() * 9000) + 1000} ${Math.floor(Math.random() * 900000) + 100000}`,
-            rightToWork: Math.random() < 0.9 ? "valid" : "expired",
-            hsRulesAcceptanceToken: hsToken,
-            // Required for check-in authorization
-            isActive: true,
-            inductionCompleted: Math.random() < 0.85, // 85% have completed induction
-            inductionCompletedAt: Math.random() < 0.85 ? new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000) : null
-          };
-
-          await databaseService.createContractorWorker(context, worker);
-          workersCreated++;
-        }
-      }
-
-      // Update worker counts for companies
-      for (const company of companies) {
-        const workers = await databaseService.getWorkersByCompanyId(context, company.id);
-        await databaseService.updateContractorCompany(context, company.id, {
-          workersCount: workers.length
-        });
-      }
-
-      res.json({ 
-        success: true, 
-        message: `Generated ${workersCreated} test workers across ${companies.length} contractor companies` 
-      });
-    } catch (error) {
-      console.error("Error generating test workers:", error);
-      res.status(500).json({ error: "Failed to generate test workers" });
     }
   });
 
@@ -1783,7 +1623,7 @@ export function registerContractorRoutes(app: Express): void {
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
       // Generate H&S acceptance token for new worker
-      const hsToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const hsToken = randomBytes(16).toString('hex');
       
       const body = req.body;
       const workerData = insertContractorWorkerSchema.parse({

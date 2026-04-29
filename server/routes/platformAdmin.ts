@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
+import rateLimit from 'express-rate-limit';
 import { eq, sql, desc } from 'drizzle-orm';
 import { z } from 'zod';
 import { requirePlatformAdmin } from '../auth';
@@ -21,7 +22,13 @@ export function registerPlatformAdminRoutes(app: Express): void {
    * Platform Admin Login
    * Separate from customer authentication
    */
-  app.post("/platform-admin/auth/login", async (req, res) => {
+  const platformAdminLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { error: 'Too many login attempts. Try again in 15 minutes.' }
+  });
+
+  app.post("/platform-admin/auth/login", platformAdminLimiter, async (req, res) => {
     try {
       const { username, password } = req.body;
       
@@ -715,6 +722,9 @@ export function registerPlatformAdminRoutes(app: Express): void {
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);
       const schemaName = customerDbService.generateSchemaName(customerId);
+      if (!/^[a-z0-9_]{3,63}$/.test(schemaName)) {
+        throw new Error('Invalid schema name');
+      }
       await custDb.execute(sql.raw(`UPDATE "${schemaName}".company_settings SET feature_ppm = ${featurePPM}`));
 
       res.json({ success: true, featurePPM });

@@ -19,7 +19,7 @@ import { websocketService } from '../websocketService';
 import { VoiceNotificationService } from '../voiceNotificationService';
 import { paxtonService } from '../paxtonService';
 import { eq, and, desc, gte, ne, or } from 'drizzle-orm';
-import { randomUUID } from 'crypto';
+import { randomUUID, randomBytes } from 'crypto';
 import { z } from 'zod';
 
 export function registerVisitorRoutes(app: Express): void {
@@ -67,28 +67,38 @@ export function registerVisitorRoutes(app: Express): void {
         });
       }
       
-      // Send the emergency notification
+      // Send emergency evacuation email directly to the visitor
+      if (!visitor.email) {
+        console.warn(`⚠️ Cannot send emergency notification to visitor ${visitor.firstName} ${visitor.lastName} — no email address on record`);
+        return res.status(400).json({
+          error: "No visitor email on record",
+          message: "This visitor did not provide an email address at check-in"
+        });
+      }
+
+      const siteName = companySettings.companyName || 'the site';
       const emailService = new EmailService(req.customerId);
-      // Note: sendVisitorEmergencyNotification method needs to be implemented
-      const emailSent = false; // await emailService.sendVisitorEmergencyNotification(
-        // visitor,
-        // hostStaff,
-        // companySettings,
-        // receptionEmail,
-        // urgencyReason || "Emergency Contact Required"
-        // );
-      
+      const emailSent = await emailService.sendEmail({
+        to: visitor.email,
+        subject: `URGENT: Emergency Evacuation — ${siteName}`,
+        html: `<p>An emergency evacuation has been activated at ${companySettings.companyName || 'the site'}.</p>
+               <p>Please make your way to the nearest assembly point immediately and check in with a Fire Marshal.</p>
+               <p>Your safety is our priority.</p>`,
+        text: `An emergency evacuation has been activated at ${companySettings.companyName || 'the site'}. Please make your way to the nearest assembly point immediately and check in with a Fire Marshal. Your safety is our priority.`,
+        companyName: companySettings.companyName || 'TPR Max',
+      });
+
       if (emailSent) {
-        res.json({ 
-          success: true, 
-          message: "Emergency notification sent to Reception",
-          recipient: receptionEmail,
+        res.json({
+          success: true,
+          message: "Emergency evacuation notification sent to visitor",
+          recipient: visitor.email,
           visitorName: `${visitor.firstName} ${visitor.lastName}`
         });
       } else {
-        res.status(500).json({ 
-          error: "Failed to send emergency notification", 
-          message: "Email service may not be configured properly" 
+        res.status(500).json({
+          error: "Failed to send emergency notification",
+          message: "Email service may not be configured properly"
         });
       }
     } catch (error) {
@@ -188,8 +198,7 @@ export function registerVisitorRoutes(app: Express): void {
         if (!existingVisitor.isCheckedIn) {
           console.log(`🔄 Checking in existing visitor: ${visitorData.firstName} ${visitorData.lastName}`);
           // Generate H&S token for existing visitors if they don't have one
-          const hsToken = existingVisitor.hsRulesAcceptanceToken || 
-            (Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15));
+          const hsToken = existingVisitor.hsRulesAcceptanceToken || randomBytes(16).toString('hex');
           visitor = await databaseService.checkInExistingVisitor(context, existingVisitor.id, {
             hostStaffId: visitorData.hostStaffId || undefined,
             purpose: visitorData.purpose || undefined,
@@ -209,7 +218,7 @@ export function registerVisitorRoutes(app: Express): void {
         }
       } else {
         // Create new visitor with H&S token
-        const hsToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+        const hsToken = randomBytes(16).toString('hex');
         visitor = await databaseService.createVisitor(context, {
           ...visitorData,
           hsRulesAcceptanceToken: hsToken,
@@ -1305,7 +1314,7 @@ export function registerVisitorRoutes(app: Express): void {
       }
 
       // Create visitor record from pre-booking using customer database
-      const hsToken = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+      const hsToken = randomBytes(16).toString('hex');
       const visitor = await databaseService.createVisitor(context, {
         firstName,
         lastName,

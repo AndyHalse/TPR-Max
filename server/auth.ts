@@ -17,7 +17,7 @@ export function isDevAuthBypass(): boolean {
   }
   
   // Only enable in development with explicit flag
-  return process.env.NODE_ENV === 'development' && process.env.DEV_AUTH_BYPASS === 'true';
+  return process.env.NODE_ENV === 'development' && process.env.ALLOW_DEV_AUTH_BYPASS === 'true';
 }
 
 // Dev Data Bypass - centralized development data bypass
