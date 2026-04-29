@@ -557,15 +557,87 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
 
 
   // ─── Browser-print pass endpoints (removed old TCP/IP printer routes) ────────
-  // (placeholder comment — routes below)
 
-  // POST /api/thermal-passes/pdf — legacy endpoint, returns 301 redirect to browser-print
+  // POST /api/thermal-passes/pdf — legacy endpoint, returns 405
   app.post("/api/thermal-passes/pdf", requireAuth, async (req, res) => {
     res.status(405).json({ error: "Use GET /api/passes/print/visitor/:visitorId for browser printing" });
   });
 
   // ─── Browser-print pass endpoints ────────────────────────────────────────────
   // Returns self-contained HTML that auto-calls window.print() on load.
+
+  /** Build a self-contained printable HTML page for a visitor or contractor pass. */
+  function buildPassPage(opts: {
+    title: string;
+    headerLabel: string;
+    headerColor: string;
+    name: string;
+    subName?: string;
+    details: { label: string; value: string }[];
+    qrData: string;
+    companyName: string;
+    companyAddress?: string;
+    logoUrl: string | null;
+    footerId: string;
+  }): string {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=M&color=000000&bgcolor=ffffff&data=${encodeURIComponent(opts.qrData)}`;
+    const logoHtml = opts.logoUrl
+      ? `<img src="${opts.logoUrl}" alt="Logo" style="max-width:60px;max-height:40px;object-fit:contain;" />`
+      : `<div style="width:48px;height:36px;background:${opts.headerColor};border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:13px;">CO</div>`;
+    const detailsHtml = opts.details
+      .filter(d => d.value)
+      .map(d => `<p style="margin:1px 0;font-size:10px;color:#374151;"><strong>${d.label}:</strong> ${d.value}</p>`)
+      .join('');
+
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>${opts.title}</title>
+  <style>
+    @page { size: 95mm 65mm; margin: 0; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #fff; width: 95mm; height: 65mm; overflow: hidden; }
+    .pass { width: 95mm; height: 65mm; padding: 6px 8px; display: flex; flex-direction: column; background: #fff; border: 1px solid #e5e7eb; }
+    .header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 4px; border-bottom: 2px solid ${opts.headerColor}; margin-bottom: 4px; }
+    .header-label { font-size: 11px; font-weight: bold; color: ${opts.headerColor}; letter-spacing: 1px; }
+    .body { display: flex; flex: 1; gap: 6px; }
+    .body-left { flex: 1; }
+    .name { font-size: 14px; font-weight: bold; color: #111827; line-height: 1.2; }
+    .subname { font-size: 10px; color: #6b7280; margin-top: 1px; }
+    .details { margin-top: 4px; }
+    .qr { flex-shrink: 0; width: 60px; display: flex; align-items: center; justify-content: center; }
+    .qr img { width: 60px; height: 60px; }
+    .footer { display: flex; justify-content: space-between; align-items: flex-end; padding-top: 3px; border-top: 1px solid #e5e7eb; margin-top: 3px; font-size: 9px; color: #9ca3af; }
+    @media print { body { margin: 0; } .no-print { display: none; } }
+  </style>
+</head>
+<body onload="window.print()">
+  <div class="pass">
+    <div class="header">
+      <div>
+        <div class="header-label">${opts.headerLabel}</div>
+        <div style="font-size:10px;color:#6b7280;">${opts.companyName}</div>
+        ${opts.companyAddress ? `<div style="font-size:9px;color:#9ca3af;">${opts.companyAddress}</div>` : ''}
+      </div>
+      <div>${logoHtml}</div>
+    </div>
+    <div class="body">
+      <div class="body-left">
+        <div class="name">${opts.name}</div>
+        ${opts.subName ? `<div class="subname">${opts.subName}</div>` : ''}
+        <div class="details">${detailsHtml}</div>
+      </div>
+      <div class="qr"><img src="${qrUrl}" alt="QR Code" /></div>
+    </div>
+    <div class="footer">
+      <span>ID: ${opts.footerId}</span>
+      <span>${opts.companyName}</span>
+    </div>
+  </div>
+</body>
+</html>`;
+  }
 
   // GET /api/passes/print/visitor/demo — demo visitor pass (no auth needed for design preview)
   app.get("/api/passes/print/visitor/demo", async (req, res) => {

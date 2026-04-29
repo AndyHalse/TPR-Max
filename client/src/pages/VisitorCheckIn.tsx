@@ -193,7 +193,7 @@ export default function VisitorCheckIn() {
 
   // Function to automatically print visitor pass
   const printVisitorPass = (visitor: Visitor) => {
-    const printUrl = `/api/passes/browser-print/${visitor.id}`;
+    const printUrl = `/api/passes/print/visitor/${visitor.id}`;
     const printWindow = window.open(printUrl, '_blank', 'width=500,height=400,noopener,noreferrer');
     if (!printWindow) {
       toast({

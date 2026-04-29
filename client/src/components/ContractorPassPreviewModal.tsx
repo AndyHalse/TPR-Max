@@ -23,7 +23,7 @@ export default function ContractorPassPreviewModal({
 
   const handlePrint = () => {
     setIsPrinting(true);
-    const printUrl = `/api/passes/browser-print/contractor/${worker.id}`;
+    const printUrl = `/api/passes/print/contractor/${worker.id}`;
     const printWindow = window.open(printUrl, '_blank', 'width=500,height=400,noopener,noreferrer');
     if (!printWindow) {
       toast({
