@@ -2720,27 +2720,53 @@ export default function Settings() {
                       </Select>
                     </div>
 
-                    <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl">
+                    <div className="mt-4 p-4 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-xl">
+                      <div className="flex items-start gap-3">
+                        <Info className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                        <div className="space-y-2">
+                          <h4 className="text-sm font-semibold text-green-900 dark:text-green-100">Browser Print — Recommended for Cloud / SaaS</h4>
+                          <p className="text-xs text-green-700 dark:text-green-300 leading-relaxed">
+                            Browser printing works wherever TPR Max is hosted — including Replit cloud, Starlink, or any internet connection.
+                            When a visitor checks in, a print window opens in a new browser tab. Select your thermal printer
+                            from the browser's print dialog, set the paper size to <strong>95 × 65 mm</strong> with <strong>no margins</strong>,
+                            and click Print. No IP address or port configuration needed.
+                          </p>
+                          <div className="mt-2 space-y-1 text-xs text-green-600 dark:text-green-400">
+                            <p className="font-medium">Quick setup:</p>
+                            <ol className="list-decimal list-inside space-y-1 ml-2">
+                              <li>Connect your thermal printer to the <strong>reception PC</strong> (USB or local network)</li>
+                              <li>Install the printer driver on that PC so it appears in Windows/Mac print dialogs</li>
+                              <li>Allow pop-ups for this site in your browser settings</li>
+                              <li>Check in a visitor — the print window will open automatically</li>
+                            </ol>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-xl">
                       <div className="flex items-start gap-3">
                         <Info className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                         <div className="space-y-2">
-                          <h4 className="text-sm font-semibold text-blue-900">Network Printing for SaaS Applications</h4>
-                          <p className="text-xs text-blue-700 leading-relaxed">
-                            TPR Max can send print commands directly to your thermal printers over the internet using TCP/IP connections.
-                            This enables cloud-based printing from anywhere without requiring local software.
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100">TCP/IP Direct Print — On-Premises Only</h4>
+                          <p className="text-xs text-blue-700 dark:text-blue-300 leading-relaxed">
+                            TPR Max can also send raw print commands directly to a printer over TCP/IP (port 9100).
+                            This requires the printer to be reachable from the server — it works when TPR Max runs on a local server
+                            on the same LAN as the printer, but <strong>will not work from Replit cloud</strong> unless you configure
+                            public port-forwarding on your router.
                           </p>
-                          <div className="mt-3 space-y-1.5 text-xs text-blue-600 dark:text-blue-400">
+                          <div className="mt-2 space-y-1 text-xs text-blue-600 dark:text-blue-400">
                             <p className="font-medium">Setup Instructions:</p>
                             <ol className="list-decimal list-inside space-y-1 ml-2">
                               <li>Connect your printer to your network (Ethernet or Wi-Fi)</li>
                               <li>Print a network configuration page to find the printer's IP address</li>
                               <li>Ensure port 9100 is accessible (check firewall settings if needed)</li>
                               <li>Enter the printer IP address and port below</li>
-                              <li>For remote access, configure port forwarding on your router</li>
+                              <li>For remote access from the cloud, configure port forwarding on your router</li>
                             </ol>
                           </div>
                           <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
-                            <strong>Note:</strong> Both Toshiba Tec TCPL and Zebra ZPL printers support standard TCP/IP connections on port 9100.
+                            <strong>Note:</strong> Both Toshiba Tec TCPL and Zebra ZPL printers support TCP/IP on port 9100.
                           </p>
                         </div>
                       </div>

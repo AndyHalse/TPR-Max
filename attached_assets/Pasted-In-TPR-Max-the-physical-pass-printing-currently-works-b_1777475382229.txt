@@ -1,0 +1,117 @@
+In TPR Max, the physical pass printing currently works by making a 
+direct TCP/IP connection from the server to the printer. This fails 
+for cloud/SaaS deployments (including Starlink) because the server 
+cannot reach printers on the customer's local network.
+
+Replace this with browser-based printing: generate a print-ready 
+HTML page server-side, open it in a new browser tab, and call 
+window.print() so the user selects their local printer through the 
+normal OS print dialog. This works the same way as printing from 
+any website.
+
+---
+
+STEP 1 — Create a browser-print endpoint (server/routes/printing.ts 
+or server/routes/remaining.ts)
+
+Add a new route: GET /api/passes/browser-print/:visitorId
+(and an equivalent for contractors: GET /api/passes/browser-print/contractor/:workerId)
+
+This endpoint:
+1. Fetches the visitor/contractor record and company settings
+2. Generates an HTML string that represents the pass at 
+   95mm × 65mm (361px × 247px at 96dpi)
+3. Returns a complete, self-contained HTML page with a 
+   <script> that calls window.print() on page load
+4. Includes print-specific CSS that:
+   - Sets @page { size: 95mm 65mm; margin: 0; }
+   - Hides everything except the pass content when printing
+   - Renders the same pass layout shown in the Pass Designer
+
+The HTML page should look exactly like the preview shown in the 
+Pass Designer UI (name, company, host, date/time, QR code, 
+site logo). Use inline styles so no external CSS is needed.
+
+Example page structure to generate:
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @page { size: 95mm 65mm; margin: 0; }
+  body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+  .pass { width: 95mm; height: 65mm; padding: 4mm; box-sizing: border-box; 
+          border: 1px solid #ddd; }
+  /* Pass layout styles here */
+  @media print {
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+<div class="pass">
+  <!-- Pass content here: name, company, host, QR code, logo, date -->
+</div>
+<script>
+  window.addEventListener('load', function() {
+    // Small delay lets the QR code image load before printing
+    setTimeout(function() { window.print(); }, 800);
+  });
+</script>
+</body>
+</html>
+
+Include the visitor's QR code as a data: URI (base64 encoded PNG) 
+so it renders offline without needing a network request.
+
+---
+
+STEP 2 — Update the frontend print button 
+(client/src/pages/Printing.tsx or wherever Print Test / print 
+buttons are rendered)
+
+When the customer has physical passes enabled (ePassEnabled is false 
+OR the user explicitly clicks "Print Physical Pass"):
+
+Replace the current API call to the TCP/IP print endpoint with:
+
+  const printUrl = `/api/passes/browser-print/${visitor.id}`;
+  window.open(printUrl, '_blank', 'width=400,height=300');
+
+This opens the print page in a small popup. The page auto-triggers 
+window.print(). The user sees the standard OS print dialog and 
+selects their local thermal printer.
+
+---
+
+STEP 3 — Update Printer Settings UI
+
+In the Printer Settings tab, update the help text to explain how 
+physical printing works in the cloud version:
+
+Replace any reference to "network printer IP address" for 
+the SaaS version with:
+
+"Physical passes open a print dialog in your browser. Select your 
+local thermal printer (Zebra or Toshiba TEC) from the print dialog. 
+Set your printer's paper size to 95mm × 65mm in your printer 
+preferences before printing."
+
+Keep the existing TCP/IP direct print options for customers who 
+run TPR Max on-premises (do not remove them), but add a note:
+"Direct network printing requires TPR Max to be running on the 
+same local network as your printer. For cloud/hosted installations, 
+use Browser Print above."
+
+---
+
+STEP 4 — Show clear feedback to the user
+
+After window.open() is called, show a toast notification:
+"Print dialog opened. Select your thermal printer and click Print."
+
+If the browser blocks the popup (popup blocker), catch this 
+(window.open returns null) and show:
+"Your browser blocked the print popup. Please allow popups for 
+this site and try again, or click here to open the print page manually."
+with a clickable link to the print URL.

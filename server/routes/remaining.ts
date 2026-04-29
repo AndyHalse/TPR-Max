@@ -946,6 +946,226 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
   });
 
 
+  // ─── Browser-print pass endpoints ───────────────────────────────────────────
+  // These return a self-contained HTML page that auto-calls window.print() so
+  // the user selects their local printer via the OS print dialog.  Works for
+  // cloud / SaaS / Starlink deployments where the server cannot reach the
+  // printer over TCP/IP.
+
+  function escHtml(str: string): string {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function buildPassPage(opts: {
+    title: string;
+    headerLabel: string;
+    headerColor: string;
+    name: string;
+    subName?: string;
+    details: { label: string; value: string }[];
+    qrData: string;
+    companyName: string;
+    companyAddress?: string;
+    logoUrl?: string | null;
+    badgeColor?: string;
+    footerId: string;
+  }): string {
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(opts.qrData)}`;
+    const detailRows = opts.details
+      .filter(d => d.value)
+      .map(d => `<div class="detail"><strong>${escHtml(d.label)}:</strong> ${escHtml(d.value)}</div>`)
+      .join('');
+
+    return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>${escHtml(opts.title)}</title>
+  <style>
+    @page { size: 95mm 65mm; margin: 0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; background: #f5f5f5; }
+    .pass {
+      width: 95mm; height: 65mm; padding: 3mm 4mm;
+      background: white; position: relative; overflow: hidden;
+    }
+    .header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      border-bottom: 1.5px solid ${escHtml(opts.headerColor)};
+      padding-bottom: 1.5mm; margin-bottom: 2mm;
+    }
+    .company-info { flex: 1; min-width: 0; }
+    .company-name { font-size: 9.5pt; font-weight: bold; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pass-label { font-size: 7pt; color: ${escHtml(opts.headerColor)}; margin: 0.5mm 0 0; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+    .company-address { font-size: 5.5pt; color: #777; margin: 0.5mm 0 0; }
+    .logo-box { width: 13mm; height: 13mm; margin-left: 2mm; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .logo-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .logo-fallback { width: 13mm; height: 13mm; background: #333; border-radius: 2mm; display: flex; align-items: center; justify-content: center; color: white; font-size: 5pt; font-weight: bold; }
+    .main { display: flex; gap: 3mm; margin-bottom: 2mm; }
+    .info { flex: 1; min-width: 0; }
+    .person-name { font-size: 11.5pt; font-weight: bold; margin: 0 0 1mm; }
+    .sub-name { font-size: 8pt; color: #333; margin: 0 0 1mm; font-weight: 600; }
+    .detail { font-size: 6.5pt; color: #444; margin: 0.4mm 0; }
+    .detail strong { color: #222; }
+    .qr-section { display: flex; flex-direction: column; align-items: center; width: 18mm; flex-shrink: 0; }
+    .qr-section img { width: 16mm; height: 16mm; border: 1px solid #333; display: block; }
+    .qr-label { font-size: 4.5pt; color: #666; margin-top: 0.5mm; text-align: center; }
+    .footer {
+      position: absolute; bottom: 2mm; left: 4mm; right: 4mm;
+      display: flex; justify-content: space-between;
+      font-size: 5pt; color: #999;
+      border-top: 0.5px solid #e5e5e5; padding-top: 1mm;
+    }
+    @media print {
+      body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .pass { border: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="pass">
+    <div class="header">
+      <div class="company-info">
+        <div class="company-name">${escHtml(opts.companyName)}</div>
+        <div class="pass-label">${escHtml(opts.headerLabel)}</div>
+        ${opts.companyAddress ? `<div class="company-address">${escHtml(opts.companyAddress)}</div>` : ''}
+      </div>
+      <div class="logo-box">
+        ${opts.logoUrl
+          ? `<img src="${escHtml(opts.logoUrl)}" alt="Logo" onerror="this.style.display='none'">`
+          : `<div class="logo-fallback">LOGO</div>`}
+      </div>
+    </div>
+    <div class="main">
+      <div class="info">
+        <div class="person-name">${escHtml(opts.name)}</div>
+        ${opts.subName ? `<div class="sub-name">${escHtml(opts.subName)}</div>` : ''}
+        ${detailRows}
+      </div>
+      <div class="qr-section">
+        <img src="${qrCodeUrl}" alt="QR Code">
+        <div class="qr-label">Scan to verify</div>
+      </div>
+    </div>
+    <div class="footer">
+      <span>${new Date().toLocaleDateString('en-GB')}</span>
+      <span>ID: ${escHtml(opts.footerId)}</span>
+    </div>
+  </div>
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() { window.print(); }, 800);
+    });
+  </script>
+</body>
+</html>`;
+  }
+
+  // GET /api/passes/browser-print/:visitorId — visitor pass
+  app.get("/api/passes/browser-print/:visitorId", requireAuth, async (req, res) => {
+    try {
+      const { visitorId } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      const visitor = await databaseService.getVisitorById(context, visitorId);
+      if (!visitor) return res.status(404).send('<h1>Visitor not found</h1>');
+
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+
+      let hostName = 'Reception';
+      if (visitor.hostStaffId) {
+        const host = await databaseService.getStaffById(context, visitor.hostStaffId);
+        if (host) hostName = `${host.firstName} ${host.lastName}`;
+      }
+
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const logoUrl = settings?.logoUrl ? `${baseUrl}${settings.logoUrl}` : null;
+      const checkinTime = visitor.checkedInAt
+        ? new Date(visitor.checkedInAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })
+        : new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
+
+      const html = buildPassPage({
+        title: `Visitor Pass — ${visitor.firstName} ${visitor.lastName}`,
+        headerLabel: 'VISITOR PASS',
+        headerColor: '#1a56db',
+        name: `${visitor.firstName} ${visitor.lastName}`,
+        subName: visitor.company || undefined,
+        details: [
+          { label: 'Host', value: hostName },
+          { label: 'Purpose', value: visitor.purpose || '' },
+          { label: 'Time In', value: checkinTime },
+        ],
+        qrData: visitor.qrCode || visitor.id,
+        companyName: settings?.companyName || 'Company Name',
+        companyAddress: settings?.address || '',
+        logoUrl,
+        footerId: visitor.id.substring(0, 8).toUpperCase(),
+      });
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } catch (error) {
+      console.error('Browser print (visitor) error:', error);
+      res.status(500).send('<h1>Failed to generate visitor pass</h1>');
+    }
+  });
+
+  // GET /api/passes/browser-print/contractor/:workerId — contractor pass
+  app.get("/api/passes/browser-print/contractor/:workerId", requireAuth, async (req, res) => {
+    try {
+      const { workerId } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      const worker = await databaseService.getContractorWorkerById(context, workerId);
+      if (!worker) return res.status(404).send('<h1>Contractor worker not found</h1>');
+
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      const logoUrl = settings?.logoUrl ? `${baseUrl}${settings.logoUrl}` : null;
+
+      const checkinTime = worker.checkedInAt
+        ? new Date(worker.checkedInAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })
+        : new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
+
+      const cardStatusLabel = worker.currentCardStatus === 'clear' ? 'CLEARED'
+        : worker.currentCardStatus === 'yellow' ? 'ADVISORY'
+        : worker.currentCardStatus === 'red' ? 'RESTRICTED'
+        : 'CLEARED';
+
+      const html = buildPassPage({
+        title: `Contractor Pass — ${worker.firstName} ${worker.lastName}`,
+        headerLabel: 'CONTRACTOR PASS',
+        headerColor: '#ea580c',
+        name: `${worker.firstName} ${worker.lastName}`,
+        subName: (worker as any).companyName || undefined,
+        details: [
+          { label: 'Company', value: (worker as any).companyName || '' },
+          { label: 'Time In', value: checkinTime },
+          { label: 'Status', value: cardStatusLabel },
+          { label: 'Induction', value: worker.inductionCompleted ? 'Complete' : 'Required' },
+        ],
+        qrData: worker.qrCode || worker.id,
+        companyName: settings?.companyName || 'Company Name',
+        companyAddress: settings?.address || '',
+        logoUrl,
+        footerId: worker.id.substring(0, 8).toUpperCase(),
+      });
+
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.send(html);
+    } catch (error) {
+      console.error('Browser print (contractor) error:', error);
+      res.status(500).send('<h1>Failed to generate contractor pass</h1>');
+    }
+  });
+
   // NATIVE TEC B-EV4: Direct thermal printing using raw ESC/P commands and internal fonts
   app.post("/api/thermal-passes/print-tec-native", async (req, res) => {
     try {

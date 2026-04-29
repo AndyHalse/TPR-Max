@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Printer, X, Check, Building2, HardHat, Shield } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import type { ContractorWorker } from "@shared/schema";
 
 interface ContractorPassPreviewModalProps {
@@ -18,210 +19,28 @@ export default function ContractorPassPreviewModal({
   companyName,
 }: ContractorPassPreviewModalProps) {
   const [isPrinting, setIsPrinting] = useState(false);
+  const { toast } = useToast();
 
   const handlePrint = () => {
     setIsPrinting(true);
-    
-    // For thermal printers, we create a print-optimized version
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Contractor Pass - ${worker.firstName} ${worker.lastName}</title>
-            <style>
-              @page { 
-                size: 95mm 66mm; 
-                margin: 0; 
-              }
-              @media print {
-                body { 
-                  margin: 0; 
-                  padding: 8px;
-                  font-family: Arial, sans-serif;
-                  background: white;
-                }
-                .pass-container {
-                  width: 95mm;
-                  height: 66mm;
-                  border: 2px solid #000;
-                  padding: 4mm;
-                  box-sizing: border-box;
-                  position: relative;
-                  background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
-                }
-                .header { 
-                  display: flex; 
-                  justify-content: space-between; 
-                  align-items: flex-start;
-                  margin-bottom: 2mm;
-                  border-bottom: 1px solid #ea580c;
-                  padding-bottom: 1mm;
-                }
-                .company-info { 
-                  flex: 1; 
-                  text-align: left;
-                }
-                .company-name { 
-                  font-size: 10pt; 
-                  font-weight: bold; 
-                  margin: 0;
-                  color: #ea580c;
-                }
-                .contractor-pass { 
-                  font-size: 8pt; 
-                  margin: 0;
-                  color: #9a3412;
-                  font-weight: bold;
-                }
-                .main-content { 
-                  display: flex; 
-                  align-items: center; 
-                  justify-content: space-between;
-                  margin: 2mm 0;
-                }
-                .worker-details { 
-                  flex: 1; 
-                  text-align: left;
-                }
-                .worker-name { 
-                  font-size: 12pt; 
-                  font-weight: bold; 
-                  margin: 0;
-                  color: #1f2937;
-                }
-                .worker-info { 
-                  font-size: 7pt; 
-                  margin: 0.5mm 0;
-                  color: #374151;
-                }
-                .qr-code { 
-                  width: 20mm; 
-                  height: 20mm; 
-                  border: 1px solid #000;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  font-size: 6pt;
-                  text-align: center;
-                  background: white;
-                }
-                .badges {
-                  display: flex;
-                  gap: 2mm;
-                  margin: 1mm 0;
-                  flex-wrap: wrap;
-                }
-                .badge {
-                  font-size: 6pt;
-                  padding: 1mm 2mm;
-                  border-radius: 2mm;
-                  font-weight: bold;
-                  text-transform: uppercase;
-                }
-                .badge-valid {
-                  background: #dcfce7;
-                  color: #166534;
-                  border: 1px solid #16a34a;
-                }
-                .badge-invalid {
-                  background: #fef2f2;
-                  color: #991b1b;
-                  border: 1px solid #dc2626;
-                }
-                .footer { 
-                  position: absolute;
-                  bottom: 2mm;
-                  left: 4mm;
-                  right: 4mm;
-                  text-align: center;
-                  font-size: 6pt;
-                  color: #6b7280;
-                  border-top: 1px solid #d1d5db;
-                  padding-top: 1mm;
-                }
-                .safety-status {
-                  font-size: 7pt;
-                  font-weight: bold;
-                  padding: 1mm;
-                  text-align: center;
-                  margin: 1mm 0;
-                  border-radius: 2mm;
-                }
-                .status-clear {
-                  background: #dcfce7;
-                  color: #166534;
-                  border: 1px solid #16a34a;
-                }
-                .status-warning {
-                  background: #fef3c7;
-                  color: #92400e;
-                  border: 1px solid #d97706;
-                }
-                .status-danger {
-                  background: #fef2f2;
-                  color: #991b1b;
-                  border: 1px solid #dc2626;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="pass-container">
-              <div class="header">
-                <div class="company-info">
-                  <div class="company-name">\${companyName || 'Contractor Management'}</div>
-                  <div class="contractor-pass">CONTRACTOR PASS</div>
-                </div>
-              </div>
-              
-              <div class="main-content">
-                <div class="worker-details">
-                  <div class="worker-name">${worker.firstName} ${worker.lastName}</div>
-                  <div class="worker-info">Company: ${companyName || 'Unknown'}</div>
-                  <div class="worker-info">Email: ${worker.email || 'N/A'}</div>
-                  <div class="worker-info">Phone: ${worker.phone || 'N/A'}</div>
-                  <div class="worker-info">Check-in: ${worker.checkedInAt ? new Date(worker.checkedInAt).toLocaleString() : 'N/A'}</div>
-                  
-                  <div class="badges">
-                    <span class="badge ${worker.rightToWork === 'valid' ? 'badge-valid' : 'badge-invalid'}">
-                      Right to Work: ${worker.rightToWork || 'Missing'}
-                    </span>
-                    <span class="badge ${worker.inductionCompleted ? 'badge-valid' : 'badge-invalid'}">
-                      Induction: ${worker.inductionCompleted ? 'Complete' : 'Required'}
-                    </span>
-                    ${worker.cscsStatus ? `<span class="badge ${worker.cscsStatus === 'valid' ? 'badge-valid' : 'badge-invalid'}">CSCS: ${worker.cscsStatus}</span>` : ''}
-                  </div>
-                  
-                  <div class="safety-status ${worker.currentCardStatus === 'clear' ? 'status-clear' : worker.currentCardStatus === 'yellow' ? 'status-warning' : 'status-danger'}">
-                    Safety Status: ${worker.currentCardStatus?.toUpperCase() || 'CLEAR'}
-                  </div>
-                </div>
-                
-                <div class="qr-code">
-                  ${worker.qrCode ? 
-                    `<img src="https://api.qrserver.com/v1/create-qr-code/?size=80x80&data=${encodeURIComponent(worker.qrCode)}" alt="QR Code" style="width: 18mm; height: 18mm;" />` :
-                    'QR CODE<br/>PENDING'
-                  }
-                </div>
-              </div>
-              
-              <div class="footer">
-                <div>\${companyName || 'Contractor Management System'}</div>
-                <div>Pass valid for authorized areas only</div>
-              </div>
-            </div>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-      printWindow.print();
-      printWindow.close();
+    const printUrl = `/api/passes/browser-print/contractor/${worker.id}`;
+    const printWindow = window.open(printUrl, '_blank', 'width=500,height=400,noopener,noreferrer');
+    if (!printWindow) {
+      toast({
+        title: "Popup blocked",
+        description: `Your browser blocked the print window. Please allow popups for this site, or open the pass manually: ${window.location.origin}${printUrl}`,
+        variant: "destructive",
+        duration: 10000,
+      });
+    } else {
+      toast({
+        title: "Print window opened",
+        description: "Select your thermal printer (95 × 65 mm) in the browser print dialog.",
+        duration: 5000,
+      });
     }
-    
     setTimeout(() => {
       setIsPrinting(false);
-      onClose();
     }, 1000);
   };
 

@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { generateQRCode } from "@/lib/qr-generator";
 import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 import type { Visitor, CompanySettings } from "@shared/schema";
 
 interface PassPreviewModalProps {
@@ -17,10 +18,7 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
     queryKey: ["/api/settings"],
   });
 
-  // Load customer's visitor pass design
-  const { data: passDesign } = useQuery<{ success: boolean; design: any[] }>({
-    queryKey: ["/api/thermal-passes/design/visitor"],
-  });
+  const { toast } = useToast();
 
   const formatDate = (date: Date | string) => {
     return new Date(date).toLocaleDateString('en-US', {
@@ -30,267 +28,22 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
     });
   };
 
-  const handlePrint = async () => {
-    try {
-      // Get customer's pass design elements
-      const design = passDesign?.design || [];
-      
-      console.log(`🎨 Using customer pass design with ${design.length} elements`);
-      
-      // Prepare visitor data for pass printing
-      const visitorData = {
-        name: `${visitor.firstName} ${visitor.lastName}`,
-        company: visitor.company || 'Guest',
-        host: hostName || 'Reception',
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        passId: visitor.qrCode || visitor.id,
-        qrCode: visitor.qrCode || visitor.id
-      };
-
-      if (design.length > 0) {
-        // Use customer's custom design
-        console.log('🖨️ Printing with customer design');
-        const response = await fetch('/api/thermal-passes/pdf', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            elements: design,
-            data: visitorData
-          }),
-        });
-
-        if (response.ok) {
-          const htmlContent = await response.text();
-          const printWindow = window.open('', '_blank');
-          if (printWindow) {
-            printWindow.document.write(htmlContent);
-            printWindow.document.close();
-            printWindow.focus();
-            setTimeout(() => printWindow.print(), 100);
-          }
-        } else {
-          throw new Error('Failed to generate pass with custom design');
-        }
-      } else {
-        // Fallback to default design if no custom design
-        console.log('📄 Using default pass design');
-        printDefaultPass(visitorData);
-      }
-    } catch (error) {
-      console.error('❌ Print error:', error);
-      // Fallback to default design
-      printDefaultPass({
-        name: `${visitor.firstName} ${visitor.lastName}`,
-        company: visitor.company || 'Guest',
-        host: hostName || 'Reception',
-        date: new Date().toLocaleDateString(),
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        passId: visitor.qrCode || visitor.id,
-        qrCode: visitor.qrCode || visitor.id
+  const handlePrint = () => {
+    const printUrl = `/api/passes/browser-print/${visitor.id}`;
+    const printWindow = window.open(printUrl, '_blank', 'width=500,height=400,noopener,noreferrer');
+    if (!printWindow) {
+      toast({
+        title: "Popup blocked",
+        description: `Your browser blocked the print window. Please allow popups for this site, or open the pass manually: ${window.location.origin}${printUrl}`,
+        variant: "destructive",
+        duration: 10000,
       });
-    }
-  };
-
-  const printDefaultPass = (visitorData: any) => {
-    const companyName = settings?.companyName || "Company Name";
-    const companyAddress = settings?.address || "";
-    const companyPhone = settings?.phone || "";
-    const companyWebsite = settings?.website || "";
-    const companyLogo = settings?.logoUrl || null;
-    
-    // Direct printing with tenant-specific information
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Visitor Pass - ${visitor.firstName} ${visitor.lastName}</title>
-            <style>
-              @page { 
-                size: 95mm 66mm; 
-                margin: 0; 
-              }
-              @media print {
-                body { 
-                  margin: 0; 
-                  padding: 0;
-                  font-family: Arial, sans-serif;
-                  background: white;
-                }
-                .pass-container {
-                  width: 95mm;
-                  height: 66mm;
-                  padding: 3mm;
-                  box-sizing: border-box;
-                  position: relative;
-                  background: white;
-                }
-                .header { 
-                  display: flex; 
-                  justify-content: space-between; 
-                  align-items: flex-start;
-                  margin-bottom: 2mm;
-                }
-                .company-info { 
-                  flex: 1; 
-                }
-                .company-name { 
-                  font-size: 11pt; 
-                  font-weight: bold; 
-                  margin: 0;
-                  color: #000000;
-                }
-                .visitor-pass { 
-                  font-size: 8pt; 
-                  margin: 0;
-                  color: #000000;
-                  font-weight: 600;
-                }
-                .address { 
-                  font-size: 6.5pt; 
-                  margin: 0;
-                  color: #000000;
-                  line-height: 1.2;
-                  margin-top: 0.5mm;
-                }
-                .logo { 
-                  width: 16mm;
-                  height: 12mm;
-                  border-radius: 2mm;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  overflow: hidden;
-                }
-                .logo img {
-                  max-width: 100%;
-                  max-height: 100%;
-                  object-fit: contain;
-                }
-                .logo-fallback { 
-                  width: 12mm;
-                  height: 12mm;
-                  background: #000000;
-                  border-radius: 2mm;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  color: white;
-                  font-weight: bold;
-                  font-size: 8pt;
-                }
-                .main-content { 
-                  display: flex; 
-                  align-items: center; 
-                  justify-content: space-between;
-                  margin: 3mm 0;
-                }
-                .visitor-details { 
-                  flex: 1; 
-                  padding-right: 2mm;
-                }
-                .visitor-name { 
-                  font-size: 16pt; 
-                  font-weight: bold; 
-                  margin: 0;
-                  margin-bottom: 1mm;
-                  color: #000000;
-                }
-                .visitor-company { 
-                  font-size: 9pt; 
-                  margin: 0;
-                  margin-bottom: 0.5mm;
-                  color: #000000;
-                }
-                .visitor-date { 
-                  font-size: 8pt; 
-                  margin: 0;
-                  margin-bottom: 0.5mm;
-                  color: #000000;
-                }
-                .visitor-host { 
-                  font-size: 8pt; 
-                  margin: 0;
-                  color: #000000;
-                }
-                .qr-code { 
-                  width: 18mm; 
-                  height: 18mm;
-                }
-                .footer { 
-                  position: absolute; 
-                  bottom: 1mm; 
-                  left: 3mm; 
-                  right: 3mm;
-                  font-size: 6pt; 
-                  color: #000000;
-                  display: flex;
-                  justify-content: space-between;
-                  align-items: center;
-                }
-                .contact-info {
-                  font-size: 6pt;
-                  color: #000000;
-                  text-align: left;
-                }
-                .phone {
-                  margin-bottom: 0.5mm;
-                }
-                .website {
-                  color: #000000;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="pass-container">
-              <div class="header">
-                <div class="company-info">
-                  <h4 class="company-name">${companyName}</h4>
-                  <p class="visitor-pass">Visitor Pass</p>
-                  <p class="address">${companyAddress}</p>
-                </div>
-                <div class="logo">
-                  ${companyLogo ? 
-                    `<img src="${companyLogo}" alt="${companyName} Logo" />` : 
-                    `<div class="logo-fallback">${companyName.substring(0, 3).toUpperCase()}</div>`
-                  }
-                </div>
-              </div>
-              
-              <div class="main-content">
-                <div class="visitor-details">
-                  <p class="visitor-name">${visitorData.name}</p>
-                  <p class="visitor-company">${visitorData.company}</p>
-                  <p class="visitor-date">${formatDate(visitor.checkedInAt)}</p>
-                  <p class="visitor-host">Host: ${hostName || 'Essia Halse'}</p>
-                </div>
-                <img src="${generateQRCode(visitor.qrCode || visitor.id)}" alt="QR Code" class="qr-code" onerror="this.style.display='none'" />
-              </div>
-              
-              <div class="footer">
-                <div class="contact-info">
-                  ${companyPhone ? `<div class="phone">📞 ${companyPhone}</div>` : ''}
-                  ${companyWebsite ? `<div class="website">🌐 ${companyWebsite.replace(/^https?:\/\//, '')}</div>` : ''}
-                </div>
-                <span>© ${new Date().getFullYear()} ${companyName}</span>
-              </div>
-            </div>
-            <script>
-              window.onload = function() {
-                setTimeout(function() {
-                  window.print();
-                  window.close();
-                }, 100);
-              };
-            </script>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
+    } else {
+      toast({
+        title: "Print window opened",
+        description: "Select your thermal printer (95 × 65 mm) in the browser print dialog.",
+        duration: 5000,
+      });
     }
   };
 
