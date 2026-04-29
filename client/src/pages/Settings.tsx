@@ -1030,12 +1030,16 @@ export default function Settings() {
     }
 
     pendingUpdatesRef.current = { ...pendingUpdatesRef.current, [field]: value };
+
+    // Boolean toggles save immediately (no debounce) so navigating away immediately
+    // after flipping a switch doesn't lose the change. Text fields use 800ms debounce.
+    const delay = typeof value === 'boolean' ? 0 : 800;
     
     autoSaveTimeoutRef.current = setTimeout(() => {
       const updates = { ...pendingUpdatesRef.current };
       pendingUpdatesRef.current = {};
       updateSettingsMutation.mutate(updates);
-    }, 800);
+    }, delay);
   };
 
   const handleInputChange = (field: string, value: any) => {

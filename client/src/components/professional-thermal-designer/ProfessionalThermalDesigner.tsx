@@ -606,7 +606,7 @@ export function ProfessionalThermalDesigner() {
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button size="sm">
+          <Button size="sm" onClick={testPrint}>
             <Printer className="h-4 w-4 mr-2" />
             Print Test
           </Button>
