@@ -14,9 +14,13 @@ import EmailSettings from "./settings/EmailSettings";
 import NotificationSettings from "./settings/NotificationSettings";
 import PassSettings from "./settings/PassSettings";
 import InductionSettings from "./settings/InductionSettings";
+import HsDocumentsSettings from "./settings/HsDocumentsSettings";
 import ContractorSettings from "./settings/ContractorSettings";
 import AiSettings from "./settings/AiSettings";
 import IntegrationSettings from "./settings/IntegrationSettings";
+import PhoneSystemsSettings from "./settings/PhoneSystemsSettings";
+import BiostarSettings from "./settings/BiostarSettings";
+import LoneWorkerSettings from "./settings/LoneWorkerSettings";
 import SystemSettings from "./settings/SystemSettings";
 
 export default function Settings() {
@@ -139,16 +143,16 @@ export default function Settings() {
         <TabsContent value="departments" className="space-y-6 mt-6"><DepartmentsSettings /></TabsContent>
         <TabsContent value="zones" className="space-y-6 mt-6"><EmergencySettings /></TabsContent>
         <TabsContent value="email" className="space-y-6 mt-6"><EmailSettings /></TabsContent>
-        <TabsContent value="phone-systems" className="space-y-6 mt-6"><IntegrationSettings /></TabsContent>
+        <TabsContent value="phone-systems" className="space-y-6 mt-6"><PhoneSystemsSettings /></TabsContent>
         <TabsContent value="reports" className="space-y-6 mt-6"><NotificationSettings /></TabsContent>
         <TabsContent value="printing" className="space-y-6 mt-6"><PassSettings /></TabsContent>
-        <TabsContent value="hs-documents" className="space-y-6 mt-6"><InductionSettings /></TabsContent>
+        <TabsContent value="hs-documents" className="space-y-6 mt-6"><HsDocumentsSettings /></TabsContent>
         <TabsContent value="hsrules" className="space-y-6 mt-6"><InductionSettings /></TabsContent>
         <TabsContent value="contractors" className="space-y-6 mt-6"><ContractorSettings /></TabsContent>
         <TabsContent value="ai" className="space-y-6 mt-6"><AiSettings /></TabsContent>
-        <TabsContent value="biostar" className="space-y-6 mt-6"><IntegrationSettings /></TabsContent>
+        <TabsContent value="biostar" className="space-y-6 mt-6"><BiostarSettings /></TabsContent>
         <TabsContent value="integrations" className="space-y-6 mt-6"><IntegrationSettings /></TabsContent>
-        <TabsContent value="lone-worker" className="space-y-6 mt-6"><SystemSettings /></TabsContent>
+        <TabsContent value="lone-worker" className="space-y-6 mt-6"><LoneWorkerSettings /></TabsContent>
         <TabsContent value="system" className="space-y-6 mt-6"><SystemSettings /></TabsContent>
       </Tabs>
     </div>
