@@ -1,0 +1,57 @@
+In the TPR Max induction module, add the ability for customers to 
+upload their own MP4 video to use as the induction instead of 
+AI-generated slides. Most UK sites already have a site-specific 
+video they use for inductions and want to attach their quiz to it.
+
+BACKEND CHANGES (server/routes/induction.ts):
+
+1. Add a new endpoint: POST /api/induction/upload-video
+   - Accepts a multipart/form-data upload with a single file field: 'video'
+   - Validates: file must be MP4, MOV, or WebM. Max size: 500MB.
+   - Stores the file using the existing Google Cloud Storage / object 
+     storage pattern already used elsewhere in the codebase
+   - Saves the resulting URL to a new field in inductionSettings: 
+     customVideoUrl (text, nullable)
+   - Returns: { success: true, url: '...' }
+
+2. Add a new endpoint: DELETE /api/induction/upload-video
+   - Removes the stored video from object storage
+   - Clears customVideoUrl from inductionSettings
+
+3. Modify the public induction token API response 
+   (GET /api/induction/token/:token):
+   - Include a new field: videoMode — either 'ai_generated' or 'custom_upload'
+   - If customVideoUrl is set, return it as customVideoUrl in the response
+   - If not, return videoMode: 'ai_generated' as before
+
+FRONTEND CHANGES (public induction page — SiteInduction.tsx):
+
+4. When videoMode === 'custom_upload':
+   - Render an HTML5 <video> element instead of the iframe:
+     <video 
+       src={customVideoUrl} 
+       controls 
+       controlsList="nodownload"
+       className="w-full flex-1 min-h-0 bg-black"
+       onEnded={() => setVideoWatched(true)}
+     />
+   - Set videoWatched to true when the video's onEnded event fires
+   - Show a "You must watch the full video before taking the quiz" 
+     message if they try to skip to the quiz
+
+SETTINGS CHANGES (client/src/pages/Settings.tsx or InductionSettings):
+
+5. In the induction settings section, add a toggle:
+   "Induction Video Source"
+   Option A: AI-Generated (current behaviour)
+   Option B: Upload your own video
+
+   When Option B is selected:
+   - Show a file upload dropzone (accept="video/mp4,video/mov,video/webm")
+   - Show upload progress bar
+   - Show currently uploaded video filename with a preview and 
+     "Remove video" button
+   - Warn: "Uploading a new video will replace the existing one"
+
+Do not remove or change the AI generation flow — this is an 
+additional option alongside it.

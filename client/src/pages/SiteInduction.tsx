@@ -64,6 +64,8 @@ interface VideoContent {
   durationMinutes: number;
   videoUrl: string;
   hasGeneratedContent: boolean;
+  videoMode?: 'ai_generated' | 'custom_upload';
+  customVideoUrl?: string | null;
 }
 
 export default function SiteInduction() {
@@ -397,11 +399,12 @@ export default function SiteInduction() {
   };
 
   const renderVideoStep = () => {
-    const hasGeneratedVideo = videoContent?.hasGeneratedContent;
+    const isCustomUpload = videoContent?.videoMode === 'custom_upload' && !!videoContent?.customVideoUrl;
+    const hasGeneratedVideo = !isCustomUpload && videoContent?.hasGeneratedContent;
     const rawUrl = videoContent?.videoUrl ?? '';
-    const hasExternalVideo = !hasGeneratedVideo && rawUrl.startsWith('http');
+    const hasExternalVideo = !isCustomUpload && !hasGeneratedVideo && rawUrl.startsWith('http');
     const embedUrl = hasExternalVideo ? toEmbedUrl(rawUrl) : '';
-    const hasAnyVideo = hasGeneratedVideo || hasExternalVideo;
+    const hasAnyVideo = isCustomUpload || hasGeneratedVideo || hasExternalVideo;
 
     return (
       <div className="space-y-6">
@@ -416,7 +419,34 @@ export default function SiteInduction() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {hasGeneratedVideo ? (
+            {isCustomUpload ? (
+              <div className={videoFullscreen
+                ? 'fixed inset-0 z-50 bg-black flex flex-col'
+                : 'aspect-video bg-black rounded-lg overflow-hidden mb-6 flex flex-col'}>
+                {videoFullscreen && (
+                  <div className="flex-shrink-0 flex justify-end items-center bg-gray-900 px-4 py-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-white hover:bg-gray-700"
+                      onClick={() => setVideoFullscreen(false)}
+                    >
+                      Exit Fullscreen
+                    </Button>
+                  </div>
+                )}
+                <video
+                  src={videoContent!.customVideoUrl!}
+                  controls
+                  controlsList="nodownload"
+                  className="flex-1 min-h-0 w-full bg-black"
+                  onEnded={() => {
+                    setTokenData(prev => prev ? { ...prev, videoWatched: true, status: 'in_progress' } : null);
+                  }}
+                  data-testid="video-custom-upload"
+                />
+              </div>
+            ) : hasGeneratedVideo ? (
               <>
                 {videoHtmlLoading ? (
                   <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-6 border border-gray-200">
@@ -487,6 +517,15 @@ export default function SiteInduction() {
               </div>
             )}
 
+            {isCustomUpload && !tokenData?.videoWatched && (
+              <Alert className="mb-4 border-amber-200 bg-amber-50">
+                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  <strong>You must watch the full video before taking the quiz.</strong> The Continue button will unlock when the video finishes.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Alert className="mb-4">
               <Shield className="w-4 h-4" />
               <AlertDescription>
@@ -496,6 +535,7 @@ export default function SiteInduction() {
 
             <Button
               onClick={markVideoWatched}
+              disabled={isCustomUpload && !tokenData?.videoWatched}
               className="w-full"
               size="lg"
               data-testid="button-complete-video"

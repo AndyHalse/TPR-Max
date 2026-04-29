@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import multer from 'multer';
 import crypto from 'crypto';
 import { randomUUID } from 'crypto';
 import cron from 'node-cron';
@@ -243,6 +244,7 @@ export function registerInductionRoutes(app: Express): void {
               videoDurationMinutes: isolatedSchema.inductionSettings.videoDurationMinutes,
               videoUrl: isolatedSchema.inductionSettings.videoUrl,
               generatedHtml: isolatedSchema.inductionSettings.generatedHtml,
+              customVideoUrl: isolatedSchema.inductionSettings.customVideoUrl,
             })
             .from(isolatedSchema.inductionSettings)
             .where(eq(isolatedSchema.inductionSettings.roleType, personType));
@@ -278,6 +280,10 @@ export function registerInductionRoutes(app: Express): void {
         } catch (_brandErr) { /* non-critical — carry on without branding */ }
       }
 
+      // Determine video mode: if customVideoUrl is set, use the customer-uploaded video
+      const customVideoUrl: string | null = videoSettingsAny?.customVideoUrl ?? null;
+      const videoMode: 'ai_generated' | 'custom_upload' = customVideoUrl ? 'custom_upload' : 'ai_generated';
+
       res.json({
         token: tokenData,
         worker: personDetails,
@@ -288,7 +294,10 @@ export function registerInductionRoutes(app: Express): void {
           description: videoSettingsAny.videoDescription,
           durationMinutes: videoSettingsAny.videoDurationMinutes,
           videoUrl: videoSettingsAny.videoUrl,
-          hasGeneratedContent: !!(videoSettingsAny.generatedHtml || isObjStoragePath(videoSettingsAny.videoUrl))
+          hasGeneratedContent: !!(videoSettingsAny.generatedHtml || isObjStoragePath(videoSettingsAny.videoUrl)),
+          videoMode,
+          // customVideoUrl is the streaming endpoint URL (includes the induction token for auth)
+          customVideoUrl: customVideoUrl ? `/api/induction/custom-video/${tokenData.token}` : null,
           // generatedHtml is NOT included here — it is large and fetched separately
           // via GET /api/induction/video/by-token/:token (public endpoint)
         } : null
@@ -365,6 +374,176 @@ export function registerInductionRoutes(app: Express): void {
     } catch (error) {
       console.error('Error fetching induction video by token:', error);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // ── Custom video upload ───────────────────────────────────────────────────
+  // POST /api/induction/upload-video
+  // Accepts multipart/form-data with fields: video (file), roleType (string)
+  const videoUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 500 * 1024 * 1024 }, // 500 MB
+    fileFilter: (_req, file, cb) => {
+      const allowed = ['video/mp4', 'video/quicktime', 'video/webm', 'video/mov'];
+      if (allowed.includes(file.mimetype) || file.originalname.match(/\.(mp4|mov|webm)$/i)) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only MP4, MOV, and WebM video files are allowed'));
+      }
+    },
+  });
+
+  app.post('/api/induction/upload-video', requireAuth, videoUpload.single('video'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No video file provided' });
+      }
+      const roleType = (req.body.roleType as string) || 'contractor';
+      if (!['visitor', 'staff', 'contractor'].includes(roleType)) {
+        return res.status(400).json({ error: 'Invalid roleType' });
+      }
+
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+
+      // Work out content type and extension
+      const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'mp4';
+      const mimeType = req.file.mimetype || 'video/mp4';
+      const objectId = randomUUID();
+
+      // Build the GCS path inside the private object directory
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const fullPath = `${privateObjectDir}/induction-videos/${context.customerId}/${objectId}.${ext}`;
+      const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+
+      console.log(`📹 Uploading custom induction video: bucket=${bucketName} object=${objectName} size=${req.file.size}`);
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      await file.save(req.file.buffer, { contentType: mimeType, resumable: req.file.size > 5 * 1024 * 1024 });
+
+      // Internal reference path — served via /api/induction/custom-video/:token
+      const storedPath = `/induction-videos/${context.customerId}/${objectId}.${ext}`;
+
+      // Save to inductionSettings.customVideoUrl for this customer/roleType
+      await custDb
+        .update(isolatedSchema.inductionSettings)
+        .set({ customVideoUrl: storedPath, updatedAt: new Date() })
+        .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+
+      console.log(`✅ Custom video saved: ${storedPath} for role=${roleType} customer=${context.customerId}`);
+      return res.json({ success: true, url: storedPath });
+    } catch (error: any) {
+      console.error('Error uploading induction video:', error);
+      return res.status(500).json({ error: error.message || 'Failed to upload video' });
+    }
+  });
+
+  // DELETE /api/induction/upload-video?roleType=contractor
+  app.delete('/api/induction/upload-video', requireAuth, async (req, res) => {
+    try {
+      const roleType = (req.query.roleType as string) || 'contractor';
+      if (!['visitor', 'staff', 'contractor'].includes(roleType)) {
+        return res.status(400).json({ error: 'Invalid roleType' });
+      }
+
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+
+      // Fetch the current URL so we can delete from GCS
+      const [row] = await custDb
+        .select({ customVideoUrl: isolatedSchema.inductionSettings.customVideoUrl })
+        .from(isolatedSchema.inductionSettings)
+        .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+
+      if (row?.customVideoUrl) {
+        try {
+          const objectStorageService = new ObjectStorageService();
+          const privateObjectDir = objectStorageService.getPrivateObjectDir();
+          const fullPath = `${privateObjectDir}${row.customVideoUrl}`;
+          const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+          await objectStorageClient.bucket(bucketName).file(objectName).delete({ ignoreNotFound: true });
+          console.log(`🗑️ Deleted custom induction video: ${row.customVideoUrl}`);
+        } catch (_delErr) {
+          console.warn('Could not delete video from object storage (non-fatal)');
+        }
+      }
+
+      await custDb
+        .update(isolatedSchema.inductionSettings)
+        .set({ customVideoUrl: null, updatedAt: new Date() })
+        .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      console.error('Error deleting induction video:', error);
+      return res.status(500).json({ error: error.message || 'Failed to delete video' });
+    }
+  });
+
+  // GET /api/induction/custom-video/:token
+  // Public streaming endpoint for customer-uploaded induction videos.
+  // Supports Range requests so browsers can seek within the video.
+  app.get('/api/induction/custom-video/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      const tokenData = await inductionService.getTokenByValue(token);
+      if (!tokenData) return res.status(404).json({ error: 'Invalid token' });
+      if (new Date() > new Date(tokenData.expiresAt)) return res.status(410).json({ error: 'Token expired' });
+
+      const roleType = tokenData.personType || 'contractor';
+
+      let storedPath: string | null = null;
+      if (tokenData.customerId) {
+        const custCtx = simpleDatabaseService.createCustomerContext('system', tokenData.customerId);
+        const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(custCtx.customerId);
+        const [row] = await custDb
+          .select({ customVideoUrl: isolatedSchema.inductionSettings.customVideoUrl })
+          .from(isolatedSchema.inductionSettings)
+          .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+        storedPath = row?.customVideoUrl ?? null;
+      }
+
+      if (!storedPath) return res.status(404).json({ error: 'No custom video uploaded for this induction type' });
+
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const fullPath = `${privateObjectDir}${storedPath}`;
+      const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+      const file = objectStorageClient.bucket(bucketName).file(objectName);
+
+      const [meta] = await file.getMetadata();
+      const totalSize = Number(meta.size);
+      const contentType = meta.contentType || 'video/mp4';
+
+      const rangeHeader = req.headers['range'];
+      if (rangeHeader) {
+        // Parse byte range: e.g. "bytes=0-1023"
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 1024 * 1024 - 1, totalSize - 1);
+        const chunkSize = end - start + 1;
+
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunkSize,
+          'Content-Type': contentType,
+          'Cache-Control': 'private, max-age=0',
+        });
+        file.createReadStream({ start, end }).pipe(res);
+      } else {
+        res.writeHead(200, {
+          'Content-Length': totalSize,
+          'Content-Type': contentType,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'private, max-age=0',
+        });
+        file.createReadStream().pipe(res);
+      }
+    } catch (error) {
+      console.error('Error streaming custom induction video:', error);
+      if (!res.headersSent) res.status(500).json({ error: 'Failed to stream video' });
     }
   });
 

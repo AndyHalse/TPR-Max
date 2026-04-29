@@ -1134,6 +1134,7 @@ export const inductionSettings = pgTable("induction_settings", {
   scenesData: text("scenes_data"), // JSON string of scenes array
   generatedAt: timestamp("generated_at"), // When video was last generated
   questionsGenerated: boolean("questions_generated").default(false), // Whether AI questions have been saved
+  customVideoUrl: text("custom_video_url"),   // Object-storage path for customer-uploaded video (null = use AI-generated)
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

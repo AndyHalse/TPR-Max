@@ -17,7 +17,7 @@ import {
   Users, Video, FileQuestion, Eye, Sparkles, CheckCircle, XCircle,
   Maximize2, List, RefreshCw, Trash2, AlertCircle, Clock, ChevronRight,
   BookOpen, Shield, Flame, HardHat, ClipboardList, Send, Monitor,
-  ChevronDown, Settings, Mail, Loader2
+  ChevronDown, Settings, Mail, Loader2, Upload, Film, AlertTriangle
 } from "lucide-react";
 import type { InductionQuestion, CompanySettings } from "@shared/schema";
 
@@ -38,6 +38,7 @@ interface InductionSettingRow {
   questionsGenerated?: boolean;
   videoDurationMinutes?: number;
   updatedAt?: string;
+  customVideoUrl?: string | null;
 }
 
 interface GenerationStatus {
@@ -103,6 +104,81 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const isGenerating = ['pending', 'generating_script', 'building_slides', 'creating_questions', 'saving'].includes(generationStatus.status);
+
+  // Custom video upload state
+  const [videoSource, setVideoSource] = useState<'ai_generated' | 'custom_upload'>(
+    settings?.customVideoUrl ? 'custom_upload' : 'ai_generated'
+  );
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDeletingVideo, setIsDeletingVideo] = useState(false);
+  const [currentCustomVideoUrl, setCurrentCustomVideoUrl] = useState<string | null>(settings?.customVideoUrl ?? null);
+  const videoFileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setVideoSource(settings?.customVideoUrl ? 'custom_upload' : 'ai_generated');
+    setCurrentCustomVideoUrl(settings?.customVideoUrl ?? null);
+  }, [settings?.customVideoUrl]);
+
+  const handleVideoFileSelect = (file: File) => {
+    const allowed = ['video/mp4', 'video/quicktime', 'video/webm'];
+    if (!allowed.includes(file.type) && !file.name.match(/\.(mp4|mov|webm)$/i)) {
+      toast({ title: 'Invalid file type', description: 'Please select an MP4, MOV, or WebM video file.', variant: 'destructive' });
+      return;
+    }
+    if (file.size > 500 * 1024 * 1024) {
+      toast({ title: 'File too large', description: 'Maximum video size is 500 MB.', variant: 'destructive' });
+      return;
+    }
+    uploadVideo(file);
+  };
+
+  const uploadVideo = (file: File) => {
+    setIsUploading(true);
+    setUploadProgress(0);
+    const formData = new FormData();
+    formData.append('video', file);
+    formData.append('roleType', roleType);
+
+    const xhr = new XMLHttpRequest();
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) setUploadProgress(Math.round((e.loaded / e.total) * 100));
+    });
+    xhr.addEventListener('load', () => {
+      setIsUploading(false);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        const data = JSON.parse(xhr.responseText);
+        setCurrentCustomVideoUrl(data.url);
+        queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
+        toast({ title: 'Video uploaded', description: 'Your custom induction video has been saved.' });
+      } else {
+        const err = JSON.parse(xhr.responseText || '{}');
+        toast({ title: 'Upload failed', description: err.error || 'Please try again.', variant: 'destructive' });
+      }
+    });
+    xhr.addEventListener('error', () => {
+      setIsUploading(false);
+      toast({ title: 'Upload failed', description: 'Network error — please try again.', variant: 'destructive' });
+    });
+    xhr.open('POST', '/api/induction/upload-video');
+    xhr.withCredentials = true;
+    xhr.send(formData);
+  };
+
+  const handleRemoveVideo = async () => {
+    setIsDeletingVideo(true);
+    try {
+      await apiRequest('DELETE', `/api/induction/upload-video?roleType=${roleType}`, undefined);
+      setCurrentCustomVideoUrl(null);
+      setVideoSource('ai_generated');
+      queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
+      toast({ title: 'Video removed', description: 'The custom video has been removed.' });
+    } catch (_e) {
+      toast({ title: 'Failed to remove video', variant: 'destructive' });
+    } finally {
+      setIsDeletingVideo(false);
+    }
+  };
 
   useEffect(() => {
     setKioskEnabled(settings?.kioskEnabled ?? false);
@@ -364,11 +440,127 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       </CardHeader>
       <CardContent className="space-y-5">
 
+        {/* ── Induction Video Source ────────────────────────────────── */}
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Film className="h-4 w-4 text-purple-600" />
+            <h3 className="font-medium text-sm">Induction Video Source</h3>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setVideoSource('ai_generated')}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-sm transition-all ${
+                videoSource === 'ai_generated'
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-medium'
+                  : 'border-border bg-white dark:bg-slate-800 text-muted-foreground hover:border-blue-300'
+              }`}
+              data-testid={`btn-source-ai-${roleType}`}
+            >
+              <Sparkles className="h-4 w-4" />
+              AI-Generated
+            </button>
+            <button
+              type="button"
+              onClick={() => setVideoSource('custom_upload')}
+              className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-sm transition-all ${
+                videoSource === 'custom_upload'
+                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-medium'
+                  : 'border-border bg-white dark:bg-slate-800 text-muted-foreground hover:border-purple-300'
+              }`}
+              data-testid={`btn-source-upload-${roleType}`}
+            >
+              <Upload className="h-4 w-4" />
+              Upload Video
+            </button>
+          </div>
+
+          {videoSource === 'custom_upload' && (
+            <div className="space-y-3">
+              {currentCustomVideoUrl ? (
+                <div className="p-3 bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 rounded-lg">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Film className="h-4 w-4 text-purple-600 shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-purple-900 dark:text-purple-100">Custom video uploaded</p>
+                        <p className="text-xs text-purple-600 dark:text-purple-400 truncate">{currentCustomVideoUrl.split('/').pop()}</p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveVideo}
+                      disabled={isDeletingVideo}
+                      className="shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950"
+                      data-testid={`btn-remove-video-${roleType}`}
+                    >
+                      {isDeletingVideo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                      <span className="ml-1 text-xs">Remove</span>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-center gap-1">
+                    <AlertTriangle className="h-3 w-3 shrink-0" />
+                    Uploading a new video will replace the existing one
+                  </p>
+                </div>
+              ) : null}
+
+              {/* Drop zone */}
+              <div
+                className="relative border-2 border-dashed border-purple-300 dark:border-purple-700 rounded-lg p-6 text-center cursor-pointer hover:border-purple-500 transition-colors"
+                onClick={() => videoFileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files[0];
+                  if (file) handleVideoFileSelect(file);
+                }}
+                data-testid={`dropzone-video-${roleType}`}
+              >
+                {isUploading ? (
+                  <div className="space-y-2">
+                    <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto" />
+                    <p className="text-sm text-purple-700 dark:text-purple-300 font-medium">Uploading… {uploadProgress}%</p>
+                    <div className="w-full bg-purple-100 dark:bg-purple-900 rounded-full h-2">
+                      <div
+                        className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="h-8 w-8 text-purple-400 mx-auto mb-2" />
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {currentCustomVideoUrl ? 'Upload replacement video' : 'Drop video here or click to browse'}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">MP4, MOV, or WebM — max 500 MB</p>
+                  </>
+                )}
+              </div>
+              <input
+                ref={videoFileInputRef}
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) handleVideoFileSelect(file);
+                  e.target.value = '';
+                }}
+                data-testid={`input-video-file-${roleType}`}
+              />
+            </div>
+          )}
+        </div>
+
         {/* Video Status */}
         <div className="space-y-2">
           <div className="flex items-center gap-2">
             <Video className="h-4 w-4 text-blue-600" />
-            <h3 className="font-medium text-sm">Video Status</h3>
+            <h3 className="font-medium text-sm">{videoSource === 'ai_generated' ? 'AI-Generated Video Status' : 'AI Video (inactive when using custom video)'}</h3>
           </div>
 
           {isGenerating ? (
