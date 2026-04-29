@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, uuid, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -1092,6 +1092,7 @@ export const inductionTokens = pgTable("induction_tokens", {
   passThreshold: integer("pass_threshold").default(80), // UK H&S requirement: 80% pass rate
   expiresAt: timestamp("expires_at").notNull(),
   completedAt: timestamp("completed_at"),
+  inductionTopicsCovered: jsonb("induction_topics_covered"), // CDM 2015 compliance record — array of {id, label, covered}
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

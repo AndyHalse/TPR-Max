@@ -361,9 +361,27 @@ Every slide must reference ${siteContext.companyName} specifically. Do not produ
     };
     
     const formatInstruction = formatSpecificInstructions[videoFormat as keyof typeof formatSpecificInstructions] || formatSpecificInstructions['interactive_slides'];
-    
+
+    // CDM 2015 / HSE mandatory topics block — injected into EVERY role prompt
+    const cdmMandatoryBlock = `
+LEGAL COMPLIANCE REQUIREMENT — CDM 2015 & HSE:
+The induction MUST include a dedicated slide/section on EACH of the following ten topics.
+Do NOT omit, combine, or summarise any of them — each requires its own clearly labelled section:
+  1. Site hazards and risks specific to this site
+  2. PPE requirements (what PPE is required, where to obtain it, and when it must be worn)
+  3. Emergency procedures and fire evacuation routes
+  4. Emergency assembly point location
+  5. First aid arrangements (exact location and name/role of the first aider)
+  6. Accident and near-miss reporting procedure
+  7. Welfare facilities (toilets, rest area, canteen/mess room)
+  8. Site rules (no-go areas, speed limits, permit to work system, smoking policy, mobile phone policy)
+  9. Environmental responsibilities (waste segregation, spill response, noise control)
+  10. Who to contact with health and safety concerns (name and job title)
+Use the site-specific details provided above wherever available; use sensible UK construction-site defaults only where a specific detail is absent.
+`;
+
     const roleSpecificPrompts = {
-      visitor: `${siteSpecificBlock}Generate a comprehensive safety induction script for VISITORS to ${companyName}. ${formatInstruction}
+      visitor: `${siteSpecificBlock}${cdmMandatoryBlock}Generate a comprehensive safety induction script for VISITORS to ${companyName}. ${formatInstruction}
       
       Company Profile:
       - Name: ${companyName}
@@ -386,7 +404,7 @@ Every slide must reference ${siteContext.companyName} specifically. Do not produ
         - Company-specific contact information and reporting procedures
         - Professional sign-in/sign-out procedures aligned with company standards`,
       
-      staff: `${siteSpecificBlock}Generate a comprehensive safety induction script for new STAFF MEMBERS at ${companyName}. ${formatInstruction}
+      staff: `${siteSpecificBlock}${cdmMandatoryBlock}Generate a comprehensive safety induction script for new STAFF MEMBERS at ${companyName}. ${formatInstruction}
       
       Company Profile:
       - Name: ${companyName}
@@ -410,7 +428,7 @@ Every slide must reference ${siteContext.companyName} specifically. Do not produ
         - Equipment and technology safety protocols relevant to the organization's operations
         - Mandatory training requirements and refresher schedules per company policy`,
       
-      contractor: `${siteSpecificBlock}Generate a comprehensive safety induction script for CONTRACTORS working at ${companyName}. ${formatInstruction}
+      contractor: `${siteSpecificBlock}${cdmMandatoryBlock}Generate a comprehensive safety induction script for CONTRACTORS working at ${companyName}. ${formatInstruction}
       
       Company Profile:
       - Name: ${companyName}

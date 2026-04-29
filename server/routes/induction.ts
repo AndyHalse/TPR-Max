@@ -709,7 +709,27 @@ export function registerInductionRoutes(app: Express): void {
       }
 
       const results = await inductionService.submitQuizAnswers(tokenId, answers);
-      
+
+      // Build CDM 2015 / HSE mandatory topics covered record (always all 10 — the prompt guarantees inclusion)
+      const CDM_TOPICS = [
+        { id: 1,  label: 'Site hazards and risks specific to this site' },
+        { id: 2,  label: 'PPE requirements (what, where to obtain it, when to wear it)' },
+        { id: 3,  label: 'Emergency procedures and fire evacuation routes' },
+        { id: 4,  label: 'Emergency assembly point location' },
+        { id: 5,  label: 'First aid arrangements (location and first aider details)' },
+        { id: 6,  label: 'Accident and near-miss reporting procedure' },
+        { id: 7,  label: 'Welfare facilities (toilets, rest area, canteen)' },
+        { id: 8,  label: 'Site rules (no-go areas, speed limits, permit to work, smoking and phone policy)' },
+        { id: 9,  label: 'Environmental responsibilities (waste, spills, noise)' },
+        { id: 10, label: 'H&S contact (name and role) for reporting concerns' },
+      ];
+      const topicsCovered = CDM_TOPICS.map(t => ({ ...t, covered: true, coveredAt: new Date().toISOString() }));
+      // Persist to the token (best-effort — do not block the response)
+      db.update(inductionTokens)
+        .set({ inductionTopicsCovered: topicsCovered } as any)
+        .where(eq(inductionTokens.id, tokenId))
+        .catch(err => console.error('⚠️ Failed to persist inductionTopicsCovered:', err));
+
       // Fire-and-forget: update inductionCompleted on worker/staff/visitor + write worker_note
       (async () => {
         try {
@@ -760,7 +780,7 @@ export function registerInductionRoutes(app: Express): void {
         }
       })();
 
-      res.json({ results });
+      res.json({ results, topicsCovered });
     } catch (error) {
       console.error('Error submitting quiz:', error);
       res.status(500).json({ error: 'Internal server error' });

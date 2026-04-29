@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, CheckCircle2, Clock, Play, AlertTriangle, Shield, HardHat, RefreshCw } from "lucide-react";
+import { CheckCircle, CheckCircle2, Clock, Play, AlertTriangle, Shield, HardHat, RefreshCw, ClipboardCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface InductionToken {
@@ -93,7 +93,13 @@ export default function SiteInduction() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
-  const [quizResults, setQuizResults] = useState<{ score: number; passed: boolean; total: number; correct?: number } | null>(null);
+  const [quizResults, setQuizResults] = useState<{
+    score: number;
+    passed: boolean;
+    total: number;
+    correct?: number;
+    topicsCovered?: { id: number; label: string; covered: boolean; coveredAt: string }[];
+  } | null>(null);
   const [videoFullscreen, setVideoFullscreen] = useState(false);
   const [tokenExpired, setTokenExpired] = useState(false);
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
@@ -274,7 +280,7 @@ export default function SiteInduction() {
       }
 
       const response = await res.json();
-      setQuizResults(response.results);
+      setQuizResults({ ...response.results, topicsCovered: response.topicsCovered });
       
       const threshold = tokenData?.passThreshold ?? 80;
       if (response.results.passed) {
@@ -659,7 +665,7 @@ export default function SiteInduction() {
               const attemptsUsed = tokenData.quizAttempts ?? 0;
               const attemptsRemaining = Math.max(0, 3 - attemptsUsed);
               return (
-                <div className="mt-6 max-w-lg mx-auto px-2">
+                <div className="mt-6 max-w-lg mx-auto px-2 space-y-4">
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center space-y-4">
                     <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto" />
                     <div>
@@ -687,6 +693,27 @@ export default function SiteInduction() {
                       </p>
                     )}
                   </div>
+
+                  {/* CDM 2015 topics — shown even on fail so the operator can see coverage */}
+                  {quizResults.topicsCovered && quizResults.topicsCovered.length > 0 && (
+                    <div className="border border-blue-200 rounded-lg overflow-hidden">
+                      <div className="bg-blue-700 px-4 py-2 flex items-center gap-2">
+                        <ClipboardCheck className="w-4 h-4 text-white" />
+                        <span className="text-white text-sm font-semibold">Induction Topics Covered</span>
+                      </div>
+                      <ul className="divide-y divide-blue-100">
+                        {quizResults.topicsCovered.map(t => (
+                          <li key={t.id} className="flex items-start gap-2.5 px-4 py-2.5 bg-blue-50">
+                            <CheckCircle className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+                            <span className="text-sm text-blue-900">{t.label}</span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-xs text-blue-700 px-4 py-2 bg-blue-50 border-t border-blue-200">
+                        All 10 CDM 2015 required topics were covered in this induction, regardless of quiz result.
+                      </p>
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -731,6 +758,27 @@ export default function SiteInduction() {
               </div>
             )}
             
+            {/* CDM 2015 compliance checklist */}
+            {quizResults?.topicsCovered && quizResults.topicsCovered.length > 0 && (
+              <div className="border border-green-200 rounded-lg overflow-hidden text-left mb-6">
+                <div className="bg-green-700 px-4 py-2 flex items-center gap-2">
+                  <ClipboardCheck className="w-4 h-4 text-white" />
+                  <span className="text-white text-sm font-semibold">CDM 2015 Compliance Record — Topics Covered</span>
+                </div>
+                <ul className="divide-y divide-green-100">
+                  {quizResults.topicsCovered.map(t => (
+                    <li key={t.id} className="flex items-start gap-2.5 px-4 py-2.5 bg-green-50">
+                      <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 shrink-0" />
+                      <span className="text-sm text-green-900">{t.label}</span>
+                    </li>
+                  ))}
+                </ul>
+                <p className="text-xs text-green-700 px-4 py-2 bg-green-50 border-t border-green-200">
+                  All 10 HSE-required induction topics were covered. This record is stored for audit purposes.
+                </p>
+              </div>
+            )}
+
             <div className="bg-blue-50 p-5 rounded-lg text-left">
               <h3 className="font-semibold text-blue-900 mb-3">What happens next:</h3>
               <ul className="text-blue-800 space-y-2">

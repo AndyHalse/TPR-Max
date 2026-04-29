@@ -58,7 +58,12 @@ export async function seedInductionSettings() {
         ADD COLUMN IF NOT EXISTS visitor_id VARCHAR,
         ADD COLUMN IF NOT EXISTS staff_id VARCHAR
     `);
-    console.log('✅ Global induction_tokens schema verified (worker_id nullable, person columns present)');
+    // CDM 2015 compliance: topics covered audit field
+    await db.execute(sql`
+      ALTER TABLE induction_tokens
+        ADD COLUMN IF NOT EXISTS induction_topics_covered JSONB
+    `);
+    console.log('✅ Global induction_tokens schema verified (worker_id nullable, person columns present, topics covered column ready)');
 
     const existingSettings = await db.select().from(inductionSettings).limit(1);
     
