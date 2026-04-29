@@ -69,6 +69,26 @@ const SLIDE_PERF_PATCH = `<style id="tpr-slide-perf-patch">
 .scene{visibility:hidden!important;pointer-events:none!important;position:absolute!important;top:0;left:0;width:100%;opacity:0!important;transition:opacity 0.25s ease!important;}
 .scene.active{visibility:visible!important;pointer-events:auto!important;position:relative!important;opacity:1!important;display:block!important;animation:tprSlideIn 0.3s ease!important;}
 @keyframes tprSlideIn{from{opacity:0;transform:translateX(15px)}to{opacity:1;transform:translateX(0)}}
+/* ── Mobile responsive overrides ── */
+@media(max-width:640px){
+  html,body{overflow-y:auto!important;overflow-x:hidden!important;}
+  .presentation-container{height:auto!important;min-height:100vh!important;overflow:visible!important;padding:8px 8px 90px 8px!important;}
+  .scene{padding:8px 8px 10px 8px!important;height:auto!important;overflow:visible!important;}
+  .scene h1,.scene h1*{font-size:1.35rem!important;margin-bottom:10px!important;}
+  .scene h2,.scene h2*{font-size:1.15rem!important;margin-bottom:8px!important;}
+  .scene h3,.scene h3*{font-size:1.05rem!important;margin-bottom:6px!important;}
+  .scene p,.scene p*{font-size:0.92rem!important;line-height:1.45!important;margin-bottom:8px!important;}
+  .scene ul li,.scene ol li{font-size:0.9rem!important;line-height:1.4!important;}
+  .scene-image{height:28vw!important;min-height:120px!important;max-height:180px!important;}
+  .controls{padding:8px 12px!important;gap:8px!important;bottom:8px!important;border-radius:12px!important;}
+  .btn{padding:7px 11px!important;font-size:0.82rem!important;min-width:60px!important;}
+  .header-section{position:relative!important;top:auto!important;left:auto!important;transform:none!important;padding:10px 14px!important;border-radius:12px!important;margin-bottom:8px!important;}
+  .company-logo{width:48px!important;height:48px!important;font-size:1.1rem!important;}
+  .company-name{font-size:0.95rem!important;}
+  .scene-counter{top:8px!important;right:8px!important;padding:5px 9px!important;font-size:0.78rem!important;}
+  .enhanced-badge{top:auto!important;bottom:80px!important;right:8px!important;font-size:0.75rem!important;padding:5px 10px!important;}
+  .progress-bar{bottom:0!important;}
+}
 </style>`;
 function patchInductionHtml(html: string): string {
   if (html.includes('id="tpr-slide-perf-patch"')) return html;

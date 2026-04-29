@@ -464,7 +464,8 @@ export default function SiteInduction() {
                 ) : videoBlobUrl ? (
                   <div className={videoFullscreen
                     ? 'fixed inset-0 z-50 bg-gray-900 flex flex-col'
-                    : 'aspect-video bg-gray-900 rounded-lg overflow-hidden mb-6 flex flex-col'}>
+                    : 'w-full bg-gray-900 rounded-lg overflow-hidden mb-6 flex flex-col'}
+                    style={videoFullscreen ? undefined : { aspectRatio: '16/9', minHeight: '340px' }}>
                     <div className="flex-shrink-0 flex justify-between items-center bg-gray-800 px-4 py-2">
                       <span className="text-white text-sm font-medium">AI-Generated Safety Induction</span>
                       <Button
@@ -481,6 +482,7 @@ export default function SiteInduction() {
                       src={videoBlobUrl}
                       className="flex-1 min-h-0 w-full border-0 bg-white"
                       title="Induction Video"
+                      scrolling="auto"
                       data-testid="iframe-induction-video"
                     />
                   </div>
