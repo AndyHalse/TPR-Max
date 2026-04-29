@@ -471,7 +471,7 @@ VisiGate Pro - Visitor Management System
     return {
       score,
       passed,
-      total: totalAnswered,
+      total: validAnswerCount,
       correct: correctAnswers
     };
   }
