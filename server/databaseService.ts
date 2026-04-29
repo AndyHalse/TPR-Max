@@ -675,27 +675,6 @@ export class DatabaseService {
     
     const visitor = updated[0];
     
-    // Create visitor history record for returning visitor check-in
-    if (visitor) {
-      await this.createVisitorHistory(context, {
-        visitorId: visitor.id,
-        checkInTime: checkInTime,
-        checkOutTime: null,
-        purpose: visitor.purpose || '',
-        hostStaffId: visitor.hostStaffId,
-
-        inductionCompleted: visitor.inductionCompleted || false,
-        inductionCompletedAt: visitor.inductionCompletedAt,
-        hsRulesAccepted: visitor.hsRulesAccepted || false,
-        hsRulesAcceptedAt: visitor.hsRulesAcceptedAt,
-        ePassSent: visitor.ePassSent || false,
-        ePassSentAt: visitor.ePassSentAt,
-        checkoutType: null,
-        notes: visitor.notes,
-        qrCode: visitor.qrCode
-      });
-    }
-    
     return visitor;
   }
 

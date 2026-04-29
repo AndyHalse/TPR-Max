@@ -224,6 +224,10 @@ export function registerVisitorRoutes(app: Express): void {
         visitor.ePassSentAt = null;
       }
 
+      // Track actual ePass send outcome for accurate history recording
+      let ePassActuallySent = false;
+      let ePassActuallySentAt: Date | null = null;
+
       // Send e-Pass if enabled
       if (settings?.ePassEnabled && visitor) {
         console.log(`📧 E-Pass is enabled, sending digital pass to ${visitor.email || 'no email'}`);
@@ -255,10 +259,13 @@ export function registerVisitorRoutes(app: Express): void {
             );
             
             if (emailSent) {
+              const sentAt = new Date();
               await databaseService.updateVisitor(context, visitor.id, {
                 ePassSent: true,
-                ePassSentAt: new Date()
+                ePassSentAt: sentAt
               });
+              ePassActuallySent = true;
+              ePassActuallySentAt = sentAt;
               console.log(`✅ E-Pass sent successfully to ${visitor.email}`);
             }
           } catch (emailError) {
@@ -323,6 +330,26 @@ export function registerVisitorRoutes(app: Express): void {
         // Add e-Pass info to response
         visitor.ePassSent = true;
         visitor.ePassUrl = ePassUrl;
+      }
+
+      // Create visitor history for returning visitor check-in, now that ePass status is known
+      if (existingVisitor && !existingVisitor.isCheckedIn && visitor && visitor.checkedInAt) {
+        await databaseService.createVisitorHistory(context, {
+          visitorId: visitor.id,
+          checkInTime: visitor.checkedInAt,
+          checkOutTime: null,
+          purpose: visitor.purpose || '',
+          hostStaffId: visitor.hostStaffId,
+          inductionCompleted: visitor.inductionCompleted || false,
+          inductionCompletedAt: visitor.inductionCompletedAt,
+          hsRulesAccepted: visitor.hsRulesAccepted || false,
+          hsRulesAcceptedAt: visitor.hsRulesAcceptedAt,
+          ePassSent: ePassActuallySent,
+          ePassSentAt: ePassActuallySentAt,
+          checkoutType: null,
+          notes: visitor.notes,
+          qrCode: visitor.qrCode
+        });
       }
       
       // Check for active evacuations and add visitor to accountability list if needed
