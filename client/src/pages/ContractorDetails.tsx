@@ -346,12 +346,12 @@ export default function ContractorDetails() {
       return response.json();
     },
     onSuccess: (data) => {
-      if (data.hasEmail && data.ePassSent) {
+      if (data.hasEmail && data.ePassEnabled && data.ePassSent) {
         toast({ 
           title: "E-Pass sent successfully",
           description: "Check-in e-pass has been sent to the worker's email"
         });
-      } else if (data.hasEmail && !data.ePassSent) {
+      } else if (data.hasEmail && data.ePassEnabled && !data.ePassSent) {
         toast({ 
           title: "Check-in initiated",
           description: "Failed to send e-pass, but worker is registered",
@@ -360,7 +360,7 @@ export default function ContractorDetails() {
       } else {
         toast({ 
           title: "Check-in initiated",
-          description: "Worker checked in (no email on file)",
+          description: "Worker checked in (physical pass required)",
           variant: "secondary"
         });
       }
