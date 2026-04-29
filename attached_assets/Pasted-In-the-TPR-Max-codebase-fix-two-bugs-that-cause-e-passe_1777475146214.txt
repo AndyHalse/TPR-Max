@@ -1,0 +1,65 @@
+In the TPR Max codebase, fix two bugs that cause e-passes to be 
+sent even when the Digital E-Pass System is disabled in settings.
+
+BUG 1 — Default value is wrong (server/isolatedSchema.ts)
+
+Find the ePassEnabled field in the companySettings table definition:
+  ePassEnabled: boolean("e_pass_enabled").default(true)
+
+Change the default to false:
+  ePassEnabled: boolean("e_pass_enabled").default(false)
+
+Also change ePassDeliveryMethod default from "both" to "email":
+  ePassDeliveryMethod: text("e_pass_delivery_method").default("email")
+
+Customers should not have e-passes or SMS costs enabled by default 
+before they have deliberately configured this feature.
+
+---
+
+BUG 2 — Contractor pass routes don't check the toggle 
+(server/routes/contractors.ts)
+
+Find the contractor worker QR pass send route 
+(POST /api/contractors/workers/:id/send-qr-pass or similar).
+
+Currently the route calls sendContractorWorkerQrPass() or 
+sendDigitalEPass() without first checking ePassEnabled.
+
+Wrap the email send call in a settings check:
+
+  const settings = await databaseService.getCompanySettings(context);
+  
+  if (!settings?.ePassEnabled) {
+    return res.status(200).json({ 
+      success: false, 
+      message: 'Digital E-Pass is disabled. Enable it in Settings → Passes to send digital passes.' 
+    });
+  }
+  
+  // existing send logic below
+
+Do the same check in any other contractor endpoint that sends an 
+e-pass (search for sendDigitalEPass and sendContractorWorkerQrPass 
+in contractors.ts — wrap each call with the same guard).
+
+---
+
+BUG 3 — sendDigitalEPass() has no internal guard 
+(server/emailService.ts)
+
+Find the sendDigitalEPass method. At the top of the method body, 
+add an early return if the settings object shows e-pass is disabled:
+
+  async sendDigitalEPass(recipientEmail, passData, settings, ...) {
+    // Guard: never send if e-pass is disabled
+    if (settings && settings.ePassEnabled === false) {
+      console.log('E-pass send skipped: ePassEnabled is false for this customer');
+      return { success: false, reason: 'epass_disabled' };
+    }
+    // existing send logic...
+  }
+
+This is a belt-and-braces guard so that even if a caller forgets 
+to check ePassEnabled before calling this method, the email is 
+never sent when the feature is off.

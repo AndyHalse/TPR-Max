@@ -93,6 +93,13 @@ export function registerContractorRoutes(app: Express): void {
       const settings = await databaseService.getCompanySettings(context);
       const companyName = resolvedWorker.companyName || 'Contractor';
 
+      if (!settings?.ePassEnabled) {
+        return res.status(200).json({
+          success: false,
+          message: 'Digital E-Pass is disabled. Enable it in Settings → Passes to send digital passes.'
+        });
+      }
+
       const passPayload = {
         success: true,
         method,

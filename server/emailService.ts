@@ -1699,6 +1699,10 @@ This is an automated emergency notification from ${companySettings.companyName}`
     ePassUrl?: string
   ): Promise<boolean> {
     try {
+      if (settings && settings.ePassEnabled === false) {
+        console.log('E-pass send skipped: ePassEnabled is false for this customer');
+        return false;
+      }
       const companyName = settings?.companyName || 'TPR Max';
       const validUntil = visitor.expectedDepartureTime ? 
         new Date(visitor.expectedDepartureTime).toLocaleString('en-GB', {
@@ -2215,6 +2219,10 @@ Powered by VisiGate Pro`;
     customerId?: string
   ): Promise<boolean> {
     try {
+      if (companySettings && companySettings.ePassEnabled === false) {
+        console.log('Contractor e-pass send skipped: ePassEnabled is false for this customer');
+        return false;
+      }
       const companyName = companySettings?.companyName || 'VisiGate Pro';
       
       // Generate QR code image URL (same as visitor e-pass)
