@@ -1,0 +1,191 @@
+In the TPR Max codebase, fix and improve the site induction module.
+The current problem: on mobile phones, the AI-generated induction 
+video/slides only shows the bottom control buttons — the actual slide 
+content is invisible. The module is unusable on mobile as a result.
+
+Work through these fixes in order.
+
+---
+
+## FIX 1 — Mobile video display (CRITICAL — fix this first)
+
+File: client/src/pages/SiteInduction.tsx (or wherever the induction 
+public page lives — search for "blob" and "createObjectURL")
+
+The video content is delivered as a Blob URL loaded into an iframe. 
+The iframe height calculation is broken on mobile.
+
+Current problem pattern (find and fix):
+- The parent container uses padding like `pt-[40px]` for a header bar
+- The iframe uses `h-[calc(100%-40px)]` to account for that header
+- On mobile, this fails because viewport height is not applied 
+  consistently — the iframe collapses to near-zero height
+
+FIXES:
+
+a) Find the video iframe element. Replace its height approach:
+   - Remove `h-[calc(100%-40px)]` 
+   - Set the parent container to `flex flex-col` with `h-screen` 
+     (or `h-[100dvh]` to handle iOS Safari's dynamic viewport)
+   - Set the iframe to `flex-1 min-h-0 w-full` so it fills all 
+     remaining space after the header bar
+
+b) The header/controls bar above the iframe should be a fixed-height 
+   flex row: apply `flex-shrink-0` so it never compresses
+
+c) The bottom controls bar (Previous / Pause / Next buttons) — if it 
+   is inside the iframe HTML itself, leave it alone. If it is outside 
+   the iframe in React, apply `flex-shrink-0` to it as well.
+
+d) On the fullscreen mode (when videoFullscreen === true):
+   - Container: `fixed inset-0 z-50 bg-black flex flex-col`
+   - Iframe: `flex-1 min-h-0 w-full border-0`
+   This ensures fullscreen also works correctly on mobile.
+
+e) Test the layout at these viewport widths: 375px (iPhone SE), 
+   390px (iPhone 14), 414px (iPhone Plus). The slide content area 
+   must be visible at all three sizes.
+
+---
+
+## FIX 2 — Blob URL memory leak
+
+In the same SiteInduction.tsx file, find where the Blob URL is 
+created:
+  const blob = new Blob([videoHtml], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+
+This URL is never revoked when the component unmounts, causing a 
+memory leak. Fix:
+
+Store the blob URL in a useRef or useState. Add a useEffect with 
+a cleanup function that calls URL.revokeObjectURL() when the 
+component unmounts or when the videoHtml changes:
+
+  useEffect(() => {
+    if (!videoHtml) return;
+    const blob = new Blob([videoHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    setVideoBlobUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [videoHtml]);
+
+---
+
+## FIX 3 — Quiz attempt rate limiting
+
+File: server/routes/induction.ts
+
+Find the POST endpoint for quiz submission (search for 
+"submit-quiz"). Currently there is no rate limiting — a user 
+could brute-force all answers.
+
+Add this guard at the top of the handler, before any answer 
+processing:
+
+1. Fetch the current token record
+2. If quizAttempts >= 3, return HTTP 429 with JSON:
+   { error: "Maximum quiz attempts reached. Please contact the 
+     site administrator to reset your induction." }
+3. If the last attempt was within the past 10 minutes, return 
+   HTTP 429 with JSON:
+   { error: "Please wait 10 minutes before retrying the quiz." }
+   (Use quizCompletedAt or add a lastAttemptAt field if needed)
+
+---
+
+## FIX 4 — Quiz question ID validation
+
+File: server/services/inductionService.ts (or wherever 
+submit-quiz answer processing happens — search for 
+"questionMap" or "correctAnswer")
+
+Currently, if the frontend sends an invalid questionId, the 
+answer silently scores as incorrect with no error. Add validation:
+
+Before processing each answer, check that answer.questionId 
+exists as a key in the questionMap. If any submitted questionId 
+is not found:
+- Skip that answer (do not count it in total or correct)
+- Log a warning server-side
+- Do not throw — process the remaining valid answers
+
+---
+
+## FIX 5 — Mobile UX improvements to the quiz section
+
+In SiteInduction.tsx, find the quiz question display.
+
+Current issues on mobile:
+a) Question text may be small — ensure it uses at least `text-lg` 
+   on mobile, `text-xl` on md+ screens
+b) Answer option buttons should be `w-full` stacked vertically 
+   on mobile — check they are not displayed in a grid that 
+   collapses poorly on narrow screens
+c) The Previous / Next / Submit navigation buttons at the bottom 
+   of the quiz: wrap them in a `flex gap-3 flex-wrap justify-center` 
+   container so they never overflow on small screens
+d) Show clear progress: "Question X of Y" at the top of each 
+   question screen in `text-sm text-muted-foreground`
+
+---
+
+## FIX 6 — Pass/fail result screen improvement
+
+After quiz submission, the result is shown. Improve the result 
+screen for mobile:
+
+PASS screen:
+- Large green checkmark icon (CheckCircle2 from lucide-react, 
+  size 64px)
+- "Induction Complete" heading (text-2xl font-bold)
+- Show their score: "You scored XX% — Pass"
+- If a completion certificate is generated, show a prominent 
+  "Download Certificate" button (full width on mobile)
+- Green colour theme consistent with the brand
+
+FAIL screen:
+- Large amber warning icon (AlertTriangle, size 64px)
+- "Induction Not Passed" heading
+- Show their score: "You scored XX% — you need 80% to pass"
+- Show how many attempts remain (max 3): 
+  "You have X attempt(s) remaining"
+- If attempts remain: show a "Try Again" button
+- If no attempts remain: show "Please contact the site 
+  administrator to arrange a reset"
+- Amber/orange colour theme
+
+Both screens should be centred, use `max-w-lg mx-auto px-6 py-8` 
+and display cleanly on a 375px wide phone screen.
+
+---
+
+## FIX 7 — Email validation before sending induction link
+
+File: server/routes/induction.ts
+
+Find the endpoint that sends the induction email (search for 
+"sendInductionEmail" or "personEmail").
+
+Before calling the email service, validate the email address:
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(personEmail)) {
+    return res.status(400).json({ 
+      error: "Please provide a valid email address." 
+    });
+  }
+
+---
+
+## DO NOT CHANGE
+
+- The AI video generation logic (videoGenerationService.ts) — 
+  do not touch script generation, image generation, or TTS
+- The database schema for induction tokens, answers, or questions
+- The 80% pass threshold logic on the server — it works correctly
+- The email template HTML styling
+- Any existing working desktop layout that currently functions
+
+After completing all fixes, verify that the induction page at 
+/induction/:token renders correctly at mobile width (375px) with 
+the video/slide content fully visible above the control buttons.

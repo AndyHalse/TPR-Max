@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, Clock, Play, AlertTriangle, Shield, HardHat, XCircle, RefreshCw } from "lucide-react";
+import { CheckCircle, CheckCircle2, Clock, Play, AlertTriangle, Shield, HardHat, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface InductionToken {
@@ -257,7 +257,18 @@ export default function SiteInduction() {
       });
 
       if (!res.ok) {
-        throw new Error('Failed to submit quiz');
+        const errData = await res.json().catch(() => ({}));
+        if (res.status === 429) {
+          toast({
+            title: "Quiz Locked",
+            description: errData.error || "Please wait before retrying the quiz.",
+            variant: "destructive",
+            duration: 10000
+          });
+          setQuizSubmitted(false);
+          return;
+        }
+        throw new Error(errData.error || 'Failed to submit quiz');
       }
 
       const response = await res.json();
@@ -415,8 +426,10 @@ export default function SiteInduction() {
                     </div>
                   </div>
                 ) : videoBlobUrl ? (
-                  <div className={`bg-gray-900 rounded-lg overflow-hidden mb-6 ${videoFullscreen ? 'fixed inset-0 z-50' : 'aspect-video'}`}>
-                    <div className="flex justify-between items-center bg-gray-800 px-4 py-2">
+                  <div className={videoFullscreen
+                    ? 'fixed inset-0 z-50 bg-gray-900 flex flex-col'
+                    : 'aspect-video bg-gray-900 rounded-lg overflow-hidden mb-6 flex flex-col'}>
+                    <div className="flex-shrink-0 flex justify-between items-center bg-gray-800 px-4 py-2">
                       <span className="text-white text-sm font-medium">AI-Generated Safety Induction</span>
                       <Button
                         variant="ghost"
@@ -430,7 +443,7 @@ export default function SiteInduction() {
                     </div>
                     <iframe
                       src={videoBlobUrl}
-                      className={`w-full ${videoFullscreen ? 'h-[calc(100vh-50px)]' : 'h-[calc(100%-40px)]'} bg-white`}
+                      className="flex-1 min-h-0 w-full border-0 bg-white"
                       title="Induction Video"
                       data-testid="iframe-induction-video"
                     />
@@ -537,7 +550,8 @@ export default function SiteInduction() {
           </CardHeader>
           <CardContent>
             <div className="mb-6">
-              <h3 className="text-lg font-medium mb-4">{currentQuestion.questionText}</h3>
+              <p className="text-sm text-muted-foreground mb-2">Question {currentQuestionIndex + 1} of {questions.length}</p>
+              <h3 className="text-lg md:text-xl font-medium mb-4">{currentQuestion.questionText}</h3>
               
               <div className="space-y-3">
                 {['A', 'B', 'C', 'D'].map((option) => {
@@ -571,14 +585,14 @@ export default function SiteInduction() {
               </div>
             </div>
 
-            <div className="flex justify-between">
+            <div className="flex gap-3 flex-wrap justify-center">
               <Button
                 variant="outline"
                 onClick={() => setCurrentQuestionIndex(prev => Math.max(0, prev - 1))}
                 disabled={currentQuestionIndex === 0}
                 data-testid="button-previous-question"
               >
-                Previous
+                ← Previous
               </Button>
 
               {currentQuestionIndex === questions.length - 1 ? (
@@ -596,33 +610,46 @@ export default function SiteInduction() {
                   disabled={!answers[currentQuestion.id]}
                   data-testid="button-next-question"
                 >
-                  Next
+                  Next →
                 </Button>
               )}
             </div>
             
-            {quizResults && !quizResults.passed && (
-              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg space-y-3">
-                <div className="flex items-center gap-2">
-                  <XCircle className="w-5 h-5 text-red-600 flex-shrink-0" />
-                  <div>
-                    <p className="font-semibold text-red-900">Quiz Not Passed</p>
-                    <p className="text-sm text-red-700">
-                      You scored <strong>{quizResults.score}%</strong> — you need <strong>{tokenData.passThreshold ?? 80}%</strong> to pass.
-                      {tokenData.quizAttempts > 0 && ` Attempt ${tokenData.quizAttempts} of unlimited.`}
-                    </p>
+            {quizResults && !quizResults.passed && (() => {
+              const attemptsUsed = tokenData.quizAttempts ?? 0;
+              const attemptsRemaining = Math.max(0, 3 - attemptsUsed);
+              return (
+                <div className="mt-6 max-w-lg mx-auto px-2">
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center space-y-4">
+                    <AlertTriangle className="w-16 h-16 text-amber-500 mx-auto" />
+                    <div>
+                      <h3 className="text-xl font-bold text-amber-900 mb-1">Induction Not Passed</h3>
+                      <p className="text-amber-800 font-semibold text-lg">
+                        You scored {quizResults.score}% — you need {tokenData.passThreshold ?? 80}% to pass
+                      </p>
+                      <p className="text-sm text-amber-700 mt-1">
+                        {attemptsRemaining > 0
+                          ? `You have ${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} remaining`
+                          : 'You have used all 3 attempts'}
+                      </p>
+                    </div>
+                    {attemptsRemaining > 0 ? (
+                      <Button
+                        onClick={retryQuiz}
+                        className="w-full bg-amber-600 hover:bg-amber-700 text-white"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Try Again
+                      </Button>
+                    ) : (
+                      <p className="text-sm text-amber-800 bg-amber-100 border border-amber-200 rounded-lg px-4 py-3">
+                        Please contact the site administrator to arrange a reset of your induction attempt.
+                      </p>
+                    )}
                   </div>
                 </div>
-                <Button
-                  onClick={retryQuiz}
-                  variant="outline"
-                  className="w-full border-red-300 text-red-700 hover:bg-red-100"
-                >
-                  <RefreshCw className="w-4 h-4 mr-2" />
-                  Retry Quiz
-                </Button>
-              </div>
-            )}
+              );
+            })()}
           </CardContent>
         </Card>
       </div>
@@ -636,11 +663,9 @@ export default function SiteInduction() {
     return (
       <div className="space-y-6">
         <Card className="border-green-200">
-          <CardContent className="p-8 text-center">
-            <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <CheckCircle className="w-14 h-14 text-green-500" />
-            </div>
-            <h2 className="text-2xl font-bold text-green-900 mb-2">Induction Complete!</h2>
+          <CardContent className="max-w-lg mx-auto px-6 py-8 text-center">
+            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-green-900 mb-2">Induction Complete</h2>
             <p className="text-green-700 mb-6">
               Congratulations, {worker?.firstName}! You have successfully completed the site induction.
             </p>
@@ -650,9 +675,10 @@ export default function SiteInduction() {
                 <p className="text-3xl font-bold text-green-800 mb-1">{quizResults.score}%</p>
                 <p className="text-sm text-green-700 font-medium">
                   {typeof quizResults.correct === 'number' && quizResults.total
-                    ? `${quizResults.correct} out of ${quizResults.total} correct`
-                    : `Pass mark: ${threshold}%`
-                  } — <strong>PASSED ✓</strong>
+                    ? `${quizResults.correct} out of ${quizResults.total} correct — `
+                    : `Pass mark: ${threshold}% — `
+                  }
+                  <strong>Pass ✓</strong>
                 </p>
                 <p className="text-xs text-green-600 mt-2 border-t border-green-200 pt-2">Completed on {completedAtStr}</p>
               </div>
@@ -665,7 +691,7 @@ export default function SiteInduction() {
               </div>
             )}
             
-            <div className="bg-blue-50 p-6 rounded-lg text-left">
+            <div className="bg-blue-50 p-5 rounded-lg text-left">
               <h3 className="font-semibold text-blue-900 mb-3">What happens next:</h3>
               <ul className="text-blue-800 space-y-2">
                 <li className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" /> Your induction status has been automatically updated</li>

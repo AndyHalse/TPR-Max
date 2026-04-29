@@ -411,13 +411,18 @@ VisiGate Pro - Visitor Management System
     const questionMap = new Map(allQuestions.map(q => [q.id, q]));
     
     let correctAnswers = 0;
+    let validAnswerCount = 0;
     const attemptNumber = await this.getNextAttemptNumber(tokenId);
-    const totalAnswered = answers.length;
 
-    // Save all answers
+    // Save all answers — skip any with unknown questionIds
     for (const answer of answers) {
       const question = questionMap.get(answer.questionId);
-      const isCorrect = question?.correctAnswer === answer.selectedAnswer;
+      if (!question) {
+        console.warn(`⚠️ [InductionService] Unknown questionId "${answer.questionId}" in submission — skipping`);
+        continue;
+      }
+      validAnswerCount++;
+      const isCorrect = question.correctAnswer === answer.selectedAnswer;
       
       if (isCorrect) {
         correctAnswers++;
@@ -434,25 +439,28 @@ VisiGate Pro - Visitor Management System
       await db.insert(inductionAnswers).values(insertAnswer);
     }
 
-    // Score based on the actual number of questions answered — not all questions in DB
-    const score = totalAnswered > 0 ? Math.round((correctAnswers / totalAnswered) * 100) : 0;
+    // Score based on valid answers only
+    const score = validAnswerCount > 0 ? Math.round((correctAnswers / validAnswerCount) * 100) : 0;
     
     // Read pass threshold from the token (default 80% — UK H&S requirement)
     const [tokenRecord] = await db.select({ passThreshold: inductionTokens.passThreshold }).from(inductionTokens).where(eq(inductionTokens.id, tokenId));
     const threshold = tokenRecord?.passThreshold ?? 80;
     const passed = score >= threshold;
 
-    // Update token with quiz results
+    // Update token with quiz results.
+    // quizCompletedAt is set on every attempt (not just passes) so the
+    // submit-quiz rate limiter can enforce the 10-minute retry cooldown.
+    const now = new Date();
     await db
       .update(inductionTokens)
       .set({
         quizAttempts: attemptNumber,
         quizCompleted: passed,
-        quizCompletedAt: passed ? new Date() : undefined,
+        quizCompletedAt: now,
         quizPassed: passed ? true : undefined,
         quizScore: score,
         status: passed ? 'completed' : 'in_progress',
-        completedAt: passed ? new Date() : undefined
+        completedAt: passed ? now : undefined
       })
       .where(eq(inductionTokens.id, tokenId));
 

@@ -490,6 +490,22 @@ export function registerInductionRoutes(app: Express): void {
         return res.status(400).json({ error: 'Invalid answers format' });
       }
 
+      // Rate limiting: max 3 attempts, and enforce a 10-minute cooldown between attempts
+      const [tokenRecord] = await db.select().from(inductionTokens).where(eq(inductionTokens.id, tokenId));
+      if (!tokenRecord) {
+        return res.status(404).json({ error: 'Induction token not found' });
+      }
+      if ((tokenRecord.quizAttempts ?? 0) >= 3) {
+        return res.status(429).json({ error: 'Maximum quiz attempts reached. Please contact the site administrator to reset your induction.' });
+      }
+      if (tokenRecord.quizCompletedAt && !tokenRecord.quizPassed) {
+        const msSinceLast = Date.now() - new Date(tokenRecord.quizCompletedAt).getTime();
+        if (msSinceLast < 10 * 60 * 1000) {
+          const minutesLeft = Math.ceil((10 * 60 * 1000 - msSinceLast) / 60000);
+          return res.status(429).json({ error: `Please wait ${minutesLeft} minute(s) before retrying the quiz.` });
+        }
+      }
+
       const results = await inductionService.submitQuizAnswers(tokenId, answers);
       
       // Fire-and-forget: update inductionCompleted on worker/staff/visitor + write worker_note
@@ -581,6 +597,11 @@ export function registerInductionRoutes(app: Express): void {
       
       if (!personType || !personName || !personEmail) {
         return res.status(400).json({ error: 'personType, personName, and personEmail are required' });
+      }
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(personEmail)) {
+        return res.status(400).json({ error: 'Please provide a valid email address.' });
       }
 
       if (!['visitor', 'staff', 'contractor'].includes(personType)) {
