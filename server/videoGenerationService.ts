@@ -302,7 +302,17 @@ export class VideoGenerationService {
   }
   
   // Generate comprehensive induction script for a specific role
-  async generateInductionScript(roleType: string, videoFormat: string = 'interactive_slides', modelType?: string): Promise<{
+  async generateInductionScript(roleType: string, videoFormat: string = 'interactive_slides', modelType?: string, siteContext?: {
+    companyName: string;
+    siteAddress: string;
+    industry: string;
+    specificHazards: string;
+    ppeRequired: string;
+    emergencyContact: string;
+    assemblyPoint: string;
+    firstAidLocation: string;
+    siteRules: string;
+  }): Promise<{
     script: string;
     scenes: Array<{
       title: string;
@@ -314,17 +324,34 @@ export class VideoGenerationService {
   }> {
     
     // Get comprehensive company details for enhanced AI personalization
-    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    const companyName = siteContext?.companyName || this.companySettings?.companyName || "VisiGate Pro";
     const companyLogo = this.companySettings?.bannerUrl ? `Company Logo: ${this.companySettings.bannerUrl}` : "Professional company branding";
     const aiInstructions = this.companySettings?.aiInstructionsPrompt || "Create comprehensive, engaging safety induction content";
     
     // Enhanced company context for better AI generation
     const companyWebsite = this.companySettings?.website || "";
-    const companyAddress = this.companySettings?.address || "";
+    const companyAddress = siteContext?.siteAddress || this.companySettings?.address || "";
     const companyPhone = this.companySettings?.phone || "";
-    const industryContext = this.getIndustryContext(companyName, companyWebsite);
+    const industryContext = siteContext?.industry || this.getIndustryContext(companyName, companyWebsite);
     const companySize = this.estimateCompanySize();
     const companyBranding = this.getBrandingTheme();
+
+    // Build site-specific context block to inject at the top of every prompt
+    const siteSpecificBlock = siteContext ? `
+You are generating a site induction for ${siteContext.companyName}.
+Location: ${siteContext.siteAddress || 'see site signage'}.
+Industry/sector: ${siteContext.industry || 'general industry'}.
+
+SITE-SPECIFIC INFORMATION TO INCLUDE:
+- Specific hazards at this site: ${siteContext.specificHazards || 'standard construction hazards'}
+- PPE required: ${siteContext.ppeRequired || 'hard hat, hi-vis vest, safety boots'}
+- Emergency assembly point: ${siteContext.assemblyPoint || 'designated assembly point — check site signage'}
+- First aid location: ${siteContext.firstAidLocation || 'site office'}
+- Emergency contact: ${siteContext.emergencyContact || 'site manager'}
+- Site rules: ${siteContext.siteRules || 'standard site rules apply'}
+
+Every slide must reference ${siteContext.companyName} specifically. Do not produce generic content. This induction is legally required to be site-specific under CDM 2015.
+` : '';
     
     // Enhanced prompts based on video format
     const formatSpecificInstructions = {
@@ -336,7 +363,7 @@ export class VideoGenerationService {
     const formatInstruction = formatSpecificInstructions[videoFormat as keyof typeof formatSpecificInstructions] || formatSpecificInstructions['interactive_slides'];
     
     const roleSpecificPrompts = {
-      visitor: `Generate a comprehensive safety induction script for VISITORS to ${companyName}. ${formatInstruction}
+      visitor: `${siteSpecificBlock}Generate a comprehensive safety induction script for VISITORS to ${companyName}. ${formatInstruction}
       
       Company Profile:
       - Name: ${companyName}
@@ -359,7 +386,7 @@ export class VideoGenerationService {
         - Company-specific contact information and reporting procedures
         - Professional sign-in/sign-out procedures aligned with company standards`,
       
-      staff: `Generate a comprehensive safety induction script for new STAFF MEMBERS at ${companyName}. ${formatInstruction}
+      staff: `${siteSpecificBlock}Generate a comprehensive safety induction script for new STAFF MEMBERS at ${companyName}. ${formatInstruction}
       
       Company Profile:
       - Name: ${companyName}
@@ -383,7 +410,7 @@ export class VideoGenerationService {
         - Equipment and technology safety protocols relevant to the organization's operations
         - Mandatory training requirements and refresher schedules per company policy`,
       
-      contractor: `Generate a comprehensive safety induction script for CONTRACTORS working at ${companyName}. ${formatInstruction}
+      contractor: `${siteSpecificBlock}Generate a comprehensive safety induction script for CONTRACTORS working at ${companyName}. ${formatInstruction}
       
       Company Profile:
       - Name: ${companyName}

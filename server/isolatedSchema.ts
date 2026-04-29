@@ -408,6 +408,14 @@ export const companySettings = pgTable("company_settings", {
   enableAdvancedVideoFeatures: boolean("enable_advanced_video_features").default(true),
   defaultVideoLength: text("default_video_length").default("15"), // minutes
   aiInstructionsPrompt: text("ai_instructions_prompt").default("Create comprehensive, engaging safety induction content"),
+  // Site Induction Content — injected into the AI prompt so generated content is site-specific
+  siteAddress: text("site_address"),             // Physical address shown on induction (falls back to address)
+  inductionHazards: text("induction_hazards"),   // Free-text list of site-specific hazards
+  inductionPpe: text("induction_ppe"),            // Free-text PPE requirements for this site
+  assemblyPoint: text("assembly_point"),          // Emergency assembly point description
+  firstAidLocation: text("first_aid_location"),   // Where the first aid kit / first aider is
+  emergencyContact: text("emergency_contact"),    // Combined name + number for the emergency contact
+  inductionSiteRules: text("induction_site_rules"), // Additional site-specific rules
   // QR Code Reader Integration Settings
   qrReaderEnabled: boolean("qr_reader_enabled").default(false),
   qrReaderDevice: text("qr_reader_device").default("auto"), // auto, hid, serial, usb

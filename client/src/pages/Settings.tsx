@@ -5812,6 +5812,109 @@ export default function Settings() {
             </GlassCard>
           </div>
 
+          {/* ── Site Induction Content ──────────────────────────────────────────── */}
+          <GlassCard>
+            <div className="flex items-center mb-6">
+              <Video className="mr-3 text-orange-600 dark:text-orange-400" size={24} />
+              <div>
+                <h3 className="text-lg font-semibold text-fixed">Site Induction Content</h3>
+                <p className="text-xs text-variable mt-0.5">These details are injected into the AI prompt so every generated induction is specific to your site, not generic.</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Site-specific hazards */}
+              <div className="space-y-2 lg:col-span-2">
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-sm font-medium text-fixed">Site-Specific Hazards</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                    <TooltipContent className="max-w-xs">Describe the specific hazards present at your site (e.g. "overhead crane operations, chemical storage areas, live electrical panels"). The AI will include these verbatim in the induction.</TooltipContent>
+                  </Tooltip>
+                </div>
+                <Textarea
+                  placeholder="e.g. Overhead crane operations in bays 1–4, chemical storage in building B, live HV switchgear room (authorised personnel only)"
+                  value={currentSettings?.inductionHazards || ""}
+                  onChange={(e) => handleInputChange("inductionHazards", e.target.value)}
+                  className="min-h-[80px] px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                  data-testid="textarea-induction-hazards"
+                />
+              </div>
+
+              {/* PPE requirements */}
+              <div className="space-y-2 lg:col-span-2">
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-sm font-medium text-fixed">PPE Requirements</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                    <TooltipContent className="max-w-xs">List all mandatory PPE for this site. The AI will include exactly what you specify here rather than using generic defaults.</TooltipContent>
+                  </Tooltip>
+                </div>
+                <Textarea
+                  placeholder="e.g. Hard hat (EN 397), hi-vis vest (Class 2), steel-toe boots (S3), safety glasses in machining areas, hearing protection in press shop"
+                  value={currentSettings?.inductionPpe || ""}
+                  onChange={(e) => handleInputChange("inductionPpe", e.target.value)}
+                  className="min-h-[80px] px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                  data-testid="textarea-induction-ppe"
+                />
+              </div>
+
+              {/* Emergency assembly point */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-fixed">Emergency Assembly Point</Label>
+                <Input
+                  placeholder="e.g. Car park A, north entrance — beyond the barrier"
+                  value={currentSettings?.assemblyPoint || ""}
+                  onChange={(e) => handleInputChange("assemblyPoint", e.target.value)}
+                  className="px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                  data-testid="input-assembly-point"
+                />
+              </div>
+
+              {/* First aid location */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium text-fixed">First Aid Location</Label>
+                <Input
+                  placeholder="e.g. Site office, ground floor — first aid box and defibrillator"
+                  value={currentSettings?.firstAidLocation || ""}
+                  onChange={(e) => handleInputChange("firstAidLocation", e.target.value)}
+                  className="px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                  data-testid="input-first-aid-location"
+                />
+              </div>
+
+              {/* Emergency contact */}
+              <div className="space-y-2 lg:col-span-2">
+                <Label className="text-sm font-medium text-fixed">Emergency Contact</Label>
+                <Input
+                  placeholder="e.g. Site Manager — John Smith, 07700 900123"
+                  value={currentSettings?.emergencyContact || ""}
+                  onChange={(e) => handleInputChange("emergencyContact", e.target.value)}
+                  className="px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                  data-testid="input-emergency-contact"
+                />
+              </div>
+
+              {/* Additional site rules */}
+              <div className="space-y-2 lg:col-span-2">
+                <div className="flex items-center gap-1.5">
+                  <Label className="text-sm font-medium text-fixed">Additional Site Rules</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
+                    <TooltipContent className="max-w-xs">Any rules not already covered above — speed limits, no-smoking areas, photography policy, permit-to-work requirements, etc.</TooltipContent>
+                  </Tooltip>
+                </div>
+                <Textarea
+                  placeholder="e.g. 5 mph speed limit throughout site, no photography without written permission, all hot works require a permit-to-work, no lone working after 18:00"
+                  value={currentSettings?.inductionSiteRules || ""}
+                  onChange={(e) => handleInputChange("inductionSiteRules", e.target.value)}
+                  className="min-h-[80px] px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50"
+                  data-testid="textarea-induction-site-rules"
+                />
+              </div>
+            </div>
+          </GlassCard>
+
           <GlassCard>
             <div className="flex items-center mb-6">
               <Key className="mr-3 text-blue-600 dark:text-blue-400" size={24} />

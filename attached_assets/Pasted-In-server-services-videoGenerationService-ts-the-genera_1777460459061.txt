@@ -1,0 +1,64 @@
+In server/services/videoGenerationService.ts, the generateInductionScript 
+function currently produces generic slides because it does not include 
+the customer's actual site information in the prompt.
+
+Fix this by injecting real site data from the customer's settings.
+
+STEP 1 — Pass site data through to the generation function.
+
+In server/routes/induction.ts, when calling generateInductionScript, 
+fetch the following from the customer's company settings and pass them 
+as a new parameter object called siteContext:
+
+  {
+    companyName: settings.companyName || 'the site operator',
+    siteAddress: settings.siteAddress || settings.address || '',
+    industry: settings.industry || settings.sector || '',
+    specificHazards: settings.inductionHazards || '',    // free text field
+    ppeRequired: settings.inductionPpe || '',             // free text field
+    emergencyContact: settings.emergencyContact || '',
+    assemblyPoint: settings.assemblyPoint || '',
+    firstAidLocation: settings.firstAidLocation || '',
+    siteRules: settings.inductionSiteRules || '',         // free text field
+  }
+
+If any of these settings fields do not yet exist in the schema, 
+add them to the companySettings table in isolatedSchema.ts as 
+nullable text fields with appropriate names.
+
+STEP 2 — Use the site data in the prompt.
+
+In videoGenerationService.ts, find the generateInductionScript function 
+and the prompt construction block. Add a site-specific context section 
+at the top of the prompt:
+
+  "You are generating a site induction for ${siteContext.companyName}.
+   Location: ${siteContext.siteAddress}.
+   Industry/sector: ${siteContext.industry}.
+   
+   SITE-SPECIFIC INFORMATION TO INCLUDE:
+   - Specific hazards at this site: ${siteContext.specificHazards || 'standard construction hazards'}
+   - PPE required: ${siteContext.ppeRequired || 'hard hat, hi-vis vest, safety boots'}
+   - Emergency assembly point: ${siteContext.assemblyPoint || 'designated assembly point — check site signage'}
+   - First aid location: ${siteContext.firstAidLocation || 'site office'}
+   - Emergency contact: ${siteContext.emergencyContact || 'site manager'}
+   - Site rules: ${siteContext.siteRules || 'standard site rules apply'}
+   
+   Every slide must reference ${siteContext.companyName} specifically. 
+   Do not produce generic content. This induction is legally required 
+   to be site-specific under CDM 2015."
+
+STEP 3 — Add the new settings fields to the Settings UI.
+
+In the customer Settings page (search for "induction" in 
+client/src/pages/Settings.tsx or similar), add a new section called 
+"Site Induction Content" with text fields for:
+  - Site-specific hazards (textarea)
+  - PPE requirements (textarea)
+  - Emergency assembly point
+  - First aid location
+  - Emergency contact name and number
+  - Additional site rules (textarea)
+
+These fields feed directly into the AI prompt so the generated 
+induction is genuinely site-specific.

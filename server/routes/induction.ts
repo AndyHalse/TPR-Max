@@ -3810,8 +3810,21 @@ export function registerInductionRoutes(app: Express): void {
 
       const videoService = new VideoGenerationService(settings, undefined, context.customerId);
 
+      // Build site-specific context from company settings
+      const siteContextQ = {
+        companyName: settings?.companyName || 'the site operator',
+        siteAddress: settings?.siteAddress || settings?.address || '',
+        industry: settings?.industry || '',
+        specificHazards: settings?.inductionHazards || '',
+        ppeRequired: settings?.inductionPpe || '',
+        emergencyContact: settings?.emergencyContact || '',
+        assemblyPoint: settings?.assemblyPoint || '',
+        firstAidLocation: settings?.firstAidLocation || '',
+        siteRules: settings?.inductionSiteRules || '',
+      };
+
       // Generate script to base questions on
-      const scriptContent = await videoService.generateInductionScript(roleType, 'interactive_slides', modelType);
+      const scriptContent = await videoService.generateInductionScript(roleType, 'interactive_slides', modelType, siteContextQ);
       
       // Generate AI questions based on the script content
       console.log(`🧠 Generating AI questions for ${roleType} from script...`);
@@ -3950,10 +3963,23 @@ export function registerInductionRoutes(app: Express): void {
           console.log(`🎬 Generating ${videoFormat} video for ${roleType} using ${modelType}`);
           const videoService = new VideoGenerationService(companySettings, undefined, context.customerId);
 
+          // Build site-specific context from company settings
+          const siteContextV = {
+            companyName: companySettings?.companyName || 'the site operator',
+            siteAddress: companySettings?.siteAddress || companySettings?.address || '',
+            industry: companySettings?.industry || '',
+            specificHazards: companySettings?.inductionHazards || '',
+            ppeRequired: companySettings?.inductionPpe || '',
+            emergencyContact: companySettings?.emergencyContact || '',
+            assemblyPoint: companySettings?.assemblyPoint || '',
+            firstAidLocation: companySettings?.firstAidLocation || '',
+            siteRules: companySettings?.inductionSiteRules || '',
+          };
+
           // ── Step 1: Generate AI script ─────────────────────────────────────
           setStatus('generating_script', 1, 'Generating AI safety script...');
           console.log(`📝 Step 1: Generating induction script for ${roleType}...`);
-          const { script, scenes, totalDuration } = await videoService.generateInductionScript(roleType, videoFormat, modelType);
+          const { script, scenes, totalDuration } = await videoService.generateInductionScript(roleType, videoFormat, modelType, siteContextV);
           console.log(`✅ Script ready: ${scenes.length} scenes, ${Math.round(totalDuration / 60)} min`);
 
           // ── Step 2: Build slides with AI images ────────────────────────────
@@ -4150,8 +4176,20 @@ export function registerInductionRoutes(app: Express): void {
       
       const settings = await simpleDatabaseService.getCompanySettings(context);
       const videoService = new VideoGenerationService(settings, undefined, context.customerId);
+
+      const siteContextP = {
+        companyName: settings?.companyName || 'the site operator',
+        siteAddress: settings?.siteAddress || settings?.address || '',
+        industry: settings?.industry || '',
+        specificHazards: settings?.inductionHazards || '',
+        ppeRequired: settings?.inductionPpe || '',
+        emergencyContact: settings?.emergencyContact || '',
+        assemblyPoint: settings?.assemblyPoint || '',
+        firstAidLocation: settings?.firstAidLocation || '',
+        siteRules: settings?.inductionSiteRules || '',
+      };
       
-      const content = await videoService.generateInductionScript(roleType);
+      const content = await videoService.generateInductionScript(roleType, 'interactive_slides', undefined, siteContextP);
       
       res.json({ 
         success: true,
