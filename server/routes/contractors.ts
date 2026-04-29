@@ -4065,7 +4065,7 @@ export function registerContractorRoutes(app: Express): void {
         action: 'checkin'
       });
 
-      const ePassConfigured = !!companySettings?.ePassEnabled;
+      const ePassConfigured = !!contractorSettings?.ePassEnabled;
       res.json({
         success: true,
         worker: updatedWorker,
