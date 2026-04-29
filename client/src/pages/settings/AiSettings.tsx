@@ -1,12 +1,16 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useSettingsAutoSave } from "@/hooks/useSettingsAutoSave";
 import GlassCard from "@/components/GlassCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { Brain, Eye, EyeOff, CheckCircle, XCircle, Loader2, RefreshCw, Trash2, TestTube, Bot, Key, AlertTriangle, Info, Save, Video, Zap } from "lucide-react";
 
@@ -15,6 +19,7 @@ interface AiKeysResponse { openai: AiKeyStatus; gemini: AiKeyStatus; claude: AiK
 
 export default function AiSettings() {
   const { toast } = useToast();
+  const { currentSettings, handleInputChange } = useSettingsAutoSave();
   const [aiKeyInputs, setAiKeyInputs] = useState<{ openai: string; claude: string; gemini: string }>({ openai: '', claude: '', gemini: '' });
   const [aiKeyVisible, setAiKeyVisible] = useState<{ openai: boolean; claude: boolean; gemini: boolean }>({ openai: false, claude: false, gemini: false });
   const [aiKeyTesting, setAiKeyTesting] = useState<{ openai: boolean; claude: boolean; gemini: boolean }>({ openai: false, claude: false, gemini: false });
