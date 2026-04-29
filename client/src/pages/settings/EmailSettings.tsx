@@ -10,7 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Mail, Send, AtSign, Server, Settings2, Globe, CheckCircle, XCircle, TestTube, Zap, Info, Key, Loader2 } from "lucide-react";
+import { Mail, Send, AtSign, Server, Settings2, Globe, CheckCircle, XCircle, TestTube, Zap, Info, Key, Loader2, Shield } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 export default function EmailSettings() {

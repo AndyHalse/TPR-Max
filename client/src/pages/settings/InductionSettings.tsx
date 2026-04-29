@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import ContractorsHSManagement from "@/components/ContractorsHSManagement";
 import { DefaultTemplateManager } from "@/components/DefaultTemplateManager";
-import { HardHat, FlaskConical, ScrollText, FileText, CheckCircle, XCircle, Info } from "lucide-react";
+import { HardHat, FlaskConical, ScrollText, FileText, CheckCircle, XCircle, Info, Shield } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 export default function InductionSettings() {

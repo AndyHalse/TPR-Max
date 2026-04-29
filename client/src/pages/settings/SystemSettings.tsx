@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users } from "lucide-react";
+import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Brain, Building, CalendarPlus, Dock, File, FlaskConical, HardHat, Mail, Monitor, ScrollText, SettingsIcon, Shield, Ticket, UserCheck, UserPlus, Video, Wrench } from "lucide-react";
 
 export default function SystemSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();

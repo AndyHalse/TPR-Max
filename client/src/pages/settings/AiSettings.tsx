@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { Brain, Eye, EyeOff, CheckCircle, XCircle, Loader2, RefreshCw, Trash2, TestTube, Bot, Key } from "lucide-react";
+import { Brain, Eye, EyeOff, CheckCircle, XCircle, Loader2, RefreshCw, Trash2, TestTube, Bot, Key, AlertTriangle, Info, Save, Video, Zap } from "lucide-react";
 
 interface AiKeyStatus { hasKey: boolean; isActive: boolean; status: string; last4?: string; }
 interface AiKeysResponse { openai: AiKeyStatus; gemini: AiKeyStatus; claude: AiKeyStatus; }

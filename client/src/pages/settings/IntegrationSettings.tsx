@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, Database, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Eye, EyeOff, Copy, RefreshCw, Activity, Zap, Globe, Key, Phone, Video, Settings2, Info, Scan, BarChart3 } from "lucide-react";
+import { Server, Database, HardDrive, CheckCircle, XCircle, RotateCcw, TestTube, Eye, EyeOff, Copy, RefreshCw, Activity, Zap, Globe, Key, Phone, Video, Settings2, Info, Scan, BarChart3, Clock, Send, Shield } from "lucide-react";
 
 export default function IntegrationSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();

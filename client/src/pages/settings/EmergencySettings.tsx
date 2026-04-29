@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
-import { MapPin, Eye, QrCode, RefreshCw, Copy, AlertTriangle, Zap } from "lucide-react";
+import { MapPin, Eye, QrCode, RefreshCw, Copy, AlertTriangle, Zap, RotateCcw, Shield } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 export default function EmergencySettings() {

@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Building, Plus, Edit, Trash2, BarChart3 } from "lucide-react";
+import { Building, Plus, Edit, Trash2, BarChart3, Download, Users } from "lucide-react";
 import type { Department, InsertDepartment } from "@shared/schema";
 
 export default function DepartmentsSettings() {

@@ -12,7 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { HardHat, Plus, Edit, Trash2, AlertTriangle } from "lucide-react";
+import { HardHat, Plus, Edit, Trash2, AlertTriangle, Bell } from "lucide-react";
 
 export default function ContractorSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
