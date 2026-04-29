@@ -242,14 +242,10 @@ export function registerVisitorRoutes(app: Express): void {
       if (settings?.ePassEnabled && visitor) {
         logger.info(`E-Pass is enabled, sending digital pass`);
 
-        if (!process.env.APP_URL) {
-          logger.error('APP_URL environment variable is not set — e-pass links will be broken');
-        }
-        const baseUrl = process.env.APP_URL || '';
+        const baseUrl = process.env.APP_URL ||
+          `${req.get('x-forwarded-proto') || req.protocol}://${req.get('x-forwarded-host') || req.get('host')}`;
 
-        if (!baseUrl) {
-          logger.warn('Skipping e-pass send: APP_URL is not configured');
-        } else {
+        {
         
         // Get host information if available
         let host = null;
@@ -348,7 +344,7 @@ export function registerVisitorRoutes(app: Express): void {
         // Add e-Pass info to response
         visitor.ePassSent = true;
         visitor.ePassUrl = ePassUrl;
-        } // close else (APP_URL is set)
+        }
       }
 
       // Create visitor history for returning visitor check-in, now that ePass status is known
@@ -511,11 +507,8 @@ export function registerVisitorRoutes(app: Express): void {
       }
       
       // Generate e-Pass URL
-      if (!process.env.APP_URL) {
-        logger.error('APP_URL environment variable is not set — e-pass links will be broken');
-        return res.status(500).json({ error: 'APP_URL is not configured — cannot generate e-pass link' });
-      }
-      const baseUrl = process.env.APP_URL || '';
+      const baseUrl = process.env.APP_URL ||
+        `${req.get('x-forwarded-proto') || req.protocol}://${req.get('x-forwarded-host') || req.get('host')}`;
       const ePassUrl = `${baseUrl}/epass/${visitor.id}`;
       
       // Update visitor email if provided
