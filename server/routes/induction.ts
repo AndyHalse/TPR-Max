@@ -3624,8 +3624,9 @@ export function registerInductionRoutes(app: Express): void {
         return res.status(401).json({ error: 'Not authenticated' });
       }
 
-      // TODO: Add admin role check here
-      // For now, allowing any authenticated user to reset cards
+      if (req.user!.role !== 'admin') {
+        return res.status(403).json({ message: 'Admin access required' });
+      }
 
       const resetCardContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const resetCardDb = await customerDbService.getCustomerDatabase(resetCardContext.customerId);
@@ -3635,7 +3636,7 @@ export function registerInductionRoutes(app: Express): void {
       
       res.json({ success: true, message: 'Card status reset successfully' });
     } catch (error) {
-      console.error('Error resetting card status:', error);
+      logger.error('Error resetting card status:', error);
       res.status(500).json({ error: 'Failed to reset card status' });
     }
   });
