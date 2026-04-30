@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { logger } from '../utils/logger';
 import type { Server } from 'http';
 import { requireAuth } from '../auth';
 import { customerDbService, CustomerDatabaseService } from '../customerDatabase';
@@ -85,7 +86,7 @@ async function processLoneWorkerSession(session: any, customerDb: any, now: Date
         await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
       }
       await customerDb.update(isolatedSchema.loneWorkerSessions).set({ escalationsFired: (session.escalationsFired || 0) + 1 }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
-      console.log(`🚨 Lone Worker L1 alert fired for ${session.personName} (${session.customerId})`);
+      logger.info(`🚨 Lone Worker L1 alert fired for ${session.personName} (${session.customerId})`);
     } else if (currentLevel < 2 && minsOverdue >= gracePeriod + l2Delay) {
       const l2Email = settings?.loneWorkerL2Email;
       if (l2Email) {
@@ -100,7 +101,7 @@ async function processLoneWorkerSession(session: any, customerDb: any, now: Date
         await customerDb.update(isolatedSchema.contractorWorkers).set(updateData).where(sql`${isolatedSchema.contractorWorkers.id} = ${session.personId}`);
       }
       await customerDb.update(isolatedSchema.loneWorkerSessions).set({ escalationsFired: (session.escalationsFired || 0) + 1 }).where(sql`${isolatedSchema.loneWorkerSessions.id} = ${session.id}`);
-      console.log(`🚨 Lone Worker L2 alert fired for ${session.personName} (${session.customerId})`);
+      logger.info(`🚨 Lone Worker L2 alert fired for ${session.personName} (${session.customerId})`);
     } else if (currentLevel < 3 && minsOverdue >= gracePeriod + l2Delay + l3Delay) {
       const l1Email = settings?.loneWorkerL1Email;
       const l2Email = settings?.loneWorkerL2Email;
@@ -130,12 +131,12 @@ async function processLoneWorkerSession(session: any, customerDb: any, now: Date
           unaccounted: 1,
           completionPct: 0,
         });
-        console.log(`📋 Incident record created for lone worker L3 emergency: ${session.personName}`);
+        logger.info(`📋 Incident record created for lone worker L3 emergency: ${session.personName}`);
       } catch (irErr: any) {
         console.warn('Could not create incident record for lone worker L3:', irErr.message?.substring(0, 100));
       }
 
-      console.log(`🚨 Lone Worker L3 EMERGENCY alert fired for ${session.personName} (${session.customerId})`);
+      logger.info(`🚨 Lone Worker L3 EMERGENCY alert fired for ${session.personName} (${session.customerId})`);
     }
   } catch (sessionErr: any) {
     console.warn(`Lone worker cron error for session ${session.id}:`, sessionErr.message?.substring(0, 100));
@@ -181,7 +182,7 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
       }));
       res.json(augmented);
     } catch (err: any) {
-      console.error('GET /api/lone-worker/active error:', err);
+      logger.error('GET /api/lone-worker/active error:', err);
       res.status(500).json({ error: 'Failed to fetch active lone workers' });
     }
   });
@@ -239,13 +240,13 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
         try {
           await sendFirstWelfareEmail(customerDb, { ...session, personEmail: worker.email }, token, settings, baseUrl);
         } catch (emailErr: any) {
-          console.error(`🛡️ Lone worker session ${session.id} started but welfare email failed to send:`, emailErr?.message || emailErr);
+          logger.error(`🛡️ Lone worker session ${session.id} started but welfare email failed to send:`, emailErr?.message || emailErr);
         }
       }
 
       res.json({ success: true, session, deadline });
     } catch (err: any) {
-      console.error('POST /api/contractor-workers/:id/lone-worker/start error:', err);
+      logger.error('POST /api/contractor-workers/:id/lone-worker/start error:', err);
       res.status(500).json({ error: 'Failed to start lone worker session' });
     }
   });
@@ -268,7 +269,7 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
 
       res.json({ success: true });
     } catch (err: any) {
-      console.error('POST /api/contractor-workers/:id/lone-worker/end error:', err);
+      logger.error('POST /api/contractor-workers/:id/lone-worker/end error:', err);
       res.status(500).json({ error: 'Failed to end lone worker session' });
     }
   });
@@ -311,7 +312,7 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
             try {
               await emailSvc.sendLoneWorkerWelfareCheck({ to: session.personEmail, workerName: session.personName, confirmUrl: `${baseUrl}/lone-worker/ok/${session.customerId}/${newToken}`, nextCheckMins: intervalMins, companyName: settings?.companyName || 'Your Company', siteName: settings?.companyName || 'Site' });
             } catch (emailErr: any) {
-              console.error(`🛡️ Lone worker confirmation for session ${session.id} succeeded but next welfare email failed:`, emailErr?.message || emailErr);
+              logger.error(`🛡️ Lone worker confirmation for session ${session.id} succeeded but next welfare email failed:`, emailErr?.message || emailErr);
             }
           }
           return res.json({ success: true, nextCheckMins: intervalMins, workerName: session.personName, companyName: settings?.companyName || 'Your Company' });
@@ -319,7 +320,7 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
       }
       return res.status(404).json({ error: 'Token not found or already used' });
     } catch (err: any) {
-      console.error('GET /api/lone-worker/ok/:token (alias) error:', err);
+      logger.error('GET /api/lone-worker/ok/:token (alias) error:', err);
       res.status(500).json({ error: 'Failed to process welfare check confirmation' });
     }
   });
@@ -385,13 +386,13 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
             siteName: settings?.companyName || 'Site',
           });
         } catch (emailErr: any) {
-          console.error(`🛡️ Lone worker confirmation for session ${session.id} succeeded but next welfare email failed:`, emailErr?.message || emailErr);
+          logger.error(`🛡️ Lone worker confirmation for session ${session.id} succeeded but next welfare email failed:`, emailErr?.message || emailErr);
         }
       }
 
       res.json({ success: true, nextCheckMins: intervalMins, workerName: session.personName, companyName: settings?.companyName || 'Your Company' });
     } catch (err: any) {
-      console.error('GET /api/lone-worker/ok/:token error:', err);
+      logger.error('GET /api/lone-worker/ok/:token error:', err);
       res.status(500).json({ error: 'Failed to process welfare check confirmation' });
     }
   });
@@ -418,7 +419,7 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
 
       res.json({ sessions, total: count, page, limit, totalPages: Math.ceil(count / limit) });
     } catch (err: any) {
-      console.error('GET /api/lone-worker/sessions error:', err);
+      logger.error('GET /api/lone-worker/sessions error:', err);
       res.status(500).json({ error: 'Failed to fetch lone worker sessions' });
     }
   });
@@ -468,7 +469,7 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
                   used_at TIMESTAMP,
                   created_at TIMESTAMP NOT NULL DEFAULT NOW()
                 )`));
-                console.log(`✅ Lone Worker: Self-healed missing tables for customer ${customer.id}`);
+                logger.info(`✅ Lone Worker: Self-healed missing tables for customer ${customer.id}`);
               } catch (healErr: any) {
                 console.warn(`Lone worker self-heal failed for ${customer.id}:`, healErr.message?.substring(0, 80));
               }
@@ -478,11 +479,11 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
           }
         }
       } catch (err: any) {
-        console.error('Lone worker cron top-level error:', err.message?.substring(0, 100));
+        logger.error('Lone worker cron top-level error:', err.message?.substring(0, 100));
       }
     }, 60000);
   } else {
-    console.log('🛡️ Lone Worker cron already running — skipping duplicate registration');
+    logger.info('🛡️ Lone Worker cron already running — skipping duplicate registration');
   }
 
 }

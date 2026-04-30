@@ -62,7 +62,7 @@ app.get("/api/ppm/assets", requireAuth, async (req, res) => {
     const rows = await custDb.select().from(isolatedSchema.ppmAssets).orderBy(isolatedSchema.ppmAssets.name);
     res.json(rows);
   } catch (error: unknown) {
-    console.error("GET /api/ppm/assets", error);
+    logger.error("GET /api/ppm/assets", error);
     res.status(500).json({ error: "Failed to fetch PPM assets" });
   }
 });
@@ -76,7 +76,7 @@ app.post("/api/ppm/assets", requireAuth, async (req, res) => {
     const [row] = await custDb.insert(isolatedSchema.ppmAssets).values(parsed).returning();
     res.status(201).json(row);
   } catch (error: unknown) {
-    console.error("POST /api/ppm/assets", error);
+    logger.error("POST /api/ppm/assets", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create PPM asset" });
   }
 });
@@ -92,7 +92,7 @@ app.put("/api/ppm/assets/:id", requireAuth, async (req, res) => {
     if (!row) return res.status(404).json({ error: "Asset not found" });
     res.json(row);
   } catch (error: unknown) {
-    console.error("PUT /api/ppm/assets/:id", error);
+    logger.error("PUT /api/ppm/assets/:id", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update PPM asset" });
   }
 });
@@ -106,7 +106,7 @@ app.delete("/api/ppm/assets/:id", requireAuth, async (req, res) => {
     await custDb.delete(isolatedSchema.ppmAssets).where(eq(isolatedSchema.ppmAssets.id, id));
     res.json({ success: true });
   } catch (error: unknown) {
-    console.error("DELETE /api/ppm/assets/:id", error);
+    logger.error("DELETE /api/ppm/assets/:id", error);
     res.status(500).json({ error: "Failed to delete PPM asset" });
   }
 });
@@ -129,7 +129,7 @@ app.post("/api/ppm/assets/:id/duplicate", requireAuth, async (req, res) => {
     }).returning();
     res.status(201).json(copy);
   } catch (error: unknown) {
-    console.error("POST /api/ppm/assets/:id/duplicate", error);
+    logger.error("POST /api/ppm/assets/:id/duplicate", error);
     res.status(500).json({ error: "Failed to duplicate asset" });
   }
 });
@@ -142,7 +142,7 @@ app.get("/api/ppm/asset-groups", requireAuth, async (req, res) => {
     const rows = await custDb.select().from(isolatedSchema.ppmAssetGroups).orderBy(isolatedSchema.ppmAssetGroups.name);
     res.json(rows);
   } catch (error: unknown) {
-    console.error("GET /api/ppm/asset-groups", error);
+    logger.error("GET /api/ppm/asset-groups", error);
     res.status(500).json({ error: "Failed to fetch asset groups" });
   }
 });
@@ -156,7 +156,7 @@ app.post("/api/ppm/asset-groups", requireAuth, async (req, res) => {
     const [row] = await custDb.insert(isolatedSchema.ppmAssetGroups).values(parsed).returning();
     res.status(201).json(row);
   } catch (error: unknown) {
-    console.error("POST /api/ppm/asset-groups", error);
+    logger.error("POST /api/ppm/asset-groups", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create asset group" });
   }
 });
@@ -172,7 +172,7 @@ app.put("/api/ppm/asset-groups/:id", requireAuth, async (req, res) => {
     if (!row) return res.status(404).json({ error: "Asset group not found" });
     res.json(row);
   } catch (error: unknown) {
-    console.error("PUT /api/ppm/asset-groups/:id", error);
+    logger.error("PUT /api/ppm/asset-groups/:id", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update asset group" });
   }
 });
@@ -188,7 +188,7 @@ app.delete("/api/ppm/asset-groups/:id", requireAuth, async (req, res) => {
     await custDb.delete(isolatedSchema.ppmAssetGroups).where(eq(isolatedSchema.ppmAssetGroups.id, id));
     res.json({ success: true });
   } catch (error: unknown) {
-    console.error("DELETE /api/ppm/asset-groups/:id", error);
+    logger.error("DELETE /api/ppm/asset-groups/:id", error);
     res.status(500).json({ error: "Failed to delete asset group" });
   }
 });
@@ -201,7 +201,7 @@ app.get("/api/ppm/templates", requireAuth, async (req, res) => {
     const rows = await custDb.select().from(isolatedSchema.ppmTemplates).orderBy(isolatedSchema.ppmTemplates.name);
     res.json(rows);
   } catch (error: unknown) {
-    console.error("GET /api/ppm/templates", error);
+    logger.error("GET /api/ppm/templates", error);
     res.status(500).json({ error: "Failed to fetch PPM templates" });
   }
 });
@@ -215,7 +215,7 @@ app.post("/api/ppm/templates", requireAuth, async (req, res) => {
     const [row] = await custDb.insert(isolatedSchema.ppmTemplates).values(parsed).returning();
     res.status(201).json(row);
   } catch (error: unknown) {
-    console.error("POST /api/ppm/templates", error);
+    logger.error("POST /api/ppm/templates", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create PPM template" });
   }
 });
@@ -231,7 +231,7 @@ app.put("/api/ppm/templates/:id", requireAuth, async (req, res) => {
     if (!row) return res.status(404).json({ error: "Template not found" });
     res.json(row);
   } catch (error: unknown) {
-    console.error("PUT /api/ppm/templates/:id", error);
+    logger.error("PUT /api/ppm/templates/:id", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update PPM template" });
   }
 });
@@ -245,7 +245,7 @@ app.delete("/api/ppm/templates/:id", requireAuth, async (req, res) => {
     await custDb.delete(isolatedSchema.ppmTemplates).where(eq(isolatedSchema.ppmTemplates.id, id));
     res.json({ success: true });
   } catch (error: unknown) {
-    console.error("DELETE /api/ppm/templates/:id", error);
+    logger.error("DELETE /api/ppm/templates/:id", error);
     res.status(500).json({ error: "Failed to delete PPM template" });
   }
 });
@@ -264,7 +264,7 @@ app.get("/api/ppm/schedules", requireAuth, async (req, res) => {
     }));
     res.json(enriched);
   } catch (error: unknown) {
-    console.error("GET /api/ppm/schedules", error);
+    logger.error("GET /api/ppm/schedules", error);
     res.status(500).json({ error: "Failed to fetch PPM schedules" });
   }
 });
@@ -280,7 +280,7 @@ app.post("/api/ppm/schedules", requireAuth, async (req, res) => {
     const [row] = await custDb.insert(isolatedSchema.ppmSchedules).values(parsed).returning();
     res.status(201).json(row);
   } catch (error: unknown) {
-    console.error("POST /api/ppm/schedules", error);
+    logger.error("POST /api/ppm/schedules", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create PPM schedule" });
   }
 });
@@ -301,7 +301,7 @@ app.put("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
     if (!row) return res.status(404).json({ error: "Schedule not found" });
     res.json(row);
   } catch (error: unknown) {
-    console.error("PUT /api/ppm/schedules/:id", error);
+    logger.error("PUT /api/ppm/schedules/:id", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update PPM schedule" });
   }
 });
@@ -315,7 +315,7 @@ app.delete("/api/ppm/schedules/:id", requireAuth, async (req, res) => {
     await custDb.delete(isolatedSchema.ppmSchedules).where(eq(isolatedSchema.ppmSchedules.id, id));
     res.json({ success: true });
   } catch (error: unknown) {
-    console.error("DELETE /api/ppm/schedules/:id", error);
+    logger.error("DELETE /api/ppm/schedules/:id", error);
     res.status(500).json({ error: "Failed to delete PPM schedule" });
   }
 });
@@ -348,7 +348,7 @@ app.get('/api/ppm/expiry-count', requireAuth, async (req, res) => {
     }
     res.json({ expiredCount, expiringSoonCount, total: expiredCount + expiringSoonCount });
   } catch (error) {
-    console.error('GET /api/ppm/expiry-count', error);
+    logger.error('GET /api/ppm/expiry-count', error);
     res.status(500).json({ error: 'Failed to fetch PPM expiry count' });
   }
 });
@@ -416,7 +416,7 @@ app.get("/api/ppm/work-orders", requireAuth, async (req, res) => {
     }));
     res.json(withExpiry);
   } catch (error: unknown) {
-    console.error("GET /api/ppm/work-orders", error);
+    logger.error("GET /api/ppm/work-orders", error);
     res.status(500).json({ error: "Failed to fetch PPM work orders" });
   }
 });
@@ -442,7 +442,7 @@ app.get("/api/ppm/work-orders/:id/token", requireAuth, async (req, res) => {
       contractorUrl: wo.accessToken ? `${baseUrl}/ppm/work-order/${wo.accessToken}` : null,
     });
   } catch (error: unknown) {
-    console.error("GET /api/ppm/work-orders/:id/token", error);
+    logger.error("GET /api/ppm/work-orders/:id/token", error);
     res.status(500).json({ error: "Failed to fetch work order token" });
   }
 });
@@ -459,7 +459,7 @@ app.post("/api/ppm/work-orders", requireAuth, async (req, res) => {
     const [row] = await custDb.insert(isolatedSchema.ppmWorkOrders).values(parsed).returning();
     res.json(row);
   } catch (error: unknown) {
-    console.error("POST /api/ppm/work-orders", error);
+    logger.error("POST /api/ppm/work-orders", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to create PPM work order" });
   }
 });
@@ -501,16 +501,16 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
               lastCompletedDate: new Date().toISOString().split("T")[0],
             })
             .where(eq(isolatedSchema.ppmSchedules.id, schedule.id));
-          console.log(`✅ [PPM] Schedule ${schedule.id} advanced: ${schedule.nextDueDate} → ${newDue}`);
+          logger.info(`✅ [PPM] Schedule ${schedule.id} advanced: ${schedule.nextDueDate} → ${newDue}`);
         }
       } catch (schedErr) {
-        console.error("⚠️ [PPM] Failed to advance schedule after work order completion:", schedErr);
+        logger.error("⚠️ [PPM] Failed to advance schedule after work order completion:", schedErr);
       }
     }
 
     res.json(row);
   } catch (error: unknown) {
-    console.error("PUT /api/ppm/work-orders/:id", error);
+    logger.error("PUT /api/ppm/work-orders/:id", error);
     res.status(400).json({ error: error instanceof Error ? error.message : "Failed to update PPM work order" });
   }
 });
@@ -525,7 +525,7 @@ app.delete("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
     await custDb.delete(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
     res.json({ success: true });
   } catch (error: unknown) {
-    console.error("DELETE /api/ppm/work-orders/:id", error);
+    logger.error("DELETE /api/ppm/work-orders/:id", error);
     res.status(500).json({ error: "Failed to delete PPM work order" });
   }
 });
@@ -560,7 +560,7 @@ app.post("/api/ppm/work-orders/:id/duplicate", requireAuth, async (req, res) => 
     }).returning();
     res.json(copy);
   } catch (error: unknown) {
-    console.error("POST /api/ppm/work-orders/:id/duplicate", error);
+    logger.error("POST /api/ppm/work-orders/:id/duplicate", error);
     res.status(500).json({ error: "Failed to duplicate work order" });
   }
 });
@@ -660,13 +660,13 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
         });
         notificationSent = true;
       } catch (emailErr) {
-        console.error("PPM work order assignment email failed:", emailErr);
+        logger.error("PPM work order assignment email failed:", emailErr);
       }
     }
     // Return explicit notificationSent flag so UI/callers know whether email was dispatched
     res.json({ ...updated, notificationSent });
   } catch (error: unknown) {
-    console.error("POST /api/ppm/work-orders/:id/assign", error);
+    logger.error("POST /api/ppm/work-orders/:id/assign", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to assign contractor" });
   }
 });
@@ -683,7 +683,7 @@ app.get("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => {
       .orderBy(isolatedSchema.ppmWorkOrderDocuments.createdAt);
     res.json(docs);
   } catch (error: unknown) {
-    console.error("GET /api/ppm/work-orders/:id/documents", error);
+    logger.error("GET /api/ppm/work-orders/:id/documents", error);
     res.status(500).json({ error: "Failed to fetch documents" });
   }
 });
@@ -730,7 +730,7 @@ app.post("/api/ppm/work-orders/:id/documents", requireAuth, async (req, res) => 
       .where(eq(isolatedSchema.ppmWorkOrders.id, id));
     res.json(doc);
   } catch (error: unknown) {
-    console.error("POST /api/ppm/work-orders/:id/documents", error);
+    logger.error("POST /api/ppm/work-orders/:id/documents", error);
     res.status(500).json({ error: "Failed to upload document" });
   }
 });
@@ -777,7 +777,7 @@ app.delete("/api/ppm/work-orders/:id/documents/:docId", requireAuth, async (req,
     }
     res.json({ success: true });
   } catch (error: unknown) {
-    console.error("DELETE /api/ppm/work-orders/:id/documents/:docId", error);
+    logger.error("DELETE /api/ppm/work-orders/:id/documents/:docId", error);
     res.status(500).json({ error: "Failed to delete document" });
   }
 });
@@ -925,7 +925,7 @@ app.post("/api/ppm/work-orders/:id/documents/:docId/resend-alert", requireAuth, 
         });
         contractorNotified = true;
       } catch (contractorEmailErr) {
-        console.error("PPM expiry resend — contractor notification failed:", contractorEmailErr);
+        logger.error("PPM expiry resend — contractor notification failed:", contractorEmailErr);
       }
     }
 
@@ -936,7 +936,7 @@ app.post("/api/ppm/work-orders/:id/documents/:docId/resend-alert", requireAuth, 
 
     res.json({ success: true, contractorNotified });
   } catch (error: unknown) {
-    console.error("POST /api/ppm/work-orders/:id/documents/:docId/resend-alert", error);
+    logger.error("POST /api/ppm/work-orders/:id/documents/:docId/resend-alert", error);
     res.status(500).json({ error: "Failed to resend alert" });
   }
 });
@@ -1104,7 +1104,7 @@ app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) 
         });
         contractorEmailsSent++;
       } catch (contractorEmailErr) {
-        console.error(`PPM bulk resend — contractor notification failed for WO ${doc.workOrderId}:`, contractorEmailErr);
+        logger.error(`PPM bulk resend — contractor notification failed for WO ${doc.workOrderId}:`, contractorEmailErr);
       }
     }
 
@@ -1116,7 +1116,7 @@ app.post("/api/ppm/documents/bulk-resend-alerts", requireAuth, async (req, res) 
 
     res.json({ success: true, documentsAlerted: expiringDocs.length, contractorEmailsSent });
   } catch (error: unknown) {
-    console.error("POST /api/ppm/documents/bulk-resend-alerts", error);
+    logger.error("POST /api/ppm/documents/bulk-resend-alerts", error);
     res.status(500).json({ error: "Failed to send bulk alerts" });
   }
 });
@@ -1274,7 +1274,7 @@ ${wos.length === 0 ? `<p style="color:#6b7280;font-size:14px;text-align:center;p
       return res.send(printHtml);
     }
   } catch (error: unknown) {
-    console.error("GET /api/ppm/work-orders/export-all", error);
+    logger.error("GET /api/ppm/work-orders/export-all", error);
     res.status(500).json({ error: "Failed to generate bulk work order export" });
   }
 });
@@ -1389,7 +1389,7 @@ app.post("/api/ppm/documents/bulk-resend-alert", requireAuth, async (req, res) =
 
     res.json({ success: true, count: subjectCount });
   } catch (error: unknown) {
-    console.error("POST /api/ppm/documents/bulk-resend-alert", error);
+    logger.error("POST /api/ppm/documents/bulk-resend-alert", error);
     res.status(500).json({ error: "Failed to send bulk expiry alert" });
   }
 });
@@ -1538,7 +1538,7 @@ Generated by TPR Max — PPM Work Order Export &nbsp;·&nbsp; ${generatedAt}${pr
       return res.send(printHtml);
     }
   } catch (error: unknown) {
-    console.error("GET /api/ppm/work-orders/:id/export", error);
+    logger.error("GET /api/ppm/work-orders/:id/export", error);
     res.status(500).json({ error: "Failed to generate work order export" });
   }
 });
@@ -1718,7 +1718,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
         } as any);
       }
     }
-    console.log(`✅ [PPM Demo] Contractor companies seeded: ${contractorsSeeded} new, ${DEMO_CONTRACTORS.length - contractorsSeeded} already existed`);
+    logger.info(`✅ [PPM Demo] Contractor companies seeded: ${contractorsSeeded} new, ${DEMO_CONTRACTORS.length - contractorsSeeded} already existed`);
 
     // ── STEP 1: Wipe all existing PPM data (FK-safe order) ─────────────────
     // Documents → Work Orders → Schedules → Assets → Groups → Templates
@@ -2089,7 +2089,7 @@ app.post("/api/ppm/demo-data", requireAuth, async (req, res) => {
       message: `Demo data refreshed: ${DEMO_GROUPS.length} asset groups, ${assetsCreated} assets, ${templatesCreated} templates, ${schedulesCreated} schedules, and ${workOrdersCreated} work orders across ${CUR_YEAR - 2}–${CUR_YEAR + 1}. ${contractorsSeeded > 0 ? `${contractorsSeeded} contractor companies added to Contractors.` : "Contractor companies already present."} Use the year picker in the Annual Planner to navigate between years.`,
     });
   } catch (error: unknown) {
-    console.error("POST /api/ppm/demo-data", error);
+    logger.error("POST /api/ppm/demo-data", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to load demo data" });
   }
 });
@@ -2138,14 +2138,14 @@ app.delete("/api/ppm/demo-data", requireAuth, async (req, res) => {
       }
     }
 
-    console.log(`✅ [PPM Demo] Deleted all demo data. ${companiesDeleted} contractor companies removed.`);
+    logger.info(`✅ [PPM Demo] Deleted all demo data. ${companiesDeleted} contractor companies removed.`);
     res.json({
       success: true,
       companiesDeleted,
       message: `All demo data removed. ${companiesDeleted} demo contractor companies deleted. The system is ready for real-life use.`,
     });
   } catch (error: unknown) {
-    console.error("DELETE /api/ppm/demo-data", error);
+    logger.error("DELETE /api/ppm/demo-data", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to delete demo data" });
   }
 });
@@ -2298,7 +2298,7 @@ app.post("/api/ppm/annual-planner/email", requireAuth, async (req, res) => {
     if (!sent) return res.status(500).json({ error: "Failed to send email. Check your email settings." });
     res.json({ success: true, message: `Annual Planner ${planYear} sent to ${email}.` });
   } catch (error: unknown) {
-    console.error("POST /api/ppm/annual-planner/email", error);
+    logger.error("POST /api/ppm/annual-planner/email", error);
     res.status(500).json({ error: error instanceof Error ? error.message : "Failed to send email" });
   }
 });
@@ -2363,7 +2363,7 @@ app.get("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
     }
     res.status(404).json({ error: "Work order not found" });
   } catch (error: unknown) {
-    console.error("GET /api/ppm/work-order/public/:token", error);
+    logger.error("GET /api/ppm/work-order/public/:token", error);
     res.status(500).json({ error: "Failed to fetch work order" });
   }
 });
@@ -2418,10 +2418,10 @@ app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
                 lastCompletedDate: new Date().toISOString().split("T")[0],
               })
               .where(eq(isolatedSchema.ppmSchedules.id, schedule.id));
-            console.log(`✅ [PPM Public] Schedule ${schedule.id} advanced: ${schedule.nextDueDate} → ${newDue}`);
+            logger.info(`✅ [PPM Public] Schedule ${schedule.id} advanced: ${schedule.nextDueDate} → ${newDue}`);
           }
         } catch (schedErr) {
-          console.error("⚠️ [PPM Public] Failed to advance schedule after contractor completion:", schedErr);
+          logger.error("⚠️ [PPM Public] Failed to advance schedule after contractor completion:", schedErr);
         }
       }
 
@@ -2452,7 +2452,7 @@ app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
     }
     res.status(404).json({ error: "Work order not found" });
   } catch (error: unknown) {
-    console.error("PUT /api/ppm/work-order/public/:token", error);
+    logger.error("PUT /api/ppm/work-order/public/:token", error);
     res.status(500).json({ error: "Failed to update work order" });
   }
 });
@@ -2560,7 +2560,7 @@ app.post("/api/ppm/work-order/public/:token/files", ppmPublicRateLimit, async (r
                   .set({ scannedAt: new Date() })
                   .where(eq(isolatedSchema.ppmWorkOrderDocuments.id, doc.id));
               } catch { /* ignore */ }
-              console.error("PPM async AI scan error:", scanErr);
+              logger.error("PPM async AI scan error:", scanErr);
             }
           })();
 
@@ -2588,7 +2588,7 @@ app.post("/api/ppm/work-order/public/:token/files", ppmPublicRateLimit, async (r
     }
     res.status(404).json({ error: "Work order not found" });
   } catch (error: unknown) {
-    console.error("POST /api/ppm/work-order/public/:token/files", error);
+    logger.error("POST /api/ppm/work-order/public/:token/files", error);
     res.status(500).json({ error: "Failed to upload file" });
   }
 });
@@ -2613,7 +2613,7 @@ app.post("/api/ppm/work-order/public/:token/documents", (_req, res) => {
 const ppmAlertHour = parseInt(process.env.PPM_ALERT_HOUR ?? "7", 10);
 cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
   try {
-    console.log("🔧 [PPM Cron] Running daily PPM alert check…");
+    logger.info("🔧 [PPM Cron] Running daily PPM alert check…");
     const allCustomers = await customerDbService.getAllCustomers();
     const today = new Date(); today.setHours(0, 0, 0, 0);
     for (const customer of allCustomers) {
@@ -2650,7 +2650,7 @@ cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
               .set({ status: "overdue" })
               .where(eq(isolatedSchema.ppmWorkOrders.id, woId));
           }
-          console.log(`✅ [PPM Cron] Marked ${overdueIds.length} work orders overdue for customer ${customer.id}`);
+          logger.info(`✅ [PPM Cron] Marked ${overdueIds.length} work orders overdue for customer ${customer.id}`);
         }
 
         // Get settings for email
@@ -2777,7 +2777,7 @@ cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
                 .set({ missingDocsAlertedAt: new Date() })
                 .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
             }
-            console.log(`📧 [PPM Cron] Missing-docs alert sent for ${missingDocsWOs.length} work order(s) (customer ${customer.id})`);
+            logger.info(`📧 [PPM Cron] Missing-docs alert sent for ${missingDocsWOs.length} work order(s) (customer ${customer.id})`);
           }
         }
 
@@ -2877,7 +2877,7 @@ cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
                 await custDb.update(isolatedSchema.ppmWorkOrderDocuments)
                   .set({ expiryAlertedAt: new Date() })
                   .where(inArray(isolatedSchema.ppmWorkOrderDocuments.id, alertedIds));
-                console.log(`📧 [PPM Cron] Document expiry alert sent for ${subjectCount} document(s) (customer ${customer.id})`);
+                logger.info(`📧 [PPM Cron] Document expiry alert sent for ${subjectCount} document(s) (customer ${customer.id})`);
               }
             }
           }
@@ -2941,15 +2941,15 @@ cron.schedule(`0 ${ppmAlertHour} * * *`, async () => {
         }
 
         if (generatedCount > 0) {
-          console.log(`✅ [PPM Cron] Generated ${generatedCount} work orders from schedules for customer ${customer.id}`);
+          logger.info(`✅ [PPM Cron] Generated ${generatedCount} work orders from schedules for customer ${customer.id}`);
         }
       } catch (custErr) {
-        console.error(`[PPM Cron] Error processing customer ${customer.id}:`, custErr);
+        logger.error(`[PPM Cron] Error processing customer ${customer.id}:`, custErr);
       }
     }
-    console.log("✅ [PPM Cron] Daily check complete");
+    logger.info("✅ [PPM Cron] Daily check complete");
   } catch (error: unknown) {
-    console.error("❌ [PPM Cron] Fatal error:", error);
+    logger.error("❌ [PPM Cron] Fatal error:", error);
   }
 }, { timezone: "Europe/London" });
 }

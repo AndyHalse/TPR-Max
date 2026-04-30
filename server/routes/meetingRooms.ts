@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { logger } from '../utils/logger';
 import {
   requireAuth,
   isDevDataBypass,
@@ -25,7 +26,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json(rooms);
     } catch (error) {
-      console.error("Error fetching meeting rooms:", error);
+      logger.error("Error fetching meeting rooms:", error);
       res.status(500).json({ error: "Failed to fetch meeting rooms" });
     }
   });
@@ -44,7 +45,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json(room);
     } catch (error) {
-      console.error("Error fetching meeting room:", error);
+      logger.error("Error fetching meeting room:", error);
       res.status(500).json({ error: "Failed to fetch meeting room" });
     }
   });
@@ -57,7 +58,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       const [room] = await mrCreateDb.insert(isolatedSchema.meetingRooms).values(roomData).returning();
       res.json(room);
     } catch (error) {
-      console.error("Error creating meeting room:", error);
+      logger.error("Error creating meeting room:", error);
       res.status(500).json({ error: "Failed to create meeting room" });
     }
   });
@@ -77,7 +78,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json(room);
     } catch (error) {
-      console.error("Error updating meeting room:", error);
+      logger.error("Error updating meeting room:", error);
       res.status(500).json({ error: "Failed to update meeting room" });
     }
   });
@@ -97,7 +98,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting meeting room:", error);
+      logger.error("Error deleting meeting room:", error);
       res.status(500).json({ error: "Failed to delete meeting room" });
     }
   });
@@ -149,7 +150,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
         });
       }
     } catch (error) {
-      console.error("Error checking room availability:", error);
+      logger.error("Error checking room availability:", error);
       res.status(500).json({ error: "Failed to check room availability" });
     }
   });
@@ -182,7 +183,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json({ available: isAvailable });
     } catch (error) {
-      console.error("Error checking room availability:", error);
+      logger.error("Error checking room availability:", error);
       res.status(500).json({ error: "Failed to check room availability" });
     }
   });
@@ -223,7 +224,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
 
       res.json(enrichedBookings);
     } catch (error) {
-      console.error("Error fetching room bookings:", error);
+      logger.error("Error fetching room bookings:", error);
       res.status(500).json({ error: "Failed to fetch room bookings" });
     }
   });
@@ -317,7 +318,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json(transformedBookings);
     } catch (error) {
-      console.error("Error fetching today's room bookings:", error);
+      logger.error("Error fetching today's room bookings:", error);
       
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
         return res.json(getMockRoomBookings());
@@ -346,7 +347,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json(booking);
     } catch (error) {
-      console.error("Error fetching room booking:", error);
+      logger.error("Error fetching room booking:", error);
       res.status(500).json({ error: "Failed to fetch room booking" });
     }
   });
@@ -458,13 +459,13 @@ export function registerMeetingRoomRoutes(app: Express): void {
             settings ? { companyName: settings.companyName, logoUrl: settings.logoUrl, address: settings.address, phone: settings.phone, website: settings.website, email: settings.email } : undefined
           );
         } catch (emailError) {
-          console.error("Failed to send booking confirmation email:", emailError);
+          logger.error("Failed to send booking confirmation email:", emailError);
         }
       }
 
       res.json(booking);
     } catch (error) {
-      console.error("Error creating room booking:", error);
+      logger.error("Error creating room booking:", error);
       res.status(500).json({ error: "Failed to create room booking" });
     }
   });
@@ -551,14 +552,14 @@ export function registerMeetingRoomRoutes(app: Express): void {
               patchSettings ? { companyName: patchSettings.companyName, logoUrl: patchSettings.logoUrl, address: patchSettings.address, phone: patchSettings.phone, website: patchSettings.website, email: patchSettings.email } : undefined
             );
           } catch (emailError) {
-            console.error("Failed to send booking update email:", emailError);
+            logger.error("Failed to send booking update email:", emailError);
           }
         }
       }
       
       res.json(booking);
     } catch (error) {
-      console.error("Error updating room booking:", error);
+      logger.error("Error updating room booking:", error);
       res.status(500).json({ error: "Failed to update room booking" });
     }
   });
@@ -611,13 +612,13 @@ export function registerMeetingRoomRoutes(app: Express): void {
             externalEmails
           );
         } catch (emailError) {
-          console.error("Failed to send cancellation email:", emailError);
+          logger.error("Failed to send cancellation email:", emailError);
         }
       }
       
       res.json(booking);
     } catch (error) {
-      console.error("Error cancelling room booking:", error);
+      logger.error("Error cancelling room booking:", error);
       res.status(500).json({ error: "Failed to cancel room booking" });
     }
   });
@@ -648,7 +649,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting room booking:", error);
+      logger.error("Error deleting room booking:", error);
       res.status(500).json({ error: "Failed to delete room booking" });
     }
   });
@@ -674,7 +675,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json(booking);
     } catch (error) {
-      console.error("Error checking in to meeting:", error);
+      logger.error("Error checking in to meeting:", error);
       res.status(500).json({ error: "Failed to check in to meeting" });
     }
   });
@@ -699,7 +700,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json(booking);
     } catch (error) {
-      console.error("Error ending meeting:", error);
+      logger.error("Error ending meeting:", error);
       res.status(500).json({ error: "Failed to end meeting" });
     }
   });
@@ -726,7 +727,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       res.json(upcomingBookings);
     } catch (error) {
-      console.error("Error fetching upcoming bookings:", error);
+      logger.error("Error fetching upcoming bookings:", error);
       res.status(500).json({ error: "Failed to fetch upcoming bookings" });
     }
   });
@@ -738,7 +739,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       simpleDatabaseService.createCustomerContext(username, req.customerId);
       res.json({});
     } catch (error) {
-      console.error("Error fetching room utilization stats:", error);
+      logger.error("Error fetching room utilization stats:", error);
       res.status(500).json({ error: "Failed to fetch room utilization stats" });
     }
   });
@@ -755,7 +756,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       const patterns = await patternsDb.select().from(isolatedSchema.roomBookings);
       res.json(patterns);
     } catch (error) {
-      console.error("Error fetching meeting patterns:", error);
+      logger.error("Error fetching meeting patterns:", error);
       res.status(500).json({ error: "Failed to fetch meeting patterns" });
     }
   });

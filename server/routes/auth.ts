@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { logger } from '../utils/logger';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -54,11 +55,11 @@ export function registerAuthRoutes(app: Express): void {
         });
       }
 
-      console.log(`🔐 3-Field Auth attempt: Company="${companyName}", Username="${username}"`);
+      logger.info(`🔐 3-Field Auth attempt: Company="${companyName}", Username="${username}"`);
 
       // DEV AUTH BYPASS: Check for development authentication  
       if (isDevAuthBypass() && isValidDevCredentials(companyName, username, password)) {
-        console.log(`🚀 DEV BYPASS: Using centralized development authentication`);
+        logger.info(`🚀 DEV BYPASS: Using centralized development authentication`);
         
         const devUser = getDevUser();
         const authResult = {
@@ -77,7 +78,7 @@ export function registerAuthRoutes(app: Express): void {
         // Set session context for SaaS isolation
         req.session.regenerate((regenerateErr) => {
           if (regenerateErr) {
-            console.error("❌ Session regeneration error:", regenerateErr);
+            logger.error("❌ Session regeneration error:", regenerateErr);
             return res.status(500).json({ error: "Failed to create secure session" });
           }
           
@@ -87,11 +88,11 @@ export function registerAuthRoutes(app: Express): void {
           
           req.session.save(async (saveErr) => {
             if (saveErr) {
-              console.error("❌ Session save error:", saveErr);
+              logger.error("❌ Session save error:", saveErr);
               return res.status(500).json({ error: "Failed to establish session" });
             }
             
-            console.log(`✅ DEV BYPASS: Login successful for ${username} at ${companyName}`);
+            logger.info(`✅ DEV BYPASS: Login successful for ${username} at ${companyName}`);
             
             // Fetch company settings for immediate branding
             let companySettings = null;
@@ -128,7 +129,7 @@ export function registerAuthRoutes(app: Express): void {
                 companySettings = sanitizedSettings;
               }
             } catch (settingsError) {
-              console.error("⚠️ Failed to fetch settings during dev login:", settingsError);
+              logger.error("⚠️ Failed to fetch settings during dev login:", settingsError);
             }
             
             const devLogoToken = generateLogoToken(authResult.customer.id);
@@ -155,29 +156,29 @@ export function registerAuthRoutes(app: Express): void {
       // Use new 3-field authentication
       const authResult = await AuthService.authenticateUser(companyName, username, password);
       if (!authResult) {
-        console.log(`❌ 3-Field authentication failed: Company="${companyName}", Username="${username}"`);
+        logger.info(`❌ 3-Field authentication failed: Company="${companyName}", Username="${username}"`);
         return res.status(401).json({ error: "Invalid company name, username, or password" });
       }
 
       const { user, customer } = authResult;
 
-      console.log(`🔐 Login successful for user: ${username} (ID: ${user.id}) at company: ${customer.companyName} (ID: ${customer.id})`);
+      logger.info(`🔐 Login successful for user: ${username} (ID: ${user.id}) at company: ${customer.companyName} (ID: ${customer.id})`);
 
       // SECURITY FIX: Regenerate session ID to prevent session fixation attacks
       req.session.regenerate((regenerateErr) => {
         if (regenerateErr) {
-          console.error("❌ Session regeneration error:", regenerateErr);
+          logger.error("❌ Session regeneration error:", regenerateErr);
           return res.status(500).json({ error: "Failed to create secure session" });
         }
         
-        console.log(`🔄 Session ID regenerated for security`);
+        logger.info(`🔄 Session ID regenerated for security`);
         
         // Set complete session context for SaaS isolation AFTER regeneration
         req.session.userId = user.id;
         req.session.customerId = customer.id;
         req.session.companyName = customer.companyName;
         
-        console.log(`📝 Setting session context:`, {
+        logger.info(`📝 Setting session context:`, {
           userId: user.id,
           customerId: customer.id,
           companyName: customer.companyName,
@@ -187,7 +188,7 @@ export function registerAuthRoutes(app: Express): void {
         // Explicitly save the session with verification
         req.session.save(async (saveErr) => {
           if (saveErr) {
-            console.error("❌ Session save error:", saveErr);
+            logger.error("❌ Session save error:", saveErr);
             return res.status(500).json({ error: "Failed to establish session" });
           }
           
@@ -196,7 +197,7 @@ export function registerAuthRoutes(app: Express): void {
           const savedCustomerId = req.session.customerId;
           const savedCompanyName = req.session.companyName;
           
-          console.log(`✅ Session saved successfully:`, {
+          logger.info(`✅ Session saved successfully:`, {
             userId: savedUserId,
             customerId: savedCustomerId,
             companyName: savedCompanyName,
@@ -204,7 +205,7 @@ export function registerAuthRoutes(app: Express): void {
           });
           
           if (savedUserId !== user.id || savedCustomerId !== customer.id) {
-            console.error("❌ Session data mismatch after save!", { 
+            logger.error("❌ Session data mismatch after save!", { 
               expected: { userId: user.id, customerId: customer.id },
               actual: { userId: savedUserId, customerId: savedCustomerId }
             });
@@ -246,7 +247,7 @@ export function registerAuthRoutes(app: Express): void {
               companySettings = sanitizedSettings;
             }
           } catch (settingsError) {
-            console.error("⚠️ Failed to fetch settings during login:", settingsError);
+            logger.error("⚠️ Failed to fetch settings during login:", settingsError);
           }
           
           // Generate a scoped logo token for the public logo endpoint (no auth needed)
@@ -274,7 +275,7 @@ export function registerAuthRoutes(app: Express): void {
         });
       });
     } catch (error) {
-      console.error("❌ 3-Field login error:", error);
+      logger.error("❌ 3-Field login error:", error);
       res.status(500).json({ error: "Login failed" });
     }
   });
@@ -293,10 +294,10 @@ export function registerAuthRoutes(app: Express): void {
     
     req.session.destroy((err) => {
       if (err) {
-        console.error("Session destroy error:", err);
+        logger.error("Session destroy error:", err);
         return res.status(500).json({ error: "Logout failed" });
       }
-      console.log(`🔓 User logged out and all session cookies cleared`);
+      logger.info(`🔓 User logged out and all session cookies cleared`);
       res.json({ success: true, cookiesCleared: true });
     });
   });
@@ -319,16 +320,16 @@ export function registerAuthRoutes(app: Express): void {
     // Destroy current session
     req.session.destroy((err) => {
       if (err) {
-        console.error("Session refresh error:", err);
+        logger.error("Session refresh error:", err);
         return res.status(500).json({ error: "Session refresh failed" });
       }
-      console.log(`🔄 Session refreshed - old cookies cleared`);
+      logger.info(`🔄 Session refreshed - old cookies cleared`);
       res.json({ success: true, sessionRefreshed: true });
     });
   });
 
   app.get("/api/auth/me", async (req, res) => {
-    console.log(`🔍 /api/auth/me called - session.userId: ${req.session?.userId}, customerId: ${req.session?.customerId}`);
+    logger.info(`🔍 /api/auth/me called - session.userId: ${req.session?.userId}, customerId: ${req.session?.customerId}`);
     
     if (!req.session.userId || !req.session.customerId) {
       // If no session or customer context, suggest session refresh to clear old cookies
@@ -340,7 +341,7 @@ export function registerAuthRoutes(app: Express): void {
     
     // DEV AUTH BYPASS: Return dev user data without database access
     if (isDevAuthBypass() && req.session.userId && req.session.customerId) {
-      console.log(`🚀 AUTH_ME_BYPASS: Returning dev user data for session verification`);
+      logger.info(`🚀 AUTH_ME_BYPASS: Returning dev user data for session verification`);
       const devUser = getDevUser();
       return res.json({
         id: devUser.id,
@@ -351,7 +352,7 @@ export function registerAuthRoutes(app: Express): void {
     }
     
     try {
-      console.log(`🔍 Attempting to load user with ID: ${req.session.userId} from customer DB: ${req.session.customerId}`);
+      logger.info(`🔍 Attempting to load user with ID: ${req.session.userId} from customer DB: ${req.session.customerId}`);
       
       // Load user from customer-specific database instead of shared storage
       const customerDbService = CustomerDatabaseService.getInstance();
@@ -365,13 +366,13 @@ export function registerAuthRoutes(app: Express): void {
       
       const user = users[0];
       
-      console.log(`🔍 User lookup result:`, user ? `Found user: ${user.username}` : 'User not found');
+      logger.info(`🔍 User lookup result:`, user ? `Found user: ${user.username}` : 'User not found');
       
       if (!user) {
         return res.status(401).json({ error: "User not found in customer database" });
       }
       
-      console.log(`✅ User authenticated successfully: ${user.username} (ID: ${user.id}) from customer DB`);
+      logger.info(`✅ User authenticated successfully: ${user.username} (ID: ${user.id}) from customer DB`);
       
       res.json({ 
         id: user.id, 
@@ -384,7 +385,7 @@ export function registerAuthRoutes(app: Express): void {
         lastName: user.lastName ?? null
       });
     } catch (error) {
-      console.error('Error in /api/auth/me:', error);
+      logger.error('Error in /api/auth/me:', error);
       return res.status(401).json({ error: "Authentication failed" });
     }
   });
@@ -416,7 +417,7 @@ export function registerAuthRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (error) {
-      console.error("Error updating user profile:", error);
+      logger.error("Error updating user profile:", error);
       res.status(500).json({ error: "Failed to update profile" });
     }
   });
@@ -444,7 +445,7 @@ export function registerAuthRoutes(app: Express): void {
 
       req.session.save((saveErr) => {
         if (saveErr) {
-          console.error("Session save error:", saveErr);
+          logger.error("Session save error:", saveErr);
           return res.status(500).json({ error: "Failed to establish session" });
         }
         res.json({ 
@@ -457,7 +458,7 @@ export function registerAuthRoutes(app: Express): void {
         });
       });
     } catch (error) {
-      console.error("Login error:", error);
+      logger.error("Login error:", error);
       res.status(500).json({ error: "Login failed" });
     }
   });

@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { logger } from '../utils/logger';
 import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
 import { db } from '../db';
@@ -27,7 +28,7 @@ export function registerOnboardingRoutes(app: Express): void {
       const settings = await databaseService.getInductionSettings(context);
       res.json({ settings });
     } catch (error) {
-      console.error('Error fetching induction settings for preview:', error);
+      logger.error('Error fetching induction settings for preview:', error);
       res.status(500).json({ error: 'Failed to fetch induction settings' });
     }
   });
@@ -46,7 +47,7 @@ export function registerOnboardingRoutes(app: Express): void {
       
       res.json({ setting });
     } catch (error) {
-      console.error('Error fetching induction setting for preview:', error);
+      logger.error('Error fetching induction setting for preview:', error);
       res.status(500).json({ error: 'Failed to fetch induction setting' });
     }
   });
@@ -296,7 +297,7 @@ export function registerOnboardingRoutes(app: Express): void {
 
       res.send(html);
     } catch (error) {
-      console.error('Error serving induction preview:', error);
+      logger.error('Error serving induction preview:', error);
       res.status(500).send('Failed to load induction preview');
     }
   });
@@ -311,7 +312,7 @@ export function registerOnboardingRoutes(app: Express): void {
       
       res.json({ questions });
     } catch (error) {
-      console.error('Error fetching induction questions for preview:', error);
+      logger.error('Error fetching induction questions for preview:', error);
       res.status(500).json({ error: 'Failed to fetch induction questions' });
     }
   });
@@ -392,10 +393,10 @@ export function registerOnboardingRoutes(app: Express): void {
         text: `Thank you ${name}!\n\nWe've received your TPR Max demo enquiry and will be in touch shortly.\n\nACS Safety & Security Ltd\nPhone: +44 1344 771569`
       });
 
-      console.log(`📧 Marketing enquiry submitted: ${name} <${email}> (${company})`);
+      logger.info(`📧 Marketing enquiry submitted: ${name} <${email}> (${company})`);
       res.status(204).send();
     } catch (error) {
-      console.error('Error processing marketing contact:', error);
+      logger.error('Error processing marketing contact:', error);
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
           error: 'Please check your details and try again',
@@ -433,11 +434,11 @@ export function registerOnboardingRoutes(app: Express): void {
         const count = (result as any).rowCount ?? (result as any).count ?? 0;
         if (count > 0) {
           totalDeleted += Number(count);
-          console.log(`🧹 Startup cleanup: removed ${count} legacy induction questions (videoId='${vid}')`);
+          logger.info(`🧹 Startup cleanup: removed ${count} legacy induction questions (videoId='${vid}')`);
         }
       }
       if (totalDeleted > 0) {
-        console.log(`✅ Legacy induction question cleanup complete — removed ${totalDeleted} stale rows`);
+        logger.info(`✅ Legacy induction question cleanup complete — removed ${totalDeleted} stale rows`);
       }
     } catch (cleanupErr) {
       console.warn('⚠️ Legacy induction question cleanup failed (non-fatal):', cleanupErr);
@@ -491,7 +492,7 @@ export function registerOnboardingRoutes(app: Express): void {
       // Increment rate limit counter
       onboardingAttempts.set(attemptKey, attempts + 1);
 
-      console.log(`🔐 Secure signup session created for: ${signupData.companyName}`);
+      logger.info(`🔐 Secure signup session created for: ${signupData.companyName}`);
       
       res.status(201).json({
         success: true,
@@ -500,7 +501,7 @@ export function registerOnboardingRoutes(app: Express): void {
       });
       
     } catch (error) {
-      console.error('❌ Error creating signup session:', error);
+      logger.error('❌ Error creating signup session:', error);
       
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -542,7 +543,7 @@ export function registerOnboardingRoutes(app: Express): void {
 
       // Check if Stripe is available
       if (!stripeService.isAvailable()) {
-        console.log('⚠️ Stripe not configured - creating development checkout URL');
+        logger.info('⚠️ Stripe not configured - creating development checkout URL');
         
         // For development without Stripe, simulate successful payment
         const devSuccessUrl = successUrl.replace('{CHECKOUT_SESSION_ID}', `dev_${sessionId}`);
@@ -600,7 +601,7 @@ export function registerOnboardingRoutes(app: Express): void {
           .limit(1);
 
         if (!plan || !plan.stripePriceIdMonthly) {
-          console.error('⚠️ Professional Plan not found or missing Stripe price ID');
+          logger.error('⚠️ Professional Plan not found or missing Stripe price ID');
           return res.json({
             success: true,
             checkoutUrl: successUrl.replace('{CHECKOUT_SESSION_ID}', `dev_no_plan_${sessionId}`),
@@ -628,7 +629,7 @@ export function registerOnboardingRoutes(app: Express): void {
           });
         }
 
-        console.log(`💳 Stripe checkout session created for: ${signupSession.companyName}`);
+        logger.info(`💳 Stripe checkout session created for: ${signupSession.companyName}`);
         
         res.json({
           success: true,
@@ -641,7 +642,7 @@ export function registerOnboardingRoutes(app: Express): void {
       }
       
     } catch (error) {
-      console.error('❌ Error creating checkout session:', error);
+      logger.error('❌ Error creating checkout session:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to create checkout session'
@@ -692,7 +693,7 @@ export function registerOnboardingRoutes(app: Express): void {
           const checkoutSession = await stripeService.getCheckoutSession(session_id as string);
           
           if (!checkoutSession) {
-            console.error(`❌ Failed to retrieve checkout session: ${session_id}`);
+            logger.error(`❌ Failed to retrieve checkout session: ${session_id}`);
             return res.status(400).json({
               success: false,
               error: 'Invalid payment session'
@@ -700,7 +701,7 @@ export function registerOnboardingRoutes(app: Express): void {
           }
 
           if (checkoutSession.payment_status !== 'paid') {
-            console.error(`❌ Payment not completed for session: ${session_id}, status: ${checkoutSession.payment_status}`);
+            logger.error(`❌ Payment not completed for session: ${session_id}, status: ${checkoutSession.payment_status}`);
             return res.status(400).json({
               success: false,
               error: 'Payment not completed'
@@ -709,7 +710,7 @@ export function registerOnboardingRoutes(app: Express): void {
 
           signupSessionId = checkoutSession.metadata?.signupSessionId ?? '';
           if (!signupSessionId) {
-            console.error(`❌ No signup session ID in checkout session metadata: ${session_id}`);
+            logger.error(`❌ No signup session ID in checkout session metadata: ${session_id}`);
             return res.status(400).json({
               success: false,
               error: 'Invalid checkout session - missing signup reference'
@@ -718,14 +719,14 @@ export function registerOnboardingRoutes(app: Express): void {
 
           signupSession = signupSessions.get(signupSessionId);
           if (!signupSession) {
-            console.error(`❌ Signup session not found or expired: ${signupSessionId}`);
+            logger.error(`❌ Signup session not found or expired: ${signupSessionId}`);
             return res.status(404).json({
               success: false,
               error: 'Signup session not found or expired'
             });
           }
         } catch (error) {
-          console.error(`❌ Error verifying payment session ${session_id}:`, error);
+          logger.error(`❌ Error verifying payment session ${session_id}:`, error);
           return res.status(500).json({
             success: false,
             error: 'Payment verification failed'
@@ -739,7 +740,7 @@ export function registerOnboardingRoutes(app: Express): void {
       // Clean up signup session
       signupSessions.delete(signupSessionId);
 
-      console.log(`✅ Customer provisioned after payment: ${provisionResponse.customer.companyName}`);
+      logger.info(`✅ Customer provisioned after payment: ${provisionResponse.customer.companyName}`);
 
       // SECURITY FIX: Establish proper authenticated session instead of URL credentials
       // Authenticate the newly created admin user and create secure session
@@ -747,33 +748,33 @@ export function registerOnboardingRoutes(app: Express): void {
       const adminUsername = credentials.username;
       const adminPassword = signupSession.adminPassword; // Use original password from signup
       
-      console.log(`🔐 Creating authenticated session for admin: ${adminUsername} at ${customer.companyName}`);
+      logger.info(`🔐 Creating authenticated session for admin: ${adminUsername} at ${customer.companyName}`);
       
       // Authenticate the admin user using the same method as login
       const authResult = await AuthService.authenticateUser(customer.companyName, adminUsername, adminPassword);
       if (!authResult) {
-        console.error(`❌ Failed to authenticate newly created admin user: ${adminUsername}`);
+        logger.error(`❌ Failed to authenticate newly created admin user: ${adminUsername}`);
         throw new Error('Failed to authenticate newly created admin user');
       }
 
       const { user } = authResult;
-      console.log(`✅ Admin user authenticated successfully: ${adminUsername}`);
+      logger.info(`✅ Admin user authenticated successfully: ${adminUsername}`);
 
       // Create secure session (same pattern as /api/auth/login)
       req.session.regenerate((regenerateErr) => {
         if (regenerateErr) {
-          console.error("❌ Session regeneration error during onboarding:", regenerateErr);
+          logger.error("❌ Session regeneration error during onboarding:", regenerateErr);
           return res.status(500).json({ error: "Failed to create secure session" });
         }
         
-        console.log(`🔄 Session ID regenerated for security during onboarding`);
+        logger.info(`🔄 Session ID regenerated for security during onboarding`);
         
         // Set complete session context for SaaS isolation
         req.session.userId = user.id;
         req.session.customerId = customer.id;
         req.session.companyName = customer.companyName;
         
-        console.log(`📝 Setting onboarding session context:`, {
+        logger.info(`📝 Setting onboarding session context:`, {
           userId: user.id,
           customerId: customer.id,
           companyName: customer.companyName,
@@ -783,11 +784,11 @@ export function registerOnboardingRoutes(app: Express): void {
         // Save session and redirect securely
         req.session.save((saveErr) => {
           if (saveErr) {
-            console.error("❌ Session save error during onboarding:", saveErr);
+            logger.error("❌ Session save error during onboarding:", saveErr);
             return res.status(500).json({ error: "Failed to establish session" });
           }
           
-          console.log(`✅ Secure session established for onboarding - redirecting to welcome`);
+          logger.info(`✅ Secure session established for onboarding - redirecting to welcome`);
           
           // Secure redirect to welcome page WITHOUT credentials in URL
           const welcomeUrl = process.env.NODE_ENV === 'production' 
@@ -799,7 +800,7 @@ export function registerOnboardingRoutes(app: Express): void {
       });
       
     } catch (error) {
-      console.error('❌ Error handling payment success:', error);
+      logger.error('❌ Error handling payment success:', error);
       
       // Redirect to error page
       const errorUrl = process.env.NODE_ENV === 'production'
@@ -854,19 +855,19 @@ export function registerOnboardingRoutes(app: Express): void {
       // Increment rate limit counter
       onboardingAttempts.set(attemptKey, attempts + 1);
 
-      console.log(`🚀 AUTHENTICATED ONBOARDING - Customer onboarding request received from ${clientIp}`);
+      logger.info(`🚀 AUTHENTICATED ONBOARDING - Customer onboarding request received from ${clientIp}`);
       
       // Validate request body with comprehensive schema
       const onboardingRequest = customerOnboardingRequestSchema.parse(req.body);
       
       // Security: Sanitize company name for logging (remove potential secrets)
       const safeCompanyName = onboardingRequest.companyName.replace(/[^\w\s-]/g, '').trim();
-      console.log(`📋 Validated onboarding request for: ${safeCompanyName}`);
+      logger.info(`📋 Validated onboarding request for: ${safeCompanyName}`);
       
       // Provision customer using comprehensive service
       const response = await customerOnboardingService.provisionCustomer(onboardingRequest);
       
-      console.log(`✅ Customer onboarding completed successfully: ${safeCompanyName}`);
+      logger.info(`✅ Customer onboarding completed successfully: ${safeCompanyName}`);
       
       // Return success response (sanitize response to prevent credential leakage)
       const sanitizedResponse = {
@@ -876,7 +877,7 @@ export function registerOnboardingRoutes(app: Express): void {
       res.status(201).json(sanitizedResponse);
       
     } catch (error) {
-      console.error('❌ Customer onboarding failed:', error);
+      logger.error('❌ Customer onboarding failed:', error);
       
       // Handle validation errors
       if (error instanceof z.ZodError) {
@@ -947,7 +948,7 @@ export function registerOnboardingRoutes(app: Express): void {
         return res.status(500).json({ error: 'DEV_PROVISIONING_PASSWORD not set' });
       }
       
-      console.log(`🔧 Creating development customer: ${customerId} - ${companyName}`);
+      logger.info(`🔧 Creating development customer: ${customerId} - ${companyName}`);
       
       // Create development customer request
       const devRequest: CustomerOnboardingRequest = {
@@ -969,7 +970,7 @@ export function registerOnboardingRoutes(app: Express): void {
       // Provision development customer
       const response = await customerOnboardingService.provisionCustomer(devRequest);
       
-      console.log(`✅ Development customer created successfully: ${response.customer.companyName}`);
+      logger.info(`✅ Development customer created successfully: ${response.customer.companyName}`);
       
       res.status(201).json({
         ...response,
@@ -985,7 +986,7 @@ export function registerOnboardingRoutes(app: Express): void {
       });
       
     } catch (error) {
-      console.error('❌ Development customer creation failed:', error);
+      logger.error('❌ Development customer creation failed:', error);
       res.status(500).json({ 
         error: 'Failed to create development customer',
         details: process.env.NODE_ENV === 'development' ? error : undefined
@@ -1020,7 +1021,7 @@ export function registerOnboardingRoutes(app: Express): void {
       // Check against management database for existing companies
       const managementDbUrl = process.env.DATABASE_URL;
       if (!managementDbUrl) {
-        console.error('❌ DATABASE_URL not configured');
+        logger.error('❌ DATABASE_URL not configured');
         return res.status(500).json({
           success: false,
           available: false,
@@ -1052,7 +1053,7 @@ export function registerOnboardingRoutes(app: Express): void {
         });
 
       } catch (dbError) {
-        console.error('❌ Database error checking company availability:', dbError);
+        logger.error('❌ Database error checking company availability:', dbError);
         await managementPool.end();
         
         res.status(500).json({
@@ -1063,7 +1064,7 @@ export function registerOnboardingRoutes(app: Express): void {
       }
 
     } catch (error) {
-      console.error('❌ Error checking company name availability:', error);
+      logger.error('❌ Error checking company name availability:', error);
       res.status(500).json({
         success: false,
         available: false,
@@ -1081,7 +1082,7 @@ export function registerOnboardingRoutes(app: Express): void {
         return res.status(400).json({ error: 'Company slug is required' });
       }
       
-      console.log(`🔍 Checking onboarding status for company slug: ${companySlug}`);
+      logger.info(`🔍 Checking onboarding status for company slug: ${companySlug}`);
       
       // Look up customer by slug in management database
       const managementDbUrl = process.env.DATABASE_URL;
@@ -1135,7 +1136,7 @@ export function registerOnboardingRoutes(app: Express): void {
       }
       
     } catch (error) {
-      console.error('❌ Error checking onboarding status:', error);
+      logger.error('❌ Error checking onboarding status:', error);
       res.status(500).json({ 
         error: 'Failed to check onboarding status',
         details: process.env.NODE_ENV === 'development' ? error : undefined

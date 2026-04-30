@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { logger } from '../utils/logger';
 import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
 import { db } from '../db';
@@ -149,7 +150,7 @@ async function writeRamsAudit(
       metadata: metadata ? JSON.stringify(metadata) : null,
     });
   } catch (e) {
-    console.error("writeRamsAudit error:", e);
+    logger.error("writeRamsAudit error:", e);
   }
 }
 
@@ -176,7 +177,7 @@ export function registerRamsRoutes(app: Express): void {
         evidenceLog: row.evidenceLog ? JSON.parse(row.evidenceLog) : null,
       });
     } catch (error: any) {
-      console.error("GET /api/martyn-law error:", error);
+      logger.error("GET /api/martyn-law error:", error);
       res.status(500).json({ error: "Failed to load Martyn's Law config" });
     }
   });
@@ -234,7 +235,7 @@ export function registerRamsRoutes(app: Express): void {
         evidenceLog: result.evidenceLog ? JSON.parse(result.evidenceLog) : null,
       });
     } catch (error: any) {
-      console.error("PUT /api/martyn-law error:", error);
+      logger.error("PUT /api/martyn-law error:", error);
       res.status(500).json({ error: "Failed to save Martyn's Law config" });
     }
   });
@@ -264,7 +265,7 @@ export function registerRamsRoutes(app: Express): void {
         })),
       });
     } catch (error: any) {
-      console.error("GET /api/compliance/summary error:", error);
+      logger.error("GET /api/compliance/summary error:", error);
       res.status(500).json({ error: "Failed to fetch compliance summary" });
     }
   });
@@ -388,7 +389,7 @@ export function registerRamsRoutes(app: Express): void {
         return res.send(printHtml);
       }
     } catch (error: any) {
-      console.error("GET /api/compliance/report error:", error);
+      logger.error("GET /api/compliance/report error:", error);
       res.status(500).json({ error: "Failed to generate compliance report" });
     }
   });
@@ -418,7 +419,7 @@ export function registerRamsRoutes(app: Express): void {
 
       res.json(enriched);
     } catch (err: any) {
-      console.error("GET /api/rams error:", err);
+      logger.error("GET /api/rams error:", err);
       res.status(500).json({ error: "Failed to fetch RAMS documents" });
     }
   });
@@ -441,7 +442,7 @@ export function registerRamsRoutes(app: Express): void {
 
       res.status(201).json(created);
     } catch (err: any) {
-      console.error("POST /api/rams error:", err);
+      logger.error("POST /api/rams error:", err);
       res.status(500).json({ error: "Failed to create RAMS document" });
     }
   });
@@ -462,7 +463,7 @@ export function registerRamsRoutes(app: Express): void {
       await writeRamsAudit(id, existing.companyId || null, "updated", userId, userName || "System", `Metadata updated`);
       res.json(updated);
     } catch (err: any) {
-      console.error("PUT /api/rams/:id error:", err);
+      logger.error("PUT /api/rams/:id error:", err);
       res.status(500).json({ error: "Failed to update RAMS document" });
     }
   });
@@ -491,7 +492,7 @@ export function registerRamsRoutes(app: Express): void {
 
       res.json(updated);
     } catch (err: any) {
-      console.error("POST /api/rams/:id/approve error:", err);
+      logger.error("POST /api/rams/:id/approve error:", err);
       res.status(500).json({ error: "Failed to approve RAMS document" });
     }
   });
@@ -519,7 +520,7 @@ export function registerRamsRoutes(app: Express): void {
 
       res.json(updated);
     } catch (err: any) {
-      console.error("POST /api/rams/:id/reject error:", err);
+      logger.error("POST /api/rams/:id/reject error:", err);
       res.status(500).json({ error: "Failed to reject RAMS document" });
     }
   });
@@ -557,7 +558,7 @@ export function registerRamsRoutes(app: Express): void {
 
       res.status(201).json(created);
     } catch (err: any) {
-      console.error("POST /api/rams/:id/new-version error:", err);
+      logger.error("POST /api/rams/:id/new-version error:", err);
       res.status(500).json({ error: "Failed to create new RAMS version" });
     }
   });
@@ -575,7 +576,7 @@ export function registerRamsRoutes(app: Express): void {
 
       res.json({ success: true });
     } catch (err: any) {
-      console.error("DELETE /api/rams/:id error:", err);
+      logger.error("DELETE /api/rams/:id error:", err);
       res.status(500).json({ error: "Failed to archive RAMS document" });
     }
   });
@@ -589,7 +590,7 @@ export function registerRamsRoutes(app: Express): void {
         .orderBy(desc(ramsAcknowledgements.acknowledgedAt));
       res.json(acks);
     } catch (err: any) {
-      console.error("GET /api/rams/:id/acknowledgements error:", err);
+      logger.error("GET /api/rams/:id/acknowledgements error:", err);
       res.status(500).json({ error: "Failed to fetch acknowledgements" });
     }
   });
@@ -624,7 +625,7 @@ export function registerRamsRoutes(app: Express): void {
 
       res.status(201).json(ack);
     } catch (err: any) {
-      console.error("POST /api/rams/:id/acknowledge error:", err);
+      logger.error("POST /api/rams/:id/acknowledge error:", err);
       res.status(500).json({ error: "Failed to record acknowledgement" });
     }
   });
@@ -638,7 +639,7 @@ export function registerRamsRoutes(app: Express): void {
         .orderBy(desc(ramsAuditLog.performedAt));
       res.json(logs);
     } catch (err: any) {
-      console.error("GET /api/rams/:id/audit error:", err);
+      logger.error("GET /api/rams/:id/audit error:", err);
       res.status(500).json({ error: "Failed to fetch audit log" });
     }
   });
@@ -660,7 +661,7 @@ export function registerRamsRoutes(app: Express): void {
 
       res.json({ ...doc, acknowledgements: acks, auditLog: audit, previousVersion: versions[0] || null });
     } catch (err: any) {
-      console.error("GET /api/rams/:id error:", err);
+      logger.error("GET /api/rams/:id error:", err);
       res.status(500).json({ error: "Failed to fetch RAMS document" });
     }
   });

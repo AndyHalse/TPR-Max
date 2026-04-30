@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { logger } from '../utils/logger';
 import { requireAuth } from '../auth';
 import { databaseService } from '../databaseService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
@@ -19,55 +20,55 @@ export function registerReportRoutes(app: Express): void {
     try {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      console.log(`🧹 Removing duplicate visitors for customer: ${context.customerId}`);
+      logger.info(`🧹 Removing duplicate visitors for customer: ${context.customerId}`);
       
       const allVisitors = await databaseService.getAllVisitors(context);
       const uniqueVisitors = new Map();
       const duplicatesToRemove = [];
 
-      console.log(`🔍 Checking ${allVisitors.length} visitors for duplicates...`);
+      logger.info(`🔍 Checking ${allVisitors.length} visitors for duplicates...`);
       
       for (const visitor of allVisitors) {
         if (!visitor.firstName || !visitor.lastName) {
-          console.log(`⚠️ Skipping visitor with missing name data: ${visitor.id}`);
+          logger.info(`⚠️ Skipping visitor with missing name data: ${visitor.id}`);
           continue;
         }
         
         const nameKey = `${visitor.firstName.toLowerCase()}_${visitor.lastName.toLowerCase()}_${(visitor.company || '').toLowerCase()}`;
-        console.log(`🔍 Processing visitor: ${visitor.firstName} ${visitor.lastName} (${visitor.company || 'no company'}) - Key: "${nameKey}"`);
+        logger.info(`🔍 Processing visitor: ${visitor.firstName} ${visitor.lastName} (${visitor.company || 'no company'}) - Key: "${nameKey}"`);
         
         if (uniqueVisitors.has(nameKey)) {
           const existing = uniqueVisitors.get(nameKey);
-          console.log(`🔍 Found duplicate! Existing: ${existing.checkedInAt}, Current: ${visitor.checkedInAt}`);
+          logger.info(`🔍 Found duplicate! Existing: ${existing.checkedInAt}, Current: ${visitor.checkedInAt}`);
           
           if (new Date(visitor.checkedInAt) > new Date(existing.checkedInAt)) {
             duplicatesToRemove.push(existing.id);
             uniqueVisitors.set(nameKey, visitor);
-            console.log(`📋 Marking older duplicate for removal: ${existing.firstName} ${existing.lastName} (${existing.id})`);
+            logger.info(`📋 Marking older duplicate for removal: ${existing.firstName} ${existing.lastName} (${existing.id})`);
           } else {
             duplicatesToRemove.push(visitor.id);
-            console.log(`📋 Marking newer duplicate for removal: ${visitor.firstName} ${visitor.lastName} (${visitor.id})`);
+            logger.info(`📋 Marking newer duplicate for removal: ${visitor.firstName} ${visitor.lastName} (${visitor.id})`);
           }
         } else {
           uniqueVisitors.set(nameKey, visitor);
-          console.log(`✅ Added unique visitor: ${visitor.firstName} ${visitor.lastName}`);
+          logger.info(`✅ Added unique visitor: ${visitor.firstName} ${visitor.lastName}`);
         }
       }
       
-      console.log(`🔍 Found ${duplicatesToRemove.length} duplicates to remove`);
+      logger.info(`🔍 Found ${duplicatesToRemove.length} duplicates to remove`);
 
       let removedCount = 0;
       for (const visitorId of duplicatesToRemove) {
         try {
           await databaseService.deleteVisitor(context, visitorId);
           removedCount++;
-          console.log(`🗑️ Deleted duplicate visitor: ${visitorId}`);
+          logger.info(`🗑️ Deleted duplicate visitor: ${visitorId}`);
         } catch (error) {
-          console.error(`❌ Failed to delete visitor ${visitorId}:`, error);
+          logger.error(`❌ Failed to delete visitor ${visitorId}:`, error);
         }
       }
 
-      console.log(`✅ Duplicate cleanup complete: ${removedCount} duplicates removed, ${uniqueVisitors.size} unique visitors remaining`);
+      logger.info(`✅ Duplicate cleanup complete: ${removedCount} duplicates removed, ${uniqueVisitors.size} unique visitors remaining`);
 
       res.json({ 
         success: true,
@@ -76,7 +77,7 @@ export function registerReportRoutes(app: Express): void {
         uniqueVisitorsRemaining: uniqueVisitors.size
       });
     } catch (error) {
-      console.error("Error removing duplicate visitors:", error);
+      logger.error("Error removing duplicate visitors:", error);
       res.status(500).json({ error: "Failed to remove duplicate visitors" });
     }
   });
@@ -85,12 +86,12 @@ export function registerReportRoutes(app: Express): void {
     try {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      console.log(`🧪 Generating test visitors for customer: ${context.customerId}`);
+      logger.info(`🧪 Generating test visitors for customer: ${context.customerId}`);
       
       let staff = await databaseService.getAllStaff(context);
       
       if (staff.length === 0) {
-        console.log('No staff found, creating test staff first for customer:', context.customerId);
+        logger.info('No staff found, creating test staff first for customer:', context.customerId);
         const testStaff = [
           { firstName: 'Reception', lastName: 'Team', email: 'reception@company.com', department: 'Reception', phoneNumber: '01234 567890', employeeId: 'REC001' },
           { firstName: 'John', lastName: 'Manager', email: 'john.manager@company.com', department: 'Operations', phoneNumber: '01234 567891', employeeId: 'MGR001' },
@@ -102,15 +103,15 @@ export function registerReportRoutes(app: Express): void {
         }
         
         staff = await databaseService.getAllStaff(context);
-        console.log(`Created ${staff.length} test staff members for customer ${context.customerId}`);
+        logger.info(`Created ${staff.length} test staff members for customer ${context.customerId}`);
       }
 
       const existingVisitors = await databaseService.getAllVisitors(context);
-      console.log(`Found ${existingVisitors.length} existing visitors for customer ${context.customerId}`);
+      logger.info(`Found ${existingVisitors.length} existing visitors for customer ${context.customerId}`);
       
       const targetCount = 30;
       const toGenerate = targetCount;
-      console.log(`Will generate ${toGenerate} fresh test visitors for customer ${context.customerId}`);
+      logger.info(`Will generate ${toGenerate} fresh test visitors for customer ${context.customerId}`);
 
       if (toGenerate > 0) {
         const testVisitorNames = [
@@ -183,9 +184,9 @@ export function registerReportRoutes(app: Express): void {
           generated++;
         }
 
-        console.log(`✅ Added ${generated} test visitors (not checked in) for customer ${context.customerId}`);
+        logger.info(`✅ Added ${generated} test visitors (not checked in) for customer ${context.customerId}`);
       } else {
-        console.log(`Skipping generation - already have ${existingVisitors.length} visitors, target is ${targetCount}`);
+        logger.info(`Skipping generation - already have ${existingVisitors.length} visitors, target is ${targetCount}`);
       }
 
       const allVisitors = await databaseService.getAllVisitors(context);
@@ -200,7 +201,7 @@ export function registerReportRoutes(app: Express): void {
         customerId: context.customerId
       });
     } catch (error) {
-      console.error("Error generating test visitors:", error);
+      logger.error("Error generating test visitors:", error);
       res.status(500).json({ error: "Failed to generate test visitors" });
     }
   });
@@ -218,7 +219,7 @@ export function registerReportRoutes(app: Express): void {
       const customerReports = await custDb.select().from(isolatedSchema.reports);
       res.json(customerReports);
     } catch (error) {
-      console.error("Error fetching reports:", error);
+      logger.error("Error fetching reports:", error);
       res.status(500).json({ error: "Failed to fetch reports" });
     }
   });
@@ -319,7 +320,7 @@ export function registerReportRoutes(app: Express): void {
       
       res.json(report);
     } catch (error) {
-      console.error("Error generating report:", error);
+      logger.error("Error generating report:", error);
       res.status(500).json({ error: "Failed to generate report" });
     }
   });
@@ -410,7 +411,7 @@ export function registerReportRoutes(app: Express): void {
       
       res.json({ success: emailSent });
     } catch (error) {
-      console.error("Error sending report email:", error);
+      logger.error("Error sending report email:", error);
       res.status(500).json({ error: "Failed to send report email" });
     }
   });
@@ -533,7 +534,7 @@ export function registerReportRoutes(app: Express): void {
       
       res.send(html);
     } catch (error) {
-      console.error("Error viewing report:", error);
+      logger.error("Error viewing report:", error);
       res.status(500).send("<h1>Error</h1><p>Failed to load report.</p>");
     }
   });
@@ -555,7 +556,7 @@ export function registerReportRoutes(app: Express): void {
       }
       res.json({ success: true });
     } catch (error) {
-      console.error("Error deleting report:", error);
+      logger.error("Error deleting report:", error);
       res.status(500).json({ error: "Failed to delete report" });
     }
   });
@@ -571,7 +572,7 @@ export function registerReportRoutes(app: Express): void {
       await custDb.delete(isolatedSchema.reports);
       res.json({ success: true });
     } catch (error) {
-      console.error("Error clearing reports:", error);
+      logger.error("Error clearing reports:", error);
       res.status(500).json({ error: "Failed to clear reports" });
     }
   });
@@ -655,7 +656,7 @@ export function registerReportRoutes(app: Express): void {
         } else if (/certificate|TLS|SSL/i.test(msg)) {
           friendly = "TLS/SSL certificate error — try changing the security setting";
         }
-        console.error(`📧 SMTP verify failed for customer ${req.customerId}: ${msg}`);
+        logger.error(`📧 SMTP verify failed for customer ${req.customerId}: ${msg}`);
         return res.json({ success: false, error: friendly });
       }
       
@@ -670,7 +671,7 @@ export function registerReportRoutes(app: Express): void {
         });
       } catch (sendError: any) {
         const msg = sendError?.message || String(sendError);
-        console.error(`📧 SMTP send failed for customer ${req.customerId}: ${msg}`);
+        logger.error(`📧 SMTP send failed for customer ${req.customerId}: ${msg}`);
         return res.json({ success: false, error: `Connected OK but failed to send: ${msg}` });
       }
       
@@ -679,10 +680,10 @@ export function registerReportRoutes(app: Express): void {
         smtpTestEmailSent: true
       });
       
-      console.log(`📧 Test email sent successfully for customer: ${req.customerId} → ${email}`);
+      logger.info(`📧 Test email sent successfully for customer: ${req.customerId} → ${email}`);
       res.json({ success: true });
     } catch (error: any) {
-      console.error("Error in test-email route:", error);
+      logger.error("Error in test-email route:", error);
       res.status(500).json({ success: false, error: error?.message || "Unexpected server error" });
     }
   });
@@ -696,7 +697,7 @@ export function registerReportRoutes(app: Express): void {
         return res.status(400).json({ error: "Email address required" });
       }
 
-      console.log(`Sending visitor report to: ${email}`);
+      logger.info(`Sending visitor report to: ${email}`);
 
       const reportEmailContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const stats = await databaseService.getStats(reportEmailContext);
@@ -727,7 +728,7 @@ export function registerReportRoutes(app: Express): void {
         emailSentAt: null
       };
 
-      console.log('Sending email with report data:', { totalVisitors: report.totalVisitors, currentVisitors: currentVisitors.length });
+      logger.info('Sending email with report data:', { totalVisitors: report.totalVisitors, currentVisitors: currentVisitors.length });
 
       const emailSent = await emailService.forCustomer(req.customerId).sendReport(
         report,
@@ -737,19 +738,19 @@ export function registerReportRoutes(app: Express): void {
       );
 
       if (emailSent) {
-        console.log(`Report email sent successfully to ${email}`);
+        logger.info(`Report email sent successfully to ${email}`);
         res.json({ 
           success: true, 
           message: `Visitor report sent successfully to ${email}`,
           reportId: report.id
         });
       } else {
-        console.log(`Failed to send report email to ${email}`);
+        logger.info(`Failed to send report email to ${email}`);
         res.status(500).json({ error: "Failed to send report email" });
       }
       
     } catch (error) {
-      console.error("Error sending report:", error);
+      logger.error("Error sending report:", error);
       res.status(500).json({ error: "Failed to send visitor report" });
     }
   });
@@ -780,7 +781,7 @@ export function registerReportRoutes(app: Express): void {
         .limit(200);
       res.json({ emails, total: emails.length });
     } catch (error: any) {
-      console.error('Error fetching email log:', error);
+      logger.error('Error fetching email log:', error);
       res.status(500).json({ error: 'Failed to fetch email log', details: error.message });
     }
   });
@@ -801,7 +802,7 @@ export function registerReportRoutes(app: Express): void {
       if (!rows[0]) return res.status(404).json({ error: 'Email log entry not found' });
       res.json(rows[0]);
     } catch (error: any) {
-      console.error('Error fetching email log entry:', error);
+      logger.error('Error fetching email log entry:', error);
       res.status(500).json({ error: 'Failed to fetch email log entry', details: error.message });
     }
   });
@@ -817,7 +818,7 @@ export function registerReportRoutes(app: Express): void {
       await customerDb.delete(isolatedSchema.emailLog);
       res.json({ deleted: true });
     } catch (error: any) {
-      console.error('Error clearing email log:', error);
+      logger.error('Error clearing email log:', error);
       res.status(500).json({ error: 'Failed to clear email log', details: error.message });
     }
   });
@@ -870,7 +871,7 @@ export function registerReportRoutes(app: Express): void {
 
       res.json(report);
     } catch (error) {
-      console.error("Diagnostics report failed:", error);
+      logger.error("Diagnostics report failed:", error);
       res.status(500).json({ error: "Failed to generate diagnostics report" });
     }
   });
