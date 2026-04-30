@@ -8,6 +8,7 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq, sql } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import * as isolatedSchema from './isolatedSchema';
+import { logger } from './utils/logger';
 
 // Dev Auth Bypass - centralized development authentication
 export function isDevAuthBypass(): boolean {
@@ -387,11 +388,11 @@ export class AuthService {
     try {
       companyName = companyName.trim();
       username = username.trim();
-      console.log(`🔐 3-Field Auth attempt: Company="${companyName}", Username="${username}"`);
+      logger.info(`🔐 3-Field Auth attempt: Company="${companyName}", Username="${username}"`);
       
       // DEV BYPASS CHECK FIRST!
       if (isDevAuthBypass() && isValidDevCredentials(companyName, username, password)) {
-        console.log('🚀 DEV AUTH BYPASS: Using development authentication');
+        logger.info('🚀 DEV AUTH BYPASS: Using development authentication');
         const devUser = getDevUser();
         return {
           user: {
@@ -431,11 +432,11 @@ export class AuthService {
       // Step 1: Lookup customer by company name (case-insensitive)
       const customer = await this.lookupCustomerByCompanyName(companyName);
       if (!customer) {
-        console.log(`❌ Company not found: "${companyName}"`);
+        logger.info(`❌ Company not found: "${companyName}"`);
         return null;
       }
       
-      console.log(`✅ Found customer: ${customer.companyName} (ID: ${customer.id})`);
+      logger.info(`✅ Found customer: ${customer.companyName} (ID: ${customer.id})`);
       
       // Step 2: Get customer's isolated database connection
       const customerDbService = CustomerDatabaseService.getInstance();
@@ -444,15 +445,15 @@ export class AuthService {
       // Step 3: Authenticate user in customer's database
       const user = await this.authenticateUserInCustomerDatabase(customerDb, username, password);
       if (!user) {
-        console.log(`❌ User authentication failed in customer database: "${username}"`);
+        logger.info(`❌ User authentication failed in customer database: "${username}"`);
         return null;
       }
       
-      console.log(`✅ User authenticated successfully: ${username} for ${customer.companyName}`);
+      logger.info(`✅ User authenticated successfully: ${username} for ${customer.companyName}`);
       return { user, customer };
       
     } catch (error) {
-      console.error('🚨 3-Field authentication error:', error);
+      logger.error('🚨 3-Field authentication error:', error);
       return null;
     }
   }
@@ -475,7 +476,7 @@ export class AuthService {
 
       return user;
     } catch (error) {
-      console.error('Legacy authentication error:', error);
+      logger.error('Legacy authentication error:', error);
       return null;
     }
   }
@@ -489,7 +490,7 @@ export class AuthService {
       // Import the working database connection instead of creating a new Pool
       const { db } = await import('./db');
       
-      console.log(`🔍 Looking up customer: "${companyName}" using working database connection`);
+      logger.info(`🔍 Looking up customer: "${companyName}" using working database connection`);
       
       // Case-insensitive search for company name
       const customers = await db
@@ -499,11 +500,11 @@ export class AuthService {
         .limit(1);
 
       const customer = customers[0] || null;
-      console.log(customer ? `✅ Found customer: ${customer.companyName} (ID: ${customer.id})` : `❌ Customer not found: "${companyName}"`);
+      logger.info(customer ? `✅ Found customer: ${customer.companyName} (ID: ${customer.id})` : `❌ Customer not found: "${companyName}"`);
       
       return customer;
     } catch (error) {
-      console.error(`🚨 Error looking up customer by company name: ${error}`);
+      logger.error(`🚨 Error looking up customer by company name: ${error}`);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -545,23 +546,23 @@ export class AuthService {
         .where(eq(isolatedSchema.users.username, username))
         .limit(1);
 
-      console.log(`🔍 Auth DB query: found ${users.length} users for "${username}"`);
+      logger.info(`🔍 Auth DB query: found ${users.length} users for "${username}"`);
       const user = users[0];
       if (!user) {
-        console.log(`❌ No user found in customer DB for: "${username}"`);
+        logger.info(`❌ No user found in customer DB for: "${username}"`);
         return null;
       }
 
-      console.log(`🔍 Verifying password for user: ${user.username}, hash starts with: ${user.password?.substring(0, 10)}`);
+      logger.info(`🔍 Verifying password for user: ${user.username}, hash starts with: ${user.password?.substring(0, 10)}`);
       const isValid = await this.verifyPassword(password, user.password);
       if (!isValid) {
-        console.log(`❌ Password mismatch for user: "${username}"`);
+        logger.info(`❌ Password mismatch for user: "${username}"`);
         return null;
       }
 
       return user as User;
     } catch (error) {
-      console.error('Error authenticating user in customer database:', error);
+      logger.error('Error authenticating user in customer database:', error);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -591,7 +592,7 @@ export class AuthService {
   private static async ensureCustomersExist(): Promise<void> {
     try {
       const { db } = await import('./db');
-      console.log('🔧 Ensuring development customers exist...');
+      logger.info('🔧 Ensuring development customers exist...');
 
       // Customer data for development
       const developmentCustomers = [
@@ -647,13 +648,13 @@ export class AuthService {
             .insert(schema.customers)
             .values(customerData)
             .onConflictDoNothing();
-          console.log(`✅ Created customer: ${customerData.companyName}`);
+          logger.info(`✅ Created customer: ${customerData.companyName}`);
         } else {
-          console.log(`✅ Customer already exists: ${customerData.companyName}`);
+          logger.info(`✅ Customer already exists: ${customerData.companyName}`);
         }
       }
     } catch (error) {
-      console.error('❌ Error ensuring customers exist:', error);
+      logger.error('❌ Error ensuring customers exist:', error);
       throw error;
     }
   }
@@ -672,7 +673,7 @@ export class AuthService {
       // First ensure the customers exist
       await this.ensureCustomersExist();
       
-      console.log('🔧 Initializing developer users...');
+      logger.info('🔧 Initializing developer users...');
       const andyPassword = process.env.DEV_ANDY_PASSWORD;
       const emmaPassword = process.env.DEV_EMMA_PASSWORD;
 
@@ -686,34 +687,34 @@ export class AuthService {
       const existingAndy = await storage.getUserByUsername('Andy');
       
       if (existingAndy) {
-        console.log('Developer user "Andy" already exists - updating credentials');
+        logger.info('Developer user "Andy" already exists - updating credentials');
         // updateUser will handle password hashing automatically
         await storage.updateUser(existingAndy.id, { password: andyPassword });
-        console.log('Developer user credentials updated successfully');
+        logger.info('Developer user credentials updated successfully');
       } else {
         await storage.createUser({
           username: 'Andy',
           password: andyPassword,
           customerId: 'dev-customer-001'
         } as any);
-        console.log('Developer user "Andy" created successfully');
+        logger.info('Developer user "Andy" created successfully');
       }
 
       // Initialize Emma (Customer 002) for testing customer isolation
       const existingEmma = await storage.getUserByUsername('Emma');
       
       if (existingEmma) {
-        console.log('Developer user "Emma" already exists - updating credentials');
+        logger.info('Developer user "Emma" already exists - updating credentials');
         // updateUser will handle password hashing automatically
         await storage.updateUser(existingEmma.id, { password: emmaPassword });
-        console.log('Emma user credentials updated successfully');
+        logger.info('Emma user credentials updated successfully');
       } else {
         await storage.createUser({
           username: 'Emma',
           password: emmaPassword,
           customerId: 'dev-customer-002'
         } as any);
-        console.log('✅ Developer user "Emma" created successfully for Customer 002 testing');
+        logger.info('✅ Developer user "Emma" created successfully for Customer 002 testing');
       }
 
       // Initialize TestUser for free onboarding testing — development only
@@ -725,21 +726,21 @@ export class AuthService {
         const existingTestUser = await storage.getUserByUsername('TestUser');
 
         if (existingTestUser) {
-          console.log('Test user "TestUser" already exists - updating credentials');
+          logger.info('Test user "TestUser" already exists - updating credentials');
           // updateUser will handle password hashing automatically
           await storage.updateUser(existingTestUser.id, { password: testPassword });
-          console.log('Test user credentials updated successfully');
+          logger.info('Test user credentials updated successfully');
         } else {
           await storage.createUser({
             username: 'TestUser',
             password: testPassword, // createUser should handle hashing
             customerId: 'test-customer-trial'
           } as any);
-          console.log('✅ Test user "TestUser" created successfully for free trial testing');
+          logger.info('✅ Test user "TestUser" created successfully for free trial testing');
         }
       }
     } catch (error) {
-      console.error('Failed to initialize developer users:', error);
+      logger.error('Failed to initialize developer users:', error);
     }
   }
 }
@@ -750,7 +751,7 @@ export class AuthService {
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session || !req.session.userId || !req.session.customerId) {
-    console.log('🚨 SECURITY: requireAuth failed - missing tenant context:', {
+    logger.info('🚨 SECURITY: requireAuth failed - missing tenant context:', {
       hasSession: !!req.session,
       hasUserId: !!(req.session && req.session.userId),
       hasCustomerId: !!(req.session && req.session.customerId),
@@ -763,7 +764,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   req.customerId = req.session.customerId;
   
   // Log successful authentication with tenant context
-  console.log('✅ SECURITY: requireAuth passed - tenant context verified:', {
+  logger.info('✅ SECURITY: requireAuth passed - tenant context verified:', {
     userId: req.session.userId,
     customerId: req.session.customerId,
     sessionId: req.sessionID
@@ -780,7 +781,7 @@ export async function requireAuthOrFireMarshal(req: Request, res: Response, next
   // First, try session-based auth
   if (req.session && req.session.userId && req.session.customerId) {
     req.customerId = req.session.customerId;
-    console.log('✅ DUAL_AUTH: Session auth successful:', {
+    logger.info('✅ DUAL_AUTH: Session auth successful:', {
       userId: req.session.userId,
       customerId: req.session.customerId
     });
@@ -799,7 +800,7 @@ export async function requireAuthOrFireMarshal(req: Request, res: Response, next
       
       if (result) {
         req.customerId = result.customerId;
-        console.log('✅ DUAL_AUTH: Fire Marshal URL ID auth successful:', {
+        logger.info('✅ DUAL_AUTH: Fire Marshal URL ID auth successful:', {
           fireMarshalId,
           customerId: result.customerId,
           marshalName: result.marshal.firstName + ' ' + result.marshal.lastName
@@ -807,12 +808,12 @@ export async function requireAuthOrFireMarshal(req: Request, res: Response, next
         return next();
       }
     } catch (error) {
-      console.error('❌ DUAL_AUTH: Fire Marshal auth error:', error);
+      logger.error('❌ DUAL_AUTH: Fire Marshal auth error:', error);
     }
   }
   
   // Neither auth method worked
-  console.log('🚨 DUAL_AUTH: Authentication failed - no valid session or Fire Marshal URL ID');
+  logger.info('🚨 DUAL_AUTH: Authentication failed - no valid session or Fire Marshal URL ID');
   return res.status(403).json({ error: 'Authentication required' });
 }
 
@@ -823,7 +824,7 @@ export async function loadUser(req: Request, res: Response, next: NextFunction) 
   if (req.session && req.session.userId && req.session.customerId) {
     // DEV AUTH BYPASS: Skip database loading in dev mode
     if (isDevAuthBypass() && req.session.userId === 'dev-user-andy' && req.session.customerId === 'dev-customer-001') {
-      console.log('🚀 LOADUSER_BYPASS: Skipping database user loading in dev mode');
+      logger.info('🚀 LOADUSER_BYPASS: Skipping database user loading in dev mode');
       const devUser = getDevUser();
       req.user = {
         id: devUser.id,
@@ -851,7 +852,7 @@ export async function loadUser(req: Request, res: Response, next: NextFunction) 
         req.customerId = req.session.customerId;
       }
     } catch (error) {
-      console.error('Failed to load user from customer-specific session:', error);
+      logger.error('Failed to load user from customer-specific session:', error);
     }
   }
   next();
@@ -870,7 +871,7 @@ export class PlatformAdminAuthService {
       // Get management database connection
       const { db } = await import('./db');
       
-      console.log(`🔐 Platform Admin authentication attempt: ${username}`);
+      logger.info(`🔐 Platform Admin authentication attempt: ${username}`);
       
       // Look up admin by username in platformAdmins table
       const admins = await db
@@ -882,12 +883,12 @@ export class PlatformAdminAuthService {
       const admin = admins[0];
       
       if (!admin) {
-        console.log(`❌ Platform admin not found: ${username}`);
+        logger.info(`❌ Platform admin not found: ${username}`);
         return null;
       }
       
       if (!admin.isActive) {
-        console.log(`❌ Platform admin account inactive: ${username}`);
+        logger.info(`❌ Platform admin account inactive: ${username}`);
         return null;
       }
       
@@ -895,11 +896,11 @@ export class PlatformAdminAuthService {
       const isPasswordValid = await bcrypt.compare(password, admin.password);
       
       if (!isPasswordValid) {
-        console.log(`❌ Invalid password for platform admin: ${username}`);
+        logger.info(`❌ Invalid password for platform admin: ${username}`);
         return null;
       }
       
-      console.log(`✅ Platform admin authenticated successfully: ${username} (ID: ${admin.id})`);
+      logger.info(`✅ Platform admin authenticated successfully: ${username} (ID: ${admin.id})`);
       
       // Update last login timestamp
       await db
@@ -909,7 +910,7 @@ export class PlatformAdminAuthService {
       
       return admin;
     } catch (error) {
-      console.error('❌ Platform admin authentication error:', error);
+      logger.error('❌ Platform admin authentication error:', error);
       return null;
     }
   }
@@ -920,11 +921,11 @@ export class PlatformAdminAuthService {
  */
 export function requirePlatformAdmin(req: Request, res: Response, next: NextFunction) {
   if (!req.session || !req.session.platformAdminId) {
-    console.log('🚨 SECURITY: requirePlatformAdmin failed - no platform admin session');
+    logger.info('🚨 SECURITY: requirePlatformAdmin failed - no platform admin session');
     return res.status(401).json({ error: 'Platform admin authentication required' });
   }
   
-  console.log('✅ SECURITY: requirePlatformAdmin passed:', {
+  logger.info('✅ SECURITY: requirePlatformAdmin passed:', {
     platformAdminId: req.session.platformAdminId,
     sessionId: req.sessionID
   });

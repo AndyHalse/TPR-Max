@@ -1,6 +1,7 @@
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
+import { logger } from './utils/logger';
 
 if (!process.env.DATABASE_URL) {
   throw new Error(
@@ -23,9 +24,9 @@ pool.on('error', (err: any) => {
   const isNeonSuspend = err.code === '57P01' || err.code === '57014' ||
     (typeof err.message === 'string' && err.message.includes('terminating connection'));
   if (isNeonSuspend) {
-    console.warn('[DB] Pool connection terminated by server (Neon suspend). Will reconnect on next query.');
+    logger.warn('[DB] Pool connection terminated by server (Neon suspend). Will reconnect on next query.');
   } else {
-    console.error('[DB] Unexpected pool error:', err.message);
+    logger.error('[DB] Unexpected pool error:', err.message);
   }
 });
 

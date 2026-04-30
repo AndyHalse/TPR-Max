@@ -1,4 +1,5 @@
 import type { Migration } from './migrationRunner';
+import { logger } from './utils/logger';
 
 /**
  * SETTINGS COLUMN MIGRATION SUITE
@@ -43,16 +44,16 @@ export const addIdCardPrintQualityColumnMigration: Migration = {
     `);
     
     if (!columnExists.rows[0]?.exists) {
-      console.log('🔄 Adding id_card_print_quality column to company_settings table');
+      logger.info('🔄 Adding id_card_print_quality column to company_settings table');
       
       await db.execute(`
         ALTER TABLE company_settings 
         ADD COLUMN id_card_print_quality TEXT DEFAULT 'high'
       `);
       
-      console.log('✅ Added id_card_print_quality column successfully');
+      logger.info('✅ Added id_card_print_quality column successfully');
     } else {
-      console.log('ℹ️ id_card_print_quality column already exists, skipping');
+      logger.info('ℹ️ id_card_print_quality column already exists, skipping');
     }
   }
 };
@@ -86,15 +87,15 @@ export const addMissingIdCardColumnsMigration: Migration = {
       const columnName = columnDef.split(' ')[0];
       
       if (!existingColumnNames.has(columnName)) {
-        console.log(`🔄 Adding missing column: ${columnName}`);
+        logger.info(`🔄 Adding missing column: ${columnName}`);
         
         await db.execute(`
           ALTER TABLE company_settings ADD COLUMN ${columnDef}
         `);
         
-        console.log(`✅ Added ${columnName} column successfully`);
+        logger.info(`✅ Added ${columnName} column successfully`);
       } else {
-        console.log(`ℹ️ Column ${columnName} already exists, skipping`);
+        logger.info(`ℹ️ Column ${columnName} already exists, skipping`);
       }
     }
   }
@@ -130,15 +131,15 @@ export const addMissingThermalPrinterColumnsMigration: Migration = {
       const columnName = columnDef.split(' ')[0];
       
       if (!existingColumnNames.has(columnName)) {
-        console.log(`🔄 Adding missing thermal column: ${columnName}`);
+        logger.info(`🔄 Adding missing thermal column: ${columnName}`);
         
         await db.execute(`
           ALTER TABLE company_settings ADD COLUMN ${columnDef}
         `);
         
-        console.log(`✅ Added ${columnName} column successfully`);
+        logger.info(`✅ Added ${columnName} column successfully`);
       } else {
-        console.log(`ℹ️ Thermal column ${columnName} already exists, skipping`);
+        logger.info(`ℹ️ Thermal column ${columnName} already exists, skipping`);
       }
     }
   }
@@ -172,11 +173,11 @@ export const addCoreNavFeatureToggleColumnsMigration: Migration = {
         )
       `);
       if (!result.rows[0]?.exists) {
-        console.log(`🔄 Adding ${col} column to company_settings`);
+        logger.info(`🔄 Adding ${col} column to company_settings`);
         await db.execute(`ALTER TABLE company_settings ADD COLUMN ${col} BOOLEAN DEFAULT TRUE`);
-        console.log(`✅ Added ${col} column`);
+        logger.info(`✅ Added ${col} column`);
       } else {
-        console.log(`ℹ️ ${col} already exists, skipping`);
+        logger.info(`ℹ️ ${col} already exists, skipping`);
       }
     }
   }
@@ -211,11 +212,11 @@ export const addCoreNavFeatureToggleColumnsFixedMigration: Migration = {
         )
       `);
       if (!result.rows[0]?.exists) {
-        console.log(`🔄 [fix] Adding ${col} to company_settings in schema ${await db.execute(`SELECT current_schema()`).then((r: any) => r.rows[0]?.current_schema)}`);
+        logger.info(`🔄 [fix] Adding ${col} to company_settings in schema ${await db.execute(`SELECT current_schema()`).then((r: any) => r.rows[0]?.current_schema)}`);
         await db.execute(`ALTER TABLE company_settings ADD COLUMN ${col} BOOLEAN DEFAULT TRUE`);
-        console.log(`✅ [fix] Added ${col}`);
+        logger.info(`✅ [fix] Added ${col}`);
       } else {
-        console.log(`ℹ️ [fix] ${col} already exists in current schema, skipping`);
+        logger.info(`ℹ️ [fix] ${col} already exists in current schema, skipping`);
       }
     }
   }

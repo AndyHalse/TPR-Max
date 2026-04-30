@@ -5,6 +5,7 @@
 
 import type { IQuestionGenerator, Question, Result, IAiChatClient, AiModelOptions } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
+import { logger } from '../utils/logger';
 
 const REQUIRED_CATEGORIES = [
   { key: 'Emergency Procedures', count: 2 },
@@ -19,7 +20,7 @@ export class QuestionService implements IQuestionGenerator {
 
   async generate(script: string, scenes: any[], roleType: string, options?: AiModelOptions): Promise<Result<Question[]>> {
     const modelLabel = options?.model || 'default';
-    console.log(`🧠 Generating AI questions for ${roleType} induction video (model: ${modelLabel})...`);
+    logger.info(`🧠 Generating AI questions for ${roleType} induction video (model: ${modelLabel})...`);
     
     try {
       const prompt = this.buildPrompt(script, roleType);
@@ -45,17 +46,17 @@ export class QuestionService implements IQuestionGenerator {
       if (ResultUtils.isSuccess(result)) {
         const questions = this.parseAndValidateQuestions(result.data, roleType);
         if (questions.length >= 8) {
-          console.log(`✅ Generated ${questions.length} AI questions for ${roleType}`);
+          logger.info(`✅ Generated ${questions.length} AI questions for ${roleType}`);
           return ResultUtils.success(questions);
         }
-        console.log(`⚠️ Only got ${questions.length} valid questions, trying fallback`);
+        logger.info(`⚠️ Only got ${questions.length} valid questions, trying fallback`);
       }
 
-      console.log(`⚠️ AI question generation insufficient, using fallback questions for ${roleType}`);
+      logger.info(`⚠️ AI question generation insufficient, using fallback questions for ${roleType}`);
       return this.getFallbackQuestions(roleType);
 
     } catch (error: any) {
-      console.error('❌ Error generating questions from script:', error);
+      logger.error('❌ Error generating questions from script:', error);
       return this.getFallbackQuestions(roleType);
     }
   }
@@ -106,7 +107,7 @@ Produce exactly 10 questions in the JSON format specified. Each question must ha
           ['A', 'B', 'C', 'D'].includes(q.correctAnswer)
         );
     } catch (error) {
-      console.error('❌ Failed to parse questions:', error);
+      logger.error('❌ Failed to parse questions:', error);
       return [];
     }
   }
@@ -255,7 +256,7 @@ Produce exactly 10 questions in the JSON format specified. Each question must ha
       }
     ];
 
-    console.log(`✅ Using ${fallbackQuestions.length} structured fallback questions for ${roleType}`);
+    logger.info(`✅ Using ${fallbackQuestions.length} structured fallback questions for ${roleType}`);
     return Promise.resolve(ResultUtils.success(fallbackQuestions));
   }
 }

@@ -1,6 +1,7 @@
 import { CompanySettings } from "@shared/schema";
 import crypto from "crypto";
 import fetch from "node-fetch";
+import { logger } from './utils/logger';
 
 export interface ClueWebhookEvent {
   event_type: "access_granted" | "access_denied" | "qr_scan" | "user_registered";
@@ -61,7 +62,7 @@ export class ClueService {
    */
   verifyWebhookSignature(payload: string, signature: string): boolean {
     if (!this.webhookSecret) {
-      console.warn("CLUe webhook secret not configured");
+      logger.warn("CLUe webhook secret not configured");
       return false;
     }
 
@@ -112,14 +113,14 @@ export class ClueService {
       });
 
       if (!response.ok) {
-        console.error("Failed to generate CLUe QR code:", response.status, response.statusText);
+        logger.error("Failed to generate CLUe QR code:", response.status, response.statusText);
         return null;
       }
 
       const data = await response.json() as ClueDynamicQRResponse;
       return data;
     } catch (error) {
-      console.error("Error generating CLUe QR code:", error);
+      logger.error("Error generating CLUe QR code:", error);
       return null;
     }
   }
@@ -138,7 +139,7 @@ export class ClueService {
 
       return response.ok;
     } catch (error) {
-      console.error("Error deleting CLUe QR code:", error);
+      logger.error("Error deleting CLUe QR code:", error);
       return false;
     }
   }
@@ -176,13 +177,13 @@ export class ClueService {
       });
 
       if (!response.ok) {
-        console.error("Failed to register visitor in CLUe:", response.status, response.statusText);
+        logger.error("Failed to register visitor in CLUe:", response.status, response.statusText);
         return false;
       }
 
       return true;
     } catch (error) {
-      console.error("Error registering visitor in CLUe:", error);
+      logger.error("Error registering visitor in CLUe:", error);
       return false;
     }
   }
@@ -200,14 +201,14 @@ export class ClueService {
       });
 
       if (!response.ok) {
-        console.error("Failed to fetch CLUe devices:", response.status, response.statusText);
+        logger.error("Failed to fetch CLUe devices:", response.status, response.statusText);
         return [];
       }
 
       const data = await response.json() as { devices: ClueDevice[] };
       return data.devices || [];
     } catch (error) {
-      console.error("Error fetching CLUe devices:", error);
+      logger.error("Error fetching CLUe devices:", error);
       return [];
     }
   }
@@ -293,7 +294,7 @@ export class ClueService {
     action?: string;
     message?: string;
   }> {
-    console.log(`Processing CLUe webhook event: ${event.event_type} from device: ${event.device_name}`);
+    logger.info(`Processing CLUe webhook event: ${event.event_type} from device: ${event.device_name}`);
 
     switch (event.event_type) {
       case "qr_scan":

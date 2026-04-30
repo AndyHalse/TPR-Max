@@ -1,6 +1,7 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "./db";
 import { inductionSettings, type InsertInductionSettings } from "@shared/schema";
+import { logger } from './utils/logger';
 
 const inductionSettingsData: InsertInductionSettings[] = [
   {
@@ -33,7 +34,7 @@ const inductionSettingsData: InsertInductionSettings[] = [
 ];
 
 export async function seedInductionSettings() {
-  console.log('🌱 Seeding induction settings...');
+  logger.info('🌱 Seeding induction settings...');
   
   try {
     // Ensure global induction_settings table has kiosk_enabled and send_link_enabled columns
@@ -63,20 +64,20 @@ export async function seedInductionSettings() {
       ALTER TABLE induction_tokens
         ADD COLUMN IF NOT EXISTS induction_topics_covered JSONB
     `);
-    console.log('✅ Global induction_tokens schema verified (worker_id nullable, person columns present, topics covered column ready)');
+    logger.info('✅ Global induction_tokens schema verified (worker_id nullable, person columns present, topics covered column ready)');
 
     const existingSettings = await db.select().from(inductionSettings).limit(1);
     
     if (existingSettings.length > 0) {
-      console.log('✅ Induction settings already exist');
+      logger.info('✅ Induction settings already exist');
       return;
     }
 
     await db.insert(inductionSettings).values(inductionSettingsData);
     
-    console.log(`✅ Seeded ${inductionSettingsData.length} induction settings for all role types`);
+    logger.info(`✅ Seeded ${inductionSettingsData.length} induction settings for all role types`);
   } catch (error) {
-    console.error('❌ Failed to seed induction settings:', error);
+    logger.error('❌ Failed to seed induction settings:', error);
     throw error;
   }
 }

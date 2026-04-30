@@ -1,4 +1,5 @@
 import https from 'https';
+import { logger } from './utils/logger';
 
 interface PaxtonConfig {
   serverUrl: string;
@@ -148,13 +149,13 @@ class PaxtonService {
           ...tokenResponse,
           obtainedAt: Date.now(),
         });
-        console.log(`Paxton Net2: Authenticated successfully to ${config.serverUrl}`);
+        logger.info(`Paxton Net2: Authenticated successfully to ${config.serverUrl}`);
         return true;
       }
 
       return false;
     } catch (error: any) {
-      console.error(`Paxton Net2 auth failed:`, error.message);
+      logger.error(`Paxton Net2 auth failed:`, error.message);
       throw error;
     }
   }
@@ -202,7 +203,7 @@ class PaxtonService {
       await this.authenticate(config);
       return await this.makeRequest(config, 'POST', '/api/v1/users', user);
     } catch (error: any) {
-      console.error(`Paxton: Failed to create user:`, error.message);
+      logger.error(`Paxton: Failed to create user:`, error.message);
       return null;
     }
   }
@@ -213,7 +214,7 @@ class PaxtonService {
       await this.makeRequest(config, 'PUT', `/api/v1/users/${userId}`, updates);
       return true;
     } catch (error: any) {
-      console.error(`Paxton: Failed to update user ${userId}:`, error.message);
+      logger.error(`Paxton: Failed to update user ${userId}:`, error.message);
       return false;
     }
   }
@@ -224,7 +225,7 @@ class PaxtonService {
       await this.makeRequest(config, 'DELETE', `/api/v1/users/${userId}`);
       return true;
     } catch (error: any) {
-      console.error(`Paxton: Failed to delete user ${userId}:`, error.message);
+      logger.error(`Paxton: Failed to delete user ${userId}:`, error.message);
       return false;
     }
   }
@@ -242,10 +243,10 @@ class PaxtonService {
         doorId,
         openDuration: duration,
       });
-      console.log(`Paxton: Door ${doorId} opened for ${duration}s`);
+      logger.info(`Paxton: Door ${doorId} opened for ${duration}s`);
       return true;
     } catch (error: any) {
-      console.error(`Paxton: Failed to open door ${doorId}:`, error.message);
+      logger.error(`Paxton: Failed to open door ${doorId}:`, error.message);
       return false;
     }
   }
@@ -283,7 +284,7 @@ class PaxtonService {
       });
       return true;
     } catch (error: any) {
-      console.error(`Paxton: Failed to grant access to user ${userId}:`, error.message);
+      logger.error(`Paxton: Failed to grant access to user ${userId}:`, error.message);
       return false;
     }
   }
@@ -296,7 +297,7 @@ class PaxtonService {
       });
       return true;
     } catch (error: any) {
-      console.error(`Paxton: Failed to revoke access for user ${userId}:`, error.message);
+      logger.error(`Paxton: Failed to revoke access for user ${userId}:`, error.message);
       return false;
     }
   }
@@ -335,7 +336,7 @@ class PaxtonService {
         }
       }
     } catch (error: any) {
-      console.error(`Paxton sync error:`, error.message);
+      logger.error(`Paxton sync error:`, error.message);
     }
 
     return result;

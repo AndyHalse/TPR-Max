@@ -7,6 +7,7 @@
 import OpenAI from "openai";
 import type { IImageGenerator, ImageGenerationResult, Result } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
+import { logger } from '../utils/logger';
 
 // Using Replit's AI Integrations service - provides OpenAI-compatible API access without requiring your own API key
 // Charges are billed to Replit credits, bypassing personal API billing limits
@@ -43,7 +44,7 @@ Visual requirements:
 
 Style: Photorealistic corporate photography, professional composition, bright and clear, suitable for safety training materials.`;
 
-      console.log(`🎨 Generating GPT-Image-1 image for: ${title}`);
+      logger.info(`🎨 Generating GPT-Image-1 image for: ${title}`);
       
       // Generate image using gpt-image-1 via Replit AI Integrations
       // Note: gpt-image-1 does not support response_format parameter - always returns base64
@@ -68,7 +69,7 @@ Style: Photorealistic corporate photography, professional composition, bright an
       // Convert to data URL for use in the application
       const imageUrl = `data:image/png;base64,${imageBase64}`;
 
-      console.log(`✅ GPT-Image-1 image generated successfully for: ${title}`);
+      logger.info(`✅ GPT-Image-1 image generated successfully for: ${title}`);
 
       return ResultUtils.success({
         url: imageUrl,
@@ -82,15 +83,15 @@ Style: Photorealistic corporate photography, professional composition, bright an
       });
 
     } catch (error: any) {
-      console.error('❌ GPT-Image-1 image generation failed:', error.message);
+      logger.error('❌ GPT-Image-1 image generation failed:', error.message);
       
       // Provide detailed error context
       if (error.response?.status === 400) {
-        console.error('❌ Bad request - prompt may have content policy issues');
+        logger.error('❌ Bad request - prompt may have content policy issues');
       } else if (error.response?.status === 429) {
-        console.error('❌ Rate limit exceeded - too many requests');
+        logger.error('❌ Rate limit exceeded - too many requests');
       } else if (error.response?.status === 500) {
-        console.error('❌ OpenAI service error');
+        logger.error('❌ OpenAI service error');
       }
       
       return ResultUtils.error(error);

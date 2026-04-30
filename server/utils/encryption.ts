@@ -4,6 +4,7 @@
  */
 
 import crypto from 'crypto';
+import { logger } from '../utils/logger';
 
 const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 16; // For AES-256-GCM, this is always 16
@@ -58,7 +59,7 @@ export function encryptData(plaintext: string): {
       authTag: authTag.toString('hex')
     };
   } catch (error) {
-    console.error('Encryption failed:', error);
+    logger.error('Encryption failed:', error);
     throw new Error('Failed to encrypt data');
   }
 }
@@ -89,7 +90,7 @@ export function decryptData(encryptedData: string, iv: string, authTag: string):
     
     return decrypted;
   } catch (error) {
-    console.error('Decryption failed:', error);
+    logger.error('Decryption failed:', error);
     throw new Error('Failed to decrypt data - data may be corrupted or tampered with');
   }
 }

@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { databaseService } from './databaseService';
 import { customerDbService } from './customerDatabase';
+import { logger } from './utils/logger';
 
 export interface QRReaderDevice {
   id: string;
@@ -45,7 +46,7 @@ class QRReaderService extends EventEmitter {
   private setupWindowsHIDListener() {
     // Windows HID scanner support
     // Most QR/barcode scanners appear as keyboard input devices
-    console.log('🔌 Setting up Windows HID QR scanner listener...');
+    logger.info('🔌 Setting up Windows HID QR scanner listener...');
     
     // For Windows, we'll use stdin to capture keyboard input
     // This works when QR scanners are configured as keyboard wedge devices
@@ -61,7 +62,7 @@ class QRReaderService extends EventEmitter {
 
   private setupLinuxHIDListener() {
     // Linux HID scanner support
-    console.log('🔌 Setting up Linux HID QR scanner listener...');
+    logger.info('🔌 Setting up Linux HID QR scanner listener...');
     
     // In Linux, we can read from /dev/input/eventX devices
     try {
@@ -69,10 +70,10 @@ class QRReaderService extends EventEmitter {
         .filter(name => name.startsWith('event'))
         .map(name => `/dev/input/${name}`);
       
-      console.log(`🔍 Found ${inputDevices.length} input devices`);
+      logger.info(`🔍 Found ${inputDevices.length} input devices`);
       // Implementation would read from these devices for barcode scanner input
     } catch (error) {
-      console.log('📋 Running in development mode - HID scanning simulated');
+      logger.info('📋 Running in development mode - HID scanning simulated');
     }
   }
 
@@ -100,7 +101,7 @@ class QRReaderService extends EventEmitter {
   }
 
   private processScan(data: string) {
-    console.log(`📱 QR Code scanned: ${data}`);
+    logger.info(`📱 QR Code scanned: ${data}`);
     
     const scanResult: QRScanResult = {
       data,
@@ -124,7 +125,7 @@ class QRReaderService extends EventEmitter {
   }
 
   async detectDevices(): Promise<QRReaderDevice[]> {
-    console.log('🔍 Detecting QR reader devices...');
+    logger.info('🔍 Detecting QR reader devices...');
     
     this.devices = [];
     
@@ -137,7 +138,7 @@ class QRReaderService extends EventEmitter {
     // Detect USB devices
     await this.detectUSBDevices();
     
-    console.log(`✅ Found ${this.devices.length} QR reader devices`);
+    logger.info(`✅ Found ${this.devices.length} QR reader devices`);
     return this.devices;
   }
 
@@ -173,7 +174,7 @@ class QRReaderService extends EventEmitter {
         }
       }
     } catch (error) {
-      console.log('📋 Serial port detection not available');
+      logger.info('📋 Serial port detection not available');
     }
   }
 
@@ -199,12 +200,12 @@ class QRReaderService extends EventEmitter {
         });
       }
     } catch (error) {
-      console.log('📋 USB device detection not available');
+      logger.info('📋 USB device detection not available');
     }
   }
 
   async testConnection(deviceId?: string): Promise<{ success: boolean; message: string }> {
-    console.log(`🧪 Testing QR reader connection for device: ${deviceId || 'default'}`);
+    logger.info(`🧪 Testing QR reader connection for device: ${deviceId || 'default'}`);
     
     try {
       const device = deviceId ? this.devices.find(d => d.id === deviceId) : this.devices[0];
@@ -239,7 +240,7 @@ class QRReaderService extends EventEmitter {
   }
 
   async processVisitorScan(qrData: string): Promise<{ success: boolean; message: string; action?: string }> {
-    console.log(`🎫 Processing visitor QR scan: ${qrData}`);
+    logger.info(`🎫 Processing visitor QR scan: ${qrData}`);
     
     try {
       // Extract visitor ID from QR code
@@ -268,7 +269,7 @@ class QRReaderService extends EventEmitter {
   }
 
   async processStaffScan(qrData: string): Promise<{ success: boolean; message: string; action?: string; personName?: string }> {
-    console.log(`👥 Processing staff QR scan: ${qrData}`);
+    logger.info(`👥 Processing staff QR scan: ${qrData}`);
     
     try {
       const customers = await customerDbService.getAllCustomers();
@@ -310,7 +311,7 @@ class QRReaderService extends EventEmitter {
   }
 
   async processContractorScan(qrData: string): Promise<{ success: boolean; message: string; action?: string; personName?: string }> {
-    console.log(`🔧 Processing contractor QR scan: ${qrData}`);
+    logger.info(`🔧 Processing contractor QR scan: ${qrData}`);
     
     try {
       const customers = await customerDbService.getAllCustomers();
@@ -361,7 +362,7 @@ class QRReaderService extends EventEmitter {
 
   // Clean up resources
   async shutdown() {
-    console.log('🔌 Shutting down QR reader service...');
+    logger.info('🔌 Shutting down QR reader service...');
     
     // Close any active connections
     for (const [deviceId, reader] of this.activeReaders) {
@@ -370,7 +371,7 @@ class QRReaderService extends EventEmitter {
           await reader.close();
         }
       } catch (error) {
-        console.error(`Error closing QR reader ${deviceId}:`, error);
+        logger.error(`Error closing QR reader ${deviceId}:`, error);
       }
     }
     

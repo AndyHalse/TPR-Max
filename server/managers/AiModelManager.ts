@@ -7,6 +7,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import type { ModelConfig, AiModelOptions, Result, IAiChatClient } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
 import { OpenAIErrorHandler } from '../utils/openaiErrorHandler';
+import { logger } from '../utils/logger';
 
 // Support organization and project IDs to ensure correct billing context
 const openaiConfig: any = {
@@ -116,8 +117,8 @@ export class AiModelManager implements IAiChatClient {
       const parsed = JSON.parse(result.data);
       return ResultUtils.success(parsed);
     } catch (error: any) {
-      console.error('❌ Failed to parse JSON response:', error);
-      console.error('Raw response:', result.data);
+      logger.error('❌ Failed to parse JSON response:', error);
+      logger.error('Raw response:', result.data);
       return ResultUtils.error(`Invalid JSON response: ${error.message}`);
     }
   }
@@ -138,12 +139,12 @@ export class AiModelManager implements IAiChatClient {
     let lastError: Error | null = null;
 
     for (const config of modelsToTry) {
-      console.log(`🤖 Attempting to use ${config.name} for AI completion...`);
+      logger.info(`🤖 Attempting to use ${config.name} for AI completion...`);
       
       const result = await this.tryModelWithRetry(config, prompt, options);
       
       if (ResultUtils.isSuccess(result)) {
-        console.log(`✅ Successfully generated content using ${config.name}`);
+        logger.info(`✅ Successfully generated content using ${config.name}`);
         return result;
       }
 
@@ -151,9 +152,9 @@ export class AiModelManager implements IAiChatClient {
       const shouldTryDifferent = OpenAIErrorHandler.shouldTryDifferentModel(result.error);
       
       if (shouldTryDifferent) {
-        console.log(`🔄 Model ${config.name} not available, trying next model...`);
+        logger.info(`🔄 Model ${config.name} not available, trying next model...`);
       } else {
-        console.log(`⚠️ Model ${config.name} failed: ${result.error?.message}`);
+        logger.info(`⚠️ Model ${config.name} failed: ${result.error?.message}`);
       }
       
       lastError = result.error || new Error(`Unknown error with ${config.name}`);
@@ -162,10 +163,10 @@ export class AiModelManager implements IAiChatClient {
     // Provide comprehensive error information when all models fail
     if (lastError) {
       const errorResult = OpenAIErrorHandler.handleError(lastError);
-      console.log(`🚨 All AI models failed: ${errorResult.userMessage}`);
+      logger.info(`🚨 All AI models failed: ${errorResult.userMessage}`);
       
       if (!errorResult.isRecoverable) {
-        console.log('💡 This error may require configuration changes or support assistance');
+        logger.info('💡 This error may require configuration changes or support assistance');
       }
       
       // Enhance the error with user-friendly information
@@ -209,7 +210,7 @@ export class AiModelManager implements IAiChatClient {
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        console.log(`🤖 Attempting Claude ${anthropicModelId} (attempt ${attempt}/${maxAttempts})...`);
+        logger.info(`🤖 Attempting Claude ${anthropicModelId} (attempt ${attempt}/${maxAttempts})...`);
 
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('Request timeout')), timeoutMs);
@@ -235,11 +236,11 @@ export class AiModelManager implements IAiChatClient {
           throw new Error('No text content in Claude response');
         }
 
-        console.log(`✅ Successfully generated content using Claude ${anthropicModelId}`);
+        logger.info(`✅ Successfully generated content using Claude ${anthropicModelId}`);
         return ResultUtils.success(content.text);
 
       } catch (error: any) {
-        console.error(`❌ Claude attempt ${attempt} failed: ${error.message}`);
+        logger.error(`❌ Claude attempt ${attempt} failed: ${error.message}`);
 
         if (attempt === maxAttempts) {
           const msg = error.status === 401
@@ -252,7 +253,7 @@ export class AiModelManager implements IAiChatClient {
         }
 
         const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
-        console.log(`⏳ Retrying Claude in ${backoffDelay}ms...`);
+        logger.info(`⏳ Retrying Claude in ${backoffDelay}ms...`);
         await new Promise(resolve => setTimeout(resolve, backoffDelay));
       }
     }
@@ -286,7 +287,7 @@ export class AiModelManager implements IAiChatClient {
     
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       try {
-        console.log(`🚀 Making API call to ${config.name} (attempt ${attempt}/${maxAttempts})...`);
+        logger.info(`🚀 Making API call to ${config.name} (attempt ${attempt}/${maxAttempts})...`);
         
         const requestOptions = this.buildRequestOptions(config, options);
         const timeoutMs = options.timeoutMs ?? config.timeoutMs;
@@ -312,7 +313,7 @@ export class AiModelManager implements IAiChatClient {
       } catch (error: any) {
         const errorResult = OpenAIErrorHandler.handleError(error);
         
-        console.error(`❌ Attempt ${attempt} failed for ${config.name}: ${errorResult.technicalMessage}`);
+        logger.error(`❌ Attempt ${attempt} failed for ${config.name}: ${errorResult.technicalMessage}`);
         
         // Log the error with context but don't expose sensitive info
         if (attempt === 1) {
@@ -334,7 +335,7 @@ export class AiModelManager implements IAiChatClient {
         const backoffDelay = Math.min(1000 * Math.pow(2, attempt - 1), 5000);
         const delay = errorDelay || backoffDelay;
         
-        console.log(`⏳ Retrying in ${delay}ms...`);
+        logger.info(`⏳ Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }

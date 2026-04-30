@@ -393,6 +393,7 @@ export interface IStorage {
 }
 
 import { DatabaseStorage } from "./DatabaseStorage";
+import { logger } from './utils/logger';
 
 export function createStorage(): IStorage {
   // Using DatabaseStorage for proper database integration and field mapping
@@ -505,15 +506,15 @@ export class MemStorage implements IStorage {
           }
         }
         
-        console.log('✅ Company settings loaded from persistent storage');
+        logger.info('✅ Company settings loaded from persistent storage');
       } else {
         // Initialize default company settings for first time
         this.initializeDefaultSettings();
         this.saveSettingsToFile();
-        console.log('🆕 New company settings initialized and saved');
+        logger.info('🆕 New company settings initialized and saved');
       }
     } catch (error) {
-      console.error('❌ Error loading company settings, using defaults:', error);
+      logger.error('❌ Error loading company settings, using defaults:', error);
       this.initializeDefaultSettings();
     }
   }
@@ -568,7 +569,7 @@ export class MemStorage implements IStorage {
       const settingsJson = JSON.stringify(this.companySettings, null, 2);
       fs.writeFileSync(this.settingsFilePath, settingsJson, 'utf8');
     } catch (error) {
-      console.error('❌ Error saving company settings:', error);
+      logger.error('❌ Error saving company settings:', error);
     }
   }
 
@@ -586,10 +587,10 @@ export class MemStorage implements IStorage {
           if (staff.createdAt) staff.createdAt = new Date(staff.createdAt);
           this.staffMembers.set(staff.id, staff);
         });
-        console.log(`✅ Staff data loaded: ${this.staffMembers.size} members`);
+        logger.info(`✅ Staff data loaded: ${this.staffMembers.size} members`);
       }
     } catch (error) {
-      console.error('❌ Error loading staff data:', error);
+      logger.error('❌ Error loading staff data:', error);
     }
   }
 
@@ -605,13 +606,13 @@ export class MemStorage implements IStorage {
           if (dept.updatedAt) dept.updatedAt = new Date(dept.updatedAt);
           this.departments.set(dept.id, dept);
         });
-        console.log(`✅ Departments data loaded: ${this.departments.size} departments`);
+        logger.info(`✅ Departments data loaded: ${this.departments.size} departments`);
       } else {
         // Initialize with default departments based on existing staff data
         this.initializeDefaultDepartments();
       }
     } catch (error) {
-      console.error('❌ Error loading departments data:', error);
+      logger.error('❌ Error loading departments data:', error);
       this.initializeDefaultDepartments();
     }
   }
@@ -638,7 +639,7 @@ export class MemStorage implements IStorage {
     });
     
     this.saveDepartmentsToFile();
-    console.log(`✅ Initialized ${uniqueDepartments.length} default departments from existing staff data`);
+    logger.info(`✅ Initialized ${uniqueDepartments.length} default departments from existing staff data`);
   }
 
   private saveDepartmentsToFile(): void {
@@ -646,7 +647,7 @@ export class MemStorage implements IStorage {
       const departmentsArray = Array.from(this.departments.values());
       fs.writeFileSync(this.departmentsFilePath, JSON.stringify(departmentsArray, null, 2), 'utf8');
     } catch (error) {
-      console.error('❌ Error saving departments data:', error);
+      logger.error('❌ Error saving departments data:', error);
     }
   }
 
@@ -656,7 +657,7 @@ export class MemStorage implements IStorage {
       const staffJson = JSON.stringify(staffArray, null, 2);
       fs.writeFileSync(this.staffFilePath, staffJson, 'utf8');
     } catch (error) {
-      console.error('❌ Error saving staff data:', error);
+      logger.error('❌ Error saving staff data:', error);
     }
   }
 
@@ -672,10 +673,10 @@ export class MemStorage implements IStorage {
           if (visitor.checkedOutAt) visitor.checkedOutAt = new Date(visitor.checkedOutAt);
           this.visitors.set(visitor.id, visitor);
         });
-        console.log(`✅ Visitor data loaded: ${this.visitors.size} visitors`);
+        logger.info(`✅ Visitor data loaded: ${this.visitors.size} visitors`);
       }
     } catch (error) {
-      console.error('❌ Error loading visitor data:', error);
+      logger.error('❌ Error loading visitor data:', error);
     }
   }
 
@@ -685,7 +686,7 @@ export class MemStorage implements IStorage {
       const visitorsJson = JSON.stringify(visitorsArray, null, 2);
       fs.writeFileSync(this.visitorsFilePath, visitorsJson, 'utf8');
     } catch (error) {
-      console.error('❌ Error saving visitor data:', error);
+      logger.error('❌ Error saving visitor data:', error);
     }
   }
 
@@ -700,10 +701,10 @@ export class MemStorage implements IStorage {
           if (report.generatedAt) report.generatedAt = new Date(report.generatedAt);
           this.reports.set(report.id, report);
         });
-        console.log(`✅ Reports data loaded: ${this.reports.size} reports`);
+        logger.info(`✅ Reports data loaded: ${this.reports.size} reports`);
       }
     } catch (error) {
-      console.error('❌ Error loading reports data:', error);
+      logger.error('❌ Error loading reports data:', error);
     }
   }
 
@@ -713,7 +714,7 @@ export class MemStorage implements IStorage {
       const reportsJson = JSON.stringify(reportsArray, null, 2);
       fs.writeFileSync(this.reportsFilePath, reportsJson, 'utf8');
     } catch (error) {
-      console.error('❌ Error saving reports data:', error);
+      logger.error('❌ Error saving reports data:', error);
     }
   }
 
@@ -731,10 +732,10 @@ export class MemStorage implements IStorage {
           if (preBooking.createdAt) preBooking.createdAt = new Date(preBooking.createdAt);
           this.preBookings.set(preBooking.id, preBooking);
         });
-        console.log(`✅ PreBookings data loaded: ${this.preBookings.size} bookings`);
+        logger.info(`✅ PreBookings data loaded: ${this.preBookings.size} bookings`);
       }
     } catch (error) {
-      console.error('❌ Error loading prebookings data:', error);
+      logger.error('❌ Error loading prebookings data:', error);
     }
   }
 
@@ -744,7 +745,7 @@ export class MemStorage implements IStorage {
       const preBookingsJson = JSON.stringify(preBookingsArray, null, 2);
       fs.writeFileSync(this.preBookingsFilePath, preBookingsJson, 'utf8');
     } catch (error) {
-      console.error('❌ Error saving prebookings data:', error);
+      logger.error('❌ Error saving prebookings data:', error);
     }
   }
 
@@ -759,10 +760,10 @@ export class MemStorage implements IStorage {
           if (user.createdAt) user.createdAt = new Date(user.createdAt);
           this.users.set(user.id, user);
         });
-        console.log(`✅ Users data loaded: ${this.users.size} users`);
+        logger.info(`✅ Users data loaded: ${this.users.size} users`);
       }
     } catch (error) {
-      console.error('❌ Error loading users data:', error);
+      logger.error('❌ Error loading users data:', error);
     }
   }
 
@@ -772,20 +773,20 @@ export class MemStorage implements IStorage {
       const usersJson = JSON.stringify(usersArray, null, 2);
       fs.writeFileSync(this.usersFilePath, usersJson, 'utf8');
     } catch (error) {
-      console.error('❌ Error saving users data:', error);
+      logger.error('❌ Error saving users data:', error);
     }
   }
 
   private initializeSampleData(): void {
     // No mock data - zero fake data policy
-    console.log('🔄 Database initialized - no sample data loaded');
+    logger.info('🔄 Database initialized - no sample data loaded');
 
     // 💾 Save data structures to files (no sample data)
     this.saveStaffToFile();
     this.saveVisitorsToFile();
     this.savePreBookingsToFile();
     this.saveReportsToFile(); // Even if empty, create the file
-    console.log('💾 Data files initialized');
+    logger.info('💾 Data files initialized');
   }
 
   // User methods
@@ -858,7 +859,7 @@ export class MemStorage implements IStorage {
 
       return user;
     } catch (error) {
-      console.error('User authentication error:', error);
+      logger.error('User authentication error:', error);
       return null;
     }
   }
@@ -1371,7 +1372,7 @@ export class MemStorage implements IStorage {
     // Save to file immediately for persistence
     this.saveSettingsToFile();
     
-    console.log('💾 Company settings updated and saved to persistent storage');
+    logger.info('💾 Company settings updated and saved to persistent storage');
     return this.companySettings;
   }
 
@@ -1820,7 +1821,7 @@ export class MemStorage implements IStorage {
       };
 
     } catch (error) {
-      console.error('Error calculating peak hours analytics:', error);
+      logger.error('Error calculating peak hours analytics:', error);
       return {
         peakHours: "9AM-11AM",
         weeklyTrend: "+23% this week",
@@ -1840,10 +1841,10 @@ export class MemStorage implements IStorage {
           if (room.updatedAt) room.updatedAt = new Date(room.updatedAt);
           this.meetingRooms.set(room.id, room);
         });
-        console.log(`✅ Meeting rooms data loaded: ${this.meetingRooms.size} rooms`);
+        logger.info(`✅ Meeting rooms data loaded: ${this.meetingRooms.size} rooms`);
       }
     } catch (error) {
-      console.error('❌ Error loading meeting rooms data:', error);
+      logger.error('❌ Error loading meeting rooms data:', error);
     }
   }
 
@@ -1852,7 +1853,7 @@ export class MemStorage implements IStorage {
       const meetingRoomsArray = Array.from(this.meetingRooms.values());
       fs.writeFileSync(this.meetingRoomsFilePath, JSON.stringify(meetingRoomsArray, null, 2));
     } catch (error) {
-      console.error('❌ Error saving meeting rooms data:', error);
+      logger.error('❌ Error saving meeting rooms data:', error);
     }
   }
 
@@ -1996,7 +1997,7 @@ export class MemStorage implements IStorage {
       await this.createMeetingRoom(roomData);
     });
 
-    console.log(`🏢 Initialized ${sampleRooms.length} sample meeting rooms`);
+    logger.info(`🏢 Initialized ${sampleRooms.length} sample meeting rooms`);
   }
 
   // Room Booking persistence methods
@@ -2015,10 +2016,10 @@ export class MemStorage implements IStorage {
           if (booking.reminderEmailSentAt) booking.reminderEmailSentAt = new Date(booking.reminderEmailSentAt);
           this.roomBookings.set(booking.id, booking);
         });
-        console.log(`✅ Room bookings data loaded: ${this.roomBookings.size} bookings`);
+        logger.info(`✅ Room bookings data loaded: ${this.roomBookings.size} bookings`);
       }
     } catch (error) {
-      console.error('❌ Error loading room bookings data:', error);
+      logger.error('❌ Error loading room bookings data:', error);
     }
   }
 
@@ -2027,7 +2028,7 @@ export class MemStorage implements IStorage {
       const bookingsArray = Array.from(this.roomBookings.values());
       fs.writeFileSync(this.roomBookingsFilePath, JSON.stringify(bookingsArray, null, 2));
     } catch (error) {
-      console.error('❌ Error saving room bookings data:', error);
+      logger.error('❌ Error saving room bookings data:', error);
     }
   }
 
@@ -2042,10 +2043,10 @@ export class MemStorage implements IStorage {
           if (attendee.createdAt) attendee.createdAt = new Date(attendee.createdAt);
           this.roomBookingAttendees.set(attendee.id, attendee);
         });
-        console.log(`✅ Room booking attendees data loaded: ${this.roomBookingAttendees.size} attendees`);
+        logger.info(`✅ Room booking attendees data loaded: ${this.roomBookingAttendees.size} attendees`);
       }
     } catch (error) {
-      console.error('❌ Error loading room booking attendees data:', error);
+      logger.error('❌ Error loading room booking attendees data:', error);
     }
   }
 
@@ -2054,7 +2055,7 @@ export class MemStorage implements IStorage {
       const attendeesArray = Array.from(this.roomBookingAttendees.values());
       fs.writeFileSync(this.roomBookingAttendeesFilePath, JSON.stringify(attendeesArray, null, 2));
     } catch (error) {
-      console.error('❌ Error saving room booking attendees data:', error);
+      logger.error('❌ Error saving room booking attendees data:', error);
     }
   }
 
@@ -2070,10 +2071,10 @@ export class MemStorage implements IStorage {
           if (waitlist.createdAt) waitlist.createdAt = new Date(waitlist.createdAt);
           this.roomBookingWaitlist.set(waitlist.id, waitlist);
         });
-        console.log(`✅ Room booking waitlist data loaded: ${this.roomBookingWaitlist.size} entries`);
+        logger.info(`✅ Room booking waitlist data loaded: ${this.roomBookingWaitlist.size} entries`);
       }
     } catch (error) {
-      console.error('❌ Error loading room booking waitlist data:', error);
+      logger.error('❌ Error loading room booking waitlist data:', error);
     }
   }
 
@@ -2090,12 +2091,12 @@ export class MemStorage implements IStorage {
           this.contractorCompanies.set(company.id, company);
         });
         
-        console.log(`✅ Contractor companies data loaded: ${companies.length} companies`);
+        logger.info(`✅ Contractor companies data loaded: ${companies.length} companies`);
       } else {
-        console.log('📂 No contractor companies data file found - starting fresh');
+        logger.info('📂 No contractor companies data file found - starting fresh');
       }
     } catch (error) {
-      console.error('❌ Error loading contractor companies data:', error);
+      logger.error('❌ Error loading contractor companies data:', error);
     }
   }
 
@@ -2114,12 +2115,12 @@ export class MemStorage implements IStorage {
           this.contractorWorkers.set(worker.id, worker);
         });
         
-        console.log(`✅ Contractor workers data loaded: ${workers.length} workers`);
+        logger.info(`✅ Contractor workers data loaded: ${workers.length} workers`);
       } else {
-        console.log('📂 No contractor workers data file found - starting fresh');
+        logger.info('📂 No contractor workers data file found - starting fresh');
       }
     } catch (error) {
-      console.error('❌ Error loading contractor workers data:', error);
+      logger.error('❌ Error loading contractor workers data:', error);
     }
   }
 
@@ -2128,7 +2129,7 @@ export class MemStorage implements IStorage {
       const companies = Array.from(this.contractorCompanies.values());
       fs.writeFileSync(this.contractorCompaniesFilePath, JSON.stringify(companies, null, 2), 'utf8');
     } catch (error) {
-      console.error('❌ Error saving contractor companies to file:', error);
+      logger.error('❌ Error saving contractor companies to file:', error);
     }
   }
 
@@ -2137,7 +2138,7 @@ export class MemStorage implements IStorage {
       const workers = Array.from(this.contractorWorkers.values());
       fs.writeFileSync(this.contractorWorkersFilePath, JSON.stringify(workers, null, 2), 'utf8');
     } catch (error) {
-      console.error('❌ Error saving contractor workers to file:', error);
+      logger.error('❌ Error saving contractor workers to file:', error);
     }
   }
 
@@ -2155,12 +2156,12 @@ export class MemStorage implements IStorage {
           this.contractorPreBookings.set(booking.id, booking);
         });
         
-        console.log(`✅ Contractor pre-bookings loaded: ${preBookings.length} bookings`);
+        logger.info(`✅ Contractor pre-bookings loaded: ${preBookings.length} bookings`);
       } else {
-        console.log('📂 No contractor pre-bookings data file found - starting fresh');
+        logger.info('📂 No contractor pre-bookings data file found - starting fresh');
       }
     } catch (error) {
-      console.error('❌ Error loading contractor pre-bookings data:', error);
+      logger.error('❌ Error loading contractor pre-bookings data:', error);
     }
   }
 
@@ -2169,7 +2170,7 @@ export class MemStorage implements IStorage {
       const preBookings = Array.from(this.contractorPreBookings.values());
       fs.writeFileSync(this.contractorPreBookingsFilePath, JSON.stringify(preBookings, null, 2), 'utf8');
     } catch (error) {
-      console.error('❌ Error saving contractor pre-bookings to file:', error);
+      logger.error('❌ Error saving contractor pre-bookings to file:', error);
     }
   }
 
@@ -2190,12 +2191,12 @@ export class MemStorage implements IStorage {
           this.contractorVisits.set(visit.id, visit);
         });
         
-        console.log(`✅ Contractor visits loaded: ${visits.length} visits`);
+        logger.info(`✅ Contractor visits loaded: ${visits.length} visits`);
       } else {
-        console.log('📂 No contractor visits data file found - starting fresh');
+        logger.info('📂 No contractor visits data file found - starting fresh');
       }
     } catch (error) {
-      console.error('❌ Error loading contractor visits data:', error);
+      logger.error('❌ Error loading contractor visits data:', error);
     }
   }
 
@@ -2204,7 +2205,7 @@ export class MemStorage implements IStorage {
       const visits = Array.from(this.contractorVisits.values());
       fs.writeFileSync(this.contractorVisitsFilePath, JSON.stringify(visits, null, 2), 'utf8');
     } catch (error) {
-      console.error('❌ Error saving contractor visits to file:', error);
+      logger.error('❌ Error saving contractor visits to file:', error);
     }
   }
 
@@ -2213,7 +2214,7 @@ export class MemStorage implements IStorage {
       const waitlistArray = Array.from(this.roomBookingWaitlist.values());
       fs.writeFileSync(this.roomBookingWaitlistFilePath, JSON.stringify(waitlistArray, null, 2));
     } catch (error) {
-      console.error('❌ Error saving room booking waitlist data:', error);
+      logger.error('❌ Error saving room booking waitlist data:', error);
     }
   }
 
@@ -2888,7 +2889,7 @@ export class MemStorage implements IStorage {
 
     this.contractorCompanies.set(id, company);
     this.saveContractorCompaniesToFile(); // 💾 PERSIST IMMEDIATELY
-    console.log(`Created contractor company: ${company.name} (ID: ${id})`);
+    logger.info(`Created contractor company: ${company.name} (ID: ${id})`);
     return company;
   }
 
@@ -2938,7 +2939,7 @@ export class MemStorage implements IStorage {
 
     this.contractorWorkers.set(id, worker);
     this.saveContractorWorkersToFile(); // 💾 PERSIST IMMEDIATELY
-    console.log(`Created contractor worker: ${worker.firstName} ${worker.lastName} (ID: ${id})`);
+    logger.info(`Created contractor worker: ${worker.firstName} ${worker.lastName} (ID: ${id})`);
     return worker;
   }
 
@@ -3122,7 +3123,7 @@ export class MemStorage implements IStorage {
 
     this.departments.set(id, department);
     this.saveDepartmentsToFile();
-    console.log(`Created department: ${department.name} (ID: ${id})`);
+    logger.info(`Created department: ${department.name} (ID: ${id})`);
     return department;
   }
 

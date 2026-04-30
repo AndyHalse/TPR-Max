@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import fetch from 'node-fetch';
 import * as isolatedSchema from './isolatedSchema';
 import type { Customer } from '@shared/schema';
+import { logger } from './utils/logger';
 
 /**
  * DATABASE PROVISIONING SERVICE
@@ -41,7 +42,7 @@ export class DatabaseProvisioningService {
    */
   private async createNeonDatabase(customerId: string): Promise<{ databaseUrl: string; databaseId: string }> {
     if (!this.isNeonApiAvailable()) {
-      console.log('🔄 Neon API not available - using existing database for customer:', customerId);
+      logger.info('🔄 Neon API not available - using existing database for customer:', customerId);
       // Return the existing database URL when Neon API is not configured
       return {
         databaseUrl: process.env.DATABASE_URL || '',
@@ -52,7 +53,7 @@ export class DatabaseProvisioningService {
     const databaseName = `customer_${customerId.replace(/-/g, '_')}`;
     
     try {
-      console.log(`🌐 Creating Neon database: ${databaseName}`);
+      logger.info(`🌐 Creating Neon database: ${databaseName}`);
       
       const response = await fetch(`${this.neonApiUrl}/projects/${process.env.NEON_PROJECT_ID}/databases`, {
         method: 'POST',
@@ -75,7 +76,7 @@ export class DatabaseProvisioningService {
       }
 
       const result = await response.json() as { database: { id: string; name: string } };
-      console.log(`✅ Neon database created successfully: ${databaseName}`);
+      logger.info(`✅ Neon database created successfully: ${databaseName}`);
       
       // Generate connection URL using the created database
       const baseUrl = process.env.DATABASE_URL;
@@ -92,7 +93,7 @@ export class DatabaseProvisioningService {
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error(`❌ Failed to create Neon database for customer ${customerId}:`, error);
+      logger.error(`❌ Failed to create Neon database for customer ${customerId}:`, error);
       throw new Error(`Database provisioning failed: ${errorMessage}`);
     }
   }
@@ -102,12 +103,12 @@ export class DatabaseProvisioningService {
    */
   private async deleteNeonDatabase(databaseId: string): Promise<void> {
     if (!this.isNeonApiAvailable()) {
-      console.warn('⚠️ Neon API not available - cannot delete database in development');
+      logger.warn('⚠️ Neon API not available - cannot delete database in development');
       return;
     }
 
     try {
-      console.log(`🗑️ Deleting Neon database: ${databaseId}`);
+      logger.info(`🗑️ Deleting Neon database: ${databaseId}`);
       
       const response = await fetch(`${this.neonApiUrl}/projects/${process.env.NEON_PROJECT_ID}/databases/${databaseId}`, {
         method: 'DELETE',
@@ -122,9 +123,9 @@ export class DatabaseProvisioningService {
         throw new Error(`Neon API error (${response.status}): ${errorText}`);
       }
 
-      console.log(`✅ Neon database deleted successfully: ${databaseId}`);
+      logger.info(`✅ Neon database deleted successfully: ${databaseId}`);
     } catch (error) {
-      console.error(`❌ Failed to delete Neon database ${databaseId}:`, error);
+      logger.error(`❌ Failed to delete Neon database ${databaseId}:`, error);
       throw error;
     }
   }
@@ -164,7 +165,7 @@ export class DatabaseProvisioningService {
       return; // Already started
     }
 
-    console.log('🔄 Starting connection pool lifecycle management...');
+    logger.info('🔄 Starting connection pool lifecycle management...');
     
     // Clean up unused pools every 10 minutes
     this.cleanupInterval = setInterval(() => {
@@ -192,7 +193,7 @@ export class DatabaseProvisioningService {
       .filter(p => p.customerId === customerId);
     
     if (customerPools.length >= this.maxPoolsPerCustomer) {
-      console.warn(`⚠️ Customer ${customerId} has reached max pool limit (${this.maxPoolsPerCustomer})`);
+      logger.warn(`⚠️ Customer ${customerId} has reached max pool limit (${this.maxPoolsPerCustomer})`);
       // Return the most recently used pool
       const latestPool = customerPools.sort((a, b) => b.lastUsed.getTime() - a.lastUsed.getTime())[0];
       latestPool.lastUsed = new Date();
@@ -218,7 +219,7 @@ export class DatabaseProvisioningService {
       customerId
     });
 
-    console.log(`🏊 Created connection pool for customer: ${customerId} (total pools: ${this.connectionPools.size})`);
+    logger.info(`🏊 Created connection pool for customer: ${customerId} (total pools: ${this.connectionPools.size})`);
     return pool;
   }
 
@@ -240,7 +241,7 @@ export class DatabaseProvisioningService {
     }
 
     if (poolsToCleanup.length > 0) {
-      console.log(`🧹 Cleaned up ${poolsToCleanup.length} unused connection pools`);
+      logger.info(`🧹 Cleaned up ${poolsToCleanup.length} unused connection pools`);
     }
   }
 
@@ -256,9 +257,9 @@ export class DatabaseProvisioningService {
     try {
       await poolInfo.pool.end();
       this.connectionPools.delete(customerId);
-      console.log(`🔌 Closed connection pool for customer: ${customerId}`);
+      logger.info(`🔌 Closed connection pool for customer: ${customerId}`);
     } catch (error) {
-      console.error(`❌ Error closing pool for customer ${customerId}:`, error);
+      logger.error(`❌ Error closing pool for customer ${customerId}:`, error);
     }
   }
 
@@ -266,7 +267,7 @@ export class DatabaseProvisioningService {
    * Graceful shutdown - close all connection pools
    */
   async gracefulShutdown(): Promise<void> {
-    console.log('🛑 Graceful shutdown: Closing all connection pools...');
+    logger.info('🛑 Graceful shutdown: Closing all connection pools...');
     
     if (this.cleanupInterval) {
       clearInterval(this.cleanupInterval);
@@ -277,7 +278,7 @@ export class DatabaseProvisioningService {
       .map(customerId => this.closeCustomerPool(customerId));
 
     await Promise.allSettled(shutdownPromises);
-    console.log('✅ All connection pools closed');
+    logger.info('✅ All connection pools closed');
   }
 
   /**
@@ -337,7 +338,7 @@ export class DatabaseProvisioningService {
    * This provisions the complete schema structure with proper isolation
    */
   async provisionCustomerDatabase(customerId: string): Promise<string> {
-    console.log(`🏗️ Provisioning database for customer: ${customerId}`);
+    logger.info(`🏗️ Provisioning database for customer: ${customerId}`);
 
     let pool: Pool | null = null;
     
@@ -356,7 +357,7 @@ export class DatabaseProvisioningService {
       const schemaName = connection.schemaName;
 
       if (schemaName) {
-        console.log(`✅ Schema ready: ${schemaName} for customer: ${customerId}`);
+        logger.info(`✅ Schema ready: ${schemaName} for customer: ${customerId}`);
       }
 
       // Create all tables for this customer's database/schema
@@ -365,10 +366,10 @@ export class DatabaseProvisioningService {
       // Seed with default data
       await this.seedDefaultData(db, customerId);
       
-      console.log(`✅ Database provisioned successfully for customer: ${customerId}`);
+      logger.info(`✅ Database provisioned successfully for customer: ${customerId}`);
       return databaseUrl;
     } catch (error) {
-      console.error(`❌ Failed to provision database for customer ${customerId}:`, error);
+      logger.error(`❌ Failed to provision database for customer ${customerId}:`, error);
       throw new Error(`Database provisioning failed: ${error}`);
     } finally {
       // Always close the pool
@@ -392,7 +393,7 @@ export class DatabaseProvisioningService {
     // await adminPool.query(`CREATE DATABASE "${dbName}"`);
     // await adminPool.end();
     
-    console.log(`🏗️ Creating production database for customer: ${customerId}`);
+    logger.info(`🏗️ Creating production database for customer: ${customerId}`);
     // For now, we'll assume the database exists or is created externally
   }
 
@@ -401,15 +402,15 @@ export class DatabaseProvisioningService {
    * This provides complete data isolation between customers
    */
   private async createCustomerSchema(db: ReturnType<typeof drizzle>, schemaName: string): Promise<void> {
-    console.log(`📋 Creating PostgreSQL schema: ${schemaName}`);
+    logger.info(`📋 Creating PostgreSQL schema: ${schemaName}`);
 
     try {
       // Create schema if it doesn't exist (safe operation)
       await db.execute(sql`CREATE SCHEMA IF NOT EXISTS ${sql.identifier(schemaName)}`);
       
-      console.log(`✅ PostgreSQL schema created: ${schemaName}`);
+      logger.info(`✅ PostgreSQL schema created: ${schemaName}`);
     } catch (error) {
-      console.error(`❌ Failed to create schema ${schemaName}:`, error);
+      logger.error(`❌ Failed to create schema ${schemaName}:`, error);
       throw error;
     }
   }
@@ -441,7 +442,7 @@ export class DatabaseProvisioningService {
    * without maintaining duplicate CREATE TABLE SQL.
    */
   private async createAllTables(db: ReturnType<typeof drizzle>): Promise<void> {
-    console.log('🏗️ Creating database tables from public schema template...');
+    logger.info('🏗️ Creating database tables from public schema template...');
 
     const tablesResult = await db.execute(sql`
       SELECT table_name FROM information_schema.tables
@@ -452,7 +453,7 @@ export class DatabaseProvisioningService {
     const allTables = (tablesResult.rows as Array<{ table_name: string }>).map(r => r.table_name);
     const customerTables = allTables.filter(t => !DatabaseProvisioningService.MANAGEMENT_TABLES.has(t));
 
-    console.log(`📋 Cloning ${customerTables.length} tables from public schema...`);
+    logger.info(`📋 Cloning ${customerTables.length} tables from public schema...`);
 
     for (const tableName of customerTables) {
       try {
@@ -460,18 +461,18 @@ export class DatabaseProvisioningService {
           CREATE TABLE IF NOT EXISTS ${sql.identifier(tableName)} (LIKE public.${sql.identifier(tableName)} INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES)
         `);
       } catch (error: any) {
-        console.warn(`⚠️ Table ${tableName} clone warning: ${error.message}`);
+        logger.warn(`⚠️ Table ${tableName} clone warning: ${error.message}`);
       }
     }
 
-    console.log('✅ Database tables created successfully');
+    logger.info('✅ Database tables created successfully');
   }
 
   /**
    * Seed default data for a new customer database
    */
   private async seedDefaultData(db: ReturnType<typeof drizzle>, customerId: string): Promise<void> {
-    console.log(`🌱 Seeding default data for customer: ${customerId}`);
+    logger.info(`🌱 Seeding default data for customer: ${customerId}`);
 
     try {
       await db.execute(sql`
@@ -489,9 +490,9 @@ export class DatabaseProvisioningService {
         ON CONFLICT DO NOTHING
       `);
 
-      console.log(`✅ Default data seeded for customer: ${customerId}`);
+      logger.info(`✅ Default data seeded for customer: ${customerId}`);
     } catch (error) {
-      console.error(`❌ Failed to seed default data for customer ${customerId}:`, error);
+      logger.error(`❌ Failed to seed default data for customer ${customerId}:`, error);
       throw error;
     }
   }
@@ -512,7 +513,7 @@ export class DatabaseProvisioningService {
       
       return true;
     } catch (error) {
-      console.error(`Database connection test failed for customer ${customerId}:`, error);
+      logger.error(`Database connection test failed for customer ${customerId}:`, error);
       return false;
     } finally {
       if (pool) {
@@ -526,7 +527,7 @@ export class DatabaseProvisioningService {
    * Safe implementation that only affects the specific customer
    */
   async deleteCustomerDatabase(customerId: string): Promise<void> {
-    console.log(`🗑️ WARNING: Deleting database for customer: ${customerId}`);
+    logger.info(`🗑️ WARNING: Deleting database for customer: ${customerId}`);
     
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Database deletion not allowed in production without additional safeguards');
@@ -543,14 +544,14 @@ export class DatabaseProvisioningService {
       if (process.env.NODE_ENV !== 'production' && schemaName) {
         // Development: Drop the customer's schema (safe - only affects this customer)
         await db.execute(sql`DROP SCHEMA IF EXISTS ${sql.identifier(schemaName)} CASCADE`);
-        console.log(`✅ Schema ${schemaName} deleted for customer: ${customerId}`);
+        logger.info(`✅ Schema ${schemaName} deleted for customer: ${customerId}`);
       } else {
         // Production: Would drop entire database (not implemented for safety)
         throw new Error('Production database deletion requires additional implementation and safeguards');
       }
       
     } catch (error) {
-      console.error(`❌ Failed to delete database for customer ${customerId}:`, error);
+      logger.error(`❌ Failed to delete database for customer ${customerId}:`, error);
       throw error;
     } finally {
       if (pool) {
@@ -563,7 +564,7 @@ export class DatabaseProvisioningService {
    * Create backup of customer database with proper isolation
    */
   async backupCustomerDatabase(customerId: string): Promise<string> {
-    console.log(`💾 Creating backup for customer: ${customerId}`);
+    logger.info(`💾 Creating backup for customer: ${customerId}`);
     
     // Generate unique backup identifier
     const backupId = `backup_${customerId}_${Date.now()}`;
@@ -575,17 +576,17 @@ export class DatabaseProvisioningService {
       
       if (process.env.NODE_ENV !== 'production') {
         const schemaName = this.generateSchemaName(customerId);
-        console.log(`📋 Would backup schema: ${schemaName}`);
+        logger.info(`📋 Would backup schema: ${schemaName}`);
         // TODO: Implement schema-specific backup using pg_dump --schema=${schemaName}
       } else {
-        console.log(`📋 Would backup entire database for customer: ${customerId}`);
+        logger.info(`📋 Would backup entire database for customer: ${customerId}`);
         // TODO: Implement full database backup
       }
       
-      console.log(`✅ Backup created for customer ${customerId}: ${backupId}`);
+      logger.info(`✅ Backup created for customer ${customerId}: ${backupId}`);
       return backupId;
     } catch (error) {
-      console.error(`❌ Failed to backup database for customer ${customerId}:`, error);
+      logger.error(`❌ Failed to backup database for customer ${customerId}:`, error);
       throw error;
     }
   }
@@ -594,7 +595,7 @@ export class DatabaseProvisioningService {
    * Restore customer database from backup with proper isolation
    */
   async restoreCustomerDatabase(customerId: string, backupId: string): Promise<void> {
-    console.log(`🔄 Restoring backup ${backupId} for customer: ${customerId}`);
+    logger.info(`🔄 Restoring backup ${backupId} for customer: ${customerId}`);
     
     try {
       // Implementation would use pg_restore with schema-specific restore
@@ -603,16 +604,16 @@ export class DatabaseProvisioningService {
       
       if (process.env.NODE_ENV !== 'production') {
         const schemaName = this.generateSchemaName(customerId);
-        console.log(`📋 Would restore to schema: ${schemaName}`);
+        logger.info(`📋 Would restore to schema: ${schemaName}`);
         // TODO: Implement schema-specific restore
       } else {
-        console.log(`📋 Would restore entire database for customer: ${customerId}`);
+        logger.info(`📋 Would restore entire database for customer: ${customerId}`);
         // TODO: Implement full database restore
       }
       
-      console.log(`✅ Database restored for customer ${customerId} from backup: ${backupId}`);
+      logger.info(`✅ Database restored for customer ${customerId} from backup: ${backupId}`);
     } catch (error) {
-      console.error(`❌ Failed to restore database for customer ${customerId}:`, error);
+      logger.error(`❌ Failed to restore database for customer ${customerId}:`, error);
       throw error;
     }
   }

@@ -6,6 +6,7 @@ import * as isolatedSchema from "./isolatedSchema";
 import type { Customer } from "@shared/schema";
 import { databaseProvisioningService } from "./databaseProvisioningService";
 import { createMigrationRunner } from "./migrationRunner";
+import { logger } from './utils/logger';
 
 /**
  * CUSTOMER DATABASE ISOLATION SERVICE
@@ -117,7 +118,7 @@ export class CustomerDatabaseService {
     const connectionWorks = await databaseProvisioningService.testCustomerDatabase(customerId);
     
     if (!connectionWorks) {
-      console.log(`🏗️ Database not accessible for customer ${customerId}, provisioning...`);
+      logger.info(`🏗️ Database not accessible for customer ${customerId}, provisioning...`);
       
       try {
         const databaseUrl = await databaseProvisioningService.provisionCustomerDatabase(customerId);
@@ -125,7 +126,7 @@ export class CustomerDatabaseService {
         // Update customer record with new database URL
         await this.updateCustomerDatabaseUrl(customerId, databaseUrl);
       } catch (error) {
-        console.error(`❌ Database provisioning failed: ${error}`);
+        logger.error(`❌ Database provisioning failed: ${error}`);
         
         // DEV DATA BYPASS: Skip database provisioning if Neon is disabled
         const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
@@ -166,19 +167,19 @@ export class CustomerDatabaseService {
           const isNeonSuspend = err.code === '57P01' || err.code === '57014' ||
             (typeof err.message === 'string' && err.message.includes('terminating connection'));
           if (isNeonSuspend) {
-            console.warn(`[DB:${customerId}] Pool connection terminated (Neon suspend). Will reconnect on next query.`);
+            logger.warn(`[DB:${customerId}] Pool connection terminated (Neon suspend). Will reconnect on next query.`);
           } else {
-            console.error(`[DB:${customerId}] Unexpected pool error:`, err.message);
+            logger.error(`[DB:${customerId}] Unexpected pool error:`, err.message);
           }
         });
         
         const verifyResult = await pool.query(`SHOW search_path`);
         const actualPath = verifyResult.rows[0]?.search_path || '';
         if (!actualPath.includes(schemaName)) {
-          console.error(`❌ search_path verification FAILED: expected ${schemaName}, got ${actualPath}`);
+          logger.error(`❌ search_path verification FAILED: expected ${schemaName}, got ${actualPath}`);
           throw new Error(`search_path not set correctly for ${customerId}`);
         }
-        console.log(`✅ search_path verified: ${actualPath}`);
+        logger.info(`✅ search_path verified: ${actualPath}`);
         
         const schemaExists = await pool.query(
           `SELECT 1 FROM pg_namespace WHERE nspname = $1`,
@@ -186,13 +187,13 @@ export class CustomerDatabaseService {
         );
         
         if (!schemaExists.rows.length) {
-          console.log(`✨ Creating schema ${schemaName} for customer ${customerId}...`);
+          logger.info(`✨ Creating schema ${schemaName} for customer ${customerId}...`);
           await pool.query(`CREATE SCHEMA IF NOT EXISTS ${schemaName}`);
-          console.log(`✅ Schema ${schemaName} created successfully`);
+          logger.info(`✅ Schema ${schemaName} created successfully`);
           isNewSchema = true;
         }
         
-        console.log(`🔒 Schema isolation active: ${schemaName} for customer ${customerId}`);
+        logger.info(`🔒 Schema isolation active: ${schemaName} for customer ${customerId}`);
         
         db = drizzle({ client: pool, schema: isolatedSchema });
 
@@ -206,7 +207,7 @@ export class CustomerDatabaseService {
                                     error?.code === 'XX000';
         
         if (isEndpointDisabled && attempt < maxRetries) {
-          console.log(`🔄 Database endpoint waking up, retry ${attempt}/${maxRetries} in ${attempt * 2}s...`);
+          logger.info(`🔄 Database endpoint waking up, retry ${attempt}/${maxRetries} in ${attempt * 2}s...`);
           try { pool!?.end(); } catch {}
           await new Promise(resolve => setTimeout(resolve, attempt * 2000));
           this.customerConnections.delete(customerId);
@@ -214,7 +215,7 @@ export class CustomerDatabaseService {
           continue;
         }
         
-        console.error(`❌ Failed to create database connection: ${error}`);
+        logger.error(`❌ Failed to create database connection: ${error}`);
         
         const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
         if (isDevDataBypass() && isDatabaseConnectionError(error)) {
@@ -227,7 +228,7 @@ export class CustomerDatabaseService {
       }
     }
 
-    console.log(`✅ Connected to isolated database for customer: ${customer.companyName} (${customerId})`);
+    logger.info(`✅ Connected to isolated database for customer: ${customer.companyName} (${customerId})`);
     
     // Ensure essential tables exist in the customer schema (fixes provisioning gaps)
     try {
@@ -239,7 +240,7 @@ export class CustomerDatabaseService {
           [schemaName]
         );
         if (!tableCheck.rows.length) {
-          console.log(`🔧 Bootstrapping missing tables for customer ${customerId} in schema ${schemaName}...`);
+          logger.info(`🔧 Bootstrapping missing tables for customer ${customerId} in schema ${schemaName}...`);
           const tablesResult = await pool.query(
             `SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' AND table_type = 'BASE TABLE' ORDER BY table_name`
           );
@@ -261,21 +262,21 @@ export class CustomerDatabaseService {
                 `CREATE TABLE IF NOT EXISTS "${schemaName}"."${tableName}" (LIKE public."${tableName}" INCLUDING DEFAULTS INCLUDING CONSTRAINTS INCLUDING INDEXES)`
               );
             } catch (e: any) {
-              console.warn(`⚠️ Table ${tableName} bootstrap: ${e.message?.substring(0, 80)}`);
+              logger.warn(`⚠️ Table ${tableName} bootstrap: ${e.message?.substring(0, 80)}`);
             }
           }
-          console.log(`✅ Bootstrapped ${customerTables.length} tables for ${schemaName}`);
+          logger.info(`✅ Bootstrapped ${customerTables.length} tables for ${schemaName}`);
         }
       }
     } catch (bootstrapError) {
-      console.error(`⚠️ Table bootstrap check failed for ${customerId}:`, bootstrapError);
+      logger.error(`⚠️ Table bootstrap check failed for ${customerId}:`, bootstrapError);
     }
     
     // Run schema migrations to ensure database is up to date
     try {
       await this.migrationRunner.ensureSchema(customerId);
     } catch (error) {
-      console.error(`⚠️ Schema migration failed for customer ${customerId}:`, error);
+      logger.error(`⚠️ Schema migration failed for customer ${customerId}:`, error);
     }
 
     // Directly ensure incident_reports table exists (bypasses migration transaction issues)
@@ -301,9 +302,9 @@ export class CustomerDatabaseService {
       `);
       // Ensure deleted_at column exists for tables created before this migration
       await pool.query(`ALTER TABLE "${schemaName}".incident_reports ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
-      console.log(`✅ incident_reports table ensured for ${schemaName}`);
+      logger.info(`✅ incident_reports table ensured for ${schemaName}`);
     } catch (err: any) {
-      console.warn(`⚠️ incident_reports table ensure failed: ${err.message?.substring(0, 100)}`);
+      logger.warn(`⚠️ incident_reports table ensure failed: ${err.message?.substring(0, 100)}`);
     }
 
     // Ensure feature toggle columns exist in company_settings (migration #026/#027)
@@ -313,7 +314,7 @@ export class CustomerDatabaseService {
       await pool.query(`UPDATE "${schemaName}".company_settings SET feature_martyn_law = true WHERE feature_martyn_law IS NULL`);
       await pool.query(`UPDATE "${schemaName}".company_settings SET feature_incident_reports = true WHERE feature_incident_reports IS NULL`);
     } catch (err: any) {
-      console.warn(`⚠️ Feature toggle column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+      logger.warn(`⚠️ Feature toggle column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
     // Ensure zone_sweeps table exists (migration #029)
@@ -332,21 +333,21 @@ export class CustomerDatabaseService {
         )
       `);
     } catch (err: any) {
-      console.warn(`⚠️ zone_sweeps table ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+      logger.warn(`⚠️ zone_sweeps table ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
     // Ensure feature_ppm column exists in company_settings (PPM module migration)
     try {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_ppm BOOLEAN DEFAULT false`);
     } catch (err: any) {
-      console.warn(`⚠️ feature_ppm column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+      logger.warn(`⚠️ feature_ppm column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
     // Ensure feature_help_desk column exists in company_settings (Help Desk module)
     try {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_help_desk BOOLEAN DEFAULT false`);
     } catch (err: any) {
-      console.warn(`⚠️ feature_help_desk column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+      logger.warn(`⚠️ feature_help_desk column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
     // Ensure PPM tables exist (PPM module migration)
@@ -410,9 +411,9 @@ export class CustomerDatabaseService {
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log(`✅ PPM tables ensured for ${schemaName}`);
+      logger.info(`✅ PPM tables ensured for ${schemaName}`);
     } catch (err: any) {
-      console.warn(`⚠️ PPM tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+      logger.warn(`⚠️ PPM tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
     // Ensure PPM Work Order tables exist (Task #9 migration)
@@ -493,9 +494,9 @@ export class CustomerDatabaseService {
       // Asset Groups feature — add group_id FK columns (Task: Asset Groups)
       await pool.query(`ALTER TABLE IF EXISTS "${schemaName}".ppm_assets ADD COLUMN IF NOT EXISTS group_id VARCHAR REFERENCES "${schemaName}".ppm_asset_groups(id) ON DELETE SET NULL`);
       await pool.query(`ALTER TABLE IF EXISTS "${schemaName}".ppm_work_orders ADD COLUMN IF NOT EXISTS group_id VARCHAR REFERENCES "${schemaName}".ppm_asset_groups(id) ON DELETE SET NULL`);
-      console.log(`✅ PPM work order tables ensured for ${schemaName}`);
+      logger.info(`✅ PPM work order tables ensured for ${schemaName}`);
     } catch (err: any) {
-      console.warn(`⚠️ PPM work order tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+      logger.warn(`⚠️ PPM work order tables ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
     // Ensure CDM 2015 columns on contractor_companies and cdm_projects table
@@ -550,9 +551,9 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS principal_designer_name TEXT`);
       // Add F10 alert deduplication column (Task #12)
       await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS f10_alert_sent_at TIMESTAMP`);
-      console.log(`✅ CDM 2015 tables/columns ensured for ${schemaName}`);
+      logger.info(`✅ CDM 2015 tables/columns ensured for ${schemaName}`);
     } catch (err: any) {
-      console.warn(`⚠️ CDM 2015 migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+      logger.warn(`⚠️ CDM 2015 migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
     // Ensure site induction + AI/video + QR + CLUe columns on company_settings
@@ -581,16 +582,16 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_dynamic_qr_enabled BOOLEAN DEFAULT true`);
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_qr_validity_minutes TEXT DEFAULT '60'`);
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_device_groups TEXT[] DEFAULT ARRAY[]::TEXT[]`);
-      console.log(`✅ Induction/AI/QR/CLUe settings columns ensured for ${schemaName}`);
+      logger.info(`✅ Induction/AI/QR/CLUe settings columns ensured for ${schemaName}`);
     } catch (err: any) {
-      console.warn(`⚠️ Induction settings column migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+      logger.warn(`⚠️ Induction settings column migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
     // Ensure admin user exists in this customer schema (critical for production)
     try {
       await this.ensureAdminUserExists(customerId, db);
     } catch (error) {
-      console.error(`⚠️ Admin user seeding failed for customer ${customerId}:`, error);
+      logger.error(`⚠️ Admin user seeding failed for customer ${customerId}:`, error);
     }
     
     // New customer schemas start completely blank - NO data migration from public schema
@@ -600,7 +601,7 @@ export class CustomerDatabaseService {
     try {
       const settingsCheck = await db.execute(`SELECT id, company_name FROM "${schemaName}".company_settings LIMIT 1`);
       if (!settingsCheck.rows || settingsCheck.rows.length === 0) {
-        console.log(`🌱 Seeding company_settings for new customer: ${customer.companyName}`);
+        logger.info(`🌱 Seeding company_settings for new customer: ${customer.companyName}`);
         const seedPool = this.customerPools.get(customerId);
         if (seedPool) {
           await seedPool.query(
@@ -608,11 +609,11 @@ export class CustomerDatabaseService {
             [customer.companyName]
           );
         }
-        console.log(`✅ Company settings seeded for: ${customer.companyName}`);
+        logger.info(`✅ Company settings seeded for: ${customer.companyName}`);
       } else {
         const currentName = settingsCheck.rows[0]?.company_name;
         if (currentName !== customer.companyName) {
-          console.log(`🔧 Company name mismatch in ${schemaName}: "${currentName}" vs registered "${customer.companyName}" - correcting...`);
+          logger.info(`🔧 Company name mismatch in ${schemaName}: "${currentName}" vs registered "${customer.companyName}" - correcting...`);
           const fixPool = this.customerPools.get(customerId);
           if (fixPool) {
             await fixPool.query(
@@ -620,13 +621,13 @@ export class CustomerDatabaseService {
               [customer.companyName, settingsCheck.rows[0].id]
             );
           }
-          console.log(`✅ Company name corrected to: ${customer.companyName}`);
+          logger.info(`✅ Company name corrected to: ${customer.companyName}`);
         } else {
-          console.log(`✅ Company settings correct in ${schemaName}: "${currentName}"`);
+          logger.info(`✅ Company settings correct in ${schemaName}: "${currentName}"`);
         }
       }
     } catch (seedError) {
-      console.error(`⚠️ Failed to seed company settings:`, seedError);
+      logger.error(`⚠️ Failed to seed company settings:`, seedError);
     }
     
     return db;
@@ -641,9 +642,9 @@ export class CustomerDatabaseService {
         if (hasAdmin) {
           return;
         }
-        console.log(`⚠️ Customer ${customerId} has ${existingUsers.rows.length} users but no admin - creating one`);
+        logger.info(`⚠️ Customer ${customerId} has ${existingUsers.rows.length} users but no admin - creating one`);
       } else {
-        console.log(`🌱 No users found for customer ${customerId} - seeding default admin user`);
+        logger.info(`🌱 No users found for customer ${customerId} - seeding default admin user`);
       }
 
       const bcrypt = await import('bcryptjs');
@@ -668,12 +669,12 @@ export class CustomerDatabaseService {
       `);
       
       if (isProduction) {
-        console.log(`✅ Admin user seeded for customer ${customerId} (username: Admin) - password must be changed on first login`);
+        logger.info(`✅ Admin user seeded for customer ${customerId} (username: Admin) - password must be changed on first login`);
       } else {
-        console.log(`✅ Admin user seeded for customer ${customerId} (username: Admin, temp password: ${tempPassword})`);
+        logger.info(`✅ Admin user seeded for customer ${customerId} (username: Admin, temp password: ${tempPassword})`);
       }
     } catch (error) {
-      console.error(`❌ Failed to seed admin user for ${customerId}:`, error);
+      logger.error(`❌ Failed to seed admin user for ${customerId}:`, error);
     }
   }
 
@@ -686,7 +687,7 @@ export class CustomerDatabaseService {
       // Import the working database connection instead of creating a new Pool
       const { db } = await import('./db');
       
-      console.log(`🔍 Looking up customer info: "${customerId}" using working database connection`);
+      logger.info(`🔍 Looking up customer info: "${customerId}" using working database connection`);
 
       const customers = await db
         .select()
@@ -695,11 +696,11 @@ export class CustomerDatabaseService {
         .limit(1);
 
       const customer = customers[0] || null;
-      console.log(customer ? `✅ Found customer info: ${customer.companyName}` : `❌ Customer not found: ${customerId}`);
+      logger.info(customer ? `✅ Found customer info: ${customer.companyName}` : `❌ Customer not found: ${customerId}`);
       
       return customer;
     } catch (error) {
-      console.error(`🚨 Error fetching customer info: ${error}`);
+      logger.error(`🚨 Error fetching customer info: ${error}`);
       return null;
     }
   }
@@ -718,7 +719,7 @@ export class CustomerDatabaseService {
       // Import the working database connection instead of creating a new Pool
       const { db } = await import('./db');
       
-      console.log(`🔧 Creating customer: "${customerData.companyName}" using working database connection`);
+      logger.info(`🔧 Creating customer: "${customerData.companyName}" using working database connection`);
 
       // Insert new customer into management database
       const [newCustomer] = await db
@@ -733,10 +734,10 @@ export class CustomerDatabaseService {
         })
         .returning();
 
-      console.log(`✅ Created new customer: ${customerData.companyName} (${newCustomer.id})`);
+      logger.info(`✅ Created new customer: ${customerData.companyName} (${newCustomer.id})`);
       return newCustomer;
     } catch (error) {
-      console.error(`🚨 Failed to create customer: ${error}`);
+      logger.error(`🚨 Failed to create customer: ${error}`);
       
       // DEV DATA BYPASS: Check if this is a Neon database error and bypass is enabled
       const { isDevDataBypass, isDatabaseConnectionError } = await import('./auth');
@@ -774,17 +775,17 @@ export class CustomerDatabaseService {
       // Import the working database connection instead of creating a new Pool
       const { db } = await import('./db');
       
-      console.log(`🔍 Getting all customers using working database connection`);
+      logger.info(`🔍 Getting all customers using working database connection`);
 
       const customers = await db
         .select()
         .from(schema.customers)
         .where(eq(schema.customers.isActive, true));
 
-      console.log(`✅ Found ${customers.length} active customers`);
+      logger.info(`✅ Found ${customers.length} active customers`);
       return customers;
     } catch (error) {
-      console.error(`🚨 Error fetching customers: ${error}`);
+      logger.error(`🚨 Error fetching customers: ${error}`);
       return [];
     }
   }
@@ -796,9 +797,9 @@ export class CustomerDatabaseService {
     for (const [customerId, pool] of Array.from(this.customerPools.entries())) {
       try {
         await pool.end();
-        console.log(`✅ Closed database connection for customer: ${customerId}`);
+        logger.info(`✅ Closed database connection for customer: ${customerId}`);
       } catch (error) {
-        console.error(`Error closing connection for customer ${customerId}:`, error);
+        logger.error(`Error closing connection for customer ${customerId}:`, error);
       }
     }
 
@@ -907,9 +908,9 @@ export class CustomerDatabaseService {
         .set({ databaseUrl, updatedAt: new Date() })
         .where(eq(schema.customers.id, customerId));
 
-      console.log(`✅ Updated database URL for customer: ${customerId}`);
+      logger.info(`✅ Updated database URL for customer: ${customerId}`);
     } catch (error) {
-      console.error(`❌ Failed to update database URL for customer ${customerId}:`, error);
+      logger.error(`❌ Failed to update database URL for customer ${customerId}:`, error);
       throw error;
     } finally {
       await managementPool.end();
@@ -926,7 +927,7 @@ export class CustomerDatabaseService {
       let customer = await this.getCustomerInfo(customerId);
       
       if (!customer && this.isDevelopmentCustomer(customerId)) {
-        console.log(`🏗️ Auto-creating development customer: ${customerId}`);
+        logger.info(`🏗️ Auto-creating development customer: ${customerId}`);
         customer = await this.createDevelopmentCustomer(customerId);
       }
       
@@ -939,14 +940,14 @@ export class CustomerDatabaseService {
       const connectionWorks = await databaseProvisioningService.testCustomerDatabase(dbUrlToTest);
       
       if (!connectionWorks) {
-        console.log(`🏗️ Provisioning database for customer: ${customerId}`);
+        logger.info(`🏗️ Provisioning database for customer: ${customerId}`);
         const newDatabaseUrl = await databaseProvisioningService.provisionCustomerDatabase(customerId);
         await this.updateCustomerDatabaseUrl(customerId, newDatabaseUrl);
       }
 
-      console.log(`✅ Customer ${customerId} exists with provisioned database`);
+      logger.info(`✅ Customer ${customerId} exists with provisioned database`);
     } catch (error) {
-      console.error(`❌ Failed to ensure customer exists: ${customerId}`, error);
+      logger.error(`❌ Failed to ensure customer exists: ${customerId}`, error);
       throw error;
     }
   }
@@ -986,7 +987,7 @@ export class CustomerDatabaseService {
    * Migrate customer data from shared database to isolated database
    */
   async migrateCustomerToIsolatedDatabase(customerId: string): Promise<void> {
-    console.log(`🔄 Starting migration for customer: ${customerId}`);
+    logger.info(`🔄 Starting migration for customer: ${customerId}`);
     
     try {
       // This would implement the actual migration logic
@@ -996,9 +997,9 @@ export class CustomerDatabaseService {
       // 4. Update customer record with new database URL
       // 5. Verify data integrity
       
-      console.log(`✅ Migration completed for customer: ${customerId}`);
+      logger.info(`✅ Migration completed for customer: ${customerId}`);
     } catch (error) {
-      console.error(`❌ Migration failed for customer ${customerId}:`, error);
+      logger.error(`❌ Migration failed for customer ${customerId}:`, error);
       throw error;
     }
   }

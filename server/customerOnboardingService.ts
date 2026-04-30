@@ -19,6 +19,7 @@ import type {
   Customer,
   InsertCustomer
 } from '@shared/schema';
+import { logger } from './utils/logger';
 
 /**
  * CUSTOMER ONBOARDING SERVICE
@@ -75,7 +76,7 @@ export class CustomerOnboardingService {
     };
 
     try {
-      console.log(`🚀 Starting customer onboarding for: ${request.companyName}`);
+      logger.info(`🚀 Starting customer onboarding for: ${request.companyName}`);
       
       // Step 1: Validate and prepare customer data
       await this.validateOnboardingRequest(request);
@@ -86,36 +87,36 @@ export class CustomerOnboardingService {
       provisioiningState.customerId = customerId;
       provisioiningState.customerSlug = customer.slug;
       
-      console.log(`✅ Customer record created: ${customer.companyName} (${customerId})`);
+      logger.info(`✅ Customer record created: ${customer.companyName} (${customerId})`);
       
       // Step 3: Provision isolated database
       const databaseUrl = await this.provisionCustomerDatabase(customerId);
       provisioiningState.databaseProvisioned = true;
       provisioiningState.databaseUrl = databaseUrl;
       
-      console.log(`✅ Database provisioned for customer: ${customerId}`);
+      logger.info(`✅ Database provisioned for customer: ${customerId}`);
       
       // Step 4: Initialize customer infrastructure
       const adminUserId = await this.setupCustomerInfrastructure(customerId, request);
       provisioiningState.adminUserCreated = true;
       provisioiningState.adminUserId = adminUserId;
       
-      console.log(`✅ Customer infrastructure setup completed: ${customerId}`);
+      logger.info(`✅ Customer infrastructure setup completed: ${customerId}`);
       
       // Step 5: Initialize company settings and defaults
       await this.initializeCompanyDefaults(customerId, request);
       provisioiningState.settingsInitialized = true;
       
-      console.log(`✅ Company defaults initialized: ${customerId}`);
+      logger.info(`✅ Company defaults initialized: ${customerId}`);
 
       // Step 5b: Seed UK H&S document templates into isolated database
       try {
         const { seedIsolatedHSTemplates } = await import('./seed-isolated-hs-templates');
         const customerDb = await this.customerDbService.getCustomerDatabase(customerId);
         await seedIsolatedHSTemplates(customerDb, `${request.companyName} (${customerId})`, customerId);
-        console.log(`✅ UK H&S document templates seeded for: ${customerId}`);
+        logger.info(`✅ UK H&S document templates seeded for: ${customerId}`);
       } catch (hsError) {
-        console.warn(`⚠️ Non-critical: Could not seed H&S templates for ${customerId}:`, hsError);
+        logger.warn(`⚠️ Non-critical: Could not seed H&S templates for ${customerId}:`, hsError);
       }
       
       // Step 6: Create Stripe customer (only when billing is explicitly requested)
@@ -126,25 +127,25 @@ export class CustomerOnboardingService {
         if (stripeCustomerResult.success && stripeCustomerResult.stripeCustomer) {
           provisioiningState.stripeCustomerCreated = true;
           provisioiningState.stripeCustomerId = stripeCustomerResult.stripeCustomer.id;
-          console.log(`✅ Stripe customer created: ${stripeCustomerResult.stripeCustomer.id}`);
+          logger.info(`✅ Stripe customer created: ${stripeCustomerResult.stripeCustomer.id}`);
           
           // Step 7: Always create subscription with 14-day trial for all new customers
           // Single plan: Professional at £49.95/month with 14-day trial
           await this.createStripeSubscription(customerId, stripeCustomerResult.stripeCustomer.id, request);
           provisioiningState.subscriptionCreated = true;
-          console.log(`✅ Stripe subscription created for customer: ${customerId} (Professional Plan with 14-day trial)`);
+          logger.info(`✅ Stripe subscription created for customer: ${customerId} (Professional Plan with 14-day trial)`);
 
         } else {
-          console.warn(`⚠️ Stripe customer creation returned unsuccessful result for ${customerId}`);
+          logger.warn(`⚠️ Stripe customer creation returned unsuccessful result for ${customerId}`);
         }
       } else {
-        console.warn(`⚠️ Stripe not available - skipping customer and subscription creation for development mode`);
+        logger.warn(`⚠️ Stripe not available - skipping customer and subscription creation for development mode`);
       }
       
       // Step 8: Finalize onboarding
       await this.finalizeOnboarding(customerId);
       
-      console.log(`🎉 Customer onboarding completed successfully: ${customer.companyName}`);
+      logger.info(`🎉 Customer onboarding completed successfully: ${customer.companyName}`);
       
       // Return success response
       const response: CustomerOnboardingResponse = {
@@ -182,7 +183,7 @@ export class CustomerOnboardingService {
       return response;
       
     } catch (error) {
-      console.error(`❌ Customer onboarding failed:`, error);
+      logger.error(`❌ Customer onboarding failed:`, error);
       
       // Attempt rollback of partially created resources
       await this.rollbackProvisioning(provisioiningState);
@@ -264,7 +265,7 @@ export class CustomerOnboardingService {
       
       return databaseUrl;
     } catch (error) {
-      console.error(`Failed to provision database for customer ${customerId}:`, error);
+      logger.error(`Failed to provision database for customer ${customerId}:`, error);
       throw new Error(`Database provisioning failed: ${error}`);
     }
   }
@@ -474,7 +475,7 @@ export class CustomerOnboardingService {
    */
   private async createStripeCustomer(customerId: string, request: CustomerOnboardingRequest) {
     try {
-      console.log(`🔄 Creating Stripe customer for: ${request.companyName}`);
+      logger.info(`🔄 Creating Stripe customer for: ${request.companyName}`);
 
       const result = await stripeService.createCustomer({
         email: request.contactEmail,
@@ -491,15 +492,15 @@ export class CustomerOnboardingService {
       // Note: stripeService.createCustomer already atomically updates the customer record
       // with the Stripe customer ID, so no additional database update is needed here
       if (!result.success) {
-        console.warn(`⚠️ Stripe customer creation was not successful for ${customerId}: ${result.error || 'Unknown error'}`);
+        logger.warn(`⚠️ Stripe customer creation was not successful for ${customerId}: ${result.error || 'Unknown error'}`);
       }
 
       return result;
 
     } catch (error) {
-      console.error(`Failed to create Stripe customer for ${customerId}:`, error);
+      logger.error(`Failed to create Stripe customer for ${customerId}:`, error);
       if (process.env.NODE_ENV !== 'production') {
-        console.warn(`⚠️ Stripe unavailable in development mode - continuing onboarding without billing integration`);
+        logger.warn(`⚠️ Stripe unavailable in development mode - continuing onboarding without billing integration`);
         return { success: false, error: error instanceof Error ? error.message : 'Unknown error', stripeCustomer: null };
       }
       throw new Error(`Stripe customer creation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -511,7 +512,7 @@ export class CustomerOnboardingService {
    */
   private async createStripeSubscription(customerId: string, stripeCustomerId: string, request: CustomerOnboardingRequest) {
     try {
-      console.log(`🔄 Creating Stripe subscription for customer: ${customerId}`);
+      logger.info(`🔄 Creating Stripe subscription for customer: ${customerId}`);
 
       // Ensure VisiGate Pro subscription plan exists
       const managementDbUrl = process.env.DATABASE_URL;
@@ -550,7 +551,7 @@ export class CustomerOnboardingService {
           trialDays: 14  // Fixed 14-day trial for all customers
         });
 
-        console.log(`✅ Stripe subscription created: ${result.subscription.id}`);
+        logger.info(`✅ Stripe subscription created: ${result.subscription.id}`);
         return result;
 
       } finally {
@@ -558,7 +559,7 @@ export class CustomerOnboardingService {
       }
 
     } catch (error) {
-      console.error(`Failed to create Stripe subscription for ${customerId}:`, error);
+      logger.error(`Failed to create Stripe subscription for ${customerId}:`, error);
       throw new Error(`Stripe subscription creation failed: ${error}`);
     }
   }
@@ -591,7 +592,7 @@ export class CustomerOnboardingService {
         })
         .where(eq(sharedSchema.customers.id, customerId));
       
-      console.log(`✅ Onboarding finalized for customer: ${customerId}`);
+      logger.info(`✅ Onboarding finalized for customer: ${customerId}`);
       
     } finally {
       await managementPool.end();
@@ -602,7 +603,7 @@ export class CustomerOnboardingService {
    * Rollback partially created resources on failure
    */
   private async rollbackProvisioning(state: any): Promise<void> {
-    console.log(`🔄 Starting rollback for customer: ${state.customerId}`);
+    logger.info(`🔄 Starting rollback for customer: ${state.customerId}`);
     
     try {
       // Note: Database rollback is complex and may require manual intervention
@@ -624,17 +625,17 @@ export class CustomerOnboardingService {
               })
               .where(eq(sharedSchema.customers.id, state.customerId));
             
-            console.log(`🔄 Customer marked as inactive during rollback: ${state.customerId}`);
+            logger.info(`🔄 Customer marked as inactive during rollback: ${state.customerId}`);
           } finally {
             await managementPool.end();
           }
         }
       }
       
-      console.log(`✅ Rollback completed for customer: ${state.customerId}`);
+      logger.info(`✅ Rollback completed for customer: ${state.customerId}`);
       
     } catch (rollbackError) {
-      console.error(`❌ Rollback failed for customer ${state.customerId}:`, rollbackError);
+      logger.error(`❌ Rollback failed for customer ${state.customerId}:`, rollbackError);
       // Log to external monitoring system in production
     }
   }

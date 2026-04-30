@@ -1,4 +1,5 @@
 import { GoogleGenAI } from '@google/genai';
+import { logger } from './utils/logger';
 
 interface DistanceCalculation {
   distanceMiles: number;
@@ -105,11 +106,11 @@ Only return valid JSON, no additional text.`;
         throw new Error('Invalid distance calculation response');
       }
 
-      console.log(`✅ Gemini AI calculated distance: ${distanceData.distanceMiles} miles`);
+      logger.info(`✅ Gemini AI calculated distance: ${distanceData.distanceMiles} miles`);
       return distanceData;
     } catch (error) {
-      console.error('❌ Gemini AI distance calculation error:', error);
-      console.warn(`⚠️ Distance calculation fallback: AI service unavailable`);
+      logger.error('❌ Gemini AI distance calculation error:', error);
+      logger.warn(`⚠️ Distance calculation fallback: AI service unavailable`);
       
       // Fallback: Basic postcode distance estimation
       const fallbackDistance = this.getFallbackDistance(workerPostcode, companyAddress);
@@ -216,14 +217,14 @@ Keep each section concise (2-3 sentences). Use professional business language.`;
         throw new Error('No report content received from AI service');
       }
 
-      console.log(`✅ Gemini AI generated sustainability report (${reportContent.length} characters)`);
+      logger.info(`✅ Gemini AI generated sustainability report (${reportContent.length} characters)`);
       
       return {
         report: reportContent,
         success: true
       };
     } catch (error) {
-      console.error('❌ Gemini AI report generation error:', error);
+      logger.error('❌ Gemini AI report generation error:', error);
       
       // For reports, we can provide a basic fallback report
       const fallbackReport = this.generateFallbackReport(companyName, totalWorkers, totalMonthlyCO2, workerBreakdown);
@@ -313,14 +314,14 @@ Keep each section concise (2-3 sentences). Use professional business language.`;
     const centroid2 = this.getPostcodeCentroid(postcode2);
 
     if (!centroid1 || !centroid2) {
-      console.warn(`⚠️ CO2 fallback: could not resolve centroids for "${postcode1}" / "${postcode2}", using 15 miles default`);
+      logger.warn(`⚠️ CO2 fallback: could not resolve centroids for "${postcode1}" / "${postcode2}", using 15 miles default`);
       return 15;
     }
 
     const straightLine = this.haversineDistanceMiles(centroid1[0], centroid1[1], centroid2[0], centroid2[1]);
     // Multiply by 1.25 to account for roads being longer than straight-line distance
     const roadEstimate = Math.round(straightLine * 1.25 * 10) / 10;
-    console.log(`📍 CO2 fallback distance (centroid-based): ${postcode1} → ${postcode2} ≈ ${roadEstimate} miles`);
+    logger.info(`📍 CO2 fallback distance (centroid-based): ${postcode1} → ${postcode2} ≈ ${roadEstimate} miles`);
     return Math.max(1, roadEstimate); // minimum 1 mile
   }
 

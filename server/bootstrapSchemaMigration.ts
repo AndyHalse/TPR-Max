@@ -1,4 +1,5 @@
 import type { Migration } from './migrationRunner';
+import { logger } from './utils/logger';
 
 export const bootstrapSchemaMigration: Migration = {
   version: '000_bootstrap_schema',
@@ -1390,7 +1391,7 @@ export const bootstrapSchemaMigration: Migration = {
       )
     `);
 
-    console.log('✅ All tables created successfully');
+    logger.info('✅ All tables created successfully');
 
     const foreignKeys = [
       { table: 'staff', column: 'user_id', ref_table: 'users', ref_column: 'id', constraint: 'fk_staff_user_id' },
@@ -1464,7 +1465,7 @@ export const bootstrapSchemaMigration: Migration = {
       { table: 'help_onboarding_progress', column: 'user_id', ref_table: 'users', ref_column: 'id', constraint: 'fk_help_onboarding_progress_user_id' },
     ];
 
-    console.log('🔗 Adding foreign key constraints...');
+    logger.info('🔗 Adding foreign key constraints...');
     let addedCount = 0;
     let skippedCount = 0;
 
@@ -1480,15 +1481,15 @@ export const bootstrapSchemaMigration: Migration = {
         if (error?.code === '42710') {
           skippedCount++;
         } else {
-          console.log(`⚠️ Could not add FK ${fk.constraint}: ${error?.message || error}`);
+          logger.info(`⚠️ Could not add FK ${fk.constraint}: ${error?.message || error}`);
           skippedCount++;
         }
       }
     }
 
-    console.log(`✅ Foreign keys: ${addedCount} added, ${skippedCount} skipped (already exist or deferred)`);
+    logger.info(`✅ Foreign keys: ${addedCount} added, ${skippedCount} skipped (already exist or deferred)`);
 
-    console.log('📊 Creating performance indexes for high-volume queries...');
+    logger.info('📊 Creating performance indexes for high-volume queries...');
     const performanceIndexes = [
       'CREATE INDEX IF NOT EXISTS idx_staff_checked_in ON staff (is_checked_in)',
       'CREATE INDEX IF NOT EXISTS idx_staff_checked_in_at ON staff (checked_in_at)',
@@ -1531,12 +1532,12 @@ export const bootstrapSchemaMigration: Migration = {
         if (error?.message?.includes('does not exist')) {
           // Column doesn't exist in this schema version - expected
         } else {
-          console.warn(`⚠️ Index creation warning: ${idxSql} - ${error?.message || error}`);
+          logger.warn(`⚠️ Index creation warning: ${idxSql} - ${error?.message || error}`);
         }
       }
     }
-    console.log(`✅ Performance indexes: ${idxCreated}/${performanceIndexes.length} created`);
+    logger.info(`✅ Performance indexes: ${idxCreated}/${performanceIndexes.length} created`);
 
-    console.log('✅ Bootstrap schema migration completed successfully');
+    logger.info('✅ Bootstrap schema migration completed successfully');
   }
 };

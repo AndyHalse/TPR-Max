@@ -3,6 +3,7 @@ import { Pool } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq, and } from 'drizzle-orm';
 import * as sharedSchema from '@shared/schema';
+import { logger } from './utils/logger';
 
 /**
  * STRIPE SERVICE
@@ -22,14 +23,14 @@ export class StripeService {
   private constructor() {
     const apiKey = process.env.STRIPE_SECRET_KEY;
     if (!apiKey) {
-      console.warn('⚠️ STRIPE_SECRET_KEY not set - Stripe functionality will be disabled');
+      logger.warn('⚠️ STRIPE_SECRET_KEY not set - Stripe functionality will be disabled');
       // Gracefully handle missing keys in both development and production
       // This prevents the app from crashing on startup
       this.stripe = null as any;
       
       if (process.env.NODE_ENV === 'production') {
-        console.warn('🚨 Production deployment running without Stripe configuration');
-        console.warn('📝 Payment features will be disabled until Stripe secrets are configured');
+        logger.warn('🚨 Production deployment running without Stripe configuration');
+        logger.warn('📝 Payment features will be disabled until Stripe secrets are configured');
       }
       return;
     }
@@ -39,7 +40,7 @@ export class StripeService {
       typescript: true,
     });
     
-    console.log('✅ Stripe service initialized successfully');
+    logger.info('✅ Stripe service initialized successfully');
   }
 
   static getInstance(): StripeService {
@@ -87,7 +88,7 @@ export class StripeService {
    */
   verifyWebhookSignature(rawBody: Buffer | string, signature: string): Stripe.Event {
     if (!this.isStripeAvailable()) {
-      console.warn('⚠️ Stripe not configured - webhook signature verification skipped');
+      logger.warn('⚠️ Stripe not configured - webhook signature verification skipped');
       // Return a mock event for development/testing
       return {
         id: 'evt_mock_development',
@@ -104,8 +105,8 @@ export class StripeService {
 
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
     if (!webhookSecret) {
-      console.warn('⚠️ STRIPE_WEBHOOK_SECRET not configured - webhook signature verification skipped');
-      console.warn('🔒 For production security, configure STRIPE_WEBHOOK_SECRET environment variable');
+      logger.warn('⚠️ STRIPE_WEBHOOK_SECRET not configured - webhook signature verification skipped');
+      logger.warn('🔒 For production security, configure STRIPE_WEBHOOK_SECRET environment variable');
       
       // Return a mock event when webhook secret is missing
       return {
@@ -129,10 +130,10 @@ export class StripeService {
         webhookSecret
       );
       
-      console.log(`✅ Webhook signature verified: ${event.type} (${event.id})`);
+      logger.info(`✅ Webhook signature verified: ${event.type} (${event.id})`);
       return event;
     } catch (error) {
-      console.error('❌ Webhook signature verification failed:', error);
+      logger.error('❌ Webhook signature verification failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       throw new Error(`Webhook signature verification failed: ${errorMessage}`);
     }
@@ -143,7 +144,7 @@ export class StripeService {
    */
   async ensureSubscriptionPlans() {
     if (!this.isStripeAvailable()) {
-      console.warn('⚠️ Stripe not configured - skipping plan creation in development mode');
+      logger.warn('⚠️ Stripe not configured - skipping plan creation in development mode');
       return {
         success: false,
         error: 'Stripe not configured',
@@ -152,7 +153,7 @@ export class StripeService {
       };
     }
 
-    console.log('🚀 Ensuring VisiGate Pro subscription plans exist...');
+    logger.info('🚀 Ensuring VisiGate Pro subscription plans exist...');
 
     try {
       const db = this.getManagementDb();
@@ -165,7 +166,7 @@ export class StripeService {
         .limit(1);
 
       if (existingPlan && existingPlan.stripeProductId && existingPlan.stripePriceIdMonthly) {
-        console.log('✅ VisiGate Pro plan already exists, skipping creation');
+        logger.info('✅ VisiGate Pro plan already exists, skipping creation');
         return {
           success: true,
           plan: existingPlan,
@@ -177,7 +178,7 @@ export class StripeService {
       return await this.createSubscriptionPlans();
 
     } catch (error) {
-      console.error('❌ Error ensuring subscription plans:', error);
+      logger.error('❌ Error ensuring subscription plans:', error);
       throw error;
     }
   }
@@ -190,7 +191,7 @@ export class StripeService {
       throw new Error('Stripe not configured - STRIPE_SECRET_KEY environment variable required');
     }
 
-    console.log('🚀 Creating VisiGate Pro subscription plans in Stripe...');
+    logger.info('🚀 Creating VisiGate Pro subscription plans in Stripe...');
 
     try {
       // Create VisiGate Pro product
@@ -211,7 +212,7 @@ export class StripeService {
         }
       });
 
-      console.log(`✅ Created Stripe product: ${product.id}`);
+      logger.info(`✅ Created Stripe product: ${product.id}`);
 
       // Create monthly price (£49.95)
       const monthlyPrice = await this.stripe.prices.create({
@@ -228,7 +229,7 @@ export class StripeService {
         }
       });
 
-      console.log(`✅ Created monthly price: ${monthlyPrice.id} (£49.95)`);
+      logger.info(`✅ Created monthly price: ${monthlyPrice.id} (£49.95)`);
 
       // Create yearly price (£499.50 - 2 months free)
       const yearlyPrice = await this.stripe.prices.create({
@@ -246,7 +247,7 @@ export class StripeService {
         }
       });
 
-      console.log(`✅ Created yearly price: ${yearlyPrice.id} (£499.50)`);
+      logger.info(`✅ Created yearly price: ${yearlyPrice.id} (£499.50)`);
 
       // Update local database with Stripe IDs
       const db = this.getManagementDb();
@@ -293,7 +294,7 @@ export class StripeService {
         })
         .returning();
 
-      console.log(`✅ Created subscription plan record: ${subscriptionPlan.id}`);
+      logger.info(`✅ Created subscription plan record: ${subscriptionPlan.id}`);
 
       return {
         success: true,
@@ -305,7 +306,7 @@ export class StripeService {
       };
 
     } catch (error) {
-      console.error('❌ Error creating subscription plans:', error);
+      logger.error('❌ Error creating subscription plans:', error);
       throw error;
     }
   }
@@ -328,7 +329,7 @@ export class StripeService {
     metadata?: Record<string, string>;
   }) {
     if (!this.isStripeAvailable()) {
-      console.warn('⚠️ Stripe not configured - skipping customer creation in development mode');
+      logger.warn('⚠️ Stripe not configured - skipping customer creation in development mode');
       return {
         success: false,
         error: 'Stripe not configured',
@@ -337,7 +338,7 @@ export class StripeService {
     }
 
     try {
-      console.log(`🔄 Creating Stripe customer for: ${data.email}`);
+      logger.info(`🔄 Creating Stripe customer for: ${data.email}`);
 
       const customer = await this.stripe.customers.create({
         email: data.email,
@@ -355,7 +356,7 @@ export class StripeService {
         preferred_locales: ['en-GB']
       });
 
-      console.log(`✅ Created Stripe customer: ${customer.id}`);
+      logger.info(`✅ Created Stripe customer: ${customer.id}`);
 
       // Update customer record with Stripe customer ID
       const db = this.getManagementDb();
@@ -373,7 +374,7 @@ export class StripeService {
       };
 
     } catch (error) {
-      console.error('❌ Error creating Stripe customer:', error);
+      logger.error('❌ Error creating Stripe customer:', error);
       throw error;
     }
   }
@@ -390,11 +391,11 @@ export class StripeService {
     trialDays?: number;
   }) {
     if (!this.isStripeAvailable()) {
-      console.warn('⚠️ Stripe not configured - cannot create subscription');
+      logger.warn('⚠️ Stripe not configured - cannot create subscription');
       throw new Error('Stripe not configured - STRIPE_SECRET_KEY required');
     }
     try {
-      console.log(`🔄 Creating subscription for customer: ${data.customerId}`);
+      logger.info(`🔄 Creating subscription for customer: ${data.customerId}`);
 
       const subscriptionData: Stripe.SubscriptionCreateParams = {
         customer: data.stripeCustomerId,
@@ -421,7 +422,7 @@ export class StripeService {
 
       const subscription = await this.stripe.subscriptions.create(subscriptionData);
 
-      console.log(`✅ Created Stripe subscription: ${subscription.id}`);
+      logger.info(`✅ Created Stripe subscription: ${subscription.id}`);
 
       // Get subscription plan from database
       const db = this.getManagementDb();
@@ -462,7 +463,7 @@ export class StripeService {
         })
         .returning();
 
-      console.log(`✅ Created subscription record: ${dbSubscription.id}`);
+      logger.info(`✅ Created subscription record: ${dbSubscription.id}`);
 
       return {
         success: true,
@@ -478,7 +479,7 @@ export class StripeService {
       };
 
     } catch (error) {
-      console.error('❌ Error creating subscription:', error);
+      logger.error('❌ Error creating subscription:', error);
       throw error;
     }
   }
@@ -491,7 +492,7 @@ export class StripeService {
       // SECURITY FIX: Handle development mode gracefully
       if (!this.isStripeAvailable()) {
         if (process.env.NODE_ENV === 'development') {
-          console.log('🔧 Development mode: Mock Stripe checkout session');
+          logger.info('🔧 Development mode: Mock Stripe checkout session');
           // Return mock session for development
           return {
             id: sessionId,
@@ -513,7 +514,7 @@ export class StripeService {
       const session = await this.stripe.checkout.sessions.retrieve(sessionId);
       return session;
     } catch (error) {
-      console.error('Error retrieving checkout session:', error);
+      logger.error('Error retrieving checkout session:', error);
       return null;
     }
   }
@@ -530,7 +531,7 @@ export class StripeService {
     metadata?: Record<string, string>;
   }) {
     try {
-      console.log(`🔄 Creating Stripe Checkout session for: ${data.customerId}`);
+      logger.info(`🔄 Creating Stripe Checkout session for: ${data.customerId}`);
 
       // Get customer data from database
       const db = this.getManagementDb();
@@ -574,7 +575,7 @@ export class StripeService {
         customer_creation: 'always',
       });
 
-      console.log(`✅ Created Stripe Checkout session: ${session.id}`);
+      logger.info(`✅ Created Stripe Checkout session: ${session.id}`);
 
       return {
         success: true,
@@ -583,7 +584,7 @@ export class StripeService {
       };
 
     } catch (error) {
-      console.error('❌ Error creating Checkout session:', error);
+      logger.error('❌ Error creating Checkout session:', error);
       throw error;
     }
   }
@@ -596,7 +597,7 @@ export class StripeService {
     returnUrl: string;
   }) {
     try {
-      console.log(`🔄 Creating billing portal session for: ${data.customerId}`);
+      logger.info(`🔄 Creating billing portal session for: ${data.customerId}`);
 
       // Get subscription data from database
       const db = this.getManagementDb();
@@ -615,7 +616,7 @@ export class StripeService {
         return_url: data.returnUrl,
       });
 
-      console.log(`✅ Created billing portal session: ${session.id}`);
+      logger.info(`✅ Created billing portal session: ${session.id}`);
 
       return {
         success: true,
@@ -623,7 +624,7 @@ export class StripeService {
       };
 
     } catch (error) {
-      console.error('❌ Error creating billing portal session:', error);
+      logger.error('❌ Error creating billing portal session:', error);
       throw error;
     }
   }
@@ -669,7 +670,7 @@ export class StripeService {
             subscription.subscription.stripeSubscriptionId
           );
         } catch (error) {
-          console.warn('Failed to fetch Stripe subscription:', error);
+          logger.warn('Failed to fetch Stripe subscription:', error);
         }
       }
 
@@ -694,7 +695,7 @@ export class StripeService {
       };
 
     } catch (error) {
-      console.error('❌ Error getting customer subscription:', error);
+      logger.error('❌ Error getting customer subscription:', error);
       throw error;
     }
   }
@@ -704,11 +705,11 @@ export class StripeService {
    */
   async updateSubscriptionFromWebhook(stripeSubscription: Stripe.Subscription) {
     try {
-      console.log(`🔄 Updating subscription from webhook: ${stripeSubscription.id}`);
+      logger.info(`🔄 Updating subscription from webhook: ${stripeSubscription.id}`);
 
       const customerId = stripeSubscription.metadata.visigate_customer_id;
       if (!customerId) {
-        console.warn('No VisiGate customer ID found in subscription metadata');
+        logger.warn('No VisiGate customer ID found in subscription metadata');
         return;
       }
 
@@ -744,10 +745,10 @@ export class StripeService {
         })
         .where(eq(sharedSchema.customers.id, customerId));
 
-      console.log(`✅ Updated subscription and customer status: ${stripeSubscription.status}`);
+      logger.info(`✅ Updated subscription and customer status: ${stripeSubscription.status}`);
 
     } catch (error) {
-      console.error('❌ Error updating subscription from webhook:', error);
+      logger.error('❌ Error updating subscription from webhook:', error);
       throw error;
     }
   }
@@ -757,7 +758,7 @@ export class StripeService {
    */
   async cancelSubscription(customerId: string, cancelImmediately = false) {
     try {
-      console.log(`🔄 Canceling subscription for customer: ${customerId}`);
+      logger.info(`🔄 Canceling subscription for customer: ${customerId}`);
 
       const db = this.getManagementDb();
       const [subscription] = await db
@@ -795,7 +796,7 @@ export class StripeService {
         })
         .where(eq(sharedSchema.subscriptions.id, subscription.id));
 
-      console.log(`✅ Subscription ${cancelImmediately ? 'canceled immediately' : 'scheduled for cancellation'}`);
+      logger.info(`✅ Subscription ${cancelImmediately ? 'canceled immediately' : 'scheduled for cancellation'}`);
 
       return {
         success: true,
@@ -804,7 +805,7 @@ export class StripeService {
       };
 
     } catch (error) {
-      console.error('❌ Error canceling subscription:', error);
+      logger.error('❌ Error canceling subscription:', error);
       throw error;
     }
   }

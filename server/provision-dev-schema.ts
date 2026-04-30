@@ -2,12 +2,13 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { sql } from 'drizzle-orm';
 import * as isolatedSchema from './isolatedSchema';
+import { logger } from './utils/logger';
 
 async function provisionDevSchema() {
   const customerId = 'dev-customer-001';
   const schemaName = 'c_dev_custo'; // First 8 chars of dev-customer-001
 
-  console.log(`🏗️ Provisioning schema for ${customerId}...`);
+  logger.info(`🏗️ Provisioning schema for ${customerId}...`);
 
   const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -17,16 +18,16 @@ async function provisionDevSchema() {
 
   try {
     // Create schema
-    console.log(`📋 Creating schema: ${schemaName}`);
+    logger.info(`📋 Creating schema: ${schemaName}`);
     await db.execute(sql`CREATE SCHEMA IF NOT EXISTS ${sql.identifier(schemaName)}`);
-    console.log(`✅ Schema created: ${schemaName}`);
+    logger.info(`✅ Schema created: ${schemaName}`);
 
     // Set search path
     await db.execute(sql`SET search_path TO ${sql.identifier(schemaName)}, public`);
-    console.log(`✅ Search path set to: ${schemaName}`);
+    logger.info(`✅ Search path set to: ${schemaName}`);
 
     // Create all tables (Drizzle will use the search_path)
-    console.log(`📋 Creating tables in schema ${schemaName}...`);
+    logger.info(`📋 Creating tables in schema ${schemaName}...`);
     
     // Create tables manually
     await db.execute(sql`
@@ -75,7 +76,7 @@ async function provisionDevSchema() {
       )
     `);
 
-    console.log(`✅ Tables created successfully`);
+    logger.info(`✅ Tables created successfully`);
 
     // Insert a test pre-booking for tomorrow
     const tomorrow = new Date();
@@ -109,11 +110,11 @@ async function provisionDevSchema() {
       ON CONFLICT DO NOTHING
     `);
 
-    console.log(`✅ Test data seeded: Andrew Halse pre-booking for ${tomorrow.toISOString()}`);
-    console.log(`\n🎉 Provisioning complete for ${customerId} (schema: ${schemaName})`);
+    logger.info(`✅ Test data seeded: Andrew Halse pre-booking for ${tomorrow.toISOString()}`);
+    logger.info(`\n🎉 Provisioning complete for ${customerId} (schema: ${schemaName})`);
 
   } catch (error) {
-    console.error(`❌ Error provisioning schema:`, error);
+    logger.error(`❌ Error provisioning schema:`, error);
     throw error;
   } finally {
     await pool.end();
@@ -123,10 +124,10 @@ async function provisionDevSchema() {
 // Run provisioning
 provisionDevSchema()
   .then(() => {
-    console.log('✅ Provisioning script completed successfully');
+    logger.info('✅ Provisioning script completed successfully');
     process.exit(0);
   })
   .catch((error) => {
-    console.error('❌ Provisioning script failed:', error);
+    logger.error('❌ Provisioning script failed:', error);
     process.exit(1);
   });

@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
+import { logger } from './utils/logger';
 
 const UK_HS_TEMPLATES = [
   {
@@ -147,15 +148,15 @@ export async function seedIsolatedHSTemplates(customerDb: any, customerLabel?: s
     }
 
     if (seeded > 0) {
-      console.log(`✅ Seeded ${seeded} UK H&S document templates for customer: ${label}`);
+      logger.info(`✅ Seeded ${seeded} UK H&S document templates for customer: ${label}`);
     }
     return seeded;
   } catch (error: any) {
     if (error.message?.includes('does not exist') || error.code === '42P01') {
-      console.log(`⚠️ uk_hs_document_templates table not yet created for customer: ${label}, skipping seed`);
+      logger.info(`⚠️ uk_hs_document_templates table not yet created for customer: ${label}, skipping seed`);
       return 0;
     }
-    console.error(`❌ Failed to seed H&S templates for customer ${label}:`, error);
+    logger.error(`❌ Failed to seed H&S templates for customer ${label}:`, error);
     return 0;
   }
 }
@@ -165,7 +166,7 @@ export async function seedAllCustomerHSTemplates(): Promise<void> {
     const { customerDbService } = await import('./customerDatabase');
     const customers = await customerDbService.getAllCustomers();
 
-    console.log(`🌱 Seeding UK H&S document templates for ${customers.length} customers...`);
+    logger.info(`🌱 Seeding UK H&S document templates for ${customers.length} customers...`);
 
     let totalSeeded = 0;
     for (const customer of customers) {
@@ -174,16 +175,16 @@ export async function seedAllCustomerHSTemplates(): Promise<void> {
         const seeded = await seedIsolatedHSTemplates(customerDb, `${customer.companyName} (${customer.id})`, customer.id);
         totalSeeded += seeded;
       } catch (error) {
-        console.error(`⚠️ Could not seed H&S templates for ${customer.companyName} (${customer.id}):`, error);
+        logger.error(`⚠️ Could not seed H&S templates for ${customer.companyName} (${customer.id}):`, error);
       }
     }
 
     if (totalSeeded > 0) {
-      console.log(`🎉 Seeded ${totalSeeded} total UK H&S document templates across all customers`);
+      logger.info(`🎉 Seeded ${totalSeeded} total UK H&S document templates across all customers`);
     } else {
-      console.log(`✅ All customers already have UK H&S document templates`);
+      logger.info(`✅ All customers already have UK H&S document templates`);
     }
   } catch (error) {
-    console.error('❌ Failed to seed H&S templates across customers:', error);
+    logger.error('❌ Failed to seed H&S templates across customers:', error);
   }
 }

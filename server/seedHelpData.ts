@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { helpCategories, helpArticles, insertHelpArticleSchema } from "@shared/schema";
 import { eq, like } from "drizzle-orm";
+import { logger } from './utils/logger';
 
 // ─── New categories and articles added after initial seeding ─────────────────
 const NEW_CATEGORIES = [
@@ -528,7 +529,7 @@ async function upsertMissingHelpContent(
     if (!categoryMap[cat.name]) {
       const [inserted] = await db.insert(helpCategories).values(cat).returning();
       categoryMap[inserted.name] = inserted.id;
-      console.log(`📚 Added missing help category: ${cat.name}`);
+      logger.info(`📚 Added missing help category: ${cat.name}`);
     }
   }
 
@@ -540,20 +541,20 @@ async function upsertMissingHelpContent(
   for (const article of newArticles) {
     if (!existingSlugs.has(article.slug) && article.categoryId) {
       await db.insert(helpArticles).values(article as any);
-      console.log(`📄 Added missing help article: ${article.title}`);
+      logger.info(`📄 Added missing help article: ${article.title}`);
       added++;
     }
   }
   if (added > 0) {
-    console.log(`✅ Upserted ${added} new help article(s)`);
+    logger.info(`✅ Upserted ${added} new help article(s)`);
   } else {
-    console.log('✅ Help content is up to date');
+    logger.info('✅ Help content is up to date');
   }
 }
 
 export async function seedHelpData() {
   try {
-    console.log('🌱 Seeding help system data...');
+    logger.info('🌱 Seeding help system data...');
     
     // Check if help data already exists
     const existingCategories = await db.select().from(helpCategories);
@@ -562,7 +563,7 @@ export async function seedHelpData() {
     // Migrate any existing records that still reference "VisiGate Pro" -> "TPR-Max"
     const staleArticles = await db.select().from(helpArticles).where(like(helpArticles.content, '%VisiGate Pro%'));
     if (staleArticles.length > 0) {
-      console.log(`🔄 Migrating ${staleArticles.length} help article(s) from VisiGate Pro → TPR-Max...`);
+      logger.info(`🔄 Migrating ${staleArticles.length} help article(s) from VisiGate Pro → TPR-Max...`);
       for (const article of staleArticles) {
         await db.update(helpArticles)
           .set({
@@ -572,7 +573,7 @@ export async function seedHelpData() {
           })
           .where(eq(helpArticles.id, article.id));
       }
-      console.log('✅ Migration complete');
+      logger.info('✅ Migration complete');
     }
 
     const staleTitleArticles = await db.select().from(helpArticles).where(like(helpArticles.title, '%VisiGate Pro%'));
@@ -591,7 +592,7 @@ export async function seedHelpData() {
     }
 
     // Seed Help Categories
-    console.log('📚 Seeding help categories...');
+    logger.info('📚 Seeding help categories...');
     const categoriesData = [
       {
         name: "Getting Started",
@@ -684,10 +685,10 @@ export async function seedHelpData() {
     ];
 
     const insertedCategories = await db.insert(helpCategories).values(categoriesData).returning();
-    console.log(`✅ Seeded ${insertedCategories.length} help categories`);
+    logger.info(`✅ Seeded ${insertedCategories.length} help categories`);
 
     // Seed Help Articles
-    console.log('📄 Seeding help articles...');
+    logger.info('📄 Seeding help articles...');
     
     const gettingStartedCategory = insertedCategories.find(cat => cat.name === "Getting Started");
     const visitorMgmtCategory = insertedCategories.find(cat => cat.name === "Visitor Management");
@@ -1896,14 +1897,14 @@ Most invitation issues can be resolved using the copy link feature or by creatin
       article.categoryId !== undefined
     );
     const insertedArticles = await db.insert(helpArticles).values(validArticles).returning();
-    console.log(`✅ Seeded ${insertedArticles.length} help articles`);
+    logger.info(`✅ Seeded ${insertedArticles.length} help articles`);
 
-    console.log('🎉 Help system data seeding completed successfully!');
-    console.log(`Total categories: ${insertedCategories.length}`);
-    console.log(`Total articles: ${insertedArticles.length}`);
+    logger.info('🎉 Help system data seeding completed successfully!');
+    logger.info(`Total categories: ${insertedCategories.length}`);
+    logger.info(`Total articles: ${insertedArticles.length}`);
 
   } catch (error) {
-    console.error('❌ Error seeding help data:', error);
+    logger.error('❌ Error seeding help data:', error);
     throw error;
   }
 }
@@ -1915,11 +1916,11 @@ const isDirectRun = typeof process.argv[1] === 'string' &&
 if (isDirectRun) {
   seedHelpData()
     .then(() => {
-      console.log('Seeding completed successfully');
+      logger.info('Seeding completed successfully');
       process.exit(0);
     })
     .catch((error) => {
-      console.error('Seeding failed:', error);
+      logger.error('Seeding failed:', error);
       process.exit(1);
     });
 }

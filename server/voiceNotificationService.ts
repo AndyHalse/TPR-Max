@@ -7,6 +7,7 @@ import {
   insertVoiceNotificationLogSchema
 } from '@shared/schema';
 import { DatabaseStorage } from './DatabaseStorage';
+import { logger } from './utils/logger';
 
 /**
  * 8x8 Voice Notification Service
@@ -80,7 +81,7 @@ export class VoiceNotificationService {
 
     // Validate configuration
     if (!this.config.subAccountId || !this.config.bearerToken) {
-      console.warn('8x8 Voice API not configured. Voice notifications will be disabled.');
+      logger.warn('8x8 Voice API not configured. Voice notifications will be disabled.');
     }
   }
 
@@ -96,7 +97,7 @@ export class VoiceNotificationService {
     try {
       // Check if staff has voice notifications enabled and phone number
       if (!staff.voiceNotificationsEnabled || !staff.phoneNumber) {
-        console.log(`Voice notifications disabled or no phone number for staff ${staff.id}`);
+        logger.info(`Voice notifications disabled or no phone number for staff ${staff.id}`);
         return null;
       }
 
@@ -115,7 +116,7 @@ export class VoiceNotificationService {
 
       return await this.sendVoiceNotification(request, staff, context);
     } catch (error) {
-      console.error('Error sending visitor arrival voice notification:', error);
+      logger.error('Error sending visitor arrival voice notification:', error);
       return null;
     }
   }
@@ -130,7 +131,7 @@ export class VoiceNotificationService {
   ): Promise<VoiceNotificationLog | null> {
     try {
       if (!staff.phoneNumber) {
-        console.log(`No phone number for emergency notification to staff ${staff.id}`);
+        logger.info(`No phone number for emergency notification to staff ${staff.id}`);
         return null;
       }
 
@@ -145,7 +146,7 @@ export class VoiceNotificationService {
 
       return await this.sendVoiceNotification(request, staff, context);
     } catch (error) {
-      console.error('Error sending emergency voice notification:', error);
+      logger.error('Error sending emergency voice notification:', error);
       return null;
     }
   }
@@ -175,7 +176,7 @@ export class VoiceNotificationService {
 
       return await this.sendVoiceNotification(request, staff, context);
     } catch (error) {
-      console.error('Error sending test voice notification:', error);
+      logger.error('Error sending test voice notification:', error);
       throw error;
     }
   }
@@ -254,7 +255,7 @@ export class VoiceNotificationService {
         lastAttemptAt: new Date(),
       });
 
-      console.log(`Voice notification sent successfully. Call ID: ${response.callId}`);
+      logger.info(`Voice notification sent successfully. Call ID: ${response.callId}`);
       return updatedLog;
 
     } catch (error) {
@@ -268,7 +269,7 @@ export class VoiceNotificationService {
         lastAttemptAt: new Date(),
       });
 
-      console.error('8x8 API call failed:', errorMessage);
+      logger.error('8x8 API call failed:', errorMessage);
       throw error;
     }
   }
@@ -371,7 +372,7 @@ export class VoiceNotificationService {
         retriedCount++;
 
       } catch (error) {
-        console.error(`Failed to retry voice notification ${notification.id}:`, error);
+        logger.error(`Failed to retry voice notification ${notification.id}:`, error);
       }
     }
 

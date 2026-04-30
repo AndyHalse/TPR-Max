@@ -269,26 +269,26 @@ function Router() {
   const { data: user, isLoading, error, isError } = useQuery({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
-      console.log("🔍 [AUTH QUERY] Executing /api/auth/me query...");
+      console.info("🔍 [AUTH QUERY] Executing /api/auth/me query...");
       try {
         const res = await fetch("/api/auth/me", {
           credentials: "include",
         });
-        console.log("📥 [AUTH QUERY] Response status:", res.status);
+        console.info("📥 [AUTH QUERY] Response status:", res.status);
         
         if (res.status === 401) {
-          console.log("❌ [AUTH QUERY] Unauthenticated (401) - no valid session");
+          console.info("❌ [AUTH QUERY] Unauthenticated (401) - no valid session");
           return null;
         }
         if (!res.ok) {
           throw new Error(`${res.status}: ${res.statusText}`);
         }
         const userData = await res.json();
-        console.log("✅ [AUTH QUERY] Successfully authenticated user:", userData.username);
+        console.info("✅ [AUTH QUERY] Successfully authenticated user:", userData.username);
         return userData;
       } catch (error) {
-        console.log("💥 [AUTH QUERY] Network error:", error);
-        console.log("❌ [AUTH QUERY] No valid authentication available");
+        console.info("💥 [AUTH QUERY] Network error:", error);
+        console.info("❌ [AUTH QUERY] No valid authentication available");
         return null;
       }
     },
@@ -298,12 +298,12 @@ function Router() {
     enabled: !isPublicRoute, // Don't run auth query on public routes
   });
 
-  console.log("🔍 [AUTH STATE] Current state:", { user: user?.username || 'null', isLoading, isError, error });
+  console.info("🔍 [AUTH STATE] Current state:", { user: user?.username || 'null', isLoading, isError, error });
 
   // Skip auth checks for public routes (they have their own authentication logic)
   if (!isPublicRoute) {
     if (isLoading) {
-      console.log("⏳ [AUTH STATE] Authentication loading...");
+      console.info("⏳ [AUTH STATE] Authentication loading...");
       return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-900 dark:to-slate-800">
           <div className="text-center">
@@ -316,13 +316,13 @@ function Router() {
 
     // If not authenticated, show login page
     if (!user) {
-      console.log("❌ [AUTH STATE] No authenticated user - showing login page");
+      console.info("❌ [AUTH STATE] No authenticated user - showing login page");
       return <Login />;
     }
   }
 
   if (user) {
-    console.log("✅ [AUTH STATE] User authenticated - showing main app for:", user.username);
+    console.info("✅ [AUTH STATE] User authenticated - showing main app for:", user.username);
   }
 
   // Customer-facing kiosk pages — render without any admin Layout/nav

@@ -886,7 +886,7 @@ export default function Contractors() {
   };
 
   const handleViewDocument = (document: any) => {
-    console.log('Document clicked:', document);
+    console.info('Document clicked:', document);
     setSelectedDocument(document);
     setShowDocumentModal(true);
   };
@@ -1988,7 +1988,7 @@ export default function Contractors() {
                               <div 
                                 className="flex items-center justify-between p-2 rounded-md hover:bg-blue-50 hover:shadow-md transition-all duration-200 cursor-pointer"
                                 onClick={() => {
-                                  console.log('Document status clicked:', label);
+                                  console.info('Document status clicked:', label);
                                   // Find the document from API data
                                   const document = documents.find((doc: any) => 
                                     doc.documentType === key.replace(/([A-Z])/g, '_$1').toLowerCase().replace(/^_/, '')
@@ -2193,7 +2193,7 @@ export default function Contractors() {
                           <div 
                             className={`border-2 ${cardBorder} rounded-lg p-4 hover:border-blue-500 hover:shadow-lg hover:bg-blue-50 transition-all duration-200 cursor-pointer select-none`}
                             onClick={() => {
-                              console.log('Document panel clicked:', document.documentName);
+                              console.info('Document panel clicked:', document.documentName);
                               handleViewDocument(document);
                             }}
                           >
@@ -2287,7 +2287,7 @@ export default function Contractors() {
                           <div 
                             className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 hover:shadow-lg hover:bg-blue-50 transition-all duration-200 cursor-pointer bg-[var(--background)] select-none"
                             onClick={() => {
-                              console.log('Missing document clicked:', docType);
+                              console.info('Missing document clicked:', docType);
                               handleUploadDocument(docType);
                             }}
                           >

@@ -1,6 +1,7 @@
 import { storage } from "./storage";
 import { customerDbService } from "./customerDatabase";
 import * as isolatedSchema from "./isolatedSchema";
+import { logger } from './utils/logger';
 
 /**
  * SIMPLE MIGRATION RUNNER
@@ -9,13 +10,13 @@ import * as isolatedSchema from "./isolatedSchema";
  * to migrate Andy's data from MemStorage to isolated database.
  */
 async function runMigration() {
-  console.log("🚀 Starting migration of Andy's data...");
+  logger.info("🚀 Starting migration of Andy's data...");
   
   try {
     // Step 1: Get Andy's isolated database
     const customerId = "dev-customer-001"; // Andy's customer ID
     const isolatedDb = await customerDbService.getCustomerDatabase(customerId);
-    console.log("✅ Connected to isolated database");
+    logger.info("✅ Connected to isolated database");
 
     // Step 2: Get all data from MemStorage
     const allStaff = await storage.getAllStaff();
@@ -23,7 +24,7 @@ async function runMigration() {
     const companySettings = await storage.getCompanySettings();
     const allPreBookings = await storage.getAllPreBookings();
     
-    console.log(`📊 MemStorage data: ${allStaff.length} staff, ${allVisitors.length} visitors, ${allPreBookings.length} prebookings`);
+    logger.info(`📊 MemStorage data: ${allStaff.length} staff, ${allVisitors.length} visitors, ${allPreBookings.length} prebookings`);
 
     // Step 3: Migrate company settings
     if (companySettings) {
@@ -50,7 +51,7 @@ async function runMigration() {
           barcodeFormat: companySettings.barcodeFormat,
           printQuality: companySettings.printQuality,
         });
-        console.log("✅ Company settings migrated");
+        logger.info("✅ Company settings migrated");
       }
     }
 
@@ -74,9 +75,9 @@ async function runMigration() {
           updatedAt: staff.updatedAt,
         }).onConflictDoNothing();
         staffMigrated++;
-        console.log(`✅ Migrated staff: ${staff.firstName} ${staff.lastName}`);
+        logger.info(`✅ Migrated staff: ${staff.firstName} ${staff.lastName}`);
       } catch (error) {
-        console.error(`❌ Error migrating staff ${staff.firstName} ${staff.lastName}:`, error);
+        logger.error(`❌ Error migrating staff ${staff.firstName} ${staff.lastName}:`, error);
       }
     }
 
@@ -111,9 +112,9 @@ async function runMigration() {
           updatedAt: visitor.updatedAt || new Date(),
         }).onConflictDoNothing();
         visitorsMigrated++;
-        console.log(`✅ Migrated visitor: ${visitor.firstName} ${visitor.lastName}`);
+        logger.info(`✅ Migrated visitor: ${visitor.firstName} ${visitor.lastName}`);
       } catch (error) {
-        console.error(`❌ Error migrating visitor ${visitor.firstName} ${visitor.lastName}:`, error);
+        logger.error(`❌ Error migrating visitor ${visitor.firstName} ${visitor.lastName}:`, error);
       }
     }
 
@@ -149,18 +150,18 @@ async function runMigration() {
           createdAt: preBooking.createdAt,
         }).onConflictDoNothing();
         prebookingsMigrated++;
-        console.log(`✅ Migrated prebooking: ${visitorName}`);
+        logger.info(`✅ Migrated prebooking: ${visitorName}`);
       } catch (error) {
-        console.error(`❌ Error migrating prebooking:`, error);
+        logger.error(`❌ Error migrating prebooking:`, error);
       }
     }
 
     // Migration Summary
-    console.log("\n🎯 MIGRATION COMPLETE!");
-    console.log(`✅ Staff: ${staffMigrated}/${allStaff.length}`);
-    console.log(`✅ Visitors: ${visitorsMigrated}/${allVisitors.length}`);
-    console.log(`✅ Pre-bookings: ${prebookingsMigrated}/${allPreBookings.length}`);
-    console.log("\n🎉 Andy's data has been successfully migrated to isolated database!");
+    logger.info("\n🎯 MIGRATION COMPLETE!");
+    logger.info(`✅ Staff: ${staffMigrated}/${allStaff.length}`);
+    logger.info(`✅ Visitors: ${visitorsMigrated}/${allVisitors.length}`);
+    logger.info(`✅ Pre-bookings: ${prebookingsMigrated}/${allPreBookings.length}`);
+    logger.info("\n🎉 Andy's data has been successfully migrated to isolated database!");
 
     return {
       success: true,
@@ -170,7 +171,7 @@ async function runMigration() {
     };
 
   } catch (error) {
-    console.error("❌ Migration failed:", error);
+    logger.error("❌ Migration failed:", error);
     throw error;
   }
 }

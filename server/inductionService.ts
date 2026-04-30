@@ -11,6 +11,7 @@ import {
   type InsertInductionAnswer
 } from "@shared/schema";
 import { EmailService } from "./emailService";
+import { logger } from './utils/logger';
 
 // Shared helper — determines the public base URL for induction links.
 // Priority: FRONTEND_URL (user override) → REPLIT_DOMAINS (auto-detected) → localhost fallback
@@ -37,7 +38,7 @@ export class InductionService {
       
       return tokenData || null;
     } catch (error) {
-      console.error('Error getting token by value:', error);
+      logger.error('Error getting token by value:', error);
       return null;
     }
   }
@@ -223,7 +224,7 @@ VisiGate Pro - Contractor Management System
 
       return true;
     } catch (error) {
-      console.error('Failed to send induction email:', error);
+      logger.error('Failed to send induction email:', error);
       return false;
     }
   }
@@ -373,10 +374,10 @@ VisiGate Pro - Visitor Management System
         text: emailText
       });
 
-      console.log(`✅ Induction email sent to ${params.personType}: ${params.personName} (${params.personEmail})`);
+      logger.info(`✅ Induction email sent to ${params.personType}: ${params.personName} (${params.personEmail})`);
       return true;
     } catch (error) {
-      console.error('Failed to send universal induction email:', error);
+      logger.error('Failed to send universal induction email:', error);
       return false;
     }
   }
@@ -418,7 +419,7 @@ VisiGate Pro - Visitor Management System
     for (const answer of answers) {
       const question = questionMap.get(answer.questionId);
       if (!question) {
-        console.warn(`⚠️ [InductionService] Unknown questionId "${answer.questionId}" in submission — skipping`);
+        logger.warn(`⚠️ [InductionService] Unknown questionId "${answer.questionId}" in submission — skipping`);
         continue;
       }
       validAnswerCount++;

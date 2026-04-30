@@ -122,7 +122,7 @@ export function ThermalPassDesigner() {
         const data = await response.json();
         if (data.success && data.design && data.design.elements?.length > 0) {
           setPassElements(data.design.elements);
-          console.log(`🎯 Loaded saved design`);
+          console.info(`🎯 Loaded saved design`);
         }
       }
     } catch (error) {
@@ -144,7 +144,7 @@ export function ThermalPassDesigner() {
           primaryColor: settings.primaryColor || '#0066cc'
         });
         
-        console.log(`🏢 Loaded company data for customer isolation`);
+        console.info(`🏢 Loaded company data for customer isolation`);
       }
     } catch (error) {
       console.error('Error loading company data:', error);
@@ -235,7 +235,7 @@ export function ThermalPassDesigner() {
         body: JSON.stringify(designData)
       });
       
-      console.log(`🎯 Auto-saved design`);
+      console.info(`🎯 Auto-saved design`);
     } catch (error) {
       console.error('Auto-save failed:', error);
     }
@@ -364,7 +364,7 @@ export function ThermalPassDesigner() {
           template: selectedTemplate,
           timestamp: Date.now()
         }));
-        console.log('🎯 Auto-saved design');
+        console.info('🎯 Auto-saved design');
       }
     }, 2000); // Auto-save after 2 seconds of inactivity
 
@@ -382,7 +382,7 @@ export function ThermalPassDesigner() {
           if (parsed.template) {
             setSelectedTemplate(parsed.template);
           }
-          console.log('🎯 Loaded saved design');
+          console.info('🎯 Loaded saved design');
         }
       } catch (error) {
         console.warn('Failed to load saved design:', error);

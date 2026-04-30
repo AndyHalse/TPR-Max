@@ -6,6 +6,7 @@ import * as sharedSchema from '@shared/schema';
 import * as isolatedSchema from './isolatedSchema';
 import { databaseProvisioningService } from './databaseProvisioningService';
 import { customerDbService } from './customerDatabase';
+import { logger } from './utils/logger';
 
 neonConfig.webSocketConstructor = ws;
 
@@ -39,7 +40,7 @@ export class DatabaseMigrationService {
    * Migrate a customer from shared database to isolated database
    */
   async migrateCustomerToIsolatedDatabase(customerId: string): Promise<void> {
-    console.log(`🔄 Starting migration for customer: ${customerId}`);
+    logger.info(`🔄 Starting migration for customer: ${customerId}`);
 
     try {
       // Step 1: Export customer data from shared database
@@ -60,9 +61,9 @@ export class DatabaseMigrationService {
       // Step 5: Update customer record with new database URL
       await this.updateCustomerDatabaseUrl(customerId, isolatedDbUrl);
       
-      console.log(`✅ Migration completed successfully for customer: ${customerId}`);
+      logger.info(`✅ Migration completed successfully for customer: ${customerId}`);
     } catch (error) {
-      console.error(`❌ Migration failed for customer ${customerId}:`, error);
+      logger.error(`❌ Migration failed for customer ${customerId}:`, error);
       throw error;
     }
   }
@@ -71,7 +72,7 @@ export class DatabaseMigrationService {
    * Export all data for a specific customer from shared database
    */
   private async exportCustomerData(customerId: string): Promise<CustomerExportData> {
-    console.log(`📤 Exporting data for customer: ${customerId}`);
+    logger.info(`📤 Exporting data for customer: ${customerId}`);
 
     const sharedDbUrl = process.env.DATABASE_URL;
     if (!sharedDbUrl) {
@@ -168,7 +169,7 @@ export class DatabaseMigrationService {
         exportData.roomBookings = [];
       }
 
-      console.log(`✅ Exported data for customer ${customerId}:`, {
+      logger.info(`✅ Exported data for customer ${customerId}:`, {
         companySettings: exportData.companySettings.length,
         staff: exportData.staff.length,
         visitors: exportData.visitors.length,
@@ -192,7 +193,7 @@ export class DatabaseMigrationService {
     isolatedDbUrl: string, 
     exportData: CustomerExportData
   ): Promise<void> {
-    console.log(`📥 Importing data for customer: ${customerId}`);
+    logger.info(`📥 Importing data for customer: ${customerId}`);
 
     const pool = new Pool({ connectionString: isolatedDbUrl });
     const db = drizzle({ client: pool, schema: isolatedSchema });
@@ -278,7 +279,7 @@ export class DatabaseMigrationService {
         await db.insert(isolatedSchema.preBookings).values(bookingsToImport);
       }
 
-      console.log(`✅ Data imported successfully for customer: ${customerId}`);
+      logger.info(`✅ Data imported successfully for customer: ${customerId}`);
     } finally {
       await pool.end();
     }
@@ -292,7 +293,7 @@ export class DatabaseMigrationService {
     originalData: CustomerExportData, 
     isolatedDbUrl: string
   ): Promise<boolean> {
-    console.log(`🔍 Verifying migration for customer: ${customerId}`);
+    logger.info(`🔍 Verifying migration for customer: ${customerId}`);
 
     const pool = new Pool({ connectionString: isolatedDbUrl });
     const db = drizzle({ client: pool, schema: isolatedSchema });
@@ -328,16 +329,16 @@ export class DatabaseMigrationService {
         const match = expected === actual;
         
         if (!match) {
-          console.error(`❌ Count mismatch for ${table}: expected ${expected}, got ${actual}`);
+          logger.error(`❌ Count mismatch for ${table}: expected ${expected}, got ${actual}`);
         }
         
         return match;
       });
 
       if (isValid) {
-        console.log(`✅ Migration verification passed for customer: ${customerId}`);
+        logger.info(`✅ Migration verification passed for customer: ${customerId}`);
       } else {
-        console.error(`❌ Migration verification failed for customer: ${customerId}`);
+        logger.error(`❌ Migration verification failed for customer: ${customerId}`);
       }
 
       return isValid;
@@ -372,7 +373,7 @@ export class DatabaseMigrationService {
         .set({ databaseUrl, updatedAt: new Date() })
         .where(eq(sharedSchema.customers.id, customerId));
 
-      console.log(`✅ Updated database URL for customer: ${customerId}`);
+      logger.info(`✅ Updated database URL for customer: ${customerId}`);
     } finally {
       await pool.end();
     }
@@ -382,7 +383,7 @@ export class DatabaseMigrationService {
    * Rollback migration by restoring original shared database access
    */
   async rollbackMigration(customerId: string): Promise<void> {
-    console.log(`🔄 Rolling back migration for customer: ${customerId}`);
+    logger.info(`🔄 Rolling back migration for customer: ${customerId}`);
 
     try {
       // Restore original database URL (shared database)
@@ -392,9 +393,9 @@ export class DatabaseMigrationService {
       // Clear connection cache
       customerDbService.closeAllConnections();
       
-      console.log(`✅ Migration rollback completed for customer: ${customerId}`);
+      logger.info(`✅ Migration rollback completed for customer: ${customerId}`);
     } catch (error) {
-      console.error(`❌ Migration rollback failed for customer ${customerId}:`, error);
+      logger.error(`❌ Migration rollback failed for customer ${customerId}:`, error);
       throw error;
     }
   }
@@ -403,7 +404,7 @@ export class DatabaseMigrationService {
    * Create a complete backup of customer data before migration
    */
   async createPreMigrationBackup(customerId: string): Promise<string> {
-    console.log(`💾 Creating pre-migration backup for customer: ${customerId}`);
+    logger.info(`💾 Creating pre-migration backup for customer: ${customerId}`);
 
     try {
       const exportData = await this.exportCustomerData(customerId);
@@ -415,10 +416,10 @@ export class DatabaseMigrationService {
       // Store backup data (in real implementation, save to backup service)
       // await this.storeBackup(backupId, exportData);
       
-      console.log(`✅ Pre-migration backup created: ${backupId}`);
+      logger.info(`✅ Pre-migration backup created: ${backupId}`);
       return backupId;
     } catch (error) {
-      console.error(`❌ Failed to create pre-migration backup for customer ${customerId}:`, error);
+      logger.error(`❌ Failed to create pre-migration backup for customer ${customerId}:`, error);
       throw error;
     }
   }
@@ -429,34 +430,34 @@ export class DatabaseMigrationService {
   async migrateAllDevelopmentCustomers(): Promise<void> {
     const developmentCustomers = ['dev-customer-002', 'test-customer-trial'];
     
-    console.log(`🚀 Starting migration for all development customers: ${developmentCustomers.join(', ')}`);
+    logger.info(`🚀 Starting migration for all development customers: ${developmentCustomers.join(', ')}`);
 
     for (const customerId of developmentCustomers) {
       try {
-        console.log(`\n📋 Migrating customer: ${customerId}`);
+        logger.info(`\n📋 Migrating customer: ${customerId}`);
         
         // Create backup before migration
         const backupId = await this.createPreMigrationBackup(customerId);
-        console.log(`💾 Backup created: ${backupId}`);
+        logger.info(`💾 Backup created: ${backupId}`);
         
         // Migrate customer
         await this.migrateCustomerToIsolatedDatabase(customerId);
         
-        console.log(`✅ Successfully migrated customer: ${customerId}`);
+        logger.info(`✅ Successfully migrated customer: ${customerId}`);
       } catch (error) {
-        console.error(`❌ Failed to migrate customer ${customerId}:`, error);
+        logger.error(`❌ Failed to migrate customer ${customerId}:`, error);
         
         // Attempt rollback
         try {
           await this.rollbackMigration(customerId);
-          console.log(`🔄 Rollback successful for customer: ${customerId}`);
+          logger.info(`🔄 Rollback successful for customer: ${customerId}`);
         } catch (rollbackError) {
-          console.error(`❌ Rollback failed for customer ${customerId}:`, rollbackError);
+          logger.error(`❌ Rollback failed for customer ${customerId}:`, rollbackError);
         }
       }
     }
 
-    console.log(`\n🎉 Migration process completed for all development customers`);
+    logger.info(`\n🎉 Migration process completed for all development customers`);
   }
 }
 

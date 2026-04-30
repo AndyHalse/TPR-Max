@@ -3,6 +3,7 @@ import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { sql } from "drizzle-orm";
 import * as sharedSchema from "@shared/schema";
+import { logger } from './utils/logger';
 
 /**
  * HEALTH CHECK SERVICE
@@ -67,7 +68,7 @@ export class HealthCheckService {
 
       res.status(200).json(result);
     } catch (error) {
-      console.error('🔥 Liveness check failed:', error);
+      logger.error('🔥 Liveness check failed:', error);
       res.status(500).json({
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
@@ -101,10 +102,10 @@ export class HealthCheckService {
       res.status(statusCode).json(result);
       
       if (!allHealthy) {
-        console.warn('⚠️ Readiness check failed - some dependencies unhealthy:', dependencies);
+        logger.warn('⚠️ Readiness check failed - some dependencies unhealthy:', dependencies);
       }
     } catch (error) {
-      console.error('🔥 Readiness check failed:', error);
+      logger.error('🔥 Readiness check failed:', error);
       res.status(503).json({
         status: 'unhealthy',
         timestamp: new Date().toISOString(),
@@ -145,7 +146,7 @@ export class HealthCheckService {
       
       // Consider slow responses as warning (but still healthy)
       if (responseTime > 3000) {
-        console.warn(`⚠️ Database health check slow: ${responseTime}ms`);
+        logger.warn(`⚠️ Database health check slow: ${responseTime}ms`);
       }
       
       return {
@@ -153,7 +154,7 @@ export class HealthCheckService {
         responseTime
       };
     } catch (error) {
-      console.error('❌ Database health check failed:', error);
+      logger.error('❌ Database health check failed:', error);
       return {
         status: 'unhealthy',
         responseTime: Date.now() - startTime,
@@ -296,7 +297,7 @@ export class HealthCheckService {
       const statusCode = allHealthy ? 200 : 503;
       res.status(statusCode).json(result);
     } catch (error) {
-      console.error('🔥 Combined health check failed:', error);
+      logger.error('🔥 Combined health check failed:', error);
       res.status(503).json({
         status: 'unhealthy',
         timestamp: new Date().toISOString(),

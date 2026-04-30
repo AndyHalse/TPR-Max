@@ -113,7 +113,7 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
   // Debug log the history
   useEffect(() => {
     if (visitorHistory.length > 0) {
-      console.log(`📊 Visitor history loaded: ${visitorHistory.length} visits`, visitorHistory);
+      console.info(`📊 Visitor history loaded: ${visitorHistory.length} visits`, visitorHistory);
     }
   }, [visitorHistory]);
 

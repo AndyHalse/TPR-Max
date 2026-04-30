@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { OpenAIErrorHandler } from "./utils/openaiErrorHandler";
+import { logger } from './utils/logger';
 
 // Using javascript_openai blueprint
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
@@ -45,7 +46,7 @@ export async function generateCompanyDescription(website: string, companyName: s
     });
 
     const description = response.choices[0].message.content?.trim() || '';
-    console.log('OpenAI response:', description);
+    logger.info('OpenAI response:', description);
     
     if (!description || description === '') {
       throw new Error('No description generated - empty response');

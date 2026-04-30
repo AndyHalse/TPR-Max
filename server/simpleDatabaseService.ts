@@ -7,6 +7,7 @@ import type {
 import * as schema from "@shared/schema";
 import * as isolatedSchema from "./isolatedSchema";
 import { customerDbService } from "./customerDatabase";
+import { logger } from './utils/logger';
 
 export interface CustomerContext {
   customerId: string;
@@ -61,7 +62,7 @@ export class SimpleDatabaseService {
    * COMPANY SETTINGS METHODS - Customer Isolated
    */
   async getCompanySettings(context: CustomerContext): Promise<CompanySettings | undefined> {
-    console.log(`🔍 Getting company settings for customer: ${context.customerId}`);
+    logger.info(`🔍 Getting company settings for customer: ${context.customerId}`);
     
     const schemaName = customerDbService.generateSchemaName(context.customerId);
     
@@ -73,12 +74,12 @@ export class SimpleDatabaseService {
       `);
       
       if (!rawResult.rows || rawResult.rows.length === 0) {
-        console.log(`⚠️ No company settings found in schema ${schemaName} for ${context.customerId}`);
+        logger.info(`⚠️ No company settings found in schema ${schemaName} for ${context.customerId}`);
         return undefined;
       }
       
       const row = rawResult.rows[0] as any;
-      console.log(`📋 Company settings loaded: "${row.company_name}" for customer ${context.customerId} from schema ${schemaName}`);
+      logger.info(`📋 Company settings loaded: "${row.company_name}" for customer ${context.customerId} from schema ${schemaName}`);
       
       const mapped: any = {};
       for (const [key, value] of Object.entries(row)) {
@@ -103,10 +104,10 @@ export class SimpleDatabaseService {
       
       return sanitizedSettings as CompanySettings;
     } catch (error: any) {
-      console.error(`❌ Company settings query failed for ${context.customerId} in schema ${schemaName}:`, error.message);
+      logger.error(`❌ Company settings query failed for ${context.customerId} in schema ${schemaName}:`, error.message);
       
       if (error.code === '42703') {
-        console.warn(`⚠️ Schema mismatch - column missing in ${schemaName}.company_settings: ${error.message}`);
+        logger.warn(`⚠️ Schema mismatch - column missing in ${schemaName}.company_settings: ${error.message}`);
         try {
           const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
           const basicResult = await customerDb.execute(sql`
@@ -122,11 +123,11 @@ export class SimpleDatabaseService {
               const camelKey = key.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
               mapped[camelKey] = value;
             }
-            console.log(`✅ Basic fallback query successful for ${context.customerId} from schema ${schemaName}`);
+            logger.info(`✅ Basic fallback query successful for ${context.customerId} from schema ${schemaName}`);
             return mapped as CompanySettings;
           }
         } catch (fallbackError: any) {
-          console.error(`❌ Fallback query also failed for ${context.customerId}:`, fallbackError.message);
+          logger.error(`❌ Fallback query also failed for ${context.customerId}:`, fallbackError.message);
         }
         
         return undefined;
@@ -139,7 +140,7 @@ export class SimpleDatabaseService {
     context: CustomerContext, 
     updates: Partial<InsertCompanySettings>
   ): Promise<CompanySettings | undefined> {
-    console.log(`💾 Updating company settings for customer: ${context.customerId}`);
+    logger.info(`💾 Updating company settings for customer: ${context.customerId}`);
     
     // Use customer isolated database
     const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
@@ -156,13 +157,13 @@ export class SimpleDatabaseService {
           .where(eq(isolatedSchema.companySettings.id, existing.id))
           .returning();
         
-        console.log(`✅ Updated company settings for customer: ${context.customerId}`);
+        logger.info(`✅ Updated company settings for customer: ${context.customerId}`);
         return updated[0];
       } catch (error: any) {
         // Handle schema mismatches gracefully for UPDATE operations
         if (error.code === '42703') {
-          console.warn(`⚠️ Column error during update for ${context.customerId}: ${error.message}`);
-          console.warn(`⚠️ Filtering out problematic fields and retrying update...`);
+          logger.warn(`⚠️ Column error during update for ${context.customerId}: ${error.message}`);
+          logger.warn(`⚠️ Filtering out problematic fields and retrying update...`);
           
           // Get list of safe fields that exist in database by trying a simpler update
           const safeUpdates = await this.filterSafeFields(customerDb, updates);
@@ -174,10 +175,10 @@ export class SimpleDatabaseService {
               .where(eq(isolatedSchema.companySettings.id, existing.id))
               .returning();
             
-            console.log(`✅ Updated company settings (filtered) for customer: ${context.customerId}`);
+            logger.info(`✅ Updated company settings (filtered) for customer: ${context.customerId}`);
             return retryUpdated[0];
           } else {
-            console.warn(`⚠️ No safe fields to update for customer: ${context.customerId}`);
+            logger.warn(`⚠️ No safe fields to update for customer: ${context.customerId}`);
             return existing;
           }
         }
@@ -289,13 +290,13 @@ By entering our premises, you agree to comply with all health and safety rules.`
           })
           .returning();
         
-        console.log(`✅ Created new company settings for customer: ${context.customerId}`);
+        logger.info(`✅ Created new company settings for customer: ${context.customerId}`);
         return created[0];
       } catch (error: any) {
         // Handle schema mismatches gracefully for INSERT operations
         if (error.code === '42703') {
-          console.warn(`⚠️ Column error during insert for ${context.customerId}: ${error.message}`);
-          console.warn(`⚠️ Filtering out problematic fields and retrying insert...`);
+          logger.warn(`⚠️ Column error during insert for ${context.customerId}: ${error.message}`);
+          logger.warn(`⚠️ Filtering out problematic fields and retrying insert...`);
           
           // Get list of safe fields for INSERT
           const safeUpdates = await this.filterSafeFields(customerDb, updates);
@@ -313,7 +314,7 @@ By entering our premises, you agree to comply with all health and safety rules.`
             })
             .returning();
           
-          console.log(`✅ Created company settings (filtered) for customer: ${context.customerId}`);
+          logger.info(`✅ Created company settings (filtered) for customer: ${context.customerId}`);
           return retryCreated[0];
         }
         throw error; // Re-throw non-schema errors
@@ -366,15 +367,15 @@ By entering our premises, you agree to comply with all health and safety rules.`
         if (existingColumns.has(key) || coreFields.includes(key)) {
           (safeUpdates as any)[key] = value;
         } else {
-          console.warn(`⚠️ Skipping field '${key}' - column does not exist in database`);
+          logger.warn(`⚠️ Skipping field '${key}' - column does not exist in database`);
         }
       }
       
-      console.log(`✅ Filtered ${Object.keys(updates).length} fields to ${Object.keys(safeUpdates).length} safe fields`);
+      logger.info(`✅ Filtered ${Object.keys(updates).length} fields to ${Object.keys(safeUpdates).length} safe fields`);
       return safeUpdates;
     } catch (error) {
       // If we can't check columns, fall back to core fields only
-      console.warn(`⚠️ Could not check database columns, using core fields only`);
+      logger.warn(`⚠️ Could not check database columns, using core fields only`);
       
       const safeUpdates: Partial<InsertCompanySettings> = {};
       for (const [key, value] of Object.entries(updates)) {

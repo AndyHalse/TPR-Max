@@ -441,7 +441,7 @@ export function registerOnboardingRoutes(app: Express): void {
         logger.info(`✅ Legacy induction question cleanup complete — removed ${totalDeleted} stale rows`);
       }
     } catch (cleanupErr) {
-      console.warn('⚠️ Legacy induction question cleanup failed (non-fatal):', cleanupErr);
+      logger.warn('⚠️ Legacy induction question cleanup failed (non-fatal):', cleanupErr);
     }
   })();
 
@@ -468,7 +468,7 @@ export function registerOnboardingRoutes(app: Express): void {
       
       const attempts = onboardingAttempts.get(attemptKey) || 0;
       if (attempts >= ONBOARDING_RATE_LIMIT) {
-        console.warn(`🚨 Rate limit exceeded for IP: ${clientIp}`);
+        logger.warn(`🚨 Rate limit exceeded for IP: ${clientIp}`);
         return res.status(429).json({
           success: false,
           error: 'Rate limit exceeded. Please try again later.',
@@ -821,7 +821,7 @@ export function registerOnboardingRoutes(app: Express): void {
       
       const attempts = onboardingAttempts.get(attemptKey) || 0;
       if (attempts >= ONBOARDING_RATE_LIMIT) {
-        console.warn(`🚨 Rate limit exceeded for IP: ${clientIp}`);
+        logger.warn(`🚨 Rate limit exceeded for IP: ${clientIp}`);
         return res.status(429).json({
           success: false,
           error: 'Rate limit exceeded. Please try again later.',
@@ -834,7 +834,7 @@ export function registerOnboardingRoutes(app: Express): void {
       const adminToken = process.env.ADMIN_ONBOARDING_TOKEN || 'dev-admin-token';
       
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
-        console.warn(`🚨 Unauthorized onboarding attempt from IP: ${clientIp}`);
+        logger.warn(`🚨 Unauthorized onboarding attempt from IP: ${clientIp}`);
         return res.status(401).json({
           success: false,
           error: 'Authentication required',
@@ -844,7 +844,7 @@ export function registerOnboardingRoutes(app: Express): void {
 
       const token = authHeader.split(' ')[1];
       if (token !== adminToken) {
-        console.warn(`🚨 Invalid token used for onboarding from IP: ${clientIp}`);
+        logger.warn(`🚨 Invalid token used for onboarding from IP: ${clientIp}`);
         return res.status(401).json({
           success: false,
           error: 'Invalid authentication token',

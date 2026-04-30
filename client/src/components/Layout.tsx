@@ -83,18 +83,18 @@ export default function Layout({ children }: LayoutProps) {
     setLogoFallbackStage(prev => {
       const next = prev + 1;
       if (next > 3) {
-        console.log(`[BRANDING] All logo sources failed, showing letter placeholder`);
+        console.info(`[BRANDING] All logo sources failed, showing letter placeholder`);
         setLogoError(true);
         return prev;
       }
-      console.log(`[BRANDING] Logo source ${prev} failed, trying fallback ${next}`);
+      console.info(`[BRANDING] Logo source ${prev} failed, trying fallback ${next}`);
       return next;
     });
   }, []);
 
   useEffect(() => {
     if (settings?.backgroundColor || settings?.foregroundColor || settings?.accentColor) {
-      console.log(`[BRANDING] Applying colors - bg=${settings.backgroundColor}, fg=${settings.foregroundColor}, accent=${settings.accentColor}`);
+      console.info(`[BRANDING] Applying colors - bg=${settings.backgroundColor}, fg=${settings.foregroundColor}, accent=${settings.accentColor}`);
       const root = document.documentElement;
       
       // Convert hex to HSL for CSS variables
@@ -216,7 +216,7 @@ export default function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     if (settings) {
-      console.log(`[BRANDING] Settings received - company=${settings.companyName || 'NONE'}, logo=${settings.logoUrl || 'NONE'}, bg=${settings.backgroundColor || 'NONE'}, accent=${settings.accentColor || 'NONE'}, varText=${settings.variableTextColor || 'NONE'}`);
+      console.info(`[BRANDING] Settings received - company=${settings.companyName || 'NONE'}, logo=${settings.logoUrl || 'NONE'}, bg=${settings.backgroundColor || 'NONE'}, accent=${settings.accentColor || 'NONE'}, varText=${settings.variableTextColor || 'NONE'}`);
       setLogoError(false);
       setLogoFallbackStage(0);
     }

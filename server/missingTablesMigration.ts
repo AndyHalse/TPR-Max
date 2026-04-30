@@ -1,4 +1,5 @@
 import type { Migration } from './migrationRunner';
+import { logger } from './utils/logger';
 
 /**
  * MISSING TABLES MIGRATION
@@ -38,7 +39,7 @@ export const createVisitorHistoryTableMigration: Migration = {
   version: '20250918_002_create_visitor_history_table',
   description: 'Create visitor_history table for tracking visitor visit history',
   async up(db: any) {
-    console.log('🔄 Creating visitor_history table...');
+    logger.info('🔄 Creating visitor_history table...');
 
     // Add pgcrypto extension for UUID generation
     await ensurePgcrypto(db);
@@ -72,7 +73,7 @@ export const createVisitorHistoryTableMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created visitor_history table successfully');
+    logger.info('✅ Created visitor_history table successfully');
   }
 };
 
@@ -81,7 +82,7 @@ export const ensureContractorTablesMigration: Migration = {
   version: '20250918_003_ensure_contractor_tables',
   description: 'Ensure contractor tables exist (contractor_companies, contractor_workers, etc.)',
   async up(db: any) {
-    console.log('🔄 Ensuring contractor tables exist...');
+    logger.info('🔄 Ensuring contractor tables exist...');
 
     // Add pgcrypto extension for UUID generation
     await ensurePgcrypto(db);
@@ -352,7 +353,7 @@ export const ensureContractorTablesMigration: Migration = {
       )
     `);
 
-    console.log('✅ Ensured all contractor tables exist successfully');
+    logger.info('✅ Ensured all contractor tables exist successfully');
   }
 };
 
@@ -361,7 +362,7 @@ export const createUKHSDocumentSystemMigration: Migration = {
   version: '20250918_004_create_uk_hs_document_system',
   description: 'Create UK H&S document system tables: uk_hs_document_templates, worker_document_assignments, worker_document_acceptances, document_auto_fill_mapping',
   async up(db: any) {
-    console.log('🔄 Creating UK H&S document system tables...');
+    logger.info('🔄 Creating UK H&S document system tables...');
 
     // Add pgcrypto extension for UUID generation
     await ensurePgcrypto(db);
@@ -455,7 +456,7 @@ export const createUKHSDocumentSystemMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created UK H&S document system tables successfully');
+    logger.info('✅ Created UK H&S document system tables successfully');
   }
 };
 
@@ -464,7 +465,7 @@ export const addEPassSentColumnMigration: Migration = {
   version: '20250918_005_add_e_pass_sent_column',
   description: 'Add missing e_pass_sent column to contractor_visits table',
   async up(db: any) {
-    console.log('🔄 Adding missing e_pass_sent column to contractor_visits table...');
+    logger.info('🔄 Adding missing e_pass_sent column to contractor_visits table...');
 
     try {
       // Add e_pass_sent column if it doesn't exist
@@ -491,13 +492,13 @@ export const addEPassSentColumnMigration: Migration = {
         ADD COLUMN IF NOT EXISTS pass_url TEXT
       `);
 
-      console.log('✅ Successfully added e_pass_sent, e_pass_sent_at, qr_code, and pass_url columns to contractor_visits table');
+      logger.info('✅ Successfully added e_pass_sent, e_pass_sent_at, qr_code, and pass_url columns to contractor_visits table');
     } catch (error: any) {
       if (error?.code === '42701') {
         // Column already exists
-        console.log('✅ e_pass_sent columns already exist in contractor_visits table');
+        logger.info('✅ e_pass_sent columns already exist in contractor_visits table');
       } else {
-        console.error('Error adding e_pass_sent columns:', error);
+        logger.error('Error adding e_pass_sent columns:', error);
         throw error;
       }
     }
@@ -508,7 +509,7 @@ export const createMembersTableMigration: Migration = {
   version: '20260210_001_create_members_table',
   description: 'Create members table for member management and muster tracking',
   async up(db: any) {
-    console.log('🔄 Creating members table...');
+    logger.info('🔄 Creating members table...');
 
     await ensurePgcrypto(db);
 
@@ -541,7 +542,7 @@ export const createMembersTableMigration: Migration = {
       ADD COLUMN IF NOT EXISTS feature_members BOOLEAN DEFAULT false
     `);
 
-    console.log('✅ Members table and feature toggle created successfully');
+    logger.info('✅ Members table and feature toggle created successfully');
   }
 };
 
@@ -549,7 +550,7 @@ export const ensureMembersTableProductionMigration: Migration = {
   version: '20260211_001_ensure_members_table_production',
   description: 'Ensure members table exists in production public schema (fixes schema mismatch)',
   async up(db: any) {
-    console.log('🔄 Ensuring members table exists in current schema...');
+    logger.info('🔄 Ensuring members table exists in current schema...');
 
     await ensurePgcrypto(db);
 
@@ -582,7 +583,7 @@ export const ensureMembersTableProductionMigration: Migration = {
       ADD COLUMN IF NOT EXISTS feature_members BOOLEAN DEFAULT false
     `);
 
-    console.log('✅ Members table verified/created in current schema');
+    logger.info('✅ Members table verified/created in current schema');
   }
 };
 
@@ -595,10 +596,10 @@ export const addStaffQrCodeColumnMigration: Migration = {
         ALTER TABLE staff 
         ADD COLUMN IF NOT EXISTS qr_code TEXT UNIQUE
       `);
-      console.log('✅ Added qr_code column to staff table');
+      logger.info('✅ Added qr_code column to staff table');
     } catch (error: any) {
       if (error?.message?.includes('already exists')) {
-        console.log('ℹ️ qr_code column already exists on staff table');
+        logger.info('ℹ️ qr_code column already exists on staff table');
       } else {
         throw error;
       }
@@ -610,9 +611,9 @@ export const addStaffQrCodeColumnMigration: Migration = {
         SET qr_code = 'STF-' || SUBSTRING(REPLACE(gen_random_uuid()::text, '-', ''), 1, 12) 
         WHERE qr_code IS NULL
       `);
-      console.log('✅ Generated QR codes for existing staff members');
+      logger.info('✅ Generated QR codes for existing staff members');
     } catch (error: any) {
-      console.error('⚠️ Failed to generate QR codes for existing staff:', error.message);
+      logger.error('⚠️ Failed to generate QR codes for existing staff:', error.message);
     }
   }
 };

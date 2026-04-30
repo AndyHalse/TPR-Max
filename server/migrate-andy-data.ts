@@ -3,6 +3,7 @@ import { customerDbService } from "./customerDatabase";
 import { simpleDatabaseService } from "./simpleDatabaseService";
 import * as isolatedSchema from "./isolatedSchema";
 import * as sharedSchema from "@shared/schema";
+import { logger } from './utils/logger';
 
 // Robust date coercion helper to handle multiple date formats from MemStorage
 function coerceDate(v: any): Date | undefined {
@@ -39,47 +40,47 @@ function coerceDate(v: any): Date | undefined {
  * - Related records
  */
 async function migrateAndyData() {
-  console.log("🚀 Starting Andy's data migration from MemStorage to isolated database...");
+  logger.info("🚀 Starting Andy's data migration from MemStorage to isolated database...");
   
   try {
     // Step 1: Create context for Andy's customer database
     const customerContext = simpleDatabaseService.createCustomerContext("Andy");
-    console.log(`📋 Customer context created: ${customerContext.customerId}`);
+    logger.info(`📋 Customer context created: ${customerContext.customerId}`);
 
     // Step 2: Get Andy's isolated database connection
-    console.log("🔌 Connecting to Andy's isolated database...");
+    logger.info("🔌 Connecting to Andy's isolated database...");
     const isolatedDb = await customerDbService.getCustomerDatabase(customerContext.customerId);
-    console.log("✅ Connected to isolated database");
+    logger.info("✅ Connected to isolated database");
 
     // Step 3: Extract data from MemStorage
-    console.log("📤 Extracting data from MemStorage...");
+    logger.info("📤 Extracting data from MemStorage...");
     
     // Get all staff from MemStorage
     const allStaff = await storage.getAllStaff();
-    console.log(`📊 Found ${allStaff.length} staff members in MemStorage`);
+    logger.info(`📊 Found ${allStaff.length} staff members in MemStorage`);
     
     // Get all visitors from MemStorage
     const allVisitors = await storage.getAllVisitors();
-    console.log(`📊 Found ${allVisitors.length} visitors in MemStorage`);
+    logger.info(`📊 Found ${allVisitors.length} visitors in MemStorage`);
     
     // Get all pre-bookings
     const allPreBookings = await storage.getAllPreBookings();
-    console.log(`📊 Found ${allPreBookings.length} pre-bookings in MemStorage`);
+    logger.info(`📊 Found ${allPreBookings.length} pre-bookings in MemStorage`);
     
     // Get company settings
     const companySettings = await storage.getCompanySettings();
-    console.log("📊 Retrieved company settings from MemStorage");
+    logger.info("📊 Retrieved company settings from MemStorage");
     
     // Get Andy's user data
     const andyUser = await storage.getUserByUsername("Andy");
-    console.log("📊 Retrieved Andy's user data from MemStorage");
+    logger.info("📊 Retrieved Andy's user data from MemStorage");
 
     // Step 4: Migrate data to isolated database
-    console.log("💾 Starting data migration to isolated database...");
+    logger.info("💾 Starting data migration to isolated database...");
 
     // Migrate company settings (with schema error resilience)
     if (companySettings) {
-      console.log("➡️ Migrating company settings...");
+      logger.info("➡️ Migrating company settings...");
       try {
         await simpleDatabaseService.updateCompanySettings(customerContext, {
           companyName: companySettings.companyName,
@@ -102,17 +103,17 @@ async function migrateAndyData() {
           barcodeFormat: companySettings.barcodeFormat,
           printQuality: companySettings.printQuality,
         });
-        console.log("✅ Company settings migrated successfully");
+        logger.info("✅ Company settings migrated successfully");
       } catch (error) {
-        console.error("⚠️ Company settings migration failed (continuing with other data):", error);
-        console.log("📝 Skipping company settings due to schema mismatch - staff/visitor data will still migrate");
+        logger.error("⚠️ Company settings migration failed (continuing with other data):", error);
+        logger.info("📝 Skipping company settings due to schema mismatch - staff/visitor data will still migrate");
         // Don't throw error - continue with staff and visitor migration
       }
     }
 
     // Migrate user data
     if (andyUser) {
-      console.log("➡️ Migrating Andy's user data...");
+      logger.info("➡️ Migrating Andy's user data...");
       const userInsertResult = await isolatedDb
         .insert(isolatedSchema.users)
         .values({
@@ -128,14 +129,14 @@ async function migrateAndyData() {
         .onConflictDoNothing()
         .returning();
       
-      console.log(`✅ User migrated: ${andyUser.username} (${andyUser.id})`);
+      logger.info(`✅ User migrated: ${andyUser.username} (${andyUser.id})`);
     }
 
     // Migrate staff data
     let migratedStaffCount = 0;
     for (const staff of allStaff) {
       try {
-        console.log(`➡️ Migrating staff: ${staff.firstName} ${staff.lastName}`);
+        logger.info(`➡️ Migrating staff: ${staff.firstName} ${staff.lastName}`);
         
         // Map MemStorage staff to isolated schema
         const staffInsertData = {
@@ -164,12 +165,12 @@ async function migrateAndyData() {
         
         if (result.length > 0) {
           migratedStaffCount++;
-          console.log(`✅ Staff migrated: ${staff.firstName} ${staff.lastName} (${staff.email})`);
+          logger.info(`✅ Staff migrated: ${staff.firstName} ${staff.lastName} (${staff.email})`);
         } else {
-          console.log(`⚠️ Staff already exists: ${staff.firstName} ${staff.lastName}`);
+          logger.info(`⚠️ Staff already exists: ${staff.firstName} ${staff.lastName}`);
         }
       } catch (error) {
-        console.error(`❌ Error migrating staff ${staff.firstName} ${staff.lastName}:`, error);
+        logger.error(`❌ Error migrating staff ${staff.firstName} ${staff.lastName}:`, error);
       }
     }
 
@@ -177,7 +178,7 @@ async function migrateAndyData() {
     let migratedVisitorCount = 0;
     for (const visitor of allVisitors) {
       try {
-        console.log(`➡️ Migrating visitor: ${visitor.firstName} ${visitor.lastName}`);
+        logger.info(`➡️ Migrating visitor: ${visitor.firstName} ${visitor.lastName}`);
         
         // Find host staff ID in isolated database
         let hostStaffId = null;
@@ -215,12 +216,12 @@ async function migrateAndyData() {
         
         if (result.length > 0) {
           migratedVisitorCount++;
-          console.log(`✅ Visitor migrated: ${visitor.firstName} ${visitor.lastName} (${visitor.company})`);
+          logger.info(`✅ Visitor migrated: ${visitor.firstName} ${visitor.lastName} (${visitor.company})`);
         } else {
-          console.log(`⚠️ Visitor already exists: ${visitor.firstName} ${visitor.lastName}`);
+          logger.info(`⚠️ Visitor already exists: ${visitor.firstName} ${visitor.lastName}`);
         }
       } catch (error) {
-        console.error(`❌ Error migrating visitor ${visitor.firstName} ${visitor.lastName}:`, error);
+        logger.error(`❌ Error migrating visitor ${visitor.firstName} ${visitor.lastName}:`, error);
       }
     }
 
@@ -228,7 +229,7 @@ async function migrateAndyData() {
     let migratedPreBookingCount = 0;
     for (const preBooking of allPreBookings) {
       try {
-        console.log(`➡️ Migrating pre-booking: ${(preBooking as any).visitorFirstName || preBooking.visitorName}`);
+        logger.info(`➡️ Migrating pre-booking: ${(preBooking as any).visitorFirstName || preBooking.visitorName}`);
         
         // Find host staff ID in isolated database
         let hostStaffId = null;
@@ -264,28 +265,28 @@ async function migrateAndyData() {
         
         if (result.length > 0) {
           migratedPreBookingCount++;
-          console.log(`✅ Pre-booking migrated: ${preBookingInsertData.visitorName} (${preBookingInsertData.company})`);
+          logger.info(`✅ Pre-booking migrated: ${preBookingInsertData.visitorName} (${preBookingInsertData.company})`);
         } else {
-          console.log(`⚠️ Pre-booking already exists: ${preBookingInsertData.visitorName}`);
+          logger.info(`⚠️ Pre-booking already exists: ${preBookingInsertData.visitorName}`);
         }
       } catch (error) {
-        console.error(`❌ Error migrating pre-booking:`, error);
+        logger.error(`❌ Error migrating pre-booking:`, error);
       }
     }
 
     // Migration summary
-    console.log("\n🎯 MIGRATION SUMMARY:");
-    console.log(`✅ Company settings: ${companySettings ? 'Migrated' : 'Not found'}`);
-    console.log(`✅ Users: ${andyUser ? 'Migrated' : 'Not found'}`);
-    console.log(`✅ Staff members: ${migratedStaffCount}/${allStaff.length} migrated`);
-    console.log(`✅ Visitors: ${migratedVisitorCount}/${allVisitors.length} migrated`);
-    console.log(`✅ Pre-bookings: ${migratedPreBookingCount}/${allPreBookings.length} migrated`);
+    logger.info("\n🎯 MIGRATION SUMMARY:");
+    logger.info(`✅ Company settings: ${companySettings ? 'Migrated' : 'Not found'}`);
+    logger.info(`✅ Users: ${andyUser ? 'Migrated' : 'Not found'}`);
+    logger.info(`✅ Staff members: ${migratedStaffCount}/${allStaff.length} migrated`);
+    logger.info(`✅ Visitors: ${migratedVisitorCount}/${allVisitors.length} migrated`);
+    logger.info(`✅ Pre-bookings: ${migratedPreBookingCount}/${allPreBookings.length} migrated`);
     
-    console.log("\n🏁 Migration completed successfully!");
-    console.log("📱 Andy should now see all his data in the dashboard!");
+    logger.info("\n🏁 Migration completed successfully!");
+    logger.info("📱 Andy should now see all his data in the dashboard!");
     
   } catch (error) {
-    console.error("❌ Migration failed:", error);
+    logger.error("❌ Migration failed:", error);
     throw error;
   }
 }

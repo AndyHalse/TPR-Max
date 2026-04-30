@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import type { RoomBooking, MeetingRoom, Staff, Visitor, CompanySettings } from '@shared/schema';
 import { CustomerDatabaseService } from './customerDatabase.js';
 import { emailLog } from './isolatedSchema.js';
+import { logger } from './utils/logger';
 
 interface EmailOptions {
   to: string;
@@ -101,10 +102,10 @@ class EmailService {
       };
 
       await this.transporter.sendMail(mailOptions);
-      console.log(`Email sent successfully to ${options.to}`);
+      logger.info(`Email sent successfully to ${options.to}`);
       success = true;
     } catch (error) {
-      console.error('Failed to send email:', error);
+      logger.error('Failed to send email:', error);
       success = false;
     }
 
@@ -129,7 +130,7 @@ class EmailService {
             status,
           });
         } catch (logErr) {
-          console.error('[EmailLog] Failed to log email to outbox:', logErr);
+          logger.error('[EmailLog] Failed to log email to outbox:', logErr);
         }
       });
     }
@@ -160,7 +161,7 @@ class EmailService {
       
       return allSent;
     } catch (error) {
-      console.error('Failed to send report email:', error);
+      logger.error('Failed to send report email:', error);
       return false;
     }
   }
@@ -176,7 +177,7 @@ class EmailService {
 
       return await this.sendEmail(testEmailOptions);
     } catch (error) {
-      console.error('Failed to send test email:', error);
+      logger.error('Failed to send test email:', error);
       return false;
     }
   }
@@ -230,8 +231,8 @@ class EmailService {
         : (process.env.PUBLIC_URL || process.env.BASE_URL || 'http://localhost:5000');
       const acceptanceUrl = `${baseUrl}/hs-document/${acceptanceToken}`;
       
-      console.log(`📧 H&S Email: Using logo URL: ${logoUrl || 'No logo configured'}, Primary color: ${primaryColor}`);
-      console.log(`📧 H&S Email: Generated fresh acceptance URL: ${acceptanceUrl}`);
+      logger.info(`📧 H&S Email: Using logo URL: ${logoUrl || 'No logo configured'}, Primary color: ${primaryColor}`);
+      logger.info(`📧 H&S Email: Generated fresh acceptance URL: ${acceptanceUrl}`);
 
       const subject = `🛡️ UK H&S Compliance Required: ${documentName}`;
 
@@ -469,7 +470,7 @@ For system support, visit: https://visigate.pro/support`;
       });
 
     } catch (error) {
-      console.error('Failed to send H&S document assignment email:', error);
+      logger.error('Failed to send H&S document assignment email:', error);
       return false;
     }
   }
@@ -1670,11 +1671,11 @@ This is an automated emergency notification from ${companySettings.companyName}`
         : `/objects${settings.logoUrl}`;
       const logoUrl = `http://localhost:5000${logoPath}`;
       
-      console.log('Fetching logo from:', logoUrl);
+      logger.info('Fetching logo from:', logoUrl);
       
       const response = await fetch(logoUrl);
       if (!response.ok) {
-        console.log('Failed to fetch logo:', response.status);
+        logger.info('Failed to fetch logo:', response.status);
         return null;
       }
 
@@ -1686,7 +1687,7 @@ This is an automated emergency notification from ${companySettings.companyName}`
       // Return as data URL for embedding in email
       return `data:${contentType};base64,${base64}`;
     } catch (error) {
-      console.error('Error converting logo to base64:', error);
+      logger.error('Error converting logo to base64:', error);
       return null;
     }
   }
@@ -1700,7 +1701,7 @@ This is an automated emergency notification from ${companySettings.companyName}`
   ): Promise<boolean> {
     try {
       if (settings && settings.ePassEnabled === false) {
-        console.log('E-pass send skipped: ePassEnabled is false for this customer');
+        logger.info('E-pass send skipped: ePassEnabled is false for this customer');
         return false;
       }
       const companyName = settings?.companyName || 'TPR Max';
@@ -1990,7 +1991,7 @@ Powered by VisiGate Pro`;
         companyName
       });
     } catch (error) {
-      console.error('Failed to send e-Pass:', error);
+      logger.error('Failed to send e-Pass:', error);
       return false;
     }
   }
@@ -2161,7 +2162,7 @@ Powered by VisiGate Pro`;
       });
 
     } catch (error) {
-      console.error('Failed to send arrival notification email:', error);
+      logger.error('Failed to send arrival notification email:', error);
       return false;
     }
   }
@@ -2220,7 +2221,7 @@ Powered by VisiGate Pro`;
   ): Promise<boolean> {
     try {
       if (companySettings && companySettings.ePassEnabled === false) {
-        console.log('Contractor e-pass send skipped: ePassEnabled is false for this customer');
+        logger.info('Contractor e-pass send skipped: ePassEnabled is false for this customer');
         return false;
       }
       const companyName = companySettings?.companyName || 'VisiGate Pro';
@@ -2245,7 +2246,7 @@ Powered by VisiGate Pro`;
         ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
         : (process.env.PUBLIC_URL || 'http://localhost:5000');
       const hsAcceptanceUrl = workerId ? `${baseUrl}/hs-contractor/${workerId}/accept-rules${customerId ? `?customerId=${encodeURIComponent(customerId)}` : ''}` : passUrl;
-      console.log(`🔗 Generated contractor H&S acceptance URL for worker: ${workerId || 'unknown'}`);
+      logger.info(`🔗 Generated contractor H&S acceptance URL for worker: ${workerId || 'unknown'}`);
       
       const html = `
         <!DOCTYPE html>
@@ -2532,7 +2533,7 @@ This email was sent automatically by VisiGate Pro`;
         companyName
       });
     } catch (error) {
-      console.error('Failed to send contractor e-pass:', error);
+      logger.error('Failed to send contractor e-pass:', error);
       return false;
     }
   }
@@ -2576,7 +2577,7 @@ This email was sent automatically by VisiGate Pro`;
         : `${baseUrl}/invite/accept?token=${token}`;
       
       // Log the invitation URL for verification
-      console.log(`📧 Invitation URL generated: ${invitationUrl}`);
+      logger.info(`📧 Invitation URL generated: ${invitationUrl}`);
       
       const subject = `You're invited to join ${companyName} on VisiGate Pro`;
       
@@ -2674,7 +2675,7 @@ If you didn't expect this invitation, please ignore this email.
         companyName
       });
     } catch (error) {
-      console.error('Failed to send user invitation email:', error);
+      logger.error('Failed to send user invitation email:', error);
       return false;
     }
   }
@@ -2783,7 +2784,7 @@ If you didn't expect this invitation, please ignore this email.
       };
 
       const absoluteLogoUrl = absolutizeUrl(logoUrl);
-      console.log(`📧 Card issue email - Logo URL: ${logoUrl}, Absolute: ${absoluteLogoUrl}`);
+      logger.info(`📧 Card issue email - Logo URL: ${logoUrl}, Absolute: ${absoluteLogoUrl}`);
       const logoHtml = absoluteLogoUrl 
         ? `<img src="${absoluteLogoUrl}" alt="${companyName}" style="max-height: 50px; max-width: 200px; object-fit: contain;" />`
         : `<span style="font-size: 24px; font-weight: 700; color: ${primaryColor};">${companyName}</span>`;
@@ -2984,7 +2985,7 @@ TPR Max Visitor Management System
           text,
           companyName
         });
-        console.log(`📧 Card issue email to worker ${workerName} (${workerEmail}): ${workerEmailSent ? 'SENT' : 'FAILED'}`);
+        logger.info(`📧 Card issue email to worker ${workerName} (${workerEmail}): ${workerEmailSent ? 'SENT' : 'FAILED'}`);
       }
 
       // Send CC to contractor company
@@ -3004,12 +3005,12 @@ TPR Max Visitor Management System
           text: `NOTIFICATION: ${cardTitle} issued to ${workerName}\n\n${text}`,
           companyName
         });
-        console.log(`📧 Card issue email to contractor company (${contractorCompanyEmail}): ${contractorEmailSent ? 'SENT' : 'FAILED'}`);
+        logger.info(`📧 Card issue email to contractor company (${contractorCompanyEmail}): ${contractorEmailSent ? 'SENT' : 'FAILED'}`);
       }
 
       return { workerEmailSent, contractorEmailSent };
     } catch (error) {
-      console.error('Failed to send card issue notification:', error);
+      logger.error('Failed to send card issue notification:', error);
       return { workerEmailSent: false, contractorEmailSent: false };
     }
   }
@@ -3215,7 +3216,7 @@ TPR Max Visitor Management System
 
       return await this.sendEmail({ to: email, subject, html, text });
     } catch (error) {
-      console.error('Failed to send contractor pre-booking pass email:', error);
+      logger.error('Failed to send contractor pre-booking pass email:', error);
       return false;
     }
   }
@@ -3377,7 +3378,7 @@ TPR Max Visitor Management System
 
       return await this.sendEmail({ to: email, subject, html, text });
     } catch (error) {
-      console.error('Error sending staff QR pass:', error);
+      logger.error('Error sending staff QR pass:', error);
       return false;
     }
   }
@@ -3478,7 +3479,7 @@ TPR Max Visitor Management System
 
       return await this.sendEmail({ to: email, subject, html, text });
     } catch (error) {
-      console.error('Error sending contractor worker QR pass:', error);
+      logger.error('Error sending contractor worker QR pass:', error);
       return false;
     }
   }
@@ -3611,7 +3612,7 @@ export async function sendInductionEmail(options: { to: string; subject: string;
 
     return true;
   } catch (error) {
-    console.error('Failed to send email:', error);
+    logger.error('Failed to send email:', error);
     return false;
   }
 }

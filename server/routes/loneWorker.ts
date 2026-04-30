@@ -77,7 +77,7 @@ async function processLoneWorkerSession(session: any, customerDb: any, now: Date
       if (l1Email) {
         await emailSvc.sendLoneWorkerEscalation({ to: l1Email, contactName: settings.loneWorkerL1Name || 'Supervisor', level: 1, ...escalationOpts });
       } else {
-        console.warn(`⚠️ Lone Worker L1 escalation triggered for ${session.personName} (${session.customerId}) but no L1 contact email is configured — alert not sent`);
+        logger.warn(`⚠️ Lone Worker L1 escalation triggered for ${session.personName} (${session.customerId}) but no L1 contact email is configured — alert not sent`);
       }
       const updateData = { loneWorkerEscalationLevel: 1 };
       if (session.personType === 'staff') {
@@ -92,7 +92,7 @@ async function processLoneWorkerSession(session: any, customerDb: any, now: Date
       if (l2Email) {
         await emailSvc.sendLoneWorkerEscalation({ to: l2Email, contactName: settings.loneWorkerL2Name || 'Manager', level: 2, ...escalationOpts });
       } else {
-        console.warn(`⚠️ Lone Worker L2 escalation triggered for ${session.personName} (${session.customerId}) but no L2 contact email is configured — alert not sent`);
+        logger.warn(`⚠️ Lone Worker L2 escalation triggered for ${session.personName} (${session.customerId}) but no L2 contact email is configured — alert not sent`);
       }
       const updateData = { loneWorkerEscalationLevel: 2 };
       if (session.personType === 'staff') {
@@ -133,13 +133,13 @@ async function processLoneWorkerSession(session: any, customerDb: any, now: Date
         });
         logger.info(`📋 Incident record created for lone worker L3 emergency: ${session.personName}`);
       } catch (irErr: any) {
-        console.warn('Could not create incident record for lone worker L3:', irErr.message?.substring(0, 100));
+        logger.warn('Could not create incident record for lone worker L3:', irErr.message?.substring(0, 100));
       }
 
       logger.info(`🚨 Lone Worker L3 EMERGENCY alert fired for ${session.personName} (${session.customerId})`);
     }
   } catch (sessionErr: any) {
-    console.warn(`Lone worker cron error for session ${session.id}:`, sessionErr.message?.substring(0, 100));
+    logger.warn(`Lone worker cron error for session ${session.id}:`, sessionErr.message?.substring(0, 100));
   }
 }
 
@@ -471,10 +471,10 @@ export function registerLoneWorkerRoutes(app: Express, _server: Server): void {
                 )`));
                 logger.info(`✅ Lone Worker: Self-healed missing tables for customer ${customer.id}`);
               } catch (healErr: any) {
-                console.warn(`Lone worker self-heal failed for ${customer.id}:`, healErr.message?.substring(0, 80));
+                logger.warn(`Lone worker self-heal failed for ${customer.id}:`, healErr.message?.substring(0, 80));
               }
             } else {
-              console.warn(`Lone worker cron error for customer ${customer.id}:`, custErr.message?.substring(0, 100));
+              logger.warn(`Lone worker cron error for customer ${customer.id}:`, custErr.message?.substring(0, 100));
             }
           }
         }

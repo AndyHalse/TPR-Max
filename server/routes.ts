@@ -18,15 +18,15 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   // Apply shared-DB schema migrations (evacuations table is in the shared DB, not isolated)
   try {
     await db.execute(sql`ALTER TABLE evacuations ADD COLUMN IF NOT EXISTS is_drill BOOLEAN NOT NULL DEFAULT FALSE`);
-    console.log(`✅ [shared-migration] evacuations.is_drill column ensured`);
+    logger.info(`✅ [shared-migration] evacuations.is_drill column ensured`);
   } catch (e: any) {
-    console.log(`⚠️ [shared-migration] evacuations.is_drill: ${String(e?.message || e).substring(0, 120)}`);
+    logger.info(`⚠️ [shared-migration] evacuations.is_drill: ${String(e?.message || e).substring(0, 120)}`);
   }
   try {
     await db.execute(sql`ALTER TABLE evacuations ADD COLUMN IF NOT EXISTS report_pdf_url TEXT`);
-    console.log(`✅ [shared-migration] evacuations.report_pdf_url column ensured`);
+    logger.info(`✅ [shared-migration] evacuations.report_pdf_url column ensured`);
   } catch (e: any) {
-    console.log(`⚠️ [shared-migration] evacuations.report_pdf_url: ${String(e?.message || e).substring(0, 120)}`);
+    logger.info(`⚠️ [shared-migration] evacuations.report_pdf_url: ${String(e?.message || e).substring(0, 120)}`);
   }
 
   app.use('/api', (req, res, next) => {

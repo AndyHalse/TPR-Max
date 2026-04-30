@@ -1,4 +1,5 @@
 import type { Migration } from './migrationRunner';
+import { logger } from './utils/logger';
 
 /**
  * CONTRACTOR TABLES MIGRATION SUITE
@@ -206,7 +207,7 @@ export const createCoreContractorTablesMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created core contractor tables: contractor_companies, contractor_workers, contractor_documents');
+    logger.info('✅ Created core contractor tables: contractor_companies, contractor_workers, contractor_documents');
   }
 };
 
@@ -275,7 +276,7 @@ export const createDocumentManagementMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created document management tables: compliance_documents, document_approvals, document_types');
+    logger.info('✅ Created document management tables: compliance_documents, document_approvals, document_types');
   }
 };
 
@@ -356,7 +357,7 @@ export const createWorkerCompetenciesMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created worker competencies tables: worker_competencies, nvq_qualifications, worker_certifications');
+    logger.info('✅ Created worker competencies tables: worker_competencies, nvq_qualifications, worker_certifications');
   }
 };
 
@@ -425,7 +426,7 @@ export const createSafetySystemMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created safety system tables: card_offences, card_issues, rams_documents');
+    logger.info('✅ Created safety system tables: card_offences, card_issues, rams_documents');
   }
 };
 
@@ -553,7 +554,7 @@ export const createCO2TrackingMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created CO2 tracking tables: co2_records, co2_emissions_data, co2_monthly_summaries, co2_sustainability_reports');
+    logger.info('✅ Created CO2 tracking tables: co2_records, co2_emissions_data, co2_monthly_summaries, co2_sustainability_reports');
   }
 };
 
@@ -647,7 +648,7 @@ export const createInductionSystemMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created induction system tables: induction_tokens, induction_questions, induction_settings, induction_answers');
+    logger.info('✅ Created induction system tables: induction_tokens, induction_questions, induction_settings, induction_answers');
   }
 };
 
@@ -722,7 +723,7 @@ export const createContractorOperationsMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created contractor operations tables: contractor_visits, local_labour_records, enhanced_company_details');
+    logger.info('✅ Created contractor operations tables: contractor_visits, local_labour_records, enhanced_company_details');
   }
 };
 
@@ -823,7 +824,7 @@ export const createUKHSDocumentSystemMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created UK H&S document system tables: uk_hs_document_templates, worker_document_assignments, worker_document_acceptances, document_auto_fill_mapping');
+    logger.info('✅ Created UK H&S document system tables: uk_hs_document_templates, worker_document_assignments, worker_document_acceptances, document_auto_fill_mapping');
   }
 };
 
@@ -853,7 +854,7 @@ export const createAIImagesMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created AI images table: ai_generated_images');
+    logger.info('✅ Created AI images table: ai_generated_images');
   }
 };
 
@@ -869,7 +870,7 @@ export const addInductionVideoStorageMigration: Migration = {
       ADD COLUMN IF NOT EXISTS generated_at TIMESTAMP,
       ADD COLUMN IF NOT EXISTS questions_generated BOOLEAN DEFAULT false
     `);
-    console.log('✅ Added video storage columns to induction_settings');
+    logger.info('✅ Added video storage columns to induction_settings');
   }
 };
 
@@ -883,7 +884,7 @@ export const addInductionKioskEnabledMigration: Migration = {
       ADD COLUMN IF NOT EXISTS kiosk_enabled BOOLEAN NOT NULL DEFAULT false,
       ADD COLUMN IF NOT EXISTS send_link_enabled BOOLEAN NOT NULL DEFAULT true
     `);
-    console.log('✅ Added kiosk_enabled and send_link_enabled to induction_settings');
+    logger.info('✅ Added kiosk_enabled and send_link_enabled to induction_settings');
   }
 };
 
@@ -905,7 +906,7 @@ export const fixInductionTokensUniversalMigration: Migration = {
         ADD COLUMN IF NOT EXISTS visitor_id VARCHAR,
         ADD COLUMN IF NOT EXISTS staff_id VARCHAR
     `);
-    console.log('✅ Fixed induction_tokens: worker_id now nullable, added universal person columns');
+    logger.info('✅ Fixed induction_tokens: worker_id now nullable, added universal person columns');
   }
 };
 

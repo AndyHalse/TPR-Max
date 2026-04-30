@@ -309,7 +309,7 @@ export default function ContractorDetails() {
       photos: [],
       contractorId: id
     };
-    console.log("🔴 Issuing card with data:", cardData);
+    console.info("🔴 Issuing card with data:", cardData);
     issueCardMutation.mutate(cardData);
   };
 
@@ -320,7 +320,7 @@ export default function ContractorDetails() {
       status: "valid",
       contractorId: id
     };
-    console.log("🎓 Adding certification with data:", certData);
+    console.info("🎓 Adding certification with data:", certData);
     addCertificationMutation.mutate(certData);
   };
 
@@ -330,7 +330,7 @@ export default function ContractorDetails() {
       companyId: id,
       rightToWorkExpiryDate: data.rightToWorkExpiryDate ? new Date(data.rightToWorkExpiryDate).toISOString() : undefined,
     };
-    console.log("👷 Adding worker with data:", workerData);
+    console.info("👷 Adding worker with data:", workerData);
     addWorkerMutation.mutate(workerData);
   };
 

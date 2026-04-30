@@ -9,6 +9,7 @@ import {
   InsertCO2SustainabilityReport,
   ContractorWorker 
 } from '../shared/schema';
+import { logger } from './utils/logger';
 
 interface CO2CalculationRequest {
   workerId: string;
@@ -97,7 +98,7 @@ export class CO2CalculationService {
 
       return savedData;
     } catch (error) {
-      console.error('Error calculating worker CO2 emissions:', error);
+      logger.error('Error calculating worker CO2 emissions:', error);
       throw new Error(`Failed to calculate CO2 emissions: ${error}`);
     }
   }
@@ -232,7 +233,7 @@ export class CO2CalculationService {
       throw new Error('Company ID is required for report generation');
     }
     
-    console.log(`🔍 Generating CO2 report for customer: ${customerId}, company: ${companyId}`);
+    logger.info(`🔍 Generating CO2 report for customer: ${customerId}, company: ${companyId}`);
     
     // Get company data with customer isolation
     const context = { customerId }; // Create context for customer isolation
@@ -291,7 +292,7 @@ export class CO2CalculationService {
       isPublished: false,
     };
 
-    console.log(`🔍 Report data before storage - customerId: ${reportData.customerId}, companyId: ${reportData.companyId}`);
+    logger.info(`🔍 Report data before storage - customerId: ${reportData.customerId}, companyId: ${reportData.companyId}`);
 
     return await this.databaseService.storeSustainabilityReport(reportData);
   }

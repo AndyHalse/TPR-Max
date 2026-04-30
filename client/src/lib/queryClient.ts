@@ -37,8 +37,6 @@ export async function apiRequest(
   data?: unknown | undefined,
 ): Promise<Response> {
   try {
-    console.log(`🚀 Making ${method} request to:`, url);
-    
     const isMutating = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
     const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
     
@@ -61,7 +59,6 @@ export async function apiRequest(
     if (res.status === 403 && isMutating) {
       const body = await res.clone().json().catch(() => ({}));
       if (body?.code === 'CSRF_INVALID') {
-        console.warn('⚠️ CSRF token expired — refreshing and retrying...');
         const freshToken = await fetchFreshCsrfToken();
         if (freshToken) {
           headers['x-csrf-token'] = freshToken;
@@ -75,8 +72,6 @@ export async function apiRequest(
       }
     }
 
-    console.log(`📥 Response status: ${res.status} for ${url}`);
-
     // If the server says we're not authenticated, force a re-check of the auth
     // state. This causes App.tsx to re-run /api/auth/me and show the login page
     // instead of leaving the user stranded on a page where every save fails.
@@ -87,7 +82,7 @@ export async function apiRequest(
     await throwIfResNotOk(res);
     return res;
   } catch (error) {
-    console.error(`❌ API request failed for ${method} ${url}:`, error);
+    console.error('API request failed:', error);
     throw error;
   }
 }
@@ -102,14 +97,12 @@ export const getQueryFn: <T>(options: {
       // Extract just the first element (the actual API endpoint URL) from queryKey
       // All subsequent elements are for cache partitioning only
       const url = queryKey[0] as string;
-      console.log(`🔍 Query request to:`, url);
       const res = await fetch(url, {
         credentials: "include",
       });
 
       if (res.status === 401) {
         if (unauthorizedBehavior === "returnNull") {
-          console.log(`🔐 Unauthorized request to ${url}, returning null`);
           return null;
         }
         // For queries that throw on 401, still invalidate auth so the app
@@ -117,11 +110,10 @@ export const getQueryFn: <T>(options: {
         queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
       }
 
-      console.log(`📥 Query response status: ${res.status} for ${url}`);
       await throwIfResNotOk(res);
       return await res.json();
     } catch (error) {
-      console.error(`❌ Query failed for ${queryKey[0]}:`, error);
+      console.error('Query failed:', error);
       throw error;
     }
   };

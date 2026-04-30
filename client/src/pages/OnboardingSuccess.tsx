@@ -22,7 +22,7 @@ export default function OnboardingSuccess({}: OnboardingSuccessProps) {
           throw new Error('Missing payment session ID');
         }
 
-        console.log('🔄 Processing onboarding success...');
+        console.info('🔄 Processing onboarding success...');
         
         // SECURITY FIX: Call POST endpoint instead of GET to prevent CSRF
         const response = await fetch('/api/onboarding/success', {
@@ -36,7 +36,7 @@ export default function OnboardingSuccess({}: OnboardingSuccessProps) {
 
         if (response.redirected) {
           // Server redirected (likely to /welcome) - follow the redirect
-          console.log('✅ Server redirected to:', response.url);
+          console.info('✅ Server redirected to:', response.url);
           window.location.href = response.url;
           return;
         }
@@ -47,7 +47,7 @@ export default function OnboardingSuccess({}: OnboardingSuccessProps) {
         }
 
         const result = await response.json();
-        console.log('✅ Onboarding completed successfully');
+        console.info('✅ Onboarding completed successfully');
         
         setStatus('success');
         

@@ -1,6 +1,7 @@
 import { storage } from './storage';
 import crypto from 'crypto';
 import { EmailService } from './emailService';
+import { logger } from './utils/logger';
 
 interface EmergencyEmailData {
   marshalName: string;
@@ -32,8 +33,8 @@ export class EmergencyEmailService {
    * See: Fire Marshal static URL system in staff table (fire_marshal_url_id column)
    */
   static async generateEmergencyToken(staffId: string, customerId: string): Promise<string> {
-    console.error('⚠️ DEPRECATED: generateEmergencyToken called - this should not happen!');
-    console.error('⚠️ Use fire_marshal_url_id instead for permanent emergency access');
+    logger.error('⚠️ DEPRECATED: generateEmergencyToken called - this should not happen!');
+    logger.error('⚠️ Use fire_marshal_url_id instead for permanent emergency access');
     throw new Error('generateEmergencyToken is deprecated - use fire_marshal_url_id for permanent access');
   }
 
@@ -45,26 +46,26 @@ export class EmergencyEmailService {
     const marshalUrl = `${baseUrl}/fire-marshal/${emailData.emergencyToken}`;  // emergencyToken now contains URL ID
     
     // Always show console URL for testing/debugging
-    console.log('\n🚨 EMERGENCY ACTIVATED 🚨');
-    console.log('=============================================');
-    console.log(`Fire Marshal: ${emailData.marshalName}`);
-    console.log(`Email: ${emailData.marshalEmail}`);
-    console.log(`Department: ${emailData.marshalDepartment}`);
-    console.log(`Activated by: ${emailData.activatedBy}`);
-    console.log(`Personnel on-site: ${emailData.totalPersonnel}`);
-    console.log('\n🔗 FIRE MARSHAL PERMANENT ACCESS URL:');
-    console.log(marshalUrl);
-    console.log('\n📱 This URL never expires - can be saved as a favorite!');
-    console.log('=============================================\n');
+    logger.info('\n🚨 EMERGENCY ACTIVATED 🚨');
+    logger.info('=============================================');
+    logger.info(`Fire Marshal: ${emailData.marshalName}`);
+    logger.info(`Email: ${emailData.marshalEmail}`);
+    logger.info(`Department: ${emailData.marshalDepartment}`);
+    logger.info(`Activated by: ${emailData.activatedBy}`);
+    logger.info(`Personnel on-site: ${emailData.totalPersonnel}`);
+    logger.info('\n🔗 FIRE MARSHAL PERMANENT ACCESS URL:');
+    logger.info(marshalUrl);
+    logger.info('\n📱 This URL never expires - can be saved as a favorite!');
+    logger.info('=============================================\n');
 
     // If SMTP credentials are not configured, return success (console-only mode)
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      console.log('ℹ️  SMTP not configured - Console URL only (perfect for development testing)');
+      logger.info('ℹ️  SMTP not configured - Console URL only (perfect for development testing)');
       return true;
     }
 
     // SMTP is configured - attempt to send actual email
-    console.log('📧 SMTP configured - Sending emergency email...');
+    logger.info('📧 SMTP configured - Sending emergency email...');
 
     const emailHtml = `
     <!DOCTYPE html>
@@ -320,16 +321,16 @@ VisiGate Pro Emergency System - Automated Notification
       });
       
       if (success) {
-        console.log(`✅ Emergency email sent successfully to Fire Marshal: ${emailData.marshalEmail}`);
+        logger.info(`✅ Emergency email sent successfully to Fire Marshal: ${emailData.marshalEmail}`);
         return true;
       } else {
-        console.error('Failed to send Fire Marshal email via EmailService');
-        console.log('ℹ️  Emergency URL still available in console above for testing');
+        logger.error('Failed to send Fire Marshal email via EmailService');
+        logger.info('ℹ️  Emergency URL still available in console above for testing');
         return true; // Return success since console URL was provided
       }
     } catch (error) {
-      console.error('Error sending emergency email:', error instanceof Error ? error.message : String(error));
-      console.log('ℹ️  Emergency URL still available in console above for testing');
+      logger.error('Error sending emergency email:', error instanceof Error ? error.message : String(error));
+      logger.info('ℹ️  Emergency URL still available in console above for testing');
       return true; // Return success since console URL was provided
     }
   }
@@ -352,7 +353,7 @@ VisiGate Pro Emergency System - Automated Notification
         try {
           // NEW: Use static Fire Marshal URL ID instead of temporary tokens
           if (!marshal.fireMarshalUrlId) {
-            console.warn(`⚠️ Fire Marshal ${marshal.firstName} ${marshal.lastName} has no URL ID, skipping`);
+            logger.warn(`⚠️ Fire Marshal ${marshal.firstName} ${marshal.lastName} has no URL ID, skipping`);
             errors.push(`Fire Marshal ${marshal.firstName} ${marshal.lastName} has no emergency URL configured`);
             continue;
           }
@@ -385,7 +386,7 @@ VisiGate Pro Emergency System - Automated Notification
 
       return { sent, total: fireMarshals.length, errors };
     } catch (error) {
-      console.error('Error notifying Fire Marshals:', error);
+      logger.error('Error notifying Fire Marshals:', error);
       return { sent: 0, total: 0, errors: [error instanceof Error ? error.message : String(error)] };
     }
   }

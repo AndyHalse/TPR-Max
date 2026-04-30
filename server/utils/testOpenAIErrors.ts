@@ -4,6 +4,7 @@
  */
 
 import { OpenAIErrorHandler } from './openaiErrorHandler';
+import { logger } from '../utils/logger';
 
 // Mock error objects that simulate different OpenAI API errors
 const mockErrors = {
@@ -75,14 +76,14 @@ const mockErrors = {
  * Test the error handler with various error scenarios
  */
 export function testOpenAIErrorHandling() {
-  console.log('🧪 Testing OpenAI Error Handling...\n');
+  logger.info('🧪 Testing OpenAI Error Handling...\n');
 
   Object.entries(mockErrors).forEach(([errorType, mockError]) => {
-    console.log(`\n📝 Testing ${errorType}:`);
-    console.log('Mock error:', JSON.stringify(mockError, null, 2));
+    logger.info(`\n📝 Testing ${errorType}:`);
+    logger.info('Mock error:', JSON.stringify(mockError, null, 2));
     
     const result = OpenAIErrorHandler.handleError(mockError);
-    console.log('Handler result:', {
+    logger.info('Handler result:', {
       userMessage: result.userMessage,
       technicalMessage: result.technicalMessage,
       isRecoverable: result.isRecoverable,
@@ -93,19 +94,19 @@ export function testOpenAIErrorHandling() {
     // Test specific helper methods
     if (errorType === 'modelNotFound') {
       const shouldTryDifferent = OpenAIErrorHandler.shouldTryDifferentModel(mockError);
-      console.log('Should try different model:', shouldTryDifferent);
+      logger.info('Should try different model:', shouldTryDifferent);
     }
     
-    console.log('---');
+    logger.info('---');
   });
 
   // Test quota exceeded message helper
-  console.log('\n📋 Testing helper methods:');
-  console.log('Quota exceeded message:', OpenAIErrorHandler.getQuotaExceededMessage('AI Content Generator'));
-  console.log('Rate limit message (5s):', OpenAIErrorHandler.getRateLimitMessage(5000));
-  console.log('Rate limit message (no delay):', OpenAIErrorHandler.getRateLimitMessage());
+  logger.info('\n📋 Testing helper methods:');
+  logger.info('Quota exceeded message:', OpenAIErrorHandler.getQuotaExceededMessage('AI Content Generator'));
+  logger.info('Rate limit message (5s):', OpenAIErrorHandler.getRateLimitMessage(5000));
+  logger.info('Rate limit message (no delay):', OpenAIErrorHandler.getRateLimitMessage());
 
-  console.log('\n✅ Error handling tests completed!');
+  logger.info('\n✅ Error handling tests completed!');
 }
 
 // Test the error scenarios if running this file directly

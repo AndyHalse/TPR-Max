@@ -55,9 +55,9 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
         const data = await response.json();
         if (data.success && data.design?.elements?.length > 0) {
           setElements(data.design.elements);
-          console.log(`🎨 Loaded saved design with ${data.design.elements.length} elements`);
+          console.info(`🎨 Loaded saved design with ${data.design.elements.length} elements`);
         } else {
-          console.log('🎨 No saved design found, using defaults');
+          console.info('🎨 No saved design found, using defaults');
           setElements(defaultElements);
         }
       }
@@ -80,7 +80,7 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
   // Auto-save mutation for ID card design
   const autoSaveMutation = useMutation({
     mutationFn: async (designElements: CardElement[]) => {
-      console.log('💾 Auto-saving ID card design with', designElements.length, 'elements...');
+      console.info('💾 Auto-saving ID card design with', designElements.length, 'elements...');
       const response = await apiRequest("PUT", "/api/idcard/design", {
         elements: designElements,
         background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
@@ -89,7 +89,7 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
       return response;
     },
     onSuccess: () => {
-      console.log('✅ ID card design auto-saved successfully');
+      console.info('✅ ID card design auto-saved successfully');
       toast({
         title: "Auto-saved",
         description: "ID card design saved automatically",
@@ -111,7 +111,7 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
   React.useEffect(() => {
     if (isOpen && !isLoading && isInitialLoad) {
       const timer = setTimeout(() => {
-        console.log('✅ Initial load complete, enabling auto-save');
+        console.info('✅ Initial load complete, enabling auto-save');
         setIsInitialLoad(false);
       }, 1000); // Wait 1 second after loading is complete
       return () => clearTimeout(timer);
@@ -120,17 +120,17 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
 
   // Auto-save design when elements change (but skip initial load)
   React.useEffect(() => {
-    console.log('🔍 Auto-save effect triggered - isInitialLoad:', isInitialLoad, 'isOpen:', isOpen, 'elements.length:', elements.length);
+    console.info('🔍 Auto-save effect triggered - isInitialLoad:', isInitialLoad, 'isOpen:', isOpen, 'elements.length:', elements.length);
     
     if (!isInitialLoad && isOpen && elements.length > 0) {
-      console.log('💾 Preparing auto-save for ID card design changes...');
+      console.info('💾 Preparing auto-save for ID card design changes...');
       const autoSaveTimer = setTimeout(() => {
         autoSaveMutation.mutate(elements);
       }, 1000); // Auto-save after 1 second of no changes
 
       return () => clearTimeout(autoSaveTimer);
     } else {
-      console.log('🚷 Skipping auto-save - isInitialLoad:', isInitialLoad, 'isOpen:', isOpen, 'elements.length:', elements.length);
+      console.info('🚷 Skipping auto-save - isInitialLoad:', isInitialLoad, 'isOpen:', isOpen, 'elements.length:', elements.length);
     }
   }, [elements, isInitialLoad, isOpen, autoSaveMutation]);
 

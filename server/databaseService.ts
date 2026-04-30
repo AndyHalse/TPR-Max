@@ -20,6 +20,7 @@ import * as isolatedSchema from "./isolatedSchema";
 import * as sharedSchema from "@shared/schema"; // Keep for management operations
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
+import { logger } from './utils/logger';
 
 /**
  * CUSTOMER-ISOLATED DATABASE SERVICE
@@ -135,7 +136,7 @@ export class DatabaseService {
     let fireMarshalUrlId = insertStaff.fireMarshalUrlId;
     if (insertStaff.isFireMarshal && !fireMarshalUrlId) {
       fireMarshalUrlId = randomUUID().replace(/-/g, '').substring(0, 12);
-      console.log(`🔥 Generated Fire Marshal URL ID for new staff ${insertStaff.firstName} ${insertStaff.lastName}: ${fireMarshalUrlId}`);
+      logger.info(`🔥 Generated Fire Marshal URL ID for new staff ${insertStaff.firstName} ${insertStaff.lastName}: ${fireMarshalUrlId}`);
     }
 
     // Auto-generate QR code for staff check-in
@@ -179,7 +180,7 @@ export class DatabaseService {
       if (isOrWillBeFireMarshal && hasNoUrlId) {
         // Generate a unique, URL-safe ID (12 characters from UUID without dashes)
         updates.fireMarshalUrlId = randomUUID().replace(/-/g, '').substring(0, 12);
-        console.log(`🔥 Generated Fire Marshal URL ID for ${existingStaff[0].firstName} ${existingStaff[0].lastName}: ${updates.fireMarshalUrlId}`);
+        logger.info(`🔥 Generated Fire Marshal URL ID for ${existingStaff[0].firstName} ${existingStaff[0].lastName}: ${updates.fireMarshalUrlId}`);
       }
     }
     
@@ -348,18 +349,18 @@ export class DatabaseService {
           .limit(1);
         
         if (marshals[0]) {
-          console.log(`✅ Found Fire Marshal with URL ID ${urlId} in customer ${customer.companyName} (${customer.id})`);
+          logger.info(`✅ Found Fire Marshal with URL ID ${urlId} in customer ${customer.companyName} (${customer.id})`);
           return {
             marshal: marshals[0],
             customerId: customer.id
           };
         }
       } catch (error) {
-        console.log(`⚠️ Skipping customer ${customer.id} during Fire Marshal search: ${(error as Error).message?.substring(0, 60)}`);
+        logger.info(`⚠️ Skipping customer ${customer.id} during Fire Marshal search: ${(error as Error).message?.substring(0, 60)}`);
       }
     }
     
-    console.log(`❌ No Fire Marshal found with URL ID: ${urlId}`);
+    logger.info(`❌ No Fire Marshal found with URL ID: ${urlId}`);
     return null;
   }
 
@@ -607,7 +608,7 @@ export class DatabaseService {
       
       return result.length > 0;
     } catch (error) {
-      console.error(`❌ Failed to delete visitor ${id}:`, error);
+      logger.error(`❌ Failed to delete visitor ${id}:`, error);
       return false;
     }
   }
@@ -965,10 +966,10 @@ export class DatabaseService {
         .groupBy(isolatedSchema.staff.department)
         .orderBy(sql`COUNT(DISTINCT ${isolatedSchema.visitors.id}) DESC`);
       
-      console.log(`📊 Department analytics fetched: ${results.length} departments`);
+      logger.info(`📊 Department analytics fetched: ${results.length} departments`);
       return results;
     } catch (error) {
-      console.error('❌ Department analytics error:', error);
+      logger.error('❌ Department analytics error:', error);
       throw error;
     }
   }
@@ -1182,7 +1183,7 @@ export class DatabaseService {
 
       return user;
     } catch (error) {
-      console.error('Authentication error:', error);
+      logger.error('Authentication error:', error);
       return null;
     }
   }
@@ -1208,7 +1209,7 @@ export class DatabaseService {
 
       return staff;
     } catch (error) {
-      console.error('Staff authentication error:', error);
+      logger.error('Staff authentication error:', error);
       return null;
     }
   }
@@ -1360,7 +1361,7 @@ export class DatabaseService {
         )
         .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true));
 
-      console.log(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInWorkers.length} workers currently checked in`);
+      logger.info(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInWorkers.length} workers currently checked in`);
       
       return checkedInWorkers.map(w => ({
         ...w,
@@ -1368,7 +1369,7 @@ export class DatabaseService {
         company: w.companyName || 'Unknown Company',
       }));
     } catch (error) {
-      console.error("❌ Error getting checked-in contractors:", error);
+      logger.error("❌ Error getting checked-in contractors:", error);
       return [];
     }
   }
@@ -1494,7 +1495,7 @@ export class DatabaseService {
       
       return mappedWorkers;
     } catch (error) {
-      console.error('Error getting workers by company ID:', error);
+      logger.error('Error getting workers by company ID:', error);
       return [];
     }
   }
@@ -1510,10 +1511,10 @@ export class DatabaseService {
         .where(eq(isolatedSchema.contractorVisits.workerId, workerId))
         .orderBy(desc(isolatedSchema.contractorVisits.checkedInAt));
       
-      console.log(`📋 Found ${visits.length} visit records for worker ${workerId}`);
+      logger.info(`📋 Found ${visits.length} visit records for worker ${workerId}`);
       return visits;
     } catch (error) {
-      console.error("Error querying contractor visits:", error);
+      logger.error("Error querying contractor visits:", error);
       return [];
     }
   }
@@ -1527,10 +1528,10 @@ export class DatabaseService {
         .values(visitData)
         .returning();
       
-      console.log(`📋 Created visit record for worker ${visitData.workerId}`);
+      logger.info(`📋 Created visit record for worker ${visitData.workerId}`);
       return newVisit;
     } catch (error) {
-      console.error("Error creating contractor visit:", error);
+      logger.error("Error creating contractor visit:", error);
       throw error;
     }
   }
@@ -1545,10 +1546,10 @@ export class DatabaseService {
         .where(eq(isolatedSchema.contractorVisits.id, visitId))
         .returning();
       
-      console.log(`📋 Updated visit record ${visitId}`);
+      logger.info(`📋 Updated visit record ${visitId}`);
       return updatedVisit;
     } catch (error) {
-      console.error("Error updating contractor visit:", error);
+      logger.error("Error updating contractor visit:", error);
       throw error;
     }
   }
@@ -1569,7 +1570,7 @@ export class DatabaseService {
       
       return currentVisit || null;
     } catch (error) {
-      console.error("Error getting current contractor visit:", error);
+      logger.error("Error getting current contractor visit:", error);
       return null;
     }
   }
@@ -1756,7 +1757,7 @@ export class DatabaseService {
   async createCardIssue(context: CustomerContext, data: InsertCardIssue): Promise<CardIssue> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
-    console.log("🔴 Creating customer card issue with data:", data);
+    logger.info("🔴 Creating customer card issue with data:", data);
     
     const cardIssueData = {
       id: randomUUID(),
@@ -1772,7 +1773,7 @@ export class DatabaseService {
       status: data.status || "active"
     };
     
-    console.log("🔴 Final customer card issue data:", cardIssueData);
+    logger.info("🔴 Final customer card issue data:", cardIssueData);
     
     const [issue] = await db.insert(isolatedSchema.cardIssues).values(cardIssueData).returning();
     
@@ -1799,14 +1800,14 @@ export class DatabaseService {
       updateData.redCardBanUntil = banEndDate;
     }
 
-    console.log(`🔴 Updating worker ${workerId} card status to ${cardType}`);
+    logger.info(`🔴 Updating worker ${workerId} card status to ${cardType}`);
 
     await db
       .update(isolatedSchema.contractorWorkers)
       .set(updateData)
       .where(eq(isolatedSchema.contractorWorkers.id, workerId));
       
-    console.log(`✅ Worker card status updated successfully`);
+    logger.info(`✅ Worker card status updated successfully`);
   }
 
   async seedCustomerCardOffences(context: CustomerContext): Promise<void> {
@@ -1878,9 +1879,9 @@ export class DatabaseService {
         });
       }
 
-      console.log(`✅ Seeded ${redCardOffences.length + yellowCardOffences.length} UK contractor offences for customer: ${context.customerId}`);
+      logger.info(`✅ Seeded ${redCardOffences.length + yellowCardOffences.length} UK contractor offences for customer: ${context.customerId}`);
     } catch (error) {
-      console.error(`Error seeding card offences for customer ${context.customerId}:`, error);
+      logger.error(`Error seeding card offences for customer ${context.customerId}:`, error);
     }
   }
 
@@ -1983,7 +1984,7 @@ export class DatabaseService {
       
       return mappedWorker;
     } catch (error) {
-      console.error('Error getting contractor worker:', error);
+      logger.error('Error getting contractor worker:', error);
       return undefined;
     }
   }
@@ -1996,12 +1997,12 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     try {
-      console.log(`🔍 DATABASE SERVICE - Received updates for worker ${id}:`, updates);
-      console.log(`🔍 DATABASE SERVICE - Update keys:`, Object.keys(updates));
-      console.log(`🔍 DATABASE SERVICE - Checking for critical fields:`);
-      console.log(`  - rightToWork: ${updates.rightToWork} (schema field name)`);
-      console.log(`  - cscsStatus: ${updates.cscsStatus} (schema field name)`);
-      console.log(`  - inductionCompleted: ${updates.inductionCompleted}`);
+      logger.info(`🔍 DATABASE SERVICE - Received updates for worker ${id}:`, updates);
+      logger.info(`🔍 DATABASE SERVICE - Update keys:`, Object.keys(updates));
+      logger.info(`🔍 DATABASE SERVICE - Checking for critical fields:`);
+      logger.info(`  - rightToWork: ${updates.rightToWork} (schema field name)`);
+      logger.info(`  - cscsStatus: ${updates.cscsStatus} (schema field name)`);
+      logger.info(`  - inductionCompleted: ${updates.inductionCompleted}`);
       
       // FIXED: Only map frontend fields to database column names - NO DUPLICATES
       const updateData: any = {
@@ -2032,7 +2033,7 @@ export class DatabaseService {
         if (inductionVal) {
           updateData.siteInductionCompletedAt = new Date();
         }
-        console.log(`🔧 FIELD MAP: inductionCompleted → siteInductionCompleted = ${inductionVal}`);
+        logger.info(`🔧 FIELD MAP: inductionCompleted → siteInductionCompleted = ${inductionVal}`);
       }
       if (updates.ipafStatus !== undefined) {
         updateData.ipafStatus = updates.ipafStatus;
@@ -2063,7 +2064,7 @@ export class DatabaseService {
       if ((updates as any).photoUrl !== undefined) updateData.photoUrl = (updates as any).photoUrl;
       if (updates.companyId !== undefined) {
         updateData.companyId = updates.companyId;
-        console.log(`🔧 FIELD MAP: companyId = ${updates.companyId}`);
+        logger.info(`🔧 FIELD MAP: companyId = ${updates.companyId}`);
       }
       
       // CRITICAL: Add missing check-in and H&S acceptance field mappings
@@ -2092,7 +2093,7 @@ export class DatabaseService {
       // Handle special update flags
       const bypassAutoCalculation = (updates as any)._bypassAutoCalculation;
       if (bypassAutoCalculation) {
-        console.log(`🔄 BYPASS: Skipping auto-calculation due to _bypassAutoCalculation flag`);
+        logger.info(`🔄 BYPASS: Skipping auto-calculation due to _bypassAutoCalculation flag`);
         // Add direct card status from updates if provided
         if (updates.currentCardStatus !== undefined) {
           updateData.currentCardStatus = updates.currentCardStatus;
@@ -2104,15 +2105,15 @@ export class DatabaseService {
 
       // AUTOMATIC CARD STATUS CALCULATION (skip if bypassing)
       if (!bypassAutoCalculation) {
-        console.log(`🔍 AUTO-CALC: Starting automatic card status calculation for worker ${id}`);
+        logger.info(`🔍 AUTO-CALC: Starting automatic card status calculation for worker ${id}`);
         try {
         // Get current worker data to check all compliance fields
-        console.log(`🔍 AUTO-CALC: Fetching current worker data for ${id}`);
+        logger.info(`🔍 AUTO-CALC: Fetching current worker data for ${id}`);
         const currentWorker = await this.getContractorWorkerById(context, id);
-        console.log(`🔍 AUTO-CALC: Current worker data:`, currentWorker ? 'FOUND' : 'NOT FOUND');
+        logger.info(`🔍 AUTO-CALC: Current worker data:`, currentWorker ? 'FOUND' : 'NOT FOUND');
         
         if (currentWorker) {
-          console.log(`🔍 AUTO-CALC: Worker compliance data:`, {
+          logger.info(`🔍 AUTO-CALC: Worker compliance data:`, {
             siteInductionCompleted: currentWorker.siteInductionCompleted,
             rightToWork: currentWorker.rightToWork,
             cscsStatus: currentWorker.cscsStatus,
@@ -2121,7 +2122,7 @@ export class DatabaseService {
           
           // Merge current worker data with updates
           const mergedData = { ...currentWorker, ...updateData };
-          console.log(`🔍 AUTO-CALC: Merged data for calculation:`, {
+          logger.info(`🔍 AUTO-CALC: Merged data for calculation:`, {
             siteInductionCompleted: mergedData.siteInductionCompleted,
             rightToWork: mergedData.rightToWork,
             cscsStatus: mergedData.cscsStatus,
@@ -2134,26 +2135,26 @@ export class DatabaseService {
           // Set the calculated status
           updateData.currentCardStatus = calculatedStatus;
           
-          console.log(`✅ AUTO-CALCULATED: Worker ${id} card status = '${calculatedStatus}' based on compliance`);
+          logger.info(`✅ AUTO-CALCULATED: Worker ${id} card status = '${calculatedStatus}' based on compliance`);
         } else {
-          console.log(`❌ AUTO-CALC: Could not fetch current worker data for ${id}`);
+          logger.info(`❌ AUTO-CALC: Could not fetch current worker data for ${id}`);
         }
       } catch (error) {
-        console.error(`❌ AUTO-CALC: Error during automatic card status calculation:`, error);
+        logger.error(`❌ AUTO-CALC: Error during automatic card status calculation:`, error);
       }
       } // End of auto-calculation bypass check
       
       // No need to remove undefined since we only add defined values
       
-      console.log(`🔄 Updating contractor worker ${id} with data:`, updateData);
-      console.log(`🔍 DATABASE SERVICE - About to send to SQL with keys:`, Object.keys(updateData));
+      logger.info(`🔄 Updating contractor worker ${id} with data:`, updateData);
+      logger.info(`🔍 DATABASE SERVICE - About to send to SQL with keys:`, Object.keys(updateData));
       
       // If no actual updates provided, return existing record
       if (Object.keys(updates).length === 0) {
         return this.getContractorWorkerById(context, id);
       }
       
-      console.log(`🔍 DATABASE SERVICE - Executing SQL UPDATE...`);
+      logger.info(`🔍 DATABASE SERVICE - Executing SQL UPDATE...`);
       
       const [updated] = await db
         .update(isolatedSchema.contractorWorkers)
@@ -2161,17 +2162,17 @@ export class DatabaseService {
         .where(eq(isolatedSchema.contractorWorkers.id, id))
         .returning();
       
-      console.log(`🔍 DATABASE SERVICE - SQL UPDATE completed. Result:`, updated);
+      logger.info(`🔍 DATABASE SERVICE - SQL UPDATE completed. Result:`, updated);
       
       if (!updated) {
-        console.error(`❌ DATABASE SERVICE - No record returned from SQL UPDATE for worker ${id}`);
+        logger.error(`❌ DATABASE SERVICE - No record returned from SQL UPDATE for worker ${id}`);
         return undefined;
       }
       
-      console.log(`✅ DATABASE SERVICE - Successfully updated worker. Result fields:`);
-      console.log(`  - rightToWork: ${updated.rightToWork}`);
-      console.log(`  - cscsStatus: ${updated.cscsStatus}`);
-      console.log(`  - siteInductionCompleted (DB field): ${updated.siteInductionCompleted}`);
+      logger.info(`✅ DATABASE SERVICE - Successfully updated worker. Result fields:`);
+      logger.info(`  - rightToWork: ${updated.rightToWork}`);
+      logger.info(`  - cscsStatus: ${updated.cscsStatus}`);
+      logger.info(`  - siteInductionCompleted (DB field): ${updated.siteInductionCompleted}`);
       
       // FIXED: Properly map database fields back to frontend format
       const mappedResult = {
@@ -2247,21 +2248,21 @@ export class DatabaseService {
         phone: updated.phoneNumber, // Add phone alias for compatibility
       } as ContractorWorker;
       
-      console.log(`✅ DATABASE SERVICE - Mapped result for UI:`);
-      console.log(`  - inductionCompleted (UI field): ${mappedResult.inductionCompleted}`);
-      console.log(`  - currentCardStatus (UI field): ${mappedResult.currentCardStatus}`);
+      logger.info(`✅ DATABASE SERVICE - Mapped result for UI:`);
+      logger.info(`  - inductionCompleted (UI field): ${mappedResult.inductionCompleted}`);
+      logger.info(`  - currentCardStatus (UI field): ${mappedResult.currentCardStatus}`);
       
       return mappedResult;
     } catch (error) {
-      console.error(`❌ DATABASE SERVICE - CRITICAL ERROR updating contractor worker ${id}:`, error);
-      console.error(`❌ DATABASE SERVICE - Error details:`, {
+      logger.error(`❌ DATABASE SERVICE - CRITICAL ERROR updating contractor worker ${id}:`, error);
+      logger.error(`❌ DATABASE SERVICE - Error details:`, {
         message: error?.message,
         code: error?.code,
         detail: error?.detail,
         hint: error?.hint,
         constraint: error?.constraint
       });
-      console.error(`❌ DATABASE SERVICE - Failed updateData:`, updates);
+      logger.error(`❌ DATABASE SERVICE - Failed updateData:`, updates);
       throw error; // Re-throw to surface in route logs
     }
   }
@@ -2438,7 +2439,7 @@ export class DatabaseService {
       
       return mappedWorkers;
     } catch (error) {
-      console.error('Error getting workers by company:', error);
+      logger.error('Error getting workers by company:', error);
       return [];
     }
   }
@@ -2607,10 +2608,10 @@ export class DatabaseService {
         ))
         .orderBy(isolatedSchema.workerDocumentAssignments.assignedAt);
       
-      console.log(`📋 Found ${assignments.length} document assignments for worker ${workerId}`);
+      logger.info(`📋 Found ${assignments.length} document assignments for worker ${workerId}`);
       return assignments;
     } catch (error) {
-      console.error('Error fetching worker document assignments:', error);
+      logger.error('Error fetching worker document assignments:', error);
       return [];
     }
   }
@@ -2950,10 +2951,10 @@ export class DatabaseService {
       
       // Access log table is not in isolated schema; silently skip the log insert
       if (apiKey) {
-        console.log(`[AuditLog] API key access: service=${logData.serviceType} success=${logData.success} user=${logData.userId}`);
+        logger.info(`[AuditLog] API key access: service=${logData.serviceType} success=${logData.success} user=${logData.userId}`);
       }
     } catch (err: any) {
-      console.log(`[AuditLog] Could not log API key access: ${err.message?.substring(0, 80)}`);
+      logger.info(`[AuditLog] Could not log API key access: ${err.message?.substring(0, 80)}`);
     }
   }
 

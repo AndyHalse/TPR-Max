@@ -1,4 +1,5 @@
 import type { Migration } from './migrationRunner';
+import { logger } from './utils/logger';
 
 /**
  * CLEANUP MIGRATIONS
@@ -75,7 +76,7 @@ export const fixContractorPrebookingsMigration: Migration = {
       const missingColumns = requiredColumns.filter(col => !existingColumns.has(col.name));
       
       if (missingColumns.length > 0) {
-        console.log(`🔄 Rebuilding contractor_prebookings table - missing columns: ${missingColumns.map(c => c.name).join(', ')}`);
+        logger.info(`🔄 Rebuilding contractor_prebookings table - missing columns: ${missingColumns.map(c => c.name).join(', ')}`);
         
         // Create new table with correct schema
         await db.execute(`
@@ -113,7 +114,7 @@ export const fixContractorPrebookingsMigration: Migration = {
               INSERT INTO contractor_prebookings_new (${columnList})
               SELECT ${columnList} FROM contractor_prebookings
             `);
-            console.log(`✅ Copied ${hasData.rows[0]?.count} records with columns: ${columnList}`);
+            logger.info(`✅ Copied ${hasData.rows[0]?.count} records with columns: ${columnList}`);
           }
         }
         
@@ -121,9 +122,9 @@ export const fixContractorPrebookingsMigration: Migration = {
         await db.execute(`DROP TABLE contractor_prebookings`);
         await db.execute(`ALTER TABLE contractor_prebookings_new RENAME TO contractor_prebookings`);
         
-        console.log('✅ Rebuilt contractor_prebookings table with correct schema');
+        logger.info('✅ Rebuilt contractor_prebookings table with correct schema');
       } else {
-        console.log('✅ contractor_prebookings table already has correct schema');
+        logger.info('✅ contractor_prebookings table already has correct schema');
       }
     } else {
       // Create new table if it doesn't exist
@@ -148,7 +149,7 @@ export const fixContractorPrebookingsMigration: Migration = {
           updated_at TIMESTAMP DEFAULT NOW() NOT NULL
         )
       `);
-      console.log('✅ Created contractor_prebookings table');
+      logger.info('✅ Created contractor_prebookings table');
     }
   }
 };
@@ -195,11 +196,11 @@ export const removeCustomerIdColumnsMigration: Migration = {
           if (columnExists.rows[0]?.exists) {
             // Remove the customer_id column
             await db.execute(`ALTER TABLE ${tableName} DROP COLUMN customer_id`);
-            console.log(`✅ Removed customer_id column from ${tableName}`);
+            logger.info(`✅ Removed customer_id column from ${tableName}`);
           }
         }
       } catch (error) {
-        console.log(`⚠️ Could not clean up ${tableName}: ${error}`);
+        logger.info(`⚠️ Could not clean up ${tableName}: ${error}`);
         // Continue with other tables
       }
     }
@@ -238,7 +239,7 @@ export const createMeetingRoomsMigration: Migration = {
           updated_at TIMESTAMP DEFAULT NOW() NOT NULL
         )
       `);
-      console.log('✅ Created meeting_rooms table');
+      logger.info('✅ Created meeting_rooms table');
     }
 
     // Check if room_bookings table exists
@@ -270,7 +271,7 @@ export const createMeetingRoomsMigration: Migration = {
           updated_at TIMESTAMP DEFAULT NOW() NOT NULL
         )
       `);
-      console.log('✅ Created room_bookings table');
+      logger.info('✅ Created room_bookings table');
     }
   }
 };

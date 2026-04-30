@@ -161,18 +161,18 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
   useEffect(() => {
     const loadSavedDesign = async () => {
       try {
-        console.log('🔍 Loading saved ID card design...');
+        console.info('🔍 Loading saved ID card design...');
         const response = await fetch('/api/idcard/design');
         
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.design) {
             if (data.design.elements && data.design.elements.length > 0) {
-              console.log(`✅ Loaded saved design with ${data.design.elements.length} elements`);
+              console.info(`✅ Loaded saved design with ${data.design.elements.length} elements`);
               setCardElements(data.design.elements);
               setSelectedCardBackground(data.design.background || INDUSTRY_TEMPLATES[0].background);
             } else {
-              console.log('📝 No saved design found, using default template');
+              console.info('📝 No saved design found, using default template');
             }
           }
         }
@@ -373,7 +373,7 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                   size="sm"
                   onClick={async () => {
                     try {
-                      console.log('💾 Saving ID card design with', cardElements.length, 'elements');
+                      console.info('💾 Saving ID card design with', cardElements.length, 'elements');
                       
                       const response = await fetch('/api/idcard/design', {
                         method: 'PUT',
@@ -392,7 +392,7 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                       }
 
                       const data = await response.json();
-                      console.log('✅ ID card design saved successfully:', data);
+                      console.info('✅ ID card design saved successfully:', data);
                       
                       toast({
                         title: "Template Saved",

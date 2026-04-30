@@ -2,6 +2,7 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import type { Visitor, Staff, CompanySettings, AiGeneratedImage, InsertAiGeneratedImage } from '@shared/schema';
 import { databaseService } from './databaseService';
 import type { CustomerContext } from './customerDatabase';
+import { logger } from './utils/logger';
 
 // DON'T DELETE THIS COMMENT
 // Follow these instructions when using this blueprint:
@@ -96,7 +97,7 @@ export class GeminiService {
       };
 
     } catch (error: any) {
-      console.error('Gemini image generation failed:', error);
+      logger.error('Gemini image generation failed:', error);
       // Return no image URL if generation fails
       return {
         imageUrl: "",
@@ -187,7 +188,7 @@ export class GeminiService {
         marketPosition: result.marketPosition || 'Leading AI-powered visitor management solution with 97% customer satisfaction'
       };
     } catch (error: any) {
-      console.error('Gemini competitive analysis failed:', error);
+      logger.error('Gemini competitive analysis failed:', error);
       
       // Return fallback analysis
       return {
@@ -310,7 +311,7 @@ export class GeminiService {
         ]
       };
     } catch (error: any) {
-      console.error('Gemini sales pitch generation failed:', error);
+      logger.error('Gemini sales pitch generation failed:', error);
       
       // Return fallback pitch
       return {
@@ -410,7 +411,7 @@ export class GeminiService {
         predictiveInsights: result.predictiveInsights || 'Expected visitor volume should remain stable with potential 15% increase during business events.'
       };
     } catch (error: any) {
-      console.error('Gemini visitor insights generation failed:', error);
+      logger.error('Gemini visitor insights generation failed:', error);
       
       // Return fallback insights
       return {
@@ -496,7 +497,7 @@ export class GeminiService {
         ]
       };
     } catch (error: any) {
-      console.error('Gemini predictive analytics generation failed:', error);
+      logger.error('Gemini predictive analytics generation failed:', error);
       
       // Return fallback analytics
       return {

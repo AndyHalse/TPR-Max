@@ -1,13 +1,14 @@
 import { db } from "./db";
 import { eq } from "drizzle-orm";
 import { ukHSDocumentTemplates, documentAutoFillMapping } from "@shared/schema";
+import { logger } from './utils/logger';
 
 /**
  * Seed the 6 UK H&S compliance document templates based on the provided documentation
  * Only seeds if templates don't already exist for the customer
  */
 export async function seedUKHSDocuments() {
-  console.log('🌱 Checking UK H&S compliance document templates...');
+  logger.info('🌱 Checking UK H&S compliance document templates...');
   
   const customerId = 'dev-customer-001'; // Development customer ID
   
@@ -18,11 +19,11 @@ export async function seedUKHSDocuments() {
       .where(eq(ukHSDocumentTemplates.customerId, customerId));
     
     if (existingTemplates.length > 0) {
-      console.log(`✅ UK H&S document templates already exist (${existingTemplates.length} templates found), skipping seeding`);
+      logger.info(`✅ UK H&S document templates already exist (${existingTemplates.length} templates found), skipping seeding`);
       return;
     }
     
-    console.log('🌱 Seeding UK H&S compliance document templates...');
+    logger.info('🌱 Seeding UK H&S compliance document templates...');
     
     // Define the 6 UK H&S document templates
     const documentTemplates = [
@@ -666,7 +667,7 @@ export async function seedUKHSDocuments() {
       })))
       .returning();
 
-    console.log(`✅ Seeded ${insertedTemplates.length} UK H&S document templates`);
+    logger.info(`✅ Seeded ${insertedTemplates.length} UK H&S document templates`);
 
     // Create auto-fill mappings for common fields
     const commonMappings = [
@@ -715,13 +716,13 @@ export async function seedUKHSDocuments() {
         .insert(documentAutoFillMapping)
         .values(mappings);
       
-      console.log(`✅ Created ${mappings.length} auto-fill mappings`);
+      logger.info(`✅ Created ${mappings.length} auto-fill mappings`);
     }
 
-    console.log('🎉 UK H&S document templates seeded successfully!');
+    logger.info('🎉 UK H&S document templates seeded successfully!');
     
   } catch (error) {
-    console.error('❌ Failed to seed UK H&S document templates:', error);
+    logger.error('❌ Failed to seed UK H&S document templates:', error);
     throw error;
   }
 }

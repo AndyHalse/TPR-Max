@@ -24,7 +24,7 @@ declare global {
 // SAFETY: Fail-fast if dev bypass env vars are set in production
 if (process.env.NODE_ENV === 'production') {
   if (process.env.DEV_AUTH_BYPASS === 'true' || process.env.DEV_DATA_BYPASS === 'true') {
-    console.error('🔥 FATAL: DEV_AUTH_BYPASS or DEV_DATA_BYPASS must NOT be set in production. Refusing to start.');
+    logger.error('🔥 FATAL: DEV_AUTH_BYPASS or DEV_DATA_BYPASS must NOT be set in production. Refusing to start.');
     process.exit(1);
   }
 }
@@ -34,9 +34,9 @@ async function ensureChromeBinary() {
   try {
     const { execSync } = await import('child_process');
     execSync('npx puppeteer browsers install chrome', { stdio: 'inherit', timeout: 120000 });
-    console.log('✅ Puppeteer Chrome binary ready');
+    logger.info('✅ Puppeteer Chrome binary ready');
   } catch (e: any) {
-    console.warn('⚠️ Could not install Puppeteer Chrome — PDF generation will fall back to HTML:', e.message);
+    logger.warn('⚠️ Could not install Puppeteer Chrome — PDF generation will fall back to HTML:', e.message);
   }
 }
 // Chrome must be pre-installed in the production Docker/server image.
@@ -210,7 +210,7 @@ function createCSRFMiddleware() {
       
       // Allow if either emergency token OR Fire Marshal URL ID is present
       if (!emergencyToken && !fireMarshalId) {
-        console.log(`❌ CSRF/AUTH FAILURE: Emergency endpoint requires valid token or Fire Marshal URL ID`);
+        logger.info(`❌ CSRF/AUTH FAILURE: Emergency endpoint requires valid token or Fire Marshal URL ID`);
         return res.status(401).json({ 
           error: 'Emergency access requires valid token or Fire Marshal URL ID',
           code: 'EMERGENCY_AUTH_REQUIRED'
@@ -308,12 +308,12 @@ const isProduction = process.env.NODE_ENV === 'production';
 
 // Validate required session secret in production
 if (isProduction && !process.env.SESSION_SECRET) {
-  console.error('🔥 CRITICAL: SESSION_SECRET environment variable is required in production! Using a random ephemeral secret (sessions will not survive restarts).');
+  logger.error('🔥 CRITICAL: SESSION_SECRET environment variable is required in production! Using a random ephemeral secret (sessions will not survive restarts).');
 }
 
 // Validate CORS origins are set in production
 if (isProduction && !process.env.ALLOWED_ORIGINS) {
-  console.warn('⚠️ WARNING: ALLOWED_ORIGINS not set in production. CORS will block all cross-origin requests. Set ALLOWED_ORIGINS to your domain(s).');
+  logger.warn('⚠️ WARNING: ALLOWED_ORIGINS not set in production. CORS will block all cross-origin requests. Set ALLOWED_ORIGINS to your domain(s).');
 }
 
 // Configure session store - PostgreSQL for production, development fallback
@@ -336,7 +336,7 @@ if (isProduction || process.env.USE_PG_SESSIONS === 'true') {
     pruneSessionInterval: 300,
   });
   
-  console.log('🔒 Using PostgreSQL session store for production security');
+  logger.info('🔒 Using PostgreSQL session store for production security');
 } else {
   // Development fallback - but warn about production readiness
   const { default: MemoryStore } = await import('memorystore');
@@ -347,7 +347,7 @@ if (isProduction || process.env.USE_PG_SESSIONS === 'true') {
     ttl: 24 * 60 * 60 * 1000
   });
   
-  console.log('⚠️ Using MemoryStore - NOT suitable for production deployment');
+  logger.info('⚠️ Using MemoryStore - NOT suitable for production deployment');
 }
 
 app.use(session({
@@ -374,7 +374,7 @@ app.use((req, res, next) => {
     const hasSession = !!req.session;
     const hasUserId = !!req.session?.userId;
     
-    console.log(`🔍 Session Debug [${req.method} ${req.path}]:`, {
+    logger.info(`🔍 Session Debug [${req.method} ${req.path}]:`, {
       hasSession,
       hasUserId,
       // SECURITY: Never log actual session IDs, cookie values, or session data
@@ -429,7 +429,7 @@ app.use((req, res, next) => {
 
     // Start listening IMMEDIATELY - before heavy route registration
     const port = parseInt(process.env.PORT || '5000', 10);
-    console.log('🌐 Starting server...');
+    logger.info('🌐 Starting server...');
     server.listen({
       port,
       host: "0.0.0.0",
@@ -441,7 +441,7 @@ app.use((req, res, next) => {
         eventType: 'server_ready',
         buildVersion: 'v2026.02.22.2'
       });
-      console.log('[BUILD] VERSION: v2026.02.22.2 - public logo endpoint + locked settings cache + direct branding');
+      logger.info('[BUILD] VERSION: v2026.02.22.2 - public logo endpoint + locked settings cache + direct branding');
       log(`serving on port ${port}`);
     });
 
@@ -451,7 +451,7 @@ app.use((req, res, next) => {
     logger.info('Routes registered successfully');
 
     app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-      console.error('🔥 Express error handler caught:', {
+      logger.error('🔥 Express error handler caught:', {
         error: err.message,
         stack: err.stack,
         url: req.url,
@@ -506,25 +506,25 @@ app.use((req, res, next) => {
         const { seedRoleSpecificQuestions } = await import("./seedRoleSpecificQuestions");
         await seedRoleSpecificQuestions();
 
-        console.log('🌱 Seeding UK H&S compliance documents...');
+        logger.info('🌱 Seeding UK H&S compliance documents...');
         const { seedUKHSDocuments } = await import("./seed-uk-hs-documents");
         await seedUKHSDocuments();
 
-        console.log('🌱 Seeding UK H&S document templates for all customers...');
+        logger.info('🌱 Seeding UK H&S document templates for all customers...');
         const { seedAllCustomerHSTemplates } = await import("./seed-isolated-hs-templates");
         await seedAllCustomerHSTemplates();
 
-        console.log('🌱 Seeding help system data...');
+        logger.info('🌱 Seeding help system data...');
         const { seedHelpData } = await import("./seedHelpData");
         await seedHelpData();
 
-        console.log('✅ All seeding completed successfully');
+        logger.info('✅ All seeding completed successfully');
       } catch (error) {
-        console.error("Failed to seed data:", error);
+        logger.error("Failed to seed data:", error);
       }
     })();
   } catch (error) {
-    console.error('🔥 Failed to start server:', error);
+    logger.error('🔥 Failed to start server:', error);
     // Don't call process.exit() - let the deployment platform detect and restart
   }
 })();

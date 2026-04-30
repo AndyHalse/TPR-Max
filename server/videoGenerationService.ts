@@ -7,6 +7,7 @@ import type { AiServiceDependencies, AiModelOptions } from './interfaces/ai';
 import { ResultUtils } from './utils/result';
 import { ImageFallbackChain } from './managers/ImageFallbackChain';
 import OpenAI from "openai";
+import { logger } from './utils/logger';
 
 // Using Replit's AI Integrations service - provides OpenAI-compatible API access without requiring your own API key
 // Charges are billed to Replit credits, bypassing personal API billing limits
@@ -210,20 +211,20 @@ export class VideoGenerationService {
               claudeKeyRow.initializationVector,
               claudeKeyRow.authTag || ''
             );
-            console.log(`🔑 Using customer Claude API key for question generation`);
+            logger.info(`🔑 Using customer Claude API key for question generation`);
           } else if (process.env.ANTHROPIC_API_KEY) {
-            console.log(`🔑 No stored customer Claude key — using ANTHROPIC_API_KEY env var for question generation`);
+            logger.info(`🔑 No stored customer Claude key — using ANTHROPIC_API_KEY env var for question generation`);
           } else {
-            console.warn('⚠️ No active Claude API key found for question generation — falling back to default questions');
+            logger.warn('⚠️ No active Claude API key found for question generation — falling back to default questions');
             return this.getFallbackQuestions(roleType);
           }
         } catch (err: any) {
-          console.warn(`⚠️ Failed to retrieve Claude API key for question generation: ${err.message} — falling back to default questions`);
+          logger.warn(`⚠️ Failed to retrieve Claude API key for question generation: ${err.message} — falling back to default questions`);
           return this.getFallbackQuestions(roleType);
         }
       } else {
         if (!process.env.ANTHROPIC_API_KEY) {
-          console.warn('⚠️ No ANTHROPIC_API_KEY set and no customer ID — falling back to default questions');
+          logger.warn('⚠️ No ANTHROPIC_API_KEY set and no customer ID — falling back to default questions');
           return this.getFallbackQuestions(roleType);
         }
       }
@@ -235,7 +236,7 @@ export class VideoGenerationService {
       return result.data;
     }
 
-    console.error('❌ Question generation failed:', result.error?.message);
+    logger.error('❌ Question generation failed:', result.error?.message);
     return this.getFallbackQuestions(roleType);
   }
 
@@ -458,8 +459,8 @@ Use the site-specific details provided above wherever available; use sensible UK
     const prompt = roleSpecificPrompts[roleType as keyof typeof roleSpecificPrompts] || roleSpecificPrompts.contractor;
 
     try {
-      console.log(`🔧 Starting script generation with comprehensive logging...`);
-      console.log(`🔧 Company settings available: ${this.companySettings ? 'YES' : 'NO'}`);
+      logger.info(`🔧 Starting script generation with comprehensive logging...`);
+      logger.info(`🔧 Company settings available: ${this.companySettings ? 'YES' : 'NO'}`);
       
       // Company-wide AI setting takes priority; per-role modelType param is a fallback.
       // Read both openaiModel (induction field) and aiModel (Settings UI field) and
@@ -478,14 +479,14 @@ Use the site-specific details provided above wherever available; use sensible UK
         throw new Error('CRITICAL: Replit AI Integrations OpenAI key not configured (AI_INTEGRATIONS_OPENAI_API_KEY)');
       }
       
-      console.log(`🤖 Using AI model: ${selectedModel} for ${roleType} induction generation`);
+      logger.info(`🤖 Using AI model: ${selectedModel} for ${roleType} induction generation`);
       
       let response;
       let content: any = null;
       let apiStartTime: number = Date.now();
       try {
-        console.log(`🚀 Making API call to ${selectedModel}...`);
-        console.log(`📝 Prompt length: ${prompt.length} characters`);
+        logger.info(`🚀 Making API call to ${selectedModel}...`);
+        logger.info(`📝 Prompt length: ${prompt.length} characters`);
         
         apiStartTime = Date.now();
         const systemMessage = `You are a senior UK Health & Safety expert with 20+ years of workplace safety training experience. Your expertise includes:
@@ -595,13 +596,13 @@ Use the site-specific details provided above wherever available; use sensible UK
         // Config/auth errors (e.g. missing Claude key, invalid API key) are terminal —
         // re-throw immediately with the helpful message rather than retrying or using fallback
         if (this.isTerminalConfigError(error.message)) {
-          console.error(`🔑 Configuration error — not retrying: ${error.message}`);
+          logger.error(`🔑 Configuration error — not retrying: ${error.message}`);
           throw error;
         }
-        console.log(`⚠️ AI generation failed (attempt 1): ${error.message}`);
+        logger.info(`⚠️ AI generation failed (attempt 1): ${error.message}`);
         // Retry once with a simplified, shorter prompt before giving up
         try {
-          console.log(`🔄 Retrying with simplified prompt (attempt 2)...`);
+          logger.info(`🔄 Retrying with simplified prompt (attempt 2)...`);
           const simplifiedPrompt = `You are a UK Health & Safety expert. Generate a safety induction script for ${roleType}s at ${companyName} (${industryContext}).
 
 Create EXACTLY 6 scenes covering: Welcome, Legal Framework, PPE, Hazard Identification, Emergency Procedures, Safe Working.
@@ -620,45 +621,45 @@ Respond with valid JSON:
             ...(isNewGenRetry ? { max_completion_tokens: 3000 } : { max_tokens: 3000, temperature: 0.7 })
           };
           content = await this.aiJsonFromMessages(retryMessages, undefined, retryOptions);
-          console.log(`✅ Retry succeeded`);
+          logger.info(`✅ Retry succeeded`);
         } catch (retryError: any) {
           // Also check for terminal errors on retry
           if (this.isTerminalConfigError(retryError.message)) {
-            console.error(`🔑 Configuration error on retry — not using fallback: ${retryError.message}`);
+            logger.error(`🔑 Configuration error on retry — not using fallback: ${retryError.message}`);
             throw retryError;
           }
-          console.log(`🚨 Both attempts failed, using emergency fallback: ${retryError.message}`);
+          logger.info(`🚨 Both attempts failed, using emergency fallback: ${retryError.message}`);
           return this.generateEmergencyFallbackScript(roleType, videoFormat);
         }
       }
 
       const apiDuration = Date.now() - apiStartTime;
-      console.log(`⏱️ AI call completed in ${apiDuration}ms`);
+      logger.info(`⏱️ AI call completed in ${apiDuration}ms`);
       
       // Ensure content is defined (aiJsonFromMessages returns parsed JSON directly)
       if (!content) {
-        console.log(`🚨 No content received, using emergency fallback content...`);
+        logger.info(`🚨 No content received, using emergency fallback content...`);
         return this.generateEmergencyFallbackScript(roleType, videoFormat);
       }
       
       // Debug the AI response structure
-      console.log('🔍 AI response structure:', JSON.stringify({
+      logger.info('🔍 AI response structure:', JSON.stringify({
         hasScript: !!content.script,
         scriptLength: content.script?.length || 0,
         scenesCount: content.scenes?.length || 0,
         totalDuration: content.totalDuration
       }, null, 2));
       
-      console.log(`📥 AI response script length: ${content.script?.length || 0} characters`);
-      console.log(`📥 AI response scenes count: ${content.scenes?.length || 0}`);
+      logger.info(`📥 AI response script length: ${content.script?.length || 0} characters`);
+      logger.info(`📥 AI response scenes count: ${content.scenes?.length || 0}`);
       
       // Validate content structure
       if (!content.scenes || content.scenes.length === 0) {
-        console.error('🚨 CRITICAL: AI returned response but NO SCENES!');
-        console.error('🚨 Response structure:', JSON.stringify(content, null, 2));
+        logger.error('🚨 CRITICAL: AI returned response but NO SCENES!');
+        logger.error('🚨 Response structure:', JSON.stringify(content, null, 2));
         
         // Use fallback scenes if AI didn't provide proper scenes
-        console.log('🔄 Using fallback scenes due to missing scenes');
+        logger.info('🔄 Using fallback scenes due to missing scenes');
         content = {
           script: content.script || `Welcome to the ${roleType} safety induction. This presentation covers essential health and safety requirements.`,
           scenes: [
@@ -709,20 +710,20 @@ Respond with valid JSON:
         totalDuration: content.totalDuration || 900
       };
       
-      console.log('🎬 Final result - scenes count:', result.scenes.length);
-      console.log('🎬 First scene title:', result.scenes[0]?.title || 'No scenes');
-      console.log('🎬 All scene titles:', result.scenes.map((s: any) => s.title));
+      logger.info('🎬 Final result - scenes count:', result.scenes.length);
+      logger.info('🎬 First scene title:', result.scenes[0]?.title || 'No scenes');
+      logger.info('🎬 All scene titles:', result.scenes.map((s: any) => s.title));
       
       if (result.scenes.length === 0) {
-        console.error('🚨 FINAL VALIDATION: Zero scenes in result - this will cause fallback!');
-        console.error('🚨 Full AI response structure:', JSON.stringify(content, null, 2));
+        logger.error('🚨 FINAL VALIDATION: Zero scenes in result - this will cause fallback!');
+        logger.error('🚨 Full AI response structure:', JSON.stringify(content, null, 2));
       }
       
       return result;
       
     } catch (error: any) {
-      console.error('🚨 CRITICAL ERROR in generateInductionScript:', error);
-      console.error('🚨 Error details:', {
+      logger.error('🚨 CRITICAL ERROR in generateInductionScript:', error);
+      logger.error('🚨 Error details:', {
         message: error.message,
         name: error.name,
         stack: error.stack,
@@ -734,22 +735,22 @@ Respond with valid JSON:
       
       // Check specific error types for better debugging
       if (error.response?.status === 429) {
-        console.error('🚫 RATE LIMIT ERROR: Too many requests to OpenAI API');
+        logger.error('🚫 RATE LIMIT ERROR: Too many requests to OpenAI API');
         throw new Error('Rate limit exceeded. Please wait and try again.');
       }
       
       if (error.response?.status === 401) {
-        console.error('🚫 AUTHENTICATION ERROR: Invalid OpenAI API key');
+        logger.error('🚫 AUTHENTICATION ERROR: Invalid OpenAI API key');
         throw new Error('Invalid OpenAI API key. Please check configuration.');
       }
       
       if (error.response?.status === 404) {
-        console.error('🚫 MODEL ERROR: Requested model not available');
+        logger.error('🚫 MODEL ERROR: Requested model not available');
         throw new Error(`Model ${modelType} not available. Falling back to default.`);
       }
       
       if (error.response?.status >= 500) {
-        console.error('🚫 SERVER ERROR: OpenAI service unavailable');
+        logger.error('🚫 SERVER ERROR: OpenAI service unavailable');
         throw new Error('OpenAI service temporarily unavailable. Please try again later.');
       }
       
@@ -765,11 +766,11 @@ Respond with valid JSON:
     const selectedScenes = scenes; // Use all scenes to ensure every page has an image
     
     try {
-      console.log(`🎨 Generating ${selectedScenes.length} AI images for ${companyName} induction (parallel processing for speed)...`);
+      logger.info(`🎨 Generating ${selectedScenes.length} AI images for ${companyName} induction (parallel processing for speed)...`);
       
       // Parallelize image generation for 3x-5x speed improvement
       const imagePromises = selectedScenes.map(async (scene, i) => {
-        console.log(`🖼️ Starting image generation ${i + 1}/${selectedScenes.length}`);
+        logger.info(`🖼️ Starting image generation ${i + 1}/${selectedScenes.length}`);
         
         // Enhanced prompt with latest DALL-E 3 capabilities for photorealistic safety training
         const companyBranding = "professional blue and safety orange"; // Use consistent corporate theme
@@ -797,15 +798,15 @@ Respond with valid JSON:
           );
           
           if (ResultUtils.isSuccess(result)) {
-            console.log(`✅ Image ${i + 1} generated successfully`);
+            logger.info(`✅ Image ${i + 1} generated successfully`);
             return result.data.url;
           } else {
-            console.log(`⚠️ Image ${i + 1} generation failed: ${result.error?.message}`);
+            logger.info(`⚠️ Image ${i + 1} generation failed: ${result.error?.message}`);
             return this.generateFallbackImage(scene.imagePrompt, i + 1);
           }
         } catch (error) {
-          console.error(`❌ Failed to generate image ${i + 1}:`, error);
-          console.log(`🔄 Using fallback image generation for image ${i + 1}...`);
+          logger.error(`❌ Failed to generate image ${i + 1}:`, error);
+          logger.info(`🔄 Using fallback image generation for image ${i + 1}...`);
           return this.generateFallbackImage(scene.imagePrompt, i + 1);
         }
       });
@@ -825,12 +826,12 @@ Respond with valid JSON:
         }
       }
       
-      console.log(`🎉 Successfully generated ${imageUrls.filter(url => url).length}/${selectedScenes.length} AI images in parallel`);
+      logger.info(`🎉 Successfully generated ${imageUrls.filter(url => url).length}/${selectedScenes.length} AI images in parallel`);
       return imageUrls;
     } catch (error: any) {
-      console.error('❌ Error generating scene images:', error);
+      logger.error('❌ Error generating scene images:', error);
       if (error?.response) {
-        console.error('API Response:', error.response.data);
+        logger.error('API Response:', error.response.data);
       }
       // Return empty array rather than failing completely
       return new Array(selectedScenes.length).fill('');
@@ -843,7 +844,7 @@ Respond with valid JSON:
     roleType: string = 'contractor'
   ): Promise<Array<{ audioUrl: string; duration: number; text: string }>> {
     try {
-      console.log(`🎙️ Generating professional narrations for ${scenes.length} scenes using OpenAI TTS`);
+      logger.info(`🎙️ Generating professional narrations for ${scenes.length} scenes using OpenAI TTS`);
       
       const { OpenAITTSService } = await import('./services/OpenAITTSService');
       const ttsService = new OpenAITTSService();
@@ -858,11 +859,11 @@ Respond with valid JSON:
         text: narration.text
       }));
       
-      console.log(`✅ Successfully generated ${formattedNarrations.length} professional narrations`);
+      logger.info(`✅ Successfully generated ${formattedNarrations.length} professional narrations`);
       return formattedNarrations;
       
     } catch (error: any) {
-      console.error('❌ Error generating narrations:', error);
+      logger.error('❌ Error generating narrations:', error);
       // Return placeholder narrations on failure
       return scenes.map(scene => ({
         audioUrl: '',
@@ -965,7 +966,7 @@ Respond with valid JSON:
     // Convert to proper data URL that browsers can use
     const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(safeSvg)}`;
     
-    console.log(`✅ Generated fallback safety image ${imageNumber} for theme: ${theme}`);
+    logger.info(`✅ Generated fallback safety image ${imageNumber} for theme: ${theme}`);
     return svgDataUrl;
   }
 
@@ -1037,7 +1038,7 @@ Respond with valid JSON:
     const audioUrls: string[] = [];
     
     try {
-      console.log(`🎤 Generating audio narration for ${scenes.length} scenes...`);
+      logger.info(`🎤 Generating audio narration for ${scenes.length} scenes...`);
       
       // Use Google Text-to-Speech for natural narration
       const audioPromises = scenes.map(async (scene, i) => {
@@ -1051,14 +1052,14 @@ Respond with valid JSON:
           });
           
           if (ResultUtils.isSuccess(result)) {
-            console.log(`✅ Audio ${i + 1} generated successfully`);
+            logger.info(`✅ Audio ${i + 1} generated successfully`);
             return result.data;
           } else {
-            console.warn(`⚠️ Audio generation not available for scene ${i + 1}, skipping audio`);
+            logger.warn(`⚠️ Audio generation not available for scene ${i + 1}, skipping audio`);
             return ''; // Return empty string when audio service unavailable
           }
         } catch (error: any) {
-          console.warn(`⚠️ Audio generation failed for scene ${i + 1}:`, error?.message || 'Unknown error');
+          logger.warn(`⚠️ Audio generation failed for scene ${i + 1}:`, error?.message || 'Unknown error');
           return ''; // Return empty string for failed audio
         }
       });
@@ -1067,9 +1068,9 @@ Respond with valid JSON:
       const results = await Promise.all(audioPromises);
       audioUrls.push(...results);
       
-      console.log(`🎉 Successfully generated ${audioUrls.filter(url => url).length}/${scenes.length} audio narrations`);
+      logger.info(`🎉 Successfully generated ${audioUrls.filter(url => url).length}/${scenes.length} audio narrations`);
     } catch (error) {
-      console.error('❌ Error generating audio narration:', error);
+      logger.error('❌ Error generating audio narration:', error);
       // Return empty array rather than failing completely
       return new Array(scenes.length).fill('');
     }
@@ -1204,18 +1205,18 @@ Respond with valid JSON:
     const { script, scenes, totalDuration } = await this.generateInductionScript(roleType, videoFormat, modelType);
     
     // Log for debugging
-    console.log(`🎬 Generated ${scenes.length} scenes for ${roleType} induction`);
-    console.log(`🎬 Scene titles:`, scenes.map(s => s.title));
+    logger.info(`🎬 Generated ${scenes.length} scenes for ${roleType} induction`);
+    logger.info(`🎬 Scene titles:`, scenes.map(s => s.title));
     
     // CRITICAL FIX: Ensure we always have scenes, force fallback if empty
     if (!scenes || scenes.length === 0) {
-      console.log('🚨 CRITICAL: No scenes generated, forcing fallback scenes');
+      logger.info('🚨 CRITICAL: No scenes generated, forcing fallback scenes');
       // UK H&S Compliant Professional Scenes based on role type
       const fallbackScenes = this.generateComprehensiveUKHSScenes(roleType);
       
       // Override empty scenes with fallback
       scenes.splice(0, scenes.length, ...fallbackScenes);
-      console.log(`🔧 Applied ${scenes.length} fallback scenes`);
+      logger.info(`🔧 Applied ${scenes.length} fallback scenes`);
     }
     
     // CRITICAL: Generate AI images for ALL formats using Gemini 3.0 - makes induction videos professional and saleable
@@ -1223,7 +1224,7 @@ Respond with valid JSON:
     let sceneAudio: string[] = [];
     
     try {
-      console.log('🎨 Generating professional Gemini 3.0 AI images for ALL scenes...');
+      logger.info('🎨 Generating professional Gemini 3.0 AI images for ALL scenes...');
       
       // Generate images ALWAYS - this is what makes the product saleable
       // Images are generated in parallel with optional audio for hybrid mode
@@ -1237,14 +1238,14 @@ Respond with valid JSON:
         ]);
         sceneImages = images;
         sceneAudio = audio;
-        console.log(`✨ Generated ${sceneImages.filter(img => img).length} professional images and ${sceneAudio.filter(aud => aud).length} audio tracks`);
+        logger.info(`✨ Generated ${sceneImages.filter(img => img).length} professional images and ${sceneAudio.filter(aud => aud).length} audio tracks`);
       } else {
         // For all other formats, just get the images
         sceneImages = await imagePromise;
-        console.log(`✨ Generated ${sceneImages.filter(img => img).length} professional Gemini 3.0 images for ${videoFormat}`);
+        logger.info(`✨ Generated ${sceneImages.filter(img => img).length} professional Gemini 3.0 images for ${videoFormat}`);
       }
     } catch (error) {
-      console.error('❌ AI image generation failed:', error);
+      logger.error('❌ AI image generation failed:', error);
       // Continue with fallback - don't fail the entire video generation
     }
     
@@ -1255,13 +1256,13 @@ Respond with valid JSON:
     let htmlContent: string;
     
     if (videoFormat === 'hybrid_enhanced') {
-      console.log('🎨 Creating hybrid enhanced presentation with Gemini 3.0 images...');
+      logger.info('🎨 Creating hybrid enhanced presentation with Gemini 3.0 images...');
       htmlContent = await this.createEnhancedHTMLPresentation(scenes, roleType, modelType, sceneImages, sceneAudio);
     } else if (videoFormat === 'full_video') {
-      console.log('🎬 Creating full video with Gemini 3.0 images...');
+      logger.info('🎬 Creating full video with Gemini 3.0 images...');
       htmlContent = await this.createEnhancedHTMLPresentation(scenes, roleType, modelType, sceneImages, []);
     } else {
-      console.log('📄 Creating professional slide presentation with Gemini 3.0 images...');
+      logger.info('📄 Creating professional slide presentation with Gemini 3.0 images...');
       // CRITICAL: Now we always embed AI-generated Gemini 3.0 images regardless of format
       // Use company brand colours if available, otherwise fall back to professional defaults
       const brandAccent  = this.companySettings?.accentColor     || '#2460a9';
@@ -1537,7 +1538,7 @@ Respond with valid JSON:
 
   // Generate full video presentation using Sora API or Google Veo 3
   async createVideoPresentation(scenes: any[], roleType: string, modelType: string): Promise<string> {
-    console.log(`🎬 Attempting Full Video Generation with ${modelType}...`);
+    logger.info(`🎬 Attempting Full Video Generation with ${modelType}...`);
     
     // Check if using Google Veo 3
     if (modelType === 'google-veo-3') {
@@ -1549,14 +1550,14 @@ Respond with valid JSON:
       const videoUrl = await this.generateSoraVideo(scenes, roleType);
       
       if (videoUrl) {
-        console.log('✅ Sora video generated successfully!');
+        logger.info('✅ Sora video generated successfully!');
         return this.createVideoPlayerHTML(videoUrl, roleType, scenes);
       }
     } catch (error: any) {
-      console.log('⚠️ Sora API not available or failed:', error?.message || 'Unknown error');
+      logger.info('⚠️ Sora API not available or failed:', error?.message || 'Unknown error');
     }
     
-    console.log('🔄 Falling back to enhanced HTML presentation');
+    logger.info('🔄 Falling back to enhanced HTML presentation');
     return await this.createEnhancedHTMLPresentation(scenes, roleType, modelType);
   }
 
@@ -1568,12 +1569,12 @@ Respond with valid JSON:
       // Create comprehensive video prompt from all scenes  
       const videoPrompt = this.createVideoPromptFromScenes(scenes, roleType, companyName);
       
-      console.log('🎥 Generating video with Google Veo 3 API...');
-      console.log('📝 Video prompt:', videoPrompt.substring(0, 200) + '...');
+      logger.info('🎥 Generating video with Google Veo 3 API...');
+      logger.info('📝 Video prompt:', videoPrompt.substring(0, 200) + '...');
       
       // Check if we have Google API access (would need GOOGLE_API_KEY)
       if (!process.env.GOOGLE_API_KEY) {
-        console.log('⚠️ Google API key not configured, falling back to enhanced presentation');
+        logger.info('⚠️ Google API key not configured, falling back to enhanced presentation');
         return await this.createEnhancedHTMLPresentation(scenes, roleType, 'google-veo-3');
       }
       
@@ -1599,7 +1600,7 @@ Respond with valid JSON:
         const videoUrl = result.video_url;
         
         if (videoUrl) {
-          console.log('✅ Google Veo 3 video generated successfully with audio!');
+          logger.info('✅ Google Veo 3 video generated successfully with audio!');
           return this.createVideoPlayerHTML(videoUrl, roleType, scenes);
         }
       }
@@ -1607,8 +1608,8 @@ Respond with valid JSON:
       throw new Error('Veo 3 API request failed');
       
     } catch (error: any) {
-      console.log('⚠️ Google Veo 3 API not available or failed:', error?.message || 'Unknown error');
-      console.log('🔄 Falling back to enhanced HTML presentation');
+      logger.info('⚠️ Google Veo 3 API not available or failed:', error?.message || 'Unknown error');
+      logger.info('🔄 Falling back to enhanced HTML presentation');
       return await this.createEnhancedHTMLPresentation(scenes, roleType, 'google-veo-3');
     }
   }
@@ -1621,14 +1622,14 @@ Respond with valid JSON:
       // Create comprehensive video prompt from all scenes
       const videoPrompt = this.createVideoPromptFromScenes(scenes, roleType, companyName);
       
-      console.log('🎥 Generating video with Sora API...');
-      console.log('📝 Video prompt:', videoPrompt.substring(0, 200) + '...');
+      logger.info('🎥 Generating video with Sora API...');
+      logger.info('📝 Video prompt:', videoPrompt.substring(0, 200) + '...');
       
       // Check if Sora API is available in OpenAI client
       // Note: Sora API structure may vary - checking for availability
       // Video generation is currently not available - gracefully skip
       if (false) { // Disabled for now - OpenAI video generation not implemented
-        console.warn('⚠️ Video generation feature not yet available, using static content');
+        logger.warn('⚠️ Video generation feature not yet available, using static content');
         const videoResponse = await Promise.resolve({
           model: "sora-1.0",
           prompt: videoPrompt,
@@ -1643,7 +1644,7 @@ Respond with valid JSON:
       }
       
     } catch (error: any) {
-      console.error('❌ Sora video generation failed:', error);
+      logger.error('❌ Sora video generation failed:', error);
       
       // Check specific error types
       if (error.code === 'model_not_found') {
@@ -1805,7 +1806,7 @@ Respond with valid JSON:
             const video = document.querySelector('video');
             if (video) {
                 video.play().catch(e => {
-                    console.log('Autoplay prevented, user interaction required');
+                    logger.info('Autoplay prevented, user interaction required');
                 });
             }
         });
@@ -1816,7 +1817,7 @@ Respond with valid JSON:
 
   // Generate hybrid enhanced presentation with AI images and audio narration
   async createEnhancedHTMLPresentation(scenes: any[], roleType: string, modelType: string, preGeneratedImages: string[] = [], preGeneratedAudio: string[] = []): Promise<string> {
-    console.log('🎨 Generating enhanced presentation with AI images...');
+    logger.info('🎨 Generating enhanced presentation with AI images...');
     
     // Get company name and logo for branding
     const companyName = this.companySettings?.companyName || "VisiGate Pro";
@@ -1829,29 +1830,29 @@ Respond with valid JSON:
     // Generate images if not provided
     if (sceneImages.length === 0) {
       try {
-        console.log('🖼️ No pre-generated images found, generating AI images for enhanced mode...');
+        logger.info('🖼️ No pre-generated images found, generating AI images for enhanced mode...');
         sceneImages = await this.generateSceneImages(scenes);
-        console.log(`✨ Successfully generated ${sceneImages.length} AI images`);
+        logger.info(`✨ Successfully generated ${sceneImages.length} AI images`);
       } catch (error) {
-        console.error('❌ AI image generation failed:', error);
-        console.log('⚠️ Continuing with enhanced styling but no AI images');
+        logger.error('❌ AI image generation failed:', error);
+        logger.info('⚠️ Continuing with enhanced styling but no AI images');
       }
     } else {
-      console.log(`✅ Using ${sceneImages.length} pre-generated AI images`);
+      logger.info(`✅ Using ${sceneImages.length} pre-generated AI images`);
     }
     
     // Generate audio if not provided
     if (sceneAudio.length === 0) {
       try {
-        console.log('🎤 No pre-generated audio found, generating narration...');
+        logger.info('🎤 No pre-generated audio found, generating narration...');
         sceneAudio = await this.generateSceneAudio(scenes);
-        console.log(`✨ Successfully generated ${sceneAudio.length} audio narrations`);
+        logger.info(`✨ Successfully generated ${sceneAudio.length} audio narrations`);
       } catch (error) {
-        console.error('❌ Audio generation failed:', error);
-        console.log('⚠️ Continuing without audio narration');
+        logger.error('❌ Audio generation failed:', error);
+        logger.info('⚠️ Continuing without audio narration');
       }
     } else {
-      console.log(`✅ Using ${sceneAudio.length} pre-generated audio narrations`);
+      logger.info(`✅ Using ${sceneAudio.length} pre-generated audio narrations`);
     }
 
     const htmlContent = `
@@ -2133,7 +2134,7 @@ Respond with valid JSON:
             if (audioEnabled) {
                 const audio = document.getElementById(\`audio-\${currentScene}\`);
                 if (audio) {
-                    audio.play().catch(e => console.log('Audio playback prevented:', e));
+                    audio.play().catch(e => logger.info('Audio playback prevented:', e));
                 }
             } else {
                 // Stop all audio
@@ -2163,7 +2164,7 @@ Respond with valid JSON:
             if (audioEnabled) {
                 const audio = document.getElementById(\`audio-\${index}\`);
                 if (audio) {
-                    audio.play().catch(e => console.log('Audio playback prevented:', e));
+                    audio.play().catch(e => logger.info('Audio playback prevented:', e));
                 }
             }
         }
@@ -2264,10 +2265,10 @@ Respond with valid JSON:
         })
         .where(eq(inductionSettings.roleType, roleType));
       
-      console.log(`✅ Saved ${roleType} induction video with ${generatedContent.scenes?.length || 0} scenes to database`);
+      logger.info(`✅ Saved ${roleType} induction video with ${generatedContent.scenes?.length || 0} scenes to database`);
         
     } catch (error) {
-      console.error('Error updating settings:', error);
+      logger.error('Error updating settings:', error);
       throw new Error('Failed to update induction settings');
     }
   }
@@ -2370,7 +2371,7 @@ Respond with valid JSON:
     }>;
     totalDuration: number;
   } {
-    console.log(`🆘 Generating emergency fallback script for ${roleType} in ${videoFormat} format`);
+    logger.info(`🆘 Generating emergency fallback script for ${roleType} in ${videoFormat} format`);
     
     const companyName = this.companySettings?.companyName || "ACS Safety & Security Ltd";
     

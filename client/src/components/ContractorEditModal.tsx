@@ -94,7 +94,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   useEffect(() => {
     if (activeWorker && open) {
       const inductionVal = activeWorker.inductionCompleted === true || (activeWorker as any).siteInductionCompleted === true;
-      console.log('🔍 FORM INIT - inductionCompleted:', inductionVal, 'source:', freshWorker ? 'fresh API' : 'prop');
+      console.info('🔍 FORM INIT - inductionCompleted:', inductionVal, 'source:', freshWorker ? 'fresh API' : 'prop');
       setFormData({
         firstName: activeWorker.firstName || '',
         lastName: activeWorker.lastName || '',
@@ -489,13 +489,13 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       toast({ title: 'Phone number required', description: 'Please enter a phone number.', variant: 'destructive' });
       return;
     }
-    console.log('🔍 ContractorEditModal - Submitting form with data:', formData);
-    console.log('🔍 ContractorEditModal - transportMethod value:', formData.transportMethod);
+    console.info('🔍 ContractorEditModal - Submitting form with data:', formData);
+    console.info('🔍 ContractorEditModal - transportMethod value:', formData.transportMethod);
     updateWorkerMutation.mutate(formData);
   };
 
   const handleInputChange = (field: string, value: any) => {
-    console.log(`🔍 ContractorEditModal - Field "${field}" changed to:`, value);
+    console.info(`🔍 ContractorEditModal - Field "${field}" changed to:`, value);
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 

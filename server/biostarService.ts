@@ -1,6 +1,7 @@
 import fetch from 'node-fetch';
 import https from 'https';
 import WebSocket from 'ws';
+import { logger } from './utils/logger';
 
 // HTTPS agent that accepts self-signed certificates (Biostar servers often use them)
 const httpsAgent = new https.Agent({ rejectUnauthorized: false });
@@ -191,7 +192,7 @@ function mapBiostarUser(raw: any): BiostarUser {
   // the API version and card type. We try all known locations in order of preference.
   const cards: any[] = Array.isArray(raw?.cards) ? raw.cards : [];
   if (cards.length > 0) {
-    console.log(`🔍 Biostar card raw data for "${raw?.name}":`, JSON.stringify(cards[0]));
+    logger.info(`🔍 Biostar card raw data for "${raw?.name}":`, JSON.stringify(cards[0]));
   }
   // Biostar 2 card structure (confirmed via API inspection):
   //   { "id": "1", "card_id": "654654654", "display_card_id": "654654654", ... }
@@ -274,7 +275,7 @@ class BiostarService {
     const serverUrl = this.normalizeServerUrl(config.serverUrl);
     const loginUrl = `${serverUrl}/api/login`;
 
-    console.log(`🔐 Biostar: Attempting login to ${serverUrl}...`);
+    logger.info(`🔐 Biostar: Attempting login to ${serverUrl}...`);
 
     // BioStar 2 marks sessions as "web" or "api" based on the User-Agent used during login.
     // Web-only endpoints (events, T&A) return 403 "by":"web" for api-classified sessions.
@@ -309,7 +310,7 @@ class BiostarService {
       if (!response.ok) {
         const errorText = await response.text();
         const friendlyMessage = parseBiostarError(errorText);
-        console.error(`❌ Biostar login failed: ${response.status} - ${errorText}`);
+        logger.error(`❌ Biostar login failed: ${response.status} - ${errorText}`);
         throw new Error(`Login failed: ${friendlyMessage}`);
       }
 
@@ -317,7 +318,7 @@ class BiostarService {
       const sessionId = response.headers.get('bs-session-id');
       
       if (!sessionId) {
-        console.error('❌ Biostar: No session ID in response headers');
+        logger.error('❌ Biostar: No session ID in response headers');
         throw new Error('No session ID received from Biostar server');
       }
 
@@ -334,14 +335,14 @@ class BiostarService {
           .map(c => c.split(';')[0].trim())
           .filter(Boolean)
           .join('; ');
-        console.log(`🍪 Biostar: Stored session cookies (${this.sessionCookies.length} chars)`);
+        logger.info(`🍪 Biostar: Stored session cookies (${this.sessionCookies.length} chars)`);
       } else {
         this.sessionCookies = null;
       }
 
-      console.log(`✅ Biostar: Login successful, session expires at ${this.sessionExpiry.toISOString()}`);
+      logger.info(`✅ Biostar: Login successful, session expires at ${this.sessionExpiry.toISOString()}`);
     } catch (error: any) {
-      console.error(`❌ Biostar login error:`, error);
+      logger.error(`❌ Biostar login error:`, error);
       
       if (error.name === 'AbortError') {
         throw new Error('Connection timeout - Biostar server may be unreachable');
@@ -361,7 +362,7 @@ class BiostarService {
    */
   private async ensureAuthenticated(config: BiostarConfig): Promise<void> {
     if (!this.isSessionValid()) {
-      console.log('🔄 Biostar: Session expired or invalid, re-authenticating...');
+      logger.info('🔄 Biostar: Session expired or invalid, re-authenticating...');
       await this.login(config);
     }
   }
@@ -414,11 +415,11 @@ class BiostarService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`❌ Biostar API error: ${response.status} - ${errorText}`);
+        logger.error(`❌ Biostar API error: ${response.status} - ${errorText}`);
         
         // Session might have expired
         if (response.status === 401) {
-          console.log('🔄 Biostar: Session expired (401), re-authenticating...');
+          logger.info('🔄 Biostar: Session expired (401), re-authenticating...');
           this.sessionId = null;
           this.sessionExpiry = null;
           this.sessionCookies = null;
@@ -432,7 +433,7 @@ class BiostarService {
       const data = await response.json();
       return data;
     } catch (error: any) {
-      console.error(`❌ Biostar API request error:`, error);
+      logger.error(`❌ Biostar API request error:`, error);
       
       if (error.name === 'AbortError') {
         throw new Error('Request timeout - Biostar server may be slow or unreachable');
@@ -478,7 +479,7 @@ class BiostarService {
         (response?.user_id ? response : null);
       return row ?? null;
     } catch (err: any) {
-      console.warn(`⚠️ Biostar: Could not fetch detail for user ${userId}: ${err.message}`);
+      logger.warn(`⚠️ Biostar: Could not fetch detail for user ${userId}: ${err.message}`);
       return null;
     }
   }
@@ -492,11 +493,11 @@ class BiostarService {
     try {
       const response = await this.makeAuthenticatedRequest(config, '/api/devices');
       const rows: any[] = response?.DeviceCollection?.rows ?? response?.rows ?? (Array.isArray(response) ? response : []);
-      console.log(`📟 Biostar: Got ${rows.length} devices from /api/devices`);
+      logger.info(`📟 Biostar: Got ${rows.length} devices from /api/devices`);
       if (rows.length > 0) {
-        console.log(`📟 Biostar: Device record keys:`, Object.keys(rows[0]).join(', '));
+        logger.info(`📟 Biostar: Device record keys:`, Object.keys(rows[0]).join(', '));
         const r0 = rows[0];
-        console.log(`📟 Biostar: Sample device - group:`, JSON.stringify(r0?.device_group_id), `lan:`, JSON.stringify(r0?.lan), `type:`, JSON.stringify(r0?.device_type_id));
+        logger.info(`📟 Biostar: Sample device - group:`, JSON.stringify(r0?.device_group_id), `lan:`, JSON.stringify(r0?.lan), `type:`, JSON.stringify(r0?.device_type_id));
       }
 
       return rows.map((r: any) => {
@@ -519,7 +520,7 @@ class BiostarService {
       }).filter(d => d.id && d.id !== '0');
     } catch (err: any) {
       // 403 is expected when API permission is restricted — log but don't throw
-      console.warn(`⚠️ Biostar: GET /api/devices failed (${err.message}) — returning empty device list`);
+      logger.warn(`⚠️ Biostar: GET /api/devices failed (${err.message}) — returning empty device list`);
       return [];
     }
   }
@@ -532,13 +533,13 @@ class BiostarService {
     try {
       const response = await this.makeAuthenticatedRequest(config, '/api/door');
       const rows = response?.DoorCollection?.rows ?? response?.rows ?? (Array.isArray(response) ? response : []);
-      console.log(`🚪 Biostar: Got ${rows.length} doors from door status endpoint`);
+      logger.info(`🚪 Biostar: Got ${rows.length} doors from door status endpoint`);
       if (rows.length > 0) {
-        console.log(`🚪 Biostar: Door record keys:`, Object.keys(rows[0]).join(', '));
+        logger.info(`🚪 Biostar: Door record keys:`, Object.keys(rows[0]).join(', '));
       }
       return rows;
     } catch (err: any) {
-      console.warn(`⚠️ Biostar: Door status endpoint failed: ${err.message}`);
+      logger.warn(`⚠️ Biostar: Door status endpoint failed: ${err.message}`);
       return [];
     }
   }
@@ -580,7 +581,7 @@ class BiostarService {
       if (rawRows.length > 0) {
         const users = rawRows.map(mapBiostarUser).filter(u => u.id && u.name);
         const withCards = users.filter(u => u.barcodeNumber).length;
-        console.log(`👥 Biostar: Retrieved ${users.length} users via search (${withCards} with card/QR data)`);
+        logger.info(`👥 Biostar: Retrieved ${users.length} users via search (${withCards} with card/QR data)`);
         return users;
       }
     } catch {
@@ -588,7 +589,7 @@ class BiostarService {
     }
 
     // --- Strategy 2: GET list for IDs, then GET /api/users/{id} for full detail ---
-    console.log('🔄 Biostar: Fetching user list then individual records for full card data...');
+    logger.info('🔄 Biostar: Fetching user list then individual records for full card data...');
     try {
       const listResponse = await this.makeAuthenticatedRequest(
         config, `/api/users?limit=${limit}&offset=${offset}`
@@ -600,7 +601,7 @@ class BiostarService {
         listResponse?.rows ??
         [];
 
-      console.log(`👥 Biostar: Found ${listRows.length} users in list, fetching full records...`);
+      logger.info(`👥 Biostar: Found ${listRows.length} users in list, fetching full records...`);
 
       const fullUsers: BiostarUser[] = [];
       for (const listRow of listRows) {
@@ -616,16 +617,16 @@ class BiostarService {
         const mapped = mapBiostarUser(raw);
         if (mapped.id && mapped.name) {
           if (mapped.barcodeNumber) {
-            console.log(`🃏 Biostar: User "${mapped.name}" has card: ${mapped.barcodeNumber}`);
+            logger.info(`🃏 Biostar: User "${mapped.name}" has card: ${mapped.barcodeNumber}`);
           }
           fullUsers.push(mapped);
         }
       }
 
-      console.log(`👥 Biostar: Retrieved ${fullUsers.length} users with full detail (${fullUsers.filter(u => u.barcodeNumber).length} with card/QR data)`);
+      logger.info(`👥 Biostar: Retrieved ${fullUsers.length} users with full detail (${fullUsers.filter(u => u.barcodeNumber).length} with card/QR data)`);
       return fullUsers;
     } catch (error: any) {
-      console.error('❌ Failed to fetch Biostar users:', error);
+      logger.error('❌ Failed to fetch Biostar users:', error);
       throw error;
     }
   }
@@ -766,24 +767,24 @@ class BiostarService {
         const response = await strategy.fn();
         const rows = extractRows(response);
         if (rows.length > 0) {
-          console.log(`📋 BioStar Live Log: ✅ ${rows.length} events via "${strategy.label}"`);
+          logger.info(`📋 BioStar Live Log: ✅ ${rows.length} events via "${strategy.label}"`);
           return { rows, strategy: strategy.label };
         }
         if (response?.EventCollection?.total === 0) {
-          console.log(`📋 BioStar Live Log: 0 total events for period (confirmed by "${strategy.label}")`);
+          logger.info(`📋 BioStar Live Log: 0 total events for period (confirmed by "${strategy.label}")`);
           return { rows: [], strategy: strategy.label };
         }
-        console.log(`📋 BioStar Live Log: "${strategy.label}" returned 0 rows`);
+        logger.info(`📋 BioStar Live Log: "${strategy.label}" returned 0 rows`);
       } catch (err: any) {
         const msg = err.message ?? String(err);
         errors.push(`${strategy.label}: ${msg}`);
-        console.warn(`⚠️ BioStar Live Log: "${strategy.label}" failed: ${msg}`);
+        logger.warn(`⚠️ BioStar Live Log: "${strategy.label}" failed: ${msg}`);
       }
     }
 
     // All strategies failed — return empty with consolidated error
     const errSummary = errors.join(' | ');
-    console.error(`❌ BioStar Live Log: all strategies failed. Errors: ${errSummary}`);
+    logger.error(`❌ BioStar Live Log: all strategies failed. Errors: ${errSummary}`);
 
     // Provide a specific, actionable error message based on what errors occurred
     const has500 = errors.some(e => e.includes('Something wrong with server') || e.includes('500'));
@@ -848,7 +849,7 @@ class BiostarService {
     const startStr = fmtBiostar(start);
     const endStr   = fmtBiostar(end);
 
-    console.log(`📋 Biostar: Querying events from ${startStr} to ${endStr}`);
+    logger.info(`📋 Biostar: Querying events from ${startStr} to ${endStr}`);
 
     let rawRows: any[] = [];
 
@@ -883,9 +884,9 @@ class BiostarService {
         resp0?.EventCollection?.rows ??
         resp0?.rows ??
         (Array.isArray(resp0) ? resp0 : []);
-      console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST Query v2.7.10+ format)`);
+      logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST Query v2.7.10+ format)`);
     } catch (err0: any) {
-      console.warn(`⚠️ Biostar Strategy 0 (Query v2.7.10+ format) failed: ${err0.message}`);
+      logger.warn(`⚠️ Biostar Strategy 0 (Query v2.7.10+ format) failed: ${err0.message}`);
     }
 
     // If Strategy 0 returned rows, map and return immediately
@@ -927,9 +928,9 @@ class BiostarService {
         response?.records ??
         response?.rows ??
         (Array.isArray(response) ? response : []);
-      console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST /api/events/search)`);
+      logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST /api/events/search)`);
     } catch (err: any) {
-      console.warn(`⚠️ Biostar POST /api/events/search (with filter arrays) failed: ${err.message}`);
+      logger.warn(`⚠️ Biostar POST /api/events/search (with filter arrays) failed: ${err.message}`);
 
       // Strategy 2: POST with space-separated datetime
       const triedStrategies: string[] = [`POST filter-arrays+T-format: ${err.message}`];
@@ -943,7 +944,7 @@ class BiostarService {
           EventCollection: { start_datetime: fmtSp(start), end_datetime: fmtSp(end), event_type_id: ALL, device_id: ALL, user_id: ALL, door_id: ALL, limit, offset: 0 },
         });
         rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
-        console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST space-datetime)`);
+        logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST space-datetime)`);
         postSpaceOk = true;
       } catch (e2: any) {
         triedStrategies.push(`POST filter-arrays+space-datetime: ${e2.message}`);
@@ -957,7 +958,7 @@ class BiostarService {
             EventCollection: { event_type_id: ALL, device_id: ALL, user_id: ALL, door_id: ALL, limit, offset: 0 },
           });
           rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
-          console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST no-dates)`);
+          logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (POST no-dates)`);
           postNoDatesOk = true;
         } catch (e3: any) {
           triedStrategies.push(`POST filter-arrays+no-dates: ${e3.message}`);
@@ -970,7 +971,7 @@ class BiostarService {
             const endpoint = `/api/events?start_datetime=${encodeURIComponent(startStr)}&end_datetime=${encodeURIComponent(endStr)}&limit=${limit}`;
             const response = await this.makeAuthenticatedRequest(config, endpoint);
             rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
-            console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events?dates)`);
+            logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events?dates)`);
             getDateOk = true;
           } catch (e4: any) {
             triedStrategies.push(`GET /api/events?dates: ${e4.message}`);
@@ -981,10 +982,10 @@ class BiostarService {
             try {
               const response = await this.makeAuthenticatedRequest(config, `/api/events?limit=${limit}`);
               rawRows = response?.EventCollection?.rows ?? response?.records ?? response?.rows ?? (Array.isArray(response) ? response : []);
-              console.log(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events?limit)`);
+              logger.info(`📋 Biostar: Retrieved ${rawRows.length} raw events (GET /api/events?limit)`);
             } catch (e5: any) {
               triedStrategies.push(`GET /api/events?limit: ${e5.message}`);
-              console.error(`❌ Biostar: All event strategies failed: ${triedStrategies.join(' | ')}`);
+              logger.error(`❌ Biostar: All event strategies failed: ${triedStrategies.join(' | ')}`);
               throw new Error(`Event log unavailable: ${triedStrategies.at(-1)}`);
             }
           }
@@ -1047,13 +1048,13 @@ class BiostarService {
       events = await this.getEventLogs(config);
       eventsAvailable = true;
     } catch (err: any) {
-      console.warn(`⚠️ Biostar: Event log API unavailable (${err.message}), falling back to last_access_time`);
+      logger.warn(`⚠️ Biostar: Event log API unavailable (${err.message}), falling back to last_access_time`);
     }
 
     if (eventsAvailable && events.length > 0) {
       // Log ALL distinct event codes today so the admin can see what's happening
       const uniqueCodes = [...new Set(events.map(e => `${e.eventTypeCode}(${e.eventTypeDesc})`))];
-      console.log(`📋 Biostar: Event codes seen today: ${uniqueCodes.slice(0, 10).join(', ')}`);
+      logger.info(`📋 Biostar: Event codes seen today: ${uniqueCodes.slice(0, 10).join(', ')}`);
 
       // ── Step 1: Filter to ONLY authentication events ──────────────────────
       // BioStar generates many non-auth events (door-open relay, zone events,
@@ -1065,7 +1066,7 @@ class BiostarService {
         BIOSTAR_EXIT_EVENT_CODES.has(e.eventTypeCode)
       );
 
-      console.log(`📋 Biostar: ${authEvents.length} auth events (of ${events.length} total) after filtering`);
+      logger.info(`📋 Biostar: ${authEvents.length} auth events (of ${events.length} total) after filtering`);
 
       // ── Step 2: Most-recent AUTH event per user ───────────────────────────
       const userLatest = new Map<string, BiostarEventLog>();
@@ -1077,7 +1078,7 @@ class BiostarService {
         }
       }
 
-      console.log(`📋 Biostar: Distinct users with auth events today: ${userLatest.size} — IDs: ${[...userLatest.keys()].slice(0, 10).join(', ')}`);
+      logger.info(`📋 Biostar: Distinct users with auth events today: ${userLatest.size} — IDs: ${[...userLatest.keys()].slice(0, 10).join(', ')}`);
 
       // ── Step 3: Determine direction via device role ───────────────────────
       // Device role (from biostar_devices table) takes precedence over event code.
@@ -1091,7 +1092,7 @@ class BiostarService {
         const role = deviceRoles[String(event.deviceId)] ?? 'ENTRY_EXIT';
         const direction = BiostarService.resolveEventDirection(event.eventTypeCode, role);
 
-        console.log(`🔎 Biostar direction: user=${userId}(${event.userName}) device=${event.deviceId} code=${event.eventTypeCode} role=${role} → ${direction ?? 'null(non-auth)'}`);
+        logger.info(`🔎 Biostar direction: user=${userId}(${event.userName}) device=${event.deviceId} code=${event.eventTypeCode} role=${role} → ${direction ?? 'null(non-auth)'}`);
 
         if (direction === 'ENTRY') {
           onSiteUsers.push({
@@ -1105,7 +1106,7 @@ class BiostarService {
         // EXIT / IGNORE / null → user not on-site, don't push
       }
 
-      console.log(`📊 Biostar: ${onSiteUsers.length} of ${userLatest.size} users on-site (via auth event log + device roles)`);
+      logger.info(`📊 Biostar: ${onSiteUsers.length} of ${userLatest.size} users on-site (via auth event log + device roles)`);
       return onSiteUsers;
     }
 
@@ -1137,7 +1138,7 @@ class BiostarService {
       }
 
       if (onSiteUsers.length > 0) {
-        console.log(`📊 Biostar: ${onSiteUsers.length} of ${users.length} users on-site (via last_access_time fallback)`);
+        logger.info(`📊 Biostar: ${onSiteUsers.length} of ${users.length} users on-site (via last_access_time fallback)`);
         return onSiteUsers;
       }
     } catch (fallbackErr: any) {
@@ -1147,18 +1148,18 @@ class BiostarService {
     // --- Fallback 2: Time & Attendance records ---
     // BioStar 2 T&A module records check-in/check-out per day and may be accessible
     // even when the Event Log REST endpoint is permission-denied.
-    console.log('📊 Biostar: Trying Time & Attendance API for on-site detection...');
+    logger.info('📊 Biostar: Trying Time & Attendance API for on-site detection...');
     try {
       const taUsers = await this.getTimeAttendanceOnSite(config);
       if (taUsers.length > 0 || true) { // always log what T&A returns
-        console.log(`📊 Biostar: ${taUsers.length} users on-site (via Time & Attendance API)`);
+        logger.info(`📊 Biostar: ${taUsers.length} users on-site (via Time & Attendance API)`);
         return taUsers;
       }
     } catch (taErr: any) {
-      console.warn(`⚠️ Biostar: Time & Attendance API also unavailable: ${taErr.message}`);
+      logger.warn(`⚠️ Biostar: Time & Attendance API also unavailable: ${taErr.message}`);
     }
 
-    console.log('📊 Biostar: All on-site detection methods exhausted — returning empty list');
+    logger.info('📊 Biostar: All on-site detection methods exhausted — returning empty list');
     return [];
   }
 
@@ -1189,17 +1190,17 @@ class BiostarService {
     try {
       const searchResp = await this.makeAuthenticatedRequest(config, '/api/time_attendance/search', 'POST', searchBody);
       rows = searchResp?.TimeAttendanceCollection?.rows ?? searchResp?.rows ?? [];
-      console.log(`📅 Biostar T&A: POST /api/time_attendance/search returned ${rows.length} records`);
-      if (rows.length > 0) console.log(`📅 Biostar T&A: Sample record keys:`, Object.keys(rows[0]).join(', '));
+      logger.info(`📅 Biostar T&A: POST /api/time_attendance/search returned ${rows.length} records`);
+      if (rows.length > 0) logger.info(`📅 Biostar T&A: Sample record keys:`, Object.keys(rows[0]).join(', '));
     } catch (searchErr: any) {
-      console.warn(`⚠️ Biostar T&A: POST search failed (${searchErr.message}), trying GET...`);
+      logger.warn(`⚠️ Biostar T&A: POST search failed (${searchErr.message}), trying GET...`);
       try {
         const getResp = await this.makeAuthenticatedRequest(config, `/api/time_attendance?from_date=${startStr}&to_date=${endStr}`);
         rows = getResp?.TimeAttendanceCollection?.rows ?? getResp?.rows ?? [];
-        console.log(`📅 Biostar T&A: GET /api/time_attendance returned ${rows.length} records`);
-        if (rows.length > 0) console.log(`📅 Biostar T&A: Sample record keys:`, Object.keys(rows[0]).join(', '));
+        logger.info(`📅 Biostar T&A: GET /api/time_attendance returned ${rows.length} records`);
+        if (rows.length > 0) logger.info(`📅 Biostar T&A: Sample record keys:`, Object.keys(rows[0]).join(', '));
       } catch (getErr: any) {
-        console.warn(`⚠️ Biostar T&A: GET also failed (${getErr.message})`);
+        logger.warn(`⚠️ Biostar T&A: GET also failed (${getErr.message})`);
         throw getErr;
       }
     }
@@ -1216,9 +1217,9 @@ class BiostarService {
       if (checkin && !checkout) {
         // Checked in today, no check-out → on-site
         onSite.push({ userId: String(userId), userName, lastAccessTime: checkin, eventCode: 'ta_checkin', deviceId: '' });
-        console.log(`📅 Biostar T&A: "${userName}" checked in at ${checkin}, no checkout → ON SITE`);
+        logger.info(`📅 Biostar T&A: "${userName}" checked in at ${checkin}, no checkout → ON SITE`);
       } else if (checkin && checkout) {
-        console.log(`📅 Biostar T&A: "${userName}" checked in ${checkin}, checked out ${checkout} → OFF SITE`);
+        logger.info(`📅 Biostar T&A: "${userName}" checked in ${checkin}, checked out ${checkout} → OFF SITE`);
       }
     }
 
@@ -1328,7 +1329,7 @@ class BiostarService {
         ...(this.sessionCookies ? [this.sessionCookies] : []),
       ].join('; ');
 
-      console.log(`🔌 BioStar WS [${this.wsCustomerId}]: connecting to ${wsUrl}`);
+      logger.info(`🔌 BioStar WS [${this.wsCustomerId}]: connecting to ${wsUrl}`);
 
       this.wsSocket = new (WebSocket as any)(wsUrl, {
         headers: {
@@ -1342,7 +1343,7 @@ class BiostarService {
       });
 
       this.wsSocket!.on('open', () => {
-        console.log(
+        logger.info(
           `✅ BioStar WS [${this.wsCustomerId}]: connected — streaming real-time events`,
         );
         // BioStar 2 New Local API requires an event-filter subscription message
@@ -1361,9 +1362,9 @@ class BiostarService {
         });
         try {
           this.wsSocket!.send(subscribeMsg);
-          console.log(`📤 BioStar WS [${this.wsCustomerId}]: subscription filter sent`);
+          logger.info(`📤 BioStar WS [${this.wsCustomerId}]: subscription filter sent`);
         } catch (sendErr: any) {
-          console.warn(`⚠️ BioStar WS [${this.wsCustomerId}]: could not send subscription: ${sendErr.message}`);
+          logger.warn(`⚠️ BioStar WS [${this.wsCustomerId}]: could not send subscription: ${sendErr.message}`);
         }
 
         // Also send the older event-subscribe format some BioStar versions use
@@ -1396,7 +1397,7 @@ class BiostarService {
           wsMessageCount++;
           // Log first 5 messages verbatim so we can see what BioStar is actually sending
           if (wsMessageCount <= 5) {
-            console.log(`📨 BioStar WS [${this.wsCustomerId}] msg#${wsMessageCount}:`, text.slice(0, 300));
+            logger.info(`📨 BioStar WS [${this.wsCustomerId}] msg#${wsMessageCount}:`, text.slice(0, 300));
           }
           const raw = JSON.parse(text);
           this.wsOnEvent?.(raw);
@@ -1411,11 +1412,11 @@ class BiostarService {
           // Try the next known path on the next reconnect
           this.wsGot403 = true;
           this.wsPathIndex = (this.wsPathIndex + 1) % this.WS_PATHS.length;
-          console.warn(
+          logger.warn(
             `⚠️ BioStar WS [${this.wsCustomerId}]: 403 on ${wsPath} — will try ${this.WS_PATHS[this.wsPathIndex]} next`,
           );
         } else {
-          console.warn(`⚠️ BioStar WS [${this.wsCustomerId}]: ${msg}`);
+          logger.warn(`⚠️ BioStar WS [${this.wsCustomerId}]: ${msg}`);
         }
       });
 
@@ -1423,7 +1424,7 @@ class BiostarService {
         // If we got a 403 (known-wrong path), retry immediately with the next path.
         // For any other disconnection, wait 30 s to avoid rapid reconnect storms.
         const delayMs = this.wsGot403 ? 3_000 : 30_000;
-        console.log(
+        logger.info(
           `🔌 BioStar WS [${this.wsCustomerId}]: disconnected (code=${code}) — reconnecting in ${delayMs / 1000} s`,
         );
         this.wsSocket = null;
@@ -1433,7 +1434,7 @@ class BiostarService {
         }
       });
     } catch (err: any) {
-      console.warn(
+      logger.warn(
         `⚠️ BioStar WS [${this.wsCustomerId}]: connection failed (${err.message}) — retrying in 60 s`,
       );
       if (this.wsShouldRun) {

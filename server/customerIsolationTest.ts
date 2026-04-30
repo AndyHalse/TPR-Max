@@ -4,6 +4,7 @@ import { databaseMigrationService } from './databaseMigrationService';
 import { backupRestoreService } from './backupRestoreService';
 import { databaseService } from './databaseService';
 import type { CustomerContext } from './customerDatabase';
+import { logger } from './utils/logger';
 
 /**
  * CUSTOMER ISOLATION TEST SERVICE
@@ -28,7 +29,7 @@ export class CustomerIsolationTest {
    * Run comprehensive customer isolation tests
    */
   async runFullIsolationTest(): Promise<TestResults> {
-    console.log('🚀 Starting comprehensive customer isolation tests...');
+    logger.info('🚀 Starting comprehensive customer isolation tests...');
 
     const results: TestResults = {
       testStartTime: new Date(),
@@ -72,12 +73,12 @@ export class CustomerIsolationTest {
       results.summary.failed = testValues.filter(test => test.result === 'failed').length;
       results.overallResult = results.summary.failed === 0 ? 'passed' : 'failed';
 
-      console.log(`${results.overallResult === 'passed' ? '✅' : '❌'} Customer isolation tests completed`);
-      console.log(`Results: ${results.summary.passed}/${results.summary.total} tests passed`);
+      logger.info(`${results.overallResult === 'passed' ? '✅' : '❌'} Customer isolation tests completed`);
+      logger.info(`Results: ${results.summary.passed}/${results.summary.total} tests passed`);
 
       return results;
     } catch (error) {
-      console.error('❌ Customer isolation tests failed:', error);
+      logger.error('❌ Customer isolation tests failed:', error);
       results.overallResult = 'error';
       results.error = error instanceof Error ? error.message : String(error);
       return results;
@@ -88,7 +89,7 @@ export class CustomerIsolationTest {
    * Test that each customer connects to a separate database
    */
   private async testDatabaseConnectionIsolation(): Promise<TestResult> {
-    console.log('🔍 Testing database connection isolation...');
+    logger.info('🔍 Testing database connection isolation...');
 
     try {
       const customers = ['dev-customer-001', 'dev-customer-002'];
@@ -131,7 +132,7 @@ export class CustomerIsolationTest {
    * Test that data written by one customer is not visible to another
    */
   private async testDataWriteIsolation(): Promise<TestResult> {
-    console.log('🔍 Testing data write isolation...');
+    logger.info('🔍 Testing data write isolation...');
 
     try {
       const customer1Context: CustomerContext = { customerId: 'dev-customer-001' };
@@ -191,7 +192,7 @@ export class CustomerIsolationTest {
    * Test that each customer can only read their own data
    */
   private async testDataReadIsolation(): Promise<TestResult> {
-    console.log('🔍 Testing data read isolation...');
+    logger.info('🔍 Testing data read isolation...');
 
     try {
       const customer1Context: CustomerContext = { customerId: 'dev-customer-001' };
@@ -244,7 +245,7 @@ export class CustomerIsolationTest {
    * Test user context isolation
    */
   private async testUserContextIsolation(): Promise<TestResult> {
-    console.log('🔍 Testing user context isolation...');
+    logger.info('🔍 Testing user context isolation...');
 
     try {
       // Test that user operations are properly scoped to customer context
@@ -286,7 +287,7 @@ export class CustomerIsolationTest {
    * Test that database schemas are correctly isolated (no customerId fields)
    */
   private async testSchemaVerification(): Promise<TestResult> {
-    console.log('🔍 Testing database schema verification...');
+    logger.info('🔍 Testing database schema verification...');
 
     try {
       // This would normally inspect the actual database schema
@@ -323,7 +324,7 @@ export class CustomerIsolationTest {
    * Test migration data integrity
    */
   private async testMigrationDataIntegrity(): Promise<TestResult> {
-    console.log('🔍 Testing migration data integrity...');
+    logger.info('🔍 Testing migration data integrity...');
 
     try {
       // This would test the actual migration process
@@ -358,7 +359,7 @@ export class CustomerIsolationTest {
    * Test backup and restore isolation
    */
   private async testBackupRestoreIsolation(): Promise<TestResult> {
-    console.log('🔍 Testing backup/restore isolation...');
+    logger.info('🔍 Testing backup/restore isolation...');
 
     try {
       // Verify backup/restore service exists and is functional

@@ -8,6 +8,7 @@ import { eq, and } from 'drizzle-orm';
 import * as sharedSchema from '@shared/schema';
 import crypto from 'crypto';
 import { emailService } from './emailService';
+import { logger } from './utils/logger';
 
 /**
  * STRIPE WEBHOOK HANDLER
@@ -64,7 +65,7 @@ export class StripeWebhookHandler {
         try {
           await this.handleWebhook(req, res);
         } catch (error) {
-          console.error('❌ Critical webhook processing error:', error);
+          logger.error('❌ Critical webhook processing error:', error);
           // Return 500 to trigger Stripe retry
           res.status(500).json({ 
             received: false, 
@@ -75,7 +76,7 @@ export class StripeWebhookHandler {
       }
     );
 
-    console.log('✅ SECURITY: Stripe webhook endpoint registered at /api/stripe/webhook with proper raw body parsing');
+    logger.info('✅ SECURITY: Stripe webhook endpoint registered at /api/stripe/webhook with proper raw body parsing');
   }
 
   /**
@@ -88,7 +89,7 @@ export class StripeWebhookHandler {
     const rawBody = Buffer.isBuffer(req.body) ? req.body : Buffer.from(req.body, 'utf8');
 
     if (!sig) {
-      console.error('❌ Missing stripe-signature header');
+      logger.error('❌ Missing stripe-signature header');
       return res.status(400).send('Missing stripe-signature header');
     }
 
@@ -97,10 +98,10 @@ export class StripeWebhookHandler {
     try {
       // Verify webhook signature with raw buffer
       event = stripeService.verifyWebhookSignature(rawBody, sig);
-      console.log(`🔔 Stripe webhook received: ${event.type} (${event.id})`);
+      logger.info(`🔔 Stripe webhook received: ${event.type} (${event.id})`);
       
     } catch (error) {
-      console.error('❌ Stripe webhook signature verification failed:', error);
+      logger.error('❌ Stripe webhook signature verification failed:', error);
       return res.status(400).send('Webhook signature verification failed');
     }
 
@@ -108,7 +109,7 @@ export class StripeWebhookHandler {
       // Check for duplicate events (idempotency)
       const isProcessed = await this.checkEventProcessed(event);
       if (isProcessed) {
-        console.log(`⏭️ Event already processed: ${event.id}`);
+        logger.info(`⏭️ Event already processed: ${event.id}`);
         return res.status(200).json({ received: true, processed: false, reason: 'duplicate' });
       }
 
@@ -121,11 +122,11 @@ export class StripeWebhookHandler {
       // Mark event as processed
       await this.markEventProcessed(event.id);
 
-      console.log(`✅ Successfully processed webhook: ${event.type} (${event.id})`);
+      logger.info(`✅ Successfully processed webhook: ${event.type} (${event.id})`);
       res.status(200).json({ received: true, processed: true });
 
     } catch (error) {
-      console.error(`❌ Error processing webhook ${event.type} (${event.id}):`, error);
+      logger.error(`❌ Error processing webhook ${event.type} (${event.id}):`, error);
       
       // Mark event as failed for retry
       await this.markEventFailed(event.id, error);
@@ -249,7 +250,7 @@ export class StripeWebhookHandler {
         break;
 
       default:
-        console.log(`⏭️ Unhandled webhook event type: ${event.type}`);
+        logger.info(`⏭️ Unhandled webhook event type: ${event.type}`);
     }
   }
 
@@ -258,7 +259,7 @@ export class StripeWebhookHandler {
    */
   private async handleSubscriptionCreated(event: Stripe.Event) {
     const subscription = event.data.object as Stripe.Subscription;
-    console.log(`🔄 Processing subscription created: ${subscription.id}`);
+    logger.info(`🔄 Processing subscription created: ${subscription.id}`);
 
     await stripeService.updateSubscriptionFromWebhook(subscription);
 
@@ -273,7 +274,7 @@ export class StripeWebhookHandler {
    */
   private async handleSubscriptionUpdated(event: Stripe.Event) {
     const subscription = event.data.object as Stripe.Subscription;
-    console.log(`🔄 Processing subscription updated: ${subscription.id}`);
+    logger.info(`🔄 Processing subscription updated: ${subscription.id}`);
 
     await stripeService.updateSubscriptionFromWebhook(subscription);
 
@@ -290,7 +291,7 @@ export class StripeWebhookHandler {
    */
   private async handleSubscriptionDeleted(event: Stripe.Event) {
     const subscription = event.data.object as Stripe.Subscription;
-    console.log(`🔄 Processing subscription deleted: ${subscription.id}`);
+    logger.info(`🔄 Processing subscription deleted: ${subscription.id}`);
 
     await stripeService.updateSubscriptionFromWebhook(subscription);
     await this.suspendCustomerAccess(subscription);
@@ -301,7 +302,7 @@ export class StripeWebhookHandler {
    */
   private async handlePaymentSucceeded(event: Stripe.Event) {
     const invoice = event.data.object as Stripe.Invoice;
-    console.log(`🔄 Processing payment succeeded for invoice: ${invoice.id}`);
+    logger.info(`🔄 Processing payment succeeded for invoice: ${invoice.id}`);
 
     await this.recordInvoicePayment(invoice, 'paid');
 
@@ -319,7 +320,7 @@ export class StripeWebhookHandler {
    */
   private async handlePaymentFailed(event: Stripe.Event) {
     const invoice = event.data.object as Stripe.Invoice;
-    console.log(`🔄 Processing payment failed for invoice: ${invoice.id}`);
+    logger.info(`🔄 Processing payment failed for invoice: ${invoice.id}`);
 
     await this.recordInvoicePayment(invoice, 'failed');
 
@@ -338,7 +339,7 @@ export class StripeWebhookHandler {
    */
   private async handleCustomerCreated(event: Stripe.Event) {
     const customer = event.data.object as Stripe.Customer;
-    console.log(`🔄 Processing customer created: ${customer.id}`);
+    logger.info(`🔄 Processing customer created: ${customer.id}`);
 
     // Update our customer record with Stripe customer ID if not already set
     const visiGateCustomerId = customer.metadata?.visigate_customer_id;
@@ -359,7 +360,7 @@ export class StripeWebhookHandler {
    */
   private async handleCustomerUpdated(event: Stripe.Event) {
     const customer = event.data.object as Stripe.Customer;
-    console.log(`🔄 Processing customer updated: ${customer.id}`);
+    logger.info(`🔄 Processing customer updated: ${customer.id}`);
 
     // Sync customer data if needed
     const visiGateCustomerId = customer.metadata?.visigate_customer_id;
@@ -380,7 +381,7 @@ export class StripeWebhookHandler {
    */
   private async handleTrialWillEnd(event: Stripe.Event) {
     const subscription = event.data.object as Stripe.Subscription;
-    console.log(`🔄 Processing trial will end: ${subscription.id}`);
+    logger.info(`🔄 Processing trial will end: ${subscription.id}`);
 
     const customerId = subscription.metadata?.visigate_customer_id;
     if (customerId) {
@@ -445,15 +446,15 @@ export class StripeWebhookHandler {
           });
 
           if (sent) {
-            console.log(`📧 Trial ending notification sent to ${customer.contactEmail} (customer: ${customerId})`);
+            logger.info(`📧 Trial ending notification sent to ${customer.contactEmail} (customer: ${customerId})`);
           } else {
-            console.error(`📧 Failed to send trial ending notification to ${customer.contactEmail} (customer: ${customerId})`);
+            logger.error(`📧 Failed to send trial ending notification to ${customer.contactEmail} (customer: ${customerId})`);
           }
         } else {
-          console.warn(`📧 No contact email found for customer: ${customerId} — trial ending notification not sent`);
+          logger.warn(`📧 No contact email found for customer: ${customerId} — trial ending notification not sent`);
         }
       } catch (err) {
-        console.error(`📧 Error sending trial ending notification for customer ${customerId}:`, err);
+        logger.error(`📧 Error sending trial ending notification for customer ${customerId}:`, err);
       }
     }
   }
@@ -463,7 +464,7 @@ export class StripeWebhookHandler {
    */
   private async handleCheckoutCompleted(event: Stripe.Event) {
     const session = event.data.object as Stripe.Checkout.Session;
-    console.log(`🔄 Processing checkout completed: ${session.id}`);
+    logger.info(`🔄 Processing checkout completed: ${session.id}`);
 
     if (session.mode === 'subscription' && session.subscription) {
       // Retrieve the subscription to process it
@@ -487,7 +488,7 @@ export class StripeWebhookHandler {
     const customerId = subscription.metadata?.visigate_customer_id;
     if (!customerId) return;
 
-    console.log(`✅ Activating access for customer: ${customerId}`);
+    logger.info(`✅ Activating access for customer: ${customerId}`);
 
     const db = this.getManagementDb();
     await db
@@ -506,7 +507,7 @@ export class StripeWebhookHandler {
     const customerId = subscription.metadata?.visigate_customer_id;
     if (!customerId) return;
 
-    console.log(`⚠️ Suspending access for customer: ${customerId}`);
+    logger.info(`⚠️ Suspending access for customer: ${customerId}`);
 
     const db = this.getManagementDb();
     await db
@@ -576,7 +577,7 @@ export class StripeWebhookHandler {
     const customerId = subscription.metadata?.visigate_customer_id;
     if (!customerId) return;
 
-    console.log(`🚨 Payment failure for customer: ${customerId}`);
+    logger.info(`🚨 Payment failure for customer: ${customerId}`);
 
     try {
       const db = this.getManagementDb();
@@ -639,15 +640,15 @@ export class StripeWebhookHandler {
         });
 
         if (sent) {
-          console.log(`📧 Payment failure notification sent to ${customer.contactEmail} (customer: ${customerId})`);
+          logger.info(`📧 Payment failure notification sent to ${customer.contactEmail} (customer: ${customerId})`);
         } else {
-          console.error(`📧 Failed to send payment failure notification to ${customer.contactEmail} (customer: ${customerId})`);
+          logger.error(`📧 Failed to send payment failure notification to ${customer.contactEmail} (customer: ${customerId})`);
         }
       } else {
-        console.warn(`📧 No contact email found for customer: ${customerId} — payment failure notification not sent`);
+        logger.warn(`📧 No contact email found for customer: ${customerId} — payment failure notification not sent`);
       }
     } catch (err) {
-      console.error(`📧 Error sending payment failure notification for customer ${customerId}:`, err);
+      logger.error(`📧 Error sending payment failure notification for customer ${customerId}:`, err);
     }
 
     // If subscription is past due for too long, suspend access

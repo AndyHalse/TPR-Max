@@ -1,4 +1,5 @@
 import type { Migration } from './migrationRunner';
+import { logger } from './utils/logger';
 
 /**
  * COMPREHENSIVE SETTINGS COLUMN MIGRATION
@@ -11,7 +12,7 @@ export const addAllMissingCompanySettingsColumnsMigration: Migration = {
   version: '20250917_100_add_all_missing_company_settings_columns',
   description: 'Add ALL missing company settings columns to prevent schema drift issues',
   async up(db: any) {
-    console.log('🔄 Ensuring ALL company_settings columns exist...');
+    logger.info('🔄 Ensuring ALL company_settings columns exist...');
     
     // Get existing columns
     const existingColumns = await db.execute(`
@@ -20,7 +21,7 @@ export const addAllMissingCompanySettingsColumnsMigration: Migration = {
     `);
     
     const existingColumnNames = new Set(existingColumns.rows.map((row: any) => row.column_name));
-    console.log(`📋 Found ${existingColumnNames.size} existing columns`);
+    logger.info(`📋 Found ${existingColumnNames.size} existing columns`);
     
     // ALL columns that should exist based on isolatedSchema.ts
     const requiredColumns = [
@@ -200,25 +201,25 @@ export const addAllMissingCompanySettingsColumnsMigration: Migration = {
       
       if (!existingColumnNames.has(columnName)) {
         try {
-          console.log(`🔄 Adding missing column: ${columnName}`);
+          logger.info(`🔄 Adding missing column: ${columnName}`);
           
           await db.execute(`
             ALTER TABLE company_settings ADD COLUMN ${columnDef}
           `);
           
           addedCount++;
-          console.log(`✅ Added ${columnName} column successfully`);
+          logger.info(`✅ Added ${columnName} column successfully`);
         } catch (error: any) {
           // Log error but continue with other columns
-          console.warn(`⚠️ Failed to add column ${columnName}: ${error.message}`);
+          logger.warn(`⚠️ Failed to add column ${columnName}: ${error.message}`);
         }
       }
     }
     
-    console.log(`✅ Added ${addedCount} missing columns to company_settings table`);
+    logger.info(`✅ Added ${addedCount} missing columns to company_settings table`);
     
     if (addedCount === 0) {
-      console.log('ℹ️ All required columns already exist, no changes needed');
+      logger.info('ℹ️ All required columns already exist, no changes needed');
     }
   }
 };

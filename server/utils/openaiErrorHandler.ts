@@ -1,3 +1,4 @@
+import { logger } from '../utils/logger';
 /**
  * Centralized OpenAI error handling utility
  * Provides user-friendly error messages and appropriate fallback behavior
@@ -205,7 +206,7 @@ export class OpenAIErrorHandler {
   static logError(error: any, context: string) {
     const result = this.handleError(error);
     
-    console.error(`❌ OpenAI Error in ${context}:`, {
+    logger.error(`❌ OpenAI Error in ${context}:`, {
       userMessage: result.userMessage,
       technicalMessage: result.technicalMessage,
       isRecoverable: result.isRecoverable,
@@ -216,7 +217,7 @@ export class OpenAIErrorHandler {
 
     // Log additional debugging info if available (but filter sensitive data)
     if (error?.status || error?.code) {
-      console.error('Error details:', {
+      logger.error('Error details:', {
         status: error.status,
         code: error.code,
         type: error.type,

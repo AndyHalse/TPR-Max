@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { logger } from './utils/logger';
 
 export interface ScannedDocumentFields {
   expiryDate: string | null;
@@ -93,7 +94,7 @@ export async function scanDocumentWithClaude(params: {
     };
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error("❌ claudeService.scanDocumentWithClaude error:", msg);
+    logger.error("❌ claudeService.scanDocumentWithClaude error:", msg);
     return { fields: empty, success: false, error: `Claude extraction failed: ${msg}` };
   }
 }

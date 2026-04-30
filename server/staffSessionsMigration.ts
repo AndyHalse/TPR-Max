@@ -1,4 +1,5 @@
 import type { Migration } from './migrationRunner';
+import { logger } from './utils/logger';
 
 /**
  * Staff Sessions Table Migration
@@ -30,7 +31,7 @@ export const createStaffSessionsTableMigration: Migration = {
   version: '20250918_001_create_staff_sessions_table',
   description: 'Create staff_sessions table for tracking check-in/check-out history',
   async up(db: any) {
-    console.log('🔄 Creating staff_sessions table...');
+    logger.info('🔄 Creating staff_sessions table...');
 
     // Add pgcrypto extension for UUID generation
     await ensurePgcrypto(db);
@@ -50,7 +51,7 @@ export const createStaffSessionsTableMigration: Migration = {
       )
     `);
 
-    console.log('✅ Created staff_sessions table successfully');
+    logger.info('✅ Created staff_sessions table successfully');
   }
 };
 

@@ -382,7 +382,7 @@ export function registerRamsRoutes(app: Express): void {
           throw pdfErr;
         }
       } catch (pdfGenerationErr) {
-        console.warn('[compliance-report] PDF unavailable, falling back to HTML:', (pdfGenerationErr as Error).message);
+        logger.warn('[compliance-report] PDF unavailable, falling back to HTML:', (pdfGenerationErr as Error).message);
         const printHtml = html.replace('</body>', '<script>window.onload=function(){window.print();}</script></body>');
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
         res.setHeader('Content-Disposition', `inline; filename="martyn-law-compliance-${new Date().toISOString().slice(0,10)}.html"`);

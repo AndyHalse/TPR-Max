@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 import { CustomerDatabaseService } from './customerDatabase';
+import { logger } from './utils/logger';
 
 /**
  * Fix Isolated Database Schema
@@ -8,11 +9,11 @@ import { CustomerDatabaseService } from './customerDatabase';
  * to match the updated schema definition.
  */
 async function fixIsolatedDatabaseSchema() {
-  console.log("🔧 Starting isolated database schema fix...");
+  logger.info("🔧 Starting isolated database schema fix...");
   
   try {
     const customerId = "dev-customer-001"; // Andy's customer ID
-    console.log(`🔧 Fixing schema for customer: ${customerId}`);
+    logger.info(`🔧 Fixing schema for customer: ${customerId}`);
     
     // Get the customer's database connection
     const customerDatabaseService = CustomerDatabaseService.getInstance();
@@ -115,28 +116,28 @@ async function fixIsolatedDatabaseSchema() {
           // Column doesn't exist, add it
           const alterSql = `ALTER TABLE company_settings ADD COLUMN ${column}`;
           await db.execute(alterSql);
-          console.log(`✅ Added column: ${columnName}`);
+          logger.info(`✅ Added column: ${columnName}`);
           addedColumns++;
         } else {
-          console.log(`⏭️ Column already exists: ${columnName}`);
+          logger.info(`⏭️ Column already exists: ${columnName}`);
         }
       } catch (error: any) {
-        console.error(`❌ Error adding column ${column}:`, error.message);
+        logger.error(`❌ Error adding column ${column}:`, error.message);
       }
     }
     
-    console.log(`🎉 Schema fix completed! Added ${addedColumns} missing columns`);
+    logger.info(`🎉 Schema fix completed! Added ${addedColumns} missing columns`);
     
     // Test that the most important column was added
     try {
       const testResult = await db.execute('SELECT last_daily_reset FROM company_settings LIMIT 1');
-      console.log(`✅ Verified last_daily_reset column is now accessible`);
+      logger.info(`✅ Verified last_daily_reset column is now accessible`);
     } catch (error: any) {
-      console.error(`❌ last_daily_reset column still not accessible:`, error.message);
+      logger.error(`❌ last_daily_reset column still not accessible:`, error.message);
     }
     
   } catch (error: any) {
-    console.error("❌ Error fixing isolated database schema:", error);
+    logger.error("❌ Error fixing isolated database schema:", error);
     throw error;
   }
 }
@@ -144,11 +145,11 @@ async function fixIsolatedDatabaseSchema() {
 // Run the fix immediately
 fixIsolatedDatabaseSchema()
   .then(() => {
-    console.log("✅ Schema fix completed successfully");
+    logger.info("✅ Schema fix completed successfully");
     process.exit(0);
   })
   .catch((error) => {
-    console.error("❌ Schema fix failed:", error);
+    logger.error("❌ Schema fix failed:", error);
     process.exit(1);
   });
 

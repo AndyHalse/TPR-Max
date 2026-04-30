@@ -653,12 +653,12 @@ export default function Visitors() {
       setSelectedHostForPrevious("");
     },
     onError: (error: any) => {
-      console.log("🔥 Previous Visitor Check-in Error:", error);
-      console.log("🔥 Error message:", error?.message);
-      console.log("🔥 Contains check:", error?.message?.includes("Visitor already checked in"));
+      console.info("🔥 Previous Visitor Check-in Error:", error);
+      console.info("🔥 Error message:", error?.message);
+      console.info("🔥 Contains check:", error?.message?.includes("Visitor already checked in"));
       
       if (error?.message?.includes("Visitor already checked in")) {
-        console.log("✅ Duplicate detected - showing dialog");
+        console.info("✅ Duplicate detected - showing dialog");
         setDuplicateMessage(error.details || "This visitor is already checked in and on-site.");
         setShowDuplicateDialog(true);
         setShowHostSelection(false);
@@ -666,7 +666,7 @@ export default function Visitors() {
         setSelectedHostForPrevious("");
         return;
       }
-      console.log("❌ Not a duplicate error - showing generic error");
+      console.info("❌ Not a duplicate error - showing generic error");
       toast({
         title: "Error",
         description: "Failed to check in visitor",

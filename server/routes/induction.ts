@@ -375,7 +375,7 @@ export function registerInductionRoutes(app: Express): void {
             }
           }
         } catch (_e) {
-          console.warn('⚠️ Customer video lookup failed for by-token endpoint, falling back');
+          logger.warn('⚠️ Customer video lookup failed for by-token endpoint, falling back');
         }
       }
 
@@ -485,7 +485,7 @@ export function registerInductionRoutes(app: Express): void {
           await objectStorageClient.bucket(bucketName).file(objectName).delete({ ignoreNotFound: true });
           logger.info(`🗑️ Deleted custom induction video: ${row.customVideoUrl}`);
         } catch (_delErr) {
-          console.warn('Could not delete video from object storage (non-fatal)');
+          logger.warn('Could not delete video from object storage (non-fatal)');
         }
       }
 
@@ -2036,7 +2036,7 @@ export function registerInductionRoutes(app: Express): void {
           backupData.data[table] = result.rows as any[];
           totalRecords += result.rows.length;
         } catch (err: any) {
-          console.warn(`⚠️ Could not export table ${table}: ${err.message}`);
+          logger.warn(`⚠️ Could not export table ${table}: ${err.message}`);
           backupData.data[table] = [];
         }
       }
@@ -2121,7 +2121,7 @@ export function registerInductionRoutes(app: Express): void {
             try {
               await tx.execute(sql.raw(`TRUNCATE TABLE "${table}" CASCADE`));
             } catch (err: any) {
-              console.warn(`⚠️ Could not clear ${table}: ${err.message}`);
+              logger.warn(`⚠️ Could not clear ${table}: ${err.message}`);
             }
           }
         }
@@ -2146,7 +2146,7 @@ export function registerInductionRoutes(app: Express): void {
                 );
               } catch (rowErr: any) {
                 // Log but continue — individual constraint violations are non-fatal
-                console.warn(`⚠️ Skipped row in ${table}: ${rowErr.message}`);
+                logger.warn(`⚠️ Skipped row in ${table}: ${rowErr.message}`);
               }
             }
 
@@ -2520,7 +2520,7 @@ export function registerInductionRoutes(app: Express): void {
         }
       } catch (onSiteErr: any) {
         const msg = (onSiteErr as Error).message || String(onSiteErr);
-        console.warn(`⚠️ Biostar on-site tracking unavailable (non-fatal): ${msg}`);
+        logger.warn(`⚠️ Biostar on-site tracking unavailable (non-fatal): ${msg}`);
         onSiteWarning = `On-site tracking unavailable: ${msg}. Staff import still succeeded.`;
       }
 
@@ -2708,7 +2708,7 @@ export function registerInductionRoutes(app: Express): void {
         rawEvents = await biostarService.getEventLogs(diagConfig);
       } catch (evtErr: any) {
         eventLogError = evtErr.message;
-        console.warn(`⚠️ Biostar diagnostics: Event log unavailable - ${evtErr.message}`);
+        logger.warn(`⚠️ Biostar diagnostics: Event log unavailable - ${evtErr.message}`);
       }
 
       // Try door status as alternative data source
@@ -2813,7 +2813,7 @@ export function registerInductionRoutes(app: Express): void {
       const eventTime = payload?.datetime ?? payload?.event_time ?? payload?.eventTime ?? new Date().toISOString();
 
       if (!userId || userId === '0' || !eventTypeCode) {
-        console.warn(`⚠️ BioStar Webhook: insufficient data — userId=${userId}, eventTypeCode=${eventTypeCode}`);
+        logger.warn(`⚠️ BioStar Webhook: insufficient data — userId=${userId}, eventTypeCode=${eventTypeCode}`);
         pushBiostarEvent(customerId, { id: crypto.randomUUID(), ts: new Date().toISOString(), customerId, userId: userId || '?', deviceId: deviceId || '?', deviceName: deviceName || 'Unknown', eventCode: eventTypeCode || '?', action: 'insufficient_data' });
         return res.json({ ok: false, reason: 'insufficient_data' });
       }
@@ -2897,7 +2897,7 @@ export function registerInductionRoutes(app: Express): void {
         .limit(1);
 
       if (!staffMember) {
-        console.warn(`📡 BioStar Webhook: no staff matched biostarUserId=${userId}`);
+        logger.warn(`📡 BioStar Webhook: no staff matched biostarUserId=${userId}`);
         pushBiostarEvent(customerId, makeLogEvent('no_match'));
         return res.json({ ok: true, action: 'no_match', biostarUserId: userId });
       }
@@ -3714,7 +3714,7 @@ export function registerInductionRoutes(app: Express): void {
         logger.info(`🔄 Biostar poll [${customerId}]: ${cIn} checked in, ${cOut} checked out`);
       }
     } catch (err: any) {
-      console.warn(`⚠️ Biostar attendance poll failed for ${customerId}: ${err.message}`);
+      logger.warn(`⚠️ Biostar attendance poll failed for ${customerId}: ${err.message}`);
     }
   }
 
@@ -3859,10 +3859,10 @@ export function registerInductionRoutes(app: Express): void {
                 pushBiostarEvent(wsCustomerId, { id: crypto.randomUUID(), ts: eventTime, customerId: wsCustomerId, userId, userName: staffName, deviceId, deviceName, eventCode: eventTypeCode, action: 'checked_out' });
               }
             } catch (wsEvtErr: any) {
-              console.warn(`⚠️ BioStar WS event handler [${wsCustomerId}]: ${wsEvtErr.message}`);
+              logger.warn(`⚠️ BioStar WS event handler [${wsCustomerId}]: ${wsEvtErr.message}`);
             }
           }).catch((wsStartErr: any) => {
-            console.warn(`⚠️ BioStar WS [${wsCustomerId}]: failed to start monitor — ${wsStartErr.message}`);
+            logger.warn(`⚠️ BioStar WS [${wsCustomerId}]: failed to start monitor — ${wsStartErr.message}`);
           });
 
         } catch {
@@ -3870,7 +3870,7 @@ export function registerInductionRoutes(app: Express): void {
         }
       }
     } catch (err: any) {
-      console.warn(`⚠️ setupBiostarAttendancePolling failed: ${err.message}`);
+      logger.warn(`⚠️ setupBiostarAttendancePolling failed: ${err.message}`);
     }
   }
 
@@ -4359,7 +4359,7 @@ export function registerInductionRoutes(app: Express): void {
               logger.info(`✅ Uploaded video to object storage: ${fullObjPath} (${Math.round(htmlContent.length / 1024)}KB raw, gzip on delivery)`);
             }
           } catch (objErr) {
-            console.warn('⚠️ Object storage upload failed (non-fatal, falling back to DB blob):', objErr);
+            logger.warn('⚠️ Object storage upload failed (non-fatal, falling back to DB blob):', objErr);
           }
 
           try {

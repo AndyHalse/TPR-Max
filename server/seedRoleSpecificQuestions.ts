@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { inductionQuestions, type InsertInductionQuestion } from "@shared/schema";
+import { logger } from './utils/logger';
 
 // Visitor-specific H&S questions
 const visitorQuestions: InsertInductionQuestion[] = [
@@ -132,15 +133,15 @@ const contractorQuestions: InsertInductionQuestion[] = [
 ];
 
 export async function seedRoleSpecificQuestions() {
-  console.log('🌱 Seeding role-specific H&S questions...');
+  logger.info('🌱 Seeding role-specific H&S questions...');
   
   try {
     // No longer seed questions — they are now AI-generated per customer.
     // All legacy questions with old videoId format (roleType as videoId) are cleaned up
     // by seedInductionQuestions. Nothing more to do here.
-    console.log(`✅ Seeded 3 additional contractor questions`);
-    console.log(`✅ Total seeded 3 role-specific H&S questions`);
+    logger.info(`✅ Seeded 3 additional contractor questions`);
+    logger.info(`✅ Total seeded 3 role-specific H&S questions`);
   } catch (error) {
-    console.error('❌ Failed to seed role-specific questions:', error);
+    logger.error('❌ Failed to seed role-specific questions:', error);
   }
 }

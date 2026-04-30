@@ -7,6 +7,7 @@ import { settingsColumnMigrations } from './settingsColumnMigration';
 import { comprehensiveSettingsMigrations } from './comprehensiveSettingsMigration';
 import { staffSessionsMigrations } from './staffSessionsMigration';
 import { missingTablesMigrations } from './missingTablesMigration';
+import { logger } from './utils/logger';
 
 /**
  * Lightweight Migration Framework for Isolated Customer Databases
@@ -38,7 +39,7 @@ export class MigrationRunner {
     try {
       const currentSchemaResult = await db.execute(`SELECT current_schema()`);
       const currentSchema = currentSchemaResult.rows[0]?.current_schema || 'public';
-      console.log(`📋 Running migrations for customer ${customerId} in schema: ${currentSchema}`);
+      logger.info(`📋 Running migrations for customer ${customerId} in schema: ${currentSchema}`);
 
       const schemaVersionExists = await db.execute(`
         SELECT EXISTS (
@@ -56,7 +57,7 @@ export class MigrationRunner {
             description TEXT
           )
         `);
-        console.log(`✅ Created schema_version table in schema: ${currentSchema}`);
+        logger.info(`✅ Created schema_version table in schema: ${currentSchema}`);
       }
       
       const appliedMigrations = await db.execute(`
@@ -67,7 +68,7 @@ export class MigrationRunner {
       // Run pending migrations
       for (const migration of this.migrations) {
         if (!appliedVersions.has(migration.version)) {
-          console.log(`🔄 Running migration ${migration.version}: ${migration.description}`);
+          logger.info(`🔄 Running migration ${migration.version}: ${migration.description}`);
           
           await db.execute('BEGIN');
           try {
@@ -83,7 +84,7 @@ export class MigrationRunner {
             `);
             
             await db.execute('COMMIT');
-            console.log(`✅ Migration ${migration.version} applied successfully`);
+            logger.info(`✅ Migration ${migration.version} applied successfully`);
           } catch (error) {
             await db.execute('ROLLBACK');
             throw error;
@@ -91,7 +92,7 @@ export class MigrationRunner {
         }
       }
     } catch (error) {
-      console.error(`❌ Migration error for customer ${customerId}:`, error);
+      logger.error(`❌ Migration error for customer ${customerId}:`, error);
       throw error;
     }
   }
@@ -109,24 +110,24 @@ export class MigrationRunner {
   async runMigrationsForAllCustomers(): Promise<void> {
     try {
       const customers = await this.customerDbService.getAllCustomers();
-      console.log(`🔄 Running migrations for ${customers.length} customers...`);
+      logger.info(`🔄 Running migrations for ${customers.length} customers...`);
 
       for (const customer of customers) {
         if (customer.isActive) {
-          console.log(`\n🔄 Running migrations for customer: ${customer.companyName} (${customer.id})`);
+          logger.info(`\n🔄 Running migrations for customer: ${customer.companyName} (${customer.id})`);
           try {
             await this.ensureSchema(customer.id);
-            console.log(`✅ Migrations completed for customer: ${customer.companyName}`);
+            logger.info(`✅ Migrations completed for customer: ${customer.companyName}`);
           } catch (error) {
-            console.error(`❌ Migration failed for customer ${customer.companyName}:`, error);
+            logger.error(`❌ Migration failed for customer ${customer.companyName}:`, error);
             // Continue with other customers
           }
         }
       }
 
-      console.log(`\n✅ Migration process completed for all customers`);
+      logger.info(`\n✅ Migration process completed for all customers`);
     } catch (error) {
-      console.error(`❌ Failed to run migrations for all customers:`, error);
+      logger.error(`❌ Failed to run migrations for all customers:`, error);
       throw error;
     }
   }
@@ -145,15 +146,15 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     async up(db: any) {
       try {
         await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_martyn_law BOOLEAN DEFAULT true`);
-        console.log('✅ [026] Added feature_martyn_law to company_settings');
+        logger.info('✅ [026] Added feature_martyn_law to company_settings');
       } catch (err: any) {
-        console.log(`⚠️ [026] feature_martyn_law: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [026] feature_martyn_law: ${err.message?.substring(0, 80)}`);
       }
       try {
         await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_incident_reports BOOLEAN DEFAULT true`);
-        console.log('✅ [026] Added feature_incident_reports to company_settings');
+        logger.info('✅ [026] Added feature_incident_reports to company_settings');
       } catch (err: any) {
-        console.log(`⚠️ [026] feature_incident_reports: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [026] feature_incident_reports: ${err.message?.substring(0, 80)}`);
       }
     }
   };
@@ -164,15 +165,15 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     async up(db: any) {
       try {
         await db.execute(`UPDATE company_settings SET feature_martyn_law = true WHERE feature_martyn_law IS NULL`);
-        console.log('✅ [027] Backfilled feature_martyn_law NULL → true');
+        logger.info('✅ [027] Backfilled feature_martyn_law NULL → true');
       } catch (err: any) {
-        console.log(`⚠️ [027] feature_martyn_law backfill: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [027] feature_martyn_law backfill: ${err.message?.substring(0, 80)}`);
       }
       try {
         await db.execute(`UPDATE company_settings SET feature_incident_reports = true WHERE feature_incident_reports IS NULL`);
-        console.log('✅ [027] Backfilled feature_incident_reports NULL → true');
+        logger.info('✅ [027] Backfilled feature_incident_reports NULL → true');
       } catch (err: any) {
-        console.log(`⚠️ [027] feature_incident_reports backfill: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [027] feature_incident_reports backfill: ${err.message?.substring(0, 80)}`);
       }
     }
   };
@@ -194,7 +195,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
           override_reason TEXT
         )
       `);
-      console.log('✅ [029] Created zone_sweeps table');
+      logger.info('✅ [029] Created zone_sweeps table');
     }
   };
 
@@ -220,7 +221,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
           report_url TEXT
         )
       `);
-      console.log(`✅ [028] incident_reports table ensured`);
+      logger.info(`✅ [028] incident_reports table ensured`);
     }
   };
 
@@ -230,9 +231,9 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     async up(db: any) {
       try {
         await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS incident_manager_url_id TEXT`);
-        console.log('✅ [030] Added incident_manager_url_id to company_settings');
+        logger.info('✅ [030] Added incident_manager_url_id to company_settings');
       } catch (err: any) {
-        console.log(`⚠️ [030] incident_manager_url_id: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [030] incident_manager_url_id: ${err.message?.substring(0, 80)}`);
       }
     }
   };
@@ -243,9 +244,9 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     async up(db: any) {
       try {
         await db.execute(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS phone_number TEXT`);
-        console.log('✅ [031] Added phone_number to staff table');
+        logger.info('✅ [031] Added phone_number to staff table');
       } catch (err: any) {
-        console.log(`⚠️ [031] staff.phone_number: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [031] staff.phone_number: ${err.message?.substring(0, 80)}`);
       }
     }
   };
@@ -313,7 +314,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     runner.registerMigration(migration);
   });
 
-  console.log(`📋 Registered ${allMigrations.length} migrations`);
+  logger.info(`📋 Registered ${allMigrations.length} migrations`);
   return runner;
 }
 
@@ -366,7 +367,7 @@ const rebuildCompanySettingsMigration: Migration = {
       const hasAllFeatures = requiredColumns.every(col => existingColumns.has(col));
       
       if (hasAllFeatures) {
-        console.log('✅ Company settings table already has correct schema');
+        logger.info('✅ Company settings table already has correct schema');
         needsRebuild = false;
       } else {
         // Get existing company name before rebuilding (uses current_schema via search_path)
@@ -380,13 +381,13 @@ const rebuildCompanySettingsMigration: Migration = {
             existingCompanyName = existingData.rows[0].company_name;
           }
         } catch (error) {
-          console.log('⚠️ Could not read existing company name, using default');
+          logger.info('⚠️ Could not read existing company name, using default');
         }
       }
     }
     
     if (needsRebuild) {
-      console.log('🔄 Rebuilding company_settings table with complete schema');
+      logger.info('🔄 Rebuilding company_settings table with complete schema');
       
       // Use transaction for atomic table swap
       await db.execute('BEGIN');
@@ -539,7 +540,7 @@ const rebuildCompanySettingsMigration: Migration = {
           values: [existingCompanyName]
         });
         
-        console.log(`✅ Fresh company settings created with name: ${existingCompanyName}`);
+        logger.info(`✅ Fresh company settings created with name: ${existingCompanyName}`);
         
         // Atomic table swap: drop old table if exists, then rename new one
         const oldTableExists = await db.execute(`
@@ -556,7 +557,7 @@ const rebuildCompanySettingsMigration: Migration = {
         await db.execute('ALTER TABLE company_settings_new RENAME TO company_settings');
         
         await db.execute('COMMIT');
-        console.log('✅ Company settings table rebuilt with complete schema');
+        logger.info('✅ Company settings table rebuilt with complete schema');
         
       } catch (error) {
         await db.execute('ROLLBACK');
@@ -585,7 +586,7 @@ const addMissingCompanySettingsColumnsMigration: Migration = {
       }
     }
 
-    console.log('🔄 Adding missing columns to company_settings table...');
+    logger.info('🔄 Adding missing columns to company_settings table...');
 
     // Check current columns
     const currentColumns = await db.execute(`
@@ -652,15 +653,15 @@ const addMissingCompanySettingsColumnsMigration: Migration = {
       if (!existingColumns.has(column.name)) {
         try {
           await db.execute(`ALTER TABLE company_settings ADD COLUMN ${column.name} ${column.definition}`);
-          console.log(`✅ Added column: ${column.name}`);
+          logger.info(`✅ Added column: ${column.name}`);
           addedCount++;
         } catch (error) {
-          console.log(`⚠️ Failed to add column ${column.name}: ${error}`);
+          logger.info(`⚠️ Failed to add column ${column.name}: ${error}`);
         }
       }
     }
 
-    console.log(`✅ Added ${addedCount} missing columns to company_settings table`);
+    logger.info(`✅ Added ${addedCount} missing columns to company_settings table`);
   }
 };
 
@@ -685,10 +686,10 @@ const evacuationZonesMigration: Migration = {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ Created evacuation_zones table');
+      logger.info('✅ Created evacuation_zones table');
     } catch (error: any) {
       if (!error.message?.includes('already exists')) {
-        console.log(`⚠️ evacuation_zones table: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ evacuation_zones table: ${error.message?.substring(0, 80)}`);
       }
     }
 
@@ -702,10 +703,10 @@ const evacuationZonesMigration: Migration = {
         `);
         if (!colExists.rows || colExists.rows.length === 0) {
           await db.execute(`ALTER TABLE ${table} ADD COLUMN zone_id VARCHAR(255) DEFAULT NULL`);
-          console.log(`✅ Added zone_id to ${table}`);
+          logger.info(`✅ Added zone_id to ${table}`);
         }
       } catch (error: any) {
-        console.log(`⚠️ zone_id on ${table}: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ zone_id on ${table}: ${error.message?.substring(0, 80)}`);
       }
     }
 
@@ -723,10 +724,10 @@ const evacuationZonesMigration: Migration = {
         `);
         if (!colExists.rows || colExists.rows.length === 0) {
           await db.execute(`ALTER TABLE company_settings ADD COLUMN ${col.name} ${col.def}`);
-          console.log(`✅ Added ${col.name} to company_settings`);
+          logger.info(`✅ Added ${col.name} to company_settings`);
         }
       } catch (error: any) {
-        console.log(`⚠️ ${col.name} on company_settings: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ ${col.name} on company_settings: ${error.message?.substring(0, 80)}`);
       }
     }
   }
@@ -752,10 +753,10 @@ const reportsMigration: Migration = {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ Created reports table');
+      logger.info('✅ Created reports table');
     } catch (error: any) {
       if (!error.message?.includes('already exists')) {
-        console.log(`⚠️ reports table: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ reports table: ${error.message?.substring(0, 80)}`);
       }
     }
   }
@@ -782,10 +783,10 @@ const evacuationsTableMigration: Migration = {
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ Created evacuations table');
+      logger.info('✅ Created evacuations table');
     } catch (error: any) {
       if (!error.message?.includes('already exists')) {
-        console.log(`⚠️ evacuations table: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ evacuations table: ${error.message?.substring(0, 80)}`);
       }
     }
   }
@@ -857,10 +858,10 @@ const printSystemMigration: Migration = {
     for (const table of tables) {
       try {
         await db.execute(table.sql);
-        console.log(`✅ Created ${table.name} table`);
+        logger.info(`✅ Created ${table.name} table`);
       } catch (error: any) {
         if (!error.message?.includes('already exists')) {
-          console.log(`⚠️ ${table.name}: ${error.message?.substring(0, 80)}`);
+          logger.info(`⚠️ ${table.name}: ${error.message?.substring(0, 80)}`);
         }
       }
     }
@@ -884,10 +885,10 @@ const helpSystemMigration: Migration = {
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ Created help_categories table');
+      logger.info('✅ Created help_categories table');
     } catch (error: any) {
       if (!error.message?.includes('already exists')) {
-        console.log(`⚠️ help_categories: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ help_categories: ${error.message?.substring(0, 80)}`);
       }
     }
 
@@ -908,10 +909,10 @@ const helpSystemMigration: Migration = {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ Created help_articles table');
+      logger.info('✅ Created help_articles table');
     } catch (error: any) {
       if (!error.message?.includes('already exists')) {
-        console.log(`⚠️ help_articles: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ help_articles: ${error.message?.substring(0, 80)}`);
       }
     }
   }
@@ -933,10 +934,10 @@ const featureTogglesMigration: Migration = {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ Created feature_toggles table');
+      logger.info('✅ Created feature_toggles table');
     } catch (error: any) {
       if (!error.message?.includes('already exists')) {
-        console.log(`⚠️ feature_toggles: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ feature_toggles: ${error.message?.substring(0, 80)}`);
       }
     }
   }
@@ -961,10 +962,10 @@ const staffAttendanceHistoryMigration: Migration = {
           created_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ Created staff_attendance_history table');
+      logger.info('✅ Created staff_attendance_history table');
     } catch (error: any) {
       if (!error.message?.includes('already exists')) {
-        console.log(`⚠️ staff_attendance_history: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ staff_attendance_history: ${error.message?.substring(0, 80)}`);
       }
     }
   }
@@ -984,10 +985,10 @@ const repairZoneIdColumnsMigration: Migration = {
         `);
         if (!colExists.rows || colExists.rows.length === 0) {
           await db.execute(`ALTER TABLE ${table} ADD COLUMN zone_id VARCHAR(255) DEFAULT NULL`);
-          console.log(`✅ [REPAIR] Added zone_id to ${table}`);
+          logger.info(`✅ [REPAIR] Added zone_id to ${table}`);
         }
       } catch (error: any) {
-        console.log(`⚠️ [REPAIR] zone_id on ${table}: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [REPAIR] zone_id on ${table}: ${error.message?.substring(0, 80)}`);
       }
     }
   }
@@ -997,7 +998,7 @@ const comprehensiveColumnRepairMigration: Migration = {
   version: '20260220_009_comprehensive_column_repair',
   description: 'Ensure ALL tables have ALL expected columns from isolatedSchema.ts',
   async up(db: any) {
-    console.log('🔧 [COLUMN REPAIR] Checking all tables for missing columns...');
+    logger.info('🔧 [COLUMN REPAIR] Checking all tables for missing columns...');
 
     const tableColumns: Record<string, { name: string; def: string }[]> = {
       members: [
@@ -1122,7 +1123,7 @@ const comprehensiveColumnRepairMigration: Migration = {
           WHERE table_name = '${table}' AND table_schema = current_schema()
         `);
         if (!tableExists.rows || tableExists.rows.length === 0) {
-          console.log(`⚠️ [COLUMN REPAIR] Table ${table} does not exist, skipping`);
+          logger.info(`⚠️ [COLUMN REPAIR] Table ${table} does not exist, skipping`);
           continue;
         }
 
@@ -1136,21 +1137,21 @@ const comprehensiveColumnRepairMigration: Migration = {
           if (!existingSet.has(col.name)) {
             try {
               await db.execute(`ALTER TABLE ${table} ADD COLUMN ${col.name} ${col.def}`);
-              console.log(`✅ [COLUMN REPAIR] Added ${col.name} to ${table}`);
+              logger.info(`✅ [COLUMN REPAIR] Added ${col.name} to ${table}`);
               totalAdded++;
             } catch (err: any) {
               if (!err.message?.includes('already exists')) {
-                console.log(`⚠️ [COLUMN REPAIR] Failed to add ${col.name} to ${table}: ${err.message?.substring(0, 80)}`);
+                logger.info(`⚠️ [COLUMN REPAIR] Failed to add ${col.name} to ${table}: ${err.message?.substring(0, 80)}`);
               }
             }
           }
         }
       } catch (error: any) {
-        console.log(`⚠️ [COLUMN REPAIR] Error processing table ${table}: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [COLUMN REPAIR] Error processing table ${table}: ${error.message?.substring(0, 80)}`);
       }
     }
 
-    console.log(`✅ [COLUMN REPAIR] Complete - added ${totalAdded} missing columns`);
+    logger.info(`✅ [COLUMN REPAIR] Complete - added ${totalAdded} missing columns`);
   }
 };
 
@@ -1158,7 +1159,7 @@ const paxtonAndZoneColumnsMigration: Migration = {
   version: '20260225_010_paxton_zones_columns',
   description: 'Add Paxton/API columns to company_settings; paxton_user_id to staff; missing columns to evacuation_zones',
   async up(db: any) {
-    console.log('🔧 [PAXTON/ZONES] Adding missing Paxton, API, and zone columns...');
+    logger.info('🔧 [PAXTON/ZONES] Adding missing Paxton, API, and zone columns...');
 
     const staffColumns = [
       { name: 'biostar_user_id', def: 'TEXT' },
@@ -1219,7 +1220,7 @@ const paxtonAndZoneColumnsMigration: Migration = {
           WHERE table_name = '${table}' AND table_schema = current_schema()
         `);
         if (!tableExists.rows || tableExists.rows.length === 0) {
-          console.log(`⚠️ [PAXTON/ZONES] Table ${table} does not exist, skipping`);
+          logger.info(`⚠️ [PAXTON/ZONES] Table ${table} does not exist, skipping`);
           continue;
         }
 
@@ -1233,21 +1234,21 @@ const paxtonAndZoneColumnsMigration: Migration = {
           if (!existingSet.has(col.name)) {
             try {
               await db.execute(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
-              console.log(`✅ [PAXTON/ZONES] Added ${col.name} to ${table}`);
+              logger.info(`✅ [PAXTON/ZONES] Added ${col.name} to ${table}`);
               totalAdded++;
             } catch (err: any) {
               if (!err.message?.includes('already exists')) {
-                console.log(`⚠️ [PAXTON/ZONES] Failed to add ${col.name} to ${table}: ${err.message?.substring(0, 80)}`);
+                logger.info(`⚠️ [PAXTON/ZONES] Failed to add ${col.name} to ${table}: ${err.message?.substring(0, 80)}`);
               }
             }
           }
         }
       } catch (error: any) {
-        console.log(`⚠️ [PAXTON/ZONES] Error processing table ${table}: ${error.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [PAXTON/ZONES] Error processing table ${table}: ${error.message?.substring(0, 80)}`);
       }
     }
 
-    console.log(`✅ [PAXTON/ZONES] Complete - added ${totalAdded} missing columns`);
+    logger.info(`✅ [PAXTON/ZONES] Complete - added ${totalAdded} missing columns`);
   }
 };
 
@@ -1255,7 +1256,7 @@ const companySettingsPaxtonApiMigration: Migration = {
   version: '20260225_011_company_settings_paxton_api',
   description: 'Add Paxton Net2 and API/Webhook columns to company_settings table',
   async up(db: any) {
-    console.log('🔧 [PAXTON/API] Adding Paxton and API columns to company_settings...');
+    logger.info('🔧 [PAXTON/API] Adding Paxton and API columns to company_settings...');
 
     const columns = [
       // Zones
@@ -1320,7 +1321,7 @@ const companySettingsPaxtonApiMigration: Migration = {
         WHERE table_name = 'company_settings' AND table_schema = current_schema()
       `);
       if (!tableExists.rows || tableExists.rows.length === 0) {
-        console.log('⚠️ [PAXTON/API] company_settings table does not exist, skipping');
+        logger.info('⚠️ [PAXTON/API] company_settings table does not exist, skipping');
         return;
       }
 
@@ -1335,18 +1336,18 @@ const companySettingsPaxtonApiMigration: Migration = {
         if (!existingSet.has(col.name)) {
           try {
             await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
-            console.log(`✅ [PAXTON/API] Added ${col.name} to company_settings`);
+            logger.info(`✅ [PAXTON/API] Added ${col.name} to company_settings`);
             added++;
           } catch (err: any) {
             if (!err.message?.includes('already exists')) {
-              console.log(`⚠️ [PAXTON/API] Failed to add ${col.name}: ${err.message?.substring(0, 80)}`);
+              logger.info(`⚠️ [PAXTON/API] Failed to add ${col.name}: ${err.message?.substring(0, 80)}`);
             }
           }
         }
       }
-      console.log(`✅ [PAXTON/API] Complete - added ${added} columns to company_settings`);
+      logger.info(`✅ [PAXTON/API] Complete - added ${added} columns to company_settings`);
     } catch (error: any) {
-      console.log(`⚠️ [PAXTON/API] Error: ${error.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [PAXTON/API] Error: ${error.message?.substring(0, 80)}`);
     }
   }
 };
@@ -1384,9 +1385,9 @@ export const missingAnalyticsHelpTablesMigration: Migration = {
           updated_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
       `);
-      console.log('✅ [012] customer_api_keys table ensured');
+      logger.info('✅ [012] customer_api_keys table ensured');
     } catch (err: any) {
-      console.log(`⚠️ [012] customer_api_keys: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [012] customer_api_keys: ${err.message?.substring(0, 80)}`);
     }
 
     try {
@@ -1426,9 +1427,9 @@ export const missingAnalyticsHelpTablesMigration: Migration = {
           updated_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
       `);
-      console.log('✅ [012] feature_usage_analytics table ensured');
+      logger.info('✅ [012] feature_usage_analytics table ensured');
     } catch (err: any) {
-      console.log(`⚠️ [012] feature_usage_analytics: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [012] feature_usage_analytics: ${err.message?.substring(0, 80)}`);
     }
 
     try {
@@ -1449,9 +1450,9 @@ export const missingAnalyticsHelpTablesMigration: Migration = {
           created_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
       `);
-      console.log('✅ [012] help_user_interactions table ensured');
+      logger.info('✅ [012] help_user_interactions table ensured');
     } catch (err: any) {
-      console.log(`⚠️ [012] help_user_interactions: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [012] help_user_interactions: ${err.message?.substring(0, 80)}`);
     }
 
     try {
@@ -1472,9 +1473,9 @@ export const missingAnalyticsHelpTablesMigration: Migration = {
           updated_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
       `);
-      console.log('✅ [012] help_onboarding_progress table ensured');
+      logger.info('✅ [012] help_onboarding_progress table ensured');
     } catch (err: any) {
-      console.log(`⚠️ [012] help_onboarding_progress: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [012] help_onboarding_progress: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -1497,19 +1498,19 @@ const addEmailLogMigration: Migration = {
           status TEXT NOT NULL DEFAULT 'sent'
         )
       `);
-      console.log('✅ [014] Created email_log table');
+      logger.info('✅ [014] Created email_log table');
     } catch (err: any) {
       if (!err.message?.includes('already exists')) {
-        console.log(`⚠️ [014] email_log: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [014] email_log: ${err.message?.substring(0, 80)}`);
       }
     }
 
     try {
       await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_email_outbox BOOLEAN DEFAULT false`);
-      console.log('✅ [014] Added feature_email_outbox to company_settings');
+      logger.info('✅ [014] Added feature_email_outbox to company_settings');
     } catch (err: any) {
       if (!err.message?.includes('already exists')) {
-        console.log(`⚠️ [014] feature_email_outbox column: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [014] feature_email_outbox column: ${err.message?.substring(0, 80)}`);
       }
     }
   }
@@ -1522,18 +1523,18 @@ const addNavBannerColorMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS nav_banner_color TEXT`);
-      console.log('✅ [015] Added nav_banner_color to company_settings');
+      logger.info('✅ [015] Added nav_banner_color to company_settings');
     } catch (err: any) {
       if (!err.message?.includes('already exists')) {
-        console.log(`⚠️ [015] nav_banner_color: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [015] nav_banner_color: ${err.message?.substring(0, 80)}`);
       }
     }
     try {
       await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS nav_banner_invert BOOLEAN DEFAULT false`);
-      console.log('✅ [015] Added nav_banner_invert to company_settings');
+      logger.info('✅ [015] Added nav_banner_invert to company_settings');
     } catch (err: any) {
       if (!err.message?.includes('already exists')) {
-        console.log(`⚠️ [015] nav_banner_invert: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [015] nav_banner_invert: ${err.message?.substring(0, 80)}`);
       }
     }
   }
@@ -1546,11 +1547,11 @@ const fixCardOffencesCustomerIdMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE card_offences ALTER COLUMN customer_id DROP NOT NULL`);
-      console.log('✅ [016] Dropped NOT NULL from card_offences.customer_id');
+      logger.info('✅ [016] Dropped NOT NULL from card_offences.customer_id');
     } catch (err: any) {
       // Column may not exist or constraint already gone — both are fine
       if (!err.message?.includes('does not exist') && !err.message?.includes('already')) {
-        console.log(`⚠️ [016] card_offences customer_id: ${err.message?.substring(0, 100)}`);
+        logger.info(`⚠️ [016] card_offences customer_id: ${err.message?.substring(0, 100)}`);
       }
     }
   }
@@ -1564,9 +1565,9 @@ export const rebuildIsolatedReportsMigration: Migration = {
     try {
       // Drop the old mismatched reports table (had name, type, description, parameters, data, status, generated_by)
       await db.execute(`DROP TABLE IF EXISTS reports CASCADE`);
-      console.log('✅ [013] Dropped old reports table');
+      logger.info('✅ [013] Dropped old reports table');
     } catch (err: any) {
-      console.log(`⚠️ [013] Drop reports: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [013] Drop reports: ${err.message?.substring(0, 80)}`);
     }
 
     try {
@@ -1583,9 +1584,9 @@ export const rebuildIsolatedReportsMigration: Migration = {
           email_sent_at TIMESTAMP
         )
       `);
-      console.log('✅ [013] Recreated reports table with correct schema');
+      logger.info('✅ [013] Recreated reports table with correct schema');
     } catch (err: any) {
-      console.log(`⚠️ [013] Create reports: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [013] Create reports: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -1596,10 +1597,10 @@ const addVisitorPhotoUrlMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE visitors ADD COLUMN IF NOT EXISTS photo_url TEXT`);
-      console.log('✅ [017] Added photo_url to visitors');
+      logger.info('✅ [017] Added photo_url to visitors');
     } catch (err: any) {
       if (!err.message?.includes('already exists')) {
-        console.log(`⚠️ [017] visitors photo_url: ${err.message?.substring(0, 100)}`);
+        logger.info(`⚠️ [017] visitors photo_url: ${err.message?.substring(0, 100)}`);
       }
     }
   }
@@ -1635,13 +1636,13 @@ const addStaffMissingColumnsMigration: Migration = {
         await db.execute(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
       } catch (err: any) {
         if (!err.message?.includes('already exists')) {
-          console.log(`⚠️ [018] staff.${col.name}: ${err.message?.substring(0, 100)}`);
+          logger.info(`⚠️ [018] staff.${col.name}: ${err.message?.substring(0, 100)}`);
         }
       }
     }
-    console.log('✅ [018] staff columns done');
+    logger.info('✅ [018] staff columns done');
 
-    console.log('✅ [018] migration complete');
+    logger.info('✅ [018] migration complete');
   }
 };
 
@@ -1660,9 +1661,9 @@ const addContractorWorkerQrCodesMigration: Migration = {
         SET qr_code = 'CTR-' || SUBSTR(REPLACE(GEN_RANDOM_UUID()::TEXT, '-', ''), 1, 12)
         WHERE qr_code IS NULL OR qr_code = ''
       `);
-      console.log('✅ [021] Contractor worker QR codes column added and populated');
+      logger.info('✅ [021] Contractor worker QR codes column added and populated');
     } catch (err: any) {
-      console.log(`⚠️ [021] contractor worker qr codes: ${err.message?.substring(0, 120)}`);
+      logger.info(`⚠️ [021] contractor worker qr codes: ${err.message?.substring(0, 120)}`);
     }
   }
 };
@@ -1679,9 +1680,9 @@ const generateStaffQrCodesMigration: Migration = {
         SET qr_code = 'STF-' || SUBSTR(REPLACE(GEN_RANDOM_UUID()::TEXT, '-', ''), 1, 12)
         WHERE qr_code IS NULL OR qr_code = ''
       `);
-      console.log('✅ [020] Staff QR codes generated for all NULL records');
+      logger.info('✅ [020] Staff QR codes generated for all NULL records');
     } catch (err: any) {
-      console.log(`⚠️ [020] generate staff qr codes: ${err.message?.substring(0, 120)}`);
+      logger.info(`⚠️ [020] generate staff qr codes: ${err.message?.substring(0, 120)}`);
     }
   }
 };
@@ -1707,11 +1708,11 @@ const addVisitorsMissingColumnsMigration: Migration = {
         await db.execute(`ALTER TABLE visitors ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
       } catch (err: any) {
         if (!err.message?.includes('already exists')) {
-          console.log(`⚠️ [019] visitors.${col.name}: ${err.message?.substring(0, 100)}`);
+          logger.info(`⚠️ [019] visitors.${col.name}: ${err.message?.substring(0, 100)}`);
         }
       }
     }
-    console.log('✅ [019] visitors missing columns migration complete');
+    logger.info('✅ [019] visitors missing columns migration complete');
   }
 };
 
@@ -1725,9 +1726,9 @@ const enableEPassByDefaultMigration: Migration = {
         SET e_pass_enabled = true
         WHERE e_pass_enabled IS NULL OR e_pass_enabled = false
       `);
-      console.log('✅ [021] Digital E-Pass enabled by default for all customers');
+      logger.info('✅ [021] Digital E-Pass enabled by default for all customers');
     } catch (err: any) {
-      console.log(`⚠️ [021] enable e-pass by default: ${err.message?.substring(0, 120)}`);
+      logger.info(`⚠️ [021] enable e-pass by default: ${err.message?.substring(0, 120)}`);
     }
   }
 };
@@ -1740,9 +1741,9 @@ const addPeepFlagMigration: Migration = {
     for (const table of tables) {
       try {
         await db.execute(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS needs_evacuation_assistance BOOLEAN NOT NULL DEFAULT FALSE`);
-        console.log(`✅ [022] Added needs_evacuation_assistance to ${table}`);
+        logger.info(`✅ [022] Added needs_evacuation_assistance to ${table}`);
       } catch (err: any) {
-        console.log(`⚠️ [022] ${table}.needs_evacuation_assistance: ${err.message?.substring(0, 120)}`);
+        logger.info(`⚠️ [022] ${table}.needs_evacuation_assistance: ${err.message?.substring(0, 120)}`);
       }
     }
   }
@@ -1753,9 +1754,9 @@ const addDrillModeToEvacuationsMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE evacuations ADD COLUMN IF NOT EXISTS is_drill BOOLEAN NOT NULL DEFAULT FALSE`);
-      console.log(`✅ [023] Added is_drill to evacuations table`);
+      logger.info(`✅ [023] Added is_drill to evacuations table`);
     } catch (err: any) {
-      console.log(`⚠️ [023] evacuations.is_drill: ${err.message?.substring(0, 120)}`);
+      logger.info(`⚠️ [023] evacuations.is_drill: ${err.message?.substring(0, 120)}`);
     }
   }
 };
@@ -1783,9 +1784,9 @@ const addIncidentReportsMigration = {
           report_url TEXT
         )
       `);
-      console.log(`✅ [025] Created incident_reports table`);
+      logger.info(`✅ [025] Created incident_reports table`);
     } catch (err: any) {
-      console.log(`⚠️ [025] incident_reports: ${err.message?.substring(0, 120)}`);
+      logger.info(`⚠️ [025] incident_reports: ${err.message?.substring(0, 120)}`);
     }
   }
 };
@@ -1814,9 +1815,9 @@ const addLoneWorkerMigration: Migration = {
           ended_by TEXT
         )
       `);
-      console.log('✅ [033] Created lone_worker_sessions table');
+      logger.info('✅ [033] Created lone_worker_sessions table');
     } catch (err: any) {
-      console.log(`⚠️ [033] lone_worker_sessions: ${err.message?.substring(0, 120)}`);
+      logger.info(`⚠️ [033] lone_worker_sessions: ${err.message?.substring(0, 120)}`);
     }
     try {
       await db.execute(`
@@ -1829,9 +1830,9 @@ const addLoneWorkerMigration: Migration = {
           used_at TIMESTAMP
         )
       `);
-      console.log('✅ [033] Created lone_worker_tokens table');
+      logger.info('✅ [033] Created lone_worker_tokens table');
     } catch (err: any) {
-      console.log(`⚠️ [033] lone_worker_tokens: ${err.message?.substring(0, 120)}`);
+      logger.info(`⚠️ [033] lone_worker_tokens: ${err.message?.substring(0, 120)}`);
     }
     // 2. Staff lone worker columns
     const staffCols = [
@@ -1843,18 +1844,18 @@ const addLoneWorkerMigration: Migration = {
     for (const col of staffCols) {
       try {
         await db.execute(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
-        console.log(`✅ [033] staff.${col.name}`);
+        logger.info(`✅ [033] staff.${col.name}`);
       } catch (err: any) {
-        console.log(`⚠️ [033] staff.${col.name}: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [033] staff.${col.name}: ${err.message?.substring(0, 80)}`);
       }
     }
     // 3. contractor_workers lone worker columns
     for (const col of staffCols) {
       try {
         await db.execute(`ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
-        console.log(`✅ [033] contractor_workers.${col.name}`);
+        logger.info(`✅ [033] contractor_workers.${col.name}`);
       } catch (err: any) {
-        console.log(`⚠️ [033] contractor_workers.${col.name}: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [033] contractor_workers.${col.name}: ${err.message?.substring(0, 80)}`);
       }
     }
     // 4. company_settings lone worker config columns
@@ -1872,9 +1873,9 @@ const addLoneWorkerMigration: Migration = {
     for (const col of settingsCols) {
       try {
         await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
-        console.log(`✅ [033] company_settings.${col.name}`);
+        logger.info(`✅ [033] company_settings.${col.name}`);
       } catch (err: any) {
-        console.log(`⚠️ [033] company_settings.${col.name}: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [033] company_settings.${col.name}: ${err.message?.substring(0, 80)}`);
       }
     }
   }
@@ -1886,15 +1887,15 @@ const addUserMenuPermissionsMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS allowed_menu_items TEXT[]`);
-      console.log('✅ [032] Added allowed_menu_items to users table');
+      logger.info('✅ [032] Added allowed_menu_items to users table');
     } catch (err: any) {
-      console.log(`⚠️ [032] users.allowed_menu_items: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [032] users.allowed_menu_items: ${err.message?.substring(0, 80)}`);
     }
     try {
       await db.execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS default_landing_page TEXT`);
-      console.log('✅ [032] Added default_landing_page to users table');
+      logger.info('✅ [032] Added default_landing_page to users table');
     } catch (err: any) {
-      console.log(`⚠️ [032] users.default_landing_page: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [032] users.default_landing_page: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -1931,9 +1932,9 @@ const addMartynLawMigration = {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log(`✅ [024] Created martyn_law_config table`);
+      logger.info(`✅ [024] Created martyn_law_config table`);
     } catch (err: any) {
-      console.log(`⚠️ [024] martyn_law_config: ${err.message?.substring(0, 120)}`);
+      logger.info(`⚠️ [024] martyn_law_config: ${err.message?.substring(0, 120)}`);
     }
   }
 };
@@ -1949,9 +1950,9 @@ const addBiostarStaffFieldsMigration: Migration = {
     for (const col of cols) {
       try {
         await db.execute(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
-        console.log(`✅ [034] staff.${col.name}`);
+        logger.info(`✅ [034] staff.${col.name}`);
       } catch (err: any) {
-        console.log(`⚠️ [034] staff.${col.name}: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [034] staff.${col.name}: ${err.message?.substring(0, 80)}`);
       }
     }
   }
@@ -1976,9 +1977,9 @@ const addBiostarDevicesMigration: Migration = {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ [035] biostar_devices table created');
+      logger.info('✅ [035] biostar_devices table created');
     } catch (err: any) {
-      console.log(`⚠️ [035] biostar_devices: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [035] biostar_devices: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -1995,10 +1996,10 @@ const addBiostarDeviceGroupAddressMigration: Migration = {
       try {
         await db.execute(colSql);
       } catch (err: any) {
-        console.log(`⚠️ [036] ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [036] ${err.message?.substring(0, 80)}`);
       }
     }
-    console.log('✅ [036] biostar_devices device_address + device_group columns ensured');
+    logger.info('✅ [036] biostar_devices device_address + device_group columns ensured');
   }
 };
 
@@ -2014,10 +2015,10 @@ const addComplianceAlertPreferencesMigration: Migration = {
       try {
         await db.execute(colSql);
       } catch (err: any) {
-        console.log(`⚠️ [037] ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [037] ${err.message?.substring(0, 80)}`);
       }
     }
-    console.log('✅ [037] company_settings compliance alert preference columns ensured');
+    logger.info('✅ [037] company_settings compliance alert preference columns ensured');
   }
 };
 
@@ -2027,9 +2028,9 @@ const addContractorDocumentExpiryAlertedAtMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE contractor_documents ADD COLUMN IF NOT EXISTS expiry_alerted_at TIMESTAMP`);
-      console.log('✅ [038] Added expiry_alerted_at to contractor_documents');
+      logger.info('✅ [038] Added expiry_alerted_at to contractor_documents');
     } catch (err: any) {
-      console.log(`⚠️ [038] contractor_documents.expiry_alerted_at: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [038] contractor_documents.expiry_alerted_at: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -2040,9 +2041,9 @@ const addCdmAlertsEmailMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS cdm_alerts_email TEXT DEFAULT ''`);
-      console.log('✅ [039] Added cdm_alerts_email to company_settings');
+      logger.info('✅ [039] Added cdm_alerts_email to company_settings');
     } catch (err: any) {
-      console.log(`⚠️ [039] company_settings.cdm_alerts_email: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [039] company_settings.cdm_alerts_email: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -2053,9 +2054,9 @@ const addClaudeModelMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS claude_model TEXT DEFAULT 'claude-3-5-sonnet'`);
-      console.log('✅ [040] company_settings claude_model column ensured');
+      logger.info('✅ [040] company_settings claude_model column ensured');
     } catch (err: any) {
-      console.log(`⚠️ [040] claude_model: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [040] claude_model: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -2066,9 +2067,9 @@ const addPpmDocScannedAtMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE ppm_work_order_documents ADD COLUMN IF NOT EXISTS scanned_at TIMESTAMP`);
-      console.log('✅ [041] ppm_work_order_documents scanned_at column ensured');
+      logger.info('✅ [041] ppm_work_order_documents scanned_at column ensured');
     } catch (err: any) {
-      console.log(`⚠️ [041] scanned_at column: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [041] scanned_at column: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -2083,9 +2084,9 @@ const backfillPpmDocScannedAtMigration: Migration = {
     // stamped by the async scan on completion; this backfill does not touch those.
     try {
       await db.execute(`UPDATE ppm_work_order_documents SET scanned_at = COALESCE(created_at, NOW()) WHERE scanned_at IS NULL`);
-      console.log('✅ [042] ppm_work_order_documents legacy scanned_at backfill complete');
+      logger.info('✅ [042] ppm_work_order_documents legacy scanned_at backfill complete');
     } catch (err: any) {
-      console.log(`⚠️ [042] scanned_at backfill: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [042] scanned_at backfill: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -2096,9 +2097,9 @@ const addReportsDataColumnMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE reports ADD COLUMN IF NOT EXISTS data TEXT`);
-      console.log('✅ [043] reports.data column ensured');
+      logger.info('✅ [043] reports.data column ensured');
     } catch (err: any) {
-      console.log(`⚠️ [043] reports.data column: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [043] reports.data column: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -2109,9 +2110,9 @@ const addHelpDeskMigration: Migration = {
   async up(db: any) {
     try {
       await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_help_desk BOOLEAN DEFAULT false`);
-      console.log('✅ [044] feature_help_desk column ensured');
+      logger.info('✅ [044] feature_help_desk column ensured');
     } catch (err: any) {
-      console.log(`⚠️ [044] feature_help_desk column: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [044] feature_help_desk column: ${err.message?.substring(0, 80)}`);
     }
     try {
       await db.execute(`
@@ -2134,9 +2135,9 @@ const addHelpDeskMigration: Migration = {
           resolved_at TIMESTAMP
         )
       `);
-      console.log('✅ [044] help_desk_tickets table ensured');
+      logger.info('✅ [044] help_desk_tickets table ensured');
     } catch (err: any) {
-      console.log(`⚠️ [044] help_desk_tickets table: ${err.message?.substring(0, 80)}`);
+      logger.info(`⚠️ [044] help_desk_tickets table: ${err.message?.substring(0, 80)}`);
     }
   }
 };
@@ -2164,10 +2165,10 @@ const addAiKeyColumnsMigration: Migration = {
     ];
     for (const sql of cols) {
       try { await db.execute(sql); } catch (err: any) {
-        console.log(`⚠️ [045] customer_api_keys column: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [045] customer_api_keys column: ${err.message?.substring(0, 80)}`);
       }
     }
-    console.log('✅ [045] customer_api_keys AI key columns ensured');
+    logger.info('✅ [045] customer_api_keys AI key columns ensured');
   }
 };
 
@@ -2203,9 +2204,9 @@ const addInductionSettingsColumnsMigration: Migration = {
     ];
     for (const sql of cols) {
       try { await db.execute(sql); } catch (err: any) {
-        console.log(`⚠️ [046] company_settings column: ${err.message?.substring(0, 80)}`);
+        logger.info(`⚠️ [046] company_settings column: ${err.message?.substring(0, 80)}`);
       }
     }
-    console.log('✅ [046] Induction/AI/QR/CLUe settings columns ensured');
+    logger.info('✅ [046] Induction/AI/QR/CLUe settings columns ensured');
   }
 };

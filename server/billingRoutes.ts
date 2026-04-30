@@ -7,6 +7,7 @@ import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq } from 'drizzle-orm';
 import * as sharedSchema from '@shared/schema';
 import { z } from "zod";
+import { logger } from './utils/logger';
 
 /**
  * BILLING API ROUTES
@@ -36,7 +37,7 @@ const createBillingPortalSessionSchema = z.object({
  * Register billing-related routes
  */
 export function registerBillingRoutes(app: Express) {
-  console.log('🚀 Registering billing routes...');
+  logger.info('🚀 Registering billing routes...');
 
   // Register Stripe webhook endpoint with proper security
   stripeWebhookHandler.registerWebhookEndpoint(app);
@@ -103,7 +104,7 @@ export function registerBillingRoutes(app: Express) {
       });
 
     } catch (error) {
-      console.error('❌ Error fetching subscription plans:', error);
+      logger.error('❌ Error fetching subscription plans:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch subscription plans'
@@ -135,7 +136,7 @@ export function registerBillingRoutes(app: Express) {
       });
 
     } catch (error) {
-      console.error('❌ Error fetching subscription:', error);
+      logger.error('❌ Error fetching subscription:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch subscription information'
@@ -170,7 +171,7 @@ export function registerBillingRoutes(app: Express) {
       res.json(result);
 
     } catch (error) {
-      console.error('❌ Error creating checkout session:', error);
+      logger.error('❌ Error creating checkout session:', error);
       
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -214,7 +215,7 @@ export function registerBillingRoutes(app: Express) {
       res.json(result);
 
     } catch (error) {
-      console.error('❌ Error creating billing portal session:', error);
+      logger.error('❌ Error creating billing portal session:', error);
       
       if (error instanceof z.ZodError) {
         return res.status(400).json({
@@ -254,7 +255,7 @@ export function registerBillingRoutes(app: Express) {
       res.json(result);
 
     } catch (error) {
-      console.error('❌ Error canceling subscription:', error);
+      logger.error('❌ Error canceling subscription:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to cancel subscription'
@@ -310,7 +311,7 @@ export function registerBillingRoutes(app: Express) {
       });
 
     } catch (error) {
-      console.error('❌ Error fetching invoices:', error);
+      logger.error('❌ Error fetching invoices:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch invoice history'
@@ -383,7 +384,7 @@ export function registerBillingRoutes(app: Express) {
       });
 
     } catch (error) {
-      console.error('❌ Error fetching usage data:', error);
+      logger.error('❌ Error fetching usage data:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to fetch usage statistics'
@@ -415,7 +416,7 @@ export function registerBillingRoutes(app: Express) {
       });
 
     } catch (error) {
-      console.error('❌ Error setting up subscription plans:', error);
+      logger.error('❌ Error setting up subscription plans:', error);
       res.status(500).json({
         success: false,
         error: 'Failed to setup subscription plans',
@@ -424,5 +425,5 @@ export function registerBillingRoutes(app: Express) {
     }
   });
 
-  console.log('✅ Billing routes registered successfully');
+  logger.info('✅ Billing routes registered successfully');
 }

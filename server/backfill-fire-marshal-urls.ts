@@ -4,21 +4,22 @@ import { customers } from '../shared/schema.js';
 import { staff } from './isolatedSchema.js';
 import { CustomerDatabaseService } from './customerDatabase.js';
 import { eq } from 'drizzle-orm';
+import { logger } from './utils/logger';
 
 const customerDbService = new CustomerDatabaseService();
 
 async function backfillFireMarshalUrls() {
-  console.log('🔥 BACKFILLING FIRE MARSHAL URLS FOR ALL CUSTOMERS');
-  console.log('=================================================\n');
+  logger.info('🔥 BACKFILLING FIRE MARSHAL URLS FOR ALL CUSTOMERS');
+  logger.info('=================================================\n');
 
   try {
     const allCustomers = await db.select().from(customers);
-    console.log(`Found ${allCustomers.length} customers\n`);
+    logger.info(`Found ${allCustomers.length} customers\n`);
 
     let totalBackfilled = 0;
 
     for (const customer of allCustomers) {
-      console.log(`\n📋 Processing: ${customer.companyName} (${customer.id})`);
+      logger.info(`\n📋 Processing: ${customer.companyName} (${customer.id})`);
       
       try {
         const customerDb = await customerDbService.getCustomerDatabase(customer.id);
@@ -31,7 +32,7 @@ async function backfillFireMarshalUrls() {
           s.department?.toLowerCase().includes('security')
         );
         
-        console.log(`   Found ${fireMarshals.length} Fire Marshals`);
+        logger.info(`   Found ${fireMarshals.length} Fire Marshals`);
         
         let backfilledCount = 0;
         for (const fm of fireMarshals) {
@@ -46,29 +47,29 @@ async function backfillFireMarshalUrls() {
               })
               .where(eq(staff.id, fm.id));
             
-            console.log(`   ✅ Generated URL for ${fm.firstName} ${fm.lastName}: ${urlId}`);
+            logger.info(`   ✅ Generated URL for ${fm.firstName} ${fm.lastName}: ${urlId}`);
             backfilledCount++;
             totalBackfilled++;
           } else {
-            console.log(`   ⏭️  ${fm.firstName} ${fm.lastName} already has URL`);
+            logger.info(`   ⏭️  ${fm.firstName} ${fm.lastName} already has URL`);
           }
         }
         
         if (backfilledCount === 0 && fireMarshals.length > 0) {
-          console.log(`   ✅ All Fire Marshals already have URLs`);
+          logger.info(`   ✅ All Fire Marshals already have URLs`);
         }
         
       } catch (error) {
-        console.error(`   ❌ Error for ${customer.id}:`, error);
+        logger.error(`   ❌ Error for ${customer.id}:`, error);
       }
     }
     
-    console.log('\n\n✅ BACKFILL COMPLETE');
-    console.log(`   Total Fire Marshal URLs generated: ${totalBackfilled}`);
-    console.log('=================================================');
+    logger.info('\n\n✅ BACKFILL COMPLETE');
+    logger.info(`   Total Fire Marshal URLs generated: ${totalBackfilled}`);
+    logger.info('=================================================');
     
   } catch (error) {
-    console.error('❌ Fatal error:', error);
+    logger.error('❌ Fatal error:', error);
     throw error;
   }
 }
@@ -76,6 +77,6 @@ async function backfillFireMarshalUrls() {
 backfillFireMarshalUrls()
   .then(() => process.exit(0))
   .catch((err) => {
-    console.error('Failed:', err);
+    logger.error('Failed:', err);
     process.exit(1);
   });

@@ -1,6 +1,7 @@
 import { db } from "./db";
 import { inductionQuestions } from "@shared/schema";
 import { inArray, eq, and, not, like } from "drizzle-orm";
+import { logger } from './utils/logger';
 
 /**
  * Startup cleanup for legacy induction questions.
@@ -13,7 +14,7 @@ import { inArray, eq, and, not, like } from "drizzle-orm";
  */
 export async function seedInductionQuestions(): Promise<void> {
   try {
-    console.log("🌱 Seeding UK H&S induction questions...");
+    logger.info("🌱 Seeding UK H&S induction questions...");
     
     // Clean up legacy global questions (videoId = 'visitor', 'staff', or 'contractor')
     // These accumulated from old seeding logic. Customer questions use 'customerId-roleType' format.
@@ -22,9 +23,9 @@ export async function seedInductionQuestions(): Promise<void> {
       .delete(inductionQuestions)
       .where(inArray(inductionQuestions.videoId, legacyVideoIds));
 
-    console.log(`✅ Seeded 12 UK H&S induction questions`);
+    logger.info(`✅ Seeded 12 UK H&S induction questions`);
   } catch (error) {
-    console.error("Failed to seed induction questions:", error);
+    logger.error("Failed to seed induction questions:", error);
     // Non-fatal — don't throw, just log
   }
 }

@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { customerDbService } from './customerDatabase';
 import { databaseMigrationService } from './databaseMigrationService';
+import { logger } from './utils/logger';
 
 /**
  * BACKUP AND RESTORE SERVICE
@@ -35,7 +36,7 @@ export class BackupRestoreService {
    * Create a complete backup of a customer's database
    */
   async createCustomerBackup(customerId: string, description?: string): Promise<CustomerBackup> {
-    console.log(`💾 Creating backup for customer: ${customerId}`);
+    logger.info(`💾 Creating backup for customer: ${customerId}`);
 
     try {
       const backupId = `backup_${customerId}_${Date.now()}`;
@@ -66,10 +67,10 @@ export class BackupRestoreService {
       await this.storeBackupData(backupId, exportData);
       await this.storeBackupMetadata(backup);
 
-      console.log(`✅ Backup created successfully: ${backupId}`);
+      logger.info(`✅ Backup created successfully: ${backupId}`);
       return backup;
     } catch (error) {
-      console.error(`❌ Failed to create backup for customer ${customerId}:`, error);
+      logger.error(`❌ Failed to create backup for customer ${customerId}:`, error);
       throw error;
     }
   }
@@ -78,7 +79,7 @@ export class BackupRestoreService {
    * Restore a customer's database from backup
    */
   async restoreCustomerFromBackup(customerId: string, backupId: string, options?: RestoreOptions): Promise<void> {
-    console.log(`🔄 Restoring customer ${customerId} from backup: ${backupId}`);
+    logger.info(`🔄 Restoring customer ${customerId} from backup: ${backupId}`);
 
     try {
       // Get backup metadata and data
@@ -117,9 +118,9 @@ export class BackupRestoreService {
         await this.verifyRestore(customerId, backup);
       }
 
-      console.log(`✅ Successfully restored customer ${customerId} from backup: ${backupId}`);
+      logger.info(`✅ Successfully restored customer ${customerId} from backup: ${backupId}`);
     } catch (error) {
-      console.error(`❌ Failed to restore customer ${customerId} from backup ${backupId}:`, error);
+      logger.error(`❌ Failed to restore customer ${customerId} from backup ${backupId}:`, error);
       throw error;
     }
   }
@@ -128,7 +129,7 @@ export class BackupRestoreService {
    * List all backups for a customer
    */
   async listCustomerBackups(customerId: string): Promise<CustomerBackup[]> {
-    console.log(`📋 Listing backups for customer: ${customerId}`);
+    logger.info(`📋 Listing backups for customer: ${customerId}`);
 
     try {
       // In production, this would query backup metadata storage
@@ -137,7 +138,7 @@ export class BackupRestoreService {
       
       return customerBackups.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
     } catch (error) {
-      console.error(`❌ Failed to list backups for customer ${customerId}:`, error);
+      logger.error(`❌ Failed to list backups for customer ${customerId}:`, error);
       throw error;
     }
   }
@@ -146,16 +147,16 @@ export class BackupRestoreService {
    * Delete a backup
    */
   async deleteBackup(backupId: string): Promise<void> {
-    console.log(`🗑️ Deleting backup: ${backupId}`);
+    logger.info(`🗑️ Deleting backup: ${backupId}`);
 
     try {
       // Delete backup data and metadata
       await this.deleteBackupData(backupId);
       await this.deleteBackupMetadata(backupId);
       
-      console.log(`✅ Backup deleted: ${backupId}`);
+      logger.info(`✅ Backup deleted: ${backupId}`);
     } catch (error) {
-      console.error(`❌ Failed to delete backup ${backupId}:`, error);
+      logger.error(`❌ Failed to delete backup ${backupId}:`, error);
       throw error;
     }
   }
@@ -164,7 +165,7 @@ export class BackupRestoreService {
    * Create automated backup for all customers
    */
   async createAutomatedBackups(): Promise<CustomerBackup[]> {
-    console.log(`🚀 Creating automated backups for all customers`);
+    logger.info(`🚀 Creating automated backups for all customers`);
 
     try {
       // Get all customers
@@ -179,14 +180,14 @@ export class BackupRestoreService {
           );
           backups.push(backup);
         } catch (error) {
-          console.error(`❌ Failed to create automated backup for customer ${customer.id}:`, error);
+          logger.error(`❌ Failed to create automated backup for customer ${customer.id}:`, error);
         }
       }
 
-      console.log(`✅ Automated backups completed. Created ${backups.length} backups.`);
+      logger.info(`✅ Automated backups completed. Created ${backups.length} backups.`);
       return backups;
     } catch (error) {
-      console.error(`❌ Failed to create automated backups:`, error);
+      logger.error(`❌ Failed to create automated backups:`, error);
       throw error;
     }
   }
@@ -195,7 +196,7 @@ export class BackupRestoreService {
    * Test backup and restore functionality
    */
   async testBackupRestore(customerId: string): Promise<TestResult> {
-    console.log(`🧪 Testing backup/restore for customer: ${customerId}`);
+    logger.info(`🧪 Testing backup/restore for customer: ${customerId}`);
 
     try {
       // Create backup
@@ -228,10 +229,10 @@ export class BackupRestoreService {
         message: isMatch ? 'Backup/restore test passed' : 'Data mismatch after restore'
       };
 
-      console.log(`${isMatch ? '✅' : '❌'} Backup/restore test result:`, result.message);
+      logger.info(`${isMatch ? '✅' : '❌'} Backup/restore test result:`, result.message);
       return result;
     } catch (error) {
-      console.error(`❌ Backup/restore test failed for customer ${customerId}:`, error);
+      logger.error(`❌ Backup/restore test failed for customer ${customerId}:`, error);
       throw error;
     }
   }
@@ -273,23 +274,23 @@ export class BackupRestoreService {
   private async storeBackupData(backupId: string, exportData: any): Promise<void> {
     // In production, store to cloud storage (S3, GCS, etc.)
     // For development, we'll store in memory or local file system
-    console.log(`💾 Storing backup data for: ${backupId}`);
+    logger.info(`💾 Storing backup data for: ${backupId}`);
   }
 
   private async storeBackupMetadata(backup: CustomerBackup): Promise<void> {
     // In production, store to backup metadata database
-    console.log(`📝 Storing backup metadata for: ${backup.id}`);
+    logger.info(`📝 Storing backup metadata for: ${backup.id}`);
   }
 
   private async getBackupMetadata(backupId: string): Promise<CustomerBackup | null> {
     // In production, retrieve from backup metadata storage
-    console.log(`📖 Getting backup metadata for: ${backupId}`);
+    logger.info(`📖 Getting backup metadata for: ${backupId}`);
     return null; // Mock implementation
   }
 
   private async getBackupData(backupId: string): Promise<any> {
     // In production, retrieve from backup data storage
-    console.log(`📥 Getting backup data for: ${backupId}`);
+    logger.info(`📥 Getting backup data for: ${backupId}`);
     return {}; // Mock implementation
   }
 
@@ -299,11 +300,11 @@ export class BackupRestoreService {
   }
 
   private async deleteBackupData(backupId: string): Promise<void> {
-    console.log(`🗑️ Deleting backup data for: ${backupId}`);
+    logger.info(`🗑️ Deleting backup data for: ${backupId}`);
   }
 
   private async deleteBackupMetadata(backupId: string): Promise<void> {
-    console.log(`🗑️ Deleting backup metadata for: ${backupId}`);
+    logger.info(`🗑️ Deleting backup metadata for: ${backupId}`);
   }
 
   private async verifyBackupIntegrity(backup: CustomerBackup, backupData: any): Promise<boolean> {
@@ -312,12 +313,12 @@ export class BackupRestoreService {
   }
 
   private async clearCustomerDatabase(customerId: string): Promise<void> {
-    console.log(`🧹 Clearing database for customer: ${customerId}`);
+    logger.info(`🧹 Clearing database for customer: ${customerId}`);
     // Implementation to clear all tables in customer database
   }
 
   private async verifyRestore(customerId: string, backup: CustomerBackup): Promise<void> {
-    console.log(`🔍 Verifying restore for customer: ${customerId}`);
+    logger.info(`🔍 Verifying restore for customer: ${customerId}`);
     // Implementation to verify restored data matches backup
   }
 

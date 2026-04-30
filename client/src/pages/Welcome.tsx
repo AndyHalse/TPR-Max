@@ -90,25 +90,25 @@ export default function Welcome() {
   const { data: user, isLoading: isLoadingAuth, error: authError } = useQuery({
     queryKey: ["/api/auth/me"],
     queryFn: async () => {
-      console.log("🔍 [WELCOME AUTH] Checking authentication for welcome setup...");
+      console.info("🔍 [WELCOME AUTH] Checking authentication for welcome setup...");
       try {
         const res = await fetch("/api/auth/me", {
           credentials: "include",
         });
-        console.log("📥 [WELCOME AUTH] Response status:", res.status);
+        console.info("📥 [WELCOME AUTH] Response status:", res.status);
         
         if (res.status === 401) {
-          console.log("❌ [WELCOME AUTH] Unauthenticated - redirecting to login");
+          console.info("❌ [WELCOME AUTH] Unauthenticated - redirecting to login");
           return null;
         }
         if (!res.ok) {
           throw new Error(`${res.status}: ${res.statusText}`);
         }
         const userData = await res.json();
-        console.log("✅ [WELCOME AUTH] Authenticated user for welcome setup:", userData.username);
+        console.info("✅ [WELCOME AUTH] Authenticated user for welcome setup:", userData.username);
         return userData;
       } catch (error) {
-        console.log("💥 [WELCOME AUTH] Network error:", error);
+        console.info("💥 [WELCOME AUTH] Network error:", error);
         return null;
       }
     },
@@ -125,12 +125,12 @@ export default function Welcome() {
 
   useEffect(() => {
     if (isLoadingAuth) {
-      console.log("⏳ [WELCOME] Checking authentication...");
+      console.info("⏳ [WELCOME] Checking authentication...");
       return;
     }
 
     if (!user) {
-      console.log("❌ [WELCOME] No authenticated user - redirecting to login");
+      console.info("❌ [WELCOME] No authenticated user - redirecting to login");
       toast({
         title: "Authentication Required",
         description: "Please log in to access the welcome setup.",
@@ -140,7 +140,7 @@ export default function Welcome() {
       return;
     }
 
-    console.log("✅ [WELCOME] User authenticated - setting up welcome page");
+    console.info("✅ [WELCOME] User authenticated - setting up welcome page");
     
     // Create customer login data from authenticated session (for compatibility)
     const sessionBasedData = {

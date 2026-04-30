@@ -80,7 +80,7 @@ function applyBrandingFromSettings(settings: any) {
       root.style.setProperty('--ring', `hsl(${hsl})`);
     }
   }
-  console.log(`[BRANDING] Applied branding directly from login response - bg=${settings.backgroundColor}, accent=${settings.accentColor}, varText=${settings.variableTextColor}`);
+  console.info(`[BRANDING] Applied branding directly from login response - bg=${settings.backgroundColor}, accent=${settings.accentColor}, varText=${settings.variableTextColor}`);
 }
 
 export default function Login() {

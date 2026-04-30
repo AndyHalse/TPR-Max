@@ -7,6 +7,7 @@ import { GoogleGenAI, Modality } from "@google/genai";
 import type { IImageGenerator, ImageGenerationResult, Result } from '../interfaces/ai';
 import { ResultUtils } from '../utils/result';
 import { DallE3ImageGenerator } from './OpenAIImageGenerator';
+import { logger } from '../utils/logger';
 
 // DON'T DELETE THIS COMMENT
 // Upgraded to Gemini 3.0-flash for enhanced induction video image generation
@@ -94,7 +95,7 @@ Generate a clear, professional safety training image suitable for UK workplace i
       });
 
     } catch (error: any) {
-      console.error('❌ Gemini image generation failed:', error.message);
+      logger.error('❌ Gemini image generation failed:', error.message);
       return ResultUtils.error(error);
     }
   }
@@ -227,7 +228,7 @@ export class FallbackSvgImageGenerator implements IImageGenerator {
       // Convert to proper data URL that browsers can use
       const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(safeSvg)}`;
       
-      console.log(`✅ Generated fallback safety image for theme: ${theme}`);
+      logger.info(`✅ Generated fallback safety image for theme: ${theme}`);
       
       return ResultUtils.success({
         url: svgDataUrl,
@@ -240,7 +241,7 @@ export class FallbackSvgImageGenerator implements IImageGenerator {
       });
 
     } catch (error: any) {
-      console.error('❌ Fallback SVG generation failed:', error.message);
+      logger.error('❌ Fallback SVG generation failed:', error.message);
       return ResultUtils.error(error);
     }
   }
@@ -561,16 +562,16 @@ export class ImageFallbackChain implements IImageGenerator {
   ): Promise<Result<ImageGenerationResult>> {
     for (let i = 0; i < this.generators.length; i++) {
       const generator = this.generators[i];
-      console.log(`🖼️ Trying image generator ${i + 1}/${this.generators.length}...`);
+      logger.info(`🖼️ Trying image generator ${i + 1}/${this.generators.length}...`);
       
       const result = await generator.generate(slideType, title, description);
       
       if (ResultUtils.isSuccess(result)) {
-        console.log(`✅ Image generated successfully with generator ${i + 1}`);
+        logger.info(`✅ Image generated successfully with generator ${i + 1}`);
         return result;
       }
 
-      console.log(`⚠️ Generator ${i + 1} failed: ${result.error?.message}`);
+      logger.info(`⚠️ Generator ${i + 1} failed: ${result.error?.message}`);
     }
 
     return ResultUtils.error(new Error('All image generators failed'));

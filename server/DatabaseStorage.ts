@@ -28,6 +28,7 @@ import type { IStorage } from "./storage";
 import { eq, and, gte, lte, desc, asc, like, ilike, or, isNull, not, gt, lt, count, isNotNull, sql, inArray } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import bcrypt from "bcryptjs";
+import { logger } from './utils/logger';
 
 export class DatabaseStorage implements IStorage {
   constructor() {
@@ -56,12 +57,12 @@ export class DatabaseStorage implements IStorage {
           createdAt: new Date(),
           updatedAt: new Date()
         });
-        console.log('✅ System user created for card issuing');
+        logger.info('✅ System user created for card issuing');
       } else {
-        console.log('System user already exists');
+        logger.info('System user already exists');
       }
     } catch (error) {
-      console.error('Error initializing system user:', error);
+      logger.error('Error initializing system user:', error);
     }
   }
 
@@ -124,9 +125,9 @@ export class DatabaseStorage implements IStorage {
         });
       }
 
-      console.log('✅ Default Red and Yellow Card offences initialized successfully');
+      logger.info('✅ Default Red and Yellow Card offences initialized successfully');
     } catch (error) {
-      console.error('Error initializing default offences:', error);
+      logger.error('Error initializing default offences:', error);
     }
   }
 
@@ -189,9 +190,9 @@ export class DatabaseStorage implements IStorage {
         });
       }
 
-      console.log(`✅ Seeded ${defaultQualifications.length} default NVQ qualifications`);
+      logger.info(`✅ Seeded ${defaultQualifications.length} default NVQ qualifications`);
     } catch (error) {
-      console.error("Failed to initialize NVQ qualifications:", error);
+      logger.error("Failed to initialize NVQ qualifications:", error);
     }
   }
 
@@ -263,7 +264,7 @@ export class DatabaseStorage implements IStorage {
 
       return user;
     } catch (error) {
-      console.error('User authentication error:', error);
+      logger.error('User authentication error:', error);
       return null;
     }
   }
@@ -302,7 +303,7 @@ export class DatabaseStorage implements IStorage {
     let fireMarshalUrlId = insertStaff.fireMarshalUrlId;
     if (insertStaff.isFireMarshal && !fireMarshalUrlId) {
       fireMarshalUrlId = randomUUID().replace(/-/g, '').substring(0, 12);
-      console.log(`🔥 Generated Fire Marshal URL ID for new staff ${insertStaff.firstName} ${insertStaff.lastName}: ${fireMarshalUrlId}`);
+      logger.info(`🔥 Generated Fire Marshal URL ID for new staff ${insertStaff.firstName} ${insertStaff.lastName}: ${fireMarshalUrlId}`);
     }
 
     const [newStaff] = await db
@@ -338,7 +339,7 @@ export class DatabaseStorage implements IStorage {
       if (isOrWillBeFireMarshal && hasNoUrlId) {
         // Generate a unique, URL-safe ID (12 characters from UUID without dashes)
         updates.fireMarshalUrlId = randomUUID().replace(/-/g, '').substring(0, 12);
-        console.log(`🔥 Generated Fire Marshal URL ID for ${existingStaff.firstName} ${existingStaff.lastName}: ${updates.fireMarshalUrlId}`);
+        logger.info(`🔥 Generated Fire Marshal URL ID for ${existingStaff.firstName} ${existingStaff.lastName}: ${updates.fireMarshalUrlId}`);
       }
     }
 
@@ -555,7 +556,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async findCheckedInVisitor(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined> {
-    console.log(`🔍 Database search for: ${firstName} ${lastName}, company: ${company || 'null'}`);
+    logger.info(`🔍 Database search for: ${firstName} ${lastName}, company: ${company || 'null'}`);
     
     // First check if someone with same name is currently checked in (prevent double check-ins)
     const checkedInConditions = [
@@ -575,11 +576,11 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     if (currentlyCheckedIn) {
-      console.log(`❌ ALREADY CHECKED IN: ${currentlyCheckedIn.firstName} ${currentlyCheckedIn.lastName} (ID: ${currentlyCheckedIn.id})`);
+      logger.info(`❌ ALREADY CHECKED IN: ${currentlyCheckedIn.firstName} ${currentlyCheckedIn.lastName} (ID: ${currentlyCheckedIn.id})`);
       return currentlyCheckedIn;
     }
     
-    console.log(`✅ No one with that name currently checked in`);
+    logger.info(`✅ No one with that name currently checked in`);
     return undefined;
   }
 
@@ -594,7 +595,7 @@ export class DatabaseStorage implements IStorage {
     );
     
     if (existingVisitor) {
-      console.log(`♻️ REUSING existing visitor: ${existingVisitor.firstName} ${existingVisitor.lastName} (ID: ${existingVisitor.id})`);
+      logger.info(`♻️ REUSING existing visitor: ${existingVisitor.firstName} ${existingVisitor.lastName} (ID: ${existingVisitor.id})`);
       
       // Update their details and check them in
       const [updatedVisitor] = await db
@@ -615,7 +616,7 @@ export class DatabaseStorage implements IStorage {
       return updatedVisitor;
     }
     
-    console.log(`🆕 Creating new visitor: ${insertVisitor.firstName} ${insertVisitor.lastName}`);
+    logger.info(`🆕 Creating new visitor: ${insertVisitor.firstName} ${insertVisitor.lastName}`);
     const id = randomUUID();
     const qrCode = `VIS_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
     
@@ -633,7 +634,7 @@ export class DatabaseStorage implements IStorage {
   
   // Find existing checked-out visitor to reuse instead of creating duplicate
   async findExistingVisitorToReuse(firstName: string, lastName: string, company?: string): Promise<Visitor | undefined> {
-    console.log(`🔍 Looking for existing visitor to reuse: ${firstName} ${lastName}`);
+    logger.info(`🔍 Looking for existing visitor to reuse: ${firstName} ${lastName}`);
     
     // Look for exact match (name + company) that's checked out
     const exactConditions = [
@@ -654,7 +655,7 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     if (exactMatch) {
-      console.log(`✅ Found exact match to reuse: ${exactMatch.firstName} ${exactMatch.lastName} (ID: ${exactMatch.id})`);
+      logger.info(`✅ Found exact match to reuse: ${exactMatch.firstName} ${exactMatch.lastName} (ID: ${exactMatch.id})`);
       return exactMatch;
     }
     
@@ -671,9 +672,9 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     
     if (nameMatch) {
-      console.log(`✅ Found name match to reuse: ${nameMatch.firstName} ${nameMatch.lastName} (ID: ${nameMatch.id})`);
+      logger.info(`✅ Found name match to reuse: ${nameMatch.firstName} ${nameMatch.lastName} (ID: ${nameMatch.id})`);
     } else {
-      console.log(`❌ No existing visitor found to reuse`);
+      logger.info(`❌ No existing visitor found to reuse`);
     }
     
     return nameMatch;
@@ -763,7 +764,7 @@ export class DatabaseStorage implements IStorage {
         return result.rowCount > 0;
       });
     } catch (error) {
-      console.error("Error deleting visitor:", error);
+      logger.error("Error deleting visitor:", error);
       return false;
     }
   }
@@ -1192,14 +1193,14 @@ export class DatabaseStorage implements IStorage {
         .limit(1);
         
       if (!currentStaff) {
-        console.log('Staff member not found:', id);
+        logger.info('Staff member not found:', id);
         return false;
       }
       
       // Toggle the status - default to false if undefined
       const currentStatus = currentStaff.isAccountedFor || false;
       const newStatus = !currentStatus;
-      console.log(`Toggling staff ${id} from ${currentStatus} to ${newStatus}`);
+      logger.info(`Toggling staff ${id} from ${currentStatus} to ${newStatus}`);
       
       await db
         .update(staff)
@@ -1211,7 +1212,7 @@ export class DatabaseStorage implements IStorage {
         
       return true;
     } catch (error) {
-      console.error("Error toggling staff accounted status:", error);
+      logger.error("Error toggling staff accounted status:", error);
       return false;
     }
   }
@@ -1226,7 +1227,7 @@ export class DatabaseStorage implements IStorage {
         .limit(1);
         
       if (!currentStaff) {
-        console.log('Staff member not found:', id);
+        logger.info('Staff member not found:', id);
         return false;
       }
       
@@ -1240,7 +1241,7 @@ export class DatabaseStorage implements IStorage {
         
       return true;
     } catch (error) {
-      console.error("Error setting staff accounted status:", error);
+      logger.error("Error setting staff accounted status:", error);
       return false;
     }
   }
@@ -1254,13 +1255,13 @@ export class DatabaseStorage implements IStorage {
         .where(eq(visitors.id, id));
         
       if (!currentVisitor) {
-        console.log('Visitor not found:', id);
+        logger.info('Visitor not found:', id);
         return false;
       }
       
       // Toggle the status
       const newStatus = !currentVisitor.isAccountedFor;
-      console.log(`Toggling visitor ${id} from ${currentVisitor.isAccountedFor} to ${newStatus}`);
+      logger.info(`Toggling visitor ${id} from ${currentVisitor.isAccountedFor} to ${newStatus}`);
       
       await db
         .update(visitors)
@@ -1272,7 +1273,7 @@ export class DatabaseStorage implements IStorage {
         
       return true;
     } catch (error) {
-      console.error("Error toggling visitor accounted status:", error);
+      logger.error("Error toggling visitor accounted status:", error);
       return false;
     }
   }
@@ -1286,13 +1287,13 @@ export class DatabaseStorage implements IStorage {
         .where(eq(contractorWorkers.id, id));
         
       if (!currentContractor) {
-        console.log('Contractor not found:', id);
+        logger.info('Contractor not found:', id);
         return false;
       }
       
       // Toggle the status
       const newStatus = !currentContractor.isAccountedFor;
-      console.log(`Toggling contractor ${id} from ${currentContractor.isAccountedFor} to ${newStatus}`);
+      logger.info(`Toggling contractor ${id} from ${currentContractor.isAccountedFor} to ${newStatus}`);
       
       await db
         .update(contractorWorkers)
@@ -1304,7 +1305,7 @@ export class DatabaseStorage implements IStorage {
         
       return true;
     } catch (error) {
-      console.error("Error toggling contractor accounted status:", error);
+      logger.error("Error toggling contractor accounted status:", error);
       return false;
     }
   }
@@ -1934,7 +1935,7 @@ export class DatabaseStorage implements IStorage {
       
       return fireMarshals;
     } catch (error) {
-      console.error("Error fetching Fire Marshals:", error);
+      logger.error("Error fetching Fire Marshals:", error);
       return [];
     }
   }
@@ -1952,14 +1953,14 @@ export class DatabaseStorage implements IStorage {
 
       return !!updatedStaff;
     } catch (error) {
-      console.error("Error updating emergency token:", error);
+      logger.error("Error updating emergency token:", error);
       return false;
     }
   }
 
   async validateEmergencyToken(token: string, customerId?: string): Promise<Staff | null> {
     try {
-      console.log(`🔍 VALIDATE TOKEN: Searching for token: ${token.substring(0, 20)}... ${customerId ? `for customer: ${customerId}` : '(NO CUSTOMER FILTER - SECURITY RISK!)'}`);
+      logger.info(`🔍 VALIDATE TOKEN: Searching for token: ${token.substring(0, 20)}... ${customerId ? `for customer: ${customerId}` : '(NO CUSTOMER FILTER - SECURITY RISK!)'}`);
       
       const conditions = [
         eq(staff.emergencyToken, token),
@@ -1978,16 +1979,16 @@ export class DatabaseStorage implements IStorage {
         .where(and(...conditions));
 
       if (staffMember) {
-        console.log(`✅ VALIDATE TOKEN: Found staff ${staffMember.firstName} ${staffMember.lastName} (Customer: ${staffMember.customerId})`);
+        logger.info(`✅ VALIDATE TOKEN: Found staff ${staffMember.firstName} ${staffMember.lastName} (Customer: ${staffMember.customerId})`);
       } else {
-        console.log(`❌ VALIDATE TOKEN: No match found ${customerId ? `for customer ${customerId}` : '(cross-customer search)'}`);
+        logger.info(`❌ VALIDATE TOKEN: No match found ${customerId ? `for customer ${customerId}` : '(cross-customer search)'}`);
         // Debug: Show what fire marshals exist (filtered by customer if provided)
         const debugConditions = [eq(staff.isFireMarshal, true)];
         if (customerId) {
           debugConditions.push(eq(staff.customerId, customerId));
         }
         const allMarshals = await db.select().from(staff).where(and(...debugConditions));
-        console.log(`📋 Found ${allMarshals.length} Fire Marshals:`, allMarshals.map(m => ({
+        logger.info(`📋 Found ${allMarshals.length} Fire Marshals:`, allMarshals.map(m => ({
           name: `${m.firstName} ${m.lastName}`,
           customer: m.customerId,
           hasToken: !!m.emergencyToken,
@@ -2000,7 +2001,7 @@ export class DatabaseStorage implements IStorage {
 
       return staffMember || null;
     } catch (error) {
-      console.error("Error validating emergency token:", error);
+      logger.error("Error validating emergency token:", error);
       return null;
     }
   }
@@ -2033,7 +2034,7 @@ export class DatabaseStorage implements IStorage {
 
       return (staffCount.count || 0) + (visitorCount.count || 0) + (contractorCount.count || 0);
     } catch (error) {
-      console.error("Error getting total personnel count:", error);
+      logger.error("Error getting total personnel count:", error);
       return 0;
     }
   }
@@ -2140,7 +2141,7 @@ export class DatabaseStorage implements IStorage {
         return a.department.localeCompare(b.department);
       });
     } catch (error) {
-      console.error('Error getting department analytics:', error);
+      logger.error('Error getting department analytics:', error);
       return [];
     }
   }
@@ -2212,7 +2213,7 @@ export class DatabaseStorage implements IStorage {
         totalCount: staffData.filter(s => s.isCheckedIn).length + visitorData.length,
       };
     } catch (error) {
-      console.error('Error getting department details:', error);
+      logger.error('Error getting department details:', error);
       return {
         department,
         staff: [],
@@ -2228,7 +2229,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.select().from(departments).where(eq(departments.isActive, true)).orderBy(asc(departments.name));
       return result;
     } catch (error) {
-      console.error('Error getting all departments:', error);
+      logger.error('Error getting all departments:', error);
       return [];
     }
   }
@@ -2238,7 +2239,7 @@ export class DatabaseStorage implements IStorage {
       const [department] = await db.select().from(departments).where(eq(departments.id, id));
       return department;
     } catch (error) {
-      console.error('Error getting department by ID:', error);
+      logger.error('Error getting department by ID:', error);
       return undefined;
     }
   }
@@ -2256,7 +2257,7 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return department;
     } catch (error) {
-      console.error('Error creating department:', error);
+      logger.error('Error creating department:', error);
       throw error;
     }
   }
@@ -2273,7 +2274,7 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return department;
     } catch (error) {
-      console.error('Error updating department:', error);
+      logger.error('Error updating department:', error);
       return undefined;
     }
   }
@@ -2291,7 +2292,7 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return !!department;
     } catch (error) {
-      console.error('Error deleting department:', error);
+      logger.error('Error deleting department:', error);
       return false;
     }
   }
@@ -2301,7 +2302,7 @@ export class DatabaseStorage implements IStorage {
       const result = await db.select({ name: departments.name }).from(departments).where(eq(departments.isActive, true)).orderBy(asc(departments.name));
       return result.map(d => d.name);
     } catch (error) {
-      console.error('Error getting department names:', error);
+      logger.error('Error getting department names:', error);
       return [];
     }
   }
@@ -2336,7 +2337,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCardIssue(data: InsertCardIssue): Promise<CardIssue> {
-    console.log("🔴 Creating card issue with data:", data);
+    logger.info("🔴 Creating card issue with data:", data);
     
     // Ensure required fields are present
     const cardIssueData = {
@@ -2347,7 +2348,7 @@ export class DatabaseStorage implements IStorage {
       status: data.status || "active"
     };
     
-    console.log("🔴 Final card issue data:", cardIssueData);
+    logger.info("🔴 Final card issue data:", cardIssueData);
     
     const [issue] = await db.insert(cardIssues).values(cardIssueData).returning();
     
@@ -2785,7 +2786,7 @@ export class DatabaseStorage implements IStorage {
       };
 
     } catch (error) {
-      console.error('Error calculating peak hours analytics:', error);
+      logger.error('Error calculating peak hours analytics:', error);
       return {
         peakHours: "9AM-11AM",
         weeklyTrend: "+23% this week",
@@ -3000,7 +3001,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async checkRoomAvailability(roomId: string, startTime: Date, endTime: Date, excludeBookingId?: string, customerId?: string): Promise<boolean> {
-    console.log("🔍 Checking room availability:", {
+    logger.info("🔍 Checking room availability:", {
       roomId,
       startTime: startTime.toISOString(),
       endTime: endTime.toISOString(),
@@ -3027,7 +3028,7 @@ export class DatabaseStorage implements IStorage {
       .from(roomBookings)
       .where(and(...conditions));
     
-    console.log(`🔍 Found ${conflicts.length} conflicting bookings:`, conflicts.map(c => ({
+    logger.info(`🔍 Found ${conflicts.length} conflicting bookings:`, conflicts.map(c => ({
       id: c.id,
       title: c.title,
       start: c.startTime,
@@ -3037,7 +3038,7 @@ export class DatabaseStorage implements IStorage {
     
     // Room is available if there are no conflicts
     const isAvailable = conflicts.length === 0;
-    console.log(`🔍 Availability result: ${isAvailable ? '✅ AVAILABLE' : '❌ NOT AVAILABLE'}`);
+    logger.info(`🔍 Availability result: ${isAvailable ? '✅ AVAILABLE' : '❌ NOT AVAILABLE'}`);
     return isAvailable;
   }
 
@@ -3267,14 +3268,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createBookingAttendees(bookingId: string, staffIds: string[], externalEmails: string[]): Promise<void> {
-    console.log("🔧 createBookingAttendees called:", { bookingId, staffIds, externalEmails });
+    logger.info("🔧 createBookingAttendees called:", { bookingId, staffIds, externalEmails });
     const attendeesToInsert: any[] = [];
     
     for (const staffId of staffIds) {
-      console.log("🔍 Looking up staff member:", staffId);
+      logger.info("🔍 Looking up staff member:", staffId);
       const [staffMember] = await db.select().from(staff).where(eq(staff.id, staffId));
       if (staffMember) {
-        console.log("✅ Found staff member:", staffMember.firstName, staffMember.lastName);
+        logger.info("✅ Found staff member:", staffMember.firstName, staffMember.lastName);
         attendeesToInsert.push({
           bookingId,
           staffId: staffMember.id,
@@ -3284,12 +3285,12 @@ export class DatabaseStorage implements IStorage {
           responseStatus: 'pending',
         });
       } else {
-        console.log("❌ Staff member not found:", staffId);
+        logger.info("❌ Staff member not found:", staffId);
       }
     }
     
     for (const email of externalEmails) {
-      console.log("➕ Adding external attendee:", email);
+      logger.info("➕ Adding external attendee:", email);
       attendeesToInsert.push({
         bookingId,
         staffId: null,
@@ -3300,13 +3301,13 @@ export class DatabaseStorage implements IStorage {
       });
     }
     
-    console.log("💾 Attendees to insert:", attendeesToInsert.length, attendeesToInsert);
+    logger.info("💾 Attendees to insert:", attendeesToInsert.length, attendeesToInsert);
     
     if (attendeesToInsert.length > 0) {
       const result = await db.insert(roomBookingAttendees).values(attendeesToInsert).returning();
-      console.log("✅ Inserted attendees:", result.length);
+      logger.info("✅ Inserted attendees:", result.length);
     } else {
-      console.log("⚠️ No attendees to insert");
+      logger.info("⚠️ No attendees to insert");
     }
   }
 

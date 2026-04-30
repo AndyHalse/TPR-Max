@@ -6,6 +6,7 @@
 import OpenAI from "openai";
 import { Readable } from "stream";
 import { Buffer } from "buffer";
+import { logger } from '../utils/logger';
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -42,8 +43,8 @@ export class OpenAITTSService {
         model = 'tts-1-hd' // HD quality for production
       } = options;
 
-      console.log(`🎤 Generating professional narration with voice: ${voice}`);
-      console.log(`📝 Text length: ${text.length} characters`);
+      logger.info(`🎤 Generating professional narration with voice: ${voice}`);
+      logger.info(`📝 Text length: ${text.length} characters`);
 
       // Generate speech using OpenAI TTS
       const mp3Response = await openai.audio.speech.create({
@@ -65,8 +66,8 @@ export class OpenAITTSService {
       const wordCount = text.split(/\s+/).length;
       const estimatedDuration = Math.ceil((wordCount / 150) * 60); // seconds
 
-      console.log(`✅ Narration generated successfully`);
-      console.log(`⏱️ Estimated duration: ${estimatedDuration} seconds`);
+      logger.info(`✅ Narration generated successfully`);
+      logger.info(`⏱️ Estimated duration: ${estimatedDuration} seconds`);
 
       return {
         audioUrl,
@@ -76,12 +77,12 @@ export class OpenAITTSService {
       };
 
     } catch (error: any) {
-      console.error('❌ OpenAI TTS generation failed:', error.message);
+      logger.error('❌ OpenAI TTS generation failed:', error.message);
       
       if (error.response?.status === 400) {
-        console.error('❌ Bad request - text may be too long or contain invalid characters');
+        logger.error('❌ Bad request - text may be too long or contain invalid characters');
       } else if (error.response?.status === 429) {
-        console.error('❌ Rate limit exceeded');
+        logger.error('❌ Rate limit exceeded');
       }
       
       throw error;
@@ -98,7 +99,7 @@ export class OpenAITTSService {
     scenes: Array<{ title: string; content: string; duration?: number }>,
     roleType: string = 'contractor'
   ): Promise<NarrationResult[]> {
-    console.log(`🎬 Generating narrations for ${scenes.length} scenes`);
+    logger.info(`🎬 Generating narrations for ${scenes.length} scenes`);
 
     // Select optimal voice based on role type
     const voiceMap = {
@@ -121,7 +122,7 @@ export class OpenAITTSService {
         
         narrations.push(narration);
       } catch (error) {
-        console.error(`❌ Failed to generate narration for scene: ${scene.title}`);
+        logger.error(`❌ Failed to generate narration for scene: ${scene.title}`);
         // Add placeholder for failed narration
         narrations.push({
           audioUrl: '',
@@ -131,7 +132,7 @@ export class OpenAITTSService {
       }
     }
 
-    console.log(`✅ Generated ${narrations.length} scene narrations`);
+    logger.info(`✅ Generated ${narrations.length} scene narrations`);
     return narrations;
   }
 
@@ -145,7 +146,7 @@ export class OpenAITTSService {
     fullScript: string,
     roleType: string = 'contractor'
   ): Promise<NarrationResult> {
-    console.log(`🎙️ Generating full script narration`);
+    logger.info(`🎙️ Generating full script narration`);
 
     // Voice selection
     const voiceMap = {
