@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import GlassCard from "@/components/GlassCard";
+import { getSafetyRatingColor } from "./types";
 import {
   History,
   Search,
@@ -38,7 +39,6 @@ interface ContractorPreviousTabProps {
   endContractorLoneWorkerMutation: any;
   getContractorLoneWorkerSession: (id: string) => any;
   getLoneWorkerCountdown: (session: any) => string;
-  getSafetyRatingColor: (rating: string) => string;
   setViewingWorker: (w: any) => void;
   setSelectedWorkerForEdit: (w: any) => void;
   setSelectedWorkerCompanyName: (s: string) => void;
@@ -73,7 +73,6 @@ export default function ContractorPreviousTab({
   endContractorLoneWorkerMutation,
   getContractorLoneWorkerSession,
   getLoneWorkerCountdown,
-  getSafetyRatingColor,
   setViewingWorker,
   setSelectedWorkerForEdit,
   setSelectedWorkerCompanyName,

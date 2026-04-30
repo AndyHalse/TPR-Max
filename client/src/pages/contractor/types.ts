@@ -87,6 +87,43 @@ export const CDM_STATUS_BADGE: Record<string, { label: string; className: string
   cancelled: { label: "Cancelled", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300" },
 };
 
+/** Safety rating colour classes */
+export function getSafetyRatingColor(rating: string): string {
+  if (rating.startsWith('A')) return 'bg-green-100 text-green-800';
+  if (rating.startsWith('B')) return 'bg-yellow-100 text-yellow-800';
+  if (rating.startsWith('C')) return 'bg-orange-100 text-orange-800';
+  if (rating.startsWith('D')) return 'bg-red-100 text-red-800';
+  if (rating === 'F') return 'bg-red-200 text-red-900';
+  return 'bg-gray-100 text-gray-800';
+}
+
+/** Derive compliance badge from documentsStatus returned by the API */
+export function getComplianceBadge(documentsStatus?: Record<string, string>) {
+  if (!documentsStatus) return { label: 'Not started', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', icon: '⬜' };
+  const allMissing = Object.values(documentsStatus).every(v => v === 'missing');
+  if (allMissing) return { label: 'Not started', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300', icon: '⬜' };
+  const missingLegal = documentsStatus.publicLiability === 'missing' || documentsStatus.employersLiability === 'missing'
+    || documentsStatus.publicLiability === 'expired' || documentsStatus.employersLiability === 'expired';
+  if (missingLegal) return { label: 'Missing legal docs', className: 'bg-red-100 text-red-700', icon: '🔴' };
+  const missingSite = (documentsStatus.healthSafety === 'missing' || documentsStatus.rams === 'missing'
+    || documentsStatus.healthSafety === 'expired' || documentsStatus.rams === 'expired');
+  if (missingSite) return { label: 'Incomplete', className: 'bg-amber-100 text-amber-700', icon: '🟡' };
+  return { label: 'Compliant', className: 'bg-green-100 text-green-700', icon: '🟢' };
+}
+
+/** Returns true if a company/worker matches the search term */
+export function matchesSearch(item: any, search: string): boolean {
+  if (!search) return true;
+  const s = search.toLowerCase();
+  return (
+    (item.name || '').toLowerCase().includes(s) ||
+    (item.contactFirstName || '').toLowerCase().includes(s) ||
+    (item.contactLastName || '').toLowerCase().includes(s) ||
+    (item.email || '').toLowerCase().includes(s) ||
+    (item.industry || '').toLowerCase().includes(s)
+  );
+}
+
 /** Returns true when the project is notifiable under CDM 2015 Reg 6 */
 export function isNotifiable(p: { estimatedDays?: number | null; peakWorkers?: number | null; personDays?: number | null }): boolean {
   const daysOk = (p.estimatedDays ?? 0) > 30 && (p.peakWorkers ?? 0) > 20;

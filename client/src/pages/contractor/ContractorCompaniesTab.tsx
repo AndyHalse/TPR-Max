@@ -15,7 +15,7 @@ import {
   Users,
   Zap,
 } from "lucide-react";
-import { type ExtendedContractorCompany } from "./types";
+import { type ExtendedContractorCompany, matchesSearch, getSafetyRatingColor, getComplianceBadge } from "./types";
 
 interface ContractorCompaniesTabProps {
   companies: ExtendedContractorCompany[];
@@ -25,16 +25,11 @@ interface ContractorCompaniesTabProps {
   setShowAllCompanies: (b: boolean) => void;
   companyViewMode: "grid" | "list";
   setCompanyViewMode: (v: "grid" | "list") => void;
-  matchesSearch: (company: any, term: string) => boolean;
-  getSafetyRatingColor: (rating: string) => string;
-  getComplianceBadge: (documentsStatus?: Record<string, string>) => any;
   handleViewContractorDetails: (id: string) => void;
   handleEditContractor: (id: string) => void;
   handleDeleteContractor: (id: string, name: string) => void;
   deleteContractorMutation: any;
   setSelectedContractor: (c: any) => void;
-  workerForm: any;
-  setWorkerForm: (f: any) => void;
   setShowAddWorkerDialog: (b: boolean) => void;
   setLocation: (path: string) => void;
   setShowAddContractorDialog: (b: boolean) => void;
@@ -48,16 +43,11 @@ export default function ContractorCompaniesTab({
   setShowAllCompanies,
   companyViewMode,
   setCompanyViewMode,
-  matchesSearch,
-  getSafetyRatingColor,
-  getComplianceBadge,
   handleViewContractorDetails,
   handleEditContractor,
   handleDeleteContractor,
   deleteContractorMutation,
   setSelectedContractor,
-  workerForm,
-  setWorkerForm,
   setShowAddWorkerDialog,
   setLocation,
   setShowAddContractorDialog,
@@ -264,7 +254,6 @@ export default function ContractorCompaniesTab({
                           className="flex-1 text-green-600 border-green-600 hover:bg-green-50"
                           onClick={() => {
                             setSelectedContractor(company);
-                            setWorkerForm({ ...workerForm, companyId: company.id });
                             setShowAddWorkerDialog(true);
                           }}
                           data-testid={`button-add-worker-${company.id}`}
@@ -381,7 +370,6 @@ export default function ContractorCompaniesTab({
                         className="text-green-600 border-green-600 hover:bg-green-50"
                         onClick={() => {
                           setSelectedContractor(company);
-                          setWorkerForm({ ...workerForm, companyId: company.id });
                           setShowAddWorkerDialog(true);
                         }}
                       >
