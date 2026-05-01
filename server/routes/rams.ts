@@ -14,6 +14,21 @@ import {
   insertRamsAcknowledgementSchema,
 } from '@shared/schema';
 
+// ─── One-time startup: ensure customer_id column exists in shared RAMS tables ─
+// The RAMS tables live in the public (shared) schema.  This migration is safe
+// to call on every startup because ADD COLUMN IF NOT EXISTS is idempotent.
+
+async function ensureRamsCustomerIdColumns() {
+  try {
+    await db.execute(`ALTER TABLE rams_documents        ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''` as any);
+    await db.execute(`ALTER TABLE rams_acknowledgements ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''` as any);
+    await db.execute(`ALTER TABLE rams_audit_log        ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''` as any);
+    logger.info('✅ RAMS customer_id columns ensured in shared schema');
+  } catch (err: any) {
+    logger.error('❌ Failed to ensure RAMS customer_id columns:', err);
+  }
+}
+
 // ─── Helper: build structured compliance requirements from live customer data ─
 
 async function buildComplianceRequirements(customerId: string, custDb: any) {
@@ -138,10 +153,12 @@ async function writeRamsAudit(
   performedByName: string,
   notes?: string,
   metadata?: object,
+  customerId?: string,
 ) {
   try {
     await db.insert(ramsAuditLog).values({
       ramsDocumentId,
+      customerId: customerId || "",
       companyId,
       action,
       performedBy,
@@ -154,9 +171,24 @@ async function writeRamsAudit(
   }
 }
 
+// Helper: fetch a RAMS document and verify it belongs to the requesting customer.
+// Returns the document on success, or sends a 401/404 and returns null.
+async function getOwnedRamsDoc(id: string, customerId: string, res: any) {
+  const [doc] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
+  if (!doc || doc.customerId !== customerId) {
+    res.status(404).json({ error: "RAMS document not found" });
+    return null;
+  }
+  return doc;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function registerRamsRoutes(app: Express): void {
+
+  // Ensure customer_id columns exist in the shared (public) RAMS tables.
+  // This runs once per process start and is safe to call repeatedly.
+  ensureRamsCustomerIdColumns();
 
   // =========================================
   // MARTYN'S LAW (UK PROTECT DUTY) ENDPOINTS
@@ -401,19 +433,28 @@ export function registerRamsRoutes(app: Express): void {
   // GET /api/rams — list all RAMS documents (optionally filter by companyId or status)
   app.get("/api/rams", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { companyId, status } = req.query as Record<string, string>;
 
-      const conditions: any[] = [eq(ramsDocuments.isActive, true)];
+      const conditions: any[] = [
+        eq(ramsDocuments.customerId, customerId),
+        eq(ramsDocuments.isActive, true),
+      ];
       if (companyId) conditions.push(eq(ramsDocuments.companyId, companyId));
       if (status) conditions.push(eq(ramsDocuments.status, status));
 
       const docs = await db.select().from(ramsDocuments)
-        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .where(and(...conditions))
         .orderBy(desc(ramsDocuments.uploadedAt));
 
       const enriched = await Promise.all(docs.map(async (doc) => {
         const acks = await db.select().from(ramsAcknowledgements)
-          .where(eq(ramsAcknowledgements.ramsDocumentId, doc.id));
+          .where(and(
+            eq(ramsAcknowledgements.ramsDocumentId, doc.id),
+            eq(ramsAcknowledgements.customerId, customerId),
+          ));
         return { ...doc, acknowledgementCount: acks.length };
       }));
 
@@ -427,18 +468,22 @@ export function registerRamsRoutes(app: Express): void {
   // POST /api/rams — upload a new RAMS document
   app.post("/api/rams", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { userId, name: userName } = (req as any).user;
       const parsed = insertRamsDocumentSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ error: "Invalid RAMS data", details: parsed.error.flatten() });
 
       const [created] = await db.insert(ramsDocuments).values({
         ...parsed.data,
+        customerId,
         uploadedBy: userId,
         status: "pending_review",
       }).returning();
 
       await writeRamsAudit(created.id, created.companyId || null, "uploaded", userId, userName || "System",
-        `RAMS document '${created.documentName}' v${created.version} uploaded`);
+        `RAMS document '${created.documentName}' v${created.version} uploaded`, undefined, customerId);
 
       res.status(201).json(created);
     } catch (err: any) {
@@ -450,17 +495,20 @@ export function registerRamsRoutes(app: Express): void {
   // PUT /api/rams/:id — update a RAMS document (metadata only; use /new-version to upload a new file)
   app.put("/api/rams/:id", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { userId, name: userName } = (req as any).user;
       const { id } = req.params;
-      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
-      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+      const existing = await getOwnedRamsDoc(id, customerId, res);
+      if (!existing) return;
 
       const allowed = ["documentName", "jobDescription", "siteLocation", "workCategory", "expiryDate", "alertDaysBefore", "requiredBeforeAccess", "reviewNotes"];
       const updates: Record<string, any> = {};
       allowed.forEach((k) => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
 
       const [updated] = await db.update(ramsDocuments).set(updates).where(eq(ramsDocuments.id, id)).returning();
-      await writeRamsAudit(id, existing.companyId || null, "updated", userId, userName || "System", `Metadata updated`);
+      await writeRamsAudit(id, existing.companyId || null, "updated", userId, userName || "System", `Metadata updated`, undefined, customerId);
       res.json(updated);
     } catch (err: any) {
       logger.error("PUT /api/rams/:id error:", err);
@@ -471,11 +519,14 @@ export function registerRamsRoutes(app: Express): void {
   // POST /api/rams/:id/approve — approve a RAMS document
   app.post("/api/rams/:id/approve", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { userId, name: userName } = (req as any).user;
       const { id } = req.params;
       const { notes } = req.body;
-      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
-      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+      const existing = await getOwnedRamsDoc(id, customerId, res);
+      if (!existing) return;
 
       const [updated] = await db.update(ramsDocuments).set({
         status: "approved",
@@ -488,7 +539,7 @@ export function registerRamsRoutes(app: Express): void {
       }).where(eq(ramsDocuments.id, id)).returning();
 
       await writeRamsAudit(id, existing.companyId || null, "approved", userId, userName || "System",
-        notes || "RAMS document approved for site access", { previousStatus: existing.status });
+        notes || "RAMS document approved for site access", { previousStatus: existing.status }, customerId);
 
       res.json(updated);
     } catch (err: any) {
@@ -500,13 +551,16 @@ export function registerRamsRoutes(app: Express): void {
   // POST /api/rams/:id/reject — reject a RAMS document
   app.post("/api/rams/:id/reject", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { userId, name: userName } = (req as any).user;
       const { id } = req.params;
       const { reason } = req.body;
       if (!reason) return res.status(400).json({ error: "Rejection reason is required" });
 
-      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
-      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+      const existing = await getOwnedRamsDoc(id, customerId, res);
+      if (!existing) return;
 
       const [updated] = await db.update(ramsDocuments).set({
         status: "rejected",
@@ -516,7 +570,7 @@ export function registerRamsRoutes(app: Express): void {
       }).where(eq(ramsDocuments.id, id)).returning();
 
       await writeRamsAudit(id, existing.companyId || null, "rejected", userId, userName || "System",
-        reason, { previousStatus: existing.status });
+        reason, { previousStatus: existing.status }, customerId);
 
       res.json(updated);
     } catch (err: any) {
@@ -528,14 +582,18 @@ export function registerRamsRoutes(app: Express): void {
   // POST /api/rams/:id/new-version — upload a new version (supersedes current)
   app.post("/api/rams/:id/new-version", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { userId, name: userName } = (req as any).user;
       const { id } = req.params;
-      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
-      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+      const existing = await getOwnedRamsDoc(id, customerId, res);
+      if (!existing) return;
 
       await db.update(ramsDocuments).set({ isActive: false }).where(eq(ramsDocuments.id, id));
 
       const [created] = await db.insert(ramsDocuments).values({
+        customerId,
         companyId: existing.companyId,
         departmentId: existing.departmentId,
         ramsIdRef: existing.ramsIdRef,
@@ -554,7 +612,7 @@ export function registerRamsRoutes(app: Express): void {
       }).returning();
 
       await writeRamsAudit(created.id, created.companyId || null, "new_version", userId, userName || "System",
-        `New version v${created.version} created, superseding v${existing.version}`, { previousVersionId: id });
+        `New version v${created.version} created, superseding v${existing.version}`, { previousVersionId: id }, customerId);
 
       res.status(201).json(created);
     } catch (err: any) {
@@ -566,13 +624,16 @@ export function registerRamsRoutes(app: Express): void {
   // DELETE /api/rams/:id — soft-delete (archive) a RAMS document
   app.delete("/api/rams/:id", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { userId, name: userName } = (req as any).user;
       const { id } = req.params;
-      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
-      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+      const existing = await getOwnedRamsDoc(id, customerId, res);
+      if (!existing) return;
 
       await db.update(ramsDocuments).set({ isActive: false }).where(eq(ramsDocuments.id, id));
-      await writeRamsAudit(id, existing.companyId || null, "archived", userId, userName || "System", "Document archived");
+      await writeRamsAudit(id, existing.companyId || null, "archived", userId, userName || "System", "Document archived", undefined, customerId);
 
       res.json({ success: true });
     } catch (err: any) {
@@ -584,9 +645,18 @@ export function registerRamsRoutes(app: Express): void {
   // GET /api/rams/:id/acknowledgements — list worker acknowledgements for a RAMS document
   app.get("/api/rams/:id/acknowledgements", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { id } = req.params;
+      const doc = await getOwnedRamsDoc(id, customerId, res);
+      if (!doc) return;
+
       const acks = await db.select().from(ramsAcknowledgements)
-        .where(eq(ramsAcknowledgements.ramsDocumentId, id))
+        .where(and(
+          eq(ramsAcknowledgements.ramsDocumentId, id),
+          eq(ramsAcknowledgements.customerId, customerId),
+        ))
         .orderBy(desc(ramsAcknowledgements.acknowledgedAt));
       res.json(acks);
     } catch (err: any) {
@@ -598,19 +668,27 @@ export function registerRamsRoutes(app: Express): void {
   // POST /api/rams/:id/acknowledge — worker digitally acknowledges a RAMS document
   app.post("/api/rams/:id/acknowledge", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { userId, name: userName } = (req as any).user;
       const { id } = req.params;
       const { workerId, method, signatureData } = req.body;
       if (!workerId) return res.status(400).json({ error: "workerId is required" });
 
-      const [existing] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
-      if (!existing) return res.status(404).json({ error: "RAMS document not found" });
+      const existing = await getOwnedRamsDoc(id, customerId, res);
+      if (!existing) return;
 
       const [alreadyAcked] = await db.select().from(ramsAcknowledgements)
-        .where(and(eq(ramsAcknowledgements.ramsDocumentId, id), eq(ramsAcknowledgements.workerId, workerId)));
+        .where(and(
+          eq(ramsAcknowledgements.ramsDocumentId, id),
+          eq(ramsAcknowledgements.workerId, workerId),
+          eq(ramsAcknowledgements.customerId, customerId),
+        ));
       if (alreadyAcked) return res.status(409).json({ error: "Worker has already acknowledged this RAMS document", acknowledgement: alreadyAcked });
 
       const [ack] = await db.insert(ramsAcknowledgements).values({
+        customerId,
         ramsDocumentId: id,
         workerId,
         companyId: existing.companyId || null,
@@ -621,7 +699,7 @@ export function registerRamsRoutes(app: Express): void {
       }).returning();
 
       await writeRamsAudit(id, existing.companyId || null, "acknowledged", workerId, userName || "Worker",
-        `Worker acknowledged RAMS document`, { workerId, method: method || "digital" });
+        `Worker acknowledged RAMS document`, { workerId, method: method || "digital" }, customerId);
 
       res.status(201).json(ack);
     } catch (err: any) {
@@ -633,9 +711,18 @@ export function registerRamsRoutes(app: Express): void {
   // GET /api/rams/:id/audit — full audit trail for a RAMS document
   app.get("/api/rams/:id/audit", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { id } = req.params;
+      const doc = await getOwnedRamsDoc(id, customerId, res);
+      if (!doc) return;
+
       const logs = await db.select().from(ramsAuditLog)
-        .where(eq(ramsAuditLog.ramsDocumentId, id))
+        .where(and(
+          eq(ramsAuditLog.ramsDocumentId, id),
+          eq(ramsAuditLog.customerId, customerId),
+        ))
         .orderBy(desc(ramsAuditLog.performedAt));
       res.json(logs);
     } catch (err: any) {
@@ -647,15 +734,32 @@ export function registerRamsRoutes(app: Express): void {
   // GET /api/rams/:id — single RAMS document with full detail
   app.get("/api/rams/:id", requireAuth, async (req, res) => {
     try {
+      const customerId = (req as any).customerId as string | undefined;
+      if (!customerId) return res.status(401).json({ error: "Unauthorized" });
+
       const { id } = req.params;
-      const [doc] = await db.select().from(ramsDocuments).where(eq(ramsDocuments.id, id));
-      if (!doc) return res.status(404).json({ error: "RAMS document not found" });
+      const doc = await getOwnedRamsDoc(id, customerId, res);
+      if (!doc) return;
 
       const [acks, audit, versions] = await Promise.all([
-        db.select().from(ramsAcknowledgements).where(eq(ramsAcknowledgements.ramsDocumentId, id)).orderBy(desc(ramsAcknowledgements.acknowledgedAt)),
-        db.select().from(ramsAuditLog).where(eq(ramsAuditLog.ramsDocumentId, id)).orderBy(desc(ramsAuditLog.performedAt)).limit(50),
+        db.select().from(ramsAcknowledgements)
+          .where(and(
+            eq(ramsAcknowledgements.ramsDocumentId, id),
+            eq(ramsAcknowledgements.customerId, customerId),
+          ))
+          .orderBy(desc(ramsAcknowledgements.acknowledgedAt)),
+        db.select().from(ramsAuditLog)
+          .where(and(
+            eq(ramsAuditLog.ramsDocumentId, id),
+            eq(ramsAuditLog.customerId, customerId),
+          ))
+          .orderBy(desc(ramsAuditLog.performedAt)).limit(50),
         doc.previousVersionId
-          ? db.select().from(ramsDocuments).where(eq(ramsDocuments.id, doc.previousVersionId))
+          ? db.select().from(ramsDocuments)
+              .where(and(
+                eq(ramsDocuments.id, doc.previousVersionId),
+                eq(ramsDocuments.customerId, customerId),
+              ))
           : Promise.resolve([]),
       ]);
 

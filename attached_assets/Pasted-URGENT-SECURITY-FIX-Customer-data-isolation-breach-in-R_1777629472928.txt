@@ -1,0 +1,63 @@
+URGENT SECURITY FIX — Customer data isolation breach in RAMS module.
+
+The RAMS tables (ramsDocuments, ramsAcknowledgements, ramsAuditLog) 
+in the shared database are missing customerId, allowing cross-customer 
+data access. Fix this completely.
+
+STEP 1 — Add customerId to the RAMS schema:
+In shared/schema.ts (or server/isolatedSchema.ts — check which file 
+defines ramsDocuments, ramsAcknowledgements, ramsAuditLog), add a 
+customerId column to ALL THREE tables:
+  customerId: integer("customer_id").notNull()
+  
+Add a database migration that:
+- Adds the customerId column to all three tables
+- Populates existing rows with the correct customerId (you may need 
+  to derive this from the companyId or leave existing rows for manual 
+  review — document this clearly)
+- Adds a NOT NULL constraint once populated
+
+STEP 2 — Fix GET /api/rams (list endpoint):
+In server/routes/rams.ts, find the GET /api/rams list handler.
+Add req.customerId to EVERY query condition:
+  and(
+    eq(ramsDocuments.customerId, req.customerId),
+    ...existingConditions
+  )
+This must be non-optional — if req.customerId is missing, return 401.
+
+STEP 3 — Fix GET /api/rams/:id (single document):
+Find the handler that fetches a single RAMS document by ID.
+After fetching the document, add an ownership check:
+  if (!doc || doc.customerId !== req.customerId) {
+    return res.status(404).json({ message: 'Document not found' });
+  }
+Return 404 (not 403) so the existence of the document is not revealed.
+
+STEP 4 — Fix acknowledgements and audit log queries:
+In the same handler (around lines 655-656), the follow-up queries 
+for ramsAcknowledgements and ramsAuditLog also need customer scoping.
+Since these are fetched via the parent document ID, and the parent 
+is now validated, add:
+  and(
+    eq(ramsAcknowledgements.ramsDocumentId, id),
+    eq(ramsAcknowledgements.customerId, req.customerId)
+  )
+
+STEP 5 — Fix POST /api/rams (create endpoint):
+When creating a new RAMS document, automatically set:
+  customerId: req.customerId
+Never accept customerId from the request body — always use the 
+session value from req.customerId.
+
+STEP 6 — Verify no other RAMS-related endpoints bypass this:
+Search for any other routes that query ramsDocuments, 
+ramsAcknowledgements, or ramsAuditLog and apply the same 
+customerId filter to every one.
+
+STEP 7 — Test:
+After the fix, verify that a request authenticated as Customer A 
+cannot retrieve a document created by Customer B, even if the 
+UUID is known. Return 404 in that case.
+
+This is a critical security fix. Do not skip any step.

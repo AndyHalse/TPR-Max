@@ -910,6 +910,28 @@ export const fixInductionTokensUniversalMigration: Migration = {
   }
 };
 
+// Migration 015: Add customer_id to RAMS tables for multi-tenant isolation
+export const addRamsCustomerIdMigration: Migration = {
+  version: '20260501_015_add_rams_customer_id',
+  description: 'Add customer_id to rams_documents, rams_acknowledgements, rams_audit_log for strict tenant isolation',
+  async up(db: any) {
+    await db.execute(`
+      ALTER TABLE rams_documents
+        ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''
+    `);
+    await db.execute(`
+      ALTER TABLE rams_acknowledgements
+        ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''
+    `);
+    await db.execute(`
+      ALTER TABLE rams_audit_log
+        ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''
+    `);
+    logger.info('✅ Added customer_id to RAMS tables for multi-tenant isolation');
+    logger.warn('⚠️  Existing RAMS rows (if any) have customer_id set to empty string — manual data review required to assign them to the correct customer');
+  }
+};
+
 // Export all migrations
 export const contractorMigrations: Migration[] = [
   createCoreContractorTablesMigration,
@@ -924,4 +946,5 @@ export const contractorMigrations: Migration[] = [
   addInductionVideoStorageMigration,
   addInductionKioskEnabledMigration,
   fixInductionTokensUniversalMigration,
+  addRamsCustomerIdMigration,
 ];

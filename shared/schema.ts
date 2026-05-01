@@ -1561,6 +1561,7 @@ export const workerCertifications = pgTable("worker_certifications", {
 // RAMs Certification System
 export const ramsDocuments = pgTable("rams_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: text("customer_id").notNull().default(""),
   companyId: varchar("company_id").references(() => contractorCompanies.id),
   departmentId: varchar("department_id").references(() => departments.id),
   ramsIdRef: text("rams_id_ref").notNull(),
@@ -1594,6 +1595,7 @@ export const ramsDocuments = pgTable("rams_documents", {
 // RAMS Worker Acknowledgements — workers digitally confirm they have read RAMS
 export const ramsAcknowledgements = pgTable("rams_acknowledgements", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: text("customer_id").notNull().default(""),
   ramsDocumentId: varchar("rams_document_id").references(() => ramsDocuments.id).notNull(),
   workerId: varchar("worker_id").references(() => contractorWorkers.id).notNull(),
   companyId: varchar("company_id").references(() => contractorCompanies.id),
@@ -1607,6 +1609,7 @@ export const ramsAcknowledgements = pgTable("rams_acknowledgements", {
 // RAMS Audit Trail — full immutable log of all RAMS lifecycle events
 export const ramsAuditLog = pgTable("rams_audit_log", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: text("customer_id").notNull().default(""),
   ramsDocumentId: varchar("rams_document_id").references(() => ramsDocuments.id).notNull(),
   companyId: varchar("company_id").references(() => contractorCompanies.id),
   action: text("action").notNull(), // uploaded, approved, rejected, new_version, acknowledged, expired, reactivated
