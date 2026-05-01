@@ -932,6 +932,23 @@ export const addRamsCustomerIdMigration: Migration = {
   }
 };
 
+export const addCustomerIdToInvitationsAndImagesMigration: Migration = {
+  version: '20260501_016_add_customer_id_to_invitations_and_images',
+  description: 'Add customer_id to user_invitations and ai_generated_images for strict tenant isolation',
+  async up(db: any) {
+    await db.execute(`
+      ALTER TABLE user_invitations
+        ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''
+    `);
+    await db.execute(`
+      ALTER TABLE ai_generated_images
+        ADD COLUMN IF NOT EXISTS customer_id TEXT NOT NULL DEFAULT ''
+    `);
+    logger.info('✅ Added customer_id to user_invitations and ai_generated_images for multi-tenant isolation');
+    logger.warn('⚠️  Existing rows (if any) have customer_id set to empty string — manual data review required to assign them to the correct customer');
+  }
+};
+
 // Export all migrations
 export const contractorMigrations: Migration[] = [
   createCoreContractorTablesMigration,
@@ -947,4 +964,5 @@ export const contractorMigrations: Migration[] = [
   addInductionKioskEnabledMigration,
   fixInductionTokensUniversalMigration,
   addRamsCustomerIdMigration,
+  addCustomerIdToInvitationsAndImagesMigration,
 ];

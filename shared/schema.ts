@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, numeric, index, check } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, integer, doublePrecision, numeric, index, uniqueIndex, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -156,7 +156,7 @@ export const staff = pgTable("staff", {
   customerId: varchar("customer_id").notNull().references(() => customers.id),
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
-  email: text("email").notNull().unique(),
+  email: text("email").notNull(),
   department: text("department").notNull(),
   jobTitle: text("job_title"),
   employeeId: text("employee_id").notNull().unique(),
@@ -197,7 +197,9 @@ export const staff = pgTable("staff", {
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  customerEmailIdx: uniqueIndex('staff_customer_email_idx').on(table.customerId, table.email),
+}));
 
 // Staff sessions table for historical tracking of all check-ins/outs
 export const staffSessions = pgTable("staff_sessions", {
@@ -1005,6 +1007,7 @@ export const users = pgTable("users", {
 // User invitations table for user management
 export const userInvitations = pgTable("user_invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   email: text("email").notNull(),
   role: text("role").notNull().default("user"), // admin, user
   invitedBy: varchar("invited_by").references(() => users.id),
@@ -1458,6 +1461,7 @@ export const insertDepartmentSchema = createInsertSchema(departments).omit({
 // AI Generated Images table for storing generated H&S safety images
 export const aiGeneratedImages = pgTable("ai_generated_images", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: varchar("customer_id").notNull().references(() => customers.id),
   slideType: text("slide_type").notNull(), // ppe, emergency, hazard, site_rules, legal_framework
   title: text("title").notNull(),
   description: text("description").notNull(),

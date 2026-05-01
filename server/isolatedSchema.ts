@@ -293,6 +293,7 @@ export const users = pgTable("users", {
 // User invitations table - for managing pending user invitations
 export const userInvitations = pgTable("user_invitations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: text("customer_id").notNull().default(""),
   email: text("email").notNull(),
   role: text("role").notNull().default("user"), // admin, user
   invitedBy: varchar("invited_by").references(() => users.id),
@@ -1384,6 +1385,7 @@ export const documentAutoFillMapping = pgTable("document_auto_fill_mapping", {
 // AI Generated Images - For storing AI-generated images for induction videos
 export const aiGeneratedImages = pgTable("ai_generated_images", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: text("customer_id").notNull().default(""),
   slideType: text("slide_type").notNull(), // ppe, emergency, hazard, site_rules, legal_framework
   title: text("title").notNull(),
   description: text("description").notNull(),

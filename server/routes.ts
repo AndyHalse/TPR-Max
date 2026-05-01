@@ -28,6 +28,26 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   } catch (e: any) {
     logger.info(`⚠️ [shared-migration] evacuations.report_pdf_url: ${String(e?.message || e).substring(0, 120)}`);
   }
+  try {
+    await db.execute(sql`ALTER TABLE user_invitations ADD COLUMN IF NOT EXISTS customer_id VARCHAR NOT NULL DEFAULT ''`);
+    logger.info(`✅ [shared-migration] user_invitations.customer_id column ensured`);
+  } catch (e: any) {
+    logger.info(`⚠️ [shared-migration] user_invitations.customer_id: ${String(e?.message || e).substring(0, 120)}`);
+  }
+  try {
+    await db.execute(sql`ALTER TABLE ai_generated_images ADD COLUMN IF NOT EXISTS customer_id VARCHAR NOT NULL DEFAULT ''`);
+    logger.info(`✅ [shared-migration] ai_generated_images.customer_id column ensured`);
+  } catch (e: any) {
+    logger.info(`⚠️ [shared-migration] ai_generated_images.customer_id: ${String(e?.message || e).substring(0, 120)}`);
+  }
+  try {
+    await db.execute(sql`ALTER TABLE staff ADD COLUMN IF NOT EXISTS customer_id VARCHAR NOT NULL DEFAULT ''`);
+    await db.execute(sql`ALTER TABLE staff DROP CONSTRAINT IF EXISTS staff_email_key`);
+    await db.execute(sql`CREATE UNIQUE INDEX IF NOT EXISTS staff_customer_email_idx ON staff (customer_id, email)`);
+    logger.info(`✅ [shared-migration] staff composite unique index (customer_id, email) ensured`);
+  } catch (e: any) {
+    logger.info(`⚠️ [shared-migration] staff composite unique index: ${String(e?.message || e).substring(0, 120)}`);
+  }
 
   app.use('/api', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
