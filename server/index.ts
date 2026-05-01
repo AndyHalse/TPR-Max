@@ -139,30 +139,61 @@ app.use((req, res, next) => {
   }
 });
 
-// SECURITY: Rate limiting for authentication and sensitive routes
+// Extract the real client IP regardless of how many proxy hops sit in front
+// (Cloudflare → Replit LB → app = 2 hops).  Priority:
+//   1. CF-Connecting-IP  — set by Cloudflare, always the real browser IP
+//   2. X-Real-IP         — set by some reverse proxies
+//   3. Leftmost X-Forwarded-For value — real client before any CDN appended theirs
+//   4. req.ip fallback   — works correctly when there is no proxy at all
+function realClientIp(req: import('express').Request): string {
+  const cf = req.headers['cf-connecting-ip'];
+  if (cf && typeof cf === 'string') return cf.trim();
+
+  const xri = req.headers['x-real-ip'];
+  if (xri && typeof xri === 'string') return xri.trim();
+
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) {
+    const first = (Array.isArray(xff) ? xff[0] : xff).split(',')[0].trim();
+    if (first) return first;
+  }
+
+  return req.ip ?? '0.0.0.0';
+}
+
+// SECURITY: Rate limiting for authentication and sensitive routes.
+// max:100 over 15 min ≈ 1 attempt every 9 s — plenty for normal use yet
+// still blocks automated brute-force tools which need thousands of tries.
 const authRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Limit each IP to 10 requests per windowMs for auth
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  keyGenerator: realClientIp,
   message: {
     error: 'Too many authentication attempts, please try again later.',
     retryAfter: '15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
-  // Skip rate limiting for trusted internal calls
-  skip: (req) => req.ip === '127.0.0.1' || req.ip === '::1'
+  skip: (req) => {
+    const ip = realClientIp(req);
+    return ip === '127.0.0.1' || ip === '::1';
+  }
 });
 
 const generalRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes  
-  max: 1000, // Limit each IP to 1000 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  keyGenerator: realClientIp,
   message: {
     error: 'Too many requests, please try again later.',
     retryAfter: '15 minutes'
   },
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.ip === '127.0.0.1' || req.ip === '::1'
+  skip: (req) => {
+    const ip = realClientIp(req);
+    return ip === '127.0.0.1' || ip === '::1';
+  }
 });
 
 // Apply rate limiting
