@@ -719,29 +719,31 @@ export class StripeService {
       const trialEnd = stripeSubscription.trial_end ? new Date(stripeSubscription.trial_end * 1000) : null;
       const canceledAt = stripeSubscription.canceled_at ? new Date(stripeSubscription.canceled_at * 1000) : null;
 
-      await db
-        .update(sharedSchema.subscriptions)
-        .set({
-          status: stripeSubscription.status,
-          currentPeriodStart,
-          currentPeriodEnd,
-          trialStart,
-          trialEnd,
-          cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
-          canceledAt,
-          updatedAt: new Date()
-        })
-        .where(eq(sharedSchema.subscriptions.stripeSubscriptionId, stripeSubscription.id));
-
-      // Update customer active status based on subscription
       const isActive = ['active', 'trialing'].includes(stripeSubscription.status);
-      await db
-        .update(sharedSchema.customers)
-        .set({
-          isActive,
-          updatedAt: new Date()
-        })
-        .where(eq(sharedSchema.customers.id, customerId));
+
+      await db.transaction(async (tx) => {
+        await tx
+          .update(sharedSchema.subscriptions)
+          .set({
+            status: stripeSubscription.status,
+            currentPeriodStart,
+            currentPeriodEnd,
+            trialStart,
+            trialEnd,
+            cancelAtPeriodEnd: stripeSubscription.cancel_at_period_end,
+            canceledAt,
+            updatedAt: new Date()
+          })
+          .where(eq(sharedSchema.subscriptions.stripeSubscriptionId, stripeSubscription.id));
+
+        await tx
+          .update(sharedSchema.customers)
+          .set({
+            isActive,
+            updatedAt: new Date()
+          })
+          .where(eq(sharedSchema.customers.id, customerId));
+      });
 
       logger.info(`✅ Updated subscription and customer status: ${stripeSubscription.status}`);
 

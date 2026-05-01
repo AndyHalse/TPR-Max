@@ -3700,32 +3700,36 @@ export function registerContractorRoutes(app: Express): void {
       const visitQrCode = `CPB-${randomUUID().replace(/-/g, '').substring(0, 12)}`;
       const passUrl = `${process.env.REPLIT_DOMAINS || process.env.APP_URL || process.env.BASE_URL || process.env.PUBLIC_URL || `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`}/pass/contractor/${workerId}`;
       
-      // Mark worker as checked in using customer-isolated database service
-      // Reset ePassSent so stale flags from prior visits don't carry forward
-      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
-        qrCode: workerQrCode,
-        isCheckedIn: true,
-        checkedInAt: new Date(),
-        hsRulesAccepted: contractorHsAccepted,
-        hsRulesAcceptedAt: contractorHsAcceptedAt,
-        ePassSent: false,
-        ePassSentAt: null
-      });
+      // Atomically mark the worker as checked-in and create the visit record so
+      // they can never appear checked-in without a corresponding history entry.
+      const checkInTime = new Date();
+      const contractorCheckinDb = await customerDbService.getCustomerDatabase(context.customerId);
+      await contractorCheckinDb.transaction(async (tx) => {
+        await tx
+          .update(isolatedSchema.contractorWorkers)
+          .set({
+            qrCode: workerQrCode,
+            isCheckedIn: true,
+            checkedInAt: checkInTime,
+            hsRulesAccepted: contractorHsAccepted,
+            hsRulesAcceptedAt: contractorHsAcceptedAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(isolatedSchema.contractorWorkers.id, workerId));
 
-      // Create a visit record for history tracking (each visit gets its own unique QR code)
-      const visitData = {
-        workerId: workerId,
-        companyId: worker.companyId,
-        purpose: purpose || "Site work",
-        checkedInAt: new Date(),
-        hostStaffId: hostStaffId,
-        hostName: hostName,
-        hsRulesAccepted: contractorHsAccepted,
-        qrCode: visitQrCode,
-        passUrl: passUrl
-      };
-      
-      await databaseService.createContractorVisit(context, visitData);
+        await tx.insert(isolatedSchema.contractorVisits).values({
+          workerId: workerId,
+          companyId: worker.companyId,
+          purpose: purpose || "Site work",
+          checkedInAt: checkInTime,
+          hostStaffId: hostStaffId,
+          hostName: hostName,
+          hsRulesAccepted: contractorHsAccepted,
+          hsRulesAcceptedAt: contractorHsAcceptedAt,
+          qrCode: visitQrCode,
+          passUrl: passUrl,
+        });
+      });
       logger.info(`Created visit record for ID ${worker.id}`);
 
       // Create audit trail entry for check-in

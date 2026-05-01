@@ -830,39 +830,41 @@ export function registerInductionRoutes(app: Express): void {
           const dateStr = now.toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
           const attemptNum = token.quizAttempts || 1;
 
-          // ── Update inductionCompleted on the correct isolated-schema record ──
-          if (results.passed) {
-            const personType = token.personType || 'contractor';
-            if (personType === 'contractor' && token.workerId) {
-              await noteDb
-                .update(isolatedSchema.contractorWorkers)
-                .set({ inductionCompleted: true, inductionCompletedAt: now })
-                .where(eq(isolatedSchema.contractorWorkers.id, token.workerId));
-            } else if (personType === 'staff' && token.staffId) {
-              await noteDb
-                .update(isolatedSchema.staff)
-                .set({ inductionCompleted: true, inductionCompletedAt: now })
-                .where(eq(isolatedSchema.staff.id, token.staffId));
-            } else if (personType === 'visitor' && token.visitorId) {
-              await noteDb
-                .update(isolatedSchema.visitors)
-                .set({ inductionCompleted: true, inductionCompletedAt: now })
-                .where(eq(isolatedSchema.visitors.id, token.visitorId));
+          await noteDb.transaction(async (tx) => {
+            // ── Update inductionCompleted on the correct isolated-schema record ──
+            if (results.passed) {
+              const personType = token.personType || 'contractor';
+              if (personType === 'contractor' && token.workerId) {
+                await tx
+                  .update(isolatedSchema.contractorWorkers)
+                  .set({ inductionCompleted: true, inductionCompletedAt: now })
+                  .where(eq(isolatedSchema.contractorWorkers.id, token.workerId));
+              } else if (personType === 'staff' && token.staffId) {
+                await tx
+                  .update(isolatedSchema.staff)
+                  .set({ inductionCompleted: true, inductionCompletedAt: now })
+                  .where(eq(isolatedSchema.staff.id, token.staffId));
+              } else if (personType === 'visitor' && token.visitorId) {
+                await tx
+                  .update(isolatedSchema.visitors)
+                  .set({ inductionCompleted: true, inductionCompletedAt: now })
+                  .where(eq(isolatedSchema.visitors.id, token.visitorId));
+              }
             }
-          }
 
-          // ── Write audit note to worker_notes (contractor only) ──
-          if (token.workerId) {
-            const noteText = results.passed
-              ? `Site induction PASSED — Score: ${results.score}% (${(results as any).correct ?? '?'}/${results.total} correct, 80% required). Completed on ${dateStr}.`
-              : `Site induction attempt ${attemptNum} FAILED — Score: ${results.score}% (80% required). Worker may retry.`;
-            await noteDb.insert(isolatedSchema.workerNotes).values({
-              workerId: token.workerId,
-              changeType: results.passed ? 'induction_passed' : 'induction_failed',
-              notes: noteText,
-              changedBy: 'system',
-            });
-          }
+            // ── Write audit note to worker_notes (contractor only) ──
+            if (token.workerId) {
+              const noteText = results.passed
+                ? `Site induction PASSED — Score: ${results.score}% (${(results as any).correct ?? '?'}/${results.total} correct, 80% required). Completed on ${dateStr}.`
+                : `Site induction attempt ${attemptNum} FAILED — Score: ${results.score}% (80% required). Worker may retry.`;
+              await tx.insert(isolatedSchema.workerNotes).values({
+                workerId: token.workerId,
+                changeType: results.passed ? 'induction_passed' : 'induction_failed',
+                notes: noteText,
+                changedBy: 'system',
+              });
+            }
+          });
         }
       } catch (workerErr) {
         logger.error('⚠️ Failed to update worker induction record:', workerErr);

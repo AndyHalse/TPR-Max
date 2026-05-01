@@ -9,10 +9,12 @@ if (!process.env.DATABASE_URL) {
   );
 }
 
+// 25 connections supports 14+ concurrent customers with headroom.
+// Monitor pg_stat_activity and increase if pool exhaustion occurs.
 export const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 10,
-  min: 2,
+  max: 25,
+  min: 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
 });

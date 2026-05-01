@@ -198,14 +198,60 @@ export function registerVisitorRoutes(app: Express): void {
         // If visitor exists but is checked out, check them in again
         if (!existingVisitor.isCheckedIn) {
           logger.info(`Checking in existing visitor: ID ${visitorData.id}`);
-          // Generate H&S token for existing visitors if they don't have one
           const hsToken = existingVisitor.hsRulesAcceptanceToken || randomBytes(16).toString('hex');
-          visitor = await databaseService.checkInExistingVisitor(context, existingVisitor.id, {
-            hostStaffId: visitorData.hostStaffId || undefined,
-            purpose: visitorData.purpose || undefined,
-            carRegistration: visitorData.carRegistration || undefined,
-            hsRulesAcceptanceToken: hsToken,
-            ...(hsAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: hsAcceptedAt } : {})
+          const checkInTime = new Date();
+
+          // Pre-fetch host info before the transaction (SELECT only — avoids holding the connection)
+          let hostName: string | undefined;
+          let resolvedHostStaffId = visitorData.hostStaffId || null;
+          if (visitorData.hostStaffId) {
+            const host = await databaseService.getStaffById(context, visitorData.hostStaffId);
+            if (host) {
+              hostName = `${host.firstName} ${host.lastName}`;
+            } else {
+              resolvedHostStaffId = null;
+            }
+          }
+
+          const returningVisitorDb = await customerDbService.getCustomerDatabase(context.customerId);
+          visitor = await returningVisitorDb.transaction(async (tx) => {
+            const [updated] = await tx
+              .update(isolatedSchema.visitors)
+              .set({
+                isCheckedIn: true,
+                checkedInAt: checkInTime,
+                checkedOutAt: null,
+                hostStaffId: resolvedHostStaffId,
+                purpose: visitorData.purpose || '',
+                carRegistration: visitorData.carRegistration || undefined,
+                hsRulesAcceptanceToken: hsToken,
+                ...(hsAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: hsAcceptedAt } : {}),
+                ePassSent: false,
+                ePassSentAt: null,
+                updatedAt: new Date(),
+              })
+              .where(eq(isolatedSchema.visitors.id, existingVisitor.id))
+              .returning();
+
+            await tx.insert(isolatedSchema.visitorHistory).values({
+              visitorId: existingVisitor.id,
+              checkInTime,
+              checkOutTime: null,
+              purpose: visitorData.purpose || '',
+              hostStaffId: resolvedHostStaffId,
+              hostName: hostName || null,
+              inductionCompleted: existingVisitor.inductionCompleted || false,
+              inductionCompletedAt: existingVisitor.inductionCompletedAt || null,
+              hsRulesAccepted: hsAccepted || existingVisitor.hsRulesAccepted || false,
+              hsRulesAcceptedAt: hsAccepted ? (hsAcceptedAt || null) : (existingVisitor.hsRulesAcceptedAt || null),
+              ePassSent: false,
+              ePassSentAt: null,
+              checkoutType: null,
+              notes: existingVisitor.notes || null,
+              qrCode: existingVisitor.qrCode || null,
+            });
+
+            return updated;
           });
         } else {
           // Visitor is already checked in
@@ -347,25 +393,8 @@ export function registerVisitorRoutes(app: Express): void {
         }
       }
 
-      // Create visitor history for returning visitor check-in, now that ePass status is known
-      if (existingVisitor && !existingVisitor.isCheckedIn && visitor && visitor.checkedInAt) {
-        await databaseService.createVisitorHistory(context, {
-          visitorId: visitor.id,
-          checkInTime: visitor.checkedInAt,
-          checkOutTime: null,
-          purpose: visitor.purpose || '',
-          hostStaffId: visitor.hostStaffId,
-          inductionCompleted: visitor.inductionCompleted || false,
-          inductionCompletedAt: visitor.inductionCompletedAt,
-          hsRulesAccepted: visitor.hsRulesAccepted || false,
-          hsRulesAcceptedAt: visitor.hsRulesAcceptedAt,
-          ePassSent: ePassActuallySent,
-          ePassSentAt: ePassActuallySentAt,
-          checkoutType: null,
-          notes: visitor.notes,
-          qrCode: visitor.qrCode
-        });
-      }
+      // Visitor history for returning visitors is created atomically inside the
+      // check-in transaction above — no separate call needed here.
       
       // Check for active evacuations and add visitor to accountability list if needed
       const activeEvacuations = await db

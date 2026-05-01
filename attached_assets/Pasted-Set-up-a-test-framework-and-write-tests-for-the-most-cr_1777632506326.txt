@@ -1,0 +1,77 @@
+Set up a test framework and write tests for the most critical paths.
+
+PART A — Install and configure:
+Install these packages as devDependencies:
+  vitest, @vitest/coverage-v8, supertest, @types/supertest,
+  @testing-library/react, @testing-library/user-event,
+  @testing-library/jest-dom, jsdom
+
+Create vitest.config.ts at the project root:
+  - Test environment: node
+  - Include: server/**/*.test.ts
+  - Coverage: v8 provider, text + html + json-summary reporters
+
+Add to package.json scripts:
+  "test": "vitest run"
+  "test:watch": "vitest"
+  "test:coverage": "vitest run --coverage"
+
+Create server/test/setup.ts exporting:
+  - createTestUser(overrides?) — returns a mock req.user object 
+    with id, customerId, role: 'staff' by default
+  - createAdminUser() — same but role: 'admin'
+  - mockCustomerId — a fixed test customer ID string
+
+PART B — Auth and isolation tests:
+Create server/test/auth.test.ts with these tests:
+
+Test 1: requireAuth blocks unauthenticated requests
+  - Request GET /api/contractors with no session
+  - Assert: 401 response
+
+Test 2: requireAuth allows authenticated requests
+  - Mock a valid session with createTestUser()
+  - Assert: response is not 401
+
+Test 3: Admin endpoints block non-admin users
+  - Mock req.user with role: 'staff'
+  - PUT /api/workers/:id/reset-card
+  - Assert: 403 response
+
+Test 4: Admin endpoints allow admin users
+  - Mock req.user with role: 'admin'
+  - Assert: not 403
+
+Test 5: RAMS document returns 404 for wrong customer
+  - Create a RAMS document belonging to customerId: 'customer-a'
+  - Request it authenticated as customerId: 'customer-b'
+  - Assert: 404 response (not the document)
+
+Test 6: E-pass does not send when toggle is disabled
+  - Mock ePassEnabled = false in settings
+  - Trigger contractor check-in
+  - Assert: sendDigitalEPass was NOT called (use vi.spyOn)
+
+Test 7: E-pass sends when toggle is enabled
+  - Mock ePassEnabled = true
+  - Trigger contractor check-in
+  - Assert: sendDigitalEPass WAS called
+
+PART C — Compliance path tests:
+Create server/test/compliance.test.ts with these tests:
+
+Test 8: Contractor check-in creates a visit record
+  - POST to check-in endpoint with valid data
+  - Assert: visit record created with correct customerId
+
+Test 9: Emergency muster returns correct headcount
+  - Seed 3 checked-in, 1 checked-out
+  - GET muster endpoint
+  - Assert: 3 on site, 1 accounted for
+
+Test 10: Induction pass/fail threshold
+  - Submit quiz with score above threshold → assert: passed
+  - Submit quiz with score below threshold → assert: failed
+
+Run npm test — all 10 tests should pass. 
+Report any failures with the specific error.
