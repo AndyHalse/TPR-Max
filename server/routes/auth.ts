@@ -10,8 +10,6 @@ import {
   getDevUser,
   isValidDevCredentials,
 } from '../auth';
-import { databaseService } from '../databaseService';
-import { simpleDatabaseService } from '../simpleDatabaseService';
 import { CustomerDatabaseService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq } from 'drizzle-orm';
@@ -422,44 +420,4 @@ export function registerAuthRoutes(app: Express): void {
     }
   });
 
-  // Customer authentication route
-  app.post("/api/auth/tenant-login", async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      
-      if (!username || !password) {
-        return res.status(400).json({ error: "Username and password are required" });
-      }
-
-      // Get customer context for isolation based on login attempt
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const user = await databaseService.authenticateUser(context, username, password);
-      if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      // Set session — MUST include customerId for requireAuth middleware
-      req.session.userId = user.id;
-      req.session.customerId = context.customerId;
-
-      req.session.save((saveErr) => {
-        if (saveErr) {
-          logger.error("Session save error:", saveErr);
-          return res.status(500).json({ error: "Failed to establish session" });
-        }
-        res.json({ 
-          success: true, 
-          user: { 
-            id: user.id, 
-            username: user.username,
-            customerId: context.customerId
-          }
-        });
-      });
-    } catch (error) {
-      logger.error("Login error:", error);
-      res.status(500).json({ error: "Login failed" });
-    }
-  });
 }

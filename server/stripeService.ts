@@ -206,8 +206,7 @@ export class StripeService {
             'meeting_rooms',
             'thermal_printing',
             'api_access',
-            'advanced_reporting',
-            'multi_tenant_support'
+            'advanced_reporting'
           ])
         }
       });
@@ -273,7 +272,6 @@ export class StripeService {
             'thermal_printing',
             'api_access',
             'advanced_reporting',
-            'multi_tenant_support',
             'priority_support'
           ],
           isActive: true,
