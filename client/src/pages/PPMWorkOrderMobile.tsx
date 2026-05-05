@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Wrench, CheckCircle2, Clock, AlertTriangle, FileText, Upload,
-  RefreshCw, Download, Building2, CalendarDays, User, X, Bell, Scan
+  RefreshCw, Download, Building2, CalendarDays, User, X, Bell, Scan, MapPin
 } from "lucide-react";
 
 interface WorkOrder {
@@ -23,6 +23,7 @@ interface WorkOrder {
   contractorWorkerName?: string | null;
   requiresCertificate?: boolean | null;
   certificateUploadedAt?: string | null;
+  arrivedAt?: string | null;
 }
 
 interface Asset {
@@ -92,6 +93,7 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [updateMsg, setUpdateMsg] = useState("");
+  const [arrivedMsg, setArrivedMsg] = useState("");
 
   const { data, isLoading, error } = useQuery<{ workOrder: WorkOrder; documents: WODocument[]; asset: Asset | null }>({
     queryKey: ["/api/ppm/work-order/public", currentToken],
@@ -117,6 +119,24 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
     const exp = new Date(d.expiryDate);
     return exp >= today && exp <= in30Days;
   }).length;
+
+  const arriveMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/ppm/work-order/public/${currentToken}/arrive`, { method: "POST" });
+      if (!res.ok) throw new Error((await res.json())?.error ?? "Failed to record arrival");
+      return res.json();
+    },
+    onSuccess: (result: { nextToken?: string; arrivedAt?: string; alreadyArrived?: boolean }) => {
+      if (result.nextToken) {
+        setCurrentToken(result.nextToken);
+        window.history.replaceState(null, "", `/ppm/work-order/${result.nextToken}`);
+        qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", result.nextToken] });
+      } else {
+        qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", currentToken] });
+      }
+      setArrivedMsg(result.alreadyArrived ? "Arrival already recorded." : "Arrival recorded — the site manager has been notified.");
+    },
+  });
 
   const updateMutation = useMutation({
     mutationFn: async (body: Record<string, unknown>) => {
@@ -295,6 +315,46 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
             </div>
           )}
         </div>
+
+        {/* On-site arrival */}
+        {!isCompleted && (
+          <div className={`rounded-xl shadow-sm border p-4 space-y-3 ${wo.arrivedAt ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"}`}>
+            <h2 className={`font-semibold text-sm flex items-center gap-2 ${wo.arrivedAt ? "text-green-800" : "text-blue-800"}`}>
+              <MapPin className="h-4 w-4" />On-Site Arrival
+            </h2>
+            {wo.arrivedAt ? (
+              <div className="flex items-center gap-2 text-green-700 text-sm">
+                <CheckCircle2 className="h-5 w-5 shrink-0" />
+                <span>
+                  Arrived on site at{" "}
+                  <strong>{new Date(wo.arrivedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</strong>
+                  {" "}on{" "}
+                  <strong>{new Date(wo.arrivedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</strong>
+                </span>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-blue-700">Tap the button below when you arrive on site. This timestamps your arrival and notifies the site manager.</p>
+                <Button
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+                  disabled={arriveMutation.isPending}
+                  onClick={() => arriveMutation.mutate()}
+                >
+                  {arriveMutation.isPending
+                    ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Recording…</>
+                    : <><MapPin className="h-4 w-4 mr-2" />I've Arrived on Site</>
+                  }
+                </Button>
+                {arrivedMsg && <p className="text-sm text-green-700 text-center">{arrivedMsg}</p>}
+                {arriveMutation.isError && (
+                  <p className="text-sm text-red-600 text-center">
+                    {arriveMutation.error instanceof Error ? arriveMutation.error.message : "Failed to record arrival"}
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        )}
 
         {/* Update status */}
         {!isCompleted && (

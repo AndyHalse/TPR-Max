@@ -2457,6 +2457,67 @@ app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
   }
 });
 
+// POST /api/ppm/work-order/public/:token/arrive — contractor records on-site arrival
+app.post("/api/ppm/work-order/public/:token/arrive", ppmPublicRateLimit, async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+
+    const performArrive = async (customerId: string) => {
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+        .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
+      if (!wo) return null;
+      if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) return { expired: true as const };
+      if (wo.arrivedAt) return { alreadyArrived: true as const, arrivedAt: wo.arrivedAt };
+
+      const arrivedAt = new Date();
+      const nextToken = randomBytes(24).toString("hex");
+      const nextExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      const updates: Record<string, unknown> = {
+        arrivedAt,
+        accessToken: nextToken,
+        accessTokenExpiresAt: nextExpiresAt,
+      };
+      if (wo.status === "scheduled" || wo.status === "overdue") {
+        updates.status = "in_progress";
+      }
+      await custDb.update(isolatedSchema.ppmWorkOrders)
+        .set(updates)
+        .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
+      ppmTokenCacheEvict(token);
+      ppmTokenCacheSet(nextToken, customerId, nextExpiresAt);
+      logger.info(`✅ [PPM Arrive] Work order ${wo.id} — contractor arrived at ${arrivedAt.toISOString()}`);
+      return { arrivedAt, nextToken };
+    };
+
+    const cachedCustomerId = ppmTokenCacheGet(token);
+    if (cachedCustomerId) {
+      try {
+        const result = await performArrive(cachedCustomerId);
+        if (result && !("expired" in result) && !("alreadyArrived" in result)) return res.json(result);
+        if (result && "expired" in result) return res.status(410).json({ error: "This work order link has expired." });
+        if (result && "alreadyArrived" in result) return res.json(result);
+        ppmTokenCacheEvict(token);
+      } catch { /* fall through */ }
+    }
+
+    const allCustomers = await customerDbService.getAllCustomers();
+    for (const customer of allCustomers) {
+      try {
+        const result = await performArrive(customer.id);
+        if (!result) continue;
+        if ("expired" in result) return res.status(410).json({ error: "This work order link has expired." });
+        return res.json(result);
+      } catch { /* skip */ }
+    }
+    res.status(404).json({ error: "Work order not found" });
+  } catch (error: unknown) {
+    logger.error("POST /api/ppm/work-order/public/:token/arrive", error);
+    res.status(500).json({ error: "Failed to record arrival" });
+  }
+});
+
 // POST /api/ppm/work-order/public/:token/files — atomic contractor file upload + document record creation
 // Combines upload and document linking in a single request to prevent orphan objects.
 // Also rotates the access token after successful upload (rolling token).

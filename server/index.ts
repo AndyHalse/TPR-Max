@@ -168,6 +168,9 @@ const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100,
   keyGenerator: realClientIp,
+  // We handle IPv6 safely via CF-Connecting-IP / X-Forwarded-For — suppress the
+  // library's built-in IPv6-fallback warning which fires on any custom keyGenerator.
+  validate: { keyGeneratorIpFallback: false },
   message: {
     error: 'Too many authentication attempts, please try again later.',
     retryAfter: '15 minutes'
@@ -184,6 +187,7 @@ const generalRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 1000,
   keyGenerator: realClientIp,
+  validate: { keyGeneratorIpFallback: false },
   message: {
     error: 'Too many requests, please try again later.',
     retryAfter: '15 minutes'

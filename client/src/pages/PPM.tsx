@@ -97,6 +97,7 @@ interface PpmWorkOrder {
   completionNotes?: string | null;
   requiresCertificate?: boolean | null;
   certificateUploadedAt?: string | null;
+  arrivedAt?: string | null;
   createdAt?: string | null;
   expiredDocCount?: number;
   expiringSoonDocCount?: number;
@@ -2031,6 +2032,12 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                     <span className="text-muted-foreground">{selectedWO.groupId ? "Asset Group" : "Asset"}</span>
                     <span>{selectedWO.groupId ? groupName(selectedWO.groupId) : assetName(selectedWO.assetId)}</span>
                     <span className="text-muted-foreground">Due Date</span><span>{fmtDate(selectedWO.dueDate)}</span>
+                    <span className="text-muted-foreground">Arrived on Site</span>
+                    <span>
+                      {selectedWO.arrivedAt
+                        ? new Date(selectedWO.arrivedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+                        : "—"}
+                    </span>
                     <span className="text-muted-foreground">Completed</span><span>{fmtDate(selectedWO.completedDate)}</span>
                     {selectedWO.requiresCertificate && (
                       <>

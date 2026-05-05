@@ -1,0 +1,192 @@
+Let me revert the local changes first, then give you the clean prompt.
+
+Local files are back to their original state. Here's your single Replit prompt to copy and paste:
+
+---
+
+I need you to add an "Arrived on Site" feature to the PPM module. When a contractor opens their mobile work order link they should see a button to record that they've arrived on site. Tapping it timestamps their arrival in the database, auto-advances the status from Scheduled to In Progress, and the timestamp becomes visible to admins in the work order detail panel. This is critical for remote sites where TPR isn't running locally.
+
+Please make the following changes across five files:
+
+---
+
+**1. `server/isolatedSchema.ts`**
+
+In the `ppmWorkOrders` pgTable definition, add this field after `missingDocsAlertedAt`:
+
+```ts
+arrivedAt: timestamp("arrived_at"),
+```
+
+---
+
+**2. `server/customerDatabase.ts`**
+
+Find the block of `ALTER TABLE IF EXISTS` statements that add columns to `ppm_work_orders`. Add this line alongside the others:
+
+```ts
+await pool.query(`ALTER TABLE IF EXISTS "${schemaName}".ppm_work_orders ADD COLUMN IF NOT EXISTS arrived_at TIMESTAMP`);
+```
+
+---
+
+**3. `server/routes/ppm.ts`**
+
+Find the closing `});` of the `PUT /api/ppm/work-order/public/:token` handler and insert this new endpoint immediately after it:
+
+```ts
+// POST /api/ppm/work-order/public/:token/arrive — contractor records on-site arrival
+app.post("/api/ppm/work-order/public/:token/arrive", ppmPublicRateLimit, async (req, res) => {
+  try {
+    const { token } = req.params;
+    if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
+
+    const performArrive = async (customerId: string) => {
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const [wo] = await custDb.select().from(isolatedSchema.ppmWorkOrders)
+        .where(eq(isolatedSchema.ppmWorkOrders.accessToken, token));
+      if (!wo) return null;
+      if (wo.accessTokenExpiresAt && new Date() > new Date(wo.accessTokenExpiresAt)) return { expired: true as const };
+      if (wo.arrivedAt) return { alreadyArrived: true as const, arrivedAt: wo.arrivedAt };
+
+      const arrivedAt = new Date();
+      const nextToken = randomBytes(24).toString("hex");
+      const nextExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+      const updates: Record<string, unknown> = {
+        arrivedAt,
+        accessToken: nextToken,
+        accessTokenExpiresAt: nextExpiresAt,
+      };
+      if (wo.status === "scheduled" || wo.status === "overdue") {
+        updates.status = "in_progress";
+      }
+      await custDb.update(isolatedSchema.ppmWorkOrders)
+        .set(updates)
+        .where(eq(isolatedSchema.ppmWorkOrders.id, wo.id));
+      ppmTokenCacheEvict(token);
+      ppmTokenCacheSet(nextToken, customerId, nextExpiresAt);
+      logger.info(`✅ [PPM Arrive] Work order ${wo.id} — contractor arrived at ${arrivedAt.toISOString()}`);
+      return { arrivedAt, nextToken };
+    };
+
+    const cachedCustomerId = ppmTokenCacheGet(token);
+    if (cachedCustomerId) {
+      try {
+        const result = await performArrive(cachedCustomerId);
+        if (result && !("expired" in result) && !("alreadyArrived" in result)) return res.json(result);
+        if (result && "expired" in result) return res.status(410).json({ error: "This work order link has expired." });
+        if (result && "alreadyArrived" in result) return res.json(result);
+        ppmTokenCacheEvict(token);
+      } catch { /* fall through */ }
+    }
+
+    const allCustomers = await customerDbService.getAllCustomers();
+    for (const customer of allCustomers) {
+      try {
+        const result = await performArrive(customer.id);
+        if (!result) continue;
+        if ("expired" in result) return res.status(410).json({ error: "This work order link has expired." });
+        return res.json(result);
+      } catch { /* skip */ }
+    }
+    res.status(404).json({ error: "Work order not found" });
+  } catch (error: unknown) {
+    logger.error("POST /api/ppm/work-order/public/:token/arrive", error);
+    res.status(500).json({ error: "Failed to record arrival" });
+  }
+});
+```
+
+---
+
+**4. `client/src/pages/PPMWorkOrderMobile.tsx`**
+
+Make these changes:
+
+- Add `MapPin` to the lucide-react imports
+- Add `arrivedAt?: string | null` to the `WorkOrder` interface
+- Add `const [arrivedMsg, setArrivedMsg] = useState("");` with the other state declarations
+- Add this mutation alongside `updateMutation`:
+
+```ts
+const arriveMutation = useMutation({
+  mutationFn: async () => {
+    const res = await fetch(`/api/ppm/work-order/public/${currentToken}/arrive`, { method: "POST" });
+    if (!res.ok) throw new Error((await res.json())?.error ?? "Failed to record arrival");
+    return res.json();
+  },
+  onSuccess: (result: { nextToken?: string; arrivedAt?: string; alreadyArrived?: boolean }) => {
+    if (result.nextToken) {
+      setCurrentToken(result.nextToken);
+      window.history.replaceState(null, "", `/ppm/work-order/${result.nextToken}`);
+      qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", result.nextToken] });
+    } else {
+      qc.invalidateQueries({ queryKey: ["/api/ppm/work-order/public", currentToken] });
+    }
+    setArrivedMsg(result.alreadyArrived ? "Arrival already recorded." : "Arrival recorded — the site manager has been notified.");
+  },
+});
+```
+
+- In the JSX, directly above the existing `{/* Update status */}` section, add this new card:
+
+```tsx
+{!isCompleted && (
+  <div className={`rounded-xl shadow-sm border p-4 space-y-3 ${wo.arrivedAt ? "bg-green-50 border-green-200" : "bg-blue-50 border-blue-200"}`}>
+    <h2 className={`font-semibold text-sm flex items-center gap-2 ${wo.arrivedAt ? "text-green-800" : "text-blue-800"}`}>
+      <MapPin className="h-4 w-4" />On-Site Arrival
+    </h2>
+    {wo.arrivedAt ? (
+      <div className="flex items-center gap-2 text-green-700 text-sm">
+        <CheckCircle2 className="h-5 w-5 shrink-0" />
+        <span>
+          Arrived on site at{" "}
+          <strong>{new Date(wo.arrivedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</strong>
+          {" "}on{" "}
+          <strong>{new Date(wo.arrivedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</strong>
+        </span>
+      </div>
+    ) : (
+      <>
+        <p className="text-sm text-blue-700">Tap the button below when you arrive on site. This timestamps your arrival and notifies the site manager.</p>
+        <Button
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+          disabled={arriveMutation.isPending}
+          onClick={() => arriveMutation.mutate()}
+        >
+          {arriveMutation.isPending
+            ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Recording…</>
+            : <><MapPin className="h-4 w-4 mr-2" />I've Arrived on Site</>
+          }
+        </Button>
+        {arrivedMsg && <p className="text-sm text-green-700 text-center">{arrivedMsg}</p>}
+        {arriveMutation.isError && (
+          <p className="text-sm text-red-600 text-center">
+            {arriveMutation.error instanceof Error ? arriveMutation.error.message : "Failed to record arrival"}
+          </p>
+        )}
+      </>
+    )}
+  </div>
+)}
+```
+
+---
+
+**5. `client/src/pages/PPM.tsx`**
+
+- Add `arrivedAt?: string | null` to the `PpmWorkOrder` interface
+- In the work order detail slide-out, find the `grid grid-cols-2` block showing Due Date and Completed. Between those two rows insert:
+
+```tsx
+<span className="text-muted-foreground">Arrived on Site</span>
+<span>
+  {selectedWO.arrivedAt
+    ? new Date(selectedWO.arrivedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })
+    : "—"}
+</span>
+```
+
+---
+
+The `ADD COLUMN IF NOT EXISTS` migration runs automatically on server restart — no manual database work needed. The arrival button shows in blue until tapped, then switches to green with the confirmed timestamp. If the contractor reloads the page, the green confirmed state persists.
