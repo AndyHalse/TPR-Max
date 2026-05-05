@@ -58,6 +58,7 @@ function fmtDate(d?: string | null) {
 const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string; icon: typeof CheckCircle2 }> = {
   scheduled:   { label: "Scheduled",   bg: "bg-blue-100",   text: "text-blue-800",   icon: Clock },
   in_progress: { label: "In Progress", bg: "bg-amber-100",  text: "text-amber-800",  icon: RefreshCw },
+  on_site:     { label: "On Site",     bg: "bg-purple-100", text: "text-purple-800", icon: MapPin },
   completed:   { label: "Completed",   bg: "bg-green-100",  text: "text-green-800",  icon: CheckCircle2 },
   overdue:     { label: "Overdue",     bg: "bg-red-100",    text: "text-red-800",    icon: AlertTriangle },
 };
@@ -225,7 +226,7 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
   }
 
   const isCompleted = wo.status === "completed";
-  const canComplete = wo.status === "scheduled" || wo.status === "in_progress" || wo.status === "overdue";
+  const canComplete = wo.status === "scheduled" || wo.status === "in_progress" || wo.status === "on_site" || wo.status === "overdue";
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -368,7 +369,7 @@ export default function PPMWorkOrderMobile({ token }: { token: string }) {
               className="text-sm"
             />
             <div className="flex flex-col gap-2">
-              {wo.status !== "in_progress" && (
+              {wo.status !== "in_progress" && wo.status !== "on_site" && (
                 <Button
                   className="w-full"
                   variant="outline"

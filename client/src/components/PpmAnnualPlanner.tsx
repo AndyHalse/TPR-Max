@@ -45,7 +45,7 @@ const TOTAL_COLS = 16;
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type CellStatus = "overdue" | "due_soon" | "in_progress" | "scheduled" | "completed" | "empty";
+type CellStatus = "overdue" | "due_soon" | "in_progress" | "on_site" | "scheduled" | "completed" | "empty";
 
 interface PpmAsset {
   id: string;
@@ -118,11 +118,12 @@ function freqToCode(frequency: string, customDays?: number | null): string {
 
 // ─── Status helpers ───────────────────────────────────────────────────────────
 
-const STATUS_PRIORITY: CellStatus[] = ["overdue", "due_soon", "in_progress", "scheduled", "completed"];
+const STATUS_PRIORITY: CellStatus[] = ["overdue", "due_soon", "on_site", "in_progress", "scheduled", "completed"];
 
 function getWoStatus(wo: PpmWorkOrder): CellStatus {
   if (wo.status === "overdue") return "overdue";
   if (wo.status === "completed") return "completed";
+  if (wo.status === "on_site") return "on_site";
   if (wo.status === "in_progress") {
     const due = wo.dueDate ? new Date(wo.dueDate) : null;
     if (due) {
@@ -162,8 +163,9 @@ interface CellConfig {
 const CELL_CFG: Record<CellStatus, CellConfig> = {
   overdue:    { bg: "#FDEAEA", border: "#F09595", text: "#C62828", label: "Overdue",    icon: <AlertTriangle className="h-3 w-3 shrink-0" /> },
   due_soon:   { bg: "#FEF3CD", border: "#F0C040", text: "#B45309", label: "Due Soon",   icon: <Clock className="h-3 w-3 shrink-0" /> },
+  on_site:    { bg: "#F5F0FF", border: "#C4B5FD", text: "#6B21A8", label: "On Site",    icon: <MapPin className="h-3 w-3 shrink-0" /> },
   in_progress:{ bg: "#EBF5FB", border: "#85C1E9", text: "#1565C0", label: "In Progress",icon: <Clock className="h-3 w-3 shrink-0" /> },
-  scheduled:  { bg: "#EBF5FB", border: "#90CAF9", text: "#1565C0", label: "Scheduled", icon: <Calendar className="h-3 w-3 shrink-0 opacity-70" /> },
+  scheduled:  { bg: "#EBF5FB", border: "#90CAF9", text: "#1565C0", label: "Scheduled",  icon: <Calendar className="h-3 w-3 shrink-0 opacity-70" /> },
   completed:  { bg: "#EAF3DE", border: "#97C459", text: "#2E7D32", label: "Completed",  icon: <CheckCircle2 className="h-3 w-3 shrink-0" /> },
   empty:      { bg: "#FFFFFF", border: "#E5E7EB", text: "#9CA3AF", label: "No Task" },
 };
@@ -173,6 +175,7 @@ const CELL_CFG: Record<CellStatus, CellConfig> = {
 const WO_BADGE: Record<string, string> = {
   scheduled:   "bg-blue-100 text-blue-800 border-blue-200",
   in_progress: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  on_site:     "bg-purple-100 text-purple-800 border-purple-200",
   completed:   "bg-green-100 text-green-800 border-green-200",
   overdue:     "bg-red-100 text-red-800 border-red-200",
 };

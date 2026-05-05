@@ -2376,7 +2376,7 @@ app.put("/api/ppm/work-order/public/:token", ppmPublicRateLimit, async (req, res
     const { token } = req.params;
     if (!token || token.length < 10) return res.status(400).json({ error: "Invalid token" });
     const { status, completionNotes } = req.body;
-    const allowedStatuses = ["in_progress", "completed"];
+    const allowedStatuses = ["in_progress", "on_site", "completed"];
     if (status && !allowedStatuses.includes(status)) return res.status(400).json({ error: "Invalid status" });
 
     const performUpdate = async (customerId: string) => {
@@ -2479,8 +2479,8 @@ app.post("/api/ppm/work-order/public/:token/arrive", ppmPublicRateLimit, async (
         accessToken: nextToken,
         accessTokenExpiresAt: nextExpiresAt,
       };
-      if (wo.status === "scheduled" || wo.status === "overdue") {
-        updates.status = "in_progress";
+      if (wo.status === "scheduled" || wo.status === "overdue" || wo.status === "in_progress") {
+        updates.status = "on_site";
       }
       await custDb.update(isolatedSchema.ppmWorkOrders)
         .set(updates)

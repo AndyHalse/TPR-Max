@@ -177,10 +177,11 @@ const COMMON_REGULATIONS = [
 ];
 
 const WO_STATUSES = [
-  { value: "scheduled", label: "Scheduled", classes: "bg-blue-100 text-blue-800 border-blue-200" },
+  { value: "scheduled",   label: "Scheduled",   classes: "bg-blue-100 text-blue-800 border-blue-200" },
   { value: "in_progress", label: "In Progress", classes: "bg-amber-100 text-amber-800 border-amber-200" },
-  { value: "completed", label: "Completed", classes: "bg-green-100 text-green-800 border-green-200" },
-  { value: "overdue", label: "Overdue", classes: "bg-red-100 text-red-800 border-red-200" },
+  { value: "on_site",     label: "On Site",     classes: "bg-purple-100 text-purple-800 border-purple-200" },
+  { value: "completed",   label: "Completed",   classes: "bg-green-100 text-green-800 border-green-200" },
+  { value: "overdue",     label: "Overdue",     classes: "bg-red-100 text-red-800 border-red-200" },
 ];
 
 // ─── Schedule Status Derivation ───────────────────────────────────────────────
@@ -1335,7 +1336,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
     return true;
   });
 
-  const statusOrder: Record<string, number> = { overdue: 0, in_progress: 1, scheduled: 2, completed: 3 };
+  const statusOrder: Record<string, number> = { overdue: 0, on_site: 1, in_progress: 2, scheduled: 3, completed: 4 };
   const sortedWOs = [...filtered].sort((a, b) => (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5));
 
   async function openDetail(wo: PpmWorkOrder) {
