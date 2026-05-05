@@ -226,6 +226,14 @@ function WOStatusBadge({ status }: { status: string }) {
   );
 }
 
+// If the contractor has arrived (arrivedAt set) and the work order isn't completed,
+// treat it as "on_site" regardless of what the DB status column says.  This covers
+// records created before the on_site status was introduced (stored as in_progress).
+function effectiveWOStatus(wo: { status: string; arrivedAt?: string | null }): string {
+  if (wo.arrivedAt && wo.status !== "completed") return "on_site";
+  return wo.status;
+}
+
 function AssetStatusBadge({ status }: { status: string }) {
   return status === "active"
     ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Active</span>
@@ -1327,7 +1335,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
     if (initialWorkOrderId && w.id !== initialWorkOrderId) return false;
     if (filterStatus === "awaiting-cert") {
       if (!(w.status === "completed" && w.requiresCertificate && !w.certificateUploadedAt)) return false;
-    } else if (filterStatus !== "all" && w.status !== filterStatus) return false;
+    } else if (filterStatus !== "all" && effectiveWOStatus(w) !== filterStatus) return false;
     if (filterAsset !== "all" && w.assetId !== filterAsset) return false;
     if (filterContractor && filterContractor !== "all" && w.contractorCompanyName !== filterContractor) return false;
     if (filterDateFrom && w.dueDate && w.dueDate < filterDateFrom) return false;
@@ -1337,7 +1345,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
   });
 
   const statusOrder: Record<string, number> = { overdue: 0, on_site: 1, in_progress: 2, scheduled: 3, completed: 4 };
-  const sortedWOs = [...filtered].sort((a, b) => (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5));
+  const sortedWOs = [...filtered].sort((a, b) => (statusOrder[effectiveWOStatus(a)] ?? 5) - (statusOrder[effectiveWOStatus(b)] ?? 5));
 
   async function openDetail(wo: PpmWorkOrder) {
     setSelectedWO(wo);
@@ -1598,7 +1606,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground hidden md:table-cell">{woScope(wo)}</td>
-                  <td className="px-3 py-2.5"><WOStatusBadge status={wo.status} /></td>
+                  <td className="px-3 py-2.5"><WOStatusBadge status={effectiveWOStatus(wo)} /></td>
                   <td className="px-3 py-2.5 text-muted-foreground hidden sm:table-cell">{fmtDate(wo.dueDate)}</td>
                   <td className="px-3 py-2.5 hidden lg:table-cell max-w-[150px]">
                     {wo.contractorCompanyName ? (
@@ -2002,7 +2010,7 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                   {selectedWO.title}
                 </SheetTitle>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <WOStatusBadge status={selectedWO.status} />
+                  <WOStatusBadge status={effectiveWOStatus(selectedWO)} />
                   {hasCertAlert(selectedWO) && (
                     <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
                       <AlertTriangle className="h-3 w-3" />Certificate missing
@@ -2064,9 +2072,9 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                       <Button
                         key={s.value}
                         size="sm"
-                        variant={selectedWO.status === s.value ? "default" : "outline"}
+                        variant={effectiveWOStatus(selectedWO) === s.value ? "default" : "outline"}
                         className="h-7 text-xs"
-                        disabled={selectedWO.status === s.value || updateWOMutation.isPending}
+                        disabled={effectiveWOStatus(selectedWO) === s.value || updateWOMutation.isPending}
                         onClick={() => updateWOMutation.mutate({ id: selectedWO.id, data: { status: s.value } })}
                       >
                         {s.label}
