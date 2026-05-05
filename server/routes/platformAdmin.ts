@@ -7,6 +7,7 @@ import { z } from 'zod';
 import { requirePlatformAdmin } from '../auth';
 import { db } from '../db';
 import * as sharedSchema from '@shared/schema';
+import { customerOnboardingRequestSchema, type CustomerOnboardingRequest } from '@shared/schema';
 import { customerOnboardingService } from '../customerOnboardingService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { logger } from '../utils/logger';
