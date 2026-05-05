@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   CheckCircle2, AlertTriangle, Clock, Minus, ChevronRight,
-  Calendar, CheckSquare, ListTodo, Printer, Mail, Send, FileDown,
+  Calendar, CheckSquare, ListTodo, Printer, Mail, Send, FileDown, MapPin,
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 
