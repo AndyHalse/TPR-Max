@@ -412,201 +412,364 @@ export function registerOnboardingRoutes(app: Express): void {
     try {
       const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
 
+      // ── Colour palette ────────────────────────────────────────────────────
+      const navyDark  = rgb(0.063, 0.082, 0.145);
+      const navyMid   = rgb(0.118, 0.169, 0.278);
       const accent    = rgb(0.141, 0.376, 0.663);
       const white     = rgb(1, 1, 1);
-      const dark      = rgb(0.059, 0.09, 0.161);
-      const muted     = rgb(0.278, 0.341, 0.435);
-      const light     = rgb(0.941, 0.961, 0.988);
-      const border    = rgb(0.886, 0.91, 0.941);
-      const green     = rgb(0.086, 0.647, 0.239);
-      const navy      = rgb(0.059, 0.09, 0.161);
-      const navyLine  = rgb(0.118, 0.161, 0.235);
-      const lightMuted= rgb(0.58, 0.64, 0.74);
+      const dark      = rgb(0.08,  0.10,  0.18 );
+      const muted     = rgb(0.38,  0.43,  0.52 );
+      const light     = rgb(0.953, 0.965, 0.980);
+      const border    = rgb(0.839, 0.863, 0.894);
+      const accentSub = rgb(0.55,  0.65,  0.82 );
+      const navyMuted = rgb(0.65,  0.72,  0.82 );
 
       const pdfDoc = await PDFDocument.create();
       const font   = await pdfDoc.embedFont(StandardFonts.Helvetica);
       const bold   = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-      const W = 595.28, H = 841.89, M = 40, CW = W - M * 2;
+      const W = 595.28, H = 841.89, M = 50, CW = W - M * 2;
+      const colW2 = (CW - 20) / 2;
+      const fCW   = (CW - 16) / 3;
 
-      // pdf-lib StandardFonts use WinAnsi encoding — strip unsupported Unicode to ASCII
-      const toAscii = (s: string) => s
-        .replace(/[\u2013\u2014]/g, '-')   // en/em dash
-        .replace(/\u2019/g, "'")            // right single quote
-        .replace(/\u2022/g, '*')            // bullet
-        .replace(/\u00b7/g, '|')            // middle dot
-        .replace(/[^\x00-\xff]/g, '');      // drop anything else outside Latin-1
+      // WinAnsi sanitiser — StandardFonts cannot encode chars > 0xFF
+      const a = (s: string) => s
+        .replace(/[\u2013\u2014]/g, '-')
+        .replace(/\u2019/g, "'")
+        .replace(/\u2022/g, '*')
+        .replace(/\u00b7/g, '|')
+        .replace(/[^\x00-\xff]/g, '');
 
-      const wrap = (text: string, maxW: number, size: number, f: any): string[] => {
-        text = toAscii(text);
-        const words = text.split(' ');
+      const wrap = (text: string, maxW: number, sz: number, f: any): string[] => {
+        const words = a(text).split(' ');
         const lines: string[] = [];
         let cur = '';
         for (const w of words) {
           const test = cur ? `${cur} ${w}` : w;
-          if (f.widthOfTextAtSize(test, size) <= maxW) { cur = test; }
+          if (f.widthOfTextAtSize(test, sz) <= maxW) { cur = test; }
           else { if (cur) lines.push(cur); cur = w; }
         }
         if (cur) lines.push(cur);
         return lines;
       };
 
-      const card = (pg: any, x: number, y: number, w: number, h: number, bg: any, bd: any) =>
-        pg.drawRectangle({ x, y, width: w, height: h, color: bg, borderColor: bd, borderWidth: 0.5 });
+      const drawWrap = (pg: any, text: string, x: number, startY: number, maxW: number, sz: number, f: any, col: any, lh?: number): number => {
+        let y = startY;
+        const lineH = lh ?? sz * 1.5;
+        for (const line of wrap(text, maxW, sz, f)) {
+          pg.drawText(line, { x, y, size: sz, font: f, color: col });
+          y -= lineH;
+        }
+        return y;
+      };
 
-      // ── PAGE 1: Cover + Modules ──────────────────────────────────────────
-      const p1 = pdfDoc.addPage([W, H]);
+      const rule = (pg: any, x: number, y: number, w: number, col = border) =>
+        pg.drawRectangle({ x, y, width: w, height: 0.5, color: col });
 
-      // Header
-      p1.drawRectangle({ x: 0, y: H - 82, width: W, height: 82, color: accent });
-      p1.drawText('TPR Max', { x: M, y: H - 35, size: 26, font: bold, color: white });
-      p1.drawText('Total Personnel Register', { x: M, y: H - 53, size: 10, font, color: rgb(0.8, 0.88, 0.96) });
-      p1.drawText('ACS Safety & Security Ltd  |  info@acsltd.eu  |  +44 1344 771569', { x: M, y: H - 70, size: 8, font, color: rgb(0.65, 0.76, 0.88) });
-      p1.drawText('Cloud-Native UK Site Management Platform', { x: W - M - 220, y: H - 46, size: 9, font, color: rgb(0.8, 0.88, 0.96) });
-      p1.drawText('GDPR  |  99.9% Uptime  |  UK Built & Supported', { x: W - M - 210, y: H - 60, size: 8, font, color: rgb(0.65, 0.76, 0.88) });
+      const fillBox = (pg: any, x: number, y: number, w: number, h: number, bg: any, bdCol?: any, bdW = 0.75) =>
+        pg.drawRectangle({ x, y, width: w, height: h, color: bg, ...(bdCol ? { borderColor: bdCol, borderWidth: bdW } : {}) });
 
-      // Stats strip
-      const sY = H - 114;
-      const sW = CW / 4;
-      [['17', 'Platform Modules'], ['99.9%', 'Platform Uptime'], ['UK', 'Built & Supported'], ['GDPR', 'Fully Compliant']].forEach(([v, l], i) => {
-        const sx = M + i * sW;
-        card(p1, sx, sY - 26, sW - 4, 30, light, border);
-        p1.drawText(v, { x: sx + 6, y: sY - 7, size: 14, font: bold, color: accent });
-        p1.drawText(l, { x: sx + 6, y: sY - 19, size: 7, font, color: muted });
+      const pageHeader = (pg: any, title: string) => {
+        fillBox(pg, 0, H - 60, W, 60, navyDark);
+        pg.drawText('ACS SAFETY & SECURITY LTD', { x: M, y: H - 22, size: 7.5, font: bold, color: accentSub });
+        pg.drawText(a(title), { x: M, y: H - 42, size: 17, font: bold, color: white });
+      };
+
+      const pageFooter = (pg: any, num: number) => {
+        rule(pg, M, 34, CW);
+        pg.drawText('TPR Max by ACS Safety & Security Ltd  |  www.acsltd.eu  |  info@acsltd.eu', { x: M, y: 20, size: 7, font, color: muted });
+        pg.drawText(`PAGE ${num}`, { x: W - M - bold.widthOfTextAtSize(`PAGE ${num}`, 7), y: 20, size: 7, font: bold, color: muted });
+      };
+
+      const featureCard3 = (pg: any, startY: number, items: [string, string][]) => {
+        items.forEach(([title, desc], i) => {
+          const fx = M + i * (fCW + 8);
+          fillBox(pg, fx, startY - 90, fCW, 90, light, border);
+          fillBox(pg, fx, startY - 90 + 62, fCW, 28, navyMid);
+          wrap(a(title), fCW - 16, 7.5, bold).slice(0, 2).forEach((l, li) =>
+            pg.drawText(l, { x: fx + 8, y: startY - 90 + 83 - li * 11, size: 7.5, font: bold, color: white }));
+          wrap(desc, fCW - 16, 8, font).slice(0, 3).forEach((l, li) =>
+            pg.drawText(l, { x: fx + 8, y: startY - 35 - li * 12, size: 8, font, color: dark }));
+        });
+      };
+
+      // ─────────────────────────────────────────────
+      // PAGE 1 — COVER
+      // ─────────────────────────────────────────────
+      const pg1 = pdfDoc.addPage([W, H]);
+      fillBox(pg1, 0, 0, W, H, navyDark);
+      fillBox(pg1, 0, H - 5, W, 5, accent);
+
+      pg1.drawText('SAVE LIVES', { x: M, y: H - 148, size: 68, font: bold, color: white });
+      drawWrap(pg1, 'Know exactly who is on site when it matters most', M, H - 195, CW * 0.72, 15, font, rgb(0.72, 0.80, 0.92));
+
+      rule(pg1, M, H - 228, CW * 0.35, navyMid);
+
+      pg1.drawText('PRESENTED TO', { x: M, y: H - 268, size: 7.5, font: bold, color: accentSub });
+      pg1.drawText('Stakeholders', { x: M, y: H - 286, size: 13, font, color: white });
+      pg1.drawText('PRESENTED BY', { x: M, y: H - 318, size: 7.5, font: bold, color: accentSub });
+      pg1.drawText('Andy Halse', { x: M, y: H - 336, size: 13, font, color: white });
+
+      rule(pg1, M, 128, CW, navyMid);
+      pg1.drawText('ACS SAFETY & SECURITY LTD', { x: M, y: 106, size: 9, font: bold, color: accentSub });
+      pg1.drawText('ONE PLATFORM', { x: M, y: 78, size: 30, font: bold, color: white });
+      pg1.drawText('tpr-max.com  |  www.acsltd.eu  |  info@acsltd.eu', { x: M, y: 54, size: 8.5, font, color: navyMuted });
+      fillBox(pg1, 0, 0, W, 5, accent);
+
+      // ─────────────────────────────────────────────
+      // PAGE 2 — ONE PLATFORM overview
+      // ─────────────────────────────────────────────
+      const pg2 = pdfDoc.addPage([W, H]);
+      pageHeader(pg2, 'ONE PLATFORM');
+
+      let y2 = H - 82;
+      pg2.drawText('17 integrated modules that replace every disconnected system on your site.', { x: M, y: y2, size: 9.5, font, color: muted });
+      y2 -= 20;
+      rule(pg2, M, y2, CW);
+      y2 -= 20;
+
+      const body2a = 'TPR Max is a transformative solution designed to streamline safety management and compliance across various sectors. By replacing multiple outdated systems, it provides 17 integrated modules that ensure everything you need is available in one platform. From digital check-in to real-time emergency muster capabilities, TPR Max simplifies processes and enhances efficiency. Users benefit from immediate access to essential information without the hassle of juggling between different applications. With its user-friendly interface, organisations can seamlessly transition to this system and begin experiencing its advantages from day one.';
+      const body2b = 'The implementation of TPR Max empowers organisations to improve their operational effectiveness while maintaining safety and compliance. Every module is designed with practical functionality in mind, addressing crucial aspects such as contractor management, visitor tracking, and incident reporting. This centralised approach allows for better coordination among team members, ensuring that everyone is informed and accountable. As a result, TPR Max not only enhances productivity but also fosters a culture of safety that is essential for today\'s diverse environments. Experience the power of a single platform that truly brings everything together.';
+
+      let col1Y = y2, col2Y = y2;
+      for (const l of wrap(body2a, colW2, 9, font)) { pg2.drawText(l, { x: M,           y: col1Y, size: 9, font, color: dark }); col1Y -= 13.5; }
+      for (const l of wrap(body2b, colW2, 9, font)) { pg2.drawText(l, { x: M+colW2+20, y: col2Y, size: 9, font, color: dark }); col2Y -= 13.5; }
+
+      const modStart = Math.min(col1Y, col2Y) - 28;
+      rule(pg2, M, modStart + 14, CW);
+      pg2.drawText('17 INTEGRATED MODULES — ALL INCLUDED', { x: M, y: modStart, size: 8.5, font: bold, color: accent });
+      const modList = ['Dashboard','Reception','Meeting Rooms','People','ID Cards','Contractors','Compliance','Emergency','Time Track','CO2 Reporting','Reports','RAMS','PPM','CDM 2015','Lone Worker','Martyn\'s Law','Help Desk'];
+      const mCols = 6, mW = CW / mCols;
+      modList.forEach((m, i) => {
+        const mc = i % mCols, mr = Math.floor(i / mCols);
+        pg2.drawText(a(m), { x: M + mc * mW, y: modStart - 18 - mr * 16, size: 8, font, color: dark });
       });
 
-      // Section heading
-      p1.drawText('17 Powerful Modules. One Platform.', { x: M, y: sY - 44, size: 13, font: bold, color: dark });
-      p1.drawText('From visitor sign-in to CDM 2015 construction compliance — every tool built in from day one.', { x: M, y: sY - 57, size: 8, font, color: muted });
-      p1.drawRectangle({ x: M, y: sY - 63, width: CW, height: 0.5, color: border });
+      pageFooter(pg2, 2);
 
-      // Modules grid (3 cols)
-      const modules = [
-        ['Dashboard',    'Real-time site occupancy, KPIs & security alerts'],
-        ['Reception',    'Visitor pre-booking, QR check-in, host notifications'],
-        ['Meeting Rooms','Room booking with conflict detection & analytics'],
-        ['People',       'Staff management, departments, Fire Marshal roles'],
-        ['ID Cards',     'Thermal pass printing — TEC, Toshiba, Zebra'],
-        ['Contractors',  'Worker & company compliance, red/yellow cards'],
-        ['Compliance',   'AI-generated safety inductions with voice & video'],
-        ['Emergency',    'Zone-based mustering, Fire Marshal static URLs'],
-        ['Time Track',   'Automated T&A, payroll-ready exports'],
-        ['CO2',          'Carbon footprint analysis & ESG sustainability reports'],
-        ['Reports',      'Analytics, compliance dashboards & audit trails'],
-        ['RAMS',         'Risk Assessment & Method Statement management'],
-        ['PPM',          '12-month maintenance planner, statutory compliance'],
-        ['CDM 2015',     'F10 notifications, duty-holder roles, project scoring'],
-        ['Lone Worker',  'Welfare checks, escalation & real-time monitoring'],
-        ["Martyn's Law", 'Protect Duty — threat assessments & drills'],
-        ['Help Desk',    'Reactive maintenance ticketing & fault resolution'],
+      // ─────────────────────────────────────────────
+      // PAGE 3 — EMERGENCY MUSTERING
+      // ─────────────────────────────────────────────
+      const pg3 = pdfDoc.addPage([W, H]);
+      pageHeader(pg3, 'EMERGENCY MUSTERING');
+
+      let y3 = H - 76;
+      pg3.drawText('Streamlined evacuation procedures for every situation and site.', { x: M, y: y3, size: 9.5, font, color: muted });
+      y3 -= 18; rule(pg3, M, y3, CW); y3 -= 28;
+
+      featureCard3(pg3, y3, [
+        ['ONE-CLICK EVACUATION',  'Instantly account for everyone on site during emergencies with a single action.'],
+        ['LIVE HEAD COUNTS',      'Real-time updates at multiple muster points so Fire Marshals always know who is missing.'],
+        ['MARTYN\'S LAW MODULE',  'Comprehensive lockdown procedures and a full incident tracker built in as standard.'],
+      ]);
+      y3 -= 110;
+      rule(pg3, M, y3, CW, border); y3 -= 20;
+
+      drawWrap(pg3, 'Effective emergency mustering is crucial in any scenario. TPR Max provides a one-click evacuation feature, ensuring that every visitor, contractor, and staff member is accounted for in real-time. With live head counts at multiple muster points, Fire Marshals can access critical information without needing to log in, using a static URL on any phone. This system allows people off-site to mark themselves safe through email notifications. The Martyn\'s Law module incorporates lockdown procedures and a comprehensive incident tracker, helping organisations comply with evolving safety regulations. By enabling quick access to vital data and real-time updates, TPR Max enhances emergency response capabilities and ensures the safety of everyone on site.', M, y3, CW, 9.5, font, dark, 14);
+
+      pageFooter(pg3, 3);
+
+      // ─────────────────────────────────────────────
+      // PAGE 4 — CONTRACTOR COMPLIANCE
+      // ─────────────────────────────────────────────
+      const pg4 = pdfDoc.addPage([W, H]);
+      pageHeader(pg4, 'CONTRACTOR COMPLIANCE');
+
+      let y4 = H - 76;
+      pg4.drawText('Removing legal and insurance risks with robust tracking and management.', { x: M, y: y4, size: 9.5, font, color: muted });
+      y4 -= 18; rule(pg4, M, y4, CW); y4 -= 28;
+
+      featureCard3(pg4, y4, [
+        ['COMPREHENSIVE PROFILES',  'Detailed contractor and worker records always accessible and up-to-date.'],
+        ['INDUCTION MANAGEMENT',    'Inductions must be completed before any contractor can check in on-site.'],
+        ['COMPLIANCE TRACKING',     'Track certificates, qualifications, and insurance expiry dates automatically.'],
+      ]);
+      y4 -= 110;
+      rule(pg4, M, y4, CW, border); y4 -= 20;
+
+      drawWrap(pg4, 'Managing contractors effectively is essential for mitigating legal and insurance risks on site. TPR Max simplifies this process by offering comprehensive profiles for each contractor, ensuring that all worker records are readily accessible and up-to-date. Induction management is crucial, as TPR Max mandates that inductions must be completed before any contractor can check in on-site, guaranteeing compliance at all levels. The software\'s robust compliance tracking features enable users to keep track of all essential documentation, such as certificates, qualifications, and insurance expiry dates, reducing the risks associated with contractor management. With TPR Max, every interaction is logged, providing auditable proof of compliance that enhances transparency and accountability across all contractor activities.', M, y4, CW, 9.5, font, dark, 14);
+
+      pageFooter(pg4, 4);
+
+      // ─────────────────────────────────────────────
+      // PAGE 5 — VISITOR & STAFF MANAGEMENT
+      // ─────────────────────────────────────────────
+      const pg5 = pdfDoc.addPage([W, H]);
+      pageHeader(pg5, 'VISITOR & STAFF MANAGEMENT');
+
+      let y5 = H - 76;
+      pg5.drawText('Comprehensive solutions for check-in, attendance, ID cards, and more.', { x: M, y: y5, size: 9.5, font, color: muted });
+      y5 -= 18; rule(pg5, M, y5, CW); y5 -= 28;
+
+      const sections5: [string, string][] = [
+        ['Check-in Solutions',      'TPR Max simplifies visitor check-in with photo capture and digital signatures, offering a smooth experience that integrates seamlessly with pre-registration and email invitations. Kiosk Mode enables self-service sign-in on a tablet, reducing reception workload while maintaining a complete, timestamped audit trail for every visit.'],
+        ['Attendance Tracking',     'Track staff attendance effortlessly with real-time data, daily reports, and seamless integration with BioStar 2 access control, ensuring accurate timekeeping and payroll processing. The Time & Attendance module automatically generates reports and exports data in payroll-ready formats.'],
+        ['ID Cards & Passes',       'Generate QR-coded visitor, contractor, and staff passes instantly on check-in. Compatible with TEC, Toshiba, and Zebra thermal printers. Passes can be printed, emailed, or displayed on-screen, and include photo, host details, and expiry time for full traceability.'],
+        ['Pre-Booking & Invitations','Hosts can pre-register expected visitors and send personalised email invitations with QR codes that fast-track check-in. Reception staff see a live diary of expected arrivals, reducing queues and ensuring a professional, brand-consistent welcome experience.'],
       ];
-      const cols = 3, mCH = 50, mGap = 4;
-      const mCW = (CW - (cols - 1) * mGap) / cols;
-      const mStart = sY - 71;
-      modules.forEach(([name, desc], idx) => {
-        const col = idx % cols, row = Math.floor(idx / cols);
-        const cx = M + col * (mCW + mGap);
-        const cy = mStart - row * (mCH + mGap);
-        card(p1, cx, cy - mCH + 4, mCW, mCH, light, border);
-        p1.drawText(name, { x: cx + 6, y: cy - 12, size: 8.5, font: bold, color: accent });
-        wrap(desc, mCW - 12, 7, font).slice(0, 3).forEach((line, li) =>
-          p1.drawText(line, { x: cx + 6, y: cy - 23 - li * 9, size: 7, font, color: muted }));
+      sections5.forEach(([title, body], i) => {
+        const sx = M + (i % 2) * (colW2 + 20);
+        const sy = y5 - Math.floor(i / 2) * 210;
+        pg5.drawText(a(title), { x: sx, y: sy, size: 11, font: bold, color: dark });
+        rule(pg5, sx, sy - 9, colW2, accent);
+        drawWrap(pg5, body, sx, sy - 24, colW2, 8.8, font, muted, 13);
       });
 
-      // Page 1 footer
-      p1.drawRectangle({ x: M, y: 26, width: CW, height: 0.5, color: border });
-      p1.drawText('TPR Max by ACS Safety & Security Ltd  \u2014  Registered in England & Wales  \u2014  www.acsltd.eu', { x: M, y: 13, size: 7, font, color: lightMuted });
+      pageFooter(pg5, 5);
 
-      // ── PAGE 2: Pricing + Why + CTA ──────────────────────────────────────
-      const p2 = pdfDoc.addPage([W, H]);
+      // ─────────────────────────────────────────────
+      // PAGE 6 — SECURITY & DATA TRUST
+      // ─────────────────────────────────────────────
+      const pg6 = pdfDoc.addPage([W, H]);
+      pageHeader(pg6, 'SECURITY & DATA TRUST');
 
-      // Header
-      p2.drawRectangle({ x: 0, y: H - 58, width: W, height: 58, color: accent });
-      p2.drawText('Simple, Transparent Pricing', { x: M, y: H - 26, size: 17, font: bold, color: white });
-      p2.drawText('Per site per month  \u00b7  No setup fees  \u00b7  No long-term contracts  \u00b7  Multi-site discounts available', { x: M, y: H - 44, size: 8.5, font, color: rgb(0.8, 0.88, 0.96) });
-      p2.drawText('All prices exclude VAT', { x: M, y: H - 73, size: 8, font, color: muted });
+      let y6 = H - 80;
+      const body6a = 'TPR Max prioritises your data\'s privacy and security, ensuring that each customer has their own isolated database, meaning your information never coexists with another client\'s. With a design that is GDPR compliant, TPR Max features robust security measures including CSRF protection, bcrypt passwords, and encrypted sessions. The platform\'s role-based access guarantees that only authorised personnel can view sensitive data, significantly reducing the risk of unauthorised access. Full audit trails provide visibility into every interaction, ensuring accountability and transparency. This strong privacy infrastructure allows organisations to focus on their core operations without the added stress of data security issues.';
+      const body6b = 'Furthermore, TPR Max is ISO 27001 aligned, reflecting our commitment to maintaining the highest standards of information security management. Users benefit from built-in data export capabilities and the right-to-be-forgotten feature, empowering clients to manage their data effortlessly. By prioritising compliance and security, TPR Max fosters trust among users, which is essential in today\'s data-driven environment. The platform\'s meticulous attention to protecting user information not only complies with global regulations but also enhances overall operational efficiency, safeguarding your organisation\'s reputation and integrity.';
 
-      // Pricing cards
-      const pCW = (CW - 16) / 3;
-      const pH   = 315;
-      const pTop = H - 88;
+      let c1y6 = y6, c2y6 = y6;
+      for (const l of wrap(body6a, colW2, 9, font)) { pg6.drawText(l, { x: M,           y: c1y6, size: 9, font, color: dark }); c1y6 -= 13.5; }
+      for (const l of wrap(body6b, colW2, 9, font)) { pg6.drawText(l, { x: M+colW2+20, y: c2y6, size: 9, font, color: dark }); c2y6 -= 13.5; }
 
-      // --- Basic ---
-      const bX = M;
-      card(p2, bX, pTop - pH, pCW, pH, light, border);
-      p2.drawText('TPR Basic', { x: bX + 10, y: pTop - 20, size: 11, font: bold, color: dark });
-      p2.drawText('\u00a349', { x: bX + 10, y: pTop - 50, size: 28, font: bold, color: dark });
-      p2.drawText('/site/month', { x: bX + 10, y: pTop - 64, size: 7.5, font, color: muted });
-      p2.drawText('For offices & smaller sites', { x: bX + 10, y: pTop - 77, size: 7.5, font, color: muted });
-      p2.drawRectangle({ x: bX + 10, y: pTop - 87, width: pCW - 20, height: 0.5, color: border });
-      ['Visitor sign-in, passes & pre-booking', 'Staff directory & check-in', 'Emergency evacuation & muster roll-call', 'Kiosk Mode (self-service check-in)', 'Email Outbox \u2014 all system emails', 'Basic reporting'].forEach((f, i) => {
-        p2.drawText('+', { x: bX + 10, y: pTop - 102 - i * 30, size: 9, font: bold, color: green });
-        wrap(f, pCW - 34, 7.5, font).slice(0, 2).forEach((l, li) =>
-          p2.drawText(l, { x: bX + 24, y: pTop - 102 - i * 30 - li * 9, size: 7.5, font, color: dark }));
+      const secY = Math.min(c1y6, c2y6) - 28;
+      rule(pg6, M, secY + 14, CW);
+      pg6.drawText('SECURITY FEATURES AT A GLANCE', { x: M, y: secY, size: 8.5, font: bold, color: accent });
+      const secFeats: [string, string][] = [
+        ['Isolated Databases',  'Each tenant has a dedicated schema — zero data co-mingling between clients.'],
+        ['GDPR Compliant',      'Right-to-be-forgotten, data exports, and full privacy controls built in.'],
+        ['Encrypted Sessions',  'bcrypt passwords, CSRF protection, and secure session management throughout.'],
+        ['Role-Based Access',   'Granular permissions ensure every staff member sees only what they need.'],
+        ['Full Audit Trails',   'Every action is logged with timestamp, user identity, and IP address.'],
+        ['ISO 27001 Aligned',   'Built to the highest international information security management standards.'],
+      ];
+      const sfCW = (CW - 8) / 3;
+      secFeats.forEach(([t, d], i) => {
+        const sc = i % 3, sr = Math.floor(i / 3);
+        const sx = M + sc * (sfCW + 4), sy = secY - 20 - sr * 58;
+        fillBox(pg6, sx, sy - 44, sfCW, 48, light, border);
+        pg6.drawText(a(t), { x: sx + 8, y: sy - 14, size: 8.5, font: bold, color: dark });
+        wrap(d, sfCW - 16, 7.5, font).slice(0, 3).forEach((l, li) =>
+          pg6.drawText(l, { x: sx + 8, y: sy - 27 - li * 11, size: 7.5, font, color: muted }));
       });
 
-      // --- Pro ---
-      const rX = M + pCW + 8;
-      p2.drawRectangle({ x: rX - 2, y: pTop - pH - 2, width: pCW + 4, height: pH + 14, color: accent });
-      card(p2, rX, pTop - pH, pCW, pH, white, accent);
-      p2.drawText('MOST POPULAR', { x: rX + 18, y: pTop + 4, size: 6.5, font: bold, color: white });
-      p2.drawText('TPR Pro', { x: rX + 10, y: pTop - 20, size: 11, font: bold, color: accent });
-      p2.drawText('\u00a389', { x: rX + 10, y: pTop - 50, size: 28, font: bold, color: accent });
-      p2.drawText('/site/month', { x: rX + 10, y: pTop - 64, size: 7.5, font, color: muted });
-      p2.drawText('All Basic features, plus:', { x: rX + 10, y: pTop - 77, size: 7.5, font: bold, color: muted });
-      p2.drawRectangle({ x: rX + 10, y: pTop - 87, width: pCW - 20, height: 0.5, color: border });
-      ['Contractor sign-in, passes & compliance', 'RAMS management', 'AI Safety inductions', 'Incident Reports & PDF export', 'Time & Attendance tracking', 'Members module', 'Full analytics & audit logs'].forEach((f, i) => {
-        p2.drawText('+', { x: rX + 10, y: pTop - 102 - i * 28, size: 9, font: bold, color: green });
-        wrap(f, pCW - 34, 7.5, font).slice(0, 2).forEach((l, li) =>
-          p2.drawText(l, { x: rX + 24, y: pTop - 102 - i * 28 - li * 9, size: 7.5, font, color: dark }));
+      pageFooter(pg6, 6);
+
+      // ─────────────────────────────────────────────
+      // PAGE 7 — SECTORS
+      // ─────────────────────────────────────────────
+      const pg7 = pdfDoc.addPage([W, H]);
+      pageHeader(pg7, 'BUILT FOR SITES WHERE SAFETY IS NOT OPTIONAL');
+
+      let y7 = H - 76;
+      pg7.drawText('8 sectors that rely on TPR Max every day.', { x: M, y: y7, size: 9.5, font, color: muted });
+      y7 -= 18; rule(pg7, M, y7, CW); y7 -= 28;
+
+      featureCard3(pg7, y7, [
+        ['MANUFACTURING & INDUSTRIAL', 'High contractor footfall, strict H&S obligations, and regular compliance audits.'],
+        ['CONSTRUCTION SITES',         'Rotating workforce, RAMS requirements, and site induction compliance tracking.'],
+        ['HEALTHCARE',                 'Contractor vetting, detailed visitor records, and infection control sign-off management.'],
+      ]);
+      y7 -= 110;
+      rule(pg7, M, y7, CW, border); y7 -= 18;
+
+      drawWrap(pg7, 'TPR Max is relevant to any organisation that has contractors, visitors, or temporary workers on site and needs to demonstrate it managed them properly.', M, y7, CW, 10, bold, dark, 15);
+      y7 -= 48;
+
+      const moreSectors: [string, string][] = [
+        ['Facilities Management',     'Multiple sites, multiple contractors, one place to manage them all.'],
+        ['Logistics & Warehousing',   'Shift-based staff, delivery contractors, emergency procedures.'],
+        ['Education',                 'Safeguarding-compliant visitor management and contractor DBS tracking.'],
+        ['Local Government',          'Audit trails, compliance evidence, and public duty obligations.'],
+        ['Serviced Offices',          'Multi-tenant management for shared buildings and co-working spaces.'],
+      ];
+      moreSectors.forEach(([t, d]) => {
+        const bw = bold.widthOfTextAtSize(a(t) + ':  ', 9);
+        pg7.drawText(a(t) + ':', { x: M, y: y7, size: 9, font: bold, color: accent });
+        pg7.drawText(a(d), { x: M + bw, y: y7, size: 9, font, color: dark });
+        y7 -= 17;
       });
 
-      // --- Max ---
-      const mX = M + (pCW + 8) * 2;
-      card(p2, mX, pTop - pH, pCW, pH, navy, navyLine);
-      p2.drawText('TPR Max', { x: mX + 10, y: pTop - 20, size: 11, font: bold, color: white });
-      p2.drawText('\u00a3195', { x: mX + 10, y: pTop - 50, size: 28, font: bold, color: white });
-      p2.drawText('/site/month', { x: mX + 10, y: pTop - 64, size: 7.5, font, color: lightMuted });
-      p2.drawText('All Pro features, plus:', { x: mX + 10, y: pTop - 77, size: 7.5, font: bold, color: lightMuted });
-      p2.drawRectangle({ x: mX + 10, y: pTop - 87, width: pCW - 20, height: 0.5, color: navyLine });
-      ['PPM Annual Planner & asset registry', "Martyn's Law / Protect Duty module", 'CDM 2015 project management', 'Help Desk & reactive maintenance', 'Suprema/BioStar 2 integration', 'Lone Worker Protection system', 'Portfolio dashboard (multi-site)'].forEach((f, i) => {
-        p2.drawText('+', { x: mX + 10, y: pTop - 102 - i * 28, size: 9, font: bold, color: rgb(0.298, 0.867, 0.302) });
-        wrap(f, pCW - 34, 7.5, font).slice(0, 2).forEach((l, li) =>
-          p2.drawText(l, { x: mX + 24, y: pTop - 102 - i * 28 - li * 9, size: 7.5, font, color: rgb(0.78, 0.82, 0.88) }));
+      pageFooter(pg7, 7);
+
+      // ─────────────────────────────────────────────
+      // PAGE 8 — PRICING & CTA
+      // ─────────────────────────────────────────────
+      const pg8 = pdfDoc.addPage([W, H]);
+      pageHeader(pg8, 'PRICING');
+
+      let y8 = H - 76;
+      pg8.drawText('Simple per-site monthly pricing. No setup fees. No long-term contracts. All prices exclude VAT.', { x: M, y: y8, size: 9, font, color: muted });
+      y8 -= 18; rule(pg8, M, y8, CW); y8 -= 18;
+
+      const pCW8 = (CW - 16) / 3;
+      const pH8  = 320;
+      const tiers: { name: string; price: string; desc: string; features: string[]; popular?: boolean; inv?: boolean }[] = [
+        {
+          name: 'TPR Basic', price: '\u00a349',
+          desc: 'For offices and smaller sites needing visitor management and fire evacuation.',
+          features: ['Visitor sign-in, passes & pre-booking','Staff directory & check-in','Emergency evacuation & muster roll-call','Kiosk Mode (self-service check-in)','Email Outbox - all system emails','Basic reporting & audit logs'],
+        },
+        {
+          name: 'TPR Pro', price: '\u00a389', popular: true,
+          desc: 'For organisations managing contractors, inductions, and compliance.',
+          features: ['All Basic features, plus:','Contractor sign-in & compliance','RAMS management','AI Safety inductions','Incident Reports & PDF export','Time & Attendance tracking','Full analytics & audit logs'],
+        },
+        {
+          name: 'TPR Max', price: '\u00a3195', inv: true,
+          desc: 'Enterprise platform for complex sites requiring CDM, PPM, and multi-site control.',
+          features: ['All Pro features, plus:','PPM Annual Planner & asset registry','Martyn\'s Law / Protect Duty','CDM 2015 project management','Help Desk & reactive maintenance','Lone Worker Protection system','Portfolio dashboard (multi-site)'],
+        },
+      ];
+
+      tiers.forEach((tier, i) => {
+        const tx = M + i * (pCW8 + 8);
+        const ty = y8;
+        const bg  = tier.inv ? navyDark : light;
+        const bd  = tier.popular ? accent : (tier.inv ? navyMid : border);
+        fillBox(pg8, tx, ty - pH8, pCW8, pH8, bg, bd, tier.popular ? 1.5 : 0.75);
+        if (tier.popular) {
+          fillBox(pg8, tx, ty, pCW8, 16, accent);
+          pg8.drawText('MOST POPULAR', { x: tx + pCW8 / 2 - bold.widthOfTextAtSize('MOST POPULAR', 7) / 2, y: ty + 5, size: 7, font: bold, color: white });
+        }
+        const tCol  = tier.inv ? white : (tier.popular ? accent : dark);
+        const mCol  = tier.inv ? navyMuted : muted;
+        const fCol  = tier.inv ? rgb(0.75, 0.82, 0.92) : dark;
+
+        pg8.drawText(a(tier.name),  { x: tx + 10, y: ty - 22,  size: 12, font: bold, color: tCol });
+        pg8.drawText(tier.price,    { x: tx + 10, y: ty - 60,  size: 32, font: bold, color: tCol });
+        pg8.drawText('/site/month', { x: tx + 10, y: ty - 76,  size: 7.5, font, color: mCol });
+        wrap(tier.desc, pCW8 - 20, 7.5, font).slice(0, 3).forEach((l, li) =>
+          pg8.drawText(l, { x: tx + 10, y: ty - 92 - li * 11, size: 7.5, font, color: mCol }));
+        pg8.drawRectangle({ x: tx + 10, y: ty - 124, width: pCW8 - 20, height: 0.5, color: bd });
+
+        tier.features.forEach((f, fi) => {
+          const isHeader = fi === 0 && f.endsWith(':');
+          const label = isHeader ? a(f) : '+ ' + a(f);
+          const lCol  = isHeader ? mCol : fCol;
+          wrap(label, pCW8 - 22, 7.5, font).slice(0, 2).forEach((l, li) =>
+            pg8.drawText(l, { x: tx + 10, y: ty - 138 - fi * 24 - li * 11, size: 7.5, font, color: lCol }));
+        });
       });
 
-      // Why section
-      const wY = pTop - pH - 18;
-      p2.drawRectangle({ x: M, y: wY, width: CW, height: 0.5, color: border });
-      p2.drawText('Why UK Organisations Choose TPR Max', { x: M, y: wY - 15, size: 12, font: bold, color: dark });
-      const wCW = (CW - 8) / 2;
-      [
-        ['Cloud-Native & Always On',  'No on-premise servers. 99.9% uptime on modern cloud infrastructure.'],
-        ['GDPR Compliant & Secure',   'End-to-end encryption, role-based access, full tenant data isolation.'],
-        ['No App Download Required',  'Fire Marshals, contractors & visitors use browser links on any device.'],
-        ['UK Regulations Built-In',   'CDM 2015, RAMS, fire safety, GDPR — UK compliance is first-class.'],
-        ['BioStar 2 Integration',     'Native integration with Suprema BioStar 2 — sync from door readers.'],
-        ['True Multi-Tenant',         'Fully isolated data, branding & configuration per client tenant.'],
-      ].forEach(([title, desc], i) => {
-        const wc = i % 2, wr = Math.floor(i / 2);
-        const wx = M + wc * (wCW + 8), wy = wY - 30 - wr * 46;
-        card(p2, wx, wy - 36, wCW, 40, light, border);
-        p2.drawText(title, { x: wx + 8, y: wy - 12, size: 8.5, font: bold, color: dark });
-        wrap(desc, wCW - 16, 7.5, font).slice(0, 2).forEach((l, li) =>
-          p2.drawText(l, { x: wx + 8, y: wy - 24 - li * 9, size: 7.5, font, color: muted }));
+      y8 -= pH8 + 24;
+
+      // CTA block
+      fillBox(pg8, M, y8 - 64, CW, 68, light, border);
+      pg8.drawText('FREE FOR 14 DAYS. NO CARD REQUIRED.', {
+        x: M + CW / 2 - bold.widthOfTextAtSize('FREE FOR 14 DAYS. NO CARD REQUIRED.', 13) / 2,
+        y: y8 - 20, size: 13, font: bold, color: dark,
+      });
+      pg8.drawText('tpr-max.com   |   www.acsltd.eu   |   info@acsltd.eu', {
+        x: M + CW / 2 - font.widthOfTextAtSize('tpr-max.com   |   www.acsltd.eu   |   info@acsltd.eu', 9.5) / 2,
+        y: y8 - 38, size: 9.5, font, color: accent,
+      });
+      pg8.drawText('+44 1344 771569   |   ACS Safety & Security Ltd   |   Registered in England & Wales', {
+        x: M + CW / 2 - font.widthOfTextAtSize('+44 1344 771569   |   ACS Safety & Security Ltd   |   Registered in England & Wales', 7.5) / 2,
+        y: y8 - 54, size: 7.5, font, color: muted,
       });
 
-      // CTA
-      const cY = wY - 30 - 3 * 46 - 10;
-      p2.drawRectangle({ x: M, y: cY - 50, width: CW, height: 54, color: light, borderColor: accent, borderWidth: 1 });
-      p2.drawText('Book a Free Demo', { x: M + CW / 2 - 58, y: cY - 16, size: 14, font: bold, color: accent });
-      wrap('Contact us to arrange a personalised walkthrough tailored to your industry and requirements.', CW - 40, 8, font).forEach((l, li) =>
-        p2.drawText(l, { x: M + 20, y: cY - 30 - li * 10, size: 8, font, color: muted }));
-      p2.drawText('info@acsltd.eu  |  +44 1344 771569  |  www.acsltd.eu', { x: M + CW / 2 - 118, y: cY - 42, size: 9, font: bold, color: dark });
-
-      // Page 2 footer
-      p2.drawRectangle({ x: M, y: 26, width: CW, height: 0.5, color: border });
-      p2.drawText('\u00a9 2026 ACS Safety & Security Ltd. Registered in England & Wales. All prices exclude VAT. E&OE.', { x: M, y: 13, size: 7, font, color: lightMuted });
+      rule(pg8, M, 34, CW);
+      pg8.drawText('(c) 2026 ACS Safety & Security Ltd. All prices exclude VAT. E&OE.', { x: M, y: 20, size: 7, font, color: muted });
 
       const pdfBytes = await pdfDoc.save();
       res.setHeader('Content-Type', 'application/pdf');
