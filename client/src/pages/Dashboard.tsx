@@ -172,7 +172,6 @@ export default function Dashboard() {
     featureTimeAttendance?: boolean;
     featureInductionSettings?: boolean;
     featureKiosk?: boolean;
-    featureAiDemo?: boolean;
   }>({
     queryKey: ["/api/settings"],
     enabled: !!currentUser,

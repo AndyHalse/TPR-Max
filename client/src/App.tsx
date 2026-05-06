@@ -18,7 +18,6 @@ import TimeAttendance from "@/pages/TimeAttendance";
 import Visitors from "@/pages/Visitors";
 import Members from "@/pages/Members";
 import Reports from "@/pages/Reports";
-import AIDemo from "@/pages/AIDemo";
 import Contractors from "@/pages/Contractors";
 import ContractorDetails from "@/pages/ContractorDetails";
 import ContractorKiosk from "@/pages/ContractorKiosk";
@@ -380,7 +379,6 @@ function Router() {
             <Route path="/induction-settings" component={InductionSettings} />
             <Route path="/email-outbox" component={EmailOutbox} />
             <Route path="/meeting-rooms" component={MeetingRooms} />
-            <Route path="/ai-demo" component={AIDemo} />
             <Route path="/billing" component={Billing} />
             <Route path="/profile" component={Profile} />
             <Route component={NotFound} />

@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Brain, Building, CalendarPlus, Dock, File, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, Ticket, UserCheck, UserPlus, Video, Wrench } from "lucide-react";
+import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, Ticket, UserCheck, UserPlus, Video, Wrench } from "lucide-react";
 
 export default function SystemSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -1034,23 +1034,6 @@ export default function SystemSettings() {
           checked={currentSettings?.featureEmailOutbox === true}
           onCheckedChange={(checked) => handleInputChange("featureEmailOutbox", checked)}
           data-testid="toggle-email-outbox"
-        />
-      </div>
-      {/* AI Demo */}
-      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-pink-100 rounded-lg">
-            <Brain className="w-5 h-5 text-pink-600" />
-          </div>
-          <div>
-            <h4 className="font-medium text-fixed">AI Demo</h4>
-            <p className="text-xs text-variable">AI-powered features showcase</p>
-          </div>
-        </div>
-        <Switch
-          checked={currentSettings?.featureAiDemo !== false}
-          onCheckedChange={(checked) => handleInputChange("featureAiDemo", checked)}
-          data-testid="toggle-ai-demo"
         />
       </div>
     </div>
