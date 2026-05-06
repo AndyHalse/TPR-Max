@@ -36,6 +36,7 @@ import EmailOutbox from "@/pages/EmailOutbox";
 import MeetingRooms from "@/pages/MeetingRooms";
 import Login from "@/pages/Login";
 import HSDocumentAcceptance from "@/pages/HSDocumentAcceptance";
+import ContractorDocumentUpload from "@/pages/ContractorDocumentUpload";
 import MarketingPage from "@/pages/MarketingPage";
 import AISettings from "@/pages/AISettings";
 import Billing from "@/pages/Billing";
@@ -172,6 +173,12 @@ function Router() {
     return <AcceptInvitation />;
   }
   
+  // Contractor document upload portal - public route with token (no authentication required)
+  if (window.location.pathname.startsWith('/contractor-upload/')) {
+    const token = window.location.pathname.split('/contractor-upload/')[1];
+    if (token) return <ContractorDocumentUpload token={token} />;
+  }
+
   // H&S Document acceptance - public route with token (no authentication required)
   if (window.location.pathname.startsWith('/hs-document/')) {
     const token = window.location.pathname.split('/hs-document/')[1];

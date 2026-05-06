@@ -23,7 +23,8 @@ import {
   Building2, Users, FileText, Shield, AlertTriangle, CheckCircle2, 
   Calendar, MapPin, Phone, Mail, User, Award, Leaf, TrendingUp,
   XCircle, Clock, AlertCircle, CalendarPlus, Lock, CheckSquare,
-  ChevronRight, Upload, Eye, QrCode, Printer, Download, Sparkles, RotateCcw, Trash2
+  ChevronRight, Upload, Eye, QrCode, Printer, Download, Sparkles, RotateCcw, Trash2,
+  Send, Loader2
 } from "lucide-react";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import RAMSManagement from "@/components/RAMSManagement";
@@ -392,6 +393,23 @@ export default function ContractorDetails() {
         variant: "destructive" 
       });
     }
+  });
+
+  // Request Documents via secure email link
+  const requestDocumentsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/contractors/${id}/request-documents`, {});
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Document request sent",
+        description: `A secure upload link has been emailed to the contractor. It expires in 7 days.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to send request", description: error.message, variant: "destructive" });
+    },
   });
 
   // Approve company document mutation
@@ -1344,6 +1362,27 @@ export default function ContractorDetails() {
                     )}
                   </CardContent>
                 </Card>
+
+                {/* Request Documents action */}
+                <div className="flex items-center justify-between gap-3 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl">
+                  <div>
+                    <p className="text-sm font-medium text-blue-900">Request documents by email</p>
+                    <p className="text-xs text-blue-600 mt-0.5">Send the contractor a secure link to upload their compliance documents directly.</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-blue-300 text-blue-700 hover:bg-blue-100 whitespace-nowrap shrink-0 gap-1.5"
+                    onClick={() => requestDocumentsMutation.mutate()}
+                    disabled={requestDocumentsMutation.isPending}
+                  >
+                    {requestDocumentsMutation.isPending ? (
+                      <><Loader2 className="w-3.5 h-3.5 animate-spin" />Sending…</>
+                    ) : (
+                      <><Send className="w-3.5 h-3.5" />Request Documents</>
+                    )}
+                  </Button>
+                </div>
 
                 {filterMissing && (
                   <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg">

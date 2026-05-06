@@ -2602,6 +2602,20 @@ export type InsertWorkerDocumentAcceptance = z.infer<typeof insertWorkerDocument
 export type DocumentAutoFillMapping = typeof documentAutoFillMapping.$inferSelect;
 export type InsertDocumentAutoFillMapping = z.infer<typeof insertDocumentAutoFillMappingSchema>;
 
+// Contractor Document Upload Requests — secure time-limited links for external uploads
+export const contractorDocumentRequests = pgTable("contractor_document_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  customerId: varchar("customer_id").notNull(),
+  companyId: varchar("company_id").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  status: text("status").notNull().default("active"), // active | completed | expired
+  requestedBy: text("requested_by").notNull(), // username of admin who requested
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertContractorDocumentRequestSchema = createInsertSchema(contractorDocumentRequests).omit({ id: true, createdAt: true });
+export type ContractorDocumentRequest = typeof contractorDocumentRequests.$inferSelect;
+
 // SECURITY: Company Settings Types with Sanitization
 // Re-export from isolatedSchema.ts for client access
 export type { CompanySettings, InsertCompanySettings } from "../server/isolatedSchema";

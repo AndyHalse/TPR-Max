@@ -29,6 +29,7 @@ import {
   evacuations,
   evacuationAccountability,
   documentAutoFillMapping,
+  contractorDocumentRequests,
 } from '@shared/schema';
 import { z } from 'zod';
 import { randomUUID, randomBytes } from 'crypto';
@@ -2059,6 +2060,269 @@ export function registerContractorRoutes(app: Express): void {
     } catch (error) {
       logger.error("Error approving company document:", error);
       res.status(500).json({ error: "Failed to approve document" });
+    }
+  });
+
+  // ── Request Documents via secure email link ──────────────────────────────
+  app.post("/api/contractors/:companyId/request-documents", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const [company] = await custDb.select().from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, companyId)).limit(1);
+      if (!company) return res.status(404).json({ error: 'Company not found' });
+
+      const [settings] = await custDb.select({
+        companyName: isolatedSchema.companySettings.companyName,
+        logoUrl: isolatedSchema.companySettings.logoUrl,
+        accentColor: isolatedSchema.companySettings.accentColor,
+        bgColor: isolatedSchema.companySettings.bgColor,
+      }).from(isolatedSchema.companySettings).limit(1);
+
+      const token = randomUUID();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+
+      await db.insert(contractorDocumentRequests).values({
+        token,
+        customerId: context.customerId,
+        companyId,
+        expiresAt,
+        status: 'active',
+        requestedBy: username,
+      });
+
+      const host = req.headers.host || 'app.visigate.pro';
+      const protocol = req.headers['x-forwarded-proto'] || 'https';
+      const uploadLink = `${protocol}://${host}/contractor-upload/${token}`;
+
+      const customerCompanyName = settings?.companyName || 'Your client';
+      const contractorName = `${(company as any).contactFirstName || ''} ${(company as any).contactLastName || ''}`.trim() || 'Sir/Madam';
+      const contractorEmail = (company as any).contactEmail;
+      const contractorCompanyName = (company as any).companyName;
+
+      let logoHtml = '';
+      if (settings?.logoUrl) {
+        const logoSrc = settings.logoUrl.startsWith('/uploads/') ? `/objects${settings.logoUrl}` : settings.logoUrl;
+        logoHtml = `<img src="${protocol}://${host}${logoSrc}" alt="${customerCompanyName}" style="max-height:60px;max-width:200px;display:block;margin-bottom:16px;" />`;
+      }
+
+      const accentColor = settings?.accentColor || '#2460a9';
+
+      const html = `<!DOCTYPE html>
+<html><head><meta charset="UTF-8" /><style>
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f4f7fa;margin:0;padding:0}
+.wrap{max-width:600px;margin:40px auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,.08)}
+.header{background:${accentColor};padding:28px 32px;color:#fff}
+.header h1{margin:0;font-size:20px;font-weight:600}
+.body{padding:32px}
+.body p{color:#374151;line-height:1.6;margin:0 0 16px}
+.btn{display:inline-block;background:${accentColor};color:#fff!important;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:600;font-size:15px;margin:8px 0 24px}
+.docs ul{background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:16px 16px 16px 32px;color:#374151}
+.docs ul li{margin-bottom:6px}
+.footer{border-top:1px solid #e5e7eb;padding:20px 32px;font-size:12px;color:#9ca3af}
+</style></head>
+<body>
+<div class="wrap">
+  <div class="header">
+    ${logoHtml}
+    <h1>Compliance Documents Required</h1>
+  </div>
+  <div class="body">
+    <p>Dear ${contractorName},</p>
+    <p>As part of our contractor onboarding and compliance process, <strong>${customerCompanyName}</strong> requires the following documents to be uploaded for <strong>${contractorCompanyName}</strong>.</p>
+    <p>Please click the secure link below to upload your documents. The link is valid for <strong>7 days</strong>.</p>
+    <a href="${uploadLink}" class="btn">📎 Upload Compliance Documents</a>
+    <div class="docs">
+      <p style="font-weight:600;margin-bottom:8px">Required documents:</p>
+      <ul>
+        <li>Public Liability Insurance (min. £2m)</li>
+        <li>Employers' Liability Insurance (min. £5m)</li>
+        <li>Health &amp; Safety Policy</li>
+        <li>Risk Assessment &amp; Method Statement (RAMS)</li>
+        <li>CIS Registration (if applicable)</li>
+        <li>Modern Slavery Statement (if applicable)</li>
+        <li>Environmental Policy (if applicable)</li>
+        <li>Professional Indemnity Insurance (if applicable)</li>
+      </ul>
+    </div>
+    <p style="margin-top:16px;font-size:13px;color:#6b7280">Each document must be uploaded as a PDF, image, or Word file. Please include the expiry date where applicable. Documents will be reviewed by our team before being marked as compliant.</p>
+    <p style="font-size:13px;color:#6b7280">If the button above doesn't work, copy and paste this link into your browser:<br /><a href="${uploadLink}" style="color:${accentColor};word-break:break-all">${uploadLink}</a></p>
+  </div>
+  <div class="footer">This email was sent by ${customerCompanyName}. If you have any questions, please contact your account manager.</div>
+</div>
+</body></html>`;
+
+      const emailSvc = new EmailService(context.customerId);
+      await emailSvc.sendEmail({
+        to: contractorEmail,
+        subject: `Action Required: Compliance Documents for ${contractorCompanyName} — ${customerCompanyName}`,
+        html,
+        text: `Dear ${contractorName},\n\n${customerCompanyName} requires compliance documents for ${contractorCompanyName}.\n\nPlease upload your documents here (valid for 7 days):\n${uploadLink}\n\nRequired: Public Liability Insurance, Employers' Liability Insurance, H&S Policy, RAMS, CIS Registration, and others as applicable.\n\nDocuments will be reviewed before being marked as compliant.`,
+        companyName: customerCompanyName,
+      });
+
+      res.json({ success: true, uploadLink, expiresAt });
+    } catch (error) {
+      logger.error('Error creating document request:', error);
+      res.status(500).json({ error: 'Failed to send document request' });
+    }
+  });
+
+  // ── Public: get token info for upload portal ─────────────────────────────
+  app.get("/api/doc-request/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const [request] = await db.select().from(contractorDocumentRequests)
+        .where(eq(contractorDocumentRequests.token, token)).limit(1);
+
+      if (!request) return res.status(404).json({ error: 'Invalid or expired link' });
+      if (request.status === 'completed') return res.status(410).json({ error: 'This upload link has already been used. Please contact your client for a new link.' });
+      if (new Date() > new Date(request.expiresAt)) {
+        await db.update(contractorDocumentRequests).set({ status: 'expired' }).where(eq(contractorDocumentRequests.token, token));
+        return res.status(410).json({ error: 'This upload link has expired. Please contact your client for a new link.' });
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(request.customerId);
+      const [company] = await custDb.select().from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, request.companyId)).limit(1);
+      if (!company) return res.status(404).json({ error: 'Company not found' });
+
+      const [settings] = await custDb.select({
+        companyName: isolatedSchema.companySettings.companyName,
+        logoUrl: isolatedSchema.companySettings.logoUrl,
+        accentColor: isolatedSchema.companySettings.accentColor,
+        bgColor: isolatedSchema.companySettings.bgColor,
+      }).from(isolatedSchema.companySettings).limit(1);
+
+      const existingDocs = await custDb.select().from(isolatedSchema.contractorDocuments)
+        .where(and(
+          eq(isolatedSchema.contractorDocuments.companyId, request.companyId),
+          eq(isolatedSchema.contractorDocuments.isActive, true)
+        ));
+
+      res.json({
+        company: { id: (company as any).id, companyName: (company as any).companyName, contactFirstName: (company as any).contactFirstName, contactLastName: (company as any).contactLastName },
+        settings: { companyName: settings?.companyName, logoUrl: settings?.logoUrl, accentColor: settings?.accentColor, bgColor: settings?.bgColor },
+        documents: existingDocs,
+        expiresAt: request.expiresAt,
+        customerId: request.customerId,
+      });
+    } catch (error) {
+      logger.error('Error fetching doc request:', error);
+      res.status(500).json({ error: 'Failed to load upload portal' });
+    }
+  });
+
+  // ── Public: get signed upload URL for upload portal ──────────────────────
+  app.get("/api/doc-request/:token/upload-url", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const [request] = await db.select().from(contractorDocumentRequests)
+        .where(eq(contractorDocumentRequests.token, token)).limit(1);
+      if (!request || request.status !== 'active' || new Date() > new Date(request.expiresAt)) {
+        return res.status(403).json({ error: 'Invalid or expired link' });
+      }
+      const objectStorageService = new ObjectStorageService();
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+      res.json({ uploadURL });
+    } catch (error) {
+      logger.error('Error getting upload URL for doc request:', error);
+      res.status(500).json({ error: 'Failed to get upload URL' });
+    }
+  });
+
+  // ── Public: submit an uploaded document via token ────────────────────────
+  app.post("/api/doc-request/:token/upload", async (req, res) => {
+    try {
+      const { token } = req.params;
+      const { documentName, documentType, documentUrl, expiryDate, issuedBy, policyNumber } = req.body;
+
+      const [request] = await db.select().from(contractorDocumentRequests)
+        .where(eq(contractorDocumentRequests.token, token)).limit(1);
+      if (!request || request.status !== 'active' || new Date() > new Date(request.expiresAt)) {
+        return res.status(403).json({ error: 'Invalid or expired link' });
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(request.customerId);
+
+      // Find the requesting admin user to satisfy the uploadedBy FK
+      const [adminUser] = await custDb.select({ id: isolatedSchema.users.id })
+        .from(isolatedSchema.users)
+        .where(eq(isolatedSchema.users.username, request.requestedBy))
+        .limit(1);
+      const fallbackUser = adminUser || (await custDb.select({ id: isolatedSchema.users.id }).from(isolatedSchema.users).limit(1))[0];
+      if (!fallbackUser) return res.status(500).json({ error: 'No admin user found in tenant' });
+
+      const objectStorageService = new ObjectStorageService();
+      const normalizedUrl = documentUrl ? objectStorageService.normalizeObjectEntityPath(documentUrl) : documentUrl;
+
+      // Check if a document of this type already exists — update it if so
+      const [existing] = await custDb.select().from(isolatedSchema.contractorDocuments)
+        .where(and(
+          eq(isolatedSchema.contractorDocuments.companyId, request.companyId),
+          eq(isolatedSchema.contractorDocuments.documentType, documentType),
+          eq(isolatedSchema.contractorDocuments.isActive, true)
+        )).limit(1);
+
+      let savedDoc;
+      if (existing) {
+        [savedDoc] = await custDb.update(isolatedSchema.contractorDocuments)
+          .set({ documentUrl: normalizedUrl, expiryDate: expiryDate ? new Date(expiryDate) : null, issuedBy: issuedBy || null, policyNumber: policyNumber || null, status: 'pending', updatedAt: new Date(), expiryAlertedAt: null })
+          .where(eq(isolatedSchema.contractorDocuments.id, existing.id))
+          .returning();
+      } else {
+        [savedDoc] = await custDb.insert(isolatedSchema.contractorDocuments).values({
+          companyId: request.companyId,
+          documentName: documentName || documentType,
+          documentType,
+          documentUrl: normalizedUrl,
+          expiryDate: expiryDate ? new Date(expiryDate) : null,
+          uploadedBy: fallbackUser.id,
+          issuedBy: issuedBy || null,
+          policyNumber: policyNumber || null,
+          status: 'pending',
+          isActive: true,
+        }).returning();
+      }
+
+      // Audit trail
+      try {
+        await custDb.insert(isolatedSchema.companyNotes).values({
+          companyId: request.companyId,
+          changeType: 'document_uploaded',
+          notes: `Document "${documentName || documentType}" uploaded externally by contractor via secure link. Awaiting admin approval.`,
+          changedBy: 'external-contractor',
+        });
+      } catch { /* non-fatal */ }
+
+      // Notify the requesting admin by email
+      try {
+        const [company] = await custDb.select().from(isolatedSchema.contractorCompanies)
+          .where(eq(isolatedSchema.contractorCompanies.id, request.companyId)).limit(1);
+        const [settings] = await custDb.select({ companyName: isolatedSchema.companySettings.companyName })
+          .from(isolatedSchema.companySettings).limit(1);
+        const [adminFullUser] = await custDb.select({ email: isolatedSchema.users.email, firstName: isolatedSchema.users.firstName })
+          .from(isolatedSchema.users).where(eq(isolatedSchema.users.username, request.requestedBy)).limit(1);
+        if (adminFullUser?.email) {
+          const emailSvc = new EmailService(request.customerId);
+          const docLabel = (documentName || documentType || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase());
+          await emailSvc.sendEmail({
+            to: adminFullUser.email,
+            subject: `Document Ready for Review: ${docLabel} — ${(company as any)?.companyName || 'Contractor'}`,
+            html: `<p>Hi ${adminFullUser.firstName || 'there'},</p><p><strong>${(company as any)?.companyName || 'A contractor'}</strong> has uploaded <strong>${docLabel}</strong> via the secure document request link.</p><p>Please log in to TPR Max to review and approve the document.</p><p style="color:#6b7280;font-size:13px">The document is currently marked as <em>Pending Review</em> and will not count as compliant until approved.</p>`,
+            text: `${(company as any)?.companyName || 'A contractor'} has uploaded ${docLabel}. Please log in to TPR Max to review and approve.`,
+            companyName: settings?.companyName,
+          });
+        }
+      } catch { /* non-fatal */ }
+
+      res.json({ success: true, document: savedDoc });
+    } catch (error) {
+      logger.error('Error saving uploaded document via token:', error);
+      res.status(500).json({ error: 'Failed to save document' });
     }
   });
 
