@@ -135,16 +135,6 @@ export default function InductionSettings() {
 </TooltipProvider>
 
 
-      {/* H&S Documents */}
-      <div className="space-y-6">
-<ContractorsHSManagement />
-
-{/* Default UK H&S Document Templates Section */}
-<div className="mt-8">
-  <DefaultTemplateManager className="w-full" />
-</div>
-
-      </div>
     </div>
   );
 }
