@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Bot, Building2, Palette, Users, Building, Globe, Mail, Phone, FileText, Printer, HardHat, AlertTriangle, Brain, Server, Wrench, Settings2, Bell, ScrollText, MapPin } from "lucide-react";
+import { Bot, Building2, Palette, Users, Building, Globe, Mail, Phone, FileText, Printer, HardHat, AlertTriangle, Brain, Wrench, Settings2, Bell, ScrollText, MapPin } from "lucide-react";
 
 import GeneralSettings from "./settings/GeneralSettings";
 import BrandingSettings from "./settings/BrandingSettings";
@@ -19,7 +19,6 @@ import ContractorSettings from "./settings/ContractorSettings";
 import AiSettings from "./settings/AiSettings";
 import IntegrationSettings from "./settings/IntegrationSettings";
 import PhoneSystemsSettings from "./settings/PhoneSystemsSettings";
-import BiostarSettings from "./settings/BiostarSettings";
 import LoneWorkerSettings from "./settings/LoneWorkerSettings";
 import SystemSettings from "./settings/SystemSettings";
 
@@ -74,7 +73,6 @@ export default function Settings() {
               <SelectItem value="hsrules">H&amp;S Rules</SelectItem>
               <SelectItem value="contractors">Card Offences</SelectItem>
               <SelectItem value="ai">AI Settings</SelectItem>
-              <SelectItem value="biostar">BioStar</SelectItem>
               <SelectItem value="integrations">Integrations</SelectItem>
               <SelectItem value="lone-worker">Lone Worker</SelectItem>
               <SelectItem value="system">System</SelectItem>
@@ -123,9 +121,6 @@ export default function Settings() {
           <TabsTrigger value="ai" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
             <Brain size={14} />AI Settings
           </TabsTrigger>
-          <TabsTrigger value="biostar" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
-            <Server size={14} />BioStar
-          </TabsTrigger>
           <TabsTrigger value="integrations" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
             <Settings2 size={14} />Integrations
           </TabsTrigger>
@@ -150,7 +145,6 @@ export default function Settings() {
         <TabsContent value="hsrules" className="space-y-6 mt-6"><InductionSettings /></TabsContent>
         <TabsContent value="contractors" className="space-y-6 mt-6"><ContractorSettings /></TabsContent>
         <TabsContent value="ai" className="space-y-6 mt-6"><AiSettings /></TabsContent>
-        <TabsContent value="biostar" className="space-y-6 mt-6"><BiostarSettings /></TabsContent>
         <TabsContent value="integrations" className="space-y-6 mt-6"><IntegrationSettings /></TabsContent>
         <TabsContent value="lone-worker" className="space-y-6 mt-6"><LoneWorkerSettings /></TabsContent>
         <TabsContent value="system" className="space-y-6 mt-6"><SystemSettings /></TabsContent>
