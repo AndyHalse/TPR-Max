@@ -2079,7 +2079,7 @@ export function registerContractorRoutes(app: Express): void {
         companyName: isolatedSchema.companySettings.companyName,
         logoUrl: isolatedSchema.companySettings.logoUrl,
         accentColor: isolatedSchema.companySettings.accentColor,
-        bgColor: isolatedSchema.companySettings.bgColor,
+        backgroundColor: isolatedSchema.companySettings.backgroundColor,
       }).from(isolatedSchema.companySettings).limit(1);
 
       const token = randomUUID();
@@ -2194,7 +2194,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         companyName: isolatedSchema.companySettings.companyName,
         logoUrl: isolatedSchema.companySettings.logoUrl,
         accentColor: isolatedSchema.companySettings.accentColor,
-        bgColor: isolatedSchema.companySettings.bgColor,
+        backgroundColor: isolatedSchema.companySettings.backgroundColor,
       }).from(isolatedSchema.companySettings).limit(1);
 
       const existingDocs = await custDb.select().from(isolatedSchema.contractorDocuments)
@@ -2205,7 +2205,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       res.json({
         company: { id: (company as any).id, companyName: (company as any).companyName, contactFirstName: (company as any).contactFirstName, contactLastName: (company as any).contactLastName },
-        settings: { companyName: settings?.companyName, logoUrl: settings?.logoUrl, accentColor: settings?.accentColor, bgColor: settings?.bgColor },
+        settings: { companyName: settings?.companyName, logoUrl: settings?.logoUrl, accentColor: settings?.accentColor, backgroundColor: settings?.backgroundColor },
         documents: existingDocs,
         expiresAt: request.expiresAt,
         customerId: request.customerId,
