@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Camera, Mail, Phone, History, Clock, Edit, QrCode, CalendarPlus, LogIn, LogOut } from "lucide-react";
+import { Camera, Mail, Phone, History, Clock, Edit, QrCode, CalendarPlus, LogIn, LogOut, Send, Loader2 } from "lucide-react";
 import { getSafetyRatingColor } from "./types";
 
 const PHOTO_INPUT_ID = "worker-photo-upload-input";
@@ -38,6 +38,21 @@ export default function ContractorWorkerProfileDialog({ worker, onClose, checkIn
     },
     onError: () => toast({ title: "Error", description: "Failed to save worker photo.", variant: "destructive" }),
     onSettled: () => setIsUploadingPhoto(false),
+  });
+
+  const requestDocumentsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', `/api/contractors/workers/${worker!.id}/request-documents`, {});
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || 'Failed to send request');
+      return body;
+    },
+    onSuccess: () => {
+      toast({ title: 'Request sent', description: `A secure document upload link has been emailed to ${worker?.email}.` });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Failed to send request', description: err.message || 'Could not send document request email.', variant: 'destructive' });
+    },
   });
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,6 +163,21 @@ export default function ContractorWorkerProfileDialog({ worker, onClose, checkIn
               <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={() => { handleClose(); onEditWorker(worker); }}>
                 <Edit size={13} className="mr-1" /> Edit Profile
               </Button>
+              {worker.email && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-xs text-blue-700 border-blue-300 hover:bg-blue-50"
+                  onClick={() => requestDocumentsMutation.mutate()}
+                  disabled={requestDocumentsMutation.isPending}
+                  title={`Send a secure document upload link to ${worker.email}`}
+                >
+                  {requestDocumentsMutation.isPending
+                    ? <><Loader2 size={13} className="mr-1 animate-spin" />Sending…</>
+                    : <><Send size={13} className="mr-1" />Request Docs</>
+                  }
+                </Button>
+              )}
               {isClear && (
                 <Button variant="outline" size="sm" className="flex-1 text-xs text-indigo-600 border-indigo-300 hover:bg-indigo-50" onClick={() => { handleClose(); onQrPass(worker); }}>
                   <QrCode size={13} className="mr-1" /> QR Pass

@@ -252,6 +252,28 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     },
   });
 
+  // Request documents from worker mutation
+  const requestDocumentsMutation = useMutation({
+    mutationFn: async () => {
+      if (!worker) throw new Error('No worker selected');
+      const response = await apiRequest('POST', `/api/contractors/workers/${worker.id}/request-documents`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: 'Request sent',
+        description: `A secure document upload link has been emailed to ${activeWorker?.email || 'the worker'}.`,
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Failed to send request',
+        description: error.message || 'Could not send document request email.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   // Resend H&S document mutation
   const resendDocumentMutation = useMutation({
     mutationFn: async (assignmentId: string) => {
@@ -1035,9 +1057,26 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                     <Upload className="h-5 w-5" />
                     Worker Documents
                   </h3>
-                  <Badge variant="secondary" className="ml-1">
-                    {workerDocuments.length}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="ml-1">
+                      {workerDocuments.length}
+                    </Badge>
+                    {activeWorker?.email && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="text-xs h-7 border-blue-300 text-blue-700 hover:bg-blue-50"
+                        onClick={() => requestDocumentsMutation.mutate()}
+                        disabled={requestDocumentsMutation.isPending}
+                        title={`Send a secure upload link to ${activeWorker.email}`}
+                      >
+                        {requestDocumentsMutation.isPending
+                          ? <><span className="animate-spin mr-1">⏳</span>Sending…</>
+                          : <><Send className="h-3 w-3 mr-1" />Request Documents</>
+                        }
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Document Upload Form */}

@@ -37,6 +37,7 @@ import MeetingRooms from "@/pages/MeetingRooms";
 import Login from "@/pages/Login";
 import HSDocumentAcceptance from "@/pages/HSDocumentAcceptance";
 import ContractorDocumentUpload from "@/pages/ContractorDocumentUpload";
+import WorkerDocumentUpload from "@/pages/WorkerDocumentUpload";
 import MarketingPage from "@/pages/MarketingPage";
 import AISettings from "@/pages/AISettings";
 import Billing from "@/pages/Billing";
@@ -177,6 +178,12 @@ function Router() {
   if (window.location.pathname.startsWith('/contractor-upload/')) {
     const token = window.location.pathname.split('/contractor-upload/')[1];
     if (token) return <ContractorDocumentUpload token={token} />;
+  }
+
+  // Worker document upload portal - public route with token (no authentication required)
+  if (window.location.pathname.startsWith('/worker-upload/')) {
+    const token = window.location.pathname.split('/worker-upload/')[1];
+    if (token) return <WorkerDocumentUpload token={token} />;
   }
 
   // H&S Document acceptance - public route with token (no authentication required)

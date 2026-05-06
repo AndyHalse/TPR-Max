@@ -282,7 +282,8 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/induction/kiosk') ||
         req.originalUrl.startsWith('/api/muster/safe') ||
         req.originalUrl.startsWith('/api/ppm/work-order/public') ||
-        req.originalUrl.startsWith('/api/doc-request/')) {
+        req.originalUrl.startsWith('/api/doc-request/') ||
+        req.originalUrl.startsWith('/api/worker-doc-request/')) {
       return next();
     }
 

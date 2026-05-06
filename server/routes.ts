@@ -65,6 +65,23 @@ export async function registerRoutes(app: Express, existingServer?: Server): Pro
   } catch (e: any) {
     logger.info(`⚠️ [shared-migration] contractor_document_requests: ${String(e?.message || e).substring(0, 120)}`);
   }
+  try {
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS contractor_worker_document_requests (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        token VARCHAR(64) NOT NULL UNIQUE,
+        customer_id VARCHAR NOT NULL,
+        worker_id VARCHAR NOT NULL,
+        expires_at TIMESTAMP NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        requested_by TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      )
+    `);
+    logger.info(`✅ [shared-migration] contractor_worker_document_requests table ensured`);
+  } catch (e: any) {
+    logger.info(`⚠️ [shared-migration] contractor_worker_document_requests: ${String(e?.message || e).substring(0, 120)}`);
+  }
 
   app.use('/api', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');

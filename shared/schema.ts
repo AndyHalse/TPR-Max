@@ -2602,6 +2602,20 @@ export type InsertWorkerDocumentAcceptance = z.infer<typeof insertWorkerDocument
 export type DocumentAutoFillMapping = typeof documentAutoFillMapping.$inferSelect;
 export type InsertDocumentAutoFillMapping = z.infer<typeof insertDocumentAutoFillMappingSchema>;
 
+// Contractor Worker Document Upload Requests — secure time-limited links for individual workers
+export const contractorWorkerDocumentRequests = pgTable("contractor_worker_document_requests", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  customerId: varchar("customer_id").notNull(),
+  workerId: varchar("worker_id").notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  status: text("status").notNull().default("active"),
+  requestedBy: text("requested_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertContractorWorkerDocumentRequestSchema = createInsertSchema(contractorWorkerDocumentRequests).omit({ id: true, createdAt: true });
+export type ContractorWorkerDocumentRequest = typeof contractorWorkerDocumentRequests.$inferSelect;
+
 // Contractor Document Upload Requests — secure time-limited links for external uploads
 export const contractorDocumentRequests = pgTable("contractor_document_requests", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
