@@ -407,6 +407,210 @@ export function registerOnboardingRoutes(app: Express): void {
     }
   });
 
+  // Marketing brochure PDF — generated via Puppeteer from a self-contained HTML template
+  app.get('/api/marketing/brochure-pdf', async (req, res) => {
+    try {
+      const puppeteer = await import('puppeteer');
+      const browser = await (puppeteer.default || puppeteer).launch({
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/home/runner/.cache/puppeteer/chrome/linux-141.0.7390.76/chrome-linux64/chrome',
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+        headless: true,
+      });
+      const page = await browser.newPage();
+      const accent = '#2460a9';
+      const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>TPR Max — Product Brochure</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#0f172a;background:#fff;font-size:10pt;line-height:1.5}
+  @page{size:A4;margin:0}
+  .page{width:210mm;min-height:297mm;padding:12mm 14mm;page-break-after:always}
+  h1{font-size:28pt;font-weight:800;line-height:1.1}
+  h2{font-size:16pt;font-weight:700;margin-bottom:8pt}
+  h3{font-size:12pt;font-weight:700;margin-bottom:4pt}
+  h4{font-size:10pt;font-weight:600;margin-bottom:3pt}
+  .accent{color:${accent}}
+  .header{background:${accent};color:#fff;padding:20pt 14mm;margin:-12mm -14mm 16pt;display:flex;align-items:center;gap:16pt}
+  .header-text h1{color:#fff;font-size:22pt}
+  .header-text p{color:rgba(255,255,255,.8);font-size:10pt;margin-top:2pt}
+  .tag{display:inline-block;background:${accent}20;color:${accent};font-size:8pt;font-weight:600;padding:2pt 7pt;border-radius:99pt;margin-right:4pt;margin-bottom:3pt}
+  .tag.dark{background:${accent};color:#fff}
+  .tag.red{background:#fef2f2;color:#dc2626}
+  .section{margin-bottom:14pt}
+  .grid-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8pt}
+  .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:8pt}
+  .card{background:#f8fafc;border:1pt solid #e2e8f0;border-radius:6pt;padding:8pt 10pt}
+  .card.dark{background:#0f172a;border-color:#1e293b;color:#fff}
+  .card.dark p,.card.dark li{color:#94a3b8}
+  .card.dark h3{color:#fff}
+  .card.accent{border-color:${accent};background:${accent}08}
+  .price{font-size:26pt;font-weight:800}
+  .price-sub{font-size:8pt;color:#64748b;margin-bottom:4pt}
+  .feature-row{display:flex;align-items:flex-start;gap:5pt;margin-bottom:3pt}
+  .check{color:#16a34a;font-size:11pt;flex-shrink:0;line-height:1.3}
+  .feat-text{font-size:8.5pt;line-height:1.4}
+  .divider{height:1pt;background:#e2e8f0;margin:10pt 0}
+  .footer{text-align:center;font-size:7pt;color:#94a3b8;margin-top:auto;padding-top:12pt;border-top:1pt solid #e2e8f0}
+  .badge{display:inline-block;background:${accent};color:#fff;font-size:7.5pt;font-weight:700;padding:2pt 8pt;border-radius:3pt;margin-bottom:6pt}
+  .stat-row{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8pt;margin:10pt 0}
+  .stat{text-align:center;padding:6pt;background:#f1f5f9;border-radius:6pt}
+  .stat-val{font-size:18pt;font-weight:800;color:${accent}}
+  .stat-label{font-size:7pt;color:#475569;margin-top:1pt}
+  ul{list-style:none}
+  .pop-label{text-align:center;background:${accent};color:#fff;font-size:7pt;font-weight:700;padding:3pt;border-radius:3pt 3pt 0 0;margin:-8pt -10pt 6pt}
+</style>
+</head>
+<body>
+
+<!-- PAGE 1: Cover + Intro -->
+<div class="page">
+  <div class="header">
+    <div class="header-text">
+      <h1>TPR Max</h1>
+      <p>Total Personnel Register — Cloud-Native UK Site Management Platform</p>
+      <p style="margin-top:6pt;font-size:8pt;opacity:.75">ACS Safety &amp; Security Ltd · info@acsltd.eu · +44 1344 771569</p>
+    </div>
+  </div>
+
+  <div class="badge">Complete Platform Overview</div>
+  <h2>Know exactly who's on your site — before, during, and after every emergency.</h2>
+  <p style="color:#475569;font-size:9.5pt;margin-bottom:10pt">
+    TPR Max is a cloud-based personnel management system built specifically for UK organisations. From visitor sign-in to CDM 2015 construction compliance, emergency mustering to PPM — every tool you need is included in one platform, accessible from any device, with no app download required.
+  </p>
+
+  <div class="stat-row">
+    <div class="stat"><div class="stat-val">17</div><div class="stat-label">Platform Modules</div></div>
+    <div class="stat"><div class="stat-val">99.9%</div><div class="stat-label">Uptime SLA</div></div>
+    <div class="stat"><div class="stat-val">UK</div><div class="stat-label">Built &amp; Supported</div></div>
+    <div class="stat"><div class="stat-val">GDPR</div><div class="stat-label">Fully Compliant</div></div>
+  </div>
+
+  <div class="divider"></div>
+  <h3 class="accent" style="margin-bottom:6pt">17 Modules — All Included</h3>
+  <div class="grid-3" style="gap:5pt">
+    ${[
+      ['Dashboard','Real-time site occupancy, KPIs & security alerts'],
+      ['Reception','Visitor pre-booking, QR check-in, host notifications'],
+      ['Meeting Rooms','Room booking with conflict detection & analytics'],
+      ['People','Staff management, departments, Fire Marshal roles'],
+      ['ID Cards','Thermal pass printing — TEC, Toshiba, Zebra'],
+      ['Contractors','Worker & company compliance, red/yellow cards'],
+      ['Compliance','AI-generated safety inductions with voice & video'],
+      ['Emergency','Zone-based mustering, Fire Marshal static URLs'],
+      ['Time Track','Automated T&A, payroll-ready exports'],
+      ['CO2','Carbon footprint analysis & ESG sustainability reports'],
+      ['Reports','Analytics, compliance dashboards & audit trails'],
+      ['RAMS','Risk Assessment & Method Statement management'],
+      ['PPM','12-month maintenance planner, statutory compliance'],
+      ['CDM 2015','F10 notifications, duty-holder roles, project scoring'],
+      ['Lone Worker','Welfare checks, escalation & real-time monitoring'],
+      ["Martyn's Law",'Protect Duty compliance — threat assessments, drills'],
+      ['Help Desk','Reactive maintenance ticketing & fault resolution'],
+    ].map(([name, desc]) => `
+      <div class="card" style="padding:5pt 8pt">
+        <h4 class="accent" style="font-size:8.5pt">${name}</h4>
+        <p style="font-size:7.5pt;color:#475569">${desc}</p>
+      </div>
+    `).join('')}
+  </div>
+
+  <div class="footer">
+    TPR Max by ACS Safety &amp; Security Ltd — Registered in England &amp; Wales — www.acsltd.eu
+  </div>
+</div>
+
+<!-- PAGE 2: Pricing -->
+<div class="page">
+  <div class="badge">Transparent Pricing</div>
+  <h2>Simple Per-Site Monthly Pricing</h2>
+  <p style="color:#475569;font-size:9pt;margin-bottom:12pt">All prices exclude VAT. No setup fees, no long-term contracts. Multi-site discounts available.</p>
+
+  <div class="grid-3">
+
+    <div class="card">
+      <h3>TPR Basic</h3>
+      <div class="price">£49</div>
+      <div class="price-sub">/site/month</div>
+      <p style="font-size:8pt;color:#475569;margin-bottom:8pt">For offices and smaller sites needing visitor management and fire evacuation.</p>
+      <ul>
+        ${['Visitor sign-in, passes & pre-booking','Staff directory & check-in','Emergency evacuation & muster roll-call','Kiosk Mode (self-service check-in)','Email Outbox — all system emails','Basic reporting'].map(f => `
+        <li class="feature-row"><span class="check">✓</span><span class="feat-text">${f}</span></li>`).join('')}
+      </ul>
+    </div>
+
+    <div class="card accent" style="position:relative">
+      <div class="pop-label">MOST POPULAR</div>
+      <h3 class="accent">TPR Pro</h3>
+      <div class="price accent">£89</div>
+      <div class="price-sub">/site/month</div>
+      <p style="font-size:8pt;color:#475569;margin-bottom:5pt">For organisations managing contractors, inductions, and compliance reporting.</p>
+      <p style="font-size:7pt;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5pt;margin-bottom:4pt">All Basic, plus:</p>
+      <ul>
+        ${['Contractor sign-in, passes & compliance','RAMS management','AI Safety inductions','Incident Reports & PDF export','Time & Attendance tracking','Members module','Full analytics & audit logs'].map(f => `
+        <li class="feature-row"><span class="check">✓</span><span class="feat-text">${f}</span></li>`).join('')}
+      </ul>
+    </div>
+
+    <div class="card dark">
+      <h3>TPR Max</h3>
+      <div class="price" style="color:#fff">£195</div>
+      <div class="price-sub" style="color:#94a3b8">/site/month</div>
+      <p style="font-size:8pt;margin-bottom:5pt">Enterprise platform for complex sites requiring CDM, PPM, Martyn's Law & multi-site.</p>
+      <p style="font-size:7pt;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5pt;margin-bottom:4pt">All Pro, plus:</p>
+      <ul>
+        ${['PPM Annual Planner & asset registry',"Martyn's Law / Protect Duty module",'CDM 2015 project management','Help Desk & reactive maintenance','Suprema/BioStar 2 hardware integration','Lone Worker Protection system','Portfolio dashboard (multi-site)'].map(f => `
+        <li class="feature-row"><span class="check" style="color:#4ade80">✓</span><span class="feat-text">${f}</span></li>`).join('')}
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="divider"></div>
+  <h3 style="margin-bottom:8pt">Why UK Organisations Choose TPR Max</h3>
+  <div class="grid-2">
+    ${[
+      ['Cloud-Native & Always On','Hosted on modern cloud infrastructure with 99.9% uptime. No on-premise servers, no maintenance.'],
+      ['GDPR Compliant & Secure','End-to-end encryption, role-based access control, and full tenant data isolation.'],
+      ['No App Download Required','Fire Marshals, contractors, and visitors operate through browser-based links on any device.'],
+      ['BioStar 2 Integration','Native integration with Suprema BioStar 2 — sync personnel data and automate check-in from door readers.'],
+      ['True Multi-Tenant Architecture','Each tenant has fully isolated data, branding, and configuration — managed from one console.'],
+      ['UK Regulations Built-In','CDM 2015, RAMS, fire safety, GDPR — UK-specific compliance is a first-class feature, not an afterthought.'],
+    ].map(([t, d]) => `<div class="card"><h4>${t}</h4><p style="font-size:8pt;color:#475569">${d}</p></div>`).join('')}
+  </div>
+
+  <div class="divider"></div>
+  <div style="text-align:center;padding:8pt;background:#f0f7ff;border-radius:6pt;border:1pt solid ${accent}30">
+    <h3 class="accent" style="margin-bottom:4pt">Book a Free Demo</h3>
+    <p style="font-size:9pt;color:#475569">Contact us to arrange a personalised walkthrough tailored to your industry and requirements.</p>
+    <p style="font-size:9pt;font-weight:700;margin-top:4pt">info@acsltd.eu &nbsp;·&nbsp; +44 1344 771569 &nbsp;·&nbsp; www.acsltd.eu</p>
+  </div>
+
+  <div class="footer">
+    © 2026 ACS Safety &amp; Security Ltd. Registered in England &amp; Wales. All prices exclude VAT. E&amp;OE.
+  </div>
+</div>
+
+</body>
+</html>`;
+
+      await page.setContent(html, { waitUntil: 'networkidle0' });
+      const pdf = await page.pdf({ format: 'A4', printBackground: true, margin: { top: 0, bottom: 0, left: 0, right: 0 } });
+      await browser.close();
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="TPR-Max-Brochure.pdf"');
+      res.setHeader('Content-Length', pdf.length);
+      res.send(Buffer.from(pdf));
+    } catch (error) {
+      logger.error('Error generating marketing brochure PDF:', error);
+      res.status(500).json({ error: 'PDF generation failed' });
+    }
+  });
+
   // ============================================
   // CUSTOMER ONBOARDING API ENDPOINTS
   // ============================================

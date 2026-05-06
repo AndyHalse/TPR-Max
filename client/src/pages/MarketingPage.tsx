@@ -78,8 +78,9 @@ import {
   CalendarCheck,
 } from "lucide-react";
 
-// Import ACS logo and screenshots
+// Import ACS logo, screenshots and pricing image
 import acsLogo from "@assets/acs-logo-2460A9-200px.jpg";
+import pricingImg from "@assets/image_1778089942066.png";
 import dashboardImg from "@assets/Dashboard_1760457443176.png";
 import emergencyMusterImg from "@assets/Emergency Muster_1760457443172.png";
 import visitorManagementImg from "@assets/Visitor Management_1760457443176.png";
@@ -183,13 +184,22 @@ export default function MarketingPage() {
     }
   };
 
-  const handleDownloadPdf = () => {
-    const link = document.createElement("a");
-    link.href = "/tpr-max-brochure.pdf";
-    link.download = "TPR-Max-Brochure.pdf";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleDownloadPdf = async () => {
+    try {
+      const response = await fetch("/api/marketing/brochure-pdf");
+      if (!response.ok) throw new Error("PDF generation failed");
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "TPR-Max-Brochure.pdf";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch {
+      toast({ title: "Download unavailable", description: "Please contact us at info@acsltd.eu for the brochure.", variant: "destructive" });
+    }
   };
 
   return (
@@ -231,6 +241,13 @@ export default function MarketingPage() {
                 data-testid="link-industries"
               >
                 Industries
+              </button>
+              <button
+                onClick={() => scrollToSection("pricing")}
+                className="text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9]"
+                data-testid="link-pricing"
+              >
+                Pricing
               </button>
               <button
                 onClick={() => scrollToSection("contact")}
@@ -306,6 +323,12 @@ export default function MarketingPage() {
                 Industries
               </button>
               <button
+                onClick={() => { scrollToSection("pricing"); setMobileMenuOpen(false); }}
+                className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
+              >
+                Pricing
+              </button>
+              <button
                 onClick={() => { scrollToSection("contact"); setMobileMenuOpen(false); }}
                 className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
               >
@@ -375,8 +398,12 @@ export default function MarketingPage() {
                   "RAMS Document Management",
                   "Planned Preventative Maintenance",
                   "Visitor & Reception Management",
+                  "Lone Worker Protection",
+                  "Martyn's Law Compliance",
                   "ID Card & Pass Printing",
                   "CO2 Sustainability Reporting",
+                  "Help Desk & Reactive Maintenance",
+                  "Worker Document Requests",
                 ].map((f) => (
                   <div key={f} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -539,6 +566,26 @@ export default function MarketingPage() {
         </div>
       </section>
 
+      {/* Stats Strip */}
+      <section className="py-12 bg-white dark:bg-slate-900 border-y border-slate-100 dark:border-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            {[
+              { value: "17", label: "Platform Modules", sub: "All included, no hidden extras" },
+              { value: "99.9%", label: "Platform Uptime", sub: "Cloud-native reliability" },
+              { value: "UK", label: "Built & Supported", sub: "UK regulations first" },
+              { value: "GDPR", label: "Fully Compliant", sub: "Data stays in your tenant" },
+            ].map(({ value, label, sub }) => (
+              <div key={label} className="flex flex-col items-center gap-1">
+                <span className="text-4xl font-extrabold" style={{ color: "#2460A9" }}>{value}</span>
+                <span className="font-semibold text-slate-800 dark:text-white text-sm">{label}</span>
+                <span className="text-xs text-slate-500 dark:text-slate-400">{sub}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* All Modules Overview Section */}
       <section id="modules" className="py-20 bg-white dark:bg-slate-900 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -548,7 +595,7 @@ export default function MarketingPage() {
               Complete Platform
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              14 Powerful Modules.{" "}
+              17 Powerful Modules.{" "}
               <span style={{ color: "#2460A9" }}>One Platform.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
@@ -669,6 +716,30 @@ export default function MarketingPage() {
                 bg: "bg-violet-50 dark:bg-violet-900/20",
                 border: "border-violet-200 dark:border-violet-800",
                 desc: "Full Construction Design & Management compliance — F10 notifications, duty-holder roles, and 5-section project scoring.",
+              },
+              {
+                icon: Shield,
+                name: "Lone Worker",
+                color: "text-rose-600",
+                bg: "bg-rose-50 dark:bg-rose-900/20",
+                border: "border-rose-200 dark:border-rose-800",
+                desc: "Automated welfare check-ins, escalation workflows, and real-time monitoring to protect isolated workers.",
+              },
+              {
+                icon: ShieldCheck,
+                name: "Martyn's Law",
+                color: "text-fuchsia-600",
+                bg: "bg-fuchsia-50 dark:bg-fuchsia-900/20",
+                border: "border-fuchsia-200 dark:border-fuchsia-800",
+                desc: "Protect Duty compliance tools — threat assessments, evacuation procedures, lockdown drills, and audit evidence.",
+              },
+              {
+                icon: HeadphonesIcon,
+                name: "Help Desk",
+                color: "text-cyan-700",
+                bg: "bg-cyan-50 dark:bg-cyan-900/20",
+                border: "border-cyan-200 dark:border-cyan-800",
+                desc: "Reactive maintenance ticketing — log faults, assign contractors, track resolution, and build a maintenance history.",
               },
             ].map(({ icon: Icon, name, color, bg, border, desc }) => (
               <div
@@ -2493,6 +2564,146 @@ export default function MarketingPage() {
         </div>
       </section>
 
+
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 scroll-mt-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <Badge className="mb-4 text-white" style={{ backgroundColor: "#2460A9" }}>
+              <PoundSterling className="h-3 w-3 mr-1" />
+              Simple, Transparent Pricing
+            </Badge>
+            <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-4">
+              Choose the plan that fits your{" "}
+              <span style={{ color: "#2460A9" }}>organisation</span>
+            </h2>
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              All plans are billed per site per month. No setup fees, no long-term contracts, no hidden costs. Scale up as your needs grow.
+            </p>
+          </div>
+
+          {/* Pricing image from attachment */}
+          <div className="mb-12 rounded-2xl overflow-hidden shadow-2xl border border-slate-200 dark:border-slate-700">
+            <img
+              src={pricingImg}
+              alt="TPR Max pricing tiers — TPR Basic £49, TPR Pro £89, TPR Max £195 per site per month"
+              className="w-full object-cover"
+            />
+          </div>
+
+          {/* Detailed pricing cards */}
+          <div className="grid md:grid-cols-3 gap-8 mb-12">
+            {/* TPR Basic */}
+            <div className="rounded-2xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-8 flex flex-col">
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">TPR Basic</h3>
+                <div className="flex items-end gap-1 mb-3">
+                  <span className="text-5xl font-extrabold text-slate-900 dark:text-white">£49</span>
+                  <span className="text-slate-500 dark:text-slate-400 mb-2">/site/mo</span>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Perfect for offices and smaller sites needing visitor management and fire evacuation compliance.</p>
+              </div>
+              <ul className="space-y-3 flex-1 mb-8">
+                {[
+                  "Visitor sign-in, passes & pre-booking",
+                  "Staff directory & check-in",
+                  "Emergency evacuation & muster roll-call",
+                  "Kiosk Mode (self-service check-in)",
+                  "Email Outbox — all system emails",
+                  "Basic reporting",
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-300">
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Button variant="outline" size="lg" className="w-full border-2" style={{ borderColor: "#2460A9", color: "#2460A9" }} onClick={() => scrollToSection("contact")}>
+                Get Started
+              </Button>
+            </div>
+
+            {/* TPR Pro */}
+            <div className="rounded-2xl border-2 bg-white dark:bg-slate-800 p-8 flex flex-col shadow-xl relative" style={{ borderColor: "#2460A9" }}>
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                <span className="text-white text-xs font-bold px-4 py-1.5 rounded-full" style={{ backgroundColor: "#2460A9" }}>MOST POPULAR</span>
+              </div>
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-1">TPR Pro</h3>
+                <div className="flex items-end gap-1 mb-3">
+                  <span className="text-5xl font-extrabold" style={{ color: "#2460A9" }}>£89</span>
+                  <span className="text-slate-500 dark:text-slate-400 mb-2">/site/mo</span>
+                </div>
+                <p className="text-sm text-slate-500 dark:text-slate-400">For organisations managing contractors, safety inductions, and compliance reporting.</p>
+              </div>
+              <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">All Basic features, plus:</div>
+              <ul className="space-y-3 flex-1 mb-8">
+                {[
+                  "Contractor sign-in, passes & compliance",
+                  "RAMS management",
+                  "AI Safety inductions",
+                  "Incident Reports & PDF export",
+                  "Time & Attendance tracking",
+                  "Members module",
+                  "Full analytics & audit logs",
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-300">
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0 mt-0.5" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Button size="lg" className="w-full text-white" style={{ backgroundColor: "#2460A9" }} onClick={() => scrollToSection("contact")}>
+                Get Started
+              </Button>
+            </div>
+
+            {/* TPR Max */}
+            <div className="rounded-2xl border-2 border-slate-800 bg-slate-900 p-8 flex flex-col">
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-white mb-1">TPR Max</h3>
+                <div className="flex items-end gap-1 mb-3">
+                  <span className="text-5xl font-extrabold text-white">£195</span>
+                  <span className="text-slate-400 mb-2">/site/mo</span>
+                </div>
+                <p className="text-sm text-slate-400">The complete enterprise platform for complex sites requiring CDM, PPM, Martyn's Law, and multi-site management.</p>
+              </div>
+              <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">All Pro features, plus:</div>
+              <ul className="space-y-3 flex-1 mb-8">
+                {[
+                  "PPM Annual Planner & asset registry",
+                  "Martyn's Law / Protect Duty module",
+                  "CDM 2015 project management",
+                  "Help Desk & reactive maintenance",
+                  "Suprema/BioStar 2 hardware integration",
+                  "Lone Worker Protection system",
+                  "Portfolio dashboard (multi-site)",
+                ].map(f => (
+                  <li key={f} className="flex items-start gap-3 text-sm text-slate-300">
+                    <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0 mt-0.5" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+              <Button size="lg" className="w-full bg-white text-slate-900 hover:bg-slate-100 font-semibold" onClick={() => scrollToSection("contact")}>
+                Get Started
+              </Button>
+            </div>
+          </div>
+
+          {/* Pricing footer note */}
+          <div className="text-center p-6 rounded-2xl bg-blue-50 dark:bg-slate-800 border border-blue-100 dark:border-slate-700">
+            <p className="text-slate-700 dark:text-slate-300 text-sm">
+              <strong>All prices exclude VAT.</strong> Multi-site discounts available. Custom enterprise pricing for large portfolios.
+              Contact us to discuss your specific requirements — we'll build a package that works for your budget.
+            </p>
+            <Button variant="outline" className="mt-4 border-[#2460A9] text-[#2460A9] hover:bg-[#2460A9] hover:text-white" onClick={() => scrollToSection("contact")}>
+              <Mail className="h-4 w-4 mr-2" />
+              Discuss Custom Pricing
+            </Button>
+          </div>
+        </div>
+      </section>
 
       {/* Mid-page CTA Banner */}
       <section
