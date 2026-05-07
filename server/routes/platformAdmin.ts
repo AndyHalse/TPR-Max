@@ -893,8 +893,8 @@ export function registerPlatformAdminRoutes(app: Express): void {
     publishedAt: z.string().optional().nullable(),
   });
 
-  // GET /platform-admin/blog — list all posts (all statuses)
-  app.get('/platform-admin/blog', requirePlatformAdmin, async (_req, res) => {
+  // GET /api/admin/blog — list all posts (all statuses)
+  app.get('/api/admin/blog', requirePlatformAdmin, async (_req, res) => {
     try {
       const posts = await db
         .select()
@@ -907,8 +907,8 @@ export function registerPlatformAdminRoutes(app: Express): void {
     }
   });
 
-  // POST /platform-admin/blog — create post
-  app.post('/platform-admin/blog', requirePlatformAdmin, async (req, res) => {
+  // POST /api/admin/blog — create post
+  app.post('/api/admin/blog', requirePlatformAdmin, async (req, res) => {
     try {
       const data = blogPostSchema.parse(req.body);
       const now = new Date();
@@ -937,8 +937,8 @@ export function registerPlatformAdminRoutes(app: Express): void {
     }
   });
 
-  // PATCH /platform-admin/blog/:id — update post
-  app.patch('/platform-admin/blog/:id', requirePlatformAdmin, async (req, res) => {
+  // PATCH /api/admin/blog/:id — update post
+  app.patch('/api/admin/blog/:id', requirePlatformAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const data = blogPostSchema.partial().parse(req.body);
@@ -948,9 +948,11 @@ export function registerPlatformAdminRoutes(app: Express): void {
         ? now
         : (data.publishedAt ? new Date(data.publishedAt) : undefined);
 
-      const updatePayload: Record<string, any> = { ...data, updatedAt: now };
-      if (publishedAt !== undefined) updatePayload.publishedAt = publishedAt;
-      if (data.coverImageUrl === null) updatePayload.coverImageUrl = null;
+      const updatePayload: Partial<typeof sharedSchema.blogPosts.$inferInsert> & { updatedAt: Date } = {
+        ...data,
+        updatedAt: now,
+        ...(publishedAt !== undefined ? { publishedAt } : {}),
+      };
 
       const [post] = await db
         .update(sharedSchema.blogPosts)
@@ -971,8 +973,8 @@ export function registerPlatformAdminRoutes(app: Express): void {
     }
   });
 
-  // DELETE /platform-admin/blog/:id — delete post
-  app.delete('/platform-admin/blog/:id', requirePlatformAdmin, async (req, res) => {
+  // DELETE /api/admin/blog/:id — delete post
+  app.delete('/api/admin/blog/:id', requirePlatformAdmin, async (req, res) => {
     try {
       const { id } = req.params;
       const [deleted] = await db

@@ -230,6 +230,13 @@ export default function MarketingPage() {
                 Industries
               </button>
               <button
+                onClick={() => window.location.href = "/blog"}
+                className="text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9]"
+                data-testid="link-blog"
+              >
+                Blog
+              </button>
+              <button
                 onClick={() => scrollToSection("pricing")}
                 className="text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9]"
                 data-testid="link-pricing"
@@ -242,13 +249,6 @@ export default function MarketingPage() {
                 data-testid="link-contact"
               >
                 Contact
-              </button>
-              <button
-                onClick={() => window.location.href = "/blog"}
-                className="text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9]"
-                data-testid="link-blog"
-              >
-                Blog
               </button>
               <Button
                 size="sm"
@@ -307,6 +307,12 @@ export default function MarketingPage() {
                 Industries
               </button>
               <button
+                onClick={() => { window.location.href = "/blog"; }}
+                className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
+              >
+                Blog
+              </button>
+              <button
                 onClick={() => { scrollToSection("pricing"); setMobileMenuOpen(false); }}
                 className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
               >
@@ -317,12 +323,6 @@ export default function MarketingPage() {
                 className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
               >
                 Contact
-              </button>
-              <button
-                onClick={() => { window.location.href = "/blog"; }}
-                className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
-              >
-                Blog
               </button>
               <div className="px-4 flex flex-col gap-2">
                 <Button

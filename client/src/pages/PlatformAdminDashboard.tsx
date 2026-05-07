@@ -37,6 +37,32 @@ interface Customer {
   updatedAt: string;
 }
 
+interface BlogPost {
+  id: string;
+  title: string;
+  slug: string;
+  summary: string;
+  content: string;
+  author: string;
+  status: 'draft' | 'published';
+  coverImageUrl: string | null;
+  tags: string[];
+  publishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface BlogPostForm {
+  title: string;
+  slug: string;
+  summary: string;
+  content: string;
+  author: string;
+  status: 'draft' | 'published';
+  coverImageUrl: string;
+  tags: string;
+}
+
 interface BrandingSettings {
   id: string;
   primaryColor: string;
@@ -61,10 +87,10 @@ export default function PlatformAdminDashboard() {
 
   // Blog state
   const [showBlogForm, setShowBlogForm] = useState(false);
-  const [editingPost, setEditingPost] = useState<any | null>(null);
-  const [deletingPost, setDeletingPost] = useState<any | null>(null);
-  const [blogForm, setBlogForm] = useState({
-    title: '', slug: '', summary: '', content: '', author: '', status: 'draft' as 'draft' | 'published',
+  const [editingPost, setEditingPost] = useState<BlogPost | null>(null);
+  const [deletingPost, setDeletingPost] = useState<BlogPost | null>(null);
+  const [blogForm, setBlogForm] = useState<BlogPostForm>({
+    title: '', slug: '', summary: '', content: '', author: '', status: 'draft',
     coverImageUrl: '', tags: '',
   });
 
@@ -421,10 +447,10 @@ export default function PlatformAdminDashboard() {
   });
 
   // Blog queries and mutations
-  const { data: blogData, isLoading: blogLoading } = useQuery<{ success: boolean; posts: any[] }>({
-    queryKey: ["/platform-admin/blog"],
+  const { data: blogData, isLoading: blogLoading } = useQuery<{ success: boolean; posts: BlogPost[] }>({
+    queryKey: ["/api/admin/blog"],
     queryFn: async () => {
-      const response = await fetch("/platform-admin/blog", { credentials: "include" });
+      const response = await fetch("/api/admin/blog", { credentials: "include" });
       if (!response.ok) throw new Error("Failed to fetch blog posts");
       return response.json();
     },
@@ -439,7 +465,7 @@ export default function PlatformAdminDashboard() {
     setShowBlogForm(true);
   };
 
-  const openEditBlog = (post: any) => {
+  const openEditBlog = (post: BlogPost) => {
     setBlogForm({
       title: post.title,
       slug: post.slug,
@@ -464,11 +490,11 @@ export default function PlatformAdminDashboard() {
         tags: blogForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
         coverImageUrl: blogForm.coverImageUrl || null,
       };
-      const response = await apiRequest("POST", "/platform-admin/blog", payload);
+      const response = await apiRequest("POST", "/api/admin/blog", payload);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/platform-admin/blog"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/blog"] });
       setShowBlogForm(false);
       toast({ title: "Post created", description: "Blog post saved successfully." });
     },
@@ -485,11 +511,11 @@ export default function PlatformAdminDashboard() {
         tags: blogForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
         coverImageUrl: blogForm.coverImageUrl || null,
       };
-      const response = await apiRequest("PATCH", `/platform-admin/blog/${editingPost.id}`, payload);
+      const response = await apiRequest("PATCH", `/api/admin/blog/${editingPost.id}`, payload);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/platform-admin/blog"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/blog"] });
       setShowBlogForm(false);
       setEditingPost(null);
       toast({ title: "Post updated", description: "Blog post updated successfully." });
@@ -501,11 +527,11 @@ export default function PlatformAdminDashboard() {
 
   const deleteBlogMutation = useMutation({
     mutationFn: async (postId: string) => {
-      const response = await apiRequest("DELETE", `/platform-admin/blog/${postId}`);
+      const response = await apiRequest("DELETE", `/api/admin/blog/${postId}`);
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/platform-admin/blog"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/blog"] });
       setDeletingPost(null);
       toast({ title: "Post deleted", description: "Blog post removed." });
     },
@@ -784,7 +810,7 @@ export default function PlatformAdminDashboard() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {blogPosts.map((post: any) => (
+                    {blogPosts.map((post: BlogPost) => (
                       <div key={post.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
