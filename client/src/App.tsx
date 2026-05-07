@@ -39,6 +39,8 @@ import HSDocumentAcceptance from "@/pages/HSDocumentAcceptance";
 import ContractorDocumentUpload from "@/pages/ContractorDocumentUpload";
 import WorkerDocumentUpload from "@/pages/WorkerDocumentUpload";
 import MarketingPage from "@/pages/MarketingPage";
+import BlogListPage from "@/pages/BlogListPage";
+import BlogPostPage from "@/pages/BlogPostPage";
 import AISettings from "@/pages/AISettings";
 import Billing from "@/pages/Billing";
 import Signup from "@/pages/Signup";
@@ -202,6 +204,16 @@ function Router() {
     }
   }
   
+  // Public blog pages - no authentication required
+  if (window.location.pathname === '/blog') {
+    return <BlogListPage />;
+  }
+
+  if (window.location.pathname.startsWith('/blog/')) {
+    const slug = window.location.pathname.replace('/blog/', '');
+    if (slug) return <BlogPostPage slug={slug} />;
+  }
+
   // Public marketing page - no authentication required
   if (window.location.pathname === '/marketing') {
     return <MarketingPage />;

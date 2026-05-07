@@ -878,4 +878,115 @@ export function registerPlatformAdminRoutes(app: Express): void {
       res.status(500).json({ error: 'Failed to delete admin' });
     }
   });
+
+  // ── Blog Post Management (platform admin only) ────────────────────────────
+
+  const blogPostSchema = z.object({
+    title: z.string().min(1, 'Title is required'),
+    slug: z.string().min(1, 'Slug is required').regex(/^[a-z0-9-]+$/, 'Slug must be lowercase letters, numbers and hyphens only'),
+    summary: z.string().min(1, 'Summary is required'),
+    content: z.string().min(1, 'Content is required'),
+    author: z.string().min(1, 'Author is required'),
+    status: z.enum(['draft', 'published']).default('draft'),
+    coverImageUrl: z.string().url().optional().nullable(),
+    tags: z.array(z.string()).default([]),
+    publishedAt: z.string().optional().nullable(),
+  });
+
+  // GET /platform-admin/blog — list all posts (all statuses)
+  app.get('/platform-admin/blog', requirePlatformAdmin, async (_req, res) => {
+    try {
+      const posts = await db
+        .select()
+        .from(sharedSchema.blogPosts)
+        .orderBy(desc(sharedSchema.blogPosts.createdAt));
+      res.json({ success: true, posts });
+    } catch (error) {
+      logger.error('Error fetching blog posts (admin):', error);
+      res.status(500).json({ error: 'Failed to fetch blog posts' });
+    }
+  });
+
+  // POST /platform-admin/blog — create post
+  app.post('/platform-admin/blog', requirePlatformAdmin, async (req, res) => {
+    try {
+      const data = blogPostSchema.parse(req.body);
+      const now = new Date();
+      const publishedAt = data.status === 'published'
+        ? (data.publishedAt ? new Date(data.publishedAt) : now)
+        : (data.publishedAt ? new Date(data.publishedAt) : null);
+
+      const [post] = await db
+        .insert(sharedSchema.blogPosts)
+        .values({
+          ...data,
+          coverImageUrl: data.coverImageUrl ?? null,
+          publishedAt,
+          updatedAt: now,
+        })
+        .returning();
+
+      logger.info(`Blog post created: ${post.slug}`);
+      res.status(201).json({ success: true, post });
+    } catch (error) {
+      logger.error('Error creating blog post:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to create blog post' });
+    }
+  });
+
+  // PATCH /platform-admin/blog/:id — update post
+  app.patch('/platform-admin/blog/:id', requirePlatformAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const data = blogPostSchema.partial().parse(req.body);
+      const now = new Date();
+
+      const publishedAt = data.status === 'published' && !data.publishedAt
+        ? now
+        : (data.publishedAt ? new Date(data.publishedAt) : undefined);
+
+      const updatePayload: Record<string, any> = { ...data, updatedAt: now };
+      if (publishedAt !== undefined) updatePayload.publishedAt = publishedAt;
+      if (data.coverImageUrl === null) updatePayload.coverImageUrl = null;
+
+      const [post] = await db
+        .update(sharedSchema.blogPosts)
+        .set(updatePayload)
+        .where(eq(sharedSchema.blogPosts.id, id))
+        .returning();
+
+      if (!post) return res.status(404).json({ error: 'Post not found' });
+
+      logger.info(`Blog post updated: ${post.slug}`);
+      res.json({ success: true, post });
+    } catch (error) {
+      logger.error('Error updating blog post:', error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Validation failed', details: error.errors });
+      }
+      res.status(500).json({ error: 'Failed to update blog post' });
+    }
+  });
+
+  // DELETE /platform-admin/blog/:id — delete post
+  app.delete('/platform-admin/blog/:id', requirePlatformAdmin, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const [deleted] = await db
+        .delete(sharedSchema.blogPosts)
+        .where(eq(sharedSchema.blogPosts.id, id))
+        .returning({ id: sharedSchema.blogPosts.id, title: sharedSchema.blogPosts.title });
+
+      if (!deleted) return res.status(404).json({ error: 'Post not found' });
+
+      logger.info(`Blog post deleted: ${deleted.title}`);
+      res.json({ success: true, message: `Post "${deleted.title}" deleted` });
+    } catch (error) {
+      logger.error('Error deleting blog post:', error);
+      res.status(500).json({ error: 'Failed to delete blog post' });
+    }
+  });
 }

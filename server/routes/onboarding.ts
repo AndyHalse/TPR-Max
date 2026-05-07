@@ -1515,4 +1515,53 @@ export function registerOnboardingRoutes(app: Express): void {
     }
   });
 
+  // ── Public Blog Routes (no auth required) ────────────────────────────────
+
+  // GET /api/blog — list all published posts, newest first
+  app.get('/api/blog', async (_req, res) => {
+    try {
+      const posts = await db
+        .select({
+          id: sharedSchema.blogPosts.id,
+          title: sharedSchema.blogPosts.title,
+          slug: sharedSchema.blogPosts.slug,
+          summary: sharedSchema.blogPosts.summary,
+          author: sharedSchema.blogPosts.author,
+          coverImageUrl: sharedSchema.blogPosts.coverImageUrl,
+          tags: sharedSchema.blogPosts.tags,
+          publishedAt: sharedSchema.blogPosts.publishedAt,
+          createdAt: sharedSchema.blogPosts.createdAt,
+        })
+        .from(sharedSchema.blogPosts)
+        .where(eq(sharedSchema.blogPosts.status, 'published'))
+        .orderBy(sql`COALESCE(${sharedSchema.blogPosts.publishedAt}, ${sharedSchema.blogPosts.createdAt}) DESC`);
+
+      res.json({ posts });
+    } catch (error) {
+      logger.error('Error fetching blog posts:', error);
+      res.status(500).json({ error: 'Failed to load blog posts' });
+    }
+  });
+
+  // GET /api/blog/:slug — single published post by slug
+  app.get('/api/blog/:slug', async (req, res) => {
+    try {
+      const { slug } = req.params;
+      const [post] = await db
+        .select()
+        .from(sharedSchema.blogPosts)
+        .where(eq(sharedSchema.blogPosts.slug, slug))
+        .limit(1);
+
+      if (!post || post.status !== 'published') {
+        return res.status(404).json({ error: 'Post not found' });
+      }
+
+      res.json({ post });
+    } catch (error) {
+      logger.error('Error fetching blog post:', error);
+      res.status(500).json({ error: 'Failed to load blog post' });
+    }
+  });
+
 }

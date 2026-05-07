@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus } from "lucide-react";
+import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,6 +58,15 @@ export default function PlatformAdminDashboard() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  // Blog state
+  const [showBlogForm, setShowBlogForm] = useState(false);
+  const [editingPost, setEditingPost] = useState<any | null>(null);
+  const [deletingPost, setDeletingPost] = useState<any | null>(null);
+  const [blogForm, setBlogForm] = useState({
+    title: '', slug: '', summary: '', content: '', author: '', status: 'draft' as 'draft' | 'published',
+    coverImageUrl: '', tags: '',
+  });
 
   // Check authentication
   const { data: admin, isLoading: adminLoading, error } = useQuery<PlatformAdmin>({
@@ -411,6 +420,100 @@ export default function PlatformAdminDashboard() {
     },
   });
 
+  // Blog queries and mutations
+  const { data: blogData, isLoading: blogLoading } = useQuery<{ success: boolean; posts: any[] }>({
+    queryKey: ["/platform-admin/blog"],
+    queryFn: async () => {
+      const response = await fetch("/platform-admin/blog", { credentials: "include" });
+      if (!response.ok) throw new Error("Failed to fetch blog posts");
+      return response.json();
+    },
+    enabled: !!admin,
+  });
+
+  const blogPosts = blogData?.posts || [];
+
+  const openCreateBlog = () => {
+    setBlogForm({ title: '', slug: '', summary: '', content: '', author: `${admin?.firstName || ''} ${admin?.lastName || ''}`.trim(), status: 'draft', coverImageUrl: '', tags: '' });
+    setEditingPost(null);
+    setShowBlogForm(true);
+  };
+
+  const openEditBlog = (post: any) => {
+    setBlogForm({
+      title: post.title,
+      slug: post.slug,
+      summary: post.summary,
+      content: post.content,
+      author: post.author,
+      status: post.status,
+      coverImageUrl: post.coverImageUrl || '',
+      tags: (post.tags || []).join(', '),
+    });
+    setEditingPost(post);
+    setShowBlogForm(true);
+  };
+
+  const autoSlug = (title: string) =>
+    title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+  const createBlogMutation = useMutation({
+    mutationFn: async () => {
+      const payload = {
+        ...blogForm,
+        tags: blogForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        coverImageUrl: blogForm.coverImageUrl || null,
+      };
+      const response = await apiRequest("POST", "/platform-admin/blog", payload);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/blog"] });
+      setShowBlogForm(false);
+      toast({ title: "Post created", description: "Blog post saved successfully." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to create post", variant: "destructive" });
+    },
+  });
+
+  const updateBlogPostMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingPost) throw new Error("No post selected");
+      const payload = {
+        ...blogForm,
+        tags: blogForm.tags.split(',').map((t) => t.trim()).filter(Boolean),
+        coverImageUrl: blogForm.coverImageUrl || null,
+      };
+      const response = await apiRequest("PATCH", `/platform-admin/blog/${editingPost.id}`, payload);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/blog"] });
+      setShowBlogForm(false);
+      setEditingPost(null);
+      toast({ title: "Post updated", description: "Blog post updated successfully." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update post", variant: "destructive" });
+    },
+  });
+
+  const deleteBlogMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      const response = await apiRequest("DELETE", `/platform-admin/blog/${postId}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/blog"] });
+      setDeletingPost(null);
+      toast({ title: "Post deleted", description: "Blog post removed." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete post", variant: "destructive" });
+    },
+  });
+
   if (adminLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -490,6 +593,17 @@ export default function PlatformAdminDashboard() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Tabs defaultValue="customers">
+          <TabsList className="mb-6">
+            <TabsTrigger value="customers">
+              <Building2 className="w-4 h-4 mr-2" />Customers
+            </TabsTrigger>
+            <TabsTrigger value="blog">
+              <BookOpen className="w-4 h-4 mr-2" />Blog
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="customers">
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card>
@@ -635,6 +749,95 @@ export default function PlatformAdminDashboard() {
             )}
           </CardContent>
         </Card>
+          </TabsContent>
+
+          {/* ── Blog Tab ─────────────────────────────────────────── */}
+          <TabsContent value="blog">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <BookOpen className="w-5 h-5" />Blog Posts
+                    </CardTitle>
+                    <CardDescription>Manage public-facing marketing blog posts</CardDescription>
+                  </div>
+                  <Button onClick={openCreateBlog} data-testid="button-new-post">
+                    <Plus className="w-4 h-4 mr-2" />New Post
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {blogLoading ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                    <p className="text-sm text-gray-600">Loading posts...</p>
+                  </div>
+                ) : blogPosts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-2" />
+                    <p className="text-gray-600 font-medium">No blog posts yet</p>
+                    <p className="text-sm text-gray-400 mb-4">Create your first post to get started</p>
+                    <Button size="sm" onClick={openCreateBlog}>
+                      <Plus className="w-4 h-4 mr-2" />Create Post
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {blogPosts.map((post: any) => (
+                      <div key={post.id} className="flex items-center justify-between p-4 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-gray-900 dark:text-white truncate">{post.title}</span>
+                            {post.status === 'published' ? (
+                              <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 shrink-0">
+                                <Globe className="w-3 h-3 mr-1" />Published
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="shrink-0">
+                                <EyeOff className="w-3 h-3 mr-1" />Draft
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-500 truncate max-w-xl">{post.summary}</p>
+                          <div className="flex items-center gap-4 mt-1 text-xs text-gray-400">
+                            <span>/{post.slug}</span>
+                            <span>by {post.author}</span>
+                            {post.publishedAt && (
+                              <span>{new Date(post.publishedAt).toLocaleDateString('en-GB')}</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 ml-4 shrink-0">
+                          {post.status === 'published' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => window.open(`/blog/${post.slug}`, '_blank')}
+                              title="View post"
+                            >
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                          )}
+                          <Button variant="outline" size="sm" onClick={() => openEditBlog(post)}>
+                            <Edit className="w-3 h-3 mr-1" />Edit
+                          </Button>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => setDeletingPost(post)}
+                          >
+                            <Trash2 className="w-3 h-3 mr-1" />Delete
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </main>
 
       {/* Customer Form Dialog */}
@@ -1005,6 +1208,143 @@ export default function PlatformAdminDashboard() {
                 data-testid="button-save-customer"
               >
                 {editCustomerMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Blog Create/Edit Dialog */}
+      <Dialog open={showBlogForm} onOpenChange={(open) => { if (!open) { setShowBlogForm(false); setEditingPost(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingPost ? 'Edit Blog Post' : 'New Blog Post'}</DialogTitle>
+            <DialogDescription>
+              {editingPost ? 'Update the blog post details.' : 'Create a new blog post for the public site.'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="blog-title">Title</Label>
+              <Input
+                id="blog-title"
+                value={blogForm.title}
+                onChange={(e) => {
+                  const title = e.target.value;
+                  setBlogForm((f) => ({ ...f, title, slug: editingPost ? f.slug : autoSlug(title) }));
+                }}
+                placeholder="e.g. 5 Ways to Improve Site Safety"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="blog-slug">URL Slug</Label>
+              <Input
+                id="blog-slug"
+                value={blogForm.slug}
+                onChange={(e) => setBlogForm((f) => ({ ...f, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-') }))}
+                placeholder="e.g. 5-ways-to-improve-site-safety"
+              />
+              <p className="text-xs text-gray-400">Will be accessible at /blog/{blogForm.slug || 'your-slug'}</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="blog-summary">Summary</Label>
+              <Input
+                id="blog-summary"
+                value={blogForm.summary}
+                onChange={(e) => setBlogForm((f) => ({ ...f, summary: e.target.value }))}
+                placeholder="A short description (shown on the blog listing page)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="blog-content">Content</Label>
+              <textarea
+                id="blog-content"
+                value={blogForm.content}
+                onChange={(e) => setBlogForm((f) => ({ ...f, content: e.target.value }))}
+                placeholder="Write your blog post content here. Use blank lines to separate paragraphs."
+                rows={10}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 resize-y"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="blog-author">Author</Label>
+                <Input
+                  id="blog-author"
+                  value={blogForm.author}
+                  onChange={(e) => setBlogForm((f) => ({ ...f, author: e.target.value }))}
+                  placeholder="e.g. ACS Safety Team"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="blog-status">Status</Label>
+                <select
+                  id="blog-status"
+                  value={blogForm.status}
+                  onChange={(e) => setBlogForm((f) => ({ ...f, status: e.target.value as 'draft' | 'published' }))}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="draft">Draft</option>
+                  <option value="published">Published</option>
+                </select>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="blog-cover">Cover Image URL (optional)</Label>
+              <Input
+                id="blog-cover"
+                value={blogForm.coverImageUrl}
+                onChange={(e) => setBlogForm((f) => ({ ...f, coverImageUrl: e.target.value }))}
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="blog-tags">Tags (comma-separated, optional)</Label>
+              <Input
+                id="blog-tags"
+                value={blogForm.tags}
+                onChange={(e) => setBlogForm((f) => ({ ...f, tags: e.target.value }))}
+                placeholder="e.g. Safety, Compliance, Contractors"
+              />
+            </div>
+            <div className="flex justify-end space-x-2 pt-2">
+              <Button variant="outline" onClick={() => setShowBlogForm(false)}>Cancel</Button>
+              <Button
+                onClick={() => editingPost ? updateBlogPostMutation.mutate() : createBlogMutation.mutate()}
+                disabled={createBlogMutation.isPending || updateBlogPostMutation.isPending || !blogForm.title || !blogForm.slug || !blogForm.summary || !blogForm.content || !blogForm.author}
+              >
+                {(createBlogMutation.isPending || updateBlogPostMutation.isPending) ? 'Saving...' : editingPost ? 'Update Post' : 'Create Post'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Blog Delete Confirmation Dialog */}
+      <Dialog open={!!deletingPost} onOpenChange={(open) => { if (!open) setDeletingPost(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2 text-red-600">
+              <AlertTriangle className="w-5 h-5" />
+              <span>Delete Blog Post</span>
+            </DialogTitle>
+            <DialogDescription>
+              This will permanently remove the post from the public blog. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <p className="text-sm font-medium text-red-800 dark:text-red-200">Deleting:</p>
+              <p className="text-base font-bold text-red-900 dark:text-red-100 mt-1">{deletingPost?.title}</p>
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setDeletingPost(null)}>Cancel</Button>
+              <Button
+                variant="destructive"
+                disabled={deleteBlogMutation.isPending}
+                onClick={() => deletingPost && deleteBlogMutation.mutate(deletingPost.id)}
+              >
+                {deleteBlogMutation.isPending ? 'Deleting...' : 'Delete Post'}
               </Button>
             </div>
           </div>

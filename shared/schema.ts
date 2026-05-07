@@ -2633,3 +2633,26 @@ export type ContractorDocumentRequest = typeof contractorDocumentRequests.$infer
 // SECURITY: Company Settings Types with Sanitization
 // Re-export from isolatedSchema.ts for client access
 export type { CompanySettings, InsertCompanySettings } from "../server/isolatedSchema";
+
+// Blog Posts — system-wide marketing content, managed by platform admins only
+export const blogPosts = pgTable("blog_posts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  slug: text("slug").notNull().unique(),
+  summary: text("summary").notNull(),
+  content: text("content").notNull(),
+  author: text("author").notNull(),
+  status: text("status").notNull().default("draft"), // draft | published
+  coverImageUrl: text("cover_image_url"),
+  tags: text("tags").array().default([]),
+  publishedAt: timestamp("published_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+}, (table) => ({
+  slugIdx: uniqueIndex("blog_posts_slug_idx").on(table.slug),
+  statusIdx: index("blog_posts_status_idx").on(table.status),
+}));
+
+export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true, updatedAt: true });
+export type BlogPost = typeof blogPosts.$inferSelect;
+export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
