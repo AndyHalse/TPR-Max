@@ -185,21 +185,8 @@ export default function MarketingPage() {
   };
 
   const handleDownloadPdf = async () => {
-    try {
-      const response = await fetch("/api/marketing/brochure-pdf");
-      if (!response.ok) throw new Error("PDF generation failed");
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "TPR-Max-Brochure.pdf";
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    } catch {
-      toast({ title: "Download unavailable", description: "Please contact us at info@acsltd.eu for the brochure.", variant: "destructive" });
-    }
+    // PDF download removed
+    return;
   };
 
   return (
@@ -256,16 +243,6 @@ export default function MarketingPage() {
               >
                 Contact
               </button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleDownloadPdf}
-                className="border-[#2460A9] text-[#2460A9] hover:bg-[#2460A9] hover:text-white"
-                data-testid="button-download-pdf"
-              >
-                <Download className="h-4 w-4 mr-1" />
-                Download PDF
-              </Button>
               <Button
                 size="sm"
                 onClick={() => scrollToSection("contact")}
@@ -335,15 +312,6 @@ export default function MarketingPage() {
                 Contact
               </button>
               <div className="px-4 flex flex-col gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => { handleDownloadPdf(); setMobileMenuOpen(false); }}
-                  className="w-full border-[#2460A9] text-[#2460A9] hover:bg-[#2460A9] hover:text-white"
-                >
-                  <Download className="h-4 w-4 mr-1" />
-                  Download PDF
-                </Button>
                 <Button
                   size="sm"
                   className="w-full"
