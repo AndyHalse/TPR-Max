@@ -82,8 +82,8 @@ export default function BlogPostPage({ slug }: BlogPostPageProps) {
 
             {/* Cover image */}
             {post.coverImageUrl && (
-              <div className="rounded-2xl overflow-hidden mb-8 shadow-lg">
-                <img src={post.coverImageUrl} alt={post.title} className="w-full max-h-80 object-cover" />
+              <div className="rounded-2xl overflow-hidden mb-8 shadow-lg bg-slate-100">
+                <img src={post.coverImageUrl} alt={post.title} className="w-full h-auto object-contain" />
               </div>
             )}
 
