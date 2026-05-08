@@ -12,12 +12,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { Staff, Visitor, CompanySettings } from "@shared/schema";
-import { BrowserMultiFormatReader, DecodeHintType } from "@zxing/library";
+import jsQR from "jsqr";
 import ScannerReticle from "@/components/ScannerReticle";
 import { playBeep } from "@/hooks/useCameraScanner";
 
-const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
-const codeReader = new BrowserMultiFormatReader(hints);
 
 export default function KioskMode() {
   const { toast } = useToast();
@@ -366,10 +364,11 @@ export default function KioskMode() {
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    try {
-      const result = codeReader.decodeFromCanvas(canvas);
-      processDetectedCode(result.getText());
-    } catch {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, canvas.width, canvas.height, { inversionAttempts: 'attemptBoth' });
+    if (code && code.data) {
+      processDetectedCode(code.data);
+    } else {
       rafRef.current = requestAnimationFrame(scanFrame);
     }
   }, [processDetectedCode]);

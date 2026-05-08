@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { BrowserMultiFormatReader, DecodeHintType, NotFoundException } from '@zxing/library';
+import jsQR from 'jsqr';
 
 export type CameraState = 'off' | 'starting' | 'scanning' | 'processing' | 'error';
 
@@ -24,8 +24,6 @@ export interface UseCameraScannerResult {
   resetProcessing: () => void;
 }
 
-const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
-const codeReader = new BrowserMultiFormatReader(hints);
 
 export function playBeep() {
   try {
@@ -102,20 +100,15 @@ export function useCameraScanner({
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    try {
-      const result = codeReader.decodeFromCanvas(canvas);
-      const text = result.getText();
-      if (!text || text === lastCodeRef.current) return;
-      lastCodeRef.current = text;
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, canvas.width, canvas.height, { inversionAttempts: 'attemptBoth' });
+    if (code && code.data && code.data !== lastCodeRef.current) {
+      lastCodeRef.current = code.data;
       isProcessingRef.current = true;
       playBeep();
       setReticleFlash(true);
       setTimeout(() => setReticleFlash(false), 400);
-      onCodeRef.current(text);
-    } catch (e) {
-      if (!(e instanceof NotFoundException)) {
-        // unexpected error — ignore and keep scanning
-      }
+      onCodeRef.current(code.data);
     }
   }, [throttleMs]);
 

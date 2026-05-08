@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { BrowserMultiFormatReader, DecodeHintType } from "@zxing/library";
+import jsQR from "jsqr";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,8 +35,6 @@ const ACTION_LABELS: Record<string, string> = {
   already_checked_in: "Already On Site",
 };
 
-const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
-const codeReader = new BrowserMultiFormatReader(hints);
 
 export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -123,10 +121,11 @@ export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps)
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    try {
-      const result = codeReader.decodeFromCanvas(canvas);
-      processQR(result.getText());
-    } catch {
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const code = jsQR(imageData.data, canvas.width, canvas.height, { inversionAttempts: 'attemptBoth' });
+    if (code && code.data) {
+      processQR(code.data);
+    } else {
       rafRef.current = requestAnimationFrame(scanFrame);
     }
   }, [processQR]);
