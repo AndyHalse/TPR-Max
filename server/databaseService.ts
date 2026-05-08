@@ -555,6 +555,14 @@ export class DatabaseService {
       }
     }
     
+    // Reset any linked pre-booking so the QR code can be scanned again
+    if (updated[0]) {
+      await db
+        .update(isolatedSchema.preBookings)
+        .set({ isCheckedIn: false })
+        .where(eq(isolatedSchema.preBookings.visitorId, id));
+    }
+    
     return updated[0];
   }
   
