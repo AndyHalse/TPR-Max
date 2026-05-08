@@ -1315,7 +1315,51 @@ export function registerVisitorRoutes(app: Express): void {
         .where(eq(isolatedSchema.preBookings.id, preBooking.id));
       
       logger.info(`Visitor checked in from pre-booking: ID ${visitor.id} (ID: ${visitor.id}) in customer DB`);
-      
+
+      // Send e-Pass if enabled — mirrors the main /api/visitors/checkin route
+      if (pbSettings?.ePassEnabled && visitor) {
+        try {
+          const baseUrl = process.env.APP_URL ||
+            `${req.get('x-forwarded-proto') || req.protocol}://${req.get('x-forwarded-host') || req.get('host')}`;
+          const ePassUrl = `${baseUrl}/epass/${visitor.id}`;
+
+          await databaseService.updateVisitor(context, visitor.id, {
+            ePassUrl,
+            ePassDeliveryType: pbSettings.ePassDeliveryMethod || 'email'
+          });
+
+          let host = null;
+          if (visitor.hostStaffId) {
+            try { host = await databaseService.getStaffById(context, visitor.hostStaffId); } catch {}
+          }
+
+          const method = pbSettings.ePassDeliveryMethod || 'email';
+          if (visitor.email && (method === 'email' || method === 'both' || method === 'choice')) {
+            try {
+              const emailSent = await emailService.forCustomer(req.customerId).sendDigitalEPass(
+                visitor as any,
+                host as any || null,
+                pbSettings as any,
+                ePassUrl
+              );
+              if (emailSent) {
+                const sentAt = new Date();
+                await databaseService.updateVisitor(context, visitor.id, { ePassSent: true, ePassSentAt: sentAt });
+                logger.info(`Pre-booking check-in: E-Pass sent to [email]`);
+              }
+            } catch (emailError) {
+              logger.error('Pre-booking check-in: Failed to send e-Pass email:', emailError);
+            }
+          }
+
+          // Always mark ePassSent on the response object when ePass is enabled
+          (visitor as any).ePassSent = true;
+          (visitor as any).ePassUrl = ePassUrl;
+        } catch (ePassError) {
+          logger.error('Pre-booking check-in: e-Pass block failed:', ePassError);
+        }
+      }
+
       res.json({ visitor, preBooking });
     } catch (error) {
       logger.error("Error checking in pre-booking:", error);
