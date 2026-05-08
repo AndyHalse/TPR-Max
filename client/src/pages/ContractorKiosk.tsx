@@ -195,8 +195,8 @@ export default function ContractorKiosk() {
       return;
     }
 
-    // Visitor pre-booking QR codes (PB- is the stored DB format; PBK- is a legacy/dashboard alias)
-    if (code.startsWith('PB-') || code.startsWith('PBK-')) {
+    // Visitor pre-booking QR codes (PB- is the stored DB format; PRE- is the email invitation format; PBK- is a dashboard alias)
+    if (code.startsWith('PB-') || code.startsWith('PRE-') || code.startsWith('PBK-')) {
       setCameraState('off');
       setScannedCode('');
       try {
