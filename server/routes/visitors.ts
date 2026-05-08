@@ -1070,11 +1070,13 @@ export function registerVisitorRoutes(app: Express): void {
 
       const duplicate = existingToday.find((b: any) => {
         if (new Date(b.visitDate).toDateString() !== visitDayStr) return false;
-        // Only treat as a time clash when both sides have a time and they differ,
-        // OR when one side has a time and the other doesn't (can't be the same slot)
-        if (preBookingData.visitTime && !b.visitTime) return false;
-        if (b.visitTime && !preBookingData.visitTime) return false;
-        if (b.visitTime && preBookingData.visitTime && b.visitTime !== preBookingData.visitTime) return false;
+        // The frontend embeds the visit time into visitDate (visitTime is not sent separately).
+        // Compare the hour+minute of both visitDate timestamps — different time slots = not a dup.
+        const existingHour = new Date(b.visitDate).getUTCHours();
+        const existingMin  = new Date(b.visitDate).getUTCMinutes();
+        const newHour      = preBookingData.visitDate.getUTCHours();
+        const newMin       = preBookingData.visitDate.getUTCMinutes();
+        if (existingHour !== newHour || existingMin !== newMin) return false;
         // Match by email (if both present)
         if (b.visitorEmail && preBookingData.visitorEmail &&
             b.visitorEmail.toLowerCase() === preBookingData.visitorEmail.toLowerCase()) return true;
