@@ -15,7 +15,8 @@ import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { GlassCard } from "@/components/ui/glass-card";
-import { CalendarPlus, FileText, Clock, CheckCircle2, AlertCircle, Users, Eye, Check, ChevronsUpDown, Calendar as CalendarIcon, Send, UserPlus } from "lucide-react";
+import { CalendarPlus, FileText, Clock, CheckCircle2, AlertCircle, Users, Eye, Check, ChevronsUpDown, Calendar as CalendarIcon, Send, UserPlus, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 // Company Combobox Component - IDENTICAL to Walk-in Registration
 interface CompanyComboboxProps {
@@ -278,6 +279,25 @@ export default function PreBooking() {
         description: "Failed to create pre-booking",
         variant: "destructive",
       });
+    },
+  });
+
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
+
+  const cancelPreBookingMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/prebookings/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      toast({ title: "Cancelled", description: "Pre-booking has been cancelled." });
+      setCancelBookingId(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error?.message || "Failed to cancel pre-booking", variant: "destructive" });
+      setCancelBookingId(null);
     },
   });
 
@@ -716,6 +736,17 @@ export default function PreBooking() {
                             Check In
                           </Button>
                         )}
+                        {!booking.isCheckedIn && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setCancelBookingId(booking.id)}
+                            className="text-xs text-red-600 border-red-300 hover:bg-red-50"
+                          >
+                            <Trash2 size={12} className="mr-1" />
+                            Cancel
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -787,6 +818,17 @@ export default function PreBooking() {
                           Check In
                         </Button>
                       )}
+                      {!booking.isCheckedIn && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setCancelBookingId(booking.id)}
+                          className="text-xs text-red-600 border-red-300 hover:bg-red-50"
+                        >
+                          <Trash2 size={12} className="mr-1" />
+                          Cancel
+                        </Button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -795,6 +837,26 @@ export default function PreBooking() {
           )}
         </div>
       </GlassCard>
+
+      <AlertDialog open={!!cancelBookingId} onOpenChange={(open) => !open && setCancelBookingId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Pre-booking</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this pre-booking? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => cancelBookingId && cancelPreBookingMutation.mutate(cancelBookingId)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Cancel Pre-booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

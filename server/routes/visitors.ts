@@ -1204,6 +1204,33 @@ export function registerVisitorRoutes(app: Express): void {
     }
   });
 
+  app.delete("/api/prebookings/:id", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const [preBooking] = await customerDb.select().from(isolatedSchema.preBookings)
+        .where(eq(isolatedSchema.preBookings.id, id)).limit(1);
+
+      if (!preBooking) {
+        return res.status(404).json({ error: "Pre-booking not found" });
+      }
+      if (preBooking.isCheckedIn) {
+        return res.status(400).json({ error: "Cannot cancel a pre-booking that has already been checked in" });
+      }
+
+      await customerDb.delete(isolatedSchema.preBookings)
+        .where(eq(isolatedSchema.preBookings.id, id));
+
+      logger.info(`Pre-booking cancelled: ${id}`);
+      res.json({ success: true });
+    } catch (error) {
+      logger.error("Error cancelling pre-booking:", error);
+      res.status(500).json({ error: "Failed to cancel pre-booking" });
+    }
+  });
+
   app.post("/api/prebookings/checkin", requireAuth, async (req, res) => {
     try {
       const { qrCode, deviceType, deviceIp, hsRulesAccepted } = req.body;

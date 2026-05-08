@@ -36,7 +36,8 @@ import {
   LayoutList,
   Phone,
   Briefcase,
-  Camera
+  Camera,
+  Trash2
 } from "lucide-react";
 import { Check, ChevronsUpDown } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -45,6 +46,7 @@ import type { Staff, PreBooking, InsertPreBooking, Visitor, InsertVisitor, Compa
 import { cn } from "@/lib/utils";
 import HSAcceptanceModal from "@/components/HSAcceptanceModal";
 import QRScannerModal from "@/components/QRScannerModal";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 // Company Combobox Component
 interface CompanyComboboxProps {
@@ -672,6 +674,25 @@ export default function Visitors() {
         description: "Failed to check in visitor",
         variant: "destructive",
       });
+    },
+  });
+
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null);
+
+  const cancelPreBookingMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/prebookings/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      toast({ title: "Cancelled", description: "Pre-booking has been cancelled." });
+      setCancelBookingId(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error?.message || "Failed to cancel pre-booking", variant: "destructive" });
+      setCancelBookingId(null);
     },
   });
 
@@ -1771,18 +1792,31 @@ export default function Visitors() {
                           </div>
                         </div>
                         
-                        {!booking.isCheckedIn && booking.status !== 'completed' && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => manualCheckInMutation.mutate(booking.id)}
-                            disabled={manualCheckInMutation.isPending}
-                            className="ml-2 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-                          >
-                            <CheckCircle size={16} className="mr-1" />
-                            Check In
-                          </Button>
-                        )}
+                        <div className="flex gap-2 ml-2">
+                          {!booking.isCheckedIn && booking.status !== 'completed' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => manualCheckInMutation.mutate(booking.id)}
+                              disabled={manualCheckInMutation.isPending}
+                              className="text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
+                            >
+                              <CheckCircle size={16} className="mr-1" />
+                              Check In
+                            </Button>
+                          )}
+                          {!booking.isCheckedIn && booking.status !== 'completed' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setCancelBookingId(booking.id)}
+                              className="text-red-600 border-red-300 hover:bg-red-50"
+                            >
+                              <Trash2 size={16} className="mr-1" />
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))
@@ -1793,6 +1827,26 @@ export default function Visitors() {
                 )}
               </div>
             </GlassCard>
+
+            <AlertDialog open={!!cancelBookingId} onOpenChange={(open) => !open && setCancelBookingId(null)}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Cancel Pre-booking</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to cancel this pre-booking? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Keep</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => cancelBookingId && cancelPreBookingMutation.mutate(cancelBookingId)}
+                    className="bg-red-600 hover:bg-red-700"
+                  >
+                    Cancel Pre-booking
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </TabsContent>
       </Tabs>

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -693,6 +694,46 @@ export default function Dashboard() {
     },
   });
 
+  const [diaryCancelId, setDiaryCancelId] = useState<{ id: string; type: 'visitor' | 'contractor' } | null>(null);
+
+  const diaryCancelVisitorMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/prebookings/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      toast({ title: "Cancelled", description: "Pre-booking has been cancelled." });
+      setDiaryCancelId(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error?.message || "Failed to cancel pre-booking", variant: "destructive" });
+      setDiaryCancelId(null);
+    },
+  });
+
+  const diaryCancelContractorMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("DELETE", `/api/contractors/prebookings/${id}`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      toast({ title: "Cancelled", description: "Contractor pre-booking has been cancelled." });
+      setDiaryCancelId(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error?.message || "Failed to cancel contractor pre-booking", variant: "destructive" });
+      setDiaryCancelId(null);
+    },
+  });
+
   // Check-in from diary pre-booking (visitor)
   const diaryVisitorCheckInMutation = useMutation({
     mutationFn: async (booking: any) => {
@@ -1221,7 +1262,7 @@ export default function Dashboard() {
                           <Badge className={`text-[10px] px-1.5 py-0 ${event.isCheckedIn ? 'bg-green-100 text-green-700' : event.status === 'confirmed' ? 'bg-blue-100 text-blue-700' : 'bg-yellow-100 text-yellow-700'}`}>
                             {event.isCheckedIn ? 'Arrived' : event.status === 'confirmed' ? 'Confirmed' : 'Pending'}
                           </Badge>
-                          <div className="text-right">
+                          <div className="flex justify-end gap-1">
                             {!isPast && !event.isCheckedIn && event.type !== 'meeting' && (
                               <Button
                                 size="sm"
@@ -1239,6 +1280,22 @@ export default function Dashboard() {
                               >
                                 <LogIn size={10} className="mr-0.5" />
                                 Check In
+                              </Button>
+                            )}
+                            {!isPast && !event.isCheckedIn && event.type !== 'meeting' && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-6 px-2 text-[10px] text-red-600 border-red-300 hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const rawId = event.raw?.id || event.id.replace(/^[vc]-/, '');
+                                  setDiaryCancelId({ id: rawId, type: event.type as 'visitor' | 'contractor' });
+                                }}
+                                disabled={diaryCancelVisitorMutation.isPending || diaryCancelContractorMutation.isPending}
+                              >
+                                <Trash2 size={10} className="mr-0.5" />
+                                Cancel
                               </Button>
                             )}
                           </div>
@@ -2868,6 +2925,33 @@ export default function Dashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!diaryCancelId} onOpenChange={(open) => !open && setDiaryCancelId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Pre-booking</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this pre-booking? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!diaryCancelId) return;
+                if (diaryCancelId.type === 'visitor') {
+                  diaryCancelVisitorMutation.mutate(diaryCancelId.id);
+                } else {
+                  diaryCancelContractorMutation.mutate(diaryCancelId.id);
+                }
+              }}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Cancel Pre-booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

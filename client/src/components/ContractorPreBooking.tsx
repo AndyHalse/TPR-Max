@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -150,6 +151,8 @@ export default function ContractorPreBooking() {
       });
     },
   });
+
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Delete contractor pre-booking mutation
   const deletePreBookingMutation = useMutation({
@@ -567,7 +570,7 @@ export default function ContractorPreBooking() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => deletePreBookingMutation.mutate(booking.id)}
+                      onClick={() => setDeleteConfirmId(booking.id)}
                       disabled={deletePreBookingMutation.isPending}
                       className="text-red-600 hover:bg-red-50"
                     >
@@ -580,6 +583,26 @@ export default function ContractorPreBooking() {
           </div>
         )}
       </GlassCard>
+
+      <AlertDialog open={!!deleteConfirmId} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Pre-booking</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this contractor pre-booking? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteConfirmId && deletePreBookingMutation.mutate(deleteConfirmId)}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Cancel Pre-booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
