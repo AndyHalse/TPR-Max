@@ -1053,14 +1053,20 @@ export function registerVisitorRoutes(app: Express): void {
       const preBookingData = insertPreBookingSchema.parse(transformedData);
 
       // ── Duplicate prevention ──────────────────────────────────────────────
-      // Reject if another active (non-cancelled) pre-booking already exists for
-      // the same visitor (matched by email OR by full name + company) on the
-      // same calendar day at the same time.
+      // Reject if another active (non-cancelled, not yet checked-in) pre-booking
+      // already exists for the same visitor on the same calendar day at the same
+      // time. Exclude already-checked-in bookings so a new slot can be created
+      // for the same person if they've already used a previous booking today.
       const visitDayStr = preBookingData.visitDate.toDateString();
       const existingToday = await customerDb
         .select()
         .from(isolatedSchema.preBookings)
-        .where(ne(isolatedSchema.preBookings.status, 'cancelled'));
+        .where(
+          and(
+            ne(isolatedSchema.preBookings.status, 'cancelled'),
+            eq(isolatedSchema.preBookings.isCheckedIn, false)
+          )
+        );
 
       const duplicate = existingToday.find((b: any) => {
         if (new Date(b.visitDate).toDateString() !== visitDayStr) return false;
