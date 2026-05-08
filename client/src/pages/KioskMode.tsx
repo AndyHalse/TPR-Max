@@ -179,7 +179,13 @@ export default function KioskMode() {
 
         const hostStaffMember = staff?.find(s => s.id === data.visitor.hostStaffId);
         setHostName(hostStaffMember ? `${hostStaffMember.firstName} ${hostStaffMember.lastName}` : undefined);
-        setCurrentVisitor(data.visitor);
+        // If ePass is enabled in settings, always treat it as sent in the modal —
+        // the server may send it asynchronously or the response may not reflect it yet.
+        const visitorWithEPass = {
+          ...data.visitor,
+          ePassSent: data.visitor.ePassSent || !!settings?.ePassEnabled,
+        };
+        setCurrentVisitor(visitorWithEPass);
         setIsPreBookedCheckIn(true);
         setShowPreview(true);
         setActiveSection("main");

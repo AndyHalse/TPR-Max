@@ -1315,6 +1315,7 @@ export function registerVisitorRoutes(app: Express): void {
         .where(eq(isolatedSchema.preBookings.id, preBooking.id));
       
       logger.info(`Visitor checked in from pre-booking: ID ${visitor.id} (ID: ${visitor.id}) in customer DB`);
+      logger.info(`Pre-booking checkin: ePassEnabled=${pbSettings?.ePassEnabled}, visitorEmail=${visitor?.email ? '[set]' : '[missing]'}`);
 
       // Send e-Pass if enabled — mirrors the main /api/visitors/checkin route
       if (pbSettings?.ePassEnabled && visitor) {
