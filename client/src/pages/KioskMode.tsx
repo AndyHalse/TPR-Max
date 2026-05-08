@@ -12,11 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import type { Staff, Visitor, CompanySettings } from "@shared/schema";
-import { BrowserMultiFormatReader } from "@zxing/library";
+import { BrowserMultiFormatReader, DecodeHintType } from "@zxing/library";
 import ScannerReticle from "@/components/ScannerReticle";
 import { playBeep } from "@/hooks/useCameraScanner";
 
-const codeReader = new BrowserMultiFormatReader();
+const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
+const codeReader = new BrowserMultiFormatReader(hints);
 
 export default function KioskMode() {
   const { toast } = useToast();

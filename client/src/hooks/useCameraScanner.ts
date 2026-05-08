@@ -1,5 +1,5 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import { BrowserMultiFormatReader, DecodeHintType, NotFoundException } from '@zxing/library';
 
 export type CameraState = 'off' | 'starting' | 'scanning' | 'processing' | 'error';
 
@@ -24,7 +24,8 @@ export interface UseCameraScannerResult {
   resetProcessing: () => void;
 }
 
-const codeReader = new BrowserMultiFormatReader();
+const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
+const codeReader = new BrowserMultiFormatReader(hints);
 
 export function playBeep() {
   try {

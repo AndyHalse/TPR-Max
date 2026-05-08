@@ -36,12 +36,13 @@ import {
   Loader2,
   XCircle,
 } from "lucide-react";
-import { BrowserMultiFormatReader } from "@zxing/library";
+import { BrowserMultiFormatReader, DecodeHintType } from "@zxing/library";
 import ScannerReticle from "@/components/ScannerReticle";
 import { playBeep } from "@/hooks/useCameraScanner";
 import type { ContractorCompany, ContractorWorker, CompanySettings } from "@shared/schema";
 
-const codeReader = new BrowserMultiFormatReader();
+const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
+const codeReader = new BrowserMultiFormatReader(hints);
 
 export default function ContractorKiosk() {
   const { toast } = useToast();

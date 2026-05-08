@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { BrowserMultiFormatReader } from "@zxing/library";
+import { BrowserMultiFormatReader, DecodeHintType } from "@zxing/library";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
@@ -35,7 +35,8 @@ const ACTION_LABELS: Record<string, string> = {
   already_checked_in: "Already On Site",
 };
 
-const codeReader = new BrowserMultiFormatReader();
+const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
+const codeReader = new BrowserMultiFormatReader(hints);
 
 export default function QRScannerModal({ isOpen, onClose }: QRScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);

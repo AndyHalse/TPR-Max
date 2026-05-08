@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { BrowserMultiFormatReader } from "@zxing/library";
+import { BrowserMultiFormatReader, DecodeHintType } from "@zxing/library";
 import { CheckCircle2, XCircle, Camera, Loader2, QrCode, RotateCcw, List } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import ScannerReticle from "@/components/ScannerReticle";
@@ -26,7 +26,8 @@ const TYPE_LABELS: Record<string, string> = {
 
 type CamState = "starting" | "scanning" | "processing" | "error";
 
-const codeReader = new BrowserMultiFormatReader();
+const hints = new Map([[DecodeHintType.TRY_HARDER, true]]);
+const codeReader = new BrowserMultiFormatReader(hints);
 
 export default function MusterQRScanner({ urlId, marshalName, onSwitchToManual, onPersonMarkedSafe }: MusterQRScannerProps) {
   const videoRef  = useRef<HTMLVideoElement>(null);
