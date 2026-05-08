@@ -594,8 +594,9 @@ export default function ContractorDetails() {
     return { brandColor, companyName, logoUrl };
   };
 
-  const getBrandedWorkerPassHtml = (qrCode: string, workerName: string, workerCompanyName: string) => {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+  const getBrandedWorkerPassHtml = async (qrCode: string, workerName: string, workerCompanyName: string) => {
+    const QRCode = await import('qrcode');
+    const qrUrl = await QRCode.toDataURL(qrCode, { width: 300, margin: 1 });
     const { brandColor, companyName, logoUrl } = getWorkerPassBranding();
     const logoHtml = logoUrl ? `<img src="${logoUrl}" style="max-height:40px;max-width:160px;margin:0 auto 6px;display:block;" crossorigin="anonymous">` : '';
     return `<div style="border:2px solid ${brandColor};border-radius:14px;padding:20px 18px;max-width:280px;margin:0 auto;font-family:'Segoe UI',Arial,sans-serif;text-align:center;background:#fff;"><div style="background:${brandColor};margin:-20px -18px 12px -18px;border-radius:12px 12px 0 0;padding:14px 12px 10px 12px;">${logoHtml}<div style="color:#fff;font-size:15px;font-weight:700;">${companyName}</div><div style="color:rgba(255,255,255,0.8);font-size:10px;margin-top:2px;">CONTRACTOR CHECK-IN PASS</div></div><img src="${qrUrl}" style="width:180px;height:180px;margin:6px auto 10px;display:block;border-radius:8px;border:1px solid #e5e7eb;"><h3 style="margin:0 0 2px;font-size:16px;color:#111;">${workerName}</h3><p style="margin:2px 0;color:#555;font-size:13px;">${workerCompanyName}</p><div style="margin-top:10px;padding-top:8px;border-top:1px solid #e5e7eb;"><p style="margin:0;font-size:10px;color:#aaa;">Scan at kiosk to check in / check out</p></div></div>`;
@@ -607,7 +608,8 @@ export default function ContractorDetails() {
 
   const handleDownloadWorkerQrPass = async (qrCode: string, workerName: string, workerCompanyName: string) => {
     toast({ title: "Generating Pass", description: "Creating branded QR pass image..." });
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(qrCode)}`;
+    const QRCodeLib = await import('qrcode');
+    const qrUrl = await QRCodeLib.toDataURL(qrCode, { width: 300, margin: 1 });
     const { brandColor, companyName } = getWorkerPassBranding();
     const canvas = document.createElement('canvas');
     canvas.width = 320; canvas.height = 420;
@@ -633,6 +635,7 @@ export default function ContractorDetails() {
     };
     img.onerror = () => toast({ title: "Download Failed", description: "Could not generate pass image", variant: "destructive" });
     img.src = qrUrl;
+    img.crossOrigin = undefined;
   };
 
 
@@ -2504,9 +2507,10 @@ export default function ContractorDetails() {
             {qrPassData && (
               <div className="text-center p-4 bg-white rounded-lg border">
                 <img
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrPassData.qrCode)}`}
+                  src=""
                   alt="Contractor QR Code"
                   className="w-40 h-40 mx-auto mb-2 rounded-lg shadow-sm"
+                  ref={el => { if (!el || !qrPassData?.qrCode) return; import('qrcode').then(Q => Q.toDataURL(qrPassData.qrCode, { width: 160, margin: 1 })).then(u => { el.src = u; }); }}
                 />
                 <p className="text-xs text-gray-500 font-mono">{qrPassData.qrCode}</p>
               </div>

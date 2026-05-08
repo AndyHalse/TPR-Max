@@ -5,7 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useSettingsAutoSave } from "@/hooks/useSettingsAutoSave";
 import GlassCard from "@/components/GlassCard";
 import ZoneManagement from "@/pages/ZoneManagement";
-import { generateQRCode } from "@/lib/qr-generator";
+import QRCodeImage from "@/components/QRCodeImage";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -135,8 +135,9 @@ export default function EmergencySettings() {
         {showIncidentMonitorQr && currentSettings?.incidentManagerUrlId && (
           <div className="flex flex-col items-center gap-2 p-3 bg-white rounded-lg border border-purple-200 dark:border-purple-700">
             <p className="text-xs font-semibold text-purple-700 dark:text-purple-400">QR Code — scan to open monitor</p>
-            <img
-              src={generateQRCode(`${window.location.origin}/incident-monitor/${currentSettings.incidentManagerUrlId}`)}
+            <QRCodeImage
+              data={`${window.location.origin}/incident-monitor/${currentSettings.incidentManagerUrlId}`}
+              size={144}
               alt="Incident Manager Monitor QR Code"
               className="w-36 h-36"
             />

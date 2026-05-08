@@ -36,9 +36,12 @@ import {
   Loader2,
   XCircle,
 } from "lucide-react";
-import jsQR from "jsqr";
-
+import { BrowserMultiFormatReader } from "@zxing/library";
+import ScannerReticle from "@/components/ScannerReticle";
+import { playBeep } from "@/hooks/useCameraScanner";
 import type { ContractorCompany, ContractorWorker, CompanySettings } from "@shared/schema";
+
+const codeReader = new BrowserMultiFormatReader();
 
 export default function ContractorKiosk() {
   const { toast } = useToast();
@@ -64,6 +67,11 @@ export default function ContractorKiosk() {
   const lastScannedRef = useRef<string | null>(null);
   const isProcessingRef = useRef<boolean>(false);
   const hasShownScannerRef = useRef<boolean>(false);
+  const lastScanTimeRef = useRef<number>(0);
+  const trackRef = useRef<MediaStreamTrack | null>(null);
+  const [torchOn, setTorchOn] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [reticleFlash, setReticleFlash] = useState(false);
 
   // Host selection state
   const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<ContractorWorker | null>(null);
@@ -292,13 +300,25 @@ export default function ContractorKiosk() {
     if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
     if (streamRef.current) { streamRef.current.getTracks().forEach(t => t.stop()); streamRef.current = null; }
     if (videoRef.current) videoRef.current.srcObject = null;
+    trackRef.current = null;
+    setTorchOn(false);
   }, []);
+
+  const toggleTorch = useCallback(async () => {
+    const track = trackRef.current;
+    if (!track) return;
+    const next = !torchOn;
+    try { await track.applyConstraints({ advanced: [{ torch: next } as any] }); setTorchOn(next); } catch { /* unavailable */ }
+  }, [torchOn]);
 
   const processDetectedCode = useCallback((code: string) => {
     if (isProcessingRef.current) return;
     if (lastScannedRef.current === code) return;
     isProcessingRef.current = true;
     lastScannedRef.current = code;
+    playBeep();
+    setReticleFlash(true);
+    setTimeout(() => setReticleFlash(false), 400);
     setCameraState("processing");
     stopCamera();
     handleQrScan(code);
@@ -307,23 +327,25 @@ export default function ContractorKiosk() {
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    // Skip decode if dimensions not yet available — keeps looping until ready.
-    // We don't gate the UI on this; setCameraState("scanning") is called
-    // immediately in startCamera so the viewfinder shows right away.
     if (!video || !canvas || !video.videoWidth || !video.videoHeight) {
       rafRef.current = requestAnimationFrame(scanFrame);
       return;
     }
+    const now = performance.now();
+    if (now - lastScanTimeRef.current < 250) {
+      rafRef.current = requestAnimationFrame(scanFrame);
+      return;
+    }
+    lastScanTimeRef.current = now;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) { rafRef.current = requestAnimationFrame(scanFrame); return; }
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-    const qrCode = jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: "dontInvert" });
-    if (qrCode?.data) {
-      processDetectedCode(qrCode.data);
-    } else {
+    try {
+      const result = codeReader.decodeFromCanvas(canvas);
+      processDetectedCode(result.getText());
+    } catch {
       rafRef.current = requestAnimationFrame(scanFrame);
     }
   }, [processDetectedCode]);
@@ -350,14 +372,15 @@ export default function ContractorKiosk() {
       if (!video) { stream.getTracks().forEach(t => t.stop()); return; }
 
       streamRef.current = stream;
-      // iOS Safari requires these attributes set imperatively
+      const track = stream.getVideoTracks()[0];
+      trackRef.current = track;
+      const caps = track.getCapabilities() as any;
+      if (caps?.torch) setTorchSupported(true);
       video.muted = true;
       video.setAttribute('playsinline', '');
       video.setAttribute('autoplay', '');
       video.srcObject = stream;
       video.play().catch(() => {});
-      // Show the scanning viewfinder immediately — don't wait for videoWidth.
-      // scanFrame guards the actual QR decode on !videoWidth so we never crash.
       setCameraState("scanning");
       rafRef.current = requestAnimationFrame(scanFrame);
     }).catch((err: any) => {
@@ -496,24 +519,15 @@ export default function ContractorKiosk() {
                 </div>
               )}
 
-              {/* Scanning overlay — viewfinder brackets */}
               {cameraState === "scanning" && (
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="relative w-52 h-52 sm:w-64 sm:h-64">
-                    <div className="absolute top-0 left-0 w-10 h-10 border-t-4 border-l-4 border-white rounded-tl-lg" />
-                    <div className="absolute top-0 right-0 w-10 h-10 border-t-4 border-r-4 border-white rounded-tr-lg" />
-                    <div className="absolute bottom-0 left-0 w-10 h-10 border-b-4 border-l-4 border-white rounded-bl-lg" />
-                    <div className="absolute bottom-0 right-0 w-10 h-10 border-b-4 border-r-4 border-white rounded-br-lg" />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-full h-0.5 bg-purple-400 opacity-80 animate-pulse" />
-                    </div>
-                  </div>
-                  <div className="absolute bottom-4 left-0 right-0 flex justify-center">
-                    <span className="text-white text-sm bg-black/50 px-3 py-1.5 rounded-full font-medium">
-                      Point camera at contractor QR pass — scans automatically
-                    </span>
-                  </div>
-                </div>
+                <ScannerReticle
+                  isScanning={true}
+                  isFlashing={reticleFlash}
+                  torchOn={torchOn}
+                  torchSupported={torchSupported}
+                  onToggleTorch={toggleTorch}
+                  label="Point camera at contractor QR pass — scans automatically"
+                />
               )}
 
               {/* Processing overlay */}

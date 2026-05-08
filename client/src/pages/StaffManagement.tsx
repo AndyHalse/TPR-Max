@@ -240,11 +240,12 @@ export default function StaffManagement() {
     return { brandColor, accentColor, variableTextColor, companyName, logoUrl };
   };
 
-  const getBrandedPassHtml = (
+  const getBrandedPassHtml = async (
     qrCode: string, staffName: string, department: string, employeeId: string,
     photoUrl?: string | null, email?: string | null, jobTitle?: string | null
   ) => {
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}`;
+    const QRCode = await import('qrcode');
+    const qrUrl = await QRCode.toDataURL(qrCode, { width: 200, margin: 1 });
     const { brandColor, variableTextColor, companyName, logoUrl } = getPassBranding();
     const logoHtml = logoUrl
       ? `<img src="${logoUrl}" style="height:26px;max-width:80px;object-fit:contain;vertical-align:middle;" crossorigin="anonymous">`
@@ -319,14 +320,18 @@ export default function StaffManagement() {
     setQrPassData(null);
 
     const { brandColor, variableTextColor, companyName, logoUrl } = getPassBranding();
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrCode)}`;
+    const QRCodeLib = await import('qrcode');
+    const qrDataUrl = await QRCodeLib.toDataURL(qrCode, { width: 200, margin: 1 });
 
     const resolveUrl = (path: string | null | undefined) => path
       ? (path.startsWith('http') ? path : `${window.location.origin}/objects${path.startsWith('/') ? '' : '/'}${path}`)
       : null;
 
+    const qrImgEl = await new Promise<HTMLImageElement | null>(resolve => {
+      const img = new Image(); img.onload = () => resolve(img); img.onerror = () => resolve(null); img.src = qrDataUrl;
+    });
     const [qrImg, logoImg, photoImg] = await Promise.all([
-      loadImageAsDataUrl(qrUrl),
+      Promise.resolve(qrImgEl),
       logoUrl ? loadImageAsDataUrl(logoUrl) : Promise.resolve(null),
       resolveUrl(photoUrl) ? loadImageAsDataUrl(resolveUrl(photoUrl)!) : Promise.resolve(null),
     ]);
@@ -537,11 +542,11 @@ export default function StaffManagement() {
     }, 'image/png');
   };
 
-  const handlePrintQrPass = (
+  const handlePrintQrPass = async (
     qrCode: string, staffName: string, department: string, employeeId: string,
     photoUrl?: string | null, email?: string | null, jobTitle?: string | null
   ) => {
-    const passHtml = getBrandedPassHtml(qrCode, staffName, department, employeeId, photoUrl, email, jobTitle);
+    const passHtml = await getBrandedPassHtml(qrCode, staffName, department, employeeId, photoUrl, email, jobTitle);
     const printWindow = window.open('', '_blank', 'width=440,height=700');
     if (printWindow) {
       printWindow.document.write(`
@@ -1138,9 +1143,10 @@ export default function StaffManagement() {
             {qrPassData && (
               <div className="text-center p-4 bg-white rounded-lg border">
                 <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrPassData.qrCode)}`}
+                  src=""
                   alt="Staff QR Code"
                   className="w-40 h-40 mx-auto mb-2 rounded-lg shadow-sm"
+                  ref={el => { if (!el || !qrPassData?.qrCode) return; import('qrcode').then(Q => Q.toDataURL(qrPassData.qrCode, { width: 160, margin: 1 })).then(u => { el.src = u; }); }}
                 />
                 <p className="text-xs text-gray-500 font-mono">{qrPassData.qrCode}</p>
               </div>

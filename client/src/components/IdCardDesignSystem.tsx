@@ -505,9 +505,10 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                       ) : element.type === 'qrcode' ? (
                         <div className="w-full h-full bg-white border rounded flex items-center justify-center">
                           <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=${element.width}x${element.height}&data=${encodeURIComponent('STAFF-ID-' + Date.now())}&color=000000&bgcolor=ffffff`}
+                            src=""
                             alt="QR Code"
                             className="w-full h-full object-contain"
+                            ref={el => { if (!el) return; import('qrcode').then(Q => Q.toDataURL('STAFF-ID-PREVIEW', { width: element.width, margin: 1 })).then(u => { el.src = u; }); }}
                           />
                         </div>
                       ) : element.type === 'barcode' ? (

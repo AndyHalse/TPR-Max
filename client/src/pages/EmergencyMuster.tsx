@@ -857,7 +857,6 @@ export default function EmergencyMuster() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {fireMarshals.map((fm: any) => {
                   const marshalUrl = `${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`;
-                  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(marshalUrl)}&color=1e3a5f&bgcolor=eff6ff`;
                   const isShowingQr = showQrFor === `idle-${fm.id}`;
                   return (
                     <div key={fm.id} className="bg-white dark:bg-gray-800/50 rounded-lg p-2.5 border border-blue-200 dark:border-blue-700">
@@ -875,7 +874,7 @@ export default function EmergencyMuster() {
                       <p className="text-[10px] text-muted-foreground font-mono truncate bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded">{marshalUrl}</p>
                       {isShowingQr && (
                         <div className="mt-2 flex flex-col items-center gap-1">
-                          <img src={qrUrl} alt={`QR for ${fm.firstName}`} className="w-24 h-24 rounded bg-white border border-blue-200" />
+                          <img src="" alt={`QR for ${fm.firstName}`} className="w-24 h-24 rounded bg-white border border-blue-200" ref={el => { if (!el) return; import('qrcode').then(Q => Q.toDataURL(marshalUrl, { width: 96, margin: 1 })).then(u => { el.src = u; }); }} />
                           <p className="text-[10px] text-muted-foreground">Scan to open on mobile</p>
                         </div>
                       )}
@@ -968,7 +967,6 @@ export default function EmergencyMuster() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {fireMarshals.map((fm: any) => {
                       const marshalUrl = `${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`;
-                      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(marshalUrl)}&color=1e3a5f&bgcolor=eff6ff`;
                       const isShowingQr = showQrFor === `pre-${fm.id}`;
                       return (
                         <div key={fm.id} className="bg-white dark:bg-gray-800/50 rounded-lg p-2.5 border border-gray-200 dark:border-gray-600">
@@ -986,7 +984,7 @@ export default function EmergencyMuster() {
                           <p className="text-[10px] text-muted-foreground font-mono truncate bg-gray-50 dark:bg-gray-700/50 px-2 py-1 rounded">{marshalUrl}</p>
                           {isShowingQr && (
                             <div className="mt-2 flex flex-col items-center gap-1">
-                              <img src={qrUrl} alt={`QR for ${fm.firstName}`} className="w-24 h-24 rounded bg-white border border-gray-200" />
+                              <img src="" alt={`QR for ${fm.firstName}`} className="w-24 h-24 rounded bg-white border border-gray-200" ref={el => { if (!el) return; import('qrcode').then(Q => Q.toDataURL(marshalUrl, { width: 96, margin: 1 })).then(u => { el.src = u; }); }} />
                               <p className="text-[10px] text-muted-foreground">Scan to open on mobile</p>
                             </div>
                           )}
@@ -1050,7 +1048,6 @@ export default function EmergencyMuster() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {fireMarshals.map((fm: any) => {
                       const marshalUrl = `${window.location.origin}/fire-marshal/${fm.fireMarshalUrlId}`;
-                      const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(marshalUrl)}&color=1e3a5f&bgcolor=eff6ff`;
                       const isShowingQr = showQrFor === `active-${fm.id}`;
                       return (
                         <div key={fm.id} className="bg-white dark:bg-gray-800/50 rounded-lg p-2.5 border border-blue-200 dark:border-blue-700">
@@ -1068,7 +1065,7 @@ export default function EmergencyMuster() {
                           <p className="text-[10px] text-blue-600 dark:text-blue-400 font-mono truncate bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded">{marshalUrl}</p>
                           {isShowingQr && (
                             <div className="mt-2 flex items-center gap-3">
-                              <img src={qrUrl} alt={`QR for ${fm.firstName}`} className="w-28 h-28 rounded bg-white border border-blue-200 flex-shrink-0" />
+                              <img src="" alt={`QR for ${fm.firstName}`} className="w-28 h-28 rounded bg-white border border-blue-200 flex-shrink-0" ref={el => { if (!el) return; import('qrcode').then(Q => Q.toDataURL(marshalUrl, { width: 112, margin: 1 })).then(u => { el.src = u; }); }} />
                               <p className="text-xs text-muted-foreground">Scan to open the Fire Marshal mobile view — no login required</p>
                             </div>
                           )}

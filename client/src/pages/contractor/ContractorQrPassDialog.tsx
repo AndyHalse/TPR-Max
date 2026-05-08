@@ -21,7 +21,9 @@ function getWorkerPassBranding(companySettings: any) {
   };
 }
 
-function getBrandedWorkerPassHtml(qrCode: string, workerName: string, companyName: string, branding: ReturnType<typeof getWorkerPassBranding>) {
+async function getBrandedWorkerPassHtml(qrCode: string, workerName: string, companyName: string, branding: ReturnType<typeof getWorkerPassBranding>) {
+  const QRCode = await import('qrcode');
+  const qrDataUrl = await QRCode.toDataURL(qrCode, { width: 180, margin: 1 });
   return `<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
     body { font-family: system-ui, sans-serif; margin: 0; background: #fff; }
     .pass { width: 340px; margin: 20px auto; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.13); }
@@ -46,7 +48,7 @@ function getBrandedWorkerPassHtml(qrCode: string, workerName: string, companyNam
         <div class="worker-name">${workerName}</div>
         <div class="company">${companyName}</div>
         <div class="qr-wrap">
-          <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrCode)}" width="180" height="180" alt="QR Code">
+          <img src="${qrDataUrl}" width="180" height="180" alt="QR Code">
           <div class="qr-code">${qrCode}</div>
         </div>
         <p style="font-size:12px;color:#64748b;margin:0">Scan at kiosk to sign in/out</p>
@@ -78,9 +80,9 @@ export default function ContractorQrPassDialog({ worker, onClose }: Props) {
 
   const handlePrint = (workerId: string) => {
     sendWorkerQrPassMutation.mutate({ id: workerId, method: 'download' }, {
-      onSuccess: (data: any) => {
+      onSuccess: async (data: any) => {
         const branding = getWorkerPassBranding(companySettings);
-        const html = getBrandedWorkerPassHtml(data.qrCode, data.workerName, data.companyName, branding);
+        const html = await getBrandedWorkerPassHtml(data.qrCode, data.workerName, data.companyName, branding);
         const win = window.open('', '_blank');
         if (win) { win.document.write(html); win.document.close(); setTimeout(() => win.print(), 500); }
       }
@@ -89,9 +91,9 @@ export default function ContractorQrPassDialog({ worker, onClose }: Props) {
 
   const handleDownload = (workerId: string) => {
     sendWorkerQrPassMutation.mutate({ id: workerId, method: 'download' }, {
-      onSuccess: (data: any) => {
+      onSuccess: async (data: any) => {
         const branding = getWorkerPassBranding(companySettings);
-        const html = getBrandedWorkerPassHtml(data.qrCode, data.workerName, data.companyName || worker?.companyName, branding);
+        const html = await getBrandedWorkerPassHtml(data.qrCode, data.workerName, data.companyName || worker?.companyName, branding);
         const blob = new Blob([html], { type: 'text/html' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -133,7 +135,7 @@ export default function ContractorQrPassDialog({ worker, onClose }: Props) {
 
           {qrPassData && (
             <div className="text-center p-4 bg-white rounded-lg border">
-              <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrPassData.qrCode)}`} alt="Contractor QR Code" className="w-40 h-40 mx-auto mb-2 rounded-lg shadow-sm" />
+              <img src="" alt="Contractor QR Code" className="w-40 h-40 mx-auto mb-2 rounded-lg shadow-sm" ref={el => { if (!el || !qrPassData?.qrCode) return; import('qrcode').then(Q => Q.toDataURL(qrPassData.qrCode, { width: 160, margin: 1 })).then(u => { el.src = u; }); }} />
               <p className="text-xs text-gray-500 font-mono">{qrPassData.qrCode}</p>
             </div>
           )}

@@ -133,9 +133,13 @@ export default function ContractorPassPreviewModal({
                   <div className="w-16 h-16 border-2 border-gray-400 bg-white flex items-center justify-center">
                     {worker.qrCode ? (
                       <img 
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=60x60&data=${encodeURIComponent(worker.qrCode)}`}
+                        src={`data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7`}
                         alt="QR Code"
-                        className="w-14 h-14"
+                        className="w-14 h-14 hidden"
+                        ref={el => {
+                          if (!el || !worker.qrCode) return;
+                          import('qrcode').then(QRCode => QRCode.toDataURL(worker.qrCode, { width: 60, margin: 1 })).then(url => { el.src = url; el.classList.remove('hidden'); });
+                        }}
                       />
                     ) : (
                       <div className="text-xs text-center text-gray-500">

@@ -348,6 +348,12 @@
   to { transform: translateY(0); opacity: 1; }
 }
 
+@keyframes scanline-sweep {
+  0%   { top: 0; }
+  50%  { top: calc(100% - 2px); }
+  100% { top: 0; }
+}
+
 /* Custom scrollbar styles for Department Activity */
 .scrollbar-thin {
   scrollbar-width: thin;

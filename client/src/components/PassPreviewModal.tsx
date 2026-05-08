@@ -1,6 +1,6 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { generateQRCode } from "@/lib/qr-generator";
+import QRCodeImage from "@/components/QRCodeImage";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { Visitor, CompanySettings } from "@shared/schema";
@@ -110,13 +110,7 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
                 </div>
                 
                 <div className="w-16 h-16 flex items-center justify-center bg-white">
-                  <img 
-                    src={generateQRCode(visitor.qrCode || visitor.id)} 
-                    alt="QR Code" 
-                    className="w-full h-full object-contain"
-                    data-testid="pass-qr-code"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
+                  <QRCodeImage data={visitor.qrCode || visitor.id} size={64} className="w-full h-full object-contain" alt="QR Code" />
                 </div>
               </div>
               
