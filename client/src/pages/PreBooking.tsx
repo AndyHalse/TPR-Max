@@ -309,19 +309,27 @@ export default function PreBooking() {
     onSuccess: async (data: { visitor: any }) => {
       const visitor = data.visitor;
       
-      // Auto-print the pass after a short delay
-      setTimeout(() => {
-        window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
-      }, 500);
-      
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
-      toast({
-        title: "Success",
-        description: "Visitor checked in manually! Pass is printing...",
-      });
+
+      if (visitor.ePassSent) {
+        toast({
+          title: "✅ Digital Pass Sent",
+          description: `E-Pass has been sent to ${visitor.email || 'visitor'}'s email. They can use it to check out.`,
+          duration: 6000,
+        });
+      } else {
+        // Auto-print the pass after a short delay
+        setTimeout(() => {
+          window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
+        }, 500);
+        toast({
+          title: "Success",
+          description: "Visitor checked in manually! Pass is printing...",
+        });
+      }
     },
     onError: () => {
       toast({

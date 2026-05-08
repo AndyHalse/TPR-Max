@@ -640,6 +640,7 @@ export default function KioskMode() {
               visitor={currentVisitor}
               hostName={hostName}
               isPreBooked={isPreBookedCheckIn}
+              ePassSent={!!currentVisitor.ePassSent}
             />
           )}
         </div>
@@ -837,6 +838,7 @@ export default function KioskMode() {
           visitor={currentVisitor}
           hostName={hostName}
           isPreBooked={isPreBookedCheckIn}
+          ePassSent={!!currentVisitor.ePassSent}
         />
       )}
 

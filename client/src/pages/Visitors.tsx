@@ -701,17 +701,26 @@ export default function Visitors() {
       const response = await apiRequest("POST", "/api/prebookings/manual-checkin", { preBookingId });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { visitor: any }) => {
+      const visitor = data.visitor;
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
-      toast({
-        title: "Success",
-        description: "Visitor checked in manually!",
-      });
+      if (visitor?.ePassSent) {
+        toast({
+          title: "✅ Digital Pass Sent",
+          description: `E-Pass has been sent to ${visitor.email || 'visitor'}'s email. They can use it to check out.`,
+          duration: 6000,
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Visitor checked in manually!",
+        });
+      }
     },
     onError: () => {
       toast({

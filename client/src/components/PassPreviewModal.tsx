@@ -11,9 +11,10 @@ interface PassPreviewModalProps {
   visitor: Visitor;
   hostName?: string;
   isPreBooked?: boolean;
+  ePassSent?: boolean;
 }
 
-export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, isPreBooked = false }: PassPreviewModalProps) {
+export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, isPreBooked = false, ePassSent = false }: PassPreviewModalProps) {
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
@@ -127,15 +128,34 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
           
           <div className="space-y-4">
             <div className="text-center">
-              <p className="text-variable text-base leading-relaxed px-4">
-                {isPreBooked 
-                  ? "Welcome! Your pre-booking has been confirmed and your visitor pass has been generated." 
-                  : "Your visitor pass has been generated and is ready to print."
-                }
-              </p>
-              <p className="text-sm text-variable mt-2">
-                Show this pass to reception or scan the QR code to check out.
-              </p>
+              {ePassSent ? (
+                <>
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <span className="text-2xl">✉️</span>
+                    <span className="text-green-600 font-semibold text-lg">Digital E-Pass Sent</span>
+                  </div>
+                  <p className="text-variable text-base leading-relaxed px-4">
+                    {isPreBooked
+                      ? "Welcome! Your pre-booking is confirmed. A digital E-Pass has been sent to your email."
+                      : "A digital E-Pass has been sent to your email address."}
+                  </p>
+                  <p className="text-sm text-variable mt-2">
+                    Open your email and use the QR code to check out when you leave.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-variable text-base leading-relaxed px-4">
+                    {isPreBooked 
+                      ? "Welcome! Your pre-booking has been confirmed and your visitor pass has been generated." 
+                      : "Your visitor pass has been generated and is ready to print."
+                    }
+                  </p>
+                  <p className="text-sm text-variable mt-2">
+                    Show this pass to reception or scan the QR code to check out.
+                  </p>
+                </>
+              )}
             </div>
             
             <div className="flex gap-3 px-4">
@@ -147,13 +167,15 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
               >
                 Close
               </Button>
-              <Button 
-                onClick={handlePrint}
-                className="flex-1 gradient-blue text-white px-4 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-300"
-                data-testid="button-print-pass"
-              >
-                Print Pass
-              </Button>
+              {!ePassSent && (
+                <Button 
+                  onClick={handlePrint}
+                  className="flex-1 gradient-blue text-white px-4 py-3 rounded-xl font-medium hover:shadow-lg transition-all duration-300"
+                  data-testid="button-print-pass"
+                >
+                  Print Pass
+                </Button>
+              )}
             </div>
           </div>
         </div>

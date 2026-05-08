@@ -1502,9 +1502,43 @@ This is an automated notification from your visitor management system.`;
         }
       }
 
+      // Send e-Pass if enabled (same as the main checkin route)
+      let ePassSentForManual = false;
+      try {
+        const settings = await databaseService.getCompanySettings(context);
+        if (settings?.ePassEnabled && visitor?.email) {
+          const baseUrl = process.env.APP_URL ||
+            `${req.get('x-forwarded-proto') || req.protocol}://${req.get('x-forwarded-host') || req.get('host')}`;
+          const ePassUrl = `${baseUrl}/epass/${visitor.id}`;
+          await databaseService.updateVisitor(context, visitor.id, {
+            ePassUrl,
+            ePassDeliveryType: settings.ePassDeliveryMethod || 'email'
+          });
+          const method = settings.ePassDeliveryMethod || 'email';
+          if (method === 'email' || method === 'both' || method === 'choice') {
+            const emailSvc = new EmailService(req.customerId);
+            const emailSent = await emailSvc.forCustomer(req.customerId).sendDigitalEPass(
+              visitor as any,
+              hostStaffInCustomerDb as any || null,
+              settings as any,
+              ePassUrl
+            );
+            if (emailSent) {
+              await databaseService.updateVisitor(context, visitor.id, { ePassSent: true, ePassSentAt: new Date() });
+              visitor.ePassSent = true;
+              visitor.ePassUrl = ePassUrl;
+              ePassSentForManual = true;
+              logger.info(`Manual check-in: E-Pass sent to [email]`);
+            }
+          }
+        }
+      } catch (ePassError) {
+        logger.error('Manual check-in: Failed to send e-Pass:', ePassError);
+      }
+
       res.json({ 
         success: true,
-        visitor, 
+        visitor: { ...visitor, ePassSent: ePassSentForManual },
         preBooking: updatedPreBooking,
         message: "Visitor checked in manually successfully"
       });
