@@ -696,7 +696,7 @@ export default function Dashboard() {
   // Check-in from diary pre-booking (visitor)
   const diaryVisitorCheckInMutation = useMutation({
     mutationFn: async (booking: any) => {
-      const response = await apiRequest("POST", "/api/prebookings/checkin", { qrCode: booking.qrCode || `PBK-${booking.id}` });
+      const response = await apiRequest("POST", "/api/prebookings/manual-checkin", { preBookingId: booking.id });
       return response.json();
     },
     onSuccess: () => {
