@@ -1064,6 +1064,10 @@ export function registerVisitorRoutes(app: Express): void {
 
       const duplicate = existingToday.find((b: any) => {
         if (new Date(b.visitDate).toDateString() !== visitDayStr) return false;
+        // Only treat as a time clash when both sides have a time and they differ,
+        // OR when one side has a time and the other doesn't (can't be the same slot)
+        if (preBookingData.visitTime && !b.visitTime) return false;
+        if (b.visitTime && !preBookingData.visitTime) return false;
         if (b.visitTime && preBookingData.visitTime && b.visitTime !== preBookingData.visitTime) return false;
         // Match by email (if both present)
         if (b.visitorEmail && preBookingData.visitorEmail &&
