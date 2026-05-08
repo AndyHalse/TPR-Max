@@ -156,8 +156,25 @@ export default function KioskMode() {
   const preBookingCheckInMutation = useMutation({
     mutationFn: async (payload: string | { qrCode: string; hsRulesAccepted?: boolean }) => {
       const body = typeof payload === "string" ? { qrCode: payload } : payload;
-      const response = await apiRequest("POST", "/api/prebookings/checkin", body);
-      return response.json();
+      const csrfCookie = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='));
+      const csrfToken = csrfCookie ? csrfCookie.split('=')[1] : null;
+      const response = await fetch("/api/prebookings/checkin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
+        },
+        body: JSON.stringify(body),
+        credentials: "include",
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        const err: any = new Error(data.error || "Check-in failed");
+        err.requireHsAcceptance = !!data.requireHsAcceptance;
+        err.status = response.status;
+        throw err;
+      }
+      return data;
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
@@ -185,10 +202,17 @@ export default function KioskMode() {
         setActiveSection("main");
       }, 3500);
     },
-    onError: (error: any) => {
-      console.error("Pre-booking check-in error:", error);
+    onError: (error: any, variables: any) => {
       isProcessingRef.current = false;
       lastScannedRef.current = null;
+      if (error?.requireHsAcceptance) {
+        const code = typeof variables === "string" ? variables : variables?.qrCode;
+        if (code) setPendingQrCode(code);
+        setShowHSModal(true);
+        setCameraState("off");
+        return;
+      }
+      console.error("Pre-booking check-in error:", error);
       setScanResult({ success: false, message: "QR code not found. Please try again or use manual check-in." });
       setCameraState("error");
     },

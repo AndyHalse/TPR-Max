@@ -330,7 +330,7 @@ By entering our premises, you agree to comply with all health and safety rules.`
     // Core fields that should always exist in company_settings table
     const coreFields = [
       'companyName', 'logoUrl', 'address', 'phone', 'website', 'email',
-      'emailReportsEnabled', 'reportFrequency', 'hsRulesEnabled', 'hsRulesContent',
+      'emailReportsEnabled', 'reportFrequency', 'hsRulesEnabled', 'hsRulesContent', 'hsRulesRequireAcceptance',
       'backgroundColor', 'foregroundColor', 'accentColor', 'theme',
       'selectedPrinter', 'enableQrCodes', 'updatedAt',
       // ID Card & Print Settings
