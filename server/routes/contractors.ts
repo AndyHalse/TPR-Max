@@ -4216,8 +4216,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       }
 
       // Server-side H&S enforcement for contractors
+      // Only enforce if there is actual H&S content to show — mirrors the client-side modal gate
       const contractorSettings = await databaseService.getCompanySettings(context);
-      if (contractorSettings?.hsRulesEnabled !== false && contractorSettings?.hsRulesRequireAcceptance && !hsRulesAccepted) {
+      const cHsEnabled = contractorSettings?.hsRulesEnabled !== false;
+      const cHsRequiresAcceptance = !!contractorSettings?.hsRulesRequireAcceptance;
+      const cHsHasContent = !!(contractorSettings as any)?.hsRulesContent?.trim();
+      if (cHsEnabled && cHsRequiresAcceptance && cHsHasContent && !hsRulesAccepted) {
         return res.status(400).json({
           error: "Health & Safety acceptance required",
           message: "You must accept the Health & Safety rules before checking in.",

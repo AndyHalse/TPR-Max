@@ -1208,8 +1208,12 @@ export function registerVisitorRoutes(app: Express): void {
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
 
       // Server-side H&S enforcement for pre-booked visitors
+      // Only enforce if there is actual H&S content to show — mirrors the client-side modal gate
       const pbSettings = await databaseService.getCompanySettings(context);
-      if ((pbSettings as any)?.hsRulesEnabled !== false && (pbSettings as any)?.hsRulesRequireAcceptance && !hsRulesAccepted) {
+      const hsEnabled = (pbSettings as any)?.hsRulesEnabled !== false;
+      const hsRequiresAcceptance = !!(pbSettings as any)?.hsRulesRequireAcceptance;
+      const hsHasContent = !!((pbSettings as any)?.hsRulesContent?.trim());
+      if (hsEnabled && hsRequiresAcceptance && hsHasContent && !hsRulesAccepted) {
         return res.status(400).json({
           error: "Health & Safety acceptance required",
           message: "You must accept the Health & Safety rules before checking in.",
