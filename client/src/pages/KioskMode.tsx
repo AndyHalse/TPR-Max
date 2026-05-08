@@ -240,8 +240,8 @@ export default function KioskMode() {
       return;
     }
 
-    // Visitor pre-booking
-    if (code.startsWith("PBK-")) {
+    // Visitor pre-booking (PB- is the stored DB format; PBK- is a legacy/dashboard alias)
+    if (code.startsWith("PB-") || code.startsWith("PBK-")) {
       const settingsAny = settings as any;
       if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
         setScannedCode(code);
