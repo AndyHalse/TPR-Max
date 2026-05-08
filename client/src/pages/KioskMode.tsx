@@ -156,25 +156,8 @@ export default function KioskMode() {
   const preBookingCheckInMutation = useMutation({
     mutationFn: async (payload: string | { qrCode: string; hsRulesAccepted?: boolean }) => {
       const body = typeof payload === "string" ? { qrCode: payload } : payload;
-      const csrfCookie = document.cookie.split(';').find(c => c.trim().startsWith('csrf_token='));
-      const csrfToken = csrfCookie ? csrfCookie.split('=')[1] : null;
-      const response = await fetch("/api/prebookings/checkin", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(csrfToken ? { "x-csrf-token": csrfToken } : {}),
-        },
-        body: JSON.stringify(body),
-        credentials: "include",
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        const err: any = new Error(data.error || "Check-in failed");
-        err.requireHsAcceptance = !!data.requireHsAcceptance;
-        err.status = response.status;
-        throw err;
-      }
-      return data;
+      const response = await apiRequest("POST", "/api/prebookings/checkin", body);
+      return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
