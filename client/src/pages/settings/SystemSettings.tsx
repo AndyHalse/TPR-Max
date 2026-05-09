@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, Ticket, UserCheck, UserPlus, Video, Wrench } from "lucide-react";
+import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, Flame, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, Ticket, UserCheck, UserPlus, Video, Wrench } from "lucide-react";
 
 export default function SystemSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -1000,6 +1000,40 @@ export default function SystemSettings() {
           checked={currentSettings?.featureHelpDesk === true}
           onCheckedChange={(checked) => handleInputChange("featureHelpDesk", checked)}
           data-testid="toggle-helpdesk"
+        />
+      </div>
+      {/* H&S Incidents */}
+      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-amber-100 rounded-lg">
+            <AlertTriangle className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-fixed">H&S Incidents</h4>
+            <p className="text-xs text-variable">RIDDOR 2013 reportable incident tracking & near miss reporting</p>
+          </div>
+        </div>
+        <Switch
+          checked={currentSettings?.featureHsIncidents !== false}
+          onCheckedChange={(checked) => handleInputChange("featureHsIncidents", checked)}
+          data-testid="toggle-hs-incidents"
+        />
+      </div>
+      {/* Fire Risk Assessment */}
+      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-orange-100 rounded-lg">
+            <Flame className="w-5 h-5 text-orange-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-fixed">Fire Risk Assessment</h4>
+            <p className="text-xs text-variable">RRO 2005 compliance — FRA tracking, review reminders & audit history</p>
+          </div>
+        </div>
+        <Switch
+          checked={currentSettings?.featureFireRiskAssessment !== false}
+          onCheckedChange={(checked) => handleInputChange("featureFireRiskAssessment", checked)}
+          data-testid="toggle-fire-risk-assessment"
         />
       </div>
       {/* Kiosk Mode */}

@@ -350,6 +350,18 @@ export class CustomerDatabaseService {
       logger.warn(`⚠️ feature_help_desk column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Ensure H&S Incidents and Fire Risk Assessment feature toggle columns exist
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_hs_incidents BOOLEAN DEFAULT true`);
+    } catch (err: any) {
+      logger.warn(`⚠️ feature_hs_incidents column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_fire_risk_assessment BOOLEAN DEFAULT true`);
+    } catch (err: any) {
+      logger.warn(`⚠️ feature_fire_risk_assessment column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure PPM tables exist (PPM module migration)
     try {
       // ppm_asset_groups must be created before ppm_assets (FK dependency)

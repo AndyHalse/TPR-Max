@@ -482,6 +482,8 @@ export const companySettings = pgTable("company_settings", {
   featureIncidentReports: boolean("feature_incident_reports").default(true),
   featurePPM: boolean("feature_ppm").default(false),
   featureHelpDesk: boolean("feature_help_desk").default(false),
+  featureHsIncidents: boolean("feature_hs_incidents").default(true),
+  featureFireRiskAssessment: boolean("feature_fire_risk_assessment").default(true),
   // Core navigation feature toggles — default ON
   featureDashboard: boolean("feature_dashboard").default(true),
   featureVisitors: boolean("feature_visitors").default(true),
