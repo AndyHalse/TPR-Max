@@ -2360,4 +2360,54 @@ export const insertHelpDeskTicketSchema = createInsertSchema(helpDeskTickets).om
 export type InsertHelpDeskTicket = z.infer<typeof insertHelpDeskTicketSchema>;
 export type HelpDeskTicket = typeof helpDeskTickets.$inferSelect;
 
+// ── H&S Incident Reports (RIDDOR + Near Miss) ─────────────────────────────────
+
+export const hsIncidents = pgTable("hs_incidents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  description: text("description"),
+  incidentDate: timestamp("incident_date").notNull(),
+  location: text("location"),
+  reportedBy: text("reported_by"),
+  injuredPerson: text("injured_person"),
+  injuredPersonType: text("injured_person_type"), // employee | contractor | visitor | member_of_public
+  // Near miss fields
+  isNearMiss: boolean("is_near_miss").default(false).notNull(),
+  nearMissPotential: text("near_miss_potential"), // minor | serious | critical
+  nearMissHazardType: text("near_miss_hazard_type"), // slip_trip_fall | struck_by_object | ...
+  // RIDDOR fields
+  riddorCategory: text("riddor_category"), // fatality | specified_injury | over_7_day | dangerous_occurrence | occupational_disease | not_riddor_reportable
+  riddorReportingDeadline: timestamp("riddor_reporting_deadline"),
+  riddorReportedAt: timestamp("riddor_reported_at"),
+  riddorReference: text("riddor_reference"),
+  riddorReminderSentAt: timestamp("riddor_reminder_sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertHsIncidentSchema = createInsertSchema(hsIncidents).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertHsIncident = z.infer<typeof insertHsIncidentSchema>;
+export type HsIncident = typeof hsIncidents.$inferSelect;
+
+// ── Fire Risk Assessments (RRO 2005) ─────────────────────────────────────────
+
+export const fireRiskAssessments = pgTable("fire_risk_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull().default("Fire Risk Assessment"),
+  assessorName: text("assessor_name").notNull(),
+  assessorCompany: text("assessor_company"),
+  assessmentDate: text("assessment_date").notNull(), // YYYY-MM-DD
+  nextReviewDate: text("next_review_date").notNull(), // YYYY-MM-DD
+  documentUrl: text("document_url"),
+  status: text("status").notNull().default("current"), // current | review_due | overdue | superseded
+  findingsSummary: text("findings_summary"),
+  reminderSentAt: timestamp("reminder_sent_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertFireRiskAssessmentSchema = createInsertSchema(fireRiskAssessments).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertFireRiskAssessment = z.infer<typeof insertFireRiskAssessmentSchema>;
+export type FireRiskAssessment = typeof fireRiskAssessments.$inferSelect;
+
 export type BiostarDevice = typeof biostarDevices.$inferSelect;

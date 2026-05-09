@@ -52,6 +52,8 @@ import PlatformAdminLogin from "@/pages/PlatformAdminLogin";
 import PlatformAdminDashboard from "@/pages/PlatformAdminDashboard";
 import IncidentManagerMonitor from "@/pages/IncidentManagerMonitor";
 import LoneWorkerConfirmation from "@/pages/LoneWorkerConfirmation";
+import HSIncidents from "@/pages/HSIncidents";
+import FireRiskAssessmentPage from "@/pages/FireRiskAssessment";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -407,6 +409,8 @@ function Router() {
             <Route path="/meeting-rooms" component={MeetingRooms} />
             <Route path="/billing" component={Billing} />
             <Route path="/profile" component={Profile} />
+            <Route path="/hs-incidents" component={HSIncidents} />
+            <Route path="/fire-risk-assessment" component={FireRiskAssessmentPage} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

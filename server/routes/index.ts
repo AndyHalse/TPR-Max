@@ -21,6 +21,8 @@ import { registerAnalyticsRoutes } from './analytics';
 import { registerImportRoutes } from './imports';
 import { registerCdmRoutes } from './cdm';
 import { registerHelpdeskRoutes } from './helpdesk';
+import { registerHsIncidentRoutes } from './hsIncidents';
+import { registerFireRiskAssessmentRoutes } from './fireRiskAssessment';
 
 export async function registerSplitRoutes(
   app: Express,
@@ -47,5 +49,7 @@ export async function registerSplitRoutes(
   await registerImportRoutes(app);
   await registerCdmRoutes(app);
   registerHelpdeskRoutes(app);
+  registerHsIncidentRoutes(app);
+  registerFireRiskAssessmentRoutes(app);
   await registerRemainingRoutes(app, server);
 }

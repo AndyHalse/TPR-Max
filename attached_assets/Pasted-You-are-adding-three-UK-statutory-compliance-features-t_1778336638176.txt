@@ -1,0 +1,567 @@
+You are adding three UK statutory compliance features to TPR Max — a 
+site compliance SaaS platform built in Node.js (Express) with a React 
+frontend and PostgreSQL database. These features close genuine criminal 
+liability gaps for customers.
+
+Work through each section in order. Do not skip ahead.
+
+════════════════════════════════════════════════════════════════════════
+SECTION 1 — RIDDOR CLASSIFICATION (Reporting of Injuries, Diseases 
+and Dangerous Occurrences Regulations 2013)
+════════════════════════════════════════════════════════════════════════
+
+LEGAL CONTEXT:
+Under RIDDOR 2013, employers must report certain workplace incidents 
+to the HSE (Health and Safety Executive). Failure to report is a 
+criminal offence carrying unlimited fines.
+
+Reportable categories and deadlines:
+  - Fatality:                  Report IMMEDIATELY (same day)
+  - Specified injury*:         Report within 10 days
+  - Over-7-day incapacitation: Report within 15 days
+  - Dangerous occurrence:      Report within 10 days
+  - Occupational disease:      Report when diagnosis confirmed
+
+*Specified injuries include: fractures (not fingers/thumbs/toes), 
+amputations, permanent loss of sight, crush injuries, scalping, 
+unconsciousness, requiring resuscitation, admittance to hospital 
+for over 24 hours.
+
+────────────────────────────────────────────────────────────────────
+STEP 1A — DATABASE: Add RIDDOR fields to incidents table
+────────────────────────────────────────────────────────────────────
+
+Add a migration to the incidents (or incident_reports) table. 
+Check the existing schema first and add these columns:
+
+  ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS 
+    riddor_category TEXT DEFAULT NULL;
+    -- Values: 'fatality' | 'specified_injury' | 'over_7_day' | 
+    --         'dangerous_occurrence' | 'occupational_disease' | 
+    --         'not_riddor_reportable' | null (not yet assessed)
+
+  ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS
+    riddor_reporting_deadline TIMESTAMPTZ DEFAULT NULL;
+    -- Calculated from incident date based on category
+
+  ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS
+    riddor_reported_at TIMESTAMPTZ DEFAULT NULL;
+    -- Set when user marks as reported to HSE
+
+  ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS
+    riddor_reference TEXT DEFAULT NULL;
+    -- HSE reference number provided after reporting
+
+  ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS
+    riddor_reminder_sent_at TIMESTAMPTZ DEFAULT NULL;
+    -- Prevents duplicate reminder emails
+
+────────────────────────────────────────────────────────────────────
+STEP 1B — BACKEND: RIDDOR deadline calculation utility
+────────────────────────────────────────────────────────────────────
+
+Create /server/utils/riddorUtils.ts:
+
+  export type RIDDORCategory =
+    | 'fatality'
+    | 'specified_injury'
+    | 'over_7_day'
+    | 'dangerous_occurrence'
+    | 'occupational_disease'
+    | 'not_riddor_reportable'
+
+  export function calculateRIDDORDeadline(
+    category: RIDDORCategory,
+    incidentDate: Date
+  ): Date | null {
+    const d = new Date(incidentDate)
+    switch (category) {
+      case 'fatality':
+        return d  // Same day — deadline IS the incident date
+      case 'specified_injury':
+      case 'dangerous_occurrence':
+        d.setDate(d.getDate() + 10)
+        return d
+      case 'over_7_day':
+        d.setDate(d.getDate() + 15)
+        return d
+      case 'occupational_disease':
+        return null  // On diagnosis — not date-based
+      default:
+        return null
+    }
+  }
+
+  export function getDaysUntilRIDDORDeadline(deadline: Date): number {
+    const now = new Date()
+    const diff = deadline.getTime() - now.getTime()
+    return Math.ceil(diff / (1000 * 60 * 60 * 24))
+  }
+
+  export function isRIDDOROverdue(deadline: Date | null): boolean {
+    if (!deadline) return false
+    return new Date() > deadline
+  }
+
+────────────────────────────────────────────────────────────────────
+STEP 1C — BACKEND: Update incident routes to handle RIDDOR fields
+────────────────────────────────────────────────────────────────────
+
+In the incident reports route file (likely routes/incidents.ts or 
+similar — check the existing codebase):
+
+When an incident is created or updated with a riddor_category:
+  1. Calculate and store the riddor_reporting_deadline using 
+     calculateRIDDORDeadline()
+  2. If category is 'fatality', trigger an IMMEDIATE email alert
+     (see Step 1D)
+  3. Return the deadline in the API response
+
+Add a new endpoint:
+  PATCH /api/incidents/:id/riddor-reported
+  Body: { reference: string }
+  Action: Set riddor_reported_at = NOW(), riddor_reference = reference
+  Purpose: Allows the admin to mark the incident as reported to HSE
+  and record the reference number they received.
+
+────────────────────────────────────────────────────────────────────
+STEP 1D — BACKEND: RIDDOR reminder cron job
+────────────────────────────────────────────────────────────────────
+
+Add a daily cron job (alongside the existing CDM and contractor 
+expiry cron jobs) that runs at 07:00 every morning:
+
+  Find all incidents where:
+    - riddor_category IS NOT NULL
+    - riddor_category != 'not_riddor_reportable'
+    - riddor_category != 'occupational_disease'
+    - riddor_reported_at IS NULL       (not yet reported)
+    - riddor_reminder_sent_at IS NULL  (reminder not yet sent)
+    - riddor_reporting_deadline IS NOT NULL
+    - riddor_reporting_deadline > NOW() - INTERVAL '1 day'
+      (deadline hasn't passed by more than 1 day)
+    - (deadline - NOW()) <= INTERVAL '5 days'
+      (within 5 days of deadline)
+
+  For each matching incident, send an email to the customer's 
+  admin users:
+
+  Subject: "⚠ RIDDOR Reporting Reminder — Action Required"
+
+  Body (plain text for reliability):
+  ---
+  This is an automated reminder from TPR Max.
+
+  An incident recorded on [INCIDENT DATE] at [SITE NAME] may require 
+  reporting to the HSE under RIDDOR 2013.
+
+  Incident: [TITLE/DESCRIPTION]
+  Category: [RIDDOR CATEGORY — human readable]
+  Reporting deadline: [DATE]
+  Days remaining: [N]
+
+  To report this incident to the HSE, visit:
+  https://www.hse.gov.uk/riddor/report.htm
+
+  Once reported, log in to TPR Max and mark this incident as 
+  reported to record your HSE reference number.
+
+  This reminder will not be sent again for this incident.
+  ---
+
+  After sending, set riddor_reminder_sent_at = NOW() to prevent 
+  duplicates.
+
+  For FATALITY incidents: send the email immediately on incident 
+  creation, not via the daily cron. Subject: 
+  "🚨 URGENT — Fatal Incident Requires Immediate HSE Notification"
+
+────────────────────────────────────────────────────────────────────
+STEP 1E — FRONTEND: RIDDOR section in incident report form
+────────────────────────────────────────────────────────────────────
+
+Find the incident report creation/edit form in the React codebase 
+and add a "RIDDOR Assessment" section below the incident details:
+
+  <section className="riddor-assessment">
+    <h3>RIDDOR Assessment</h3>
+    <p className="help-text">
+      Under RIDDOR 2013, certain workplace incidents must be reported 
+      to the HSE. Select the category that best describes this incident, 
+      or confirm it is not RIDDOR reportable.
+    </p>
+
+    <select name="riddor_category">
+      <option value="">— Not yet assessed —</option>
+      <option value="fatality">
+        Fatality — Report IMMEDIATELY
+      </option>
+      <option value="specified_injury">
+        Specified Injury (fracture, amputation, hospitalisation 
+        24h+, loss of consciousness) — Report within 10 days
+      </option>
+      <option value="over_7_day">
+        Over-7-Day Incapacitation — Report within 15 days
+      </option>
+      <option value="dangerous_occurrence">
+        Dangerous Occurrence (near fatality, structural collapse, 
+        explosion, radiation) — Report within 10 days
+      </option>
+      <option value="occupational_disease">
+        Occupational Disease (when diagnosis confirmed)
+      </option>
+      <option value="not_riddor_reportable">
+        Confirmed NOT RIDDOR reportable
+      </option>
+    </select>
+
+    {/* Show deadline and status if category is selected */}
+    {riddorCategory && riddorCategory !== 'not_riddor_reportable' && (
+      <div className="riddor-status">
+        <p>Reporting deadline: <strong>{deadline}</strong></p>
+        <p>Days remaining: <strong className={daysLeft < 3 ? 'urgent' : ''}>{daysLeft}</strong></p>
+        {riddorReportedAt ? (
+          <p>✅ Reported to HSE — Reference: {riddorReference}</p>
+        ) : (
+          <>
+            <a href="https://www.hse.gov.uk/riddor/report.htm" 
+               target="_blank" rel="noopener">
+              Report to HSE online →
+            </a>
+            <button onClick={markAsReported}>
+              Mark as Reported to HSE
+            </button>
+          </>
+        )}
+      </div>
+    )}
+  </section>
+
+In the incident list view, add a visual indicator for any incident 
+with an unresolved RIDDOR deadline:
+  - 🟡 Yellow banner: deadline within 5 days
+  - 🔴 Red banner: deadline within 2 days or overdue
+  - ✅ Green: reported to HSE
+
+════════════════════════════════════════════════════════════════════
+SECTION 2 — NEAR MISS REPORTING
+(Management of Health & Safety at Work Regulations 1999, Reg 5)
+════════════════════════════════════════════════════════════════════
+
+LEGAL CONTEXT:
+Employers must implement procedures for reporting near misses 
+(unplanned events that did not result in injury but had the 
+potential to do so). Near miss data is used to identify hazards 
+before injuries occur. Under MHSWR 1999, risk assessment must be 
+reviewed when near misses indicate a hazard has changed.
+
+This is quick to add — near miss classification onto the existing 
+incident report system.
+
+────────────────────────────────────────────────────────────────────
+STEP 2A — DATABASE: Add near miss fields
+────────────────────────────────────────────────────────────────────
+
+  ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS
+    is_near_miss BOOLEAN DEFAULT FALSE;
+
+  ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS
+    near_miss_potential TEXT DEFAULT NULL;
+    -- Values: 'minor' | 'serious' | 'critical'
+    -- (What COULD have happened if circumstances were slightly different)
+
+  ALTER TABLE incident_reports ADD COLUMN IF NOT EXISTS
+    near_miss_hazard_type TEXT DEFAULT NULL;
+    -- Values: 'slip_trip_fall' | 'struck_by_object' | 'manual_handling' |
+    --         'vehicle_plant' | 'working_at_height' | 'electrical' |
+    --         'fire_explosion' | 'chemical_substance' | 'machinery' | 'other'
+
+────────────────────────────────────────────────────────────────────
+STEP 2B — FRONTEND: Near miss section in incident form
+────────────────────────────────────────────────────────────────────
+
+Add to the incident report form, near the top (before RIDDOR):
+
+  <div className="near-miss-toggle">
+    <label>
+      <input 
+        type="checkbox" 
+        name="is_near_miss"
+        checked={isNearMiss}
+        onChange={(e) => setIsNearMiss(e.target.checked)}
+      />
+      This is a near miss — no injury occurred, but one could have
+    </label>
+  </div>
+
+  {isNearMiss && (
+    <div className="near-miss-details">
+      <label>Potential severity if the near miss had resulted 
+             in injury:</label>
+      <select name="near_miss_potential">
+        <option value="minor">Minor — First aid level injury</option>
+        <option value="serious">Serious — Hospital treatment required</option>
+        <option value="critical">Critical — Life-threatening or fatality</option>
+      </select>
+
+      <label>Hazard type:</label>
+      <select name="near_miss_hazard_type">
+        <option value="slip_trip_fall">Slip, trip or fall</option>
+        <option value="struck_by_object">Struck by object</option>
+        <option value="manual_handling">Manual handling</option>
+        <option value="vehicle_plant">Vehicle or plant</option>
+        <option value="working_at_height">Working at height</option>
+        <option value="electrical">Electrical</option>
+        <option value="fire_explosion">Fire or explosion</option>
+        <option value="chemical_substance">Chemical or substance</option>
+        <option value="machinery">Machinery</option>
+        <option value="other">Other</option>
+      </select>
+
+      <p className="info-box">
+        Near misses are not reportable to the HSE under RIDDOR, but 
+        they must be investigated and used to update your risk 
+        assessments under the Management of Health & Safety at Work 
+        Regulations 1999.
+      </p>
+    </div>
+  )}
+
+Important: If is_near_miss is TRUE, auto-set riddor_category to 
+'not_riddor_reportable' and hide the RIDDOR section. Near misses 
+are not RIDDOR reportable.
+
+────────────────────────────────────────────────────────────────────
+STEP 2C — FRONTEND: Near miss analytics panel
+────────────────────────────────────────────────────────────────────
+
+In the reports or dashboard section, add a "Near Miss Summary" 
+widget showing (for the last 90 days):
+
+  - Total near misses recorded
+  - Near misses by hazard type (bar chart or table)
+  - Near misses by potential severity
+  - Trend: this month vs last month
+
+This gives site managers the data they need to update risk 
+assessments — meeting the MHSWR 1999 requirement.
+
+════════════════════════════════════════════════════════════════════
+SECTION 3 — FIRE RISK ASSESSMENT TRACKING
+(Regulatory Reform (Fire Safety) Order 2005)
+════════════════════════════════════════════════════════════════════
+
+LEGAL CONTEXT:
+The RRO 2005 requires every non-domestic premises to have a 
+documented Fire Risk Assessment (FRA) carried out by a competent 
+person. The FRA must be:
+  - Documented (if 5+ employees)
+  - Reviewed regularly (annually recommended, or after significant 
+    changes to premises, occupancy, or processes)
+  - Available for inspection by the Fire Service
+
+Failure to have a valid, current FRA is a criminal offence.
+
+────────────────────────────────────────────────────────────────────
+STEP 3A — DATABASE: Fire risk assessment table
+────────────────────────────────────────────────────────────────────
+
+Create a new table:
+
+  CREATE TABLE IF NOT EXISTS fire_risk_assessments (
+    id              SERIAL PRIMARY KEY,
+    customer_id     INTEGER NOT NULL REFERENCES customers(id),
+    title           TEXT NOT NULL DEFAULT 'Fire Risk Assessment',
+    assessor_name   TEXT NOT NULL,        -- Name of competent person
+    assessor_company TEXT,                -- External assessor company
+    assessment_date DATE NOT NULL,        -- Date FRA was carried out
+    next_review_date DATE NOT NULL,       -- Date FRA must be reviewed by
+    document_url    TEXT,                 -- Uploaded FRA document URL
+    status          TEXT NOT NULL DEFAULT 'current',
+      -- Values: 'current' | 'review_due' | 'overdue' | 'superseded'
+    findings_summary TEXT,               -- Key findings / action points
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW(),
+    reminder_sent_at TIMESTAMPTZ          -- Prevents duplicate reminders
+  );
+
+────────────────────────────────────────────────────────────────────
+STEP 3B — BACKEND: FRA routes
+────────────────────────────────────────────────────────────────────
+
+Create /server/routes/fireRiskAssessment.ts with these endpoints:
+
+  GET    /api/fire-risk-assessments          — List all FRAs for customer
+  POST   /api/fire-risk-assessments          — Create new FRA record
+  GET    /api/fire-risk-assessments/:id      — Get single FRA with document
+  PUT    /api/fire-risk-assessments/:id      — Update FRA
+  POST   /api/fire-risk-assessments/:id/upload — Upload FRA document (PDF)
+  GET    /api/fire-risk-assessments/status   — Returns compliance status:
+    {
+      hasCurrentFRA: boolean,
+      daysSinceLastAssessment: number | null,
+      daysUntilReview: number | null,
+      isOverdue: boolean,
+      currentFRA: FireRiskAssessment | null
+    }
+
+Auto-update status field based on next_review_date:
+  - More than 30 days away: 'current'
+  - Within 30 days: 'review_due'
+  - Past next_review_date: 'overdue'
+  Run this check on every GET request.
+
+────────────────────────────────────────────────────────────────────
+STEP 3C — BACKEND: FRA reminder cron job
+────────────────────────────────────────────────────────────────────
+
+Add to the daily cron job:
+
+  Find all fire_risk_assessments where:
+    - status = 'review_due' OR status = 'overdue'
+    - reminder_sent_at IS NULL OR 
+      reminder_sent_at < NOW() - INTERVAL '30 days'
+      (remind monthly if still outstanding)
+
+  Send email to customer admin users:
+
+  Subject (review due):   "📋 Fire Risk Assessment Review Due — [SITE]"
+  Subject (overdue):      "🚨 Fire Risk Assessment OVERDUE — [SITE]"
+
+  Body:
+  ---
+  Your Fire Risk Assessment is [due for review / overdue].
+
+  Last assessment: [DATE] by [ASSESSOR NAME]
+  Review due by:   [DATE]
+  [Status: OVERDUE by N days — if applicable]
+
+  Under the Regulatory Reform (Fire Safety) Order 2005, your 
+  Fire Risk Assessment must be kept current. An overdue FRA 
+  may result in enforcement action by the Fire Service.
+
+  Log in to TPR Max to upload your updated assessment or 
+  record a new review date.
+
+  If you have recently completed a review, please log it in 
+  TPR Max to clear this reminder.
+  ---
+
+────────────────────────────────────────────────────────────────────
+STEP 3D — FRONTEND: Fire Risk Assessment page
+────────────────────────────────────────────────────────────────────
+
+Create a new page in the H&S or Compliance section of the app:
+Route: /fire-risk-assessment
+
+Page sections:
+
+  1. STATUS BANNER (top of page, full width):
+     - Green: "✅ Fire Risk Assessment current — Next review: [DATE]"
+     - Amber: "⚠ Review due within 30 days — [DATE]"
+     - Red:   "🚨 Fire Risk Assessment overdue — Last review: [DATE]"
+
+  2. CURRENT FRA CARD:
+     - Assessor name and company
+     - Date of assessment
+     - Date of next review
+     - Download link for uploaded document
+     - "Record New Review" button
+
+  3. FRA HISTORY TABLE:
+     - All previous FRAs with dates, assessors, and document links
+     - Status badges (current / superseded)
+
+  4. WHAT TO DO panel (shown when overdue or no FRA on record):
+     - Plain-English explanation of the legal requirement
+     - Link to the HSE FRA guidance: 
+       https://www.hse.gov.uk/fire/risk.htm
+     - Link to NFCC competent assessor guidance
+     - "Record your FRA" button
+
+  5. ADD / EDIT FORM:
+     Fields: Title, Assessor name, Assessor company (optional),
+     Assessment date, Next review date (default: +12 months),
+     Findings summary (text area), Upload document (PDF, max 20MB)
+
+────────────────────────────────────────────────────────────────────
+STEP 3E — FRONTEND: FRA status in dashboard
+────────────────────────────────────────────────────────────────────
+
+Add a Fire Risk Assessment status tile to the main dashboard 
+alongside existing compliance tiles. Show:
+  - Green/Amber/Red status indicator
+  - Days until review (or days overdue)
+  - One-click link to the FRA page
+
+════════════════════════════════════════════════════════════════════
+NAVIGATION & REGISTRATION
+════════════════════════════════════════════════════════════════════
+
+Add the following to the main navigation / sidebar under a 
+"H&S Compliance" or "Safety" section if it doesn't already exist:
+
+  - Incident Reports (existing — now with RIDDOR + near miss)
+  - Fire Risk Assessment (new)
+
+Future items to add later (not in this sprint):
+  - COSHH Register
+  - Permits to Work
+  - Training Matrix
+
+════════════════════════════════════════════════════════════════════
+TESTING CHECKLIST — verify before marking complete
+════════════════════════════════════════════════════════════════════
+
+RIDDOR:
+□ Creating an incident with category 'fatality' sends an immediate 
+  email alert
+□ Creating an incident with category 'specified_injury' stores a 
+  deadline of incident date + 10 days
+□ Creating an incident with category 'over_7_day' stores deadline 
+  of incident date + 15 days
+□ Daily cron sends reminder when deadline is within 5 days and 
+  reminder not previously sent
+□ Marking as "Reported to HSE" stores timestamp and reference number
+□ Incident list shows red/amber badges for RIDDOR deadlines
+□ is_near_miss = true auto-sets riddor_category = 'not_riddor_reportable'
+
+NEAR MISS:
+□ Near miss checkbox shows/hides additional fields correctly
+□ Near miss incidents appear separately filterable in incident list
+□ Near miss summary widget shows correct counts for last 90 days
+□ Hazard type and severity are saved and displayed correctly
+
+FIRE RISK ASSESSMENT:
+□ Creating an FRA record with a date saves correctly
+□ Status auto-updates to 'review_due' when within 30 days of 
+  next_review_date
+□ Status auto-updates to 'overdue' when past next_review_date
+□ PDF document uploads and is retrievable via download link
+□ Dashboard tile shows correct status colour
+□ Cron sends reminder email when status is 'review_due' or 'overdue'
+□ Customer with no FRA on record shows red "No FRA recorded" banner
+□ "Record New Review" supersedes the previous FRA record
+
+════════════════════════════════════════════════════════════════════
+IMPORTANT NOTES FOR DEVELOPER
+════════════════════════════════════════════════════════════════════
+
+1. Do not remove or modify any existing incident report fields — 
+   only add to the existing system.
+
+2. All new database columns must use IF NOT EXISTS — the platform 
+   is live with real customer data.
+
+3. The RIDDOR HSE reporting link (hse.gov.uk/riddor/report.htm) 
+   should open in a new tab. TPR Max does not integrate directly 
+   with the HSE API — we provide the link and store the reference 
+   number. Direct API integration can be considered later.
+
+4. Email templates should match the existing email style in the 
+   codebase — check how contractor expiry and F10 emails are 
+   formatted and follow the same pattern.
+
+5. All new routes must enforce customer_id isolation — a customer 
+   must never be able to access another customer's FRA records 
+   or incident data.
