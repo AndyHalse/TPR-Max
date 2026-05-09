@@ -78,7 +78,27 @@ const emptyForm = {
   documentUrl: "",
 };
 
+const COMMON_ACTIONS = [
+  { label: "Fire exit route obstructed or blocked", priority: "critical" as const },
+  { label: "Fire door damaged, wedged open or not self-closing", priority: "high" as const },
+  { label: "Fire extinguisher missing, expired or not serviced", priority: "high" as const },
+  { label: "Fire alarm not tested in last 6 months", priority: "high" as const },
+  { label: "Emergency lighting not tested or faulty", priority: "high" as const },
+  { label: "Fire warden not designated or not trained", priority: "high" as const },
+  { label: "Sprinkler / suppression system service overdue", priority: "high" as const },
+  { label: "Flammable materials stored unsafely", priority: "high" as const },
+  { label: "No fire drill conducted in last 12 months", priority: "medium" as const },
+  { label: "Fire evacuation plan not posted or out of date", priority: "medium" as const },
+  { label: "Fire risk assessment not reviewed after premises changes", priority: "medium" as const },
+  { label: "Assembly point not clearly marked or signage missing", priority: "medium" as const },
+  { label: "Electrical equipment not PAT tested", priority: "medium" as const },
+  { label: "Exit / fire route signage missing or faded", priority: "low" as const },
+  { label: "Fire safety records not available on site", priority: "low" as const },
+  { label: "Other (describe below)", priority: "medium" as const },
+] as const;
+
 const emptyActionForm = {
+  commonAction: "" as string,
   description: "",
   priority: "medium" as const,
   location: "",
@@ -239,6 +259,7 @@ export default function FireRiskAssessmentPage() {
 
   function handleEditAction(action: FraActionItem) {
     setActionForm({
+      commonAction: "other",
       description: action.description,
       priority: action.priority,
       location: action.location || "",
@@ -668,60 +689,111 @@ export default function FireRiskAssessmentPage() {
 
       {/* Add / Edit action item dialog */}
       <Dialog open={showActionForm} onOpenChange={open => { if (!open) { setShowActionForm(false); setEditingActionId(null); } }}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[92vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingActionId ? "Edit Action Item" : "Add Fire Safety Action"}</DialogTitle>
             <DialogDescription>Record an action required from the findings of this Fire Risk Assessment.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleActionSubmit} className="space-y-4">
-            <div>
-              <Label>Description *</Label>
-              <Textarea
-                required
-                rows={3}
-                value={actionForm.description}
-                onChange={e => setActionForm(f => ({ ...f, description: e.target.value }))}
-                placeholder="e.g. Replace fire extinguisher in server room — last inspection overdue"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+
+            {/* Common actions picker — shown only when adding, not editing */}
+            {!editingActionId && (
               <div>
-                <Label>Priority *</Label>
-                <Select value={actionForm.priority} onValueChange={v => setActionForm(f => ({ ...f, priority: v as any }))}>
+                <Label>Common fire safety issues</Label>
+                <Select
+                  value={actionForm.commonAction}
+                  onValueChange={v => {
+                    if (v === "other") {
+                      setActionForm(f => ({ ...f, commonAction: "other", description: "", priority: "medium" }));
+                    } else {
+                      const found = COMMON_ACTIONS.find(a => a.label === v);
+                      setActionForm(f => ({
+                        ...f,
+                        commonAction: v,
+                        description: v,
+                        priority: found?.priority ?? "medium",
+                      }));
+                    }
+                  }}
+                >
                   <SelectTrigger>
-                    <SelectValue />
+                    <SelectValue placeholder="Select a common issue or choose Other…" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="critical">🔴 Critical — immediate risk to life</SelectItem>
-                    <SelectItem value="high">🟠 High — resolve within 1 month</SelectItem>
-                    <SelectItem value="medium">🟡 Medium — resolve within 3 months</SelectItem>
-                    <SelectItem value="low">🔵 Low — resolve within 12 months</SelectItem>
+                    {COMMON_ACTIONS.map(a => (
+                      <SelectItem key={a.label} value={a.label === "Other (describe below)" ? "other" : a.label}>
+                        {a.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
+            )}
+
+            {/* Description — always shown when editing; shown when Other selected or after any common pick */}
+            {(editingActionId || actionForm.commonAction) && (
               <div>
-                <Label>Due date</Label>
-                <Input type="date" value={actionForm.dueDate} onChange={e => setActionForm(f => ({ ...f, dueDate: e.target.value }))} />
+                <Label>{actionForm.commonAction === "other" ? "Description *" : "Description (edit if needed) *"}</Label>
+                <Textarea
+                  required
+                  rows={3}
+                  value={actionForm.description}
+                  onChange={e => setActionForm(f => ({ ...f, description: e.target.value }))}
+                  placeholder="Describe what needs to be done and any relevant detail…"
+                />
               </div>
-            </div>
-            <div>
-              <Label>Location on premises</Label>
-              <Input value={actionForm.location} onChange={e => setActionForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Ground floor stairwell, Kitchen" />
-            </div>
-            <div>
-              <Label>Assigned to</Label>
-              <Input value={actionForm.assignedTo} onChange={e => setActionForm(f => ({ ...f, assignedTo: e.target.value }))} placeholder="Name or role responsible" />
-            </div>
+            )}
+
+            {/* Priority + due date — shown once an action type is chosen */}
+            {(editingActionId || actionForm.commonAction) && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Priority *</Label>
+                  <Select value={actionForm.priority} onValueChange={v => setActionForm(f => ({ ...f, priority: v as any }))}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="critical">🔴 Critical — immediate risk to life</SelectItem>
+                      <SelectItem value="high">🟠 High — resolve within 1 month</SelectItem>
+                      <SelectItem value="medium">🟡 Medium — resolve within 3 months</SelectItem>
+                      <SelectItem value="low">🔵 Low — resolve within 12 months</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Due date</Label>
+                  <Input type="date" value={actionForm.dueDate} onChange={e => setActionForm(f => ({ ...f, dueDate: e.target.value }))} />
+                </div>
+              </div>
+            )}
+
+            {(editingActionId || actionForm.commonAction) && (
+              <>
+                <div>
+                  <Label>Location on premises</Label>
+                  <Input value={actionForm.location} onChange={e => setActionForm(f => ({ ...f, location: e.target.value }))} placeholder="e.g. Ground floor stairwell, Server room" />
+                </div>
+                <div>
+                  <Label>Assigned to</Label>
+                  <Input value={actionForm.assignedTo} onChange={e => setActionForm(f => ({ ...f, assignedTo: e.target.value }))} placeholder="Name or role responsible" />
+                </div>
+              </>
+            )}
+
             {actionForm.priority === "critical" && !editingActionId && (
               <div className="rounded bg-red-50 dark:bg-red-950 border border-red-200 p-3 text-sm text-red-800 dark:text-red-200">
                 🚨 A critical priority action will trigger an immediate email alert to site management.
               </div>
             )}
+
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => { setShowActionForm(false); setEditingActionId(null); }}>Cancel</Button>
-              <Button type="submit" disabled={createActionMutation.isPending || updateActionMutation.isPending}>
-                {editingActionId ? "Save Changes" : "Add Action"}
-              </Button>
+              {(editingActionId || actionForm.commonAction) && (
+                <Button type="submit" disabled={createActionMutation.isPending || updateActionMutation.isPending}>
+                  {editingActionId ? "Save Changes" : "Add Action"}
+                </Button>
+              )}
             </div>
           </form>
         </DialogContent>

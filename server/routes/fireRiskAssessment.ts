@@ -153,7 +153,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       const daysUntil = Math.ceil((reviewDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
       const isOverdue = daysUntil < 0;
 
-      const summary = await getActionSummary(custDb, schemaName);
+      const summary = await getActionSummary(custDb, schemaName, current.id);
 
       let overallStatus: 'compliant' | 'action_required' | 'critical' | 'no_fra';
       if (isOverdue || summary.critical_outstanding > 0) {
