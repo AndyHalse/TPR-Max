@@ -8,6 +8,7 @@ import { EmailService } from '../emailService';
 import { eq, and, isNull, isNotNull, lte, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 import { calculateRIDDORDeadline, getDaysUntilRIDDORDeadline, RIDDOR_CATEGORY_LABELS, type RIDDORCategory } from '../utils/riddorUtils';
+import { EXTERNAL_LINKS } from '../utils/externalLinks';
 
 async function ensureHsIncidentsTable(custDb: any, schemaName: string) {
   await custDb.execute(sql.raw(`
@@ -248,13 +249,13 @@ export function registerHsIncidentRoutes(app: Express): void {
                       <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Reporting deadline</td><td style="padding:6px;border:1px solid #e5e7eb;color:${daysLeft <= 2 ? '#dc2626' : '#b45309'}">${deadline.toLocaleDateString('en-GB')}</td></tr>
                       <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Days remaining</td><td style="padding:6px;border:1px solid #e5e7eb;color:${daysLeft <= 2 ? '#dc2626' : '#b45309'};font-weight:bold">${daysLeft <= 0 ? 'OVERDUE' : `${daysLeft} days`}</td></tr>
                     </table>
-                    <p>To report this incident to the HSE, visit:<br><a href="https://www.hse.gov.uk/riddor/report.htm">https://www.hse.gov.uk/riddor/report.htm</a></p>
+                    <p>To report this incident to the HSE, visit:<br><a href="${EXTERNAL_LINKS.riddor.report}">${EXTERNAL_LINKS.riddor.report}</a></p>
                     <p>Once reported, log in to TPR Max and mark this incident as reported to record your HSE reference number.</p>
                     <p style="color:#6b7280;font-size:12px">This reminder will not be sent again for this incident.</p>
                   </div>
                 </div>
               `,
-              text: `RIDDOR Reporting Reminder\n\nIncident: ${incident.title}\nDate: ${new Date(incident.incidentDate).toLocaleDateString('en-GB')}\nCategory: ${categoryLabel}\nDeadline: ${deadline.toLocaleDateString('en-GB')}\nDays remaining: ${daysLeft <= 0 ? 'OVERDUE' : daysLeft}\n\nReport to HSE: https://www.hse.gov.uk/riddor/report.htm`,
+              text: `RIDDOR Reporting Reminder\n\nIncident: ${incident.title}\nDate: ${new Date(incident.incidentDate).toLocaleDateString('en-GB')}\nCategory: ${categoryLabel}\nDeadline: ${deadline.toLocaleDateString('en-GB')}\nDays remaining: ${daysLeft <= 0 ? 'OVERDUE' : daysLeft}\n\nReport to HSE: ${EXTERNAL_LINKS.riddor.report}`,
             });
 
             await custDb.update(isolatedSchema.hsIncidents)
@@ -303,12 +304,12 @@ async function sendFatalityAlert(customerId: string, incident: any, incidentDate
             <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Date</td><td style="padding:6px;border:1px solid #e5e7eb">${incidentDate.toLocaleDateString('en-GB')}</td></tr>
             <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Site</td><td style="padding:6px;border:1px solid #e5e7eb">${siteName}</td></tr>
           </table>
-          <p style="font-size:16px"><strong>Report to HSE NOW:</strong><br><a href="https://www.hse.gov.uk/riddor/report.htm" style="color:#dc2626">https://www.hse.gov.uk/riddor/report.htm</a></p>
-          <p>You can also call the HSE Incident Contact Centre on <strong>0345 300 9923</strong> (Mon–Fri 8:30am–5pm).</p>
+          <p style="font-size:16px"><strong>Report to HSE NOW:</strong><br><a href="${EXTERNAL_LINKS.riddor.report}" style="color:#dc2626">${EXTERNAL_LINKS.riddor.report}</a></p>
+          <p>You can also call the HSE Incident Contact Centre on <strong>${EXTERNAL_LINKS.riddor.contactCentrePhone}</strong> (${EXTERNAL_LINKS.riddor.contactCentreHours}).</p>
           <p>Once reported, log in to TPR Max and mark this incident as reported to record your HSE reference number.</p>
         </div>
       </div>
     `,
-    text: `URGENT — Fatal Incident Requires Immediate HSE Notification\n\nIncident: ${incident.title}\nDate: ${incidentDate.toLocaleDateString('en-GB')}\nSite: ${siteName}\n\nReport to HSE immediately: https://www.hse.gov.uk/riddor/report.htm\nHSE Incident Contact Centre: 0345 300 9923`,
+    text: `URGENT — Fatal Incident Requires Immediate HSE Notification\n\nIncident: ${incident.title}\nDate: ${incidentDate.toLocaleDateString('en-GB')}\nSite: ${siteName}\n\nReport to HSE immediately: ${EXTERNAL_LINKS.riddor.report}\nHSE Incident Contact Centre: ${EXTERNAL_LINKS.riddor.contactCentrePhone} (${EXTERNAL_LINKS.riddor.contactCentreHours})`,
   });
 }

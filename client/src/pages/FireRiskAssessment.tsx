@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Flame, Plus, CheckCircle, AlertTriangle, AlertCircle, Download, FileText, ExternalLink, Trash2, Edit, Clock } from "lucide-react";
+import { EXTERNAL_LINKS } from "@/lib/externalLinks";
 
 interface FireRiskAssessment {
   id: string;
@@ -258,11 +259,11 @@ export default function FireRiskAssessmentPage() {
             <p>Every non-domestic premises must have a documented Fire Risk Assessment (FRA) carried out by a <strong>competent person</strong>. If you have 5 or more employees, it must be written down.</p>
             <p>The FRA must be reviewed <strong>regularly</strong> — at least annually, or after any significant changes to the premises, occupancy, or processes.</p>
             <div className="flex flex-wrap gap-2 mt-3">
-              <a href="https://www.hse.gov.uk/fire/risk.htm" target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm">
-                <ExternalLink size={12} /> HSE Fire Risk Assessment guidance
+              <a href={EXTERNAL_LINKS.fire.hseFireGuidance.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm">
+                <ExternalLink size={12} /> {EXTERNAL_LINKS.fire.hseFireGuidance.label}
               </a>
-              <a href="https://www.nfcc.org.uk/our-priorities/fire-safety/guidance-for-businesses/" target="_blank" rel="noopener" className="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm">
-                <ExternalLink size={12} /> NFCC competent assessor guidance
+              <a href={EXTERNAL_LINKS.fire.nfcc.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline text-sm">
+                <ExternalLink size={12} /> {EXTERNAL_LINKS.fire.nfcc.label}
               </a>
             </div>
           </div>

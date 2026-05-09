@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, Plus, Trash2, ExternalLink, CheckCircle, Clock, AlertCircle, BarChart3, Edit } from "lucide-react";
+import { EXTERNAL_LINKS } from "@/lib/externalLinks";
 
 interface HsIncident {
   id: string;
@@ -515,8 +516,8 @@ export default function HSIncidents() {
             </div>
             <p className="text-sm text-muted-foreground">
               Don't have a reference number yet? You can report at:{" "}
-              <a href="https://www.hse.gov.uk/riddor/report.htm" target="_blank" rel="noopener" className="text-blue-600 underline">
-                hse.gov.uk/riddor/report.htm <ExternalLink size={12} className="inline" />
+              <a href={EXTERNAL_LINKS.riddor.report.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                {EXTERNAL_LINKS.riddor.report.label} <ExternalLink size={12} className="inline" />
               </a>
             </p>
             <div className="flex justify-end gap-2">

@@ -5,6 +5,7 @@ import { customerDbService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
 import { EmailService } from '../emailService';
 import { eq, desc, sql } from 'drizzle-orm';
+import { EXTERNAL_LINKS } from '../utils/externalLinks';
 import { logger } from '../utils/logger';
 
 async function ensureFraTable(custDb: any, schemaName: string) {
@@ -257,11 +258,11 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
                     <p>Under the Regulatory Reform (Fire Safety) Order 2005, your Fire Risk Assessment must be kept current. An overdue FRA may result in enforcement action by the Fire Service.</p>
                     <p>Log in to TPR Max to upload your updated assessment or record a new review date.</p>
                     <p>If you have recently completed a review, please log it in TPR Max to clear this reminder.</p>
-                    <p><a href="https://www.hse.gov.uk/fire/risk.htm">HSE Fire Risk Assessment guidance →</a></p>
+                    <p><a href="${EXTERNAL_LINKS.fire.hseFireGuidance}">HSE Fire Risk Assessment guidance →</a></p>
                   </div>
                 </div>
               `,
-              text: `Fire Risk Assessment ${isOverdue ? 'OVERDUE' : 'Review Due'}\n\nLast assessment: ${new Date(fra.assessmentDate).toLocaleDateString('en-GB')} by ${fra.assessorName}\nReview due: ${reviewDate.toLocaleDateString('en-GB')}\n${isOverdue ? `OVERDUE by ${Math.abs(daysUntil)} days\n` : ''}\nHSE guidance: https://www.hse.gov.uk/fire/risk.htm`,
+              text: `Fire Risk Assessment ${isOverdue ? 'OVERDUE' : 'Review Due'}\n\nLast assessment: ${new Date(fra.assessmentDate).toLocaleDateString('en-GB')} by ${fra.assessorName}\nReview due: ${reviewDate.toLocaleDateString('en-GB')}\n${isOverdue ? `OVERDUE by ${Math.abs(daysUntil)} days\n` : ''}\nHSE guidance: ${EXTERNAL_LINKS.fire.hseFireGuidance}`,
             });
 
             await custDb.update(isolatedSchema.fireRiskAssessments)
