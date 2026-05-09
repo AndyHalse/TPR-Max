@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn, Trash2 } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn, Trash2, Flame } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -204,6 +204,19 @@ export default function Dashboard() {
     queryKey: ['/api/lone-worker/active'],
     refetchInterval: 30000,
     enabled: !!currentUser,
+  });
+
+  const { data: fraStatus } = useQuery<{
+    hasCurrentFRA: boolean;
+    daysUntilReview: number | null;
+    isOverdue: boolean;
+    currentFRA: any;
+    actionItems: { total: number; outstanding: number; critical_outstanding: number; overdue_actions: number; completed: number; };
+    overallStatus: 'compliant' | 'action_required' | 'critical' | 'no_fra';
+  }>({
+    queryKey: ['/api/fire-risk-assessments/status'],
+    enabled: !!currentUser,
+    refetchInterval: 60000,
   });
 
   const { data: departmentDetails, isLoading: departmentDetailsLoading } = useQuery<{
@@ -927,6 +940,78 @@ export default function Dashboard() {
                 </div>
               );
             })}
+          </div>
+        </GlassCard>
+      )}
+
+      {/* Fire Risk Assessment Compliance Widget */}
+      {fraStatus && (
+        <GlassCard
+          hover
+          className={`cursor-pointer border-2 ${
+            fraStatus.overallStatus === 'critical'
+              ? 'bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border-red-300 dark:border-red-700'
+              : fraStatus.overallStatus === 'action_required'
+              ? 'bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-300 dark:border-amber-700'
+              : fraStatus.overallStatus === 'no_fra'
+              ? 'bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 border-red-400 dark:border-red-600'
+              : 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-green-300 dark:border-green-700'
+          }`}
+          onClick={() => setLocation('/fire-risk-assessment')}
+        >
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                fraStatus.overallStatus === 'critical' || fraStatus.overallStatus === 'no_fra'
+                  ? 'bg-red-200 dark:bg-red-800/50'
+                  : fraStatus.overallStatus === 'action_required'
+                  ? 'bg-amber-200 dark:bg-amber-800/50'
+                  : 'bg-green-200 dark:bg-green-800/50'
+              }`}>
+                <Flame className={`${
+                  fraStatus.overallStatus === 'critical' || fraStatus.overallStatus === 'no_fra'
+                    ? 'text-red-700 dark:text-red-300'
+                    : fraStatus.overallStatus === 'action_required'
+                    ? 'text-amber-700 dark:text-amber-300'
+                    : 'text-green-700 dark:text-green-300'
+                }`} size={20} />
+              </div>
+              <div>
+                <p className={`font-semibold text-sm ${
+                  fraStatus.overallStatus === 'critical' || fraStatus.overallStatus === 'no_fra'
+                    ? 'text-red-800 dark:text-red-200'
+                    : fraStatus.overallStatus === 'action_required'
+                    ? 'text-amber-800 dark:text-amber-200'
+                    : 'text-green-800 dark:text-green-200'
+                }`}>
+                  {fraStatus.overallStatus === 'no_fra' && '🚨 No Fire Risk Assessment recorded'}
+                  {fraStatus.overallStatus === 'critical' && fraStatus.isOverdue && '🚨 Fire Risk Assessment — Overdue'}
+                  {fraStatus.overallStatus === 'critical' && !fraStatus.isOverdue && `🚨 Fire Risk Assessment — ${fraStatus.actionItems.critical_outstanding} Critical Action${fraStatus.actionItems.critical_outstanding !== 1 ? 's' : ''} Outstanding`}
+                  {fraStatus.overallStatus === 'action_required' && '⚠ Fire Risk Assessment — Actions Outstanding'}
+                  {fraStatus.overallStatus === 'compliant' && '✅ Fire Risk Assessment — Current'}
+                </p>
+                <p className={`text-xs mt-0.5 ${
+                  fraStatus.overallStatus === 'critical' || fraStatus.overallStatus === 'no_fra'
+                    ? 'text-red-600 dark:text-red-400'
+                    : fraStatus.overallStatus === 'action_required'
+                    ? 'text-amber-600 dark:text-amber-400'
+                    : 'text-green-600 dark:text-green-400'
+                }`}>
+                  {fraStatus.overallStatus === 'no_fra' && 'This is a legal requirement under RRO 2005 →'}
+                  {fraStatus.overallStatus === 'critical' && fraStatus.isOverdue && `Overdue by ${Math.abs(fraStatus.daysUntilReview!)} day${Math.abs(fraStatus.daysUntilReview!) !== 1 ? 's' : ''} →`}
+                  {fraStatus.overallStatus === 'critical' && !fraStatus.isOverdue && `${fraStatus.actionItems.outstanding} action item${fraStatus.actionItems.outstanding !== 1 ? 's' : ''} outstanding →`}
+                  {fraStatus.overallStatus === 'action_required' && `${fraStatus.actionItems.outstanding} action item${fraStatus.actionItems.outstanding !== 1 ? 's' : ''} need attention →`}
+                  {fraStatus.overallStatus === 'compliant' && fraStatus.daysUntilReview !== null && `Next review: ${fraStatus.currentFRA ? new Date(fraStatus.currentFRA.nextReviewDate).toLocaleDateString('en-GB') : '—'} · All actions resolved`}
+                </p>
+              </div>
+            </div>
+            {fraStatus.overallStatus !== 'no_fra' && fraStatus.actionItems.outstanding > 0 && (
+              <span className={`text-lg font-bold shrink-0 ${
+                fraStatus.overallStatus === 'critical' ? 'text-red-700 dark:text-red-300' : 'text-amber-700 dark:text-amber-300'
+              }`}>
+                {fraStatus.actionItems.outstanding}
+              </span>
+            )}
           </div>
         </GlassCard>
       )}

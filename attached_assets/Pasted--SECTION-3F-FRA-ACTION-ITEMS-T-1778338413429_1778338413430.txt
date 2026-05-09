@@ -1,0 +1,239 @@
+════════════════════════════════════════════════════════════════════
+SECTION 3F — FRA ACTION ITEMS TRACKING
+════════════════════════════════════════════════════════════════════
+
+LEGAL CONTEXT:
+A Fire Risk Assessment is not complete when it is written — it is 
+complete when the findings have been acted upon. The Regulatory 
+Reform (Fire Safety) Order 2005 requires the Responsible Person to 
+implement "appropriate fire safety measures" identified by the 
+assessment. Inspectors and courts look for evidence that findings 
+were recorded AND resolved. An FRA with outstanding critical 
+actions is treated as non-compliant.
+
+────────────────────────────────────────────────────────────────────
+STEP 3F-1 — DATABASE: FRA action items table
+────────────────────────────────────────────────────────────────────
+
+  CREATE TABLE IF NOT EXISTS fra_action_items (
+    id                  SERIAL PRIMARY KEY,
+    fra_id              INTEGER NOT NULL 
+                          REFERENCES fire_risk_assessments(id) 
+                          ON DELETE CASCADE,
+    customer_id         INTEGER NOT NULL REFERENCES customers(id),
+    description         TEXT NOT NULL,
+      -- Plain English description of what needs doing
+      -- e.g. "Replace fire extinguisher in server room — 
+      --       last inspection overdue by 3 months"
+    priority            TEXT NOT NULL DEFAULT 'medium',
+      -- Values: 'critical' | 'high' | 'medium' | 'low'
+      -- critical = immediate risk to life if not resolved
+      -- high     = significant risk, resolve within 1 month
+      -- medium   = moderate risk, resolve within 3 months
+      -- low      = minor improvement, resolve within 12 months
+    location            TEXT,
+      -- Where on the premises the action applies
+      -- e.g. "Ground floor stairwell", "Kitchen", "Server room"
+    assigned_to         TEXT,
+      -- Name or role responsible for completing this action
+    due_date            DATE,
+      -- When this action must be completed by
+    completed_at        TIMESTAMPTZ DEFAULT NULL,
+      -- NULL = outstanding, timestamp = completed
+    completed_by        TEXT DEFAULT NULL,
+      -- Who completed the action
+    completion_notes    TEXT DEFAULT NULL,
+      -- Evidence or notes on how it was resolved
+    reminder_sent_at    TIMESTAMPTZ DEFAULT NULL,
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW()
+  );
+
+────────────────────────────────────────────────────────────────────
+STEP 3F-2 — BACKEND: Action item routes
+────────────────────────────────────────────────────────────────────
+
+Add to /server/routes/fireRiskAssessment.ts:
+
+  GET    /api/fire-risk-assessments/:fraId/actions
+    — Returns all action items for this FRA, ordered by priority 
+      then due_date. Include a summary count:
+      { critical: n, high: n, medium: n, low: n, 
+        total: n, outstanding: n, completed: n }
+
+  POST   /api/fire-risk-assessments/:fraId/actions
+    — Create a new action item. Validate: description required, 
+      priority required, customer_id enforced server-side.
+
+  PUT    /api/fire-risk-assessments/:fraId/actions/:actionId
+    — Update action item (description, priority, due date, 
+      assigned_to)
+
+  PATCH  /api/fire-risk-assessments/:fraId/actions/:actionId/complete
+    Body: { completed_by: string, completion_notes: string }
+    — Mark action as complete. Sets completed_at = NOW().
+      Do not allow deletion — completed actions must remain 
+      on record as evidence.
+
+  GET    /api/fire-risk-assessments/actions/outstanding
+    — Returns ALL outstanding action items across all FRAs for 
+      this customer. Used for the dashboard widget. 
+      Ordered by: critical first, then by due_date ascending.
+
+────────────────────────────────────────────────────────────────────
+STEP 3F-3 — BACKEND: FRA compliance status update
+────────────────────────────────────────────────────────────────────
+
+Update the GET /api/fire-risk-assessments/status endpoint to 
+include action item data:
+
+  {
+    hasCurrentFRA: boolean,
+    daysUntilReview: number | null,
+    isOverdue: boolean,
+    currentFRA: FireRiskAssessment | null,
+    actionItems: {
+      total: number,
+      outstanding: number,
+      critical_outstanding: number,   // <-- Key field
+      overdue_actions: number,        // Past due_date, not completed
+      completed: number
+    },
+    overallStatus: 'compliant' | 'action_required' | 'critical' | 'no_fra'
+      -- 'compliant':        FRA current, zero outstanding critical actions
+      -- 'action_required':  FRA current but outstanding medium/high actions
+      -- 'critical':         Outstanding critical actions OR FRA overdue
+      -- 'no_fra':           No FRA on record at all
+  }
+
+────────────────────────────────────────────────────────────────────
+STEP 3F-4 — BACKEND: Action item reminder cron job
+────────────────────────────────────────────────────────────────────
+
+Add to the daily cron job (alongside the FRA review reminder):
+
+  Find all fra_action_items where:
+    - completed_at IS NULL               (not yet done)
+    - due_date IS NOT NULL
+    - due_date <= NOW() + INTERVAL '7 days'  (due within a week)
+    - reminder_sent_at IS NULL OR
+      reminder_sent_at < NOW() - INTERVAL '7 days'
+
+  Group by customer_id and send ONE digest email per customer 
+  (not one per action — avoid inbox noise):
+
+  Subject: "⚠ Fire Safety Actions Outstanding — [N] items due"
+
+  Body:
+  ---
+  The following fire safety actions from your Fire Risk Assessment
+  require attention:
+
+  🔴 CRITICAL (resolve immediately):
+    • [Description] — [Location] — Assigned to: [Name]
+      Due: [DATE] — [N days overdue / due in N days]
+
+  🟠 HIGH PRIORITY (resolve within 1 month):
+    • [Description] — [Location] — Due: [DATE]
+
+  Log in to TPR Max to update the status of these actions or 
+  mark them as complete once resolved.
+
+  Outstanding actions from your fire risk assessment may be 
+  treated as non-compliance under the Regulatory Reform 
+  (Fire Safety) Order 2005.
+  ---
+
+  For any action where priority = 'critical' AND 
+  due_date < NOW() (already overdue):
+  Send a separate individual email immediately — do not wait 
+  for the daily batch.
+
+  Subject: "🚨 Critical Fire Safety Action Overdue — Immediate Attention Required"
+
+────────────────────────────────────────────────────────────────────
+STEP 3F-5 — FRONTEND: Action items UI within FRA page
+────────────────────────────────────────────────────────────────────
+
+On the Fire Risk Assessment page (Route: /fire-risk-assessment), 
+add an "Action Items" section below the FRA details card:
+
+  ┌─────────────────────────────────────────────────────────┐
+  │  FIRE SAFETY ACTIONS                    [+ Add Action]  │
+  │  4 outstanding  •  2 completed  •  1 critical           │
+  ├─────────────────────────────────────────────────────────┤
+  │  🔴 CRITICAL                                            │
+  │  Fire exit on east corridor blocked by stored equipment │
+  │  Location: East corridor, 1st floor                     │
+  │  Assigned: Facilities Manager  •  Due: 12 May 2026      │
+  │  [Mark Complete]                                        │
+  ├─────────────────────────────────────────────────────────┤
+  │  🟠 HIGH                                                │
+  │  Fire extinguisher inspection certificate expired       │
+  │  Location: Server room                                  │
+  │  Assigned: Maintenance team  •  Due: 31 May 2026        │
+  │  [Mark Complete]                                        │
+  ├─────────────────────────────────────────────────────────┤
+  │  🟡 MEDIUM                                              │
+  │  Update fire evacuation plan — new office layout        │
+  │  Location: Whole building                               │
+  │  Assigned: H&S Lead  •  Due: 30 Jun 2026                │
+  │  [Mark Complete]                                        │
+  ├─────────────────────────────────────────────────────────┤
+  │  ✅ COMPLETED                              [Show 2 ▼]   │
+  └─────────────────────────────────────────────────────────┘
+
+Rules for the UI:
+  - Critical actions always appear at the top, red background tint
+  - Overdue actions show "OVERDUE — N days" in red next to due date
+  - Completed actions collapsed by default — expandable to show 
+    who completed them, when, and their notes
+  - "Mark Complete" opens a small modal asking for: 
+    completed_by (text), completion_notes (text area, required)
+  - Completed actions cannot be deleted — only marked complete
+  - "Add Action" opens a form:
+      Description (required)
+      Priority (required — default medium)
+      Location on premises
+      Assigned to
+      Due date
+
+────────────────────────────────────────────────────────────────────
+STEP 3F-6 — FRONTEND: Dashboard widget update
+────────────────────────────────────────────────────────────────────
+
+Update the FRA dashboard tile to show action item status:
+
+  If overallStatus = 'compliant':
+    ✅ Fire Risk Assessment — Current
+    Next review: [DATE]  •  All actions resolved
+
+  If overallStatus = 'action_required':
+    ⚠ Fire Risk Assessment — Actions Outstanding
+    [N] action items need attention  →
+
+  If overallStatus = 'critical':
+    🚨 Fire Risk Assessment — Critical Action Required
+    [N] critical action(s) outstanding  →
+
+  If overallStatus = 'no_fra':
+    🚨 No Fire Risk Assessment recorded
+    This is a legal requirement  →
+
+────────────────────────────────────────────────────────────────────
+ADDITIONAL TESTING — Action Items (add to existing checklist)
+────────────────────────────────────────────────────────────────────
+
+□ Adding a critical action immediately changes dashboard tile 
+  to red 'critical' status
+□ Overdue critical action triggers individual email, not just 
+  the daily digest
+□ Marking an action complete records who completed it, when, 
+  and their notes
+□ Completed actions remain visible and cannot be deleted
+□ Outstanding action count updates correctly on dashboard
+□ Digest email groups actions by priority correctly
+□ Customer A cannot see Customer B's FRA actions
+□ Deleting an FRA cascades to delete its action items
+□ overallStatus = 'compliant' only when FRA is current AND 
+  zero outstanding critical actions
