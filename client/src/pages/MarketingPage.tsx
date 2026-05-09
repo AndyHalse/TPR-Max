@@ -76,6 +76,8 @@ import {
   Wrench,
   CalendarClock,
   CalendarCheck,
+  Flame,
+  HardDriveUpload,
 } from "lucide-react";
 
 // Import ACS logo, screenshots and pricing image
@@ -126,6 +128,8 @@ export default function MarketingPage() {
           "time-attendance",
           "sustainability",
           "reports",
+          "hs-incidents",
+          "fire-risk",
         ].includes(hash)
       ) {
         setActiveTab(hash);
@@ -385,6 +389,8 @@ export default function MarketingPage() {
                   "CO2 Sustainability Reporting",
                   "Help Desk & Reactive Maintenance",
                   "Worker Document Requests",
+                  "RIDDOR 2013 Incident Reporting",
+                  "Fire Risk Assessment (RRO 2005)",
                 ].map((f) => (
                   <div key={f} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -552,7 +558,7 @@ export default function MarketingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: "17", label: "Platform Modules", sub: "All included, no hidden extras" },
+              { value: "19", label: "Platform Modules", sub: "All included, no hidden extras" },
               { value: "99.9%", label: "Platform Uptime", sub: "Cloud-native reliability" },
               { value: "UK", label: "Built & Supported", sub: "UK regulations first" },
               { value: "GDPR", label: "Fully Compliant", sub: "Data stays in your tenant" },
@@ -576,7 +582,7 @@ export default function MarketingPage() {
               Complete Platform
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              17 Powerful Modules.{" "}
+              19 Powerful Modules.{" "}
               <span style={{ color: "#2460A9" }}>One Platform.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
@@ -722,6 +728,22 @@ export default function MarketingPage() {
                 border: "border-cyan-200 dark:border-cyan-800",
                 desc: "Reactive maintenance ticketing — log faults, assign contractors, track resolution, and build a maintenance history.",
               },
+              {
+                icon: AlertTriangle,
+                name: "H&S Incidents",
+                color: "text-orange-600",
+                bg: "bg-orange-50 dark:bg-orange-900/20",
+                border: "border-orange-200 dark:border-orange-800",
+                desc: "RIDDOR 2013 compliant incident logging — auto-classification, statutory reporting deadlines, HSE notification tracking, and near-miss capture.",
+              },
+              {
+                icon: Flame,
+                name: "Fire Risk",
+                color: "text-red-600",
+                bg: "bg-red-50 dark:bg-red-900/20",
+                border: "border-red-200 dark:border-red-800",
+                desc: "Fire Risk Assessment register under RRO 2005 — schedule reviews, track competent assessors, and receive automated overdue reminders.",
+              },
             ].map(({ icon: Icon, name, color, bg, border, desc }) => (
               <div
                 key={name}
@@ -779,7 +801,7 @@ export default function MarketingPage() {
             className="w-full"
             data-testid="features-tabs"
           >
-            <TabsList className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-6 w-full mb-8 h-auto p-2 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
+            <TabsList className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 lg:grid-cols-8 w-full mb-8 h-auto p-2 bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
               <TabsTrigger
                 value="dashboard"
                 className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-[#2460A9] transition-all duration-200"
@@ -891,6 +913,22 @@ export default function MarketingPage() {
               >
                 <Building2 className="h-4 w-4 mb-1" />
                 CDM 2015
+              </TabsTrigger>
+              <TabsTrigger
+                value="hs-incidents"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-orange-600 transition-all duration-200"
+                data-testid="tab-hs-incidents"
+              >
+                <AlertTriangle className="h-4 w-4 mb-1" />
+                H&S
+              </TabsTrigger>
+              <TabsTrigger
+                value="fire-risk"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-red-600 transition-all duration-200"
+                data-testid="tab-fire-risk"
+              >
+                <Flame className="h-4 w-4 mb-1" />
+                Fire Risk
               </TabsTrigger>
             </TabsList>
 
@@ -2223,6 +2261,210 @@ export default function MarketingPage() {
                 </div>
               </div>
             </TabsContent>
+
+            {/* H&S Incidents Tab */}
+            <TabsContent value="hs-incidents" className="space-y-6" data-testid="content-hs-incidents">
+              <div className="grid lg:grid-cols-2 gap-8 items-center">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-orange-600 text-white">
+                      <AlertTriangle className="h-3 w-3 mr-1" />
+                      RIDDOR 2013 Compliant
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Health &amp; Safety Incident Reporting
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Log, classify, and track every workplace incident under the Reporting of Injuries, Diseases and Dangerous Occurrences Regulations 2013. Automatic statutory deadlines, HSE notification tracking, and near-miss capture — all in one compliant register.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { title: "Automatic RIDDOR Classification", desc: "Fatalities, specified injuries, over-7-day incidents, dangerous occurrences, and occupational diseases — automatically categorised with the correct statutory reporting deadline" },
+                      { title: "Countdown Deadline Tracking", desc: "Visual countdown badges show days remaining to report to the HSE — colour-coded amber then red as the deadline approaches, with email reminders" },
+                      { title: "HSE Reference Logging", desc: "Once reported, record your HSE reference number directly against the incident — creating a full audit trail of notification compliance" },
+                      { title: "Near Miss Register", desc: "Capture near misses as a separate class — not RIDDOR reportable but essential evidence for proactive safety management and insurance purposes" },
+                      { title: "Fatality Instant Alert", desc: "Fatal incidents trigger an immediate urgent email to site management with the HSE reporting link and Incident Contact Centre number — zero delay" },
+                      { title: "RIDDOR Filter View", desc: "Switch between All incidents, RIDDOR-only, and Near Misses — instantly see your statutory backlog and overdue items" },
+                    ].map(({ title, desc }) => (
+                      <div key={title} className="flex items-start space-x-3">
+                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700 dark:text-slate-300 text-sm">
+                          <strong>{title}:</strong> {desc}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <Button size="lg" onClick={() => scrollToSection("contact")} className="text-white bg-orange-600 hover:bg-orange-700">
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    See H&amp;S Incident System Live
+                  </Button>
+                </div>
+
+                <div className="relative">
+                  <div className="rounded-xl shadow-2xl border border-orange-200 dark:border-orange-800 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-orange-600" />
+                        <span className="font-bold text-orange-800 dark:text-orange-200 text-sm">Incident Register</span>
+                      </div>
+                      <div className="flex gap-1.5">
+                        {["All", "RIDDOR", "Near Miss"].map((f, i) => (
+                          <span key={f} className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${i === 1 ? "bg-orange-600 text-white border-orange-600" : "bg-white text-slate-500 border-slate-200"}`}>{f}</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Urgent overdue banner */}
+                    <div className="flex items-center gap-2 px-3 py-2 mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs">
+                      <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                      <span><strong>1 RIDDOR deadline overdue</strong> — HSE notification required</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {[
+                        { title: "Fall from height — scaffolding", cat: "Specified Injury", days: -2, reported: false, nearMiss: false },
+                        { title: "Hand injury — circular saw", cat: "Over-7-Day", days: 4, reported: false, nearMiss: false },
+                        { title: "Chemical near miss — acid spill", cat: "Near Miss", days: null, reported: false, nearMiss: true },
+                        { title: "Fractured wrist — loading bay", cat: "Specified Injury", days: null, reported: true, nearMiss: false },
+                      ].map((inc) => (
+                        <div key={inc.title} className={`bg-white/90 dark:bg-slate-800/90 rounded-lg p-3 border ${inc.days !== null && inc.days < 0 ? "border-red-300" : inc.reported ? "border-green-300" : "border-slate-200 dark:border-slate-700"}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{inc.title}</div>
+                              <div className="flex items-center gap-1.5 mt-1">
+                                {inc.nearMiss
+                                  ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">Near Miss</span>
+                                  : <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">{inc.cat}</span>
+                                }
+                                {inc.reported && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">✓ Reported</span>}
+                                {!inc.nearMiss && !inc.reported && inc.days !== null && (
+                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${inc.days < 0 ? "bg-red-100 text-red-700" : inc.days <= 3 ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
+                                    {inc.days < 0 ? `${Math.abs(inc.days)}d overdue` : `${inc.days}d left`}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 mt-4">
+                      {[
+                        { label: "Total", value: 4, color: "text-slate-700 dark:text-slate-200" },
+                        { label: "Overdue", value: 1, color: "text-red-600" },
+                        { label: "Reported", value: 1, color: "text-green-600" },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-2 text-center">
+                          <div className={`text-xl font-bold ${color}`}>{value}</div>
+                          <div className="text-[10px] text-slate-400">{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Fire Risk Assessment Tab */}
+            <TabsContent value="fire-risk" className="space-y-6" data-testid="content-fire-risk">
+              <div className="grid lg:grid-cols-2 gap-8 items-center">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-red-600 text-white">
+                      <Flame className="h-3 w-3 mr-1" />
+                      RRO 2005 Compliant
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Fire Risk Assessment Register
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Every non-domestic premises is legally required to maintain a current Fire Risk Assessment under the Regulatory Reform (Fire Safety) Order 2005. TPR Max keeps your FRA register current — tracking assessors, review dates, risk ratings, and sending automated reminders before assessments fall overdue.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { title: "Competent Assessor Tracking", desc: "Record who carried out each assessment, their qualifications, and organisation — supporting your duty to use a competent person under RRO 2005" },
+                      { title: "Risk Rating Classification", desc: "Log assessments as Low, Medium, High, or Critical risk — with colour-coded status badges and priority sorting across all your premises" },
+                      { title: "Automated Review Reminders", desc: "Email reminders fire automatically as review dates approach — and escalate to 'OVERDUE' alerts with enforcement action warnings when FRAs lapse" },
+                      { title: "Document Attachment", desc: "Attach the full FRA document, supporting evidence, and action plans — a complete digital file ready for Fire Service inspection" },
+                      { title: "Action Plan Tracking", desc: "Log required actions from each assessment with target dates — track open, in-progress, and completed remedial actions in the same record" },
+                      { title: "Multi-Premise Register", desc: "Manage FRAs across all your sites in a single register — with overdue badges and upcoming review counts visible at a glance" },
+                    ].map(({ title, desc }) => (
+                      <div key={title} className="flex items-start space-x-3">
+                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700 dark:text-slate-300 text-sm">
+                          <strong>{title}:</strong> {desc}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <Button size="lg" onClick={() => scrollToSection("contact")} className="text-white bg-red-600 hover:bg-red-700">
+                    <Flame className="h-4 w-4 mr-2" />
+                    See Fire Risk Assessment Live
+                  </Button>
+                </div>
+
+                <div className="relative">
+                  <div className="rounded-xl shadow-2xl border border-red-200 dark:border-red-800 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/30 dark:to-orange-900/30 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <Flame className="h-5 w-5 text-red-600" />
+                        <span className="font-bold text-red-800 dark:text-red-200 text-sm">FRA Register</span>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200">
+                        <AlertTriangle className="h-2.5 w-2.5" /> 1 overdue
+                      </span>
+                    </div>
+
+                    {/* Overdue banner */}
+                    <div className="flex items-center gap-2 px-3 py-2 mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs">
+                      <Flame className="h-3.5 w-3.5 text-red-600 shrink-0" />
+                      <span><strong>Warehouse B FRA overdue 14 days</strong> — review required under RRO 2005</span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {[
+                        { site: "Head Office", assessor: "J. Patel MRICS", nextReview: "15 Aug 2026", risk: "Low", status: "current" },
+                        { site: "Warehouse A", assessor: "FireSafe Ltd", nextReview: "01 Jun 2026", risk: "Medium", status: "due-soon" },
+                        { site: "Warehouse B", assessor: "J. Patel MRICS", nextReview: "24 Apr 2026", risk: "High", status: "overdue" },
+                        { site: "Site Office", assessor: "External consultant", nextReview: "10 Dec 2026", risk: "Low", status: "current" },
+                      ].map((fra) => (
+                        <div key={fra.site} className={`bg-white/90 dark:bg-slate-800/90 rounded-lg p-3 border ${fra.status === "overdue" ? "border-red-300" : fra.status === "due-soon" ? "border-amber-300" : "border-slate-200 dark:border-slate-700"}`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">{fra.site}</div>
+                              <div className="text-[10px] text-slate-500 truncate">{fra.assessor} · Due {fra.nextReview}</div>
+                            </div>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${fra.risk === "High" ? "bg-red-100 text-red-700" : fra.risk === "Medium" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>{fra.risk}</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${fra.status === "overdue" ? "bg-red-600 text-white" : fra.status === "due-soon" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>
+                                {fra.status === "overdue" ? "OVERDUE" : fra.status === "due-soon" ? "Due Soon" : "Current"}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2 mt-4">
+                      {[
+                        { label: "Total Sites", value: 4, color: "text-slate-700 dark:text-slate-200" },
+                        { label: "Overdue", value: 1, color: "text-red-600" },
+                        { label: "Due Soon", value: 1, color: "text-amber-600" },
+                      ].map(({ label, value, color }) => (
+                        <div key={label} className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-2 text-center">
+                          <div className={`text-xl font-bold ${color}`}>{value}</div>
+                          <div className="text-[10px] text-slate-400">{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
           </Tabs>
 
         </div>
