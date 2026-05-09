@@ -103,6 +103,7 @@ const emptyActionForm = {
   priority: "medium" as const,
   location: "",
   assignedTo: "",
+  assignedToOther: "",
   dueDate: "",
 };
 
@@ -139,6 +140,10 @@ export default function FireRiskAssessmentPage() {
 
   const { data: fraStatus } = useQuery<FraStatus>({
     queryKey: ["/api/fire-risk-assessments/status"],
+  });
+
+  const { data: staffList = [] } = useQuery<{ id: string; firstName: string; lastName: string; jobTitle: string | null }[]>({
+    queryKey: ["/api/staff"],
   });
 
   const currentFra = fras.find(f => f.status !== "superseded");
@@ -258,12 +263,15 @@ export default function FireRiskAssessmentPage() {
   }
 
   function handleEditAction(action: FraActionItem) {
+    const existingAssigned = action.assigned_to || "";
+    const isStaffMember = staffList.some(s => `${s.firstName} ${s.lastName}` === existingAssigned);
     setActionForm({
       commonAction: "other",
       description: action.description,
       priority: action.priority,
       location: action.location || "",
-      assignedTo: action.assigned_to || "",
+      assignedTo: isStaffMember ? existingAssigned : (existingAssigned ? "__other__" : ""),
+      assignedToOther: isStaffMember ? "" : existingAssigned,
       dueDate: action.due_date || "",
     });
     setEditingActionId(action.id);
@@ -272,11 +280,15 @@ export default function FireRiskAssessmentPage() {
 
   function handleActionSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const resolvedAssignedTo =
+      actionForm.assignedTo === "__other__"
+        ? actionForm.assignedToOther.trim() || null
+        : actionForm.assignedTo || null;
     const payload = {
       description: actionForm.description,
       priority: actionForm.priority,
       location: actionForm.location || null,
-      assignedTo: actionForm.assignedTo || null,
+      assignedTo: resolvedAssignedTo,
       dueDate: actionForm.dueDate || null,
     };
     if (editingActionId) {
@@ -776,7 +788,30 @@ export default function FireRiskAssessmentPage() {
                 </div>
                 <div>
                   <Label>Assigned to</Label>
-                  <Input value={actionForm.assignedTo} onChange={e => setActionForm(f => ({ ...f, assignedTo: e.target.value }))} placeholder="Name or role responsible" />
+                  <Select
+                    value={actionForm.assignedTo}
+                    onValueChange={v => setActionForm(f => ({ ...f, assignedTo: v, assignedToOther: v !== "__other__" ? "" : f.assignedToOther }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a staff member…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffList.map(s => (
+                        <SelectItem key={s.id} value={`${s.firstName} ${s.lastName}`}>
+                          {s.firstName} {s.lastName}{s.jobTitle ? ` — ${s.jobTitle}` : ""}
+                        </SelectItem>
+                      ))}
+                      <SelectItem value="__other__">Other / enter role manually…</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {actionForm.assignedTo === "__other__" && (
+                    <Input
+                      className="mt-2"
+                      value={actionForm.assignedToOther}
+                      onChange={e => setActionForm(f => ({ ...f, assignedToOther: e.target.value }))}
+                      placeholder="e.g. Facilities Manager, Head of H&S"
+                    />
+                  )}
                 </div>
               </>
             )}
