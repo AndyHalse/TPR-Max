@@ -7,7 +7,7 @@ export const EXTERNAL_LINKS = {
   },
   fire: {
     govUkFireSafety: "https://www.gov.uk/fire-safety-law",
-    hseFireGuidance: "https://www.hse.gov.uk/fire/",
+    hseFireGuidance: "https://www.gov.uk/workplace-fire-safety-your-responsibilities/fire-risk-assessments",
     nfcc: "https://nfcc.org.uk/",
   },
 } as const;
