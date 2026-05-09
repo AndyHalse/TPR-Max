@@ -151,7 +151,7 @@ export default function FireRiskAssessmentPage() {
 
   const { data: actionsData } = useQuery<{ items: FraActionItem[]; summary: ActionSummary }>({
     queryKey: ["/api/fire-risk-assessments", currentFra?.id, "actions"],
-    queryFn: () => apiRequest("GET", `/api/fire-risk-assessments/${currentFra!.id}/actions`),
+    queryFn: () => apiRequest("GET", `/api/fire-risk-assessments/${currentFra!.id}/actions`).then(r => r.json()),
     enabled: !!currentFra?.id,
   });
 
