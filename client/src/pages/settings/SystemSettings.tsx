@@ -1070,6 +1070,23 @@ export default function SystemSettings() {
           data-testid="toggle-email-outbox"
         />
       </div>
+      {/* HR Module */}
+      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-indigo-100 rounded-lg">
+            <UserPlus className="w-5 h-5 text-indigo-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-fixed">HR Module</h4>
+            <p className="text-xs text-variable">Staff profiles, leave, training, appraisals & payroll export</p>
+          </div>
+        </div>
+        <Switch
+          checked={currentSettings?.featureHrModule !== false}
+          onCheckedChange={(checked) => handleInputChange("featureHrModule", checked)}
+          data-testid="toggle-hr-module"
+        />
+      </div>
     </div>
     
     <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame, Network, BookOpen, Activity, CheckSquare, LogOut, Star, Download } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
@@ -243,14 +243,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk", defaultOn: true },
     { path: "/email-outbox", icon: Mail, label: "Email Outbox", featureKey: "featureEmailOutbox" },
     { path: "/settings", icon: Settings, label: "Settings", featureKey: "featureSettingsPage", defaultOn: true },
-    { path: "/hr/org-chart", icon: Network, label: "HR: Org Chart", featureKey: "featureHrModule", defaultOn: true },
-    { path: "/hr/leave", icon: Calendar, label: "HR: Leave", featureKey: "featureHrModule", defaultOn: true },
-    { path: "/hr/training", icon: BookOpen, label: "HR: Training", featureKey: "featureHrModule", defaultOn: true },
-    { path: "/hr/absence", icon: Activity, label: "HR: Absence", featureKey: "featureHrModule", defaultOn: true },
-    { path: "/hr/onboarding", icon: CheckSquare, label: "HR: Onboarding", featureKey: "featureHrModule", defaultOn: true },
-    { path: "/hr/leavers", icon: LogOut, label: "HR: Leavers", featureKey: "featureHrModule", defaultOn: true },
-    { path: "/hr/appraisals", icon: Star, label: "HR: Appraisals", featureKey: "featureHrModule", defaultOn: true },
-    { path: "/hr/payroll", icon: Download, label: "HR: Payroll Export", featureKey: "featureHrModule", defaultOn: true },
+    { path: "/hr", icon: Users, label: "HR", featureKey: "featureHrModule", defaultOn: true },
   ];
 
   // Filter navigation items based on feature toggles and user-specific menu access.
