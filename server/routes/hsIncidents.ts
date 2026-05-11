@@ -370,11 +370,14 @@ ${!incident.isNearMiss && incident.riddorCategory ? `
 
       try {
         let puppeteer: any;
-        try { puppeteer = await import('puppeteer'); } catch { throw new Error('puppeteer_unavailable'); }
+        try {
+          puppeteer = await import('puppeteer');
+        } catch {
+          throw new Error('puppeteer_unavailable');
+        }
         const browser = await puppeteer.default.launch({
           headless: true,
           args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-          executablePath: process.env.PUPPETEER_EXECUTABLE_PATH,
         });
         try {
           const page = await browser.newPage();
@@ -389,9 +392,11 @@ ${!incident.isNearMiss && incident.riddorCategory ? `
           await browser.close();
           throw pdfErr;
         }
-      } catch {
+      } catch (pdfGenerationErr) {
+        logger.warn('[incident-pdf] PDF generation unavailable, falling back to HTML:', (pdfGenerationErr as Error).message);
         const printHtml = html.replace('</body>', '<script>window.onload=function(){window.print();}</script></body>');
         res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Content-Disposition', `inline; filename="incident-report-${new Date().toISOString().slice(0,10)}.html"`);
         return res.send(printHtml);
       }
     } catch (err) {
