@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame, Briefcase } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
@@ -242,8 +242,8 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings", defaultOn: true },
     { path: "/kiosk", icon: Dock, label: "Kiosk Mode", featureKey: "featureKiosk", defaultOn: true },
     { path: "/email-outbox", icon: Mail, label: "Email Outbox", featureKey: "featureEmailOutbox" },
+    { path: "/hr", icon: Briefcase, label: "HR", featureKey: "featureHrModule", defaultOn: true },
     { path: "/settings", icon: Settings, label: "Settings", featureKey: "featureSettingsPage", defaultOn: true },
-    { path: "/hr", icon: Users, label: "HR", featureKey: "featureHrModule", defaultOn: true },
   ];
 
   // Filter navigation items based on feature toggles and user-specific menu access.
