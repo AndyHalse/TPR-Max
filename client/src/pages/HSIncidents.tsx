@@ -11,8 +11,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Plus, Trash2, ExternalLink, CheckCircle, Clock, AlertCircle, BarChart3, Edit, Search } from "lucide-react";
+import { AlertTriangle, Plus, Trash2, ExternalLink, CheckCircle, AlertCircle, BarChart3, Edit, Search, Info, FileDown, ArrowRight } from "lucide-react";
 import { EXTERNAL_LINKS } from "@/lib/externalLinks";
 
 interface HsIncident {
@@ -374,7 +375,57 @@ export default function HSIncidents() {
     i.riddorReportingDeadline
   );
 
+  function handleDownloadPdf(id: string) {
+    window.open(`/api/hs-incidents/${id}/pdf`, '_blank');
+  }
+
+  // Determine what action the user needs to take next for each incident
+  function NextAction({ incident }: { incident: HsIncident }) {
+    const days = incident.riddorReportingDeadline ? getDaysUntil(incident.riddorReportingDeadline) : null;
+
+    if (incident.isNearMiss) {
+      return (
+        <div className="mt-2 flex items-center gap-2 rounded-md bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 px-3 py-1.5 text-xs text-blue-800 dark:text-blue-200">
+          <ArrowRight size={12} className="shrink-0" />
+          <span><strong>Action required:</strong> Investigate the hazard and update your risk assessments (required under MHSWR 1999)</span>
+        </div>
+      );
+    }
+    if (!incident.riddorCategory || incident.riddorCategory === "") {
+      return (
+        <div className="mt-2 flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-3 py-1.5 text-xs text-amber-800 dark:text-amber-200">
+          <ArrowRight size={12} className="shrink-0" />
+          <span><strong>Action required:</strong> Assess whether this incident is reportable under RIDDOR 2013 — edit the record to complete your assessment</span>
+        </div>
+      );
+    }
+    if (incident.riddorCategory === "not_riddor_reportable") return null;
+
+    if (!incident.riddorReportedAt && days !== null) {
+      if (days <= 0) {
+        return (
+          <div className="mt-2 flex items-center gap-2 rounded-md bg-red-50 dark:bg-red-950 border border-red-300 px-3 py-1.5 text-xs text-red-800 dark:text-red-200">
+            <AlertCircle size={12} className="shrink-0" />
+            <span><strong>URGENT — OVERDUE:</strong> This RIDDOR incident should already have been reported to the HSE. Report now at <a href={EXTERNAL_LINKS.riddor?.report?.url ?? "https://www.hse.gov.uk/riddor/report.htm"} target="_blank" rel="noopener noreferrer" className="underline">hse.gov.uk</a></span>
+          </div>
+        );
+      }
+      return (
+        <div className={`mt-2 flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs ${days <= 2 ? "bg-red-50 dark:bg-red-950 border-red-300 text-red-800 dark:text-red-200" : "bg-amber-50 dark:bg-amber-950 border-amber-200 text-amber-800 dark:text-amber-200"}`}>
+          <ArrowRight size={12} className="shrink-0" />
+          <span>
+            <strong>Action required:</strong> Report this incident to the HSE by{" "}
+            <strong>{new Date(incident.riddorReportingDeadline!).toLocaleDateString("en-GB")}</strong>
+            {" "}({days} day{days !== 1 ? "s" : ""} remaining) — then click <em>Mark Reported</em> to record your HSE reference
+          </span>
+        </div>
+      );
+    }
+    return null;
+  }
+
   return (
+    <TooltipProvider>
     <div className="p-4 sm:p-6 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
@@ -382,7 +433,20 @@ export default function HSIncidents() {
             <AlertTriangle className="text-amber-500" size={26} />
             H&S Incident Reports
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">RIDDOR 2013 &amp; Near Miss reporting — Management of Health &amp; Safety at Work Regulations 1999</p>
+          <div className="flex items-center gap-1.5 mt-1">
+            <p className="text-sm text-muted-foreground">RIDDOR 2013 &amp; Near Miss reporting — Management of Health &amp; Safety at Work Regulations 1999</p>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Info size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-sm text-xs space-y-2 p-3">
+                <p><strong>RIDDOR 2013</strong> — The Reporting of Injuries, Diseases and Dangerous Occurrences Regulations 2013. Employers are legally required to report certain workplace incidents to the Health and Safety Executive (HSE): deaths, specified injuries (fractures, amputations, etc.), injuries causing over 7 days' incapacitation, occupational diseases, and dangerous occurrences. Failure to report is a <strong>criminal offence</strong>.</p>
+                <p><strong>Near Miss reporting</strong> — Required under the Management of Health &amp; Safety at Work Regulations 1999. A near miss is any unplanned event that didn't cause injury but had the potential to. Employers must investigate near misses and use the findings to update risk assessments to prevent future incidents.</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
         <Button onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); }}>
           <Plus size={16} className="mr-1" /> Record Incident
@@ -524,6 +588,14 @@ export default function HSIncidents() {
                         <CheckCircle size={12} className="mr-1" /> Mark Reported
                       </Button>
                     )}
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="sm" variant="ghost" onClick={() => handleDownloadPdf(incident.id)}>
+                          <FileDown size={14} />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Download PDF report</TooltipContent>
+                    </Tooltip>
                     <Button size="sm" variant="ghost" onClick={() => handleEdit(incident)}>
                       <Edit size={14} />
                     </Button>
@@ -532,6 +604,7 @@ export default function HSIncidents() {
                     </Button>
                   </div>
                 </div>
+                <NextAction incident={incident} />
               </GlassCard>
             );
           })}
@@ -726,5 +799,6 @@ export default function HSIncidents() {
         </AlertDialogContent>
       </AlertDialog>
     </div>
+    </TooltipProvider>
   );
 }
