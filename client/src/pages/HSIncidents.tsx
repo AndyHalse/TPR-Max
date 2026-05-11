@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -12,7 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Plus, Trash2, ExternalLink, CheckCircle, Clock, AlertCircle, BarChart3, Edit } from "lucide-react";
+import { AlertTriangle, Plus, Trash2, ExternalLink, CheckCircle, Clock, AlertCircle, BarChart3, Edit, Search } from "lucide-react";
 import { EXTERNAL_LINKS } from "@/lib/externalLinks";
 
 interface HsIncident {
@@ -34,6 +34,10 @@ interface HsIncident {
   riddorReminderSentAt: string | null;
   createdAt: string;
 }
+
+interface StaffMember { id: string; firstName: string; lastName: string; jobTitle?: string; }
+interface ContractorWorker { id: string; firstName: string; lastName: string; companyName?: string; }
+interface Visitor { id: string; firstName: string; lastName: string; company?: string; }
 
 const RIDDOR_CATEGORIES = [
   { value: "fatality", label: "Fatality — Report IMMEDIATELY" },
@@ -90,6 +94,66 @@ function RiddorBadge({ incident }: { incident: HsIncident }) {
   return <Badge className="bg-blue-100 text-blue-800 border-blue-300">RIDDOR deadline: {days}d</Badge>;
 }
 
+// Searchable person combobox — free text allowed, shows DB suggestions as you type
+function PersonCombobox({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { label: string; sublabel?: string }[];
+  placeholder?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(value);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { setQuery(value); }, [value]);
+
+  const filtered = query.trim().length === 0
+    ? options.slice(0, 12)
+    : options.filter(o => o.label.toLowerCase().includes(query.toLowerCase())).slice(0, 12);
+
+  function handleSelect(label: string) {
+    onChange(label);
+    setQuery(label);
+    setOpen(false);
+  }
+
+  return (
+    <div className="relative" ref={containerRef}>
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+        <Input
+          value={query}
+          className="pl-8"
+          placeholder={placeholder ?? "Search or type a name…"}
+          onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 160)}
+        />
+      </div>
+      {open && filtered.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-52 overflow-y-auto">
+          {filtered.map(o => (
+            <button
+              key={o.label}
+              type="button"
+              className="w-full text-left px-3 py-2 hover:bg-accent text-sm transition-colors"
+              onMouseDown={() => handleSelect(o.label)}
+            >
+              <div className="font-medium">{o.label}</div>
+              {o.sublabel && <div className="text-xs text-muted-foreground">{o.sublabel}</div>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const emptyForm = {
   title: "",
   description: "",
@@ -104,6 +168,15 @@ const emptyForm = {
   riddorCategory: "",
 };
 
+// Display label for person type (handles legacy "employee" value)
+function personTypeLabel(v: string) {
+  if (v === "staff" || v === "employee") return "Staff";
+  if (v === "contractor") return "Contractor";
+  if (v === "visitor") return "Visitor";
+  if (v === "member_of_public") return "Member of public";
+  return v;
+}
+
 export default function HSIncidents() {
   const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
@@ -113,6 +186,53 @@ export default function HSIncidents() {
   const [hseReference, setHseReference] = useState("");
   const [filterType, setFilterType] = useState<"all" | "riddor" | "near_miss">("all");
   const [form, setForm] = useState({ ...emptyForm });
+
+  // --- People data queries ---
+  const { data: staffList = [] } = useQuery<StaffMember[]>({
+    queryKey: ["/api/staff"],
+    queryFn: () => apiRequest("GET", "/api/staff").then(r => r.json()),
+  });
+
+  const { data: contractorWorkers = [] } = useQuery<ContractorWorker[]>({
+    queryKey: ["/api/contractors/workers/all"],
+    queryFn: () => apiRequest("GET", "/api/contractors/workers/all").then(r => r.json()),
+  });
+
+  const { data: visitors = [] } = useQuery<Visitor[]>({
+    queryKey: ["/api/visitors"],
+    queryFn: () => apiRequest("GET", "/api/visitors").then(r => r.json()),
+  });
+
+  // Build option lists
+  const staffOptions = staffList.map(s => ({
+    label: `${s.firstName} ${s.lastName}`,
+    sublabel: s.jobTitle || "Staff",
+  }));
+
+  const contractorOptions = contractorWorkers.map(w => ({
+    label: `${w.firstName} ${w.lastName}`,
+    sublabel: w.companyName || "Contractor",
+  }));
+
+  const visitorOptions = visitors.map(v => ({
+    label: `${v.firstName} ${v.lastName}`,
+    sublabel: v.company ? `Visitor · ${v.company}` : "Visitor",
+  }));
+
+  // "Reported by" searches across staff + contractor workers
+  const reportedByOptions = [
+    ...staffList.map(s => ({ label: `${s.firstName} ${s.lastName}`, sublabel: s.jobTitle || "Staff" })),
+    ...contractorWorkers.map(w => ({ label: `${w.firstName} ${w.lastName}`, sublabel: w.companyName ? `Contractor · ${w.companyName}` : "Contractor" })),
+  ];
+
+  // Options for "Injured person" — changes based on selected person type
+  function injuredPersonOptions() {
+    const t = form.injuredPersonType;
+    if (t === "staff" || t === "employee") return staffOptions;
+    if (t === "contractor") return contractorOptions;
+    if (t === "visitor") return visitorOptions;
+    return [];
+  }
 
   const { data: incidents = [], isLoading } = useQuery<HsIncident[]>({ queryKey: ["/api/hs-incidents"] });
 
@@ -349,7 +469,14 @@ export default function HSIncidents() {
                     <div className="text-sm text-muted-foreground space-y-0.5">
                       <div>{new Date(incident.incidentDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}{incident.location ? ` · ${incident.location}` : ""}</div>
                       {incident.reportedBy && <div>Reported by: {incident.reportedBy}</div>}
-                      {incident.injuredPerson && <div>Injured person: {incident.injuredPerson}{incident.injuredPersonType ? ` (${incident.injuredPersonType})` : ""}</div>}
+                      {incident.injuredPerson && (
+                        <div>
+                          Injured person: {incident.injuredPerson}
+                          {incident.injuredPersonType
+                            ? ` (${personTypeLabel(incident.injuredPersonType)})`
+                            : ""}
+                        </div>
+                      )}
                       {incident.description && <div className="mt-1 text-xs">{incident.description}</div>}
                       {incident.riddorCategory && !incident.isNearMiss && (
                         <div className="mt-1">RIDDOR: {RIDDOR_LABELS[incident.riddorCategory] || incident.riddorCategory}
@@ -409,26 +536,58 @@ export default function HSIncidents() {
                 <Label>Location</Label>
                 <Input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Where it happened" />
               </div>
-              <div>
+
+              {/* Reported by — searches staff + contractor workers */}
+              <div className="sm:col-span-2">
                 <Label>Reported by</Label>
-                <Input value={form.reportedBy} onChange={e => setForm(f => ({ ...f, reportedBy: e.target.value }))} />
+                <PersonCombobox
+                  value={form.reportedBy}
+                  onChange={v => setForm(f => ({ ...f, reportedBy: v }))}
+                  options={reportedByOptions}
+                  placeholder="Search staff or contractor, or type a name…"
+                />
               </div>
-              <div>
-                <Label>Injured person</Label>
-                <Input value={form.injuredPerson} onChange={e => setForm(f => ({ ...f, injuredPerson: e.target.value }))} placeholder="Name (if applicable)" />
-              </div>
+
+              {/* Person type (renamed Employee → Staff) */}
               <div>
                 <Label>Person type</Label>
-                <Select value={form.injuredPersonType} onValueChange={v => setForm(f => ({ ...f, injuredPersonType: v }))}>
+                <Select
+                  value={form.injuredPersonType}
+                  onValueChange={v => setForm(f => ({ ...f, injuredPersonType: v, injuredPerson: "" }))}
+                >
                   <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="employee">Employee</SelectItem>
+                    <SelectItem value="staff">Staff</SelectItem>
                     <SelectItem value="contractor">Contractor</SelectItem>
                     <SelectItem value="visitor">Visitor</SelectItem>
                     <SelectItem value="member_of_public">Member of public</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Injured person — combobox when person type is known, plain text for member_of_public */}
+              <div>
+                <Label>Injured person</Label>
+                {form.injuredPersonType === "member_of_public" || form.injuredPersonType === "" ? (
+                  <Input
+                    value={form.injuredPerson}
+                    onChange={e => setForm(f => ({ ...f, injuredPerson: e.target.value }))}
+                    placeholder={form.injuredPersonType === "" ? "Select person type first, or type a name" : "Name (if applicable)"}
+                  />
+                ) : (
+                  <PersonCombobox
+                    value={form.injuredPerson}
+                    onChange={v => setForm(f => ({ ...f, injuredPerson: v }))}
+                    options={injuredPersonOptions()}
+                    placeholder={
+                      form.injuredPersonType === "staff" ? "Search staff members…"
+                      : form.injuredPersonType === "contractor" ? "Search contractor workers…"
+                      : "Search visitors…"
+                    }
+                  />
+                )}
+              </div>
+
               <div className="sm:col-span-2">
                 <Label>Description</Label>
                 <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder="Full details of what happened…" />
