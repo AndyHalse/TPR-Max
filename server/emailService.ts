@@ -166,6 +166,21 @@ class EmailService {
     }
   }
 
+  async sendGenericEmail(to: string, subject: string, text: string): Promise<boolean> {
+    try {
+      const html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px">
+        <h2 style="color:#1e4f8c">${subject}</h2>
+        <div style="white-space:pre-wrap;line-height:1.6;color:#333">${text.replace(/\n/g, '<br>')}</div>
+        <hr style="margin-top:32px;border:none;border-top:1px solid #e5e7eb"/>
+        <p style="font-size:12px;color:#9ca3af">This message was sent from TPR Max — Site Compliance Platform</p>
+      </div>`;
+      return await this.sendEmail({ to, subject, html, text });
+    } catch (err) {
+      logger.error('Failed to send generic email:', err);
+      return false;
+    }
+  }
+
   async sendTestEmail(email: string): Promise<boolean> {
     try {
       const testEmailOptions = {

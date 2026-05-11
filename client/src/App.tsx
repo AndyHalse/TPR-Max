@@ -54,6 +54,15 @@ import IncidentManagerMonitor from "@/pages/IncidentManagerMonitor";
 import LoneWorkerConfirmation from "@/pages/LoneWorkerConfirmation";
 import HSIncidents from "@/pages/HSIncidents";
 import FireRiskAssessmentPage from "@/pages/FireRiskAssessment";
+import StaffProfile from "@/pages/hr/StaffProfile";
+import OrgChart from "@/pages/hr/OrgChart";
+import LeaveCalendar from "@/pages/hr/LeaveCalendar";
+import TrainingMatrix from "@/pages/hr/TrainingMatrix";
+import AbsenceOverview from "@/pages/hr/AbsenceOverview";
+import OnboardingOverview from "@/pages/hr/OnboardingOverview";
+import Leavers from "@/pages/hr/Leavers";
+import AppraisalsDue from "@/pages/hr/AppraisalsDue";
+import PayrollExport from "@/pages/hr/PayrollExport";
 
 function Router() {
   const urlParams = new URLSearchParams(window.location.search);
@@ -411,6 +420,15 @@ function Router() {
             <Route path="/profile" component={Profile} />
             <Route path="/hs-incidents" component={HSIncidents} />
             <Route path="/fire-risk-assessment" component={FireRiskAssessmentPage} />
+            <Route path="/hr/staff/:id" component={StaffProfile} />
+            <Route path="/hr/org-chart" component={OrgChart} />
+            <Route path="/hr/leave" component={LeaveCalendar} />
+            <Route path="/hr/training" component={TrainingMatrix} />
+            <Route path="/hr/absence" component={AbsenceOverview} />
+            <Route path="/hr/onboarding" component={OnboardingOverview} />
+            <Route path="/hr/leavers" component={Leavers} />
+            <Route path="/hr/appraisals" component={AppraisalsDue} />
+            <Route path="/hr/payroll" component={PayrollExport} />
             <Route component={NotFound} />
           </Switch>
         </Layout>

@@ -1,0 +1,1165 @@
+You are extending TPR Max — a site compliance SaaS platform built in 
+Node.js (Express) with a React frontend and PostgreSQL database — with 
+a full HR module linked to the existing staff module.
+
+The staff module is the single source of truth for every person. All HR 
+features read from and write to the existing staff record. Do not create 
+a parallel people system — extend what exists.
+
+Work through each section in order. Do not skip ahead. All database 
+changes must use IF NOT EXISTS or ADD COLUMN IF NOT EXISTS — the platform 
+is live with real customer data.
+
+════════════════════════════════════════════════════════════════════════
+SECTION 1 — EXTENDED EMPLOYEE RECORD
+════════════════════════════════════════════════════════════════════════
+
+STEP 1A — DATABASE: Extend the staff table
+────────────────────────────────────────────────────────────────────
+
+Check the existing staff (or employees) table schema first, then 
+add the following columns:
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    employment_type TEXT DEFAULT NULL;
+    -- Values: 'full_time' | 'part_time' | 'casual' | 
+    --         'zero_hours' | 'fixed_term' | 'apprentice'
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    contract_start_date DATE DEFAULT NULL;
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    contract_end_date DATE DEFAULT NULL;
+    -- NULL for permanent contracts
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    department TEXT DEFAULT NULL;
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    team TEXT DEFAULT NULL;
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    line_manager_id INTEGER DEFAULT NULL 
+      REFERENCES staff(id) ON DELETE SET NULL;
+    -- Self-referencing — points to another staff record
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    pay_grade TEXT DEFAULT NULL;
+    -- Grade or band label only e.g. 'Grade 3', 'Senior' 
+    -- Do NOT store actual salary figures
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    emergency_contact_name TEXT DEFAULT NULL;
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    emergency_contact_phone TEXT DEFAULT NULL;
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    emergency_contact_relationship TEXT DEFAULT NULL;
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    employment_status TEXT NOT NULL DEFAULT 'active';
+    -- Values: 'active' | 'on_leave' | 'leaver' | 'archived'
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    annual_leave_entitlement_days NUMERIC(4,1) DEFAULT 28;
+    -- Statutory minimum is 28 days including bank holidays
+    -- Pro-rata calculation handled in application layer
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    leave_year_start DATE DEFAULT NULL;
+    -- The date the leave year starts for this employee
+    -- NULL = company default (Jan 1 or Apr 1)
+
+  ALTER TABLE staff ADD COLUMN IF NOT EXISTS
+    working_days_per_week NUMERIC(3,1) DEFAULT 5;
+    -- Used for pro-rata leave calculation
+
+STEP 1B — BACKEND: Update staff routes
+────────────────────────────────────────────────────────────────────
+
+Update the existing GET /api/staff/:id endpoint to include all 
+new fields in the response.
+
+Update the existing PUT /api/staff/:id endpoint to accept and 
+validate all new fields.
+
+Add validation:
+  - contract_end_date must be after contract_start_date if both set
+  - line_manager_id cannot reference the same staff member (no 
+    self-management)
+  - employment_type must be one of the defined values
+  - working_days_per_week must be between 0.5 and 5
+
+Add a new endpoint:
+  GET /api/staff/org-chart
+  Returns all active staff with their line_manager_id, name, 
+  department, and team — structured as a tree for org chart display.
+
+STEP 1C — FRONTEND: Extended employee profile form
+────────────────────────────────────────────────────────────────────
+
+Find the existing staff detail / edit page and add an 
+"Employment Details" section with fields for all new columns.
+
+Group the form into clear sections:
+  1. Personal Details (existing — name, email, phone)
+  2. Employment Details (new — type, start date, department, 
+     line manager, pay grade)
+  3. Emergency Contact (new — name, phone, relationship)
+  4. Leave Settings (new — entitlement, working days, leave year)
+
+Line manager field: searchable dropdown populated from 
+GET /api/staff?status=active, showing name and department.
+
+Add a basic org chart view accessible from the staff list:
+  Route: /staff/org-chart
+  Show a simple tree diagram using the line_manager_id relationships.
+  Each node shows: name, job title/role, department.
+  Clicking a node goes to that staff member's profile.
+
+
+════════════════════════════════════════════════════════════════════
+SECTION 2 — RIGHT TO WORK
+════════════════════════════════════════════════════════════════════
+
+LEGAL CONTEXT:
+Employers must check and record evidence that every employee has 
+the legal right to work in the UK before employment begins, under 
+the Immigration, Asylum and Nationality Act 2006. Employing someone 
+without the right to work carries a civil penalty of up to £60,000 
+per worker and potential criminal prosecution.
+
+This feature links directly to site access — an expired Right to 
+Work document should flag at the QR check-in.
+
+STEP 2A — DATABASE: Right to work table
+────────────────────────────────────────────────────────────────────
+
+  CREATE TABLE IF NOT EXISTS right_to_work (
+    id                  SERIAL PRIMARY KEY,
+    staff_id            INTEGER NOT NULL REFERENCES staff(id) 
+                          ON DELETE CASCADE,
+    customer_id         INTEGER NOT NULL REFERENCES customers(id),
+    document_type       TEXT NOT NULL,
+      -- Values: 'uk_passport' | 'eu_settled_status' | 
+      --         'biometric_residence_permit' | 'share_code' |
+      --         'visa' | 'certificate_of_naturalisation' | 'other'
+    document_reference  TEXT,
+      -- Passport number, BRP number, share code etc
+    issue_date          DATE,
+    expiry_date         DATE,
+      -- NULL for indefinite leave to remain / British citizens
+    verified_date       DATE NOT NULL,
+      -- Date the employer checked the document
+    verified_by         TEXT NOT NULL,
+      -- Name of the person who carried out the check
+    verification_method TEXT NOT NULL DEFAULT 'manual',
+      -- Values: 'manual' | 'idsp' 
+      -- (IDSP = Identity Service Provider — digital check)
+    document_url        TEXT,
+      -- Scanned copy of the document (stored securely)
+    notes               TEXT,
+    is_current          BOOLEAN DEFAULT TRUE,
+      -- FALSE when superseded by a new document
+    reminder_sent_at    TIMESTAMPTZ,
+    created_at          TIMESTAMPTZ DEFAULT NOW()
+  );
+
+STEP 2B — BACKEND: Right to Work routes
+────────────────────────────────────────────────────────────────────
+
+  GET    /api/staff/:staffId/right-to-work
+    — Returns current RTW record for this staff member
+
+  POST   /api/staff/:staffId/right-to-work
+    — Create new RTW record. Sets previous records is_current = FALSE.
+
+  POST   /api/staff/:staffId/right-to-work/:id/upload
+    — Upload scanned document (PDF or image)
+
+  GET    /api/right-to-work/expiring
+    — Returns all RTW documents expiring within 90 days across 
+      all staff, ordered by expiry_date ascending.
+      Excludes documents with NULL expiry_date.
+
+  GET    /api/right-to-work/status/:staffId
+    Returns:
+    {
+      hasRTW: boolean,
+      isExpired: boolean,
+      daysUntilExpiry: number | null,  -- null if no expiry
+      isVerified: boolean,
+      blocksAccess: boolean  -- true if expired AND has expiry date
+    }
+
+SITE ACCESS INTEGRATION:
+In the existing QR check-in endpoint (wherever staff check-in 
+is processed), add a Right to Work check:
+
+  1. Look up the staff member's current RTW record
+  2. If no RTW record exists: allow entry but add warning flag 
+     to check-in response: 
+     { warning: 'no_rtw_on_record', message: 'No Right to Work document recorded' }
+  3. If RTW has an expiry date and it has passed: 
+     { blocked: true, reason: 'rtw_expired', message: 'Right to Work document expired — entry not permitted' }
+  4. If RTW expires within 30 days: allow entry but warn:
+     { warning: 'rtw_expiring_soon', daysRemaining: N }
+
+The kiosk UI should display these warnings clearly to the 
+site receptionist.
+
+STEP 2C — BACKEND: RTW reminder cron job
+────────────────────────────────────────────────────────────────────
+
+Add to the daily cron job. Find all RTW documents where:
+  - is_current = TRUE
+  - expiry_date IS NOT NULL
+  - expiry_date <= NOW() + INTERVAL '90 days'
+  - reminder_sent_at IS NULL OR 
+    reminder_sent_at < NOW() - INTERVAL '30 days'
+
+Send email to customer HR admin:
+
+  Subject (expiring): "⚠ Right to Work Document Expiring — [STAFF NAME]"
+  Subject (expired):  "🚨 Right to Work Document EXPIRED — [STAFF NAME]"
+
+  Body:
+  ---
+  The Right to Work document for [STAFF NAME] 
+  [is expiring on DATE / expired on DATE].
+
+  Document type: [TYPE]
+  Reference: [REFERENCE]
+  Expiry date: [DATE]
+  Originally verified: [DATE] by [VERIFIED BY]
+
+  You must obtain and verify a new document before or 
+  immediately after the expiry date. Continuing to employ 
+  someone without valid Right to Work evidence may result 
+  in a civil penalty of up to £60,000.
+
+  Log in to TPR Max to upload the renewed document.
+  ---
+
+STEP 2D — FRONTEND: Right to Work UI
+────────────────────────────────────────────────────────────────────
+
+Add a "Right to Work" tab on the staff member's profile page:
+
+  STATUS BANNER:
+    ✅ Valid — Expires [DATE] ([N] days)
+    ⚠  Expiring soon — [N] days remaining
+    🚨 EXPIRED — Entry to site is blocked
+    ⚠  No document recorded
+
+  CURRENT DOCUMENT CARD:
+    Document type, reference, issue date, expiry date,
+    verified by, verified on, verification method,
+    download link for scanned copy.
+
+  ADD NEW DOCUMENT BUTTON:
+    Opens form: document type, reference, issue date, expiry 
+    date, verified by, verified date, verification method, 
+    upload scan.
+    Saving this supersedes the previous record.
+
+  HISTORY:
+    All previous RTW documents (is_current = FALSE) shown in 
+    a collapsed table with dates.
+
+Add a "Right to Work" section to the staff list view:
+  Add a column showing RTW status for each staff member:
+  ✅ Valid | ⚠ Expiring | 🚨 Expired | — None recorded
+  Make this column filterable.
+
+
+════════════════════════════════════════════════════════════════════
+SECTION 3 — TRAINING & QUALIFICATIONS MATRIX
+════════════════════════════════════════════════════════════════════
+
+NOTE: Check whether a training/qualifications table already exists 
+for contractors in the codebase. If it does, extend it to support 
+staff records rather than creating a separate table. Use a 
+person_type column ('staff' | 'contractor') and person_id if needed, 
+or add a staff_id column alongside the existing contractor_id.
+
+STEP 3A — DATABASE
+────────────────────────────────────────────────────────────────────
+
+If creating a new table:
+
+  CREATE TABLE IF NOT EXISTS training_records (
+    id              SERIAL PRIMARY KEY,
+    customer_id     INTEGER NOT NULL REFERENCES customers(id),
+    staff_id        INTEGER REFERENCES staff(id) ON DELETE CASCADE,
+    course_name     TEXT NOT NULL,
+    provider        TEXT,
+    completed_date  DATE NOT NULL,
+    expiry_date     DATE,         -- NULL if qualification does not expire
+    certificate_url TEXT,         -- Uploaded certificate
+    is_mandatory    BOOLEAN DEFAULT FALSE,
+      -- Mandatory = required for site access / role
+    mandatory_role  TEXT,
+      -- If mandatory only for certain roles e.g. 'Fire Marshal'
+    reminder_sent_at TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS training_requirements (
+    id              SERIAL PRIMARY KEY,
+    customer_id     INTEGER NOT NULL REFERENCES customers(id),
+    course_name     TEXT NOT NULL,
+    applies_to      TEXT NOT NULL DEFAULT 'all',
+      -- Values: 'all' | 'department' | 'role'
+    applies_value   TEXT,
+      -- If applies_to = 'department', store department name here
+      -- If applies_to = 'role', store role name here
+    renewal_period_months INTEGER,
+      -- How often must this be renewed
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+  );
+    -- This table defines what training is mandatory for which staff.
+    -- training_records stores what has actually been completed.
+
+STEP 3B — BACKEND: Training routes
+────────────────────────────────────────────────────────────────────
+
+  GET    /api/staff/:staffId/training
+    — All training records for this person, with status:
+      'valid' | 'expiring_soon' | 'expired' | 'no_expiry'
+
+  POST   /api/staff/:staffId/training
+    — Add a training record
+
+  DELETE /api/staff/:staffId/training/:id
+    — Soft delete (add deleted_at column, filter from queries)
+
+  POST   /api/staff/:staffId/training/:id/upload
+    — Upload certificate
+
+  GET    /api/training/matrix
+    — Returns a matrix view: all staff × all mandatory training
+      requirements. Each cell: completed date, expiry, status.
+      Used for the compliance matrix page.
+
+  GET    /api/training/expiring
+    — All training records expiring within 60 days across all staff
+
+  GET    /api/training/requirements
+    — List all mandatory training requirements
+  POST   /api/training/requirements
+    — Create a mandatory training requirement
+  DELETE /api/training/requirements/:id
+
+SITE ACCESS INTEGRATION:
+In the QR check-in endpoint, after the RTW check, add:
+  Check whether this staff member has any mandatory training 
+  (is_mandatory = TRUE) that has expired.
+  If yes: allow entry but add warning to check-in response 
+  (do not block — training expiry is an HR matter, not 
+  always a physical access blocker, but flag it clearly).
+
+STEP 3C — BACKEND: Training reminder cron
+────────────────────────────────────────────────────────────────────
+
+Daily cron: find all training records where:
+  - is_mandatory = TRUE
+  - expiry_date IS NOT NULL
+  - expiry_date <= NOW() + INTERVAL '60 days'
+  - reminder_sent_at IS NULL OR 
+    reminder_sent_at < NOW() - INTERVAL '14 days'
+
+Send digest email to HR admin grouped by staff member.
+
+STEP 3D — FRONTEND: Training pages
+────────────────────────────────────────────────────────────────────
+
+Add a "Training" tab on the staff member's profile page:
+  - List of all training records with status badges
+  - Upload certificate for each record
+  - Add training record form
+  - Clear split: Mandatory (from requirements) vs Additional
+
+Add a standalone Training Matrix page:
+  Route: /hr/training-matrix
+  
+  Show a grid:
+    Rows = staff members (grouped by department)
+    Columns = mandatory training courses
+    Cells = ✅ Valid | ⚠ Expiring | 🚨 Expired | — Not completed
+  
+  Export to CSV button (for audit purposes)
+  Filter by department
+
+
+════════════════════════════════════════════════════════════════════
+SECTION 4 — LEAVE MANAGEMENT
+════════════════════════════════════════════════════════════════════
+
+STEP 4A — DATABASE
+────────────────────────────────────────────────────────────────────
+
+  CREATE TABLE IF NOT EXISTS leave_requests (
+    id              SERIAL PRIMARY KEY,
+    customer_id     INTEGER NOT NULL REFERENCES customers(id),
+    staff_id        INTEGER NOT NULL REFERENCES staff(id) 
+                      ON DELETE CASCADE,
+    leave_type      TEXT NOT NULL,
+      -- Values: 'annual' | 'sick' | 'compassionate' | 
+      --         'maternity' | 'paternity' | 'adoption' |
+      --         'unpaid' | 'study' | 'other'
+    start_date      DATE NOT NULL,
+    end_date        DATE NOT NULL,
+    days_taken      NUMERIC(4,1) NOT NULL,
+      -- Calculated: working days between start and end dates
+      -- Half days supported (0.5)
+    status          TEXT NOT NULL DEFAULT 'pending',
+      -- Values: 'pending' | 'approved' | 'declined' | 'cancelled'
+    reason          TEXT,
+      -- Required for sick, compassionate, unpaid. Optional for annual.
+    approved_by_id  INTEGER REFERENCES staff(id) ON DELETE SET NULL,
+    approved_at     TIMESTAMPTZ,
+    decline_reason  TEXT,
+    notes           TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ DEFAULT NOW()
+  );
+
+STEP 4B — BACKEND: Leave calculation utility
+────────────────────────────────────────────────────────────────────
+
+Create /server/utils/leaveUtils.ts:
+
+  export function calculateWorkingDays(
+    startDate: Date,
+    endDate: Date,
+    workingDaysPerWeek: number = 5
+  ): number {
+    -- Count calendar days between start and end (inclusive)
+    -- Subtract weekends (Sat/Sun)
+    -- If workingDaysPerWeek < 5, pro-rate accordingly
+    -- Do NOT subtract bank holidays automatically 
+    --   (bank holidays vary — let customer manage this manually 
+    --    or add a bank_holidays table later)
+    -- Return number with 0.5 precision (for half days)
+  }
+
+  export function calculateLeaveBalance(
+    entitlementDays: number,
+    leaveYear: { start: Date, end: Date },
+    approvedLeave: LeaveRequest[]
+  ): {
+    entitlement: number,
+    taken: number,
+    pending: number,
+    remaining: number
+  }
+
+STEP 4C — BACKEND: Leave routes
+────────────────────────────────────────────────────────────────────
+
+  GET  /api/staff/:staffId/leave
+    — All leave requests for this person with balance summary
+
+  POST /api/staff/:staffId/leave
+    — Submit leave request. Auto-calculate days_taken using 
+      calculateWorkingDays(). Notify line manager by email.
+
+  PUT  /api/leave/:id/approve
+    — Line manager approves. Set status = 'approved', 
+      approved_by_id, approved_at. Notify staff member.
+
+  PUT  /api/leave/:id/decline
+    Body: { decline_reason: string }
+    — Line manager declines. Notify staff member with reason.
+
+  PUT  /api/leave/:id/cancel
+    — Staff member cancels their own pending or approved request.
+      Only allowed if leave hasn't started yet.
+
+  GET  /api/leave/calendar
+    — All approved leave across all staff for a given date range.
+      Used for the team calendar view.
+      Returns: [{ staff_id, name, department, start_date, end_date, 
+                  leave_type, days_taken }]
+
+  GET  /api/leave/pending-approval
+    — All leave requests awaiting approval, filtered to the 
+      requests where the current user is the line manager.
+
+  GET  /api/leave/balance/:staffId
+    — Current leave year balance for this staff member.
+
+STEP 4D — FRONTEND: Leave pages
+────────────────────────────────────────────────────────────────────
+
+Add a "Leave" tab on the staff member's profile page:
+  - Balance summary: Entitlement | Taken | Pending | Remaining
+  - List of all leave requests with status badges
+  - Request leave button → date picker form with leave type
+
+Add a Team Leave Calendar page:
+  Route: /hr/leave-calendar
+  Month view calendar showing all approved leave across the team.
+  Colour coded by leave type.
+  Department filter.
+
+Add a Leave Approvals page (for line managers):
+  Route: /hr/leave-approvals
+  List of all pending requests where the logged-in user 
+  is the line manager.
+  Approve / Decline buttons inline with the request detail.
+
+
+════════════════════════════════════════════════════════════════════
+SECTION 5 — SICKNESS & ABSENCE TRACKING
+════════════════════════════════════════════════════════════════════
+
+STEP 5A — DATABASE
+────────────────────────────────────────────────────────────────────
+
+  CREATE TABLE IF NOT EXISTS absence_records (
+    id                  SERIAL PRIMARY KEY,
+    customer_id         INTEGER NOT NULL REFERENCES customers(id),
+    staff_id            INTEGER NOT NULL REFERENCES staff(id) 
+                          ON DELETE CASCADE,
+    absence_type        TEXT NOT NULL DEFAULT 'sickness',
+      -- Values: 'sickness' | 'unauthorised' | 'other'
+    start_date          DATE NOT NULL,
+    return_date         DATE,            -- NULL if still absent
+    days_lost           NUMERIC(4,1),    -- Calculated on return
+    reason              TEXT,
+    fit_note_required   BOOLEAN DEFAULT FALSE,
+      -- True if absence > 7 calendar days (statutory trigger)
+    fit_note_url        TEXT,            -- Uploaded fit note
+    return_to_work_completed BOOLEAN DEFAULT FALSE,
+    return_to_work_date DATE,
+    return_to_work_notes TEXT,
+    return_to_work_by   TEXT,           -- Who conducted the RTW interview
+    bradford_score_at_record INTEGER,   -- Snapshot of score at time
+    created_at          TIMESTAMPTZ DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ DEFAULT NOW()
+  );
+
+STEP 5B — BACKEND: Bradford Factor utility
+────────────────────────────────────────────────────────────────────
+
+Create /server/utils/bradfordFactor.ts:
+
+  export function calculateBradfordFactor(
+    absences: AbsenceRecord[],
+    rollingDays: number = 365
+  ): {
+    score: number,          -- S² × D
+    spells: number,         -- S = number of separate absence spells
+    totalDays: number,      -- D = total days lost
+    rating: 'low' | 'medium' | 'high' | 'critical'
+      -- low:      0–49
+      -- medium:   50–199
+      -- high:     200–449
+      -- critical: 450+
+  }
+
+Filter absences to only those starting within the last 
+rollingDays days (default 12 months).
+
+STEP 5C — BACKEND: Absence routes
+────────────────────────────────────────────────────────────────────
+
+  GET    /api/staff/:staffId/absences
+    — All absence records + Bradford Factor score
+
+  POST   /api/staff/:staffId/absences
+    — Record start of absence
+
+  PUT    /api/staff/:staffId/absences/:id/return
+    Body: { return_date, days_lost, return_to_work_notes, 
+            return_to_work_by }
+    — Record return to work. Sets return_to_work_completed = TRUE.
+      Calculate and store bradford_score_at_record.
+      If fit note was required and not uploaded, flag warning.
+
+  POST   /api/staff/:staffId/absences/:id/fit-note
+    — Upload fit note document
+
+  GET    /api/absences/overview
+    — Summary across all staff:
+      Currently absent (return_date IS NULL)
+      Bradford Factor by staff member, ordered highest first
+      Absence rate % (days lost / total working days × 100)
+      Average absence days per person this year
+
+STEP 5D — FRONTEND: Absence pages
+────────────────────────────────────────────────────────────────────
+
+Add an "Absence" tab on the staff member's profile page:
+  - Bradford Factor score with colour-coded rating badge
+  - Visual: score dial or bar (0 → 450+)
+  - History of all absence spells
+  - "Record Absence" button
+  - "Record Return" button (visible when currently absent)
+  - Return to Work form (inline when recording return)
+
+Add an Absence Overview page:
+  Route: /hr/absence-overview
+  
+  Summary cards: Currently absent | Avg Bradford | 
+                 Absence rate % | Total days lost YTD
+
+  Staff table with columns:
+    Name | Department | Bradford Score | Rating | 
+    Spells (12mo) | Days Lost (12mo) | Currently Absent
+
+  Sort by Bradford Score descending by default.
+  Export to CSV.
+
+
+════════════════════════════════════════════════════════════════════
+SECTION 6 — DOCUMENT STORAGE PER EMPLOYEE
+════════════════════════════════════════════════════════════════════
+
+STEP 6A — DATABASE
+────────────────────────────────────────────────────────────────────
+
+  CREATE TABLE IF NOT EXISTS staff_documents (
+    id              SERIAL PRIMARY KEY,
+    customer_id     INTEGER NOT NULL REFERENCES customers(id),
+    staff_id        INTEGER NOT NULL REFERENCES staff(id) 
+                      ON DELETE CASCADE,
+    document_type   TEXT NOT NULL,
+      -- Values: 'contract' | 'offer_letter' | 'right_to_work' |
+      --         'certification' | 'fit_note' | 'disciplinary' |
+      --         'appraisal' | 'occupational_health' | 'other'
+    title           TEXT NOT NULL,
+      -- Human-readable label e.g. "Contract of Employment — Jan 2024"
+    file_url        TEXT NOT NULL,
+    file_name       TEXT NOT NULL,
+    file_size_bytes INTEGER,
+    uploaded_by     TEXT NOT NULL,
+    expiry_date     DATE,         -- If the document expires
+    is_confidential BOOLEAN DEFAULT FALSE,
+      -- If TRUE: only HR admin can view, not line managers
+    notes           TEXT,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+  );
+
+STEP 6B — BACKEND: Document routes
+────────────────────────────────────────────────────────────────────
+
+  GET    /api/staff/:staffId/documents
+    — All documents for this person (excluding confidential 
+      if requester is line manager, not HR admin)
+
+  POST   /api/staff/:staffId/documents/upload
+    — Upload document. Accept PDF, DOCX, JPG, PNG. Max 25MB.
+      Store document_type, title, is_confidential, expiry_date.
+
+  GET    /api/staff/:staffId/documents/:id/download
+    — Signed download URL (do not expose storage path directly)
+
+  DELETE /api/staff/:staffId/documents/:id
+    — Soft delete (add deleted_at). Documents are never hard 
+      deleted — required for audit purposes.
+      Only HR admin can delete documents.
+
+STEP 6C — FRONTEND: Documents tab
+────────────────────────────────────────────────────────────────────
+
+Add a "Documents" tab on the staff member's profile page.
+
+Group documents by type with expandable sections:
+  📄 Contracts & Offer Letters
+  🪪 Right to Work (linked from Section 2)
+  🏅 Certifications & Training (linked from Section 3)
+  🏥 Fit Notes & Medical
+  ⚠ Disciplinary & HR Letters
+  📋 Other
+
+Each document shows: title, upload date, uploaded by, expiry 
+(if set), download button.
+
+Confidential documents show a 🔒 badge. Hidden from line 
+manager view, visible to HR admin only.
+
+Upload button opens a form: select type, enter title, toggle 
+confidential, set expiry date (optional), choose file.
+
+
+════════════════════════════════════════════════════════════════════
+SECTION 7 — ONBOARDING CHECKLIST
+════════════════════════════════════════════════════════════════════
+
+STEP 7A — DATABASE
+────────────────────────────────────────────────────────────────────
+
+  CREATE TABLE IF NOT EXISTS onboarding_checklists (
+    id              SERIAL PRIMARY KEY,
+    customer_id     INTEGER NOT NULL REFERENCES customers(id),
+    staff_id        INTEGER NOT NULL REFERENCES staff(id) 
+                      ON DELETE CASCADE,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS onboarding_items (
+    id                  SERIAL PRIMARY KEY,
+    checklist_id        INTEGER NOT NULL 
+                          REFERENCES onboarding_checklists(id)
+                          ON DELETE CASCADE,
+    item_key            TEXT NOT NULL,
+      -- Identifier e.g. 'contract_sent', 'rtw_verified'
+    label               TEXT NOT NULL,
+      -- Display text
+    completed           BOOLEAN DEFAULT FALSE,
+    completed_at        TIMESTAMPTZ,
+    completed_by        TEXT,
+    notes               TEXT,
+    display_order       INTEGER DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS onboarding_templates (
+    id              SERIAL PRIMARY KEY,
+    customer_id     INTEGER NOT NULL REFERENCES customers(id),
+    item_key        TEXT NOT NULL,
+    label           TEXT NOT NULL,
+    display_order   INTEGER DEFAULT 0,
+    is_active       BOOLEAN DEFAULT TRUE
+  );
+    -- Customer can customise their onboarding checklist items.
+    -- Seed with default items on customer setup.
+
+Default template items (seed on customer creation):
+  1.  contract_sent           — Contract of employment sent to employee
+  2.  contract_signed         — Signed contract received and filed
+  3.  rtw_verified            — Right to Work documents verified
+  4.  rtw_uploaded            — Right to Work documents uploaded to TPR Max
+  5.  emergency_contact       — Emergency contact details collected
+  6.  payroll_details         — Bank details and tax information sent to payroll
+  7.  system_access           — TPR Max account created and QR code issued
+  8.  site_induction          — Site induction completed (link to inductions module)
+  9.  hs_briefing             — First day H&S briefing completed
+  10. mandatory_training      — Mandatory training scheduled or completed
+  11. line_manager_intro      — Introduced to line manager and team
+  12. probation_review_set    — First probation review date confirmed
+
+STEP 7B — BACKEND: Onboarding routes
+────────────────────────────────────────────────────────────────────
+
+  POST /api/staff/:staffId/onboarding/create
+    — Creates a new onboarding checklist for this staff member,
+      populated from the customer's onboarding template.
+      Called automatically when a new staff member is created.
+
+  GET  /api/staff/:staffId/onboarding
+    — Returns checklist with completion status and % complete
+
+  PATCH /api/staff/:staffId/onboarding/items/:itemId
+    Body: { completed: boolean, notes: string }
+    — Mark item complete or incomplete. Record who and when.
+
+  GET  /api/onboarding/overview
+    — All staff with incomplete onboarding, grouped by 
+      how many days since they started.
+      Flags: started > 7 days ago with < 50% complete.
+
+  GET  /api/onboarding/templates
+  PUT  /api/onboarding/templates
+    — Get and update the customer's onboarding template items.
+
+STEP 7C — FRONTEND: Onboarding pages
+────────────────────────────────────────────────────────────────────
+
+Add an "Onboarding" tab on the staff member's profile page 
+(visible when employment_status = 'active' and checklist < 100%):
+
+  Progress bar: [████████░░] 8 of 12 complete (67%)
+
+  Checklist displayed as items with checkboxes:
+    ✅ Contract sent — Completed 3 May 2026 by Sarah HR
+    ✅ Contract signed — Completed 4 May 2026 by Sarah HR
+    ☐  Right to Work verified
+       [Mark Complete] [Add Note]
+    ...
+
+Add an Onboarding Overview page:
+  Route: /hr/onboarding
+  Cards for each new starter currently in onboarding.
+  Show: name, start date, % complete, overdue items.
+  Sort by start date descending.
+
+
+════════════════════════════════════════════════════════════════════
+SECTION 8 — LEAVER PROCESS
+════════════════════════════════════════════════════════════════════
+
+STEP 8A — DATABASE
+────────────────────────────────────────────────────────────────────
+
+  CREATE TABLE IF NOT EXISTS leaver_checklists (
+    id              SERIAL PRIMARY KEY,
+    customer_id     INTEGER NOT NULL REFERENCES customers(id),
+    staff_id        INTEGER NOT NULL REFERENCES staff(id),
+    last_day        DATE NOT NULL,
+    reason          TEXT,
+      -- Values: 'resignation' | 'redundancy' | 'dismissal' | 
+      --         'end_of_contract' | 'retirement' | 'other'
+    is_voluntary    BOOLEAN,
+    exit_interview_completed BOOLEAN DEFAULT FALSE,
+    created_at      TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS leaver_items (
+    id              SERIAL PRIMARY KEY,
+    checklist_id    INTEGER NOT NULL 
+                      REFERENCES leaver_checklists(id)
+                      ON DELETE CASCADE,
+    item_key        TEXT NOT NULL,
+    label           TEXT NOT NULL,
+    completed       BOOLEAN DEFAULT FALSE,
+    completed_at    TIMESTAMPTZ,
+    completed_by    TEXT,
+    notes           TEXT,
+    display_order   INTEGER DEFAULT 0
+  );
+
+Default leaver checklist items:
+  1.  resignation_received    — Written resignation / notice received
+  2.  last_day_confirmed      — Final working day confirmed
+  3.  handover_plan           — Handover plan agreed
+  4.  payroll_notified        — Payroll team notified of leave date
+  5.  equipment_returned      — All company equipment returned
+  6.  access_removed          — Building / system access removed
+      (Auto-complete this when employment_status set to 'leaver')
+  7.  tpr_max_deactivated     — TPR Max QR code deactivated
+      (Auto-complete when staff record status = leaver)
+  8.  p45_issued              — P45 reference number noted
+  9.  exit_interview          — Exit interview completed
+  10. references_agreed       — Reference process discussed
+
+STEP 8B — BACKEND: Leaver routes
+────────────────────────────────────────────────────────────────────
+
+  POST /api/staff/:staffId/initiate-leaver
+    Body: { last_day, reason, is_voluntary }
+    Actions:
+      1. Set staff.employment_status = 'leaver'
+      2. Set staff.contract_end_date = last_day
+      3. Create leaver_checklist record
+      4. Populate leaver_items from leaver template
+      5. Auto-complete 'access_removed' and 'tpr_max_deactivated'
+         items (since status is now leaver, QR check-in will block)
+      6. Cancel any approved future leave requests
+      7. Send notification to HR admin and line manager
+
+  GET  /api/staff/:staffId/leaver
+    — Returns leaver checklist with completion status
+
+  PATCH /api/staff/:staffId/leaver/items/:itemId
+    — Mark item complete
+
+  POST /api/staff/:staffId/archive
+    — Called after leaver process is complete and 
+      data retention period has been noted.
+      Sets employment_status = 'archived'.
+      Flags: GDPR retention period is typically 6 years 
+      for employment records — do not auto-delete.
+
+STEP 8C — FRONTEND: Leaver pages
+────────────────────────────────────────────────────────────────────
+
+Add an "Initiate Leaver Process" button on the staff 
+member's profile (HR admin only). Clicking opens a form:
+  Last working day (date picker)
+  Reason for leaving (dropdown)
+  Voluntary / involuntary toggle
+  Confirm button with warning: 
+    "This will deactivate site access and QR check-in 
+     for [NAME] immediately."
+
+Once initiated, the profile shows a "Leaver Checklist" tab 
+replacing "Onboarding", mirroring the same checklist UI.
+
+Add a Leavers page:
+  Route: /hr/leavers
+  All staff currently in leaver status.
+  Show: name, last day, % checklist complete, days until last day.
+
+
+════════════════════════════════════════════════════════════════════
+SECTION 9 — APPRAISALS & PERFORMANCE REVIEWS
+════════════════════════════════════════════════════════════════════
+
+NOTE: This is intentionally lightweight — record keeping only. 
+Do not build a full performance management system. The goal is 
+to evidence that reviews took place and to track objectives.
+
+STEP 9A — DATABASE
+────────────────────────────────────────────────────────────────────
+
+  CREATE TABLE IF NOT EXISTS appraisals (
+    id                  SERIAL PRIMARY KEY,
+    customer_id         INTEGER NOT NULL REFERENCES customers(id),
+    staff_id            INTEGER NOT NULL REFERENCES staff(id) 
+                          ON DELETE CASCADE,
+    review_date         DATE NOT NULL,
+    review_type         TEXT NOT NULL DEFAULT 'annual',
+      -- Values: 'annual' | 'probation' | 'mid_year' | 'informal'
+    conducted_by        TEXT NOT NULL,    -- Name of reviewer
+    overall_rating      TEXT,
+      -- Values: 'outstanding' | 'exceeds_expectations' | 
+      --         'meets_expectations' | 'needs_improvement' | 
+      --         'unsatisfactory'
+    summary_notes       TEXT,
+    next_review_date    DATE,
+    document_url        TEXT,             -- Uploaded signed appraisal form
+    created_at          TIMESTAMPTZ DEFAULT NOW()
+  );
+
+  CREATE TABLE IF NOT EXISTS appraisal_objectives (
+    id              SERIAL PRIMARY KEY,
+    appraisal_id    INTEGER NOT NULL REFERENCES appraisals(id) 
+                      ON DELETE CASCADE,
+    description     TEXT NOT NULL,
+    target_date     DATE,
+    status          TEXT NOT NULL DEFAULT 'in_progress',
+      -- Values: 'in_progress' | 'achieved' | 'not_achieved' | 
+      --         'carried_forward'
+    notes           TEXT
+  );
+
+STEP 9B — BACKEND: Appraisal routes
+────────────────────────────────────────────────────────────────────
+
+  GET    /api/staff/:staffId/appraisals
+    — All appraisal records for this person, newest first
+
+  POST   /api/staff/:staffId/appraisals
+    — Create appraisal record with objectives
+
+  PUT    /api/appraisals/:id
+    — Update appraisal or objectives
+
+  POST   /api/appraisals/:id/upload
+    — Upload signed appraisal document
+
+  GET    /api/appraisals/due
+    — All staff where next_review_date is within 30 days 
+      or has passed with no new appraisal recorded.
+
+STEP 9C — FRONTEND: Appraisal pages
+────────────────────────────────────────────────────────────────────
+
+Add an "Appraisals" tab on the staff member's profile page:
+
+  Next review: [DATE] or "Not scheduled"
+  
+  History list: each appraisal shows date, type, reviewer, 
+  rating badge, summary, objectives (expandable).
+  
+  "Record Review" button → form:
+    Review date, type, conducted by, overall rating,
+    summary notes, next review date, upload document,
+    add objectives (repeating field: description + target date)
+
+Add an Appraisals Due page:
+  Route: /hr/appraisals-due
+  List of staff with overdue or upcoming reviews.
+
+
+════════════════════════════════════════════════════════════════════
+SECTION 10 — PAYROLL-READY EXPORT
+════════════════════════════════════════════════════════════════════
+
+NOTE: TPR Max does NOT process payroll. This export provides 
+payroll teams with the data they need to remove double-entry.
+
+STEP 10A — BACKEND: Payroll export endpoint
+────────────────────────────────────────────────────────────────────
+
+  GET /api/hr/payroll-export
+  Query params: ?period_start=YYYY-MM-DD&period_end=YYYY-MM-DD
+
+  Returns CSV with the following columns:
+
+  Staff Columns:
+    staff_id, full_name, department, employment_type, 
+    pay_grade, contract_start_date, employment_status
+
+  Time & Attendance (for the period):
+    total_hours_worked, total_days_worked
+
+  Leave (for the period):
+    annual_leave_days_taken, sick_days_taken, 
+    other_leave_days_taken, leave_days_pending_approval
+
+  Starters (joined during the period):
+    is_new_starter, start_date
+
+  Leavers (left during the period):
+    is_leaver, last_day, leaving_reason
+
+  The export must EXCLUDE:
+    - Salary or pay rate figures (not stored in TPR Max)
+    - National Insurance numbers (not stored)
+    - Bank details (not stored)
+    These are intentionally not stored — payroll holds that data.
+
+STEP 10B — FRONTEND: Export UI
+────────────────────────────────────────────────────────────────────
+
+Add a "Payroll Export" option under the HR section:
+  Route: /hr/payroll-export
+
+  Simple form:
+    Period start date
+    Period end date (defaults to today)
+    [Download CSV] button
+
+  Summary preview before download:
+    [N] active staff | [N] starters | [N] leavers
+    Period: [DATE] to [DATE]
+
+  Note displayed on page:
+    "This export provides attendance, leave, and status data 
+     for your payroll team. Salary details, NI numbers, and 
+     bank details are not held in TPR Max."
+
+
+════════════════════════════════════════════════════════════════════
+NAVIGATION — Add HR section to sidebar
+════════════════════════════════════════════════════════════════════
+
+Add a top-level "HR" section to the main sidebar navigation 
+(visible to users with HR admin role only):
+
+  HR
+  ├── Staff (existing — now with extended profile)
+  ├── Org Chart                 (new — /staff/org-chart)
+  ├── Leave Calendar            (new — /hr/leave-calendar)
+  ├── Leave Approvals           (new — /hr/leave-approvals)
+  ├── Training Matrix           (new — /hr/training-matrix)
+  ├── Absence Overview          (new — /hr/absence-overview)
+  ├── Onboarding                (new — /hr/onboarding)
+  ├── Leavers                   (new — /hr/leavers)
+  ├── Appraisals Due            (new — /hr/appraisals-due)
+  └── Payroll Export            (new — /hr/payroll-export)
+
+Right to Work appears as a tab on individual staff profiles, 
+not as a top-level menu item.
+
+
+════════════════════════════════════════════════════════════════════
+ROLES & PERMISSIONS
+════════════════════════════════════════════════════════════════════
+
+Check the existing roles/permissions system and add:
+
+  hr_admin:
+    Full access to all HR features.
+    Can view confidential documents.
+    Can initiate leaver process.
+    Can approve/decline leave.
+
+  line_manager:
+    Can view their direct reports' profiles (excluding 
+    confidential documents).
+    Can approve/decline leave for their direct reports.
+    Can add appraisal records for their direct reports.
+    Cannot view Bradford Factor or absence details for 
+    staff who are not their direct reports.
+
+  staff_self:
+    (If self-service portal is added later)
+    Can view own profile, leave balance, training records.
+    Can submit leave requests.
+    Cannot view own Bradford Factor score.
+
+  site_admin (existing):
+    No access to HR features unless also assigned hr_admin.
+
+
+════════════════════════════════════════════════════════════════════
+TESTING CHECKLIST — verify before marking complete
+════════════════════════════════════════════════════════════════════
+
+SECTION 1 — Employee Record:
+□ All new fields save and display correctly on staff profile
+□ Line manager dropdown shows only active staff
+□ Line manager cannot be set to the same person (no self-reference)
+□ Org chart renders correctly for a 3-level hierarchy
+
+SECTION 2 — Right to Work:
+□ Creating RTW record with expiry date triggers reminder 
+  cron correctly
+□ Expired RTW blocks QR check-in with correct error message
+□ Expiring RTW (within 30 days) allows entry but shows warning
+□ New RTW record sets previous record is_current = FALSE
+□ Document upload stores file and returns download link
+□ Customer A cannot access Customer B's RTW records
+
+SECTION 3 — Training Matrix:
+□ Adding training record with expiry populates correctly
+□ Training matrix page shows all staff × mandatory courses
+□ Expired mandatory training shows warning at QR check-in
+□ CSV export includes all staff and all mandatory course columns
+□ Reminder cron sends digest (not one per course)
+
+SECTION 4 — Leave:
+□ Submitting leave request notifies line manager by email
+□ Approving leave notifies the staff member
+□ Days calculation is correct for a Mon-Fri request
+□ Half-day leave records correctly (0.5 days)
+□ Leave balance reduces correctly when leave is approved
+□ Cancelling leave restores the balance
+□ Team calendar shows all approved leave for selected month
+
+SECTION 5 — Absence:
+□ Bradford Factor calculates correctly: 
+  3 spells × 9 total days = 3² × 9 = 81
+□ Bradford rating thresholds: 0-49 low, 50-199 medium, 
+  200-449 high, 450+ critical
+□ Fit note flag appears when absence > 7 days
+□ Return to Work form records who conducted it and when
+□ Absence overview sorts by Bradford Factor descending
+
+SECTION 6 — Documents:
+□ Upload accepts PDF, DOCX, JPG, PNG — rejects other types
+□ Files over 25MB are rejected with clear error
+□ Confidential documents hidden from line manager view
+□ Deleted documents are soft-deleted (deleted_at set, 
+  not removed from database)
+□ Download link is authenticated (cannot be accessed 
+  without login)
+
+SECTION 7 — Onboarding:
+□ Creating a new staff member auto-generates onboarding checklist
+□ Checklist populated from customer template (not hardcoded)
+□ Completing items records timestamp and user
+□ Onboarding overview shows staff with < 100% complete
+□ Checklist template editable by HR admin
+
+SECTION 8 — Leaver Process:
+□ Initiating leaver immediately sets employment_status = 'leaver'
+□ Leaver cannot check in via QR after status is set
+□ Future approved leave is cancelled automatically
+□ Leaver checklist auto-completes access_removed and 
+  tpr_max_deactivated items
+□ Archived staff remain in database (not deleted)
+
+SECTION 9 — Appraisals:
+□ Appraisal records save with all objectives
+□ Appraisals Due page shows staff with overdue reviews
+□ Document upload links to correct appraisal record
+
+SECTION 10 — Payroll Export:
+□ CSV includes correct staff for the selected period
+□ Starters flag correctly (contract_start_date in period)
+□ Leavers flag correctly (last_day in period)
+□ Leave totals match the leave_requests table for the period
+□ CSV does not include salary, NI, or bank details
+
+PERMISSIONS:
+□ Line manager can only see their direct reports' HR data
+□ Confidential documents hidden from line manager
+□ Site admin with no hr_admin role cannot access HR pages
+□ Customer A data never appears in Customer B's views

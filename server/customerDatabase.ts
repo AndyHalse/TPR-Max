@@ -569,6 +569,281 @@ export class CustomerDatabaseService {
       logger.warn(`⚠️ CDM 2015 migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // ─── HR MODULE TABLES ─────────────────────────────────────────────────────
+    try {
+      // Section 1 – Extended Employee Record columns on staff table
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS employment_type TEXT DEFAULT 'full_time'`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS contract_start_date DATE`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS contract_end_date DATE`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS team TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS line_manager_id VARCHAR REFERENCES "${schemaName}".staff(id) ON DELETE SET NULL`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS pay_grade TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS emergency_contact_name TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS emergency_contact_phone TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS emergency_contact_relationship TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS employment_status TEXT DEFAULT 'active'`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS annual_leave_entitlement_days NUMERIC(4,1) DEFAULT 28`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS leave_year_start DATE`);
+      await pool.query(`ALTER TABLE "${schemaName}".staff ADD COLUMN IF NOT EXISTS working_days_per_week NUMERIC(3,1) DEFAULT 5`);
+      logger.info(`✅ HR staff columns ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ HR staff column migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // Section 2 – Right to Work
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".right_to_work (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          staff_id VARCHAR NOT NULL REFERENCES "${schemaName}".staff(id) ON DELETE CASCADE,
+          document_type TEXT NOT NULL,
+          document_reference TEXT,
+          issue_date DATE,
+          expiry_date DATE,
+          verified_date DATE NOT NULL,
+          verified_by TEXT NOT NULL,
+          verification_method TEXT DEFAULT 'manual',
+          notes TEXT,
+          is_current BOOLEAN DEFAULT TRUE,
+          reminder_sent_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_rtw_staff_id ON "${schemaName}".right_to_work(staff_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_rtw_expiry ON "${schemaName}".right_to_work(expiry_date) WHERE is_current = TRUE`);
+      logger.info(`✅ Right to Work table ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ RTW table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // Section 3 – Training Matrix
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".staff_training_records (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          staff_id VARCHAR NOT NULL REFERENCES "${schemaName}".staff(id) ON DELETE CASCADE,
+          course_name TEXT NOT NULL,
+          provider TEXT,
+          completed_date DATE NOT NULL,
+          expiry_date DATE,
+          is_mandatory BOOLEAN DEFAULT FALSE,
+          mandatory_role TEXT,
+          notes TEXT,
+          reminder_sent_at TIMESTAMP,
+          deleted_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_str_staff_id ON "${schemaName}".staff_training_records(staff_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_str_expiry ON "${schemaName}".staff_training_records(expiry_date) WHERE deleted_at IS NULL AND is_mandatory = TRUE`);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".training_requirements (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          course_name TEXT NOT NULL,
+          applies_to TEXT DEFAULT 'all',
+          applies_value TEXT,
+          renewal_period_months INTEGER,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      logger.info(`✅ Training tables ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Training table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // Section 4 – Leave Management
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".leave_requests (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          staff_id VARCHAR NOT NULL REFERENCES "${schemaName}".staff(id) ON DELETE CASCADE,
+          leave_type TEXT NOT NULL,
+          start_date DATE NOT NULL,
+          end_date DATE NOT NULL,
+          days_taken NUMERIC(5,1) NOT NULL DEFAULT 0,
+          status TEXT DEFAULT 'pending',
+          reason TEXT,
+          notes TEXT,
+          approved_by_id VARCHAR REFERENCES "${schemaName}".staff(id) ON DELETE SET NULL,
+          approved_at TIMESTAMP,
+          decline_reason TEXT,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_staff_id ON "${schemaName}".leave_requests(staff_id)`);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_status ON "${schemaName}".leave_requests(status)`);
+      logger.info(`✅ Leave requests table ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Leave table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // Section 5 – Absence / Sickness
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".absence_records (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          staff_id VARCHAR NOT NULL REFERENCES "${schemaName}".staff(id) ON DELETE CASCADE,
+          absence_type TEXT DEFAULT 'sickness',
+          start_date DATE NOT NULL,
+          return_date DATE,
+          days_lost NUMERIC(5,1),
+          reason TEXT,
+          fit_note_required BOOLEAN DEFAULT FALSE,
+          return_to_work_completed BOOLEAN DEFAULT FALSE,
+          return_to_work_date DATE,
+          return_to_work_notes TEXT,
+          return_to_work_by TEXT,
+          bradford_score_at_record INTEGER,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_absence_staff_id ON "${schemaName}".absence_records(staff_id)`);
+      logger.info(`✅ Absence records table ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Absence table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // Section 6 – Document Storage
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".staff_documents (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          staff_id VARCHAR NOT NULL REFERENCES "${schemaName}".staff(id) ON DELETE CASCADE,
+          document_type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          file_url TEXT NOT NULL,
+          file_name TEXT NOT NULL,
+          file_size_bytes INTEGER,
+          uploaded_by TEXT,
+          is_confidential BOOLEAN DEFAULT FALSE,
+          expiry_date DATE,
+          notes TEXT,
+          deleted_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_sdoc_staff_id ON "${schemaName}".staff_documents(staff_id)`);
+      logger.info(`✅ Staff documents table ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Staff documents table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // Section 7 – Onboarding Checklists
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".onboarding_checklists (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          staff_id VARCHAR NOT NULL UNIQUE REFERENCES "${schemaName}".staff(id) ON DELETE CASCADE,
+          completed_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".onboarding_items (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          checklist_id UUID NOT NULL REFERENCES "${schemaName}".onboarding_checklists(id) ON DELETE CASCADE,
+          item_key TEXT NOT NULL,
+          label TEXT NOT NULL,
+          completed BOOLEAN DEFAULT FALSE,
+          completed_at TIMESTAMP,
+          completed_by TEXT,
+          notes TEXT,
+          display_order INTEGER DEFAULT 0
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".onboarding_templates (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          item_key TEXT NOT NULL,
+          label TEXT NOT NULL,
+          display_order INTEGER DEFAULT 0,
+          is_active BOOLEAN DEFAULT TRUE
+        )
+      `);
+      logger.info(`✅ Onboarding tables ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Onboarding table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // Section 8 – Leaver Process
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".leaver_checklists (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          staff_id VARCHAR NOT NULL REFERENCES "${schemaName}".staff(id) ON DELETE CASCADE,
+          last_day DATE NOT NULL,
+          reason TEXT,
+          is_voluntary BOOLEAN,
+          completed_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".leaver_items (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          checklist_id UUID NOT NULL REFERENCES "${schemaName}".leaver_checklists(id) ON DELETE CASCADE,
+          item_key TEXT NOT NULL,
+          label TEXT NOT NULL,
+          completed BOOLEAN DEFAULT FALSE,
+          completed_at TIMESTAMP,
+          completed_by TEXT,
+          notes TEXT,
+          display_order INTEGER DEFAULT 0
+        )
+      `);
+      logger.info(`✅ Leaver tables ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Leaver table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // Section 9 – Appraisals
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".appraisals (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          staff_id VARCHAR NOT NULL REFERENCES "${schemaName}".staff(id) ON DELETE CASCADE,
+          review_date DATE NOT NULL,
+          review_type TEXT DEFAULT 'annual',
+          conducted_by TEXT NOT NULL,
+          overall_rating TEXT,
+          summary_notes TEXT,
+          next_review_date DATE,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_appraisals_staff_id ON "${schemaName}".appraisals(staff_id)`);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".appraisal_objectives (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          appraisal_id UUID NOT NULL REFERENCES "${schemaName}".appraisals(id) ON DELETE CASCADE,
+          description TEXT NOT NULL,
+          target_date DATE,
+          status TEXT DEFAULT 'in_progress',
+          notes TEXT,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      logger.info(`✅ Appraisals tables ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Appraisals table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
+    // HR feature toggle in company_settings
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_hr_module BOOLEAN DEFAULT true`);
+    } catch (err: any) {
+      logger.warn(`⚠️ HR feature toggle migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+    // ─── END HR MODULE TABLES ─────────────────────────────────────────────────
+
     // Ensure site induction + AI/video + QR + CLUe columns on company_settings
     try {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS site_address TEXT`);

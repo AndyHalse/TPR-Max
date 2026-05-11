@@ -23,6 +23,16 @@ import { registerCdmRoutes } from './cdm';
 import { registerHelpdeskRoutes } from './helpdesk';
 import { registerHsIncidentRoutes } from './hsIncidents';
 import { registerFireRiskAssessmentRoutes } from './fireRiskAssessment';
+import { registerHrStaffRoutes } from './hrStaff';
+import { registerHrRightToWorkRoutes } from './hrRightToWork';
+import { registerHrTrainingRoutes } from './hrTraining';
+import { registerHrLeaveRoutes } from './hrLeave';
+import { registerHrAbsenceRoutes } from './hrAbsence';
+import { registerHrDocumentRoutes } from './hrDocuments';
+import { registerHrOnboardingRoutes } from './hrOnboarding';
+import { registerHrLeaverRoutes } from './hrLeaver';
+import { registerHrAppraisalRoutes } from './hrAppraisals';
+import { registerHrPayrollRoutes } from './hrPayroll';
 
 export async function registerSplitRoutes(
   app: Express,
@@ -51,5 +61,15 @@ export async function registerSplitRoutes(
   registerHelpdeskRoutes(app);
   registerHsIncidentRoutes(app);
   registerFireRiskAssessmentRoutes(app);
+  registerHrStaffRoutes(app);
+  registerHrRightToWorkRoutes(app);
+  registerHrTrainingRoutes(app);
+  registerHrLeaveRoutes(app);
+  registerHrAbsenceRoutes(app);
+  registerHrDocumentRoutes(app);
+  registerHrOnboardingRoutes(app);
+  registerHrLeaverRoutes(app);
+  registerHrAppraisalRoutes(app);
+  registerHrPayrollRoutes(app);
   await registerRemainingRoutes(app, server);
 }

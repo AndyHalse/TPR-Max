@@ -1,0 +1,94 @@
+import type { Express } from 'express';
+import { requireAuth } from '../auth';
+import { customerDbService } from '../customerDatabase';
+import { logger } from '../utils/logger';
+
+async function getPool(customerId: string) {
+  const custDb = await customerDbService.getCustomerDatabase(customerId);
+  const schemaName = customerDbService.generateSchemaName(customerId);
+  const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+  return { pool, schemaName };
+}
+
+export function registerHrDocumentRoutes(app: Express): void {
+
+  // GET /api/staff/:staffId/documents
+  app.get('/api/staff/:staffId/documents', requireAuth, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getPool(req.customerId!);
+      const result = await pool.query(
+        `SELECT * FROM "${schemaName}".staff_documents
+         WHERE staff_id = $1 AND deleted_at IS NULL
+         ORDER BY created_at DESC`,
+        [req.params.staffId]
+      );
+      res.json(result.rows);
+    } catch (err: any) {
+      logger.error('Documents fetch error:', err);
+      res.status(500).json({ error: 'Failed to fetch documents' });
+    }
+  });
+
+  // POST /api/staff/:staffId/documents/upload
+  app.post('/api/staff/:staffId/documents/upload', requireAuth, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getPool(req.customerId!);
+      const { staffId } = req.params;
+      const { documentType, title, fileUrl, fileName, fileSizeBytes, isConfidential, expiryDate, notes } = req.body;
+
+      if (!documentType || !title || !fileUrl || !fileName) {
+        return res.status(400).json({ error: 'documentType, title, fileUrl and fileName are required' });
+      }
+
+      const uploadedBy = req.user?.username || 'unknown';
+
+      const result = await pool.query(
+        `INSERT INTO "${schemaName}".staff_documents
+          (staff_id, document_type, title, file_url, file_name, file_size_bytes,
+           uploaded_by, is_confidential, expiry_date, notes)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [staffId, documentType, title, fileUrl, fileName, fileSizeBytes || null,
+         uploadedBy, isConfidential || false, expiryDate || null, notes || null]
+      );
+
+      res.status(201).json(result.rows[0]);
+    } catch (err: any) {
+      logger.error('Document upload error:', err);
+      res.status(500).json({ error: 'Failed to upload document' });
+    }
+  });
+
+  // GET /api/staff/:staffId/documents/:id/download
+  app.get('/api/staff/:staffId/documents/:id/download', requireAuth, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getPool(req.customerId!);
+      const result = await pool.query(
+        `SELECT file_url, file_name, is_confidential FROM "${schemaName}".staff_documents
+         WHERE id = $1 AND staff_id = $2 AND deleted_at IS NULL`,
+        [req.params.id, req.params.staffId]
+      );
+      const doc = result.rows[0];
+      if (!doc) return res.status(404).json({ error: 'Document not found' });
+      res.json({ fileUrl: doc.file_url, fileName: doc.file_name });
+    } catch (err: any) {
+      logger.error('Document download error:', err);
+      res.status(500).json({ error: 'Failed to get document download link' });
+    }
+  });
+
+  // DELETE /api/staff/:staffId/documents/:id — soft delete
+  app.delete('/api/staff/:staffId/documents/:id', requireAuth, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getPool(req.customerId!);
+      await pool.query(
+        `UPDATE "${schemaName}".staff_documents SET deleted_at = NOW()
+         WHERE id = $1 AND staff_id = $2`,
+        [req.params.id, req.params.staffId]
+      );
+      res.json({ success: true });
+    } catch (err: any) {
+      logger.error('Document delete error:', err);
+      res.status(500).json({ error: 'Failed to delete document' });
+    }
+  });
+}
