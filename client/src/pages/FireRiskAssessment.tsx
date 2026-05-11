@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Flame, Plus, CheckCircle, AlertTriangle, AlertCircle, Download, FileText, ExternalLink, Trash2, Edit, Clock, ChevronDown, ChevronUp, MapPin, User, CalendarDays } from "lucide-react";
+import { Flame, Plus, CheckCircle, AlertTriangle, AlertCircle, Download, FileText, ExternalLink, Trash2, Edit, Clock, ChevronDown, ChevronUp, MapPin, User, CalendarDays, Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EXTERNAL_LINKS } from "@/lib/externalLinks";
 
 interface FireRiskAssessment {
@@ -445,7 +446,22 @@ export default function FireRiskAssessmentPage() {
             <Flame className="text-orange-500" size={26} />
             Fire Risk Assessment
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Regulatory Reform (Fire Safety) Order 2005 compliance</p>
+          <div className="flex items-center gap-1.5 mt-1">
+            <p className="text-sm text-muted-foreground">Regulatory Reform (Fire Safety) Order 2005 compliance</p>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Info size={14} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-sm text-xs space-y-2 p-3">
+                  <p><strong>Regulatory Reform (Fire Safety) Order 2005</strong> — Every non-domestic premises must have a documented Fire Risk Assessment carried out by a competent person. The 'Responsible Person' (employer, owner or occupier) has a legal duty to ensure fire safety measures are in place and kept up to date.</p>
+                  <p>Failure to conduct or maintain a valid FRA is a <strong>criminal offence</strong> and can result in prosecution, unlimited fines, or imprisonment. The FRA must be reviewed regularly and whenever significant changes to the premises or workforce occur.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
         <Button onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); }}>
           <Plus size={16} className="mr-1" /> {currentFra ? "Record New Review" : "Record FRA"}

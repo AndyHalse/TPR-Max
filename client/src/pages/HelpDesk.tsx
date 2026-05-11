@@ -12,8 +12,9 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { useToast } from "@/hooks/use-toast";
 import {
   Headphones, Plus, ListFilter, TicketCheck, AlertCircle,
-  Clock, CheckCircle2, XCircle, Loader2, RefreshCw,
+  Clock, CheckCircle2, XCircle, Loader2, RefreshCw, Info,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -603,7 +604,22 @@ export default function HelpDesk() {
           </div>
           <div>
             <h1 className="text-2xl font-bold">Help Desk</h1>
-            <p className="text-sm text-muted-foreground">Log and manage reactive maintenance faults and service requests.</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm text-muted-foreground">Log and manage reactive maintenance faults and service requests.</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                      <Info size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-sm text-xs space-y-2 p-3">
+                    <p><strong>Reactive Maintenance</strong> — The management of unplanned maintenance tasks in response to reported faults or failures. All reactive work should be logged, prioritised, and resolved in a timely manner to meet your duty of care under the <strong>Health &amp; Safety at Work Act 1974</strong>.</p>
+                    <p>Maintaining a full audit trail of reported faults and their resolution is essential for compliance with the <strong>Workplace (Health, Safety and Welfare) Regulations 1992</strong> and supports evidence of due diligence in the event of an incident or inspection.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
         </div>
         <Button

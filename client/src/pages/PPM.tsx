@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wrench, Plus, Edit, Trash2, Copy, Building2, ClipboardList, CalendarClock,
@@ -20,7 +20,7 @@ import {
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
   Layers, ChevronDown, ChevronRight, Bell, FileDown, BellOff, Scan, CalendarDays,
-  LayoutDashboard,
+  LayoutDashboard, Info,
 } from "lucide-react";
 import { Link, useSearch } from "wouter";
 import PpmAnnualPlanner from "@/components/PpmAnnualPlanner";
@@ -2525,7 +2525,22 @@ export default function PPM() {
                 </span>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">Manage assets, maintenance templates, schedules and work orders.</p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-sm text-muted-foreground">Manage assets, maintenance templates, schedules and work orders.</p>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                      <Info size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="max-w-sm text-xs space-y-2 p-3">
+                    <p><strong>Planned Preventative Maintenance (PPM)</strong> — A proactive maintenance strategy aligned with <strong>SFG20</strong> (the industry standard for building services maintenance) and <strong>BS EN ISO 55001</strong> (Asset Management). PPM reduces unexpected breakdowns, extends asset lifespan, and lowers long-term costs.</p>
+                    <p>Employers have a legal duty under the <strong>Health &amp; Safety at Work Act 1974</strong> and the <strong>Workplace (Health, Safety and Welfare) Regulations 1992</strong> to ensure plant and equipment is properly maintained. A documented PPM programme provides evidence of compliance.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">

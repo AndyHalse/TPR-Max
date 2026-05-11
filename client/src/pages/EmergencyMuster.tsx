@@ -32,8 +32,10 @@ import {
   ClipboardList,
   X,
   Eye,
-  EyeOff
+  EyeOff,
+  Info
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MusterListItem {
   id: string;
@@ -671,6 +673,19 @@ export default function EmergencyMuster() {
           <p className="text-variable mt-1 flex flex-wrap items-center gap-2 text-sm sm:text-base">
             <span className="hidden sm:inline">Real-time emergency evacuation management and accountability</span>
             <span className="sm:hidden">Real-time emergency evacuation</span>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Info size={14} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-sm text-xs space-y-2 p-3">
+                  <p><strong>Emergency Evacuation</strong> — Employers are legally required to establish and maintain emergency procedures under the Regulatory Reform (Fire Safety) Order 2005 and the Health &amp; Safety at Work Act 1974. This includes documented evacuation plans, designated assembly points, and regular fire drills.</p>
+                  <p><strong>Roll-call accountability</strong> is essential to confirm all persons are safe following an evacuation. Failure to account for all persons on site can have serious legal and safety consequences. Records of all drills and evacuations should be retained.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             {wsConnected && (
               <span className="inline-flex items-center gap-1 text-xs bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full">
                 <span className="inline-block w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
