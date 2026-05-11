@@ -192,11 +192,11 @@ export function registerHsIncidentRoutes(app: Express): void {
         .where(eq(isolatedSchema.hsIncidents.id, req.params.id));
       if (!incident) return res.status(404).json({ error: 'Incident not found' });
 
-      const settingsRows = await custDb.execute(sql.raw(`SELECT company_name, site_name, company_address FROM ${schemaName}.company_settings LIMIT 1`));
+      const settingsRows = await custDb.execute(sql.raw(`SELECT company_name, address FROM ${schemaName}.company_settings LIMIT 1`));
       const settings = settingsRows.rows[0] as any;
       const companyName = settings?.company_name || 'TPR Max';
-      const siteName = settings?.site_name || companyName;
-      const address = settings?.company_address || '';
+      const siteName = companyName;
+      const address = settings?.address || '';
 
       const esc = (s: any) => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
       const dateStr = new Date().toLocaleDateString('en-GB', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
