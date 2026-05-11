@@ -137,9 +137,9 @@ function PersonCombobox({
       </div>
       {open && filtered.length > 0 && (
         <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-lg max-h-52 overflow-y-auto">
-          {filtered.map(o => (
+          {filtered.map((o, i) => (
             <button
-              key={o.label}
+              key={`${o.label}|||${o.sublabel ?? ""}|||${i}`}
               type="button"
               className="w-full text-left px-3 py-2 hover:bg-accent text-sm transition-colors"
               onMouseDown={() => handleSelect(o.label)}
@@ -203,27 +203,50 @@ export default function HSIncidents() {
     queryFn: () => apiRequest("GET", "/api/visitors").then(r => r.json()),
   });
 
+  // Deduplicate options — remove entries where both name AND sublabel are identical
+  function deduplicateOptions(opts: { label: string; sublabel?: string }[]) {
+    const seen = new Set<string>();
+    return opts.filter(o => {
+      const key = `${o.label}|||${o.sublabel ?? ""}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   // Build option lists
-  const staffOptions = staffList.map(s => ({
-    label: `${s.firstName} ${s.lastName}`,
-    sublabel: s.jobTitle || "Staff",
-  }));
+  const staffOptions = deduplicateOptions(
+    staffList.map(s => ({
+      label: `${s.firstName} ${s.lastName}`,
+      sublabel: s.jobTitle ? `Staff · ${s.jobTitle}` : "Staff",
+    }))
+  );
 
-  const contractorOptions = contractorWorkers.map(w => ({
-    label: `${w.firstName} ${w.lastName}`,
-    sublabel: w.companyName || "Contractor",
-  }));
+  const contractorOptions = deduplicateOptions(
+    contractorWorkers.map(w => ({
+      label: `${w.firstName} ${w.lastName}`,
+      sublabel: w.companyName ? `Contractor · ${w.companyName}` : "Contractor",
+    }))
+  );
 
-  const visitorOptions = visitors.map(v => ({
-    label: `${v.firstName} ${v.lastName}`,
-    sublabel: v.company ? `Visitor · ${v.company}` : "Visitor",
-  }));
+  const visitorOptions = deduplicateOptions(
+    visitors.map(v => ({
+      label: `${v.firstName} ${v.lastName}`,
+      sublabel: v.company ? `Visitor · ${v.company}` : "Visitor",
+    }))
+  );
 
   // "Reported by" searches across staff + contractor workers
-  const reportedByOptions = [
-    ...staffList.map(s => ({ label: `${s.firstName} ${s.lastName}`, sublabel: s.jobTitle || "Staff" })),
-    ...contractorWorkers.map(w => ({ label: `${w.firstName} ${w.lastName}`, sublabel: w.companyName ? `Contractor · ${w.companyName}` : "Contractor" })),
-  ];
+  const reportedByOptions = deduplicateOptions([
+    ...staffList.map(s => ({
+      label: `${s.firstName} ${s.lastName}`,
+      sublabel: s.jobTitle ? `Staff · ${s.jobTitle}` : "Staff",
+    })),
+    ...contractorWorkers.map(w => ({
+      label: `${w.firstName} ${w.lastName}`,
+      sublabel: w.companyName ? `Contractor · ${w.companyName}` : "Contractor",
+    })),
+  ]);
 
   // Options for "Injured person" — changes based on selected person type
   function injuredPersonOptions() {
