@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Flame, Plus, CheckCircle, AlertTriangle, AlertCircle, Download, FileText, ExternalLink, Trash2, Edit, Clock, ChevronDown, ChevronUp, MapPin, User, CalendarDays, Info } from "lucide-react";
+import { Flame, Plus, CheckCircle, AlertTriangle, AlertCircle, Download, FileText, ExternalLink, Trash2, Edit, Clock, ChevronDown, ChevronUp, MapPin, User, CalendarDays, Info, Upload, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { EXTERNAL_LINKS } from "@/lib/externalLinks";
 
@@ -126,6 +126,10 @@ export default function FireRiskAssessmentPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [form, setForm] = useState({ ...emptyForm });
+  const [pdfUploading, setPdfUploading] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const pdfInputRef = useRef<HTMLInputElement>(null);
 
   // Action item state
   const [showActionForm, setShowActionForm] = useState(false);
@@ -234,6 +238,36 @@ export default function FireRiskAssessmentPage() {
     onError: () => toast({ title: "Failed to complete action", variant: "destructive" }),
   });
 
+  async function handlePdfFile(file: File) {
+    if (!file) return;
+    if (file.type !== "application/pdf") {
+      toast({ title: "PDF only", description: "Please select a PDF file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum PDF size is 20 MB.", variant: "destructive" });
+      return;
+    }
+    setPdfUploading(true);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = e => resolve((e.target!.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: "application/pdf" });
+      const { objectPath } = await res.json();
+      setForm(f => ({ ...f, documentUrl: objectPath }));
+      setUploadedFileName(file.name);
+      toast({ title: "PDF uploaded", description: file.name });
+    } catch {
+      toast({ title: "Upload failed", description: "Could not upload the PDF. Try again.", variant: "destructive" });
+    } finally {
+      setPdfUploading(false);
+    }
+  }
+
   function handleEdit(fra: FireRiskAssessment) {
     setForm({
       title: fra.title,
@@ -244,6 +278,7 @@ export default function FireRiskAssessmentPage() {
       findingsSummary: fra.findingsSummary || "",
       documentUrl: fra.documentUrl || "",
     });
+    setUploadedFileName(fra.documentUrl?.startsWith("/objects/") ? "Previously uploaded PDF" : null);
     setEditingId(fra.id);
     setShowForm(true);
   }
@@ -463,7 +498,7 @@ export default function FireRiskAssessmentPage() {
             </TooltipProvider>
           </div>
         </div>
-        <Button onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); }}>
+        <Button onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); setUploadedFileName(null); }}>
           <Plus size={16} className="mr-1" /> {currentFra ? "Record New Review" : "Record FRA"}
         </Button>
       </div>
@@ -487,8 +522,14 @@ export default function FireRiskAssessmentPage() {
                 <div><span className="text-muted-foreground">Next review:</span> <span className="font-medium">{new Date(currentFra.nextReviewDate).toLocaleDateString("en-GB")}</span></div>
                 {currentFra.documentUrl && (
                   <div>
-                    <a href={currentFra.documentUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:underline">
-                      <Download size={14} /> Download FRA document
+                    <a
+                      href={currentFra.documentUrl.startsWith("/objects/") ? currentFra.documentUrl : currentFra.documentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-blue-600 hover:underline"
+                    >
+                      {currentFra.documentUrl.startsWith("/objects/") ? <FileText size={14} /> : <Download size={14} />}
+                      {currentFra.documentUrl.startsWith("/objects/") ? "View uploaded PDF" : "View FRA document"}
                     </a>
                   </div>
                 )}
@@ -639,8 +680,10 @@ export default function FireRiskAssessmentPage() {
                     <td className="py-2">
                       <div className="flex gap-1">
                         {fra.documentUrl && (
-                          <a href={fra.documentUrl} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" variant="ghost"><Download size={13} /></Button>
+                          <a href={fra.documentUrl} target="_blank" rel="noopener noreferrer" title={fra.documentUrl.startsWith("/objects/") ? "View uploaded PDF" : "Open document URL"}>
+                            <Button size="sm" variant="ghost">
+                              {fra.documentUrl.startsWith("/objects/") ? <FileText size={13} /> : <Download size={13} />}
+                            </Button>
                           </a>
                         )}
                         <Button size="sm" variant="ghost" className="text-red-500 hover:text-red-700" onClick={() => setDeleteId(fra.id)}>
@@ -659,7 +702,7 @@ export default function FireRiskAssessmentPage() {
       {isLoading && <div className="text-center py-8 text-muted-foreground">Loading…</div>}
 
       {/* FRA form dialog */}
-      <Dialog open={showForm} onOpenChange={open => { if (!open) { setShowForm(false); setEditingId(null); } }}>
+      <Dialog open={showForm} onOpenChange={open => { if (!open) { setShowForm(false); setEditingId(null); setUploadedFileName(null); } }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingId ? "Edit Fire Risk Assessment" : "Record Fire Risk Assessment"}</DialogTitle>
@@ -695,10 +738,65 @@ export default function FireRiskAssessmentPage() {
               <Label>Findings summary</Label>
               <Textarea value={form.findingsSummary} onChange={e => setForm(f => ({ ...f, findingsSummary: e.target.value }))} rows={4} placeholder="Key findings and action points from the assessment…" />
             </div>
-            <div>
-              <Label>Document URL</Label>
-              <Input value={form.documentUrl} onChange={e => setForm(f => ({ ...f, documentUrl: e.target.value }))} placeholder="Link to uploaded FRA document (optional)" />
-              <p className="text-xs text-muted-foreground mt-1">Paste a URL to the FRA document stored in your document management system.</p>
+            <div className="space-y-3">
+              <Label>FRA Document (optional)</Label>
+              {/* PDF upload zone */}
+              <input
+                ref={pdfInputRef}
+                type="file"
+                accept="application/pdf"
+                className="hidden"
+                onChange={e => { const f = e.target.files?.[0]; if (f) handlePdfFile(f); e.target.value = ""; }}
+              />
+              {uploadedFileName ? (
+                <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                  <FileText size={16} className="text-green-600 shrink-0" />
+                  <span className="text-sm text-green-800 dark:text-green-200 flex-1 truncate">{uploadedFileName}</span>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-green-700 hover:text-red-600"
+                    onClick={() => { setUploadedFileName(null); setForm(f => ({ ...f, documentUrl: "" })); }}
+                  >
+                    <X size={13} />
+                  </Button>
+                </div>
+              ) : (
+                <div
+                  className={`border-2 border-dashed rounded-lg p-5 text-center cursor-pointer transition-colors ${dragOver ? "border-orange-400 bg-orange-50 dark:bg-orange-950/30" : "border-slate-200 dark:border-slate-700 hover:border-orange-300 hover:bg-orange-50/50 dark:hover:bg-orange-950/20"}`}
+                  onClick={() => pdfInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) handlePdfFile(f); }}
+                >
+                  {pdfUploading ? (
+                    <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                      <div className="w-4 h-4 border-2 border-orange-400 border-t-transparent rounded-full animate-spin" />
+                      Uploading PDF…
+                    </div>
+                  ) : (
+                    <>
+                      <Upload size={20} className="mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm font-medium text-foreground">Click to upload or drag & drop</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">PDF only · Max 20 MB</p>
+                    </>
+                  )}
+                </div>
+              )}
+              {/* Divider */}
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-px bg-border" />
+                <span className="text-xs text-muted-foreground">or paste a URL</span>
+                <div className="flex-1 h-px bg-border" />
+              </div>
+              {/* URL fallback */}
+              <Input
+                value={uploadedFileName ? "" : form.documentUrl}
+                disabled={!!uploadedFileName}
+                onChange={e => setForm(f => ({ ...f, documentUrl: e.target.value }))}
+                placeholder="https://… link to document management system"
+              />
             </div>
             {!editingId && currentFra && (
               <div className="rounded bg-amber-50 dark:bg-amber-950 border border-amber-200 p-3 text-sm text-amber-800 dark:text-amber-200">
