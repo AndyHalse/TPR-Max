@@ -4272,6 +4272,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       });
       logger.info(`Created visit record for ID ${worker.id}`);
 
+      // Fetch the freshly-updated worker so we can return it in the response
+      const updatedWorker = await databaseService.getContractorWorkerById(context, workerId);
+
       // Create audit trail entry for check-in
       try {
         const db = await customerDbService.getCustomerDatabase(context.customerId);
