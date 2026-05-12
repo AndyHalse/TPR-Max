@@ -5389,9 +5389,9 @@ ${evacuationPhotosData.length > 0 ? `
         try {
           const custDb = await customerDbService.getCustomerDatabase(context.customerId);
           const zoneRecords = await custDb
-            .select({ id: isolatedSchema.zones.id, name: isolatedSchema.zones.name })
-            .from(isolatedSchema.zones)
-            .where(inArray(isolatedSchema.zones.id, zoneIds));
+            .select({ id: isolatedSchema.evacuationZones.id, name: isolatedSchema.evacuationZones.name })
+            .from(isolatedSchema.evacuationZones)
+            .where(inArray(isolatedSchema.evacuationZones.id, zoneIds));
           const zoneNames = zoneRecords.map(z => z.name);
           // Find people whose lastKnownLocation matches one of the zone names
           if (zoneNames.length > 0) {
