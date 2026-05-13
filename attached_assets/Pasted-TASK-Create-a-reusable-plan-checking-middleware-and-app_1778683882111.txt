@@ -1,0 +1,106 @@
+TASK: Create a reusable plan-checking middleware and apply it to all
+server routes that serve Pro or Max-only features. This enforces the
+three-tier pricing — a Basic customer cannot access Pro/Max endpoints.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART A — Create server/middleware/requirePlan.ts (new file)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Create this middleware function:
+
+  import { Request, Response, NextFunction } from 'express';
+  import { db } from '../db';
+  import { customers } from '../../shared/schema';
+  import { eq } from 'drizzle-orm';
+  import { logger } from '../utils/logger';
+
+  type Plan = 'tpr_basic' | 'tpr_pro' | 'tpr_max';
+
+  const PLAN_HIERARCHY: Record<Plan, number> = {
+    tpr_basic: 1,
+    tpr_pro:   2,
+    tpr_max:   3,
+  };
+
+  export function requirePlan(minimumPlan: Plan) {
+    return async (req: Request, res: Response, next: NextFunction) => {
+      try {
+        const customerId = req.customerId;
+        if (!customerId) {
+          return res.status(401).json({ error: 'Authentication required' });
+        }
+
+        const [customer] = await db
+          .select({ planType: customers.planType })
+          .from(customers)
+          .where(eq(customers.id, customerId))
+          .limit(1);
+
+        if (!customer) {
+          return res.status(401).json({ error: 'Customer not found' });
+        }
+
+        const customerPlan = (customer.planType || 'tpr_basic') as Plan;
+        const customerLevel = PLAN_HIERARCHY[customerPlan] ?? 1;
+        const requiredLevel = PLAN_HIERARCHY[minimumPlan];
+
+        if (customerLevel < requiredLevel) {
+          return res.status(403).json({
+            error: `This feature requires ${minimumPlan.replace('_', ' ').toUpperCase()}. Your current plan is ${customerPlan.replace('_', ' ').toUpperCase()}.`,
+            upgradeRequired: true,
+            currentPlan: customerPlan,
+            requiredPlan: minimumPlan
+          });
+        }
+
+        next();
+      } catch (error) {
+        logger.error('requirePlan middleware error:', error);
+        next(error);
+      }
+    };
+  }
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART B — Apply the middleware to Pro and Max routes
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Import requirePlan into each route file below and add it after requireAuth:
+
+TPR PRO ROUTES (minimum plan: 'tpr_pro'):
+  server/routes/contractors.ts    → add requirePlan('tpr_pro') to all routes
+  server/routes/induction.ts      → add requirePlan('tpr_pro') to all routes
+  server/routes/hsIncidents.ts    → add requirePlan('tpr_pro') to all routes
+  server/routes/rams.ts           → add requirePlan('tpr_pro') to all routes
+
+TPR MAX ROUTES (minimum plan: 'tpr_max'):
+  server/routes/ppm.ts            → replace requirePPMFeature with requirePlan('tpr_max')
+  server/routes/cdm.ts            → add requirePlan('tpr_max') to all routes
+  server/routes/hrStaff.ts        → add requirePlan('tpr_max') to all routes
+  server/routes/hrAbsence.ts      → add requirePlan('tpr_max') to all routes
+  server/routes/hrAppraisals.ts   → add requirePlan('tpr_max') to all routes
+  server/routes/hrDocuments.ts    → add requirePlan('tpr_max') to all routes
+  server/routes/hrLeave.ts        → add requirePlan('tpr_max') to all routes
+  server/routes/hrLeaver.ts       → add requirePlan('tpr_max') to all routes
+  server/routes/hrOnboarding.ts   → add requirePlan('tpr_max') to all routes
+  server/routes/hrPayroll.ts      → add requirePlan('tpr_max') to all routes
+  server/routes/hrRightToWork.ts  → add requirePlan('tpr_max') to all routes
+  server/routes/hrTraining.ts     → add requirePlan('tpr_max') to all routes
+  server/routes/fireRiskAssessment.ts → add requirePlan('tpr_max')
+
+Example usage in a route file:
+  import { requirePlan } from '../middleware/requirePlan';
+  app.get('/api/contractors', requireAuth, requirePlan('tpr_pro'), async (req, res) => { ... });
+
+NOTE: Do NOT gate these routes — they are available on all plans:
+  visitors, staff, emergency (muster), kiosk, passes, reports,
+  meeting rooms, settings, billing, help, auth routes.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART C — Frontend nav: hide locked features
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Add a /api/account/plan endpoint (no middleware needed, just requireAuth)
+that returns the customer's current planType.
+
+In the main navigation component, fetch this on load and hide nav items
+the customer's plan does not include. Do not remove them — wrap them in
+a lock icon with an "Upgrade to TPR Pro/Max" tooltip instead, so the
+customer can see what they're missing and what upgrading gives them.
