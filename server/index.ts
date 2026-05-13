@@ -388,8 +388,17 @@ if (isProduction || process.env.USE_PG_SESSIONS === 'true') {
 }
 
 app.use(session({
-  secret: process.env.SESSION_SECRET || (isProduction ? crypto.randomBytes(32).toString('hex') : 'visigate-pro-dev-secret-key-2024'),
-  name: 'visigate.session',
+  secret: (() => {
+    if (process.env.SESSION_SECRET) {
+      return process.env.SESSION_SECRET;
+    }
+    if (isProduction) {
+      logger.error('🔥 FATAL: SESSION_SECRET environment variable is not set. Refusing to start with an insecure session secret in production.');
+      process.exit(1);
+    }
+    return 'tpr-dev-only-secret-do-not-use-in-production';
+  })(),
+  name: 'tpr.session',
   resave: false,
   saveUninitialized: false,
   store: sessionStore,
