@@ -1,0 +1,60 @@
+TASK: Remove the hardcoded developer fallback from simpleDatabaseService.ts
+that routes unknown users into Andy's dev database. Replace it with a hard
+authentication error.
+
+PRIORITY: Critical. This is a data isolation failure. If any customer's
+session routing fails in production, they currently land inside a dev
+database rather than getting an error. That is a GDPR breach.
+
+FILE: server/simpleDatabaseService.ts
+
+CURRENT CODE (lines 39–59):
+  createCustomerContext(usernameOrCustomerId: string, sessionCustomerId?: string): CustomerContext {
+    if (sessionCustomerId) {
+      return { customerId: sessionCustomerId };
+    }
+    
+    if (usernameOrCustomerId && usernameOrCustomerId.includes('-')) {
+      return { customerId: usernameOrCustomerId };
+    }
+    
+    const customerMapping: { [key: string]: string } = {
+      "Andy": "dev-customer-001",
+      "Emma": "dev-customer-002",
+      "TestUser": "test-customer-trial"
+    };
+    
+    const customerId = customerMapping[usernameOrCustomerId] || "dev-customer-001";
+    
+    return {
+      customerId
+    };
+  }
+
+REPLACE WITH:
+  createCustomerContext(usernameOrCustomerId: string, sessionCustomerId?: string): CustomerContext {
+    // Prefer the explicit session customerId (set during login)
+    if (sessionCustomerId) {
+      return { customerId: sessionCustomerId };
+    }
+    
+    // Accept a direct customerId string (contains a hyphen)
+    if (usernameOrCustomerId && usernameOrCustomerId.includes('-')) {
+      return { customerId: usernameOrCustomerId };
+    }
+    
+    // No valid customer context — throw rather than fall through to a
+    // dev default. In production this would expose the wrong customer's data.
+    logger.error(`❌ No valid customerId for identifier: "${usernameOrCustomerId}". Session may be corrupt or missing.`);
+    throw new Error(`Authentication required: no customer context found for "${usernameOrCustomerId}"`);
+  }
+
+ALSO: Keep the createDevelopmentContext() method as-is — it is only called
+from dev scripts, never from request handlers.
+
+VERIFY: After this change, search the entire server/ folder for any calls to
+createCustomerContext() that do NOT pass sessionCustomerId (the second
+argument). Those callers should be passing req.customerId from the session.
+If any are missing it, add req.customerId as the second argument.
+Example correct call: 
+  simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId)

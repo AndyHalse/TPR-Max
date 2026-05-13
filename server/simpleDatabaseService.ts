@@ -34,28 +34,24 @@ export class SimpleDatabaseService {
   }
 
   /**
-   * Create customer context from session customerId (preferred) or username fallback
+   * Create customer context from session customerId (preferred) or a direct customerId string.
+   * Throws if neither is available — callers must always supply req.customerId from the session.
    */
   createCustomerContext(usernameOrCustomerId: string, sessionCustomerId?: string): CustomerContext {
+    // Prefer the explicit session customerId (set during login)
     if (sessionCustomerId) {
       return { customerId: sessionCustomerId };
     }
-    
+
+    // Accept a direct customerId string (contains a hyphen)
     if (usernameOrCustomerId && usernameOrCustomerId.includes('-')) {
       return { customerId: usernameOrCustomerId };
     }
-    
-    const customerMapping: { [key: string]: string } = {
-      "Andy": "dev-customer-001",
-      "Emma": "dev-customer-002",
-      "TestUser": "test-customer-trial"
-    };
-    
-    const customerId = customerMapping[usernameOrCustomerId] || "dev-customer-001";
-    
-    return {
-      customerId
-    };
+
+    // No valid customer context — throw rather than fall through to a
+    // dev default. In production this would expose the wrong customer's data.
+    logger.error(`❌ No valid customerId for identifier: "${usernameOrCustomerId}". Session may be corrupt or missing.`);
+    throw new Error(`Authentication required: no customer context found for "${usernameOrCustomerId}"`);
   }
 
   /**

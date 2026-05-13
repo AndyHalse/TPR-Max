@@ -1,0 +1,79 @@
+TASK: The marketing page shows three plans — TPR Basic (£49), TPR Pro (£89),
+TPR Max (£195) — but Stripe only has one plan configured (£49.95) and the
+signup page shows no plan choice. Wire up all three tiers properly.
+
+This requires changes to three areas:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART A — server/stripeService.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Replace the createSubscriptionPlans() method so it creates THREE Stripe
+products and their monthly + annual prices:
+
+Plan 1 — TPR Basic
+  Monthly: £49.00 (unit_amount: 4900)
+  Annual:  £490.00 (unit_amount: 49000) — 2 months free
+  name: 'tpr_basic'
+  displayName: 'TPR Basic'
+  features: ['visitor_management', 'staff_management', 'emergency_muster',
+             'kiosk_mode', 'email_outbox', 'basic_reporting']
+
+Plan 2 — TPR Pro
+  Monthly: £89.00 (unit_amount: 8900)
+  Annual:  £890.00 (unit_amount: 89000) — 2 months free
+  name: 'tpr_pro'
+  displayName: 'TPR Pro'
+  features: ['all_basic_features', 'contractor_management', 'compliance',
+             'rams', 'inductions', 'incident_reports', 'time_attendance',
+             'members_module', 'analytics_audit']
+
+Plan 3 — TPR Max
+  Monthly: £195.00 (unit_amount: 19500)
+  Annual:  £1950.00 (unit_amount: 195000) — 2 months free
+  name: 'tpr_max'
+  displayName: 'TPR Max'
+  features: ['all_pro_features', 'ppm', 'martyn_law', 'cdm', 'hr_module',
+             'multi_site', 'biostar_integration', 'lone_worker']
+
+Each plan goes into the subscriptionPlans table with .onConflictDoUpdate
+so it can be run idempotently.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART B — client/src/pages/Signup.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Add a plan selection step to the signup form. Before the user fills in their
+company details, show three plan cards matching the marketing page:
+
+TPR Basic — £49/month — "For offices and smaller sites"
+TPR Pro — £89/month — "For contractor compliance and safety management" 
+TPR Max — £195/month — "The complete enterprise platform"
+
+Store the selected plan name ('tpr_basic' | 'tpr_pro' | 'tpr_max') in
+the form state and pass it through as planType in the requestData object
+sent to the payment step:
+  planType: selectedPlan  // e.g. 'tpr_basic'
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART C — client/src/pages/SignupPayment.tsx
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The payment page currently shows static "TPR Professional — £49.95/month"
+regardless of what the user selected.
+
+Update it to:
+1. Read the planType from the pending signup data in sessionStorage.
+2. Display the correct plan name and price based on that planType:
+   tpr_basic  → "TPR Basic — £49/month"
+   tpr_pro    → "TPR Pro — £89/month"
+   tpr_max    → "TPR Max — £195/month"
+3. Pass the planType through to the server in the create-signup-session
+   and create-checkout calls so the correct Stripe price is used.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ALSO update server/routes/onboarding.ts
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The create-signup-session and create-checkout endpoints must look up the
+correct Stripe price ID from the subscriptionPlans table using the planType
+passed from the client, rather than hardcoding the single plan.
+
+Write the customer's planType to their record in the customers table at
+onboarding completion, so feature gating (Prompt 4) can read it later.
