@@ -440,11 +440,10 @@ export function ThermalPassDesigner() {
       case 'email': return previewData.email;
       case 'date': return new Date().toLocaleDateString('en-GB');
       case 'time': return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      case 'id': 
-        // Generate unique visitor ID with customer isolation
+      case 'id':
+        // Preview only — real ID is generated server-side on check-in
         const timestamp = Date.now().toString().slice(-6);
-        const customerId = 'dev-customer-001';
-        return `${customerId.substring(4, 8).toUpperCase()}-${timestamp}`;
+        return `CUST-${timestamp}`;
       default: return element.content || '';
     }
   };
