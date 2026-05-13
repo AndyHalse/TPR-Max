@@ -234,6 +234,7 @@ function createCSRFMiddleware() {
     if (req.originalUrl.startsWith('/api/emergency/active') ||
         req.originalUrl.startsWith('/api/emergency/accountability') ||
         req.originalUrl.startsWith('/api/emergency/mark-safe') ||
+        req.originalUrl.startsWith('/api/emergency/unmark-safe') ||
         req.originalUrl.startsWith('/api/emergency/qr-mark-safe') ||
         req.originalUrl.startsWith('/api/emergency/sweep-zone') ||
         req.originalUrl.startsWith('/api/emergency/evacuation-note') ||

@@ -1021,19 +1021,6 @@ export default function EmergencyMuster() {
               </div>
             )}
 
-            {/* Final Step — Send Alert */}
-            <div className="flex gap-3">
-              <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${isDrillMode ? 'bg-amber-500' : 'bg-red-600'}`}>
-                <Mail size={14} className="text-white" />
-              </div>
-              <div className="flex-1">
-                <h4 className="text-sm font-semibold text-fixed mb-1">{isDrillMode ? 'Send Drill Alert to All Personnel' : 'Send Emergency Alert to All Personnel'}</h4>
-                <Button onClick={() => activateFireMarshalMutation.mutate()} disabled={activateFireMarshalMutation.isPending} className={`w-full sm:w-auto font-bold animate-pulse ${isDrillMode ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-red-600 hover:bg-red-700 text-white'}`}>
-                  {activateFireMarshalMutation.isPending ? 'Sending alerts...' : (<><Mail size={16} className="mr-2" />{isDrillMode ? 'Send Fire Drill Alert Now' : 'Send Emergency Alert Now'}</>)}
-                </Button>
-                {isDrillMode && <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">All emails will be clearly marked as a FIRE DRILL</p>}
-              </div>
-            </div>
           </div>
         </GlassCard>
       )}
