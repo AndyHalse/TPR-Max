@@ -308,6 +308,28 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addHelpDeskMigration,
     addAiKeyColumnsMigration,
     addInductionSettingsColumnsMigration,
+    {
+      version: '20260513_047_add_sso_fields',
+      description: 'Add Azure Entra ID SSO columns to company_settings and users',
+      async up(db: any) {
+        const cols = [
+          `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS sso_login_mode TEXT DEFAULT 'standard'`,
+          `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS sso_auto_provision BOOLEAN DEFAULT true`,
+          `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS sso_default_role TEXT DEFAULT 'user'`,
+          `ALTER TABLE users ADD COLUMN IF NOT EXISTS azure_object_id TEXT`,
+          `ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider TEXT DEFAULT 'local'`,
+          `ALTER TABLE users ALTER COLUMN password DROP NOT NULL`,
+        ];
+        for (const sql of cols) {
+          try {
+            await db.execute(sql);
+          } catch (err: any) {
+            logger.info(`⚠️ [047] SSO migration: ${err.message?.substring(0, 80)}`);
+          }
+        }
+        logger.info('✅ [047] SSO fields ensured on company_settings and users');
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

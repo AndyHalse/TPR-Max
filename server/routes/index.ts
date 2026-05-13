@@ -33,6 +33,7 @@ import { registerHrOnboardingRoutes } from './hrOnboarding';
 import { registerHrLeaverRoutes } from './hrLeaver';
 import { registerHrAppraisalRoutes } from './hrAppraisals';
 import { registerHrPayrollRoutes } from './hrPayroll';
+import { registerSsoRoutes } from './sso';
 
 export async function registerSplitRoutes(
   app: Express,
@@ -40,6 +41,7 @@ export async function registerSplitRoutes(
   setupAutomaticDailyReset?: (customerId?: string) => Promise<void>
 ): Promise<void> {
   registerAuthRoutes(app);
+  registerSsoRoutes(app);
   registerPlatformAdminRoutes(app);
   registerOnboardingRoutes(app);
   registerVisitorRoutes(app);

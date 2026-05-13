@@ -160,6 +160,22 @@ export function registerAuthRoutes(app: Express): void {
 
       const { user, customer } = authResult;
 
+      // Block standard login when the company requires SSO-only
+      try {
+        const { simpleDatabaseService } = await import('../simpleDatabaseService');
+        const context = simpleDatabaseService.createCustomerContext(username, customer.id);
+        const settings = await simpleDatabaseService.getCompanySettings(context);
+        if (settings?.ssoLoginMode === 'sso_only') {
+          logger.warn(`⚠️ SSO-only login attempted via standard form: ${username} at ${customer.companyName}`);
+          return res.status(403).json({
+            error: 'This account requires Microsoft SSO. Use the "Sign in with Microsoft" button on the login page.',
+            ssoRequired: true,
+          });
+        }
+      } catch (settingsErr) {
+        logger.warn('⚠️ Failed to check ssoLoginMode — proceeding with standard login:', settingsErr);
+      }
+
       logger.info(`🔐 Login successful for user: ${username} (ID: ${user.id}) at company: ${customer.companyName} (ID: ${customer.id})`);
 
       // SECURITY FIX: Regenerate session ID to prevent session fixation attacks

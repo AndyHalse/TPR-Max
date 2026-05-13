@@ -11,6 +11,17 @@ import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "wouter";
 
+function MicrosoftLogoIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+      <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+      <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+      <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+    </svg>
+  );
+}
+
 function hexToHsl(hex: string): string | null {
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!result) return null;
@@ -119,6 +130,49 @@ export default function Login() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
+
+  // SSO mode detected for this company ('standard' | 'both' | 'sso_only')
+  const [ssoMode, setSsoMode] = useState<'standard' | 'both' | 'sso_only'>('standard');
+  const [ssoCheckLoading, setSsoCheckLoading] = useState(false);
+
+  // Handle URL error params from SSO callback redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlError = params.get('error');
+    if (urlError === 'sso_no_account') {
+      setError('No TPR Max account found for your Microsoft identity. Contact your site administrator.');
+    } else if (urlError === 'sso_failed') {
+      setError('Microsoft sign-in failed. Please try again or use your username and password.');
+    }
+  }, []);
+
+  const handleCompanyBlur = async () => {
+    const name = credentials.companyName.trim();
+    if (!name) return;
+    setSsoCheckLoading(true);
+    try {
+      const res = await fetch(`/api/auth/sso/check?company=${encodeURIComponent(name)}`);
+      const data = await res.json();
+      if (data.ssoAvailable && data.ssoLoginMode && data.ssoLoginMode !== 'standard') {
+        setSsoMode(data.ssoLoginMode as 'both' | 'sso_only');
+      } else {
+        setSsoMode('standard');
+      }
+    } catch {
+      setSsoMode('standard');
+    } finally {
+      setSsoCheckLoading(false);
+    }
+  };
+
+  const handleSsoSignIn = () => {
+    const name = credentials.companyName.trim();
+    if (!name) {
+      setError('Please enter your company name first');
+      return;
+    }
+    window.location.href = `/api/auth/sso/start?company=${encodeURIComponent(name)}`;
+  };
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -265,6 +319,7 @@ export default function Login() {
                   className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
                   value={credentials.companyName}
                   onChange={(e) => setCredentials(prev => ({ ...prev, companyName: e.target.value }))}
+                  onBlur={handleCompanyBlur}
                   data-testid="input-company-name"
                   disabled={isLoading}
                   autoFocus
@@ -327,24 +382,48 @@ export default function Login() {
               </Label>
             </div>
 
-            <Button
-              type="submit"
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
-              disabled={isLoading}
-              data-testid="button-login"
-            >
-              {isLoading ? (
-                "Signing in..."
-              ) : (
-                <>
-                  <LogIn className="mr-2" size={18} />
-                  Sign In
-                </>
-              )}
-            </Button>
+            {ssoMode !== 'sso_only' && (
+              <Button
+                type="submit"
+                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
+                disabled={isLoading}
+                data-testid="button-login"
+              >
+                {isLoading ? (
+                  "Signing in..."
+                ) : (
+                  <>
+                    <LogIn className="mr-2" size={18} />
+                    Sign In
+                  </>
+                )}
+              </Button>
+            )}
           </form>
-          
-          
+
+          {(ssoMode === 'both' || ssoMode === 'sso_only') && (
+            <div className="space-y-3">
+              {ssoMode === 'both' && (
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                  <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">or continue with</span>
+                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                </div>
+              )}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-medium py-3 gap-3"
+                onClick={handleSsoSignIn}
+                disabled={ssoCheckLoading}
+                data-testid="button-sso-microsoft"
+              >
+                <MicrosoftLogoIcon size={20} />
+                {ssoCheckLoading ? 'Checking…' : 'Sign in with Microsoft'}
+              </Button>
+            </div>
+          )}
+
           <div className="text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400">
               Secure access • TPR Max

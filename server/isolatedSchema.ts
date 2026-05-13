@@ -278,7 +278,7 @@ export const departments = pgTable("departments", {
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
+  password: text("password"),
   email: text("email"),
   role: text("role").notNull().default("user"), // admin, user, tenant_admin, tenant_staff
   firstName: text("first_name"),
@@ -287,6 +287,8 @@ export const users = pgTable("users", {
   lastLoginAt: timestamp("last_login_at"),
   allowedMenuItems: text("allowed_menu_items").array(),
   defaultLandingPage: text("default_landing_page"),
+  azureObjectId: text("azure_object_id"),
+  authProvider: text("auth_provider").default("local"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -542,6 +544,11 @@ export const companySettings = pgTable("company_settings", {
   loneWorkerL2Email: text("lone_worker_l2_email").default(""),
   loneWorkerL2DelayMins: integer("lone_worker_l2_delay_mins").default(15),
   loneWorkerL3DelayMins: integer("lone_worker_l3_delay_mins").default(30),
+
+  // Azure Entra ID SSO
+  ssoLoginMode: text("sso_login_mode").default("standard"),
+  ssoAutoProvision: boolean("sso_auto_provision").default(true),
+  ssoDefaultRole: text("sso_default_role").default("user"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

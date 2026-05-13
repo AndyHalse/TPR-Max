@@ -1,0 +1,221 @@
+Here it is as a single clean prompt, ready to paste straight into Replit:
+
+---
+
+Add Microsoft Azure Entra ID (formerly Azure AD) Single Sign-On (SSO) to TPR Max. The Azure app registration belongs to ACS — credentials are stored as environment variables on the server, not in any database. Each customer's administrator controls login behaviour through a new Single Sign-On section in Settings.
+
+No SSO code exists in the codebase yet. `openid-client` (v6) and `passport` are already in `package.json` — do not add new packages.
+
+---
+
+**Three login modes**
+
+Each customer independently chooses one of three modes in their Settings:
+
+- `standard` — username, password, company name. Current behaviour. Default for all customers.
+- `both` — login page shows the standard form AND a "Sign in with Microsoft" button. Either works.
+- `sso_only` — standard form is hidden entirely. All users must sign in via Microsoft. If `POST /api/auth/login` is called directly, return 403.
+
+---
+
+**Environment variables**
+
+Azure credentials are set once on the server. Never store them in the database.
+
+```
+AZURE_TENANT_ID=your-tenant-id
+AZURE_CLIENT_ID=your-client-id
+AZURE_CLIENT_SECRET=your-client-secret
+APP_BASE_URL=https://your-tprmax-domain.com
+```
+
+The callback redirect URI is always `${APP_BASE_URL}/api/auth/sso/callback`. Do not hardcode any domain.
+
+---
+
+**Part 1 — Database changes**
+
+In `server/isolatedSchema.ts`, add to the `companySettings` table:
+
+```typescript
+ssoLoginMode: text("sso_login_mode").default("standard"),
+// 'standard' | 'both' | 'sso_only'
+
+ssoAutoProvision: boolean("sso_auto_provision").default(true),
+// true: create a TPR user automatically on first successful SSO login
+// false: user must be pre-created manually; SSO login fails if no match found
+
+ssoDefaultRole: text("sso_default_role").default("user"),
+// Role assigned to auto-provisioned users: 'user' or 'admin'
+```
+
+In `server/isolatedSchema.ts`, add to the `users` table:
+
+```typescript
+azureObjectId: text("azure_object_id"),
+// Microsoft Entra unique object ID — links a TPR user to a Microsoft identity
+
+authProvider: text("auth_provider").default("local"),
+// 'local' | 'azure_entra'
+```
+
+Also change `password` in the `users` table from `.notNull()` to nullable — SSO users have no password.
+
+Write a migration in `/migrations/` that adds all five new columns to `company_settings` and `users` in every customer's isolated database schema. Follow the existing migration pattern in this project.
+
+---
+
+**Part 2 — SSO service**
+
+Create `server/ssoService.ts`. All OIDC logic lives here using the `openid-client` package (v6, already installed).
+
+Implement the following methods:
+
+`getDiscoveryUrl(): string`
+Returns `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID}/v2.0/.well-known/openid-configuration`
+
+`buildAuthUrl(state: string): Promise<string>`
+Builds the Microsoft login redirect URL using PKCE + state. Uses `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `APP_BASE_URL` from env vars.
+
+`handleCallback(code: string, state: string): Promise<{ oid: string; email: string; displayName: string; givenName?: string; surname?: string } | null>`
+Exchanges the auth code for tokens, validates them, and returns user claims. Uses `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, and `APP_BASE_URL`. Returns null if validation fails for any reason.
+
+`findOrProvisionUser(customerDb, claims, autoProvision: boolean, defaultRole: string): Promise<User | null>`
+Finds or creates a TPR user in the customer's isolated database. Resolution order:
+1. Look up by `azureObjectId`
+2. If not found, look up by `email` — if matched, update `azureObjectId` and `authProvider`
+3. If not found and `autoProvision = true`, create a new user with null password, set `authProvider = 'azure_entra'`, `azureObjectId`, split `displayName` for `firstName`/`lastName`, assign `defaultRole`
+4. If not found and `autoProvision = false`, return null
+
+If `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, or `AZURE_CLIENT_SECRET` are missing, all methods must throw: `"Azure SSO environment variables are not configured on this server"` and log the error server-side.
+
+---
+
+**Part 3 — SSO routes**
+
+Create `server/routes/sso.ts` and register it in the main routes file.
+
+`GET /api/auth/sso/check?company={companyName}`
+Called by the login page on company name blur. Look up the customer by company name, load their `companySettings`, and return only `{ ssoLoginMode, ssoAvailable }`. Never return credentials or Azure config. If company not found, return `{ ssoLoginMode: "standard", ssoAvailable: false }`.
+
+`GET /api/auth/sso/start?company={companyName}`
+1. Look up customer by company name and load their `companySettings`
+2. If `ssoLoginMode === 'standard'` → 400: `"SSO is not enabled for this company"`
+3. If Azure env vars are missing → 500: `"SSO is not configured on this server — contact ACS support"`
+4. Generate CSRF token: `crypto.randomBytes(32).toString('hex')`
+5. Build state: `Buffer.from(JSON.stringify({ csrf: csrfToken, customerId: customer.id })).toString('base64url')`
+6. Store `csrfToken` in `req.session.ssoCsrfToken`
+7. Call `SsoService.buildAuthUrl(state)` and redirect the user to the resulting URL (full HTTP redirect, not JSON)
+
+`GET /api/auth/sso/callback`
+1. Read `code` and `state` from query params
+2. Decode: `JSON.parse(Buffer.from(state, 'base64url').toString())`
+3. Validate `decoded.csrf === req.session.ssoCsrfToken` — if not, return 400: `"Invalid state — possible CSRF attack"`
+4. Get `customerId` from `decoded.customerId`
+5. Load the customer and their `companySettings` for `ssoAutoProvision` and `ssoDefaultRole`
+6. Call `SsoService.handleCallback(code, state)` — if null, redirect to `/login?error=sso_failed`
+7. Call `SsoService.findOrProvisionUser()` — if null, redirect to `/login?error=sso_no_account`
+8. If user found or created: regenerate the session (`req.session.regenerate`), set `req.session.userId`, `req.session.customerId`, `req.session.companyName`, update `lastLoginAt`, clear `req.session.ssoCsrfToken`, redirect to `/`
+
+`GET /api/auth/sso/status`
+Requires `requireAuth`. Returns `{ configured: true }` if all three Azure env vars are set, or `{ configured: false, reason: "AZURE_TENANT_ID is missing" }` if not. Never returns the values themselves.
+
+---
+
+**Part 4 — Protect standard login when `sso_only`**
+
+In `server/routes/auth.ts`, inside `POST /api/auth/login`, after the customer is found but before password verification, add:
+
+```typescript
+const companySettings = await getCompanySettings(customer.id);
+if (companySettings?.ssoLoginMode === 'sso_only') {
+  return res.status(403).json({
+    error: "This account requires Microsoft SSO login. Use the Sign in with Microsoft button.",
+    ssoRequired: true
+  });
+}
+```
+
+---
+
+**Part 5 — Settings UI**
+
+Create `client/src/pages/settings/SsoSettings.tsx`. Follow the same pattern as `IntegrationSettings.tsx` — use `useSettingsAutoSave()`, `GlassCard`, `Switch`, `Input`, `Label`, `Select`, and `handleInputChange` for auto-save. Visible to admin users only.
+
+Section header: "Single Sign-On (SSO)" with a `Shield` icon from lucide-react.
+
+**Login Mode** — a `Select` with three options:
+
+| Label | Value |
+|---|---|
+| Standard login only (default) | `standard` |
+| Both available (standard + Microsoft) | `both` |
+| Microsoft SSO only | `sso_only` |
+
+When `sso_only` is selected, show a yellow `Alert`:
+*"SSO Only mode disables username and password login for all users. Make sure SSO is tested and working before enabling this — if there is a problem, users will be locked out."*
+
+**Auto-provision users** — `Switch` toggle, `handleInputChange('ssoAutoProvision', checked)`. Label: *"Automatically create a TPR Max account on first Microsoft login."* When off, show: *"Users must be created manually in Security settings before they can sign in with Microsoft."*
+
+**Default role for new users** — `Select` (User / Admin), `handleInputChange('ssoDefaultRole', value)`. Only shown when auto-provision is on.
+
+**SSO status indicator** — on load, call `GET /api/auth/sso/status`. If `configured: true`, show a green badge: "Microsoft SSO is available on this server". If `configured: false`, show a red badge: "SSO is not configured on this server — contact ACS support." This is read-only and tells the admin whether the server-side credentials are in place without exposing them.
+
+---
+
+**Part 6 — Add SSO to the Settings page**
+
+In `client/src/pages/Settings.tsx`, add a new tab or section called "Single Sign-On". Import and render `<SsoSettings />`. Place it near the Security or Integration sections.
+
+---
+
+**Part 7 — Login page changes**
+
+In `client/src/pages/Login.tsx`:
+
+On company name field blur, call `GET /api/auth/sso/check?company={companyName}` and store the result in state as `ssoMode`.
+
+Conditional UI:
+- `standard` or not yet resolved → current form, unchanged
+- `both` → current form, then a `<Separator>` with "or", then the Microsoft button below
+- `sso_only` → hide the username, password, and submit button entirely; show only the Microsoft button
+
+The "Sign in with Microsoft" button uses full page navigation (not `fetch`): `window.location.href = '/api/auth/sso/start?company=' + encodeURIComponent(companyName)`. Style: white background, subtle border, inline Microsoft logo SVG (four coloured squares), dark text "Sign in with Microsoft". Disabled if `companyName` is empty.
+
+Error handling on return from callback:
+- `?error=sso_no_account` → `Alert`: *"No TPR Max account was found for your Microsoft identity. Contact your administrator."*
+- `?error=sso_failed` → `Alert`: *"Microsoft sign-in failed. Please try again or contact your administrator."*
+
+---
+
+**Files to create**
+
+- `server/ssoService.ts`
+- `server/routes/sso.ts`
+- `client/src/pages/settings/SsoSettings.tsx`
+- `/migrations/[timestamp]_add_sso_fields.ts`
+
+**Files to modify**
+
+- `server/isolatedSchema.ts` — add SSO columns to `companySettings` and `users`; make `password` nullable
+- `server/routes/auth.ts` — block standard login when `sso_only`
+- `client/src/pages/Login.tsx` — SSO check on company blur; conditional Microsoft button
+- `client/src/pages/Settings.tsx` — add Single Sign-On tab/section
+
+---
+
+**Testing checklist — do not mark complete until all pass**
+
+- [ ] Standard login still works for customers with `ssoLoginMode = 'standard'`
+- [ ] `GET /api/auth/sso/check` returns the correct mode for each company
+- [ ] `sso_only` causes `POST /api/auth/login` to return 403 with `ssoRequired: true`
+- [ ] Login page shows only the Microsoft button when `sso_only`, both options when `both`, standard form only when `standard`
+- [ ] Clicking the Microsoft button redirects to `login.microsoftonline.com` with correct params (`state`, `client_id`, `redirect_uri`, `scope=openid profile email`)
+- [ ] CSRF state mismatch on callback returns 400
+- [ ] User with matching `azureObjectId` is found and logged in
+- [ ] User matched by email has their `azureObjectId` updated
+- [ ] Auto-provision creates a new user with null password, correct role, `authProvider = 'azure_entra'`
+- [ ] Auto-provision off with no matching user redirects to `/login?error=sso_no_account`
+- [ ] `GET /api/auth/sso/status` returns `configured: true` when all three env vars are set
+- [ ] Full session works after SSO login — `requireAuth` passes, all routes accessible
+- [ ] Logout works normally after an SSO session

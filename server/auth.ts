@@ -350,6 +350,9 @@ declare module 'express-session' {
     // Platform admin session
     platformAdminId?: string;
     platformAdminUsername?: string;
+    // SSO / OIDC flow
+    ssoCsrfToken?: string;
+    ssoCodeVerifier?: string;
   }
 }
 
@@ -485,6 +488,10 @@ export class AuthService {
    * Lookup customer by company name (case-insensitive)
    * Uses existing working database connection instead of creating new Pool
    */
+  public static async findCustomerByCompanyName(companyName: string): Promise<Customer | null> {
+    return AuthService.lookupCustomerByCompanyName(companyName);
+  }
+
   private static async lookupCustomerByCompanyName(companyName: string): Promise<Customer | null> {
     try {
       // Import the working database connection instead of creating a new Pool
