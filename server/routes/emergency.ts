@@ -4068,7 +4068,8 @@ ${evacuationPhotosData.length > 0 ? `
             isAccountedFor: accountabilityRecord?.isAccountedFor || false,
             accountedBy: accountabilityRecord?.accountedBy,
             accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
-            musterPoint: accountabilityRecord?.musterPoint
+            musterPoint: accountabilityRecord?.musterPoint,
+            needsEvacuationAssistance: (staff as any).needsEvacuationAssistance ?? false
           };
         }),
         ...currentVisitors.map(visitor => {
@@ -4084,7 +4085,8 @@ ${evacuationPhotosData.length > 0 ? `
             isAccountedFor: accountabilityRecord?.isAccountedFor || false,
             accountedBy: accountabilityRecord?.accountedBy,
             accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
-            musterPoint: accountabilityRecord?.musterPoint
+            musterPoint: accountabilityRecord?.musterPoint,
+            needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance ?? false
           };
         }),
         ...checkedInContractors.map(contractor => {
@@ -4100,7 +4102,8 @@ ${evacuationPhotosData.length > 0 ? `
             isAccountedFor: accountabilityRecord?.isAccountedFor || false,
             accountedBy: accountabilityRecord?.accountedBy,
             accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
-            musterPoint: accountabilityRecord?.musterPoint
+            musterPoint: accountabilityRecord?.musterPoint,
+            needsEvacuationAssistance: (contractor as any).needsEvacuationAssistance ?? false
           };
         }),
         ...checkedInMembers.map(member => {
@@ -4117,7 +4120,8 @@ ${evacuationPhotosData.length > 0 ? `
             isAccountedFor: accountabilityRecord?.isAccountedFor || false,
             accountedBy: accountabilityRecord?.accountedBy,
             accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
-            musterPoint: accountabilityRecord?.musterPoint
+            musterPoint: accountabilityRecord?.musterPoint,
+            needsEvacuationAssistance: false
           };
         })
       ];
