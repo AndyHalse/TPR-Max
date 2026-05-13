@@ -78,6 +78,7 @@ import {
   CalendarCheck,
   Flame,
   HardDriveUpload,
+  Accessibility,
 } from "lucide-react";
 
 // Import ACS logo, screenshots and pricing image
@@ -536,12 +537,13 @@ export default function MarketingPage() {
           </div>
 
           {/* Key muster features */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {[
               { icon: MapPin, title: "Up to 16 Zones", desc: "Colour-coded evacuation zones with interactive floor plan placement", color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/20", border: "border-red-200 dark:border-red-800" },
               { icon: Smartphone, title: "Fire Marshal Mobile", desc: "Permanent URLs open instantly on any phone — no app, no login required", color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/20", border: "border-orange-200 dark:border-orange-800" },
               { icon: Mail, title: "Targeted Alerts", desc: "Email only personnel in affected zones — plus all Fire Marshals automatically", color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/20", border: "border-blue-200 dark:border-blue-800" },
               { icon: UserCheck, title: "Digital Roll-Call", desc: "One-tap mark safe for staff, visitors, contractors and members on-site", color: "text-green-600", bg: "bg-green-50 dark:bg-green-900/20", border: "border-green-200 dark:border-green-800" },
+              { icon: Accessibility, title: "PEEP Support", desc: "Persons needing evacuation assistance automatically flagged and sorted to the top — amber alert shown to Fire Marshals instantly", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/20", border: "border-amber-200 dark:border-amber-800" },
             ].map(({ icon: Icon, title, desc, color, bg, border }) => (
               <div key={title} className={`rounded-xl p-5 border ${bg} ${border}`}>
                 <Icon className={`h-6 w-6 ${color} mb-3`} />
@@ -654,7 +656,7 @@ export default function MarketingPage() {
                 color: "text-red-600",
                 bg: "bg-red-50 dark:bg-red-900/20",
                 border: "border-red-200 dark:border-red-800",
-                desc: "Zone-based evacuation mustering, fire marshal static URLs, digital roll-call, and self-service mark-safe links.",
+                desc: "Zone-based evacuation mustering, fire marshal static URLs, digital roll-call, PEEP evacuation assistance, and self-service mark-safe links.",
               },
               {
                 icon: Clock,
@@ -1562,6 +1564,12 @@ export default function MarketingPage() {
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
                         <strong>Emergency Exports:</strong> Instant CSV exports for emergency services with complete personnel data, zone assignments, and timestamps
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-amber-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>PEEP Evacuation Assistance:</strong> Staff, visitors, and contractors flagged as needing evacuation assistance are automatically sorted to the top of the Fire Marshal list with an amber alert banner — ensuring nobody requiring physical help is missed during an evacuation
                       </span>
                     </div>
                   </div>
