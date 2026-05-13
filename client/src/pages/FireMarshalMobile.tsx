@@ -30,6 +30,7 @@ import {
   Send,
   QrCode,
   List,
+  Accessibility,
 } from "lucide-react";
 
 interface PersonOnSite {
@@ -44,6 +45,7 @@ interface PersonOnSite {
   accountedBy?: string;
   accountedAt?: string;
   musterPoint?: string;
+  needsEvacuationAssistance?: boolean;
 }
 
 interface PersonnelData {
@@ -619,14 +621,24 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   // When the marshal has an assigned zone and showMyZoneOnly is enabled, filter to that zone only
   const hasZoneAssignment = !!marshalZoneId && zones.length > 0;
 
-  const filteredPeople = personnelData?.people?.filter(person => {
+  const filteredPeople = (personnelData?.people?.filter(person => {
     const matchesSearch = (person.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (person.department || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
                           (person.company || '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchesVisibility = showSafePeople || !person.isAccountedFor;
     const matchesZone = !hasZoneAssignment || !showMyZoneOnly || person.zoneId === marshalZoneId;
     return matchesSearch && matchesVisibility && matchesZone;
-  }) || [];
+  }) || []).sort((a, b) => {
+    const accA = a.isAccountedFor ? 1 : 0;
+    const accB = b.isAccountedFor ? 1 : 0;
+    if (accA !== accB) return accA - accB;
+    const peepA = a.needsEvacuationAssistance ? 1 : 0;
+    const peepB = b.needsEvacuationAssistance ? 1 : 0;
+    return peepB - peepA;
+  });
+
+  const peepCount = (personnelData?.people || []).filter(p => p.needsEvacuationAssistance).length;
+  const peepUnaccounted = (personnelData?.people || []).filter(p => p.needsEvacuationAssistance && !p.isAccountedFor).length;
 
   // Zone stats for sweep panel (uses zoneId from personnel data)
   const zoneStats = zones.map(zone => {
@@ -985,6 +997,30 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
       )}
 
 
+      {/* PEEP alert banner — shown whenever PEEP people are on-site */}
+      {peepCount > 0 && (
+        <div className="px-4 pb-2">
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border-2 border-amber-400">
+            <div className="w-9 h-9 flex-shrink-0 rounded-xl bg-amber-200 flex items-center justify-center">
+              <Accessibility className="text-amber-700" size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-800">
+                {peepCount} PEEP person{peepCount !== 1 ? 's' : ''} on-site
+              </p>
+              <p className="text-xs text-amber-700">
+                {peepUnaccounted > 0
+                  ? `${peepUnaccounted} still unaccounted — prioritise evacuation assistance`
+                  : 'All PEEP individuals are accounted for'}
+              </p>
+            </div>
+            {peepUnaccounted > 0 && (
+              <span className="flex-shrink-0 text-2xl font-black text-amber-700">{peepUnaccounted}</span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Action bar — Mark Zone Safe + Show/Hide Safe toggle */}
       {isEmergencyActive && (
         <div className="px-4 pb-2 flex gap-2 flex-wrap">
@@ -1097,16 +1133,32 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
               <Card
                 key={person.id}
                 className={`overflow-hidden transition-all ${
-                  person.isAccountedFor
+                  person.needsEvacuationAssistance
+                    ? person.isAccountedFor
+                      ? 'border-amber-400 bg-amber-50/60 opacity-80'
+                      : 'border-amber-500 bg-amber-50 shadow-md'
+                    : person.isAccountedFor
                     ? 'border-green-300 bg-green-50/50 opacity-70'
                     : 'border-red-300 bg-white shadow-md'
                 }`}
               >
+                {/* PEEP header strip */}
+                {person.needsEvacuationAssistance && (
+                  <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-400">
+                    <Accessibility size={12} className="text-amber-900 flex-shrink-0" />
+                    <span className="text-amber-900 text-[10px] font-black uppercase tracking-wide">Requires Evacuation Assistance (PEEP)</span>
+                  </div>
+                )}
                 <div className="p-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                         <span className="font-bold text-base">{person.name}</span>
+                        {person.needsEvacuationAssistance && (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900">
+                            <Accessibility size={10} />PEEP
+                          </span>
+                        )}
                         {person.isAccountedFor && (
                           <Badge variant="outline" className="bg-green-100 text-green-700 border-green-300 text-xs">✓ SAFE</Badge>
                         )}
