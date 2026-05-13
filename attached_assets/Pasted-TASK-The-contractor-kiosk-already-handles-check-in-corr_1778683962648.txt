@@ -1,0 +1,66 @@
+TASK: The contractor kiosk already handles check-in correctly and shows a
+pass preview — but it does not automatically open the print page in a new
+browser tab the way the visitor kiosk does. Wire up auto-print so a
+contractor pass prints immediately when e-pass mode is off.
+
+FILE: client/src/pages/ContractorKiosk.tsx
+
+FIND the checkInMutation onSuccess handler (around lines 116–143).
+
+CURRENT CODE after successful check-in:
+  if (data.ePassSent) {
+    toast({
+      title: "Digital Pass Sent",
+      description: `E-Pass sent to ${data.worker?.email || 'contractor'}...`,
+      duration: 5000
+    });
+  } else {
+    const worker = data.worker;
+    const company = companies.find(c => c.id === worker.companyId);
+    setCheckedInWorker(worker);
+    setCheckedInCompanyName(company?.name || "Unknown Company");
+    setShowPassPreview(true);
+    toast({ title: "Checked In", description: `${worker.firstName} ${worker.lastName} checked in successfully!` });
+  }
+
+REPLACE the else block with:
+  } else {
+    const worker = data.worker;
+    const company = companies.find(c => c.id === worker.companyId);
+    setCheckedInWorker(worker);
+    setCheckedInCompanyName(company?.name || "Unknown Company");
+    setShowPassPreview(true);
+    toast({ title: "Checked In", description: `${worker.firstName} ${worker.lastName} checked in successfully!` });
+    
+    // Auto-open print pass in new tab (only when e-pass is disabled)
+    try {
+      window.open(`/api/passes/print/contractor/${worker.id}`, '_blank');
+    } catch (err) {
+      // Popup may be blocked — the pass preview already shows a manual print button
+      console.warn('Auto-print popup blocked:', err);
+    }
+  }
+
+ALSO find the prebookingCheckinMutation onSuccess handler (around line 153).
+After the toast, add the same auto-print call:
+  onSuccess: (data) => {
+    queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/today"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+    toast({ title: "Checked In", description: `Pre-booked contractor checked in successfully!`, duration: 4000 });
+    
+    // Auto-print pass if worker ID is available in response
+    if (data.worker?.id && !data.ePassSent) {
+      try {
+        window.open(`/api/passes/print/contractor/${data.worker.id}`, '_blank');
+      } catch (err) {
+        console.warn('Auto-print popup blocked:', err);
+      }
+    }
+    
+    setActiveSection("main");
+  },
+
+NOTE: The print page calls window.print() on load, so the browser print
+dialog will open automatically in the new tab. If popups are blocked by the
+browser, the existing pass preview modal already has a "Print Pass" button
+as a fallback — no further changes needed there.

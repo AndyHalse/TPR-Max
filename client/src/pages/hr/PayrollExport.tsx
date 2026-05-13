@@ -58,6 +58,15 @@ export default function PayrollExport() {
         <p className="text-gray-500 text-sm mt-1">Generate a CSV report for your payroll provider</p>
       </div>
 
+      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+        <p className="text-sm font-semibold text-red-800">⚠️ Important — Beta Feature</p>
+        <p className="text-sm text-red-700 mt-1">
+          Payroll data exported from this module must be independently verified
+          before use in any payroll processing system. ACS Ltd accepts no liability
+          for payroll errors arising from beta feature use.
+        </p>
+      </div>
+
       <Card>
         <CardHeader><CardTitle className="text-base">Export Period</CardTitle></CardHeader>
         <CardContent>

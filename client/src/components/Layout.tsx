@@ -329,7 +329,7 @@ export default function Layout({ children }: LayoutProps) {
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{item.label}{('badge' in item && item.badge !== undefined) ? ` (${item.badge} gap${item.badge !== 1 ? 's' : ''})` : ''}</p>
+                    <p>{item.label}{item.path === '/hr' ? ' (Beta)' : ''}{('badge' in item && item.badge !== undefined) ? ` (${item.badge} gap${item.badge !== 1 ? 's' : ''})` : ''}</p>
                   </TooltipContent>
                 </Tooltip>
               ))}
@@ -404,7 +404,12 @@ export default function Layout({ children }: LayoutProps) {
                     data-testid={`mobile-nav-${item.label.toLowerCase().replace(' ', '-')}`}
                   >
                     <item.icon size={16} />
-                    <span className="truncate flex-1">{item.label}</span>
+                    <span className="truncate flex-1">
+                      {item.label}
+                      {item.path === '/hr' && (
+                        <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">β</span>
+                      )}
+                    </span>
                     {'badge' in item && item.badge !== undefined && (
                       <span className="ml-auto min-w-[20px] h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center leading-none flex-shrink-0">
                         {item.badge > 99 ? '99+' : item.badge}

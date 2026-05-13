@@ -135,6 +135,11 @@ export default function ContractorKiosk() {
         setCheckedInCompanyName(company?.name || "Unknown Company");
         setShowPassPreview(true);
         toast({ title: "Checked In", description: `${worker.firstName} ${worker.lastName} checked in successfully!` });
+        try {
+          window.open(`/api/passes/print/contractor/${worker.id}`, '_blank');
+        } catch (err) {
+          console.warn('Auto-print popup blocked:', err);
+        }
       }
     },
     onError: (error) => {
@@ -154,6 +159,13 @@ export default function ContractorKiosk() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/prebookings/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
       toast({ title: "Checked In", description: `Pre-booked contractor checked in successfully!`, duration: 4000 });
+      if (data.worker?.id && !data.ePassSent) {
+        try {
+          window.open(`/api/passes/print/contractor/${data.worker.id}`, '_blank');
+        } catch (err) {
+          console.warn('Auto-print popup blocked:', err);
+        }
+      }
       setActiveSection("main");
     },
     onError: () => {

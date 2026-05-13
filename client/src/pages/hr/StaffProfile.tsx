@@ -57,6 +57,14 @@ function RtwTab({ staffId }: { staffId: string }) {
         </div>
       )}
 
+      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+        <p className="text-xs text-amber-700">
+          <strong>Beta:</strong> Right to Work records in TPR are supplementary.
+          Always verify eligibility using the official Home Office Employer
+          Checking Service before permitting work to commence.
+        </p>
+      </div>
+
       <div className="flex justify-between items-center">
         <h3 className="font-semibold text-gray-700">RTW Records</h3>
         <Button size="sm" onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Record</Button>

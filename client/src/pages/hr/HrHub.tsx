@@ -1,5 +1,6 @@
 import { useLocation } from "wouter";
 import { Network, Calendar, BookOpen, Activity, CheckSquare, LogOut, Star, Download, Users, ArrowRight } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import GlassCard from "@/components/GlassCard";
 import { useQuery } from "@tanstack/react-query";
 
@@ -103,6 +104,18 @@ export default function HrHub() {
 
   return (
     <div className="space-y-6 p-3 sm:p-6">
+      <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 mb-2">
+        <span className="text-amber-600 text-lg">⚠️</span>
+        <div>
+          <p className="text-sm font-semibold text-amber-800">HR Module — Beta</p>
+          <p className="text-sm text-amber-700">
+            These features are in active development. For payroll processing,
+            right-to-work records, and appraisals, please verify all data
+            independently until this module reaches full release.
+            Contact support if you have any questions.
+          </p>
+        </div>
+      </div>
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-fixed flex items-center gap-3">
@@ -110,6 +123,9 @@ export default function HrHub() {
               <Users className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             HR Module
+            <Badge className="ml-1 bg-amber-100 text-amber-800 border-amber-300 text-xs font-semibold">
+              BETA
+            </Badge>
           </h2>
           <p className="text-sm text-variable mt-1">
             Human resources management — staff records, compliance & people operations
