@@ -12,7 +12,7 @@ import { simpleDatabaseService } from '../simpleDatabaseService';
 import { customerDbService } from '../customerDatabase';
 import { EmailService, emailService } from '../emailService';
 import * as isolatedSchema from '../isolatedSchema';
-import { insertVisitorSchema, insertPreBookingSchema, evacuationAccountability } from '../isolatedSchema';
+import { insertVisitorSchema, insertPreBookingSchema } from '../isolatedSchema';
 import { evacuations } from '@shared/schema';
 import { db } from '../db';
 import { websocketService } from '../websocketService';
@@ -397,45 +397,50 @@ export function registerVisitorRoutes(app: Express): void {
       // check-in transaction above — no separate call needed here.
       
       // Check for active evacuations and add visitor to accountability list if needed
-      const activeEvacuations = await db
-        .select()
-        .from(evacuations)
-        .where(and(
-          eq(evacuations.status, 'active'),
-          eq(evacuations.customerId, context.customerId)
-        ))
-        .orderBy(desc(evacuations.startedAt))
-        .limit(1);
-      
-      if (activeEvacuations.length > 0) {
-        const evacuation = activeEvacuations[0];
-        
-        // Check if visitor is already in accountability list
-        const existingRecord = await db
-          .select()
-          .from(evacuationAccountability)
-          .where(and(
-            eq(evacuationAccountability.evacuationId, evacuation.evacuationId),
-            eq(evacuationAccountability.personId, visitor.id)
-          ))
-          .limit(1);
-        
-        if (existingRecord.length === 0) {
-          // Add visitor to evacuation accountability
-          await db.insert(evacuationAccountability).values({
-            customerId: context.customerId,
-            evacuationId: evacuation.evacuationId,
-            personId: visitor.id,
-            personType: 'visitor',
-            personName: `${visitor.firstName} ${visitor.lastName}`,
-            department: '',
-            company: visitor.company || '',
-            lastKnownLocation: 'Just Checked In',
-            isAccountedFor: false
-          });
-          
-          logger.info(`Added visitor ID ${visitor.id} to active evacuation ${evacuation.evacuationId} accountability list`);
+      try {
+        if (context.customerId) {
+          const activeEvacuations = await db
+            .select()
+            .from(evacuations)
+            .where(and(
+              eq(evacuations.status, 'active'),
+              eq(evacuations.customerId, context.customerId)
+            ))
+            .orderBy(desc(evacuations.startedAt))
+            .limit(1);
+
+          if (activeEvacuations.length > 0) {
+            const evacuation = activeEvacuations[0];
+            const visitorEvacDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+            // Check if visitor is already in accountability list
+            const existingRecord = await visitorEvacDb
+              .select()
+              .from(isolatedSchema.evacuationAccountability)
+              .where(and(
+                eq(isolatedSchema.evacuationAccountability.evacuationId, evacuation.evacuationId),
+                eq(isolatedSchema.evacuationAccountability.personId, visitor.id)
+              ))
+              .limit(1);
+
+            if (existingRecord.length === 0) {
+              await visitorEvacDb.insert(isolatedSchema.evacuationAccountability).values({
+                customerId: context.customerId,
+                evacuationId: evacuation.evacuationId,
+                personId: visitor.id,
+                personType: 'visitor',
+                personName: `${visitor.firstName} ${visitor.lastName}`,
+                department: '',
+                company: visitor.company || '',
+                lastKnownLocation: 'Just Checked In',
+                isAccountedFor: false
+              });
+              logger.info(`Added visitor ID ${visitor.id} to active evacuation ${evacuation.evacuationId} accountability list`);
+            }
+          }
         }
+      } catch (evacErr) {
+        logger.error('Failed to update evacuation accountability on visitor check-in:', evacErr);
       }
       
       websocketService.broadcastPersonnelUpdate(context.customerId, {

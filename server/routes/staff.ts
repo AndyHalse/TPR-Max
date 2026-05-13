@@ -689,6 +689,7 @@ export function registerStaffRoutes(app: Express): void {
       
       // Check for active evacuations and add staff to accountability list if needed
       try {
+        if (!context.customerId) throw new Error('No customerId in context — skipping evacuation accountability');
         const activeEvacuations = await db
           .select()
           .from(evacuations)
