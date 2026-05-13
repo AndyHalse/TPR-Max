@@ -35,6 +35,7 @@ import {
   EyeOff,
   Info,
   Accessibility,
+  Loader2,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -407,19 +408,19 @@ export default function EmergencyMuster() {
 
   // Mutation to activate Fire Marshal emergency system
   const activateFireMarshalMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ isDrill }: { isDrill: boolean }) => {
       const response = await apiRequest("POST", "/api/emergency/activate", {
         selectedZones: selectedZones.size > 0 ? Array.from(selectedZones) : undefined,
-        isDrill: isDrillMode,
+        isDrill,
       });
       return await response.json();
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       setEmergencyPhase('active');
       setEmergencyStartTime(new Date());
       if (data.evacuationId) setLastEvacuationId(data.evacuationId);
       toast({
-        title: isDrillMode ? "Fire Drill Started" : "Emergency Notifications Sent",
+        title: variables.isDrill ? "Fire Drill Started" : "Emergency Notifications Sent",
         description: data.message || `Successfully notified all personnel & Fire Marshals via email.`,
       });
     },
@@ -548,15 +549,7 @@ export default function EmergencyMuster() {
         setShowZoneSelector(true);
       }
     } else if (emergencyPhase === 'send_alert') {
-      if (zonesRequireSelection) {
-        toast({
-          title: "Select Zones First",
-          description: "Please select at least one evacuation zone before sending alerts",
-          variant: "destructive",
-        });
-        return;
-      }
-      activateFireMarshalMutation.mutate();
+      // No-op: activation is now triggered directly from the Real Emergency / Fire Drill buttons
     } else if (emergencyPhase === 'active') {
       setEmergencyActive(false);
       setEmergencyPhase('idle');
@@ -943,13 +936,46 @@ export default function EmergencyMuster() {
             <div className="flex gap-3">
               <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>1</div>
               <div className="flex-1">
-                <h4 className="text-sm font-semibold text-fixed mb-2">Emergency Type</h4>
+                <h4 className="text-sm font-semibold text-fixed mb-1">Select type to activate immediately</h4>
+                <p className="text-xs text-muted-foreground mb-2">Emails are sent to all personnel and Fire Marshals as soon as you tap.</p>
                 <div className="flex gap-2">
-                  <button onClick={() => setIsDrillMode(false)} className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-colors ${!isDrillMode ? 'bg-red-600 border-red-600 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-red-300'}`}>
-                    <Siren size={14} className="inline mr-1.5" />Real Emergency
+                  <button
+                    onClick={() => {
+                      setIsDrillMode(false);
+                      activateFireMarshalMutation.mutate({ isDrill: false });
+                    }}
+                    disabled={activateFireMarshalMutation.isPending}
+                    className={`flex-1 px-3 py-3 rounded-lg text-sm font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
+                      activateFireMarshalMutation.isPending && activateFireMarshalMutation.variables?.isDrill === false
+                        ? 'bg-red-700 border-red-700 text-white animate-pulse'
+                        : !isDrillMode
+                          ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-200 dark:shadow-red-900/30'
+                          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-red-400 hover:text-red-600'
+                    } disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    {activateFireMarshalMutation.isPending && activateFireMarshalMutation.variables?.isDrill === false
+                      ? <><Loader2 size={14} className="animate-spin" />Starting Emergency…</>
+                      : <><Siren size={14} />Real Emergency</>
+                    }
                   </button>
-                  <button onClick={() => setIsDrillMode(true)} className={`flex-1 px-3 py-2.5 rounded-lg text-sm font-medium border-2 transition-colors ${isDrillMode ? 'bg-amber-500 border-amber-500 text-white' : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-amber-300'}`}>
-                    <ShieldAlert size={14} className="inline mr-1.5" />Fire Drill
+                  <button
+                    onClick={() => {
+                      setIsDrillMode(true);
+                      activateFireMarshalMutation.mutate({ isDrill: true });
+                    }}
+                    disabled={activateFireMarshalMutation.isPending}
+                    className={`flex-1 px-3 py-3 rounded-lg text-sm font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
+                      activateFireMarshalMutation.isPending && activateFireMarshalMutation.variables?.isDrill === true
+                        ? 'bg-amber-600 border-amber-600 text-white animate-pulse'
+                        : isDrillMode
+                          ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-200 dark:shadow-amber-900/30'
+                          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-amber-400 hover:text-amber-600'
+                    } disabled:opacity-60 disabled:cursor-not-allowed`}
+                  >
+                    {activateFireMarshalMutation.isPending && activateFireMarshalMutation.variables?.isDrill === true
+                      ? <><Loader2 size={14} className="animate-spin" />Starting Drill…</>
+                      : <><ShieldAlert size={14} />Fire Drill</>
+                    }
                   </button>
                 </div>
               </div>
