@@ -1,0 +1,75 @@
+TASK: Mark the HR module as "Beta" throughout the application so customers
+understand these features are new and still being validated. This protects
+the business from support expectations around payroll, right-to-work, and
+appraisals features that carry legal weight.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART A — HrHub.tsx page header
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE: client/src/pages/hr/HrHub.tsx
+
+Find the main page heading/title area and add a Beta badge next to it:
+
+  import { Badge } from "@/components/ui/badge";
+
+  // Next to the HR Hub title, add:
+  <Badge className="ml-2 bg-amber-100 text-amber-800 border-amber-300 text-xs font-semibold">
+    BETA
+  </Badge>
+
+Also add an info banner below the title:
+  <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 mb-6">
+    <span className="text-amber-600 text-lg">⚠️</span>
+    <div>
+      <p className="text-sm font-semibold text-amber-800">HR Module — Beta</p>
+      <p className="text-sm text-amber-700">
+        These features are in active development. For payroll processing,
+        right-to-work records, and appraisals, please verify all data
+        independently until this module reaches full release.
+        Contact support if you have any questions.
+      </p>
+    </div>
+  </div>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART B — Navigation sidebar / menu
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Find where the HR section appears in the main navigation (likely
+client/src/components/Sidebar.tsx or similar navigation component).
+
+Next to the HR menu item label, add a small beta indicator:
+  <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">
+    β
+  </span>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART C — PayrollExport.tsx specific warning
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE: client/src/pages/hr/PayrollExport.tsx
+
+The payroll export page is the highest-risk page in the HR module.
+Add a prominent warning at the top of the page content:
+
+  <div className="p-4 bg-red-50 border border-red-200 rounded-lg mb-6">
+    <p className="text-sm font-semibold text-red-800">⚠️ Important — Beta Feature</p>
+    <p className="text-sm text-red-700 mt-1">
+      Payroll data exported from this module must be independently verified
+      before use in any payroll processing system. ACS Ltd accepts no liability
+      for payroll errors arising from beta feature use.
+    </p>
+  </div>
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+PART D — HrRightToWork.tsx specific warning
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FILE: client/src/pages/hr/StaffProfile.tsx (or wherever Right to Work
+records are displayed)
+
+Add a similar warning near the Right to Work section:
+  <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg mb-4">
+    <p className="text-xs text-amber-700">
+      <strong>Beta:</strong> Right to Work records in TPR are supplementary.
+      Always verify eligibility using the official Home Office Employer
+      Checking Service before permitting work to commence.
+    </p>
+  </div>
