@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Footprints,
   Mail,
+  Accessibility,
 } from "lucide-react";
 
 interface MusterListItem {
@@ -354,11 +355,20 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
     person.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (person.department && person.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (person.company && person.company.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  ).sort((a, b) => {
+    const accA = a.accounted ? 1 : 0;
+    const accB = b.accounted ? 1 : 0;
+    if (accA !== accB) return accA - accB;
+    const peepA = a.needsEvacuationAssistance ? 1 : 0;
+    const peepB = b.needsEvacuationAssistance ? 1 : 0;
+    return peepB - peepA;
+  });
 
   const totalPeople = musterList.length;
   const accountedFor = musterList.filter(p => p.accounted).length;
   const unaccountedFor = totalPeople - accountedFor;
+  const peepCount = musterList.filter(p => p.needsEvacuationAssistance).length;
+  const peepUnaccounted = musterList.filter(p => p.needsEvacuationAssistance && !p.accounted).length;
 
   const toggleAccountedStatus = (id: string, type: string) => {
     toggleAccountedMutation.mutate({ personId: id, type });
@@ -514,6 +524,33 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
             <span className="font-bold">
               {unaccountedFor} PERSON{unaccountedFor !== 1 ? 'S' : ''} UNACCOUNTED
             </span>
+          </div>
+        </div>
+      )}
+
+      {/* PEEP alert banner */}
+      {peepCount > 0 && (
+        <div className={`mx-4 mb-4 rounded-xl border-2 border-amber-400 overflow-hidden ${peepUnaccounted > 0 ? 'animate-pulse-subtle' : ''}`}>
+          <div className="bg-amber-400 px-4 py-2 flex items-center gap-2">
+            <Accessibility size={18} className="text-amber-900 flex-shrink-0" />
+            <span className="text-amber-900 font-black text-sm tracking-wide uppercase">
+              ⚠ PEEP — Evacuation Assistance Required
+            </span>
+          </div>
+          <div className="bg-amber-50 px-4 py-3 flex items-center justify-between">
+            <div>
+              <p className="text-amber-900 font-bold text-base">
+                {peepCount} person{peepCount !== 1 ? 's' : ''} need{peepCount === 1 ? 's' : ''} assistance
+              </p>
+              <p className="text-amber-700 text-sm">
+                {peepUnaccounted > 0
+                  ? `${peepUnaccounted} still unaccounted — prioritise now`
+                  : 'All PEEP individuals accounted for ✓'}
+              </p>
+            </div>
+            <div className="bg-amber-400 rounded-full w-12 h-12 flex items-center justify-center">
+              <span className="text-amber-900 font-black text-xl">{peepCount}</span>
+            </div>
           </div>
         </div>
       )}
@@ -751,13 +788,27 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
         {filteredList.map((person) => (
           <div 
             key={person.id} 
-            className={`p-4 rounded-xl border-2 ${
-              person.accounted 
+            className={`rounded-xl border-2 overflow-hidden ${
+              person.needsEvacuationAssistance
+                ? 'border-amber-400'
+                : person.accounted 
                 ? 'bg-green-600/20 border-green-400' 
                 : 'bg-red-500/20 border-red-300'
             }`}
             data-testid={`person-${person.id}`}
           >
+            {person.needsEvacuationAssistance && (
+              <div className={`flex items-center gap-2 px-4 py-1.5 ${person.accounted ? 'bg-amber-400/80' : 'bg-amber-400'}`}>
+                <Accessibility size={14} className="text-amber-900 flex-shrink-0" />
+                <span className="text-amber-900 text-xs font-black uppercase tracking-wide">
+                  ⚠ Requires Evacuation Assistance (PEEP)
+                </span>
+                {!person.accounted && (
+                  <span className="ml-auto text-amber-900 text-xs font-bold">PRIORITY</span>
+                )}
+              </div>
+            )}
+            <div className={`p-4 ${person.needsEvacuationAssistance ? (person.accounted ? 'bg-amber-600/10' : 'bg-amber-500/15') : ''}`}>
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center space-x-3">
                 <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold ${
@@ -771,8 +822,8 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="font-bold text-lg text-white">{person.name}</p>
                     {person.needsEvacuationAssistance && (
-                      <span title="Requires Evacuation Assistance (PEEP)" className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-300 text-amber-900 border border-amber-500">
-                        ♿ PEEP
+                      <span title="Requires Evacuation Assistance (PEEP)" className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-300 text-amber-900 border border-amber-500">
+                        <Accessibility size={12} /> PEEP
                       </span>
                     )}
                   </div>
@@ -858,6 +909,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                   </Button>
                 </div>
               </div>
+            </div>
             </div>
           </div>
         ))}

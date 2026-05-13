@@ -33,7 +33,8 @@ import {
   X,
   Eye,
   EyeOff,
-  Info
+  Info,
+  Accessibility,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -518,6 +519,13 @@ export default function EmergencyMuster() {
       (person.company && person.company.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesVisibility = showSafePeople || !person.accounted;
     return matchesType && matchesSearch && matchesVisibility;
+  }).sort((a, b) => {
+    const peepA = a.needsEvacuationAssistance ? 1 : 0;
+    const peepB = b.needsEvacuationAssistance ? 1 : 0;
+    const accA = a.accounted ? 1 : 0;
+    const accB = b.accounted ? 1 : 0;
+    if (accA !== accB) return accA - accB;
+    return peepB - peepA;
   });
 
   // Summary stats reflect the zone-filtered list so counts match what's visible
@@ -527,6 +535,8 @@ export default function EmergencyMuster() {
   const visitorCount = zonedMusterList.filter(p => p.type === 'visitor').length;
   const contractorCount = zonedMusterList.filter(p => p.type === 'contractor').length;
   const memberCount = zonedMusterList.filter(p => p.type === 'member').length;
+  const peepCount = zonedMusterList.filter(p => p.needsEvacuationAssistance).length;
+  const peepUnaccounted = zonedMusterList.filter(p => p.needsEvacuationAssistance && !p.accounted).length;
 
   const zonesRequireSelection = showZoneSelector && zones.length > 0 && selectedZones.size === 0;
 
@@ -1326,6 +1336,28 @@ export default function EmergencyMuster() {
           </GlassCard>
         </div>
 
+        {/* PEEP alert — only shown when PEEP people are on-site */}
+        {peepCount > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 dark:bg-amber-900/30 border-2 border-amber-400 dark:border-amber-600">
+            <div className="w-9 h-9 flex-shrink-0 rounded-xl bg-amber-200 dark:bg-amber-800/60 flex items-center justify-center">
+              <Accessibility className="text-amber-700 dark:text-amber-300" size={18} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-amber-800 dark:text-amber-200">
+                {peepCount} PEEP person{peepCount !== 1 ? 's' : ''} on-site
+              </p>
+              <p className="text-xs text-amber-700 dark:text-amber-300">
+                {peepUnaccounted > 0
+                  ? `${peepUnaccounted} still unaccounted — prioritise evacuation assistance`
+                  : 'All PEEP individuals are accounted for'}
+              </p>
+            </div>
+            {peepUnaccounted > 0 && (
+              <span className="flex-shrink-0 text-2xl font-black text-amber-700 dark:text-amber-300">{peepUnaccounted}</span>
+            )}
+          </div>
+        )}
+
         {/* Row 2: Category breakdown — tap to filter */}
         <div className={`grid gap-2 sm:gap-3 ${memberCount > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
           <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'staff' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'staff' ? 'all' : 'staff')}>
@@ -1530,16 +1562,27 @@ export default function EmergencyMuster() {
                 const avatarBg = person.type === 'staff' ? 'bg-purple-500' : person.type === 'visitor' ? 'bg-blue-500' : person.type === 'member' ? 'bg-purple-500' : 'bg-orange-500';
                 const typeBadge = person.type === 'staff' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : person.type === 'visitor' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : person.type === 'member' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' : 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300';
                 const initials = person.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
-                const cardBg = person.accounted
+                const cardBg = person.needsEvacuationAssistance
+                  ? person.accounted
+                    ? 'bg-amber-50 dark:bg-amber-900/20 border-amber-400 dark:border-amber-600'
+                    : 'bg-amber-50 dark:bg-amber-900/30 border-amber-500 dark:border-amber-500'
+                  : person.accounted
                   ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
                   : 'bg-white/50 dark:bg-slate-800/50 border-gray-200 dark:border-gray-600';
 
                 return (
                   <div
                     key={person.id}
-                    className={`flex items-center gap-2.5 sm:gap-3 px-3 py-2.5 rounded-lg border transition-all ${cardBg}`}
+                    className={`rounded-lg border transition-all overflow-hidden ${cardBg}`}
                     data-testid={`person-${person.id}`}
                   >
+                    {person.needsEvacuationAssistance && (
+                      <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-400 dark:bg-amber-500">
+                        <Accessibility size={12} className="text-amber-900 flex-shrink-0" />
+                        <span className="text-amber-900 text-[10px] font-black uppercase tracking-wide">Requires Evacuation Assistance (PEEP)</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2.5 sm:gap-3 px-3 py-2.5">
                     {/* Avatar */}
                     <div className={`w-8 h-8 sm:w-9 sm:h-9 flex-shrink-0 rounded-full flex items-center justify-center ${avatarBg}`}>
                       <span className="text-white font-bold text-xs">{initials}</span>
@@ -1550,8 +1593,8 @@ export default function EmergencyMuster() {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="font-semibold text-fixed text-sm leading-tight truncate">{person.name}</p>
                         {person.needsEvacuationAssistance && (
-                          <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[9px] font-bold bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-400 dark:border-amber-600">
-                            ♿ PEEP
+                          <span title="Requires Evacuation Assistance (PEEP)" className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold bg-amber-200 text-amber-900 dark:bg-amber-800/60 dark:text-amber-200 border border-amber-400 dark:border-amber-500">
+                            <Accessibility size={11} /> PEEP
                           </span>
                         )}
                       </div>
@@ -1615,6 +1658,7 @@ export default function EmergencyMuster() {
                         </Button>
                       </div>
                     )}
+                    </div>
                   </div>
                 );
               })}
