@@ -85,6 +85,7 @@ export const musterPoints = pgTable("muster_points", {
 // Evacuation Accountability table for tracking people during emergency
 export const evacuationAccountability = pgTable("evacuation_accountability", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: text("customer_id").notNull().default(""),
   evacuationId: text("evacuation_id").notNull(),
   personId: text("person_id").notNull(),
   personType: text("person_type").notNull(), // 'staff' or 'visitor'

@@ -688,45 +688,48 @@ export function registerStaffRoutes(app: Express): void {
       }
       
       // Check for active evacuations and add staff to accountability list if needed
-      const activeEvacuations = await db
-        .select()
-        .from(evacuations)
-        .where(and(
-          eq(evacuations.status, 'active'),
-          eq(evacuations.customerId, context.customerId)
-        ))
-        .orderBy(desc(evacuations.startedAt))
-        .limit(1);
-      
-      if (activeEvacuations.length > 0) {
-        const evacuation = activeEvacuations[0];
-        
-        // Check if staff member is already in accountability list
-        const existingRecord = await db
+      try {
+        const activeEvacuations = await db
           .select()
-          .from(evacuationAccountability)
+          .from(evacuations)
           .where(and(
-            eq(evacuationAccountability.evacuationId, evacuation.evacuationId),
-            eq(evacuationAccountability.personId, staff.id)
+            eq(evacuations.status, 'active'),
+            eq(evacuations.customerId, context.customerId)
           ))
+          .orderBy(desc(evacuations.startedAt))
           .limit(1);
         
-        if (existingRecord.length === 0) {
-          // Add staff to evacuation accountability
-          await db.insert(evacuationAccountability).values({
-            customerId: context.customerId,
-            evacuationId: evacuation.evacuationId,
-            personId: staff.id,
-            personType: 'staff',
-            personName: `${staff.firstName} ${staff.lastName}`,
-            department: staff.department || '',
-            company: '',
-            lastKnownLocation: 'Just Checked In',
-            isAccountedFor: false
-          });
+        if (activeEvacuations.length > 0) {
+          const evacuation = activeEvacuations[0];
+          const staffEvacDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+          // Check if staff member is already in accountability list
+          const existingRecord = await staffEvacDb
+            .select()
+            .from(isolatedSchema.evacuationAccountability)
+            .where(and(
+              eq(isolatedSchema.evacuationAccountability.evacuationId, evacuation.evacuationId),
+              eq(isolatedSchema.evacuationAccountability.personId, staff.id)
+            ))
+            .limit(1);
           
-          logger.info(`Added ID ${staff.id} to active evacuation ${evacuation.evacuationId} accountability list`);
+          if (existingRecord.length === 0) {
+            await staffEvacDb.insert(isolatedSchema.evacuationAccountability).values({
+              customerId: context.customerId,
+              evacuationId: evacuation.evacuationId,
+              personId: staff.id,
+              personType: 'staff',
+              personName: `${staff.firstName} ${staff.lastName}`,
+              department: staff.department || '',
+              company: '',
+              lastKnownLocation: 'Just Checked In',
+              isAccountedFor: false
+            });
+            logger.info(`Added staff ID ${staff.id} to active evacuation ${evacuation.evacuationId} accountability list`);
+          }
         }
+      } catch (evacErr) {
+        logger.error('Failed to update evacuation accountability on staff check-in:', evacErr);
       }
       
       websocketService.broadcastPersonnelUpdate(context.customerId, {

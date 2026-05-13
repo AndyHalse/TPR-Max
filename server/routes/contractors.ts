@@ -4430,6 +4430,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
           if (existingRecord.length === 0) {
             await checkinEvacDb.insert(isolatedSchema.evacuationAccountability).values({
+              customerId: context.customerId,
               evacuationId: evacuation.evacuationId,
               personId: workerId,
               personType: 'contractor',
