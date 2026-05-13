@@ -456,7 +456,7 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    logger.info('Starting VisiGate Pro server', {
+    logger.info('Starting TPR server', {
       environment: process.env.NODE_ENV || 'development',
       eventType: 'server_startup'
     });
@@ -472,7 +472,7 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
       reusePort: true,
     }, () => {
-      logger.info('VisiGate Pro server started successfully', {
+      logger.info('TPR server started successfully', {
         port: port,
         environment: process.env.NODE_ENV || 'development',
         eventType: 'server_ready',

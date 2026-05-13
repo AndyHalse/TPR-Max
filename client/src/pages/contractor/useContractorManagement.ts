@@ -163,8 +163,11 @@ export function useContractorManagement() {
         setSelectedWorker(worker);
         setSelectedCompanyName(company?.name || "Unknown Company");
         setShowPassPreview(true);
+        try {
+          window.open(`/api/passes/print/contractor/${worker.id}`, '_blank');
+        } catch { /* popup blocked — physical pass preview shown as fallback */ }
         const ePassFailed = data.hasEmail && data.ePassEnabled && !data.ePassSent;
-        toast({ title: "Checked In", description: ePassFailed ? "E-pass could not be sent — please print the physical pass below." : "Contractor checked in. Please print the physical pass below.", variant: ePassFailed ? "destructive" : "default", duration: 6000 });
+        toast({ title: "Checked In", description: ePassFailed ? "E-pass could not be sent — pass is printing." : "Contractor checked in. Pass is printing.", variant: ePassFailed ? "destructive" : "default", duration: 6000 });
       }
     },
     onError: (error: any) => toast({ title: "Cannot Check In", description: error?.message || "Failed to check in contractor", variant: "destructive" }),

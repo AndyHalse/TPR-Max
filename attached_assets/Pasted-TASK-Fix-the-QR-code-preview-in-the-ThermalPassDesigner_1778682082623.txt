@@ -1,0 +1,72 @@
+TASK: Fix the QR code preview in the ThermalPassDesigner component. 
+Currently it shows raw JSON text and a small icon instead of a real QR code.
+
+CONTEXT:
+File: client/src/components/ThermalPassDesigner.tsx
+
+The designer has a live preview of a 95mm × 65mm pass. When the template 
+includes a QR code element (type: 'qr_code'), this code renders it:
+
+  {element.type === 'qr_code' && (
+    <div className="w-full h-full bg-white border border-gray-300 flex items-center justify-center text-xs overflow-hidden">
+      <div className="text-center">
+        <QrCode className="h-6 w-6 mx-auto mb-1" />
+        <div className="text-xs font-mono break-all">
+          {generateUniqueVisitorQR().substring(0, 20)}...
+        </div>
+      </div>
+    </div>
+  )}
+
+This renders a Lucide icon and raw JSON text. It should render an actual 
+scannable QR code image.
+
+SOLUTION:
+
+1. Install the qrcode package types for client use. The qrcode package is 
+   already in package.json. Also import it at the top of the component:
+   import QRCode from 'qrcode';
+
+2. Add a state variable to hold the generated QR data URL:
+   const [qrPreviewUrl, setQrPreviewUrl] = useState<string>('');
+
+3. Add a useEffect that generates a preview QR code whenever previewData 
+   changes:
+   useEffect(() => {
+     const generateQR = async () => {
+       try {
+         const qrData = `TPR-VISITOR-PREVIEW-${previewData.name.replace(/\s/g, '-').toUpperCase()}`;
+         const url = await QRCode.toDataURL(qrData, {
+           width: 120,
+           margin: 1,
+           color: { dark: '#000000', light: '#ffffff' }
+         });
+         setQrPreviewUrl(url);
+       } catch (err) {
+         console.error('QR generation error:', err);
+       }
+     };
+     generateQR();
+   }, [previewData.name]);
+
+4. Replace the existing qr_code rendering block with this:
+   {element.type === 'qr_code' && (
+     <div className="w-full h-full bg-white flex items-center justify-center overflow-hidden">
+       {qrPreviewUrl ? (
+         <img 
+           src={qrPreviewUrl} 
+           alt="QR Code Preview" 
+           style={{ width: element.width - 4, height: element.height - 4, objectFit: 'contain' }}
+         />
+       ) : (
+         <QrCode className="h-8 w-8 text-gray-400" />
+       )}
+     </div>
+   )}
+
+5. Remove the generateUniqueVisitorQR function entirely — it is no longer 
+   needed by the preview. The actual QR data for real passes is generated 
+   server-side in server/routes/passes.ts.
+
+RESULT: The pass preview in Settings → Passes will show a real scannable 
+QR code image, matching what the printed pass will look like.

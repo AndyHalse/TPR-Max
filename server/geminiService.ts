@@ -128,7 +128,7 @@ export class GeminiService {
       const ai = new GoogleGenAI({ apiKey: customerGeminiKey });
       
       const prompt = `
-        Generate a competitive analysis for VisiGate Pro against ${currentSystem} for a company with ${companySize} employees processing ${monthlyVisitors} monthly visitors.
+        Generate a competitive analysis for TPR against ${currentSystem} for a company with ${companySize} employees processing ${monthlyVisitors} monthly visitors.
 
         Analyze advantages in:
         1. timeEfficiency: Time savings vs manual processes (single sentence)
@@ -231,7 +231,7 @@ export class GeminiService {
       const ai = new GoogleGenAI({ apiKey: customerGeminiKey });
       
       const prompt = `
-        Generate a customized sales pitch for VisiGate Pro visitor management system for:
+        Generate a customized sales pitch for TPR visitor management system for:
         
         Company: ${companyName}
         Industry: ${industry}
@@ -290,7 +290,7 @@ export class GeminiService {
       const result = JSON.parse(rawJson);
       
       return {
-        valueProposition: result.valueProposition || `VisiGate Pro transforms ${companyName}'s visitor management with AI-powered security and seamless digital experiences.`,
+        valueProposition: result.valueProposition || `TPR transforms ${companyName}'s visitor management with AI-powered security and seamless digital experiences.`,
         painPointSolutions: result.painPointSolutions || [
           'Eliminate manual sign-in delays and long queues',
           'Automated compliance reporting and audit trails',
@@ -315,7 +315,7 @@ export class GeminiService {
       
       // Return fallback pitch
       return {
-        valueProposition: `VisiGate Pro transforms ${companyName}'s visitor management with AI-powered security and seamless digital experiences.`,
+        valueProposition: `TPR transforms ${companyName}'s visitor management with AI-powered security and seamless digital experiences.`,
         painPointSolutions: [
           'Eliminate manual sign-in delays and long queues',
           'Automated compliance reporting and audit trails',

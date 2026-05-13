@@ -1,0 +1,55 @@
+TASK: Global rebrand — replace all instances of "VisiGate Pro" and "VisiGate" 
+with "TPR" throughout the codebase. The product has three tiers: 
+TPR Basic, TPR Pro, and TPR Max. The platform brand is "TPR".
+
+CONTEXT:
+The product was originally built under the name "VisiGate Pro" but is now 
+called TPR (Total Personnel Register). Customer-facing emails, Stripe 
+product names, voice notifications, emergency emails, and UI text still 
+say "VisiGate Pro". This is reaching real customers and must be fixed.
+
+FILES TO UPDATE (all occurrences of "VisiGate Pro" or "VisiGate"):
+
+SERVER FILES:
+- server/inductionService.ts
+- server/emergencyEmailService.ts
+- server/emailService.ts
+- server/voiceNotificationService.ts
+- server/videoGenerationService.ts
+- server/stripeService.ts
+- server/geminiService.ts
+- server/index.ts
+- server/routes/analytics.ts
+- server/routes/induction.ts
+- server/routes/staff.ts
+- server/customerOnboardingService.ts
+
+CLIENT FILES:
+- client/src/pages/Welcome.tsx
+- client/src/pages/SignupPayment.tsx
+- client/src/pages/HSDocumentAcceptance.tsx
+- client/src/pages/settings/PassSettings.tsx
+- client/src/components/AICompetitiveAnalysis.tsx
+- client/src/components/AIROICalculator.tsx
+
+REPLACEMENT RULES:
+- "VisiGate Pro" → "TPR"
+- "VisiGate Pro Emergency System" → "TPR Emergency System"
+- "VisiGate Pro Visitor Management System" → "TPR Visitor Management"
+- "VisiGate Pro Contractor Management System" → "TPR Contractor Management"
+- "VisiGate Pro compliance system" → "TPR compliance system"
+- "Powered by VisiGate Pro" → "Powered by TPR"
+- "Starting VisiGate Pro server" → "Starting TPR server"
+- "VisiGate Pro server started successfully" → "TPR server started"
+- Any fallback company name like `|| "VisiGate Pro"` → `|| "TPR"`
+- In Stripe: product name 'VisiGate Pro' → 'TPR'
+- In email subjects: "VisiGate Pro" → "TPR"
+- "your VisiGate dashboard" → "your TPR dashboard"
+- "join ${companyName} on VisiGate Pro" → "join ${companyName} on TPR"
+- Do NOT change the seedHelpData.ts migration logic that looks for 
+  old VisiGate Pro records — that migration code can stay as-is since 
+  it references the old name intentionally to clean up database records.
+- Do NOT change isolation-test-script.ts — developer file only.
+
+After making all changes, do a final search for any remaining instances 
+of "VisiGate" in .ts and .tsx files to confirm none were missed.

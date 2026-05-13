@@ -514,7 +514,7 @@ export class CustomerOnboardingService {
     try {
       logger.info(`🔄 Creating Stripe subscription for customer: ${customerId}`);
 
-      // Ensure VisiGate Pro subscription plan exists
+      // Ensure TPR subscription plan exists
       const managementDbUrl = process.env.DATABASE_URL;
       if (!managementDbUrl) {
         throw new Error("DATABASE_URL must be set for management database");

@@ -280,7 +280,7 @@ export default function EmailSettings() {
       <div className="text-sm text-amber-800 dark:text-amber-300 space-y-2">
         <p className="font-medium">To prevent e-Pass emails going to junk/spam folders:</p>
         <ol className="list-decimal list-inside space-y-1 ml-2">
-          <li><strong>SPF Record:</strong> Add VisiGate server IP to your domain's SPF record</li>
+          <li><strong>SPF Record:</strong> Add TPR server IP to your domain's SPF record</li>
           <li><strong>DKIM Signing:</strong> Enable DKIM authentication in your email provider</li>
           <li><strong>From Address:</strong> Use an email from your verified domain (not generic providers)</li>
           <li><strong>Whitelist:</strong> Ask recipients to add {currentSettings?.smtpUsername || 'your email'} to contacts</li>

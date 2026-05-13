@@ -426,7 +426,7 @@ export default function PassSettings() {
                 )}
                 <h4 className="text-lg font-bold">Digital Visitor Pass</h4>
                 {!currentSettings?.logoUrl && (
-                  <p className="text-sm opacity-95 mt-1">{currentSettings?.companyName || "VisiGate Pro"}</p>
+                  <p className="text-sm opacity-95 mt-1">{currentSettings?.companyName || "TPR"}</p>
                 )}
               </div>
               
@@ -501,7 +501,7 @@ export default function PassSettings() {
                 <p className="text-xs opacity-60" style={{ color: currentSettings?.variableTextColor || '#374151' }}>
                   {currentSettings?.companyName || "Your Company"} • {currentSettings?.address || "Your Address"}
                 </p>
-                <p className="text-xs opacity-40 mt-1">Powered by VisiGate Pro</p>
+                <p className="text-xs opacity-40 mt-1">Powered by TPR</p>
               </div>
             </div>
             

@@ -164,7 +164,7 @@ export class VoiceNotificationService {
         throw new Error('No phone number configured for voice notifications');
       }
 
-      const message = testMessage || `Hello ${staff.firstName}, this is a test call from VisiGate Pro. Your voice notifications are working correctly.`;
+      const message = testMessage || `Hello ${staff.firstName}, this is a test call from TPR. Your voice notifications are working correctly.`;
 
       const request: VoiceNotificationRequest = {
         staffId: staff.id,
@@ -311,7 +311,7 @@ export class VoiceNotificationService {
     const companyText = visitor.company ? ` from ${visitor.company}` : '';
     const purposeText = visitor.purpose ? ` regarding ${visitor.purpose}` : '';
 
-    return `Hello ${staff.firstName}, you have a visitor. ${visitorName}${companyText} has arrived${purposeText}. Please check your VisiGate dashboard for more details.`;
+    return `Hello ${staff.firstName}, you have a visitor. ${visitorName}${companyText} has arrived${purposeText}. Please check your TPR dashboard for more details.`;
   }
 
   /**

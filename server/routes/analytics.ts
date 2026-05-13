@@ -131,7 +131,7 @@ export function registerAnalyticsRoutes(app: Express): void {
       }
       
       const voiceService = new VoiceNotificationService(databaseService as any);
-      const testMessage = customMessage || `Hello ${staff.firstName}, this is a test call from VisiGate Pro voice notification system. Your notifications are working correctly.`;
+      const testMessage = customMessage || `Hello ${staff.firstName}, this is a test call from TPR voice notification system. Your notifications are working correctly.`;
       
       const notification = await voiceService.sendTestNotification(context, staff, testMessage);
       

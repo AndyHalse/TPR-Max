@@ -1,0 +1,51 @@
+TASK: Replace the external QR code API dependency in printed visitor and 
+contractor passes with server-side generation using the qrcode npm package.
+
+CONTEXT:
+The file server/routes/passes.ts currently generates QR codes for printed 
+passes by calling an external URL:
+  https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=...
+
+This is a third-party free API with no SLA. If it is unavailable, every 
+printed pass has a broken QR code — including during fire evacuations. 
+The qrcode npm package is already installed in package.json. 
+We need to generate QR codes server-side as base64 data URIs embedded 
+directly in the HTML, with no external dependency.
+
+FILE TO CHANGE: server/routes/passes.ts
+
+CHANGES REQUIRED:
+
+1. At the top of the file, add this import:
+   import QRCode from 'qrcode';
+
+2. Change the buildPassPage function signature so it accepts qrData as a 
+   string (it already does), but make the function async.
+
+3. Inside buildPassPage, replace this line:
+   const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=M&color=000000&bgcolor=ffffff&data=${encodeURIComponent(opts.qrData)}`;
+   
+   With this:
+   const qrDataUrl = await QRCode.toDataURL(opts.qrData, {
+     width: 150,
+     margin: 1,
+     color: { dark: '#000000', light: '#ffffff' }
+   });
+
+4. In the HTML template inside buildPassPage, replace:
+   <img src="${qrUrl}" alt="QR Code" />
+   
+   With:
+   <img src="${qrDataUrl}" alt="QR Code" />
+
+5. Because buildPassPage is now async, update all three call sites 
+   (demo visitor pass, visitor pass, contractor pass) to await the function:
+   const html = await buildPassPage({ ... });
+
+6. The printed page already has onload="window.print()" — leave this as-is. 
+   This is the correct approach for SaaS browser-based printing.
+
+VERIFY: After the change, the QR image in printed passes should be a 
+base64 PNG embedded in the HTML — no external HTTP call required. 
+The passes should print correctly even with no internet access to 
+third-party services.

@@ -137,9 +137,12 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       } else {
         setCreatedVisitor(visitor);
         setShowPassPreview(true);
+        try {
+          window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
+        } catch { /* popup blocked — pass preview shown as fallback */ }
         toast({
           title: "Success",
-          description: "Visitor checked in successfully!",
+          description: "Visitor checked in! Pass is printing...",
         });
       }
     },

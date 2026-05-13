@@ -382,7 +382,7 @@ export default function HSDocumentAcceptance({ token }: HSDocumentAcceptanceProp
         {/* Footer */}
         <div className="text-center mt-8">
           <p className="text-sm text-slate-500">
-            This document acceptance is powered by VisiGate Pro compliance system
+            This document acceptance is powered by TPR compliance system
           </p>
         </div>
       </div>

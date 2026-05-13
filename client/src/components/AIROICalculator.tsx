@@ -190,7 +190,7 @@ export default function AIROICalculator() {
       </div>
       
       <div className="mt-6 bg-blue-100 dark:bg-blue-900/30 p-4 rounded-lg">
-        <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Why VisiGate Pro ROI is Outstanding:</h3>
+        <h3 className="font-semibold text-blue-800 dark:text-blue-200 mb-2">Why TPR ROI is Outstanding:</h3>
         <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
           <li>• <strong>AI Automation:</strong> Reduces manual admin by 85%+</li>
           <li>• <strong>Staff Productivity:</strong> Frees up valuable time for core business</li>

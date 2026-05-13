@@ -131,7 +131,7 @@ export class InductionService {
 
       const inductionUrl = `${getAppBaseUrl()}/induction/${token}`;
       
-      const emailSubject = "🎯 Site Induction Required - VisiGate Pro";
+      const emailSubject = "🎯 Site Induction Required - TPR";
       const emailHtml = `
         <!DOCTYPE html>
         <html>
@@ -187,7 +187,7 @@ export class InductionService {
               <p>If you have any questions, please contact site management.</p>
             </div>
             <div class="footer">
-              <p><strong>VisiGate Pro</strong> - Contractor Management System<br>
+              <p><strong>TPR</strong> - Contractor Management System<br>
               This email was sent automatically. Please do not reply to this email.</p>
             </div>
           </div>
@@ -211,7 +211,7 @@ Link expires: ${expiresAt.toLocaleDateString('en-GB')}
 
 This is a legal requirement under UK Health & Safety regulations.
 
-VisiGate Pro - Contractor Management System
+TPR - Contractor Management System
       `;
 
       const emailSvc = new EmailService(customerId);
@@ -283,7 +283,7 @@ VisiGate Pro - Contractor Management System
                               params.personType === 'staff' ? 'Staff Member' : 
                               'Contractor';
       
-      const emailSubject = `🎯 Site Induction Required - ${personTypeLabel} - VisiGate Pro`;
+      const emailSubject = `🎯 Site Induction Required - ${personTypeLabel} - TPR`;
       const emailHtml = `
         <!DOCTYPE html>
         <html>
@@ -339,7 +339,7 @@ VisiGate Pro - Contractor Management System
               <p>If you have any questions, please contact site management.</p>
             </div>
             <div class="footer">
-              <p><strong>VisiGate Pro</strong> - Visitor Management System<br>
+              <p><strong>TPR</strong> - Visitor Management System<br>
               This email was sent automatically. Please do not reply to this email.</p>
             </div>
           </div>
@@ -363,7 +363,7 @@ Link expires: ${expiresAt.toLocaleDateString('en-GB')}
 
 This is a legal requirement under UK Health & Safety regulations.
 
-VisiGate Pro - Visitor Management System
+TPR - Visitor Management System
       `;
 
       const emailSvc = new EmailService(params.customerId);

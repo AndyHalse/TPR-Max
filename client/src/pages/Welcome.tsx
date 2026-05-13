@@ -494,7 +494,7 @@ export default function Welcome() {
           <Crown className="text-white" size={40} />
         </div>
         <CardTitle className="text-3xl font-bold text-slate-800 dark:text-slate-200">
-          Welcome to VisiGate Pro!
+          Welcome to TPR!
         </CardTitle>
         <CardDescription className="text-lg">
           Your workspace is ready. Here are your login credentials.
@@ -584,7 +584,7 @@ export default function Welcome() {
               <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center flex-shrink-0">
                 <span className="text-blue-600 font-semibold text-sm">1</span>
               </div>
-              <span className="text-slate-700 dark:text-slate-300">Log in to your VisiGate Pro dashboard</span>
+              <span className="text-slate-700 dark:text-slate-300">Log in to your TPR dashboard</span>
             </div>
             
             <div className="flex items-center gap-3">
@@ -640,7 +640,7 @@ export default function Welcome() {
             <Sparkles className="text-white" size={40} />
           </div>
           <h1 className="text-4xl font-bold text-slate-800 dark:text-slate-200 mb-2">
-            Welcome to VisiGate Pro!
+            Welcome to TPR!
           </h1>
           <p className="text-xl text-slate-600 dark:text-slate-400">
             Let's set up your workspace in just a few steps

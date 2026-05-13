@@ -1107,7 +1107,7 @@ export function registerStaffRoutes(app: Express): void {
               if (selectedPrinter.includes('Magicard')) {
                 logger.info(`Waking up Magicard printer...`);
                 try {
-                  const wakeCommand = `powershell.exe -Command "Get-Printer -Name '${selectedPrinter}' | Set-Printer -Comment 'VisiGate-Wake-${Date.now()}'"`; 
+                  const wakeCommand = `powershell.exe -Command "Get-Printer -Name '${selectedPrinter}' | Set-Printer -Comment 'TPR-Wake-${Date.now()}'"`; 
                   execSync(wakeCommand, { encoding: 'utf8', timeout: 10000 });
                   logger.info(`Magicard wake-up command sent`);
                 } catch (wakeError) {

@@ -1,0 +1,51 @@
+TASK: When a visitor is checked in through the main Visitors page or the 
+Kiosk, automatically open the print pass page in a new browser tab so 
+staff can immediately print without any extra steps.
+
+CONTEXT:
+The print route already exists and works correctly:
+  GET /api/passes/print/visitor/:visitorId
+  GET /api/passes/print/contractor/:workerId
+
+These routes return a self-contained HTML page that calls window.print() 
+on load. The fix is simply to trigger window.open() to that URL immediately 
+after a successful check-in.
+
+FILES TO CHECK AND UPDATE:
+
+1. client/src/pages/Visitors.tsx
+   - Find the check-in handler (likely an API call to POST /api/visitors/:id/checkin 
+     or similar)
+   - After a successful check-in response, add:
+     window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
+   - Only trigger this if the company settings have printing enabled 
+     (check currentSettings?.ePassEnabled === false, meaning physical 
+     pass mode is active)
+
+2. client/src/pages/KioskMode.tsx
+   - Find where visitor check-in completes successfully
+   - After success, add the same window.open call using the returned visitor ID
+   - In kiosk mode this is especially important — the pass should auto-open 
+     for the receptionist to print
+
+3. client/src/pages/ContractorManagement.tsx (or the ContractorCheckInDialog)
+   - Find the contractor worker check-in handler
+   - After success, add:
+     window.open(`/api/passes/print/contractor/${workerId}`, '_blank');
+   - Same condition: only if ePassEnabled is false
+
+IMPORTANT NOTES:
+- Do NOT open the print window if ePassEnabled is true — in that mode 
+  the system sends a digital pass by email/SMS instead.
+- The print window opens automatically and calls window.print() on load. 
+  The user sees the browser print dialog immediately.
+- Do not block the check-in flow if window.open fails (some browsers 
+  block popups). Wrap in try/catch and show a manual "Print Pass" button 
+  as fallback.
+- Add a "Print Pass" button to the visitor record row/detail view as a 
+  fallback for manual reprinting at any time.
+
+ALSO: Remove the old Windows service folder entirely:
+  /windows-service/ — delete the whole folder.
+This was a legacy TCP/IP print approach that has been superseded by 
+browser print. Leaving it in the codebase causes confusion.

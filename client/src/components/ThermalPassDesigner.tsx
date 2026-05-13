@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -112,8 +113,15 @@ export function ThermalPassDesigner() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [qrPreviewUrl, setQrPreviewUrl] = useState<string>('');
 
-
+  // Generate a real scannable QR preview whenever the visitor name or company changes
+  useEffect(() => {
+    const qrData = `${previewData.name}|${companyData.companyName}|${new Date().toLocaleDateString('en-GB')}`;
+    QRCode.toDataURL(qrData, { width: 120, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+      .then(url => setQrPreviewUrl(url))
+      .catch(() => setQrPreviewUrl(''));
+  }, [previewData.name, companyData.companyName]);
 
   const loadSavedDesign = async () => {
     try {
@@ -413,25 +421,6 @@ export function ThermalPassDesigner() {
   const selectedElementData = selectedElement ? 
     passElements.find(el => el.id === selectedElement) : null;
 
-  // Generate unique visitor QR code with customer isolation
-  const generateUniqueVisitorQR = () => {
-    const timestamp = new Date().toISOString();
-    const randomId = Math.random().toString(36).substring(2, 10).toUpperCase();
-    const customerId = 'dev-customer-001'; // In production, this comes from session context
-    
-    const qrData = {
-      id: `VG-${customerId.substring(0, 4)}-${randomId}`,
-      visitor: previewData.name,
-      company: companyData.companyName,
-      timestamp,
-      checkInTime: new Date().toISOString(),
-      customerId,
-      type: 'visitor_pass'
-    };
-    
-    return JSON.stringify(qrData);
-  };
-
   const renderPreviewContent = (element: ThermalElement) => {
     if (!element.isVariable) {
       // Handle static content that may reference company data
@@ -561,13 +550,12 @@ export function ThermalPassDesigner() {
                           </div>
                         )}
                         {element.type === 'qr_code' && (
-                          <div className="w-full h-full bg-white border border-gray-300 flex items-center justify-center text-xs overflow-hidden">
-                            <div className="text-center">
-                              <QrCode className="h-6 w-6 mx-auto mb-1" />
-                              <div className="text-xs font-mono break-all">
-                                {generateUniqueVisitorQR().substring(0, 20)}...
-                              </div>
-                            </div>
+                          <div className="w-full h-full bg-white border border-gray-300 flex items-center justify-center overflow-hidden">
+                            {qrPreviewUrl ? (
+                              <img src={qrPreviewUrl} alt="QR Code" className="w-full h-full object-contain" />
+                            ) : (
+                              <QrCode className="h-6 w-6 text-gray-400" />
+                            )}
                           </div>
                         )}
                         {element.type === 'logo' && (

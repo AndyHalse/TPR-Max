@@ -325,7 +325,7 @@ export class VideoGenerationService {
   }> {
     
     // Get comprehensive company details for enhanced AI personalization
-    const companyName = siteContext?.companyName || this.companySettings?.companyName || "VisiGate Pro";
+    const companyName = siteContext?.companyName || this.companySettings?.companyName || "TPR";
     const companyLogo = this.companySettings?.bannerUrl ? `Company Logo: ${this.companySettings.bannerUrl}` : "Professional company branding";
     const aiInstructions = this.companySettings?.aiInstructionsPrompt || "Create comprehensive, engaging safety induction content";
     
@@ -665,7 +665,7 @@ Respond with valid JSON:
           scenes: [
             {
               title: "Welcome & Introduction",
-              content: `Welcome to VisiGate Pro's comprehensive safety induction for ${roleType}s. This presentation will cover all essential health and safety requirements you need to know before starting work on our premises.`,
+              content: `Welcome to TPR's comprehensive safety induction for ${roleType}s. This presentation will cover all essential health and safety requirements you need to know before starting work on our premises.`,
               duration: 120,
               imagePrompt: "Professional office reception area with safety notices"
             },
@@ -760,7 +760,7 @@ Respond with valid JSON:
 
   // Generate scene images for the induction (optimized for speed with parallel processing)
   async generateSceneImages(scenes: Array<{imagePrompt: string}>): Promise<string[]> {
-    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    const companyName = this.companySettings?.companyName || "TPR";
     
     // GENERATE IMAGES FOR ALL SCENES - Critical for professional presentation
     const selectedScenes = scenes; // Use all scenes to ensure every page has an image
@@ -910,7 +910,7 @@ Respond with valid JSON:
       .replace(/'/g, '&#39;');
 
     // Re-generate SVG with escaped content
-    const companyNameEscaped = escapeXml(this.companySettings?.companyName || 'VisiGate Pro');
+    const companyNameEscaped = escapeXml(this.companySettings?.companyName || 'TPR');
     const titleEscaped = escapeXml(title);
     
     const safeSvg = `<?xml version="1.0" encoding="UTF-8"?>
@@ -1250,7 +1250,7 @@ Respond with valid JSON:
     }
     
     // Get company name for branding
-    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    const companyName = this.companySettings?.companyName || "TPR";
     
     // Create content based on format
     let htmlContent: string;
@@ -1563,7 +1563,7 @@ Respond with valid JSON:
 
   // Generate video using Google Veo 3 API
   async createVeo3VideoPresentation(scenes: any[], roleType: string): Promise<string> {
-    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    const companyName = this.companySettings?.companyName || "TPR";
     
     try {
       // Create comprehensive video prompt from all scenes  
@@ -1616,7 +1616,7 @@ Respond with valid JSON:
 
   // Generate actual video using Sora API
   async generateSoraVideo(scenes: any[], roleType: string): Promise<string | null> {
-    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    const companyName = this.companySettings?.companyName || "TPR";
     
     try {
       // Create comprehensive video prompt from all scenes
@@ -1677,7 +1677,7 @@ Respond with valid JSON:
 
   // Create video player HTML for actual Sora-generated video
   createVideoPlayerHTML(videoUrl: string, roleType: string, scenes: any[]): string {
-    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    const companyName = this.companySettings?.companyName || "TPR";
     
     return `
 <!DOCTYPE html>
@@ -1820,7 +1820,7 @@ Respond with valid JSON:
     logger.info('🎨 Generating enhanced presentation with AI images...');
     
     // Get company name and logo for branding
-    const companyName = this.companySettings?.companyName || "VisiGate Pro";
+    const companyName = this.companySettings?.companyName || "TPR";
     const companyLogoUrl = this.companySettings?.logoUrl || this.companySettings?.bannerUrl || null;
     
     // Use pre-generated AI images and audio if available

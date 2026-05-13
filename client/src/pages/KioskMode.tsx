@@ -167,6 +167,13 @@ export default function KioskMode() {
       const visitorName = `${data.visitor.firstName} ${data.visitor.lastName}`;
       const visitorCompany = data.visitor.company || undefined;
 
+      // Auto-print pass if not using digital e-pass
+      if (!data.visitor.ePassSent && !settings?.ePassEnabled) {
+        try {
+          window.open(`/api/passes/print/visitor/${data.visitor.id}`, '_blank');
+        } catch { /* popup blocked — receptionist can print manually */ }
+      }
+
       // Show named check-in success overlay on the scan screen for 3.5s then go home
       setCheckinSuccess({ name: visitorName, company: visitorCompany });
       setCameraState("off");

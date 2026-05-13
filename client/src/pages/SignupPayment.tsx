@@ -229,7 +229,7 @@ export default function SignupPayment() {
             Complete Your Setup
           </h1>
           <p className="text-xl text-slate-600 dark:text-slate-400">
-            Start your 14-day free trial of VisiGate Pro
+            Start your 14-day free trial of TPR
           </p>
         </div>
 
@@ -325,7 +325,7 @@ export default function SignupPayment() {
                   <Star className="text-yellow-500" size={24} />
                 </div>
                 <CardTitle className="text-3xl font-bold text-slate-800 dark:text-slate-200">
-                  VisiGate Pro Professional
+                  TPR Professional
                 </CardTitle>
                 <CardDescription className="text-lg">
                   Complete visitor management solution for modern businesses

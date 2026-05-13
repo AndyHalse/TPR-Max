@@ -450,7 +450,7 @@ export const preBookings = pgTable("pre_bookings", {
 export const subscriptionPlans = pgTable("subscription_plans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(), // "Starter", "Professional", "Enterprise"
-  displayName: text("display_name").notNull(), // "VisiGate Pro Starter"
+  displayName: text("display_name").notNull(), // "TPR Starter"
   description: text("description"),
   // Pricing - Using numeric for proper financial calculations
   monthlyPrice: numeric("monthly_price", { precision: 10, scale: 2 }).notNull(), // Precise decimal handling for billing

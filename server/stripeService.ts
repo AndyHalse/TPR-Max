@@ -140,7 +140,7 @@ export class StripeService {
   }
 
   /**
-   * Ensure VisiGate Pro subscription plans exist (idempotent)
+   * Ensure TPR subscription plans exist (idempotent)
    */
   async ensureSubscriptionPlans() {
     if (!this.isStripeAvailable()) {
@@ -153,7 +153,7 @@ export class StripeService {
       };
     }
 
-    logger.info('🚀 Ensuring VisiGate Pro subscription plans exist...');
+    logger.info('🚀 Ensuring TPR subscription plans exist...');
 
     try {
       const db = this.getManagementDb();
@@ -166,7 +166,7 @@ export class StripeService {
         .limit(1);
 
       if (existingPlan && existingPlan.stripeProductId && existingPlan.stripePriceIdMonthly) {
-        logger.info('✅ VisiGate Pro plan already exists, skipping creation');
+        logger.info('✅ TPR plan already exists, skipping creation');
         return {
           success: true,
           plan: existingPlan,
@@ -184,19 +184,19 @@ export class StripeService {
   }
 
   /**
-   * Create VisiGate Pro subscription plans in Stripe
+   * Create TPR subscription plans in Stripe
    */
   async createSubscriptionPlans() {
     if (!this.isStripeAvailable()) {
       throw new Error('Stripe not configured - STRIPE_SECRET_KEY environment variable required');
     }
 
-    logger.info('🚀 Creating VisiGate Pro subscription plans in Stripe...');
+    logger.info('🚀 Creating TPR subscription plans in Stripe...');
 
     try {
-      // Create VisiGate Pro product
+      // Create TPR product
       const product = await this.stripe.products.create({
-        name: 'VisiGate Pro',
+        name: 'TPR',
         description: 'Professional visitor management and access control system',
         metadata: {
           type: 'saas_subscription',
@@ -256,7 +256,7 @@ export class StripeService {
         .insert(sharedSchema.subscriptionPlans)
         .values({
           name: 'visigate_pro',
-          displayName: 'VisiGate Pro',
+          displayName: 'TPR',
           description: 'Professional visitor management system with full feature access',
           monthlyPrice: '49.95',
           yearlyPrice: '499.50',
@@ -341,7 +341,7 @@ export class StripeService {
       const customer = await this.stripe.customers.create({
         email: data.email,
         name: data.name,
-        description: `${data.companyName} - VisiGate Pro Customer`,
+        description: `${data.companyName} - TPR Customer`,
         phone: data.phone,
         address: data.address,
         metadata: {
@@ -707,7 +707,7 @@ export class StripeService {
 
       const customerId = stripeSubscription.metadata.visigate_customer_id;
       if (!customerId) {
-        logger.warn('No VisiGate customer ID found in subscription metadata');
+        logger.warn('No TPR customer ID found in subscription metadata');
         return;
       }
 

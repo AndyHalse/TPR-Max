@@ -3584,7 +3584,7 @@ export function registerInductionRoutes(app: Express): void {
         • Staff: ${checkedInStaff.length}
         • Contractors: ${checkedInContractors.length}
         
-        This is an automated notification from VisiGate Pro.
+        This is an automated notification from TPR.
       `;
       
       // Send to on-site personnel
@@ -4648,7 +4648,7 @@ export function registerInductionRoutes(app: Express): void {
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>${setting.videoTitle} - VisiGate Pro</title>
+          <title>${setting.videoTitle} - TPR</title>
           <style>
             body {
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -4794,7 +4794,7 @@ export function registerInductionRoutes(app: Express): void {
               </div>
               
               <div class="powered-by">
-                <p>🤖 Powered by OpenAI GPT-5 | 🏢 VisiGate Pro Safety Management</p>
+                <p>🤖 Powered by OpenAI GPT-5 | 🏢 TPR Safety Management</p>
               </div>
             </div>
           </div>

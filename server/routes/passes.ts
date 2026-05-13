@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import QRCode from 'qrcode';
 import { requireAuth } from '../auth';
 import { databaseService } from '../databaseService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
@@ -8,7 +9,7 @@ import { eq } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 /** Build a self-contained printable HTML page for a visitor or contractor pass. */
-function buildPassPage(opts: {
+async function buildPassPage(opts: {
   title: string;
   headerLabel: string;
   headerColor: string;
@@ -20,8 +21,12 @@ function buildPassPage(opts: {
   companyAddress?: string;
   logoUrl: string | null;
   footerId: string;
-}): string {
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=M&color=000000&bgcolor=ffffff&data=${encodeURIComponent(opts.qrData)}`;
+}): Promise<string> {
+  const qrDataUrl = await QRCode.toDataURL(opts.qrData, {
+    width: 150,
+    margin: 1,
+    color: { dark: '#000000', light: '#ffffff' }
+  });
   const logoHtml = opts.logoUrl
     ? `<img src="${opts.logoUrl}" alt="Logo" style="max-width:60px;max-height:40px;object-fit:contain;" />`
     : `<div style="width:48px;height:36px;background:${opts.headerColor};border-radius:4px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:13px;">CO</div>`;
@@ -69,7 +74,7 @@ function buildPassPage(opts: {
         ${opts.subName ? `<div class="subname">${opts.subName}</div>` : ''}
         <div class="details">${detailsHtml}</div>
       </div>
-      <div class="qr"><img src="${qrUrl}" alt="QR Code" /></div>
+      <div class="qr"><img src="${qrDataUrl}" alt="QR Code" /></div>
     </div>
     <div class="footer">
       <span>ID: ${opts.footerId}</span>
@@ -84,7 +89,7 @@ export function registerPassRoutes(app: Express): void {
   // GET /api/passes/print/visitor/demo — demo visitor pass (no auth needed for design preview)
   app.get("/api/passes/print/visitor/demo", async (req, res) => {
     try {
-      const html = buildPassPage({
+      const html = await buildPassPage({
         title: "Visitor Pass — Demo",
         headerLabel: "VISITOR PASS",
         headerColor: "#1a56db",
@@ -135,7 +140,7 @@ export function registerPassRoutes(app: Express): void {
         ? new Date(visitor.checkedInAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })
         : new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
 
-      const html = buildPassPage({
+      const html = await buildPassPage({
         title: `Visitor Pass — ${visitor.firstName} ${visitor.lastName}`,
         headerLabel: 'VISITOR PASS',
         headerColor: '#1a56db',
@@ -184,7 +189,7 @@ export function registerPassRoutes(app: Express): void {
         : worker.currentCardStatus === 'red' ? 'RESTRICTED'
         : 'CLEARED';
 
-      const html = buildPassPage({
+      const html = await buildPassPage({
         title: `Contractor Pass — ${worker.firstName} ${worker.lastName}`,
         headerLabel: 'CONTRACTOR PASS',
         headerColor: '#ea580c',

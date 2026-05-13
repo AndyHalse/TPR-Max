@@ -24,7 +24,7 @@ export class EmergencyEmailService {
     // Use environment variable or fallback to a common domain
     return process.env.EMERGENCY_FROM_EMAIL || 'noreply@example.com';
   }
-  private static readonly FROM_NAME = 'VisiGate Pro Emergency System';
+  private static readonly FROM_NAME = 'TPR Emergency System';
 
   /**
    * @deprecated LEGACY: This function generates temporary tokens that expire after 4 hours.
@@ -270,7 +270,7 @@ export class EmergencyEmailService {
             </div>
             
             <div class="footer">
-                <p>VisiGate Pro Emergency Management System</p>
+                <p>TPR Emergency Management System</p>
                 <p>This is an automated emergency notification. For support, contact your system administrator.</p>
                 <p style="margin-top: 10px; font-size: 12px;">Emergency Services: 999 | Security Control Room: Available 24/7</p>
             </div>
@@ -305,7 +305,7 @@ Your responsibilities:
 This token expires in 4 hours from activation.
 
 Emergency Services: 999
-VisiGate Pro Emergency System - Automated Notification
+TPR Emergency System - Automated Notification
 `;
 
     // Use the working EmailService from /settings

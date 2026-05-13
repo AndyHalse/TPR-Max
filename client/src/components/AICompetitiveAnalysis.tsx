@@ -45,7 +45,7 @@ export default function AICompetitiveAnalysis() {
     onSuccess: () => {
       toast({
         title: "Competitive Analysis Complete",
-        description: "AI analysis shows VisiGate Pro's advantages",
+        description: "AI analysis shows TPR's advantages",
       });
     },
     onError: () => {
@@ -194,7 +194,7 @@ export default function AICompetitiveAnalysis() {
             <div className="bg-white/50 dark:bg-slate-800/50 p-8 rounded-lg text-center">
               <Target className="mx-auto text-slate-400 mb-4" size={48} />
               <p className="text-slate-600 dark:text-slate-400">
-                Generate AI analysis to see how VisiGate Pro outperforms your current system
+                Generate AI analysis to see how TPR outperforms your current system
               </p>
             </div>
           )}
