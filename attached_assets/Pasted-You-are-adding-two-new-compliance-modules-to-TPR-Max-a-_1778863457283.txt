@@ -1,0 +1,1104 @@
+You are adding two new compliance modules to TPR Max — a site compliance 
+SaaS platform built in Node.js (Express) with a React frontend and 
+PostgreSQL database using schema-per-customer isolation.
+
+CRITICAL: Follow the existing architectural patterns exactly. Do not 
+introduce new patterns or libraries. Read the existing code before 
+writing anything new.
+
+════════════════════════════════════════════════════════════════════════
+BEFORE YOU START — READ THESE FILES FIRST
+════════════════════════════════════════════════════════════════════════
+
+Read and understand the patterns in these files before writing any code:
+
+1. server/routes/ppm.ts
+   — Feature gate middleware pattern (requirePPMFeature)
+   — Customer context creation
+   — Cron job structure with configurable alert hour
+   — Document upload and expiry tracking
+   — ppmAlertHour / missingCertAlertedAt idempotency pattern
+
+2. server/isolatedSchema.ts
+   — ppmAssets, ppmTemplates, ppmSchedules, ppmWorkOrders, 
+     ppmWorkOrderDocuments table definitions
+   — This is where you add new isolated (customer-specific) tables
+
+3. shared/schema.ts
+   — companySettings table — where feature toggles live
+   — contractorCompanies, contractorWorkers table structure
+
+4. server/emailService.ts
+   — EmailService constructor and sendEmail method
+   — How HTML emails are constructed
+   — The setImmediate logging pattern
+
+5. server/routes/hsIncidents.ts
+   — RIDDOR cron job as a reference for daily reminder cron pattern
+
+Do not proceed until you have read all five files.
+
+════════════════════════════════════════════════════════════════════════
+SECTION A — STATUTORY COMPLIANCE CERTIFICATE REGISTER
+════════════════════════════════════════════════════════════════════════
+
+PURPOSE:
+Every non-domestic building has a set of legally required inspections 
+and certificates. Currently there is no single place in TPR Max to 
+track all of them. This module adds a "Compliance Register" — one 
+dashboard showing every statutory certificate, its status, next due 
+date, and uploaded document. Non-compliance with these is a criminal 
+offence for the Responsible Person.
+
+The PPM module already handles maintenance work orders. This module 
+tracks the certificates those inspections produce — and statutory 
+inspections that are managed externally.
+
+────────────────────────────────────────────────────────────────────
+STEP A1 — DATABASE: Add feature toggle to companySettings
+────────────────────────────────────────────────────────────────────
+
+In shared/schema.ts, add to the companySettings table:
+
+  featureComplianceCertificates: boolean('feature_compliance_certificates')
+    .default(false),
+  
+  complianceCertAlertHour: integer('compliance_cert_alert_hour')
+    .default(7),
+    -- Hour (0-23) to run the daily certificate expiry cron
+
+────────────────────────────────────────────────────────────────────
+STEP A2 — DATABASE: New tables in isolatedSchema.ts
+────────────────────────────────────────────────────────────────────
+
+Add the following tables to server/isolatedSchema.ts, following the 
+exact same pattern as existing tables (uuid primary key, customerId 
+FK, timestamps):
+
+TABLE 1: complianceCertificateTypes
+  — Defines which statutory certificates this building requires.
+  — Customers can enable/disable types and set custom frequencies.
+
+  id: uuid primary key (default crypto.randomUUID())
+  customerId: text (FK reference to customers)
+  certificateType: text NOT NULL
+    -- Predefined values:
+    -- 'fire_risk_assessment'       — RRO 2005, annual
+    -- 'fire_alarm_test_weekly'     — RRO 2005, weekly
+    -- 'fire_alarm_test_full'       — BS 5839, 6-monthly
+    -- 'emergency_lighting_monthly' — BS 5266, monthly
+    -- 'emergency_lighting_annual'  — BS 5266, annual
+    -- 'eicr'                       — Electricity at Work Regs 1989, 5-yearly
+    -- 'gas_safety'                 — Gas Safety Regs 1998, annual
+    -- 'loler_lift'                 — LOLER 1998, 6-monthly
+    -- 'legionella_risk_assessment' — L8 ACOP, annual
+    -- 'legionella_water_testing'   — L8 ACOP, monthly
+    -- 'asbestos_survey'            — CAR 2012, on condition change
+    -- 'pat_testing'                — Electricity at Work, annual
+    -- 'sprinkler_system'           — BS 9251, annual
+    -- 'lightning_protection'       — BS EN 62305, annual
+    -- 'custom'                     — Customer-defined certificate
+  displayName: text NOT NULL
+    -- Auto-populated from certificateType, editable for 'custom'
+  legalBasis: text
+    -- Auto-populated: the legislation requiring this certificate
+    -- e.g. "Electricity at Work Regulations 1989"
+  frequency: text NOT NULL
+    -- Values: 'weekly' | 'monthly' | 'quarterly' | 'biannual' | 
+    --         'annual' | 'five_yearly' | 'custom'
+  customDays: integer
+    -- Used when frequency = 'custom'
+  isActive: boolean default true
+    -- Customer can deactivate certificate types not applicable 
+    -- to their building (e.g. no gas supply = no gas safety cert)
+  reminderDaysBefore: integer default 30
+    -- How many days before expiry to send reminder email
+  createdAt: timestamp default now()
+
+TABLE 2: complianceCertificates
+  — Individual certificate records. Each time a certificate is 
+  — renewed, a new record is created. Previous records are retained.
+
+  id: uuid primary key
+  customerId: text (FK)
+  certificateTypeId: uuid (FK → complianceCertificateTypes.id)
+  certificateType: text NOT NULL (denormalized for query performance)
+  
+  -- Certificate details
+  issueDate: date NOT NULL
+  expiryDate: date
+    -- Null for certificates that don't expire (e.g. asbestos survey 
+    -- is reviewed on condition change, not date-based)
+  nextDueDate: date
+    -- Calculated from issueDate + frequency. Stored for easy querying.
+  referenceNumber: text
+    -- Certificate or report reference number
+  issuedBy: text
+    -- Name of contractor, assessor, or engineer who issued it
+  issuingCompany: text
+    -- Company who carried out the inspection
+  
+  -- Document
+  documentUrl: text
+    -- Uploaded certificate PDF
+  fileName: text
+  
+  -- Status (calculated but stored for performance)
+  status: text default 'current'
+    -- Values: 'current' | 'expiring_soon' | 'expired' | 'no_expiry'
+    -- Recalculated on every fetch
+  
+  -- Linking (optional)
+  linkedPpmWorkOrderId: uuid
+    -- If this certificate was generated by a PPM work order, 
+    -- link it here. Optional — many certs are from external inspectors.
+  
+  -- Tracking
+  uploadedBy: text (FK → users.id)
+  notes: text
+  isCurrent: boolean default true
+    -- False when superseded by a newer certificate of same type
+  
+  -- Alert idempotency (follow existing pattern)
+  expiryAlertedAt: timestamp
+    -- Set when expiry reminder email is sent. Prevents duplicates.
+  
+  createdAt: timestamp default now()
+
+────────────────────────────────────────────────────────────────────
+STEP A3 — BACKEND: Feature gate middleware
+────────────────────────────────────────────────────────────────────
+
+In server/routes/complianceCertificates.ts, create the feature gate 
+following the EXACT same pattern as requirePPMFeature in ppm.ts:
+
+  const requireComplianceCertificatesFeature = async (req, res, next) => {
+    const context = simpleDatabaseService.createCustomerContext(
+      req.user!.username, req.customerId
+    );
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featureComplianceCertificates) {
+      return res.status(403).json({
+        error: 'Compliance Certificate Register is not enabled. ' +
+               'Please contact support to activate this module.'
+      });
+    }
+    next();
+  };
+
+Apply requireAuth and requireComplianceCertificatesFeature to ALL 
+routes in this file.
+
+────────────────────────────────────────────────────────────────────
+STEP A4 — BACKEND: Certificate type routes
+────────────────────────────────────────────────────────────────────
+
+GET /api/compliance-certificates/types
+  — Returns all certificateTypes for this customer with 
+    the latest certificate for each type included:
+    [
+      {
+        ...typeRecord,
+        latestCertificate: Certificate | null,
+        status: 'current' | 'expiring_soon' | 'expired' | 'no_certificate',
+        daysUntilExpiry: number | null,
+        isOverdue: boolean
+      }
+    ]
+  — This is the main data source for the dashboard.
+
+POST /api/compliance-certificates/types
+  — Create a new certificate type (for 'custom' types).
+  — For predefined types: seed the standard list if none exist.
+  
+PUT /api/compliance-certificates/types/:id
+  — Update: isActive, reminderDaysBefore, displayName (custom only)
+  
+GET /api/compliance-certificates/types/seed
+  — POST endpoint: Seeds all standard certificate types for this 
+    customer using the predefined list. Called once on first 
+    activation of the module.
+  — Check if types already exist before inserting (idempotent).
+  — Predefined seed data:
+
+    [
+      { type: 'fire_alarm_test_weekly',  name: 'Fire Alarm Test (Weekly)', 
+        legal: 'Regulatory Reform (Fire Safety) Order 2005', freq: 'weekly' },
+      { type: 'fire_alarm_test_full',    name: 'Fire Alarm Test (Full)',   
+        legal: 'BS 5839-1', freq: 'biannual' },
+      { type: 'emergency_lighting_monthly', name: 'Emergency Lighting Test (Monthly)',
+        legal: 'BS 5266-1', freq: 'monthly' },
+      { type: 'emergency_lighting_annual',  name: 'Emergency Lighting Test (Annual)',
+        legal: 'BS 5266-1', freq: 'annual' },
+      { type: 'eicr', name: 'Electrical Installation Condition Report (EICR)',
+        legal: 'Electricity at Work Regulations 1989', freq: 'five_yearly' },
+      { type: 'gas_safety', name: 'Gas Safety Check',
+        legal: 'Gas Safety (Installation and Use) Regulations 1998', freq: 'annual' },
+      { type: 'loler_lift', name: 'Lift Inspection (LOLER)',
+        legal: 'Lifting Operations and Lifting Equipment Regulations 1998', freq: 'biannual' },
+      { type: 'legionella_risk_assessment', name: 'Legionella Risk Assessment',
+        legal: 'L8 Approved Code of Practice', freq: 'annual' },
+      { type: 'legionella_water_testing', name: 'Legionella Water Testing',
+        legal: 'L8 Approved Code of Practice', freq: 'monthly' },
+      { type: 'asbestos_survey', name: 'Asbestos Management Survey',
+        legal: 'Control of Asbestos Regulations 2012', freq: 'custom',
+        customDays: 0 },  -- No fixed frequency; reviewed on condition change
+      { type: 'pat_testing', name: 'PAT Testing',
+        legal: 'Electricity at Work Regulations 1989', freq: 'annual' },
+      { type: 'sprinkler_system', name: 'Sprinkler System Inspection',
+        legal: 'BS 9251', freq: 'annual' },
+      { type: 'lightning_protection', name: 'Lightning Protection Test',
+        legal: 'BS EN 62305', freq: 'annual' },
+      { type: 'fire_risk_assessment', name: 'Fire Risk Assessment',
+        legal: 'Regulatory Reform (Fire Safety) Order 2005', freq: 'annual' },
+    ]
+
+────────────────────────────────────────────────────────────────────
+STEP A5 — BACKEND: Certificate record routes
+────────────────────────────────────────────────────────────────────
+
+GET /api/compliance-certificates
+  — All certificates for this customer (all types, all history)
+  — Supports query params: ?typeId=, ?status=, ?isCurrent=true
+
+POST /api/compliance-certificates
+  Body: { certificateTypeId, issueDate, expiryDate, referenceNumber,
+          issuedBy, issuingCompany, documentUrl, fileName, 
+          linkedPpmWorkOrderId, notes }
+  Actions:
+    1. Calculate nextDueDate from issueDate + type frequency
+    2. Set isCurrent = true
+    3. Set previous certificate of same type: isCurrent = false
+    4. Calculate and store status field
+    5. Return created certificate
+
+POST /api/compliance-certificates/:id/upload
+  — Upload certificate document (PDF, max 20MB)
+  — Update documentUrl and fileName on the record
+
+GET /api/compliance-certificates/:id/download
+  — Authenticated download of certificate document
+
+DELETE /api/compliance-certificates/:id
+  — Soft delete only (set deletedAt). 
+  — Certificates must never be hard deleted (audit trail).
+  — If deleting the current certificate, set the previous one 
+    as isCurrent = true automatically.
+
+GET /api/compliance-certificates/status-summary
+  — Returns aggregate status for dashboard widget:
+    {
+      total: number,         -- Total active certificate types
+      current: number,
+      expiring_soon: number,
+      expired: number,
+      no_certificate: number,
+      overallStatus: 'compliant' | 'attention_needed' | 'critical'
+        -- 'compliant':         All current, none expiring within 14 days
+        -- 'attention_needed':  Some expiring within 30 days
+        -- 'critical':          Any expired or no certificate recorded
+    }
+
+────────────────────────────────────────────────────────────────────
+STEP A6 — BACKEND: Status calculation utility
+────────────────────────────────────────────────────────────────────
+
+Create server/utils/complianceCertUtils.ts:
+
+  export function calculateCertificateStatus(
+    expiryDate: Date | null,
+    reminderDaysBefore: number = 30
+  ): 'current' | 'expiring_soon' | 'expired' | 'no_expiry' {
+    if (!expiryDate) return 'no_expiry'
+    const today = new Date()
+    const expiry = new Date(expiryDate)
+    if (expiry < today) return 'expired'
+    const daysUntil = Math.ceil((expiry.getTime() - today.getTime()) 
+                                / (1000 * 60 * 60 * 24))
+    if (daysUntil <= reminderDaysBefore) return 'expiring_soon'
+    return 'current'
+  }
+
+  export function calculateNextDueDate(
+    issueDate: Date,
+    frequency: string,
+    customDays?: number
+  ): Date | null {
+    -- Follow same logic as existing calculateNextDueDate in ppm.ts
+    -- Return null for 'custom' with customDays = 0 (asbestos)
+  }
+
+  export function getDaysUntilExpiry(expiryDate: Date | null): number | null {
+    if (!expiryDate) return null
+    const today = new Date()
+    return Math.ceil(
+      (new Date(expiryDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    )
+  }
+
+────────────────────────────────────────────────────────────────────
+STEP A7 — BACKEND: Daily cron job for expiry reminders
+────────────────────────────────────────────────────────────────────
+
+In the cron job file (or server/routes/complianceCertificates.ts), 
+add a daily cron following the EXACT same pattern as the PPM 
+alert cron in ppm.ts:
+
+  const alertHour = settings?.complianceCertAlertHour ?? 7;
+  cron.schedule(`0 ${alertHour} * * *`, async () => {
+    // For each customer with featureComplianceCertificates = true:
+    //   Find all complianceCertificates where:
+    //     - isCurrent = true
+    //     - expiryDate IS NOT NULL
+    //     - expiryDate <= today + reminderDaysBefore days
+    //     - expiryAlertedAt IS NULL (not yet alerted)
+    //   
+    //   For each match:
+    //     1. Fetch the certificate type name and legal basis
+    //     2. Fetch customer admin email from companySettings
+    //     3. Send email (template below)
+    //     4. Set expiryAlertedAt = NOW() to prevent duplicates
+    //     5. Use setImmediate for logging (fire-and-forget)
+  });
+
+Email subject:
+  "⚠ Compliance Certificate Expiring — [CERTIFICATE TYPE]"
+  or
+  "🚨 Compliance Certificate EXPIRED — [CERTIFICATE TYPE]"
+
+Email body (HTML, matching existing email style in emailService.ts):
+  ---
+  Your [CERTIFICATE TYPE] certificate is [expiring on DATE / 
+  expired on DATE] and requires renewal.
+
+  Certificate type:  [DISPLAY NAME]
+  Legal requirement: [LEGAL BASIS]
+  Last issued by:    [ISSUING COMPANY]
+  Issue date:        [DATE]
+  Expiry date:       [DATE]
+  [Days remaining: N / EXPIRED N days ago]
+
+  Log in to TPR Max to upload the renewed certificate and 
+  update your compliance record.
+
+  If this certificate has already been renewed, please upload 
+  the new document to clear this reminder.
+  ---
+
+Send SEPARATE immediate emails (not waiting for cron) for 
+any certificate where status = 'expired' AND the customer 
+has just activated the module (expiryAlertedAt IS NULL). 
+This catches existing expired certificates on first use.
+
+────────────────────────────────────────────────────────────────────
+STEP A8 — FRONTEND: Compliance Certificate Register pages
+────────────────────────────────────────────────────────────────────
+
+Route: /compliance-certificates
+
+Create the following pages in client/src/pages/:
+
+PAGE 1: ComplianceCertificateRegister.tsx (main page)
+
+  HEADER:
+    Title: "Compliance Certificate Register"
+    Subtitle: "Statutory inspections and certificates required for 
+               this building"
+    Button: "Upload Certificate" (opens upload modal)
+    Button: "Manage Certificate Types" (opens settings panel)
+
+  STATUS SUMMARY BAR (top of page, full width):
+    Four chips showing counts:
+    ✅ [N] Current  |  ⚠ [N] Expiring  |  🚨 [N] Expired  |  — [N] Not Recorded
+
+  CERTIFICATE GRID:
+    One card per active certificate type, ordered by status 
+    (expired first, then expiring, then current, then not recorded).
+
+    Each card shows:
+    ┌─────────────────────────────────────────┐
+    │ 🚨 EXPIRED              GAS SAFETY      │
+    │ Legal: Gas Safety Regs 1998   Annual    │
+    │ Last issued: Smith Gas Services         │
+    │ Expired: 12 March 2026 (58 days ago)    │
+    │ [Upload Renewed Certificate]  [History] │
+    └─────────────────────────────────────────┘
+
+    Status colours:
+    - current:        Green left border
+    - expiring_soon:  Amber left border + amber badge
+    - expired:        Red left border + red badge + pulsing indicator
+    - no_certificate: Grey dashed border + "Not recorded" badge
+
+    Each card has:
+    - Status badge (✅ Current | ⚠ Expiring in N days | 🚨 Expired | — Not recorded)
+    - Legal basis text (small, muted)
+    - Frequency label (Annual / 6-Monthly / Monthly etc.)
+    - Last issuing company and date (if certificate exists)
+    - Download certificate button (if document uploaded)
+    - "Upload Certificate" button
+    - "View History" button → shows all previous certificates
+
+  INACTIVE TYPES:
+    Collapsed section at the bottom: "Not applicable to this building (N)"
+    These are types the customer has deactivated.
+
+PAGE 2: CertificateHistoryPanel.tsx (slide-out panel or modal)
+
+  Shows all certificates for a specific type, newest first.
+  Each row: issue date, expiry date, issued by, reference number, 
+  download button, "Current" badge on newest.
+
+PAGE 3: CertificateUploadModal.tsx
+
+  Form fields:
+    Certificate type (dropdown — shows active types)
+    Issue date (date picker)
+    Expiry date (date picker — hide if type has no fixed expiry)
+    Reference number
+    Issued by (person name)
+    Issuing company
+    Link to PPM work order (optional searchable dropdown)
+    Notes
+    Upload document (PDF, required)
+
+  On submit: POST to /api/compliance-certificates then 
+  POST to /api/compliance-certificates/:id/upload
+
+PAGE 4: CertificateTypeSettings.tsx (modal or settings panel)
+
+  Table of all certificate types with:
+  - Toggle active/inactive (checkbox)
+  - Edit reminder days (number input, default 30)
+  - For 'custom' types: edit display name
+
+  "Add Custom Certificate Type" button at bottom.
+
+DASHBOARD WIDGET:
+  Add a Compliance Register status tile to the main dashboard 
+  (alongside existing compliance widgets):
+
+  If all current:    ✅ Compliance Register — All current
+  If attention:      ⚠ [N] certificates expiring soon  →
+  If critical:       🚨 [N] certificates expired  →
+
+  Clicking the tile navigates to /compliance-certificates.
+
+NAVIGATION:
+  Add "Compliance Register" to the main sidebar navigation, 
+  under the existing H&S or Compliance section.
+  Only visible when featureComplianceCertificates = true.
+
+  Add a red badge showing expired count if any certificates 
+  have status = 'expired'.
+
+════════════════════════════════════════════════════════════════════
+SECTION B — PERMIT-TO-WORK SYSTEM
+════════════════════════════════════════════════════════════════════
+
+PURPOSE:
+For high-risk activities (hot works, working at height, confined 
+spaces, electrical isolation) carried out by contractors or staff, 
+a formal Permit-to-Work must be issued and authorised BEFORE work 
+begins. This is a legal requirement under the Management of Health 
+& Safety at Work Regulations 1999 and is standard practice in 
+facilities management, construction, and manufacturing.
+
+TPR Max already manages WHO the contractor is and whether their 
+documents are valid. This module controls WHETHER they are 
+authorised to carry out specific high-risk work on a specific day.
+
+────────────────────────────────────────────────────────────────────
+STEP B1 — DATABASE: Feature toggle
+────────────────────────────────────────────────────────────────────
+
+In shared/schema.ts, add to companySettings:
+
+  featurePermitToWork: boolean('feature_permit_to_work').default(false),
+  
+  ptwAlertHour: integer('ptw_alert_hour').default(7),
+    -- Hour to run daily PTW expiry cron
+
+────────────────────────────────────────────────────────────────────
+STEP B2 — DATABASE: New tables in isolatedSchema.ts
+────────────────────────────────────────────────────────────────────
+
+TABLE 1: permitToWork
+  -- The permit itself
+
+  id: uuid primary key
+  customerId: text (FK)
+  permitNumber: text NOT NULL UNIQUE
+    -- Auto-generated: PTW-2026-001, PTW-2026-002 etc.
+    -- Format: PTW-{YEAR}-{sequential 3-digit number, reset each year}
+  
+  permitType: text NOT NULL
+    -- Values:
+    -- 'hot_works'           — Welding, cutting, grinding, anything producing heat/sparks
+    -- 'working_at_height'   — Work at 2m+ above ground level
+    -- 'electrical_isolation' — Isolation of electrical systems
+    -- 'confined_space'      — Entry into tank, vessel, pit, sewer
+    -- 'excavation'          — Digging, trenching
+    -- 'asbestos'            — Any work near or with asbestos
+    -- 'general_high_risk'   — Catch-all for other high-risk activities
+  
+  -- Work description
+  workDescription: text NOT NULL
+    -- Plain English description of the work to be done
+  workLocation: text NOT NULL
+    -- Where on the premises the work will take place
+  
+  -- Who is doing the work
+  contractorCompanyId: uuid (FK → contractorCompanies.id, nullable)
+    -- If a contractor company is doing the work
+  contractorCompanyName: text
+    -- Denormalised for display
+  contractorWorkerId: uuid (FK → contractorWorkers.id, nullable)
+    -- The specific worker doing the work (optional — may be a team)
+  contractorWorkerName: text
+    -- Denormalised for display
+  staffId: uuid (FK → staff.id, nullable)
+    -- If a member of staff is doing the work instead of a contractor
+  staffName: text
+    -- Denormalised for display
+
+  -- Timing
+  plannedStartDate: date NOT NULL
+  plannedStartTime: text NOT NULL  -- HH:MM format
+  plannedEndDate: date NOT NULL
+  plannedEndTime: text NOT NULL    -- HH:MM format
+  
+  actualStartAt: timestamp         -- Set when permit is activated
+  actualEndAt: timestamp           -- Set when permit is closed
+
+  -- Permit validity window
+  permitValidFrom: timestamp NOT NULL
+    -- Set on authorisation = plannedStartDate + plannedStartTime
+  permitValidUntil: timestamp NOT NULL
+    -- Set on authorisation = plannedEndDate + plannedEndTime
+    -- Permit automatically expires at this timestamp
+
+  -- Status workflow
+  status: text NOT NULL default 'draft'
+    -- 'draft'       → Created, pre-checks not yet completed
+    -- 'submitted'   → Submitted for authorisation
+    -- 'authorised'  → Approved, work can proceed
+    -- 'active'      → Work has started (permit activated)
+    -- 'suspended'   → Work temporarily stopped (safety issue found)
+    -- 'completed'   → Work finished, permit closed
+    -- 'expired'     → Permit validity window passed without completion
+    -- 'cancelled'   → Cancelled before work started
+
+  -- Authorisation
+  authorisedById: uuid (FK → users.id, nullable)
+  authorisedByName: text
+  authorisedAt: timestamp
+  authNotes: text
+    -- Notes from the authoriser (conditions, restrictions)
+  rejectedById: uuid (FK → users.id, nullable)
+  rejectedAt: timestamp
+  rejectionReason: text
+
+  -- Closure
+  closedById: uuid (FK → users.id, nullable)
+  closedByName: text
+  closedAt: timestamp
+  closureNotes: text
+    -- Work completed satisfactorily? Any issues?
+  workCompletedSatisfactorily: boolean
+
+  -- Suspension (if suspended)
+  suspendedById: uuid (FK → users.id, nullable)
+  suspendedAt: timestamp
+  suspensionReason: text
+
+  -- Linked records
+  linkedPpmWorkOrderId: uuid
+    -- If this work is part of a PPM work order, link it
+  linkedIncidentId: uuid
+    -- If an incident occurred during this permitted work
+  linkedComplianceCertId: uuid
+    -- If this work generates a compliance certificate
+
+  -- Alert idempotency (existing pattern)
+  expiryAlertedAt: timestamp
+  overdueClosureAlertedAt: timestamp
+
+  -- Audit
+  createdById: uuid (FK → users.id)
+  createdByName: text
+  createdAt: timestamp default now()
+  updatedAt: timestamp default now()
+
+TABLE 2: permitChecklist
+  -- Pre-work controls that must be confirmed before authorisation.
+  -- Each permit type has a predefined checklist.
+
+  id: uuid primary key
+  permitId: uuid NOT NULL (FK → permitToWork.id ON DELETE CASCADE)
+  customerId: text (FK)
+  checklistSection: text NOT NULL
+    -- Grouping label e.g. 'Isolation & Lockout', 'PPE', 
+    --                      'Area Preparation', 'Fire Precautions'
+  itemDescription: text NOT NULL
+    -- The specific check e.g. "Electrical supply isolated and locked off"
+  isRequired: boolean default true
+    -- Some items are mandatory (cannot submit without ticking)
+    -- Some are advisory (can proceed with N/A)
+  response: text default null
+    -- Values: 'yes' | 'no' | 'na' (not applicable)
+    -- 'yes' = control in place
+    -- 'no' = control NOT in place (blocks authorisation)
+    -- 'na' = not applicable to this job
+  respondedById: uuid (FK → users.id)
+  respondedAt: timestamp
+  notes: text
+  displayOrder: integer default 0
+
+TABLE 3: permitAttachments
+  -- Documents attached to a permit (method statement, risk 
+  -- assessment, isolation certificate etc.)
+
+  id: uuid primary key
+  permitId: uuid NOT NULL (FK → permitToWork.id ON DELETE CASCADE)
+  customerId: text (FK)
+  documentType: text NOT NULL
+    -- 'rams' | 'isolation_certificate' | 'method_statement' | 
+    -- 'risk_assessment' | 'other'
+  fileName: text NOT NULL
+  fileUrl: text NOT NULL
+  uploadedById: uuid (FK → users.id)
+  uploadedByName: text
+  uploadedAt: timestamp default now()
+
+────────────────────────────────────────────────────────────────────
+STEP B3 — BACKEND: Checklist seed data per permit type
+────────────────────────────────────────────────────────────────────
+
+Create server/utils/ptwChecklists.ts with predefined checklist 
+items for each permit type. These are seeded into permitChecklist 
+when a permit is created.
+
+HOT WORKS checklist items:
+  Section: "Area Preparation"
+    — All flammable/combustible materials removed or protected
+    — Fire-resistant screens/blankets in position
+    — Area clear of gas cylinders and compressed gas
+    — Floor swept clear of debris
+    — Hot works area inspected and approved
+  Section: "Fire Precautions"
+    — Fire extinguisher present and appropriate type (CO₂ or dry powder)
+    — Fire alarm system in this area isolated (if required)
+    — Hot works fire watcher assigned and briefed (1-hour post-work watch)
+    — Nearest fire point identified and accessible
+  Section: "PPE"
+    — Welding/grinding PPE available (face shield, gloves, apron)
+    — Respiratory protection available if required
+  Section: "Authorisation"
+    — RAMS for hot works reviewed and accepted
+    — Operative has relevant hot works training/qualification
+    — Operational area evacuated or sealed off
+
+WORKING AT HEIGHT checklist items:
+  Section: "Equipment"
+    — Access equipment inspected and fit for purpose
+    — Scaffold or MEWP has current inspection certificate (LOLER)
+    — Harness and lanyard inspected (if required)
+    — Ladder secured at top and/or footed
+  Section: "Area"
+    — Exclusion zone established below work area
+    — Signage in place warning of overhead work
+    — Tools secured to prevent falling objects (tethers)
+  Section: "PPE"
+    — Hard hats for those below
+    — Safety harness fitted and anchored (at 2m+)
+  Section: "Authorisation"
+    — Operative holds valid working at height training
+    — MEWP operator has valid IPAF licence (if MEWP in use)
+    — Weather conditions assessed and acceptable
+
+ELECTRICAL ISOLATION checklist items:
+  Section: "Isolation & Lockout"
+    — Circuit identified and confirmed isolated at source
+    — Isolation point locked off (lock and tag applied)
+    — Voltage absence verified with approved test equipment
+    — All phases confirmed dead
+    — Capacitors discharged (if applicable)
+  Section: "Safe System"
+    — Danger notices affixed at isolation point
+    — Other personnel informed of isolation
+    — Permit to work displayed at the work location
+  Section: "Authorisation"
+    — Operative is a Qualified Electrical Person (QEP)
+    — Relevant drawings / diagrams available
+
+CONFINED SPACE checklist items:
+  Section: "Atmospheric Testing"
+    — Oxygen level tested: 19.5% - 23.5% (PASS/FAIL)
+    — Flammable gas/vapour tested: <10% LEL (PASS/FAIL)
+    — Toxic gas tested (CO, H₂S etc.): Below exposure limits (PASS/FAIL)
+    — Continuous gas monitoring in place during work
+  Section: "Emergency Arrangements"
+    — Rescue plan documented and communicated
+    — Rescue equipment on site (harness, winch, BA sets)
+    — Rescue team identified and briefed
+    — Emergency services number confirmed and accessible
+    — Attendant stationed outside at all times
+  Section: "Entry Controls"
+    — Entry register being maintained
+    — Communication system between entrant and attendant confirmed
+    — Entrant briefed on entry and emergency procedures
+  Section: "Authorisation"
+    — Confined space risk assessment completed
+    — Entrant has confined space training certificate
+
+────────────────────────────────────────────────────────────────────
+STEP B4 — BACKEND: Feature gate middleware
+────────────────────────────────────────────────────────────────────
+
+In server/routes/permitToWork.ts, create feature gate middleware 
+following the same pattern as requirePPMFeature:
+
+  const requirePermitToWorkFeature = async (req, res, next) => {
+    const context = simpleDatabaseService.createCustomerContext(
+      req.user!.username, req.customerId
+    );
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featurePermitToWork) {
+      return res.status(403).json({
+        error: 'Permit-to-Work module is not enabled for your account.'
+      });
+    }
+    next();
+  };
+
+────────────────────────────────────────────────────────────────────
+STEP B5 — BACKEND: Permit number generation
+────────────────────────────────────────────────────────────────────
+
+Create a utility to generate sequential permit numbers:
+
+  async function generatePermitNumber(context, year): Promise<string> {
+    -- Count existing permits for this year for this customer
+    -- Return PTW-{YEAR}-{count + 1 padded to 3 digits}
+    -- Example: PTW-2026-001, PTW-2026-002, PTW-2026-047
+  }
+
+────────────────────────────────────────────────────────────────────
+STEP B6 — BACKEND: Permit routes
+────────────────────────────────────────────────────────────────────
+
+GET /api/ptw
+  Query params: ?status=, ?type=, ?contractorCompanyId=, 
+                ?startDate=, ?endDate=
+  Returns all permits for this customer with basic details.
+
+POST /api/ptw
+  Body: { permitType, workDescription, workLocation, 
+          plannedStartDate, plannedStartTime, plannedEndDate, 
+          plannedEndTime, contractorCompanyId, contractorWorkerId,
+          staffId, linkedPpmWorkOrderId }
+  Actions:
+    1. Generate permit number
+    2. Create permit record with status = 'draft'
+    3. Seed permitChecklist with predefined items for this type 
+       (from ptwChecklists.ts)
+    4. Set permitValidFrom = plannedStartDate + plannedStartTime
+    5. Set permitValidUntil = plannedEndDate + plannedEndTime
+    6. Return created permit with its checklist
+
+GET /api/ptw/:id
+  Returns full permit with checklist, attachments, and contractor/
+  staff details.
+
+PUT /api/ptw/:id
+  Update work description, location, timing (draft status only).
+  Cannot update a submitted/authorised/active permit — return 400.
+
+────────────────────────────────────────────────────────────────────
+STEP B7 — BACKEND: Permit workflow endpoints
+────────────────────────────────────────────────────────────────────
+
+All endpoints enforce business rules on status transitions:
+
+PATCH /api/ptw/:id/checklist/:checklistItemId
+  Body: { response: 'yes' | 'no' | 'na', notes?: string }
+  — Update a single checklist item response
+  — Only allowed when permit status = 'draft' or 'submitted'
+  — Record respondedById = current user, respondedAt = now()
+
+PATCH /api/ptw/:id/submit
+  — Submits permit for authorisation.
+  — Validates: 
+    * All required checklist items have response ('no' items must 
+      have a note explaining the mitigating control)
+    * Work description is not empty
+    * plannedStartDate is today or future
+    * Contractor or staff member is specified
+  — Sets status = 'submitted'
+  — Sends email to all users with 'manager' or 'admin' role:
+    Subject: "📋 Permit-to-Work Requires Authorisation — [TYPE] [NUMBER]"
+    Body: Who is doing what work, where, when, link to review
+
+PATCH /api/ptw/:id/authorise
+  Body: { authNotes?: string }
+  — Authorises the permit. Only users with admin/manager role.
+  — Cannot authorise own permit (if same person created it).
+  — Sets: status = 'authorised', authorisedById, authorisedByName, 
+    authorisedAt
+  — Sends confirmation email to permit creator and contractor/staff.
+
+PATCH /api/ptw/:id/reject
+  Body: { rejectionReason: string } (required)
+  — Rejects permit. Sets status = 'draft' (can be resubmitted).
+  — Records rejectedById, rejectedAt, rejectionReason.
+  — Sends email to permit creator explaining rejection reason.
+
+PATCH /api/ptw/:id/activate
+  — Marks work as started. Sets status = 'active', actualStartAt = now().
+  — Only allowed if status = 'authorised' AND now() is within 
+    permitValidFrom → permitValidUntil window.
+  — If now() is outside the window: return 400 with error:
+    "Permit validity window has passed. A new permit must be issued."
+
+PATCH /api/ptw/:id/suspend
+  Body: { suspensionReason: string } (required)
+  — Temporarily stops work. Sets status = 'suspended'.
+  — Sends alert email to all admins/managers.
+
+PATCH /api/ptw/:id/close
+  Body: { closureNotes: string, workCompletedSatisfactorily: boolean }
+  — Closes the permit. Sets status = 'completed', actualEndAt = now().
+  — If workCompletedSatisfactorily = false: flag for review.
+  — Sends completion notification to admins.
+
+────────────────────────────────────────────────────────────────────
+STEP B8 — BACKEND: Attachment routes
+────────────────────────────────────────────────────────────────────
+
+POST /api/ptw/:id/attachments
+  Body: { documentType, fileName, fileUrl }
+  — Attach a document to a permit.
+  — Allowed in any status except 'expired' or 'cancelled'.
+
+GET /api/ptw/:id/attachments
+  — List all attachments for this permit.
+
+DELETE /api/ptw/:id/attachments/:attachmentId
+  — Only allowed in draft/submitted status.
+
+────────────────────────────────────────────────────────────────────
+STEP B9 — BACKEND: Daily cron for PTW expiry
+────────────────────────────────────────────────────────────────────
+
+Daily cron at ptwAlertHour:
+
+  1. EXPIRE overdue permits:
+     Find all permits where:
+       - status = 'authorised' (not yet activated)
+       - permitValidUntil < NOW()
+     Set status = 'expired' on each.
+     Send email to permit creator and admins:
+     Subject: "⚠ Permit-to-Work Expired — [NUMBER] [TYPE]"
+     Body: Permit details, work not started, new permit required.
+
+  2. OVERDUE CLOSURE alerts:
+     Find all permits where:
+       - status = 'active'
+       - permitValidUntil < NOW()
+       - overdueClosureAlertedAt IS NULL
+     Send URGENT email:
+     Subject: "🚨 Permit-to-Work OVERDUE — Work Not Closed — [NUMBER]"
+     Body: Work was authorised until [TIME], permit has not been 
+           closed. Action required immediately.
+     Set overdueClosureAlertedAt = NOW()
+
+  3. UPCOMING expiry warning:
+     Find all permits where:
+       - status IN ('authorised', 'active')
+       - permitValidUntil <= NOW() + 2 hours
+       - expiryAlertedAt IS NULL
+     Send warning email:
+     Subject: "⏰ Permit-to-Work Expiring in 2 Hours — [NUMBER]"
+     Set expiryAlertedAt = NOW()
+
+────────────────────────────────────────────────────────────────────
+STEP B10 — FRONTEND: Permit-to-Work pages
+────────────────────────────────────────────────────────────────────
+
+Route: /permit-to-work
+
+Create the following in client/src/pages/:
+
+PAGE 1: PermitToWorkList.tsx (main list page)
+
+  HEADER:
+    Title: "Permit-to-Work"
+    Subtitle: "Authorised high-risk work on this site"
+    Button: "New Permit" (visible to all, triggers creation flow)
+    Tabs: Active | Pending Authorisation | Completed | All
+
+  STATUS SUMMARY STRIP:
+    🟡 [N] Awaiting Authorisation  |  🟢 [N] Active  |  
+    🔴 [N] Overdue Closure  |  ✅ [N] Completed Today
+
+  PERMIT LIST:
+    Each row shows:
+    [PTW-2026-001]  [HOT WORKS]  [🔴 ACTIVE]
+    East Plant Room — Welding of pipe joint
+    Cowiesburn Maintenance Ltd / J. Smith
+    Valid: 09:00 – 17:00 today
+    [View] [Authorise] [Close]
+
+    Status badge colours:
+    - draft:      Grey
+    - submitted:  Yellow — "Awaiting Authorisation"
+    - authorised: Blue — "Ready to Start"
+    - active:     Green — "Work in Progress"
+    - suspended:  Orange — "Suspended"
+    - completed:  Muted green — "Completed"
+    - expired:    Red — "Expired"
+    - cancelled:  Muted grey — "Cancelled"
+
+  Filters: Status dropdown, Permit type, Date range, Contractor
+
+PAGE 2: PermitToWorkForm.tsx (new permit creation / edit)
+
+  Step 1 — Work Details:
+    Permit type (large icon buttons — one per type)
+    Work description (text area)
+    Work location
+    Planned start date + time
+    Planned end date + time
+    Contractor company (searchable dropdown from contractor list)
+    Contractor worker (filtered by company)
+    OR Staff member (searchable dropdown)
+    Link to PPM work order (optional searchable)
+
+  Step 2 — Pre-Work Checklist:
+    Display checklist items grouped by section.
+    For each item: Yes / No / N/A toggle buttons.
+    Required items highlighted — cannot submit if any are blank.
+    If 'No' selected: text field appears asking for mitigating control.
+    Progress indicator: "8 of 12 checks complete"
+
+  Step 3 — Attachments:
+    Upload area for RAMS, method statements, etc.
+    Required types shown based on permit type 
+    (e.g. hot works requires method statement).
+
+  Step 4 — Review & Submit:
+    Summary of all details.
+    Submit button → sets status to 'submitted'.
+
+PAGE 3: PermitToWorkDetail.tsx (full permit view)
+
+  Permit number, type badge, status badge (large, prominent)
+  All work details
+  Validity window with countdown timer if active
+
+  WORKFLOW ACTIONS (shown based on status and user role):
+    - Draft:      [Edit] [Submit for Authorisation]
+    - Submitted:  [Authorise ✓] [Reject ✗] (manager/admin only)
+    - Authorised: [Activate — Start Work] [Cancel]
+    - Active:     [Suspend Work] [Close Permit]
+    - Suspended:  [Resume Work] [Close Permit]
+
+  CHECKLIST SECTION:
+    Grouped by section, each item showing:
+    response badge (✅ Yes / ❌ No / — N/A), who responded, when.
+    Editable if status = draft or submitted.
+
+  ATTACHMENTS SECTION:
+    List of attached documents with download links.
+    Upload button (available in all active statuses).
+
+  AUTHORISATION HISTORY:
+    Timeline of status changes: created → submitted → authorised → 
+    active → completed.
+
+  LINK TO PPM WORK ORDER:
+    If linked, show work order details with navigation link.
+
+PAGE 4: Add to main DASHBOARD widget:
+  "Permits to Work" tile showing:
+  - Active permits count (green)
+  - Awaiting authorisation count (yellow)  
+  - Overdue closure count (red — urgent)
+  Click → navigates to /permit-to-work
+
+NAVIGATION:
+  Add "Permit-to-Work" to the main sidebar under H&S or Operations.
+  Only visible when featurePermitToWork = true.
+  Show yellow badge count for permits awaiting authorisation.
+  Show red badge if any permits are overdue for closure.
+
+════════════════════════════════════════════════════════════════════
+INTEGRATION BETWEEN THE TWO MODULES
+════════════════════════════════════════════════════════════════════
+
+PERMIT → COMPLIANCE CERTIFICATE:
+  When a Permit-to-Work is closed with workCompletedSatisfactorily = true,
+  and the permit type is one that generates a statutory certificate 
+  (e.g. 'electrical_isolation' often follows an EICR):
+  
+  Show a prompt on the closure screen:
+    "Does this work generate a compliance certificate? 
+     [Yes — Upload Certificate] [No — Close Permit]"
+  
+  If Yes: Open CertificateUploadModal pre-filled with:
+    - linkedPpmWorkOrderId from the permit
+    - Suggested certificate type based on permit type
+
+PERMIT → PPM WORK ORDER:
+  When viewing a PPM work order that is linked to a permit 
+  (via linkedPpmWorkOrderId), show a "Permit to Work" section 
+  on the work order detail page:
+    - If no permit: "This work requires a Permit-to-Work. [Create Permit]"
+    - If permit exists: Show permit number, status, validity window.
+
+════════════════════════════════════════════════════════════════════
+TESTING CHECKLIST — verify before marking complete
+════════════════════════════════════════════════════════════════════
+
+COMPLIANCE CERTIFICATE REGISTER:
+□ Seeding creates all 14 standard certificate types on first activation
+□ Seeding is idempotent — running twice does not create duplicates
+□ Uploading a certificate sets previous isCurrent = false
+□ Status calculates correctly: current/expiring_soon/expired/no_certificate
+□ Dashboard widget shows correct status and count
+□ Daily cron sends reminder email when within reminderDaysBefore days
+□ expiryAlertedAt prevents duplicate emails
+□ Deactivating a certificate type removes it from the main register
+□ Certificate history shows all previous certificates for a type
+□ Download works for uploaded certificate document
+□ Customer A cannot access Customer B's certificates
+□ Feature returns 403 when featureComplianceCertificates = false
+
+PERMIT-TO-WORK:
+□ New permit creates correct checklist for its type (hot works 
+  checklist ≠ confined space checklist)
+□ Permit number increments correctly: PTW-2026-001, PTW-2026-002
+□ Cannot submit permit if required checklist items are blank
+□ Cannot authorise own permit (creator cannot self-authorise)
+□ Authorisation email sent to managers on submission
+□ Confirmation email sent to contractor on authorisation
+□ Cannot activate permit outside its validity window
+□ Permit status set to 'expired' by cron when validity window passes
+□ Overdue closure alert sent when active permit exceeds validity window
+□ 2-hour expiry warning email sends correctly
+□ Suspending permit sends alert to admins
+□ Closed permit with workCompletedSatisfactorily = false is flagged
+□ Certificate upload prompt appears on permit closure
+□ Linked PPM work order shows permit status on work order detail
+□ Dashboard widget shows correct counts
+□ Feature returns 403 when featurePermitToWork = false
+□ Customer A cannot access Customer B's permits
+
+BOTH MODULES:
+□ Both modules only appear in navigation when feature toggle is on
+□ Both use the configurable alert hour from companySettings
+□ All new routes are registered in the main Express app (server/index.ts)
+□ All new schema tables are added to isolatedSchema.ts correctly
+□ All new feature toggle columns added to companySettings in schema.ts
+□ Drizzle migration runs without errors on existing database

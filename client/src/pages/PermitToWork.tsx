@@ -15,8 +15,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   ClipboardList, Plus, Eye, CheckCircle2, XCircle, Clock, AlertTriangle,
   Flame, Zap, HardHat, Wind, Shovel, TriangleAlert, FileWarning,
-  ChevronRight, User, Calendar, MapPin, MoreVertical, RefreshCw, Pause, Play, Lock
+  ChevronRight, User, Calendar, MapPin, MoreVertical, RefreshCw, Pause, Play, Lock, Info
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 const PERMIT_TYPES: Record<string, { label: string; icon: any; color: string }> = {
@@ -181,9 +182,24 @@ export default function PermitToWork() {
             <ClipboardList className="h-6 w-6 text-orange-600" />
             Permit-to-Work System
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Manage high-risk work authorisation permits — hot works, electrical isolation, confined spaces and more.
-          </p>
+          <div className="flex items-center gap-1.5 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Manage high-risk work authorisation permits — hot works, electrical isolation, confined spaces and more.
+            </p>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Info size={14} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-sm text-xs space-y-2 p-3">
+                  <p><strong>Permit-to-Work System</strong> — A formal written system used to control high-risk activities, ensuring work is properly planned, authorised, and carried out safely.</p>
+                  <p>Required under the <strong>Health &amp; Safety at Work Act 1974</strong>, <strong>Management of Health &amp; Safety at Work Regulations 1999</strong>, <strong>CDM Regulations 2015</strong>, <strong>Working at Height Regulations 2005</strong>, <strong>Confined Spaces Regulations 1997</strong>, and the <strong>Electricity at Work Regulations 1989</strong>. A documented PTW system provides evidence of duty of care compliance.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
         <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-1.5" /> New Permit

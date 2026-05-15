@@ -186,9 +186,24 @@ export default function ComplianceCertificateRegister() {
             <ShieldCheck className="h-6 w-6 text-blue-600" />
             Compliance Certificate Register
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Track statutory inspection and compliance certificates required by law.
-          </p>
+          <div className="flex items-center gap-1.5 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Track statutory inspection and compliance certificates required by law.
+            </p>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                    <Info size={14} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-sm text-xs space-y-2 p-3">
+                  <p><strong>Compliance Certificate Register</strong> — A centralised record of all statutory inspection and maintenance certificates required by UK law for workplace premises.</p>
+                  <p>Employers have legal duties under the <strong>Health &amp; Safety at Work Act 1974</strong>, <strong>EICR (BS 7671)</strong>, <strong>Gas Safety (Installation &amp; Use) Regulations 1998</strong>, <strong>LOLER 1998</strong>, <strong>Legionella (HSG274)</strong>, and the <strong>Regulatory Reform (Fire Safety) Order 2005</strong> to ensure certificates are kept current and accessible for inspection.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
         <div className="flex gap-2">
           {certTypes.length === 0 && !isLoading && (
