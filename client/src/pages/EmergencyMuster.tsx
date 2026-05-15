@@ -36,7 +36,14 @@ import {
   Info,
   Accessibility,
   Loader2,
+  Settings,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  Plus,
+  Save,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface MusterListItem {
@@ -83,6 +90,13 @@ interface ZoneSweep {
   overrideReason?: string | null;
 }
 
+const DEFAULT_MUSTER_OPTIONS = ['Location unknown', 'Working remotely / offsite', 'Sent to another location'];
+
+interface MusterSettings {
+  statusOptionsEnabled: boolean;
+  statusOptions: string[];
+}
+
 export default function EmergencyMuster() {
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<'all' | 'staff' | 'visitor' | 'contractor' | 'member'>('all');
@@ -97,6 +111,11 @@ export default function EmergencyMuster() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [showQrFor, setShowQrFor] = useState<string | null>(null);
   const [showSafePeople, setShowSafePeople] = useState(false);
+  // Muster settings panel state
+  const [showSettings, setShowSettings] = useState(false);
+  const [localEnabled, setLocalEnabled] = useState<boolean | null>(null);
+  const [localOptions, setLocalOptions] = useState<string[] | null>(null);
+  const [newOption, setNewOption] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
@@ -139,6 +158,43 @@ export default function EmergencyMuster() {
   const { data: companySettings } = useQuery<any>({
     queryKey: ["/api/settings"],
   });
+
+  const { data: musterSettings } = useQuery<MusterSettings>({
+    queryKey: ["/api/muster/settings"],
+  });
+
+  const saveSettingsMutation = useMutation({
+    mutationFn: async (payload: { statusOptionsEnabled: boolean; statusOptions: string[] }) => {
+      return apiRequest("PUT", "/api/muster/settings", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/muster/settings"] });
+      toast({ title: "Settings Saved", description: "Muster status options updated." });
+      setLocalEnabled(null);
+      setLocalOptions(null);
+    },
+    onError: () => {
+      toast({ title: "Save Failed", description: "Could not save muster settings.", variant: "destructive" });
+    },
+  });
+
+  const effectiveEnabled = localEnabled !== null ? localEnabled : (musterSettings?.statusOptionsEnabled ?? false);
+  const effectiveOptions = localOptions !== null ? localOptions : (musterSettings?.statusOptions ?? DEFAULT_MUSTER_OPTIONS);
+
+  const handleAddOption = () => {
+    const trimmed = newOption.trim();
+    if (!trimmed || effectiveOptions.includes(trimmed)) return;
+    setLocalOptions([...effectiveOptions, trimmed]);
+    setNewOption("");
+  };
+  const handleRemoveOption = (idx: number) => {
+    const updated = effectiveOptions.filter((_, i) => i !== idx);
+    setLocalOptions(updated);
+  };
+  const handleOptionChange = (idx: number, val: string) => {
+    const updated = effectiveOptions.map((o, i) => (i === idx ? val : o));
+    setLocalOptions(updated);
+  };
 
   const zoneMapUrl = companySettings?.zoneMapUrl ?? null;
 
@@ -766,6 +822,23 @@ export default function EmergencyMuster() {
               All Reports
             </a>
           )}
+          {/* Muster Settings button — idle phase only */}
+          {emergencyPhase === 'idle' && (
+            <button
+              onClick={() => setShowSettings(v => !v)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${
+                showSettings
+                  ? 'bg-blue-50 border-blue-400 text-blue-700 dark:bg-blue-900/30 dark:border-blue-600 dark:text-blue-300'
+                  : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:text-gray-400'
+              }`}
+              title="Configure muster status dropdown options for Fire Marshals"
+              data-testid="button-muster-settings"
+            >
+              <Settings size={13} />
+              Muster Settings
+              {showSettings ? <ChevronUp size={11} className="ml-0.5" /> : <ChevronDown size={11} className="ml-0.5" />}
+            </button>
+          )}
           {/* Drill mode toggle — idle phase only (send_alert uses the wizard's toggle) */}
           {emergencyPhase === 'idle' && (
             <button
@@ -800,6 +873,85 @@ export default function EmergencyMuster() {
           )}
         </div>
       </div>
+
+      {/* Muster Settings Panel */}
+      {showSettings && emergencyPhase === 'idle' && (
+        <GlassCard className="p-5 border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings size={18} className="text-blue-600" />
+            <h3 className="text-base font-semibold text-fixed">Muster Status Options</h3>
+            {effectiveEnabled && (
+              <Badge className="bg-green-100 text-green-800 text-xs">Enabled</Badge>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground mb-4">
+            When enabled, Fire Marshals see a dropdown button next to each person's <strong>SAFE</strong> button on their muster screen.
+            They can use it to mark someone as accounted for with a status reason (e.g. "Working remotely / offsite").
+            The person will appear with an <span className="text-amber-600 font-semibold">amber badge</span> in the muster list and incident report.
+          </p>
+          <div className="flex items-center gap-3 mb-5 p-3 bg-white/50 dark:bg-white/10 rounded-lg border border-gray-200 dark:border-gray-700">
+            <Switch
+              checked={effectiveEnabled}
+              onCheckedChange={(v) => setLocalEnabled(v)}
+              data-testid="switch-status-options-enabled"
+            />
+            <div>
+              <Label className="text-sm font-medium">Enable Status Options Dropdown</Label>
+              <p className="text-xs text-muted-foreground mt-0.5">Shows a dropdown chevron next to the SAFE button on the Fire Marshal muster screen</p>
+            </div>
+          </div>
+          <div className="mb-4">
+            <Label className="text-sm font-medium mb-2 block">Status Options</Label>
+            <p className="text-xs text-muted-foreground mb-3">These options appear in the dropdown when a Fire Marshal marks someone with a reason.</p>
+            <div className="space-y-2 mb-3">
+              {effectiveOptions.map((option, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input
+                    value={option}
+                    onChange={e => handleOptionChange(idx, e.target.value)}
+                    className="flex-1 text-sm h-9"
+                    data-testid={`status-option-input-${idx}`}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => handleRemoveOption(idx)}
+                    disabled={effectiveOptions.length <= 1}
+                    title="Remove option"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center gap-2">
+              <Input
+                value={newOption}
+                onChange={e => setNewOption(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddOption()}
+                placeholder="Add a new status option..."
+                className="flex-1 text-sm h-9"
+                data-testid="input-new-status-option"
+              />
+              <Button variant="outline" size="sm" className="h-9 px-3" onClick={handleAddOption} disabled={!newOption.trim()}>
+                <Plus size={14} className="mr-1" />Add
+              </Button>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white gap-2"
+              onClick={() => saveSettingsMutation.mutate({ statusOptionsEnabled: effectiveEnabled, statusOptions: effectiveOptions })}
+              disabled={saveSettingsMutation.isPending}
+              data-testid="button-save-muster-settings"
+            >
+              <Save size={14} />
+              {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
+            </Button>
+          </div>
+        </GlassCard>
+      )}
 
       {emergencyActive && (
         isDrillMode ? (

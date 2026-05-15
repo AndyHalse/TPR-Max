@@ -68,24 +68,29 @@ export function registerEmergencyRoutes(app: Express): void {
   // ── Muster Settings (admin) ─────────────────────────────────────────────────
 
   app.get("/api/muster/settings", requireAuth, async (req, res) => {
+    const defaults = { statusOptionsEnabled: false, statusOptions: ['Location unknown', 'Working remotely / offsite', 'Sent to another location'] };
     try {
       const customerId = req.session.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
       const custDb = await customerDbService.getCustomerDatabase(customerId);
-      const [row] = await custDb
-        .select()
-        .from(isolatedSchema.musterSettings)
-        .where(eq(isolatedSchema.musterSettings.customerId, customerId))
-        .limit(1);
-      const defaults = { statusOptionsEnabled: false, statusOptions: ['Location unknown', 'Working remotely / offsite', 'Sent to another location'] };
-      if (!row) return res.json(defaults);
-      return res.json({
-        statusOptionsEnabled: row.statusOptionsEnabled,
-        statusOptions: row.statusOptions || defaults.statusOptions,
-      });
+      try {
+        const [row] = await custDb
+          .select()
+          .from(isolatedSchema.musterSettings)
+          .where(eq(isolatedSchema.musterSettings.customerId, customerId))
+          .limit(1);
+        if (!row) return res.json(defaults);
+        return res.json({
+          statusOptionsEnabled: row.statusOptionsEnabled,
+          statusOptions: row.statusOptions || defaults.statusOptions,
+        });
+      } catch {
+        // Table doesn't exist yet — return defaults silently
+        return res.json(defaults);
+      }
     } catch (err) {
       logger.error('GET /api/muster/settings error:', err);
-      res.status(500).json({ error: 'Failed to load muster settings' });
+      return res.json(defaults);
     }
   });
 
