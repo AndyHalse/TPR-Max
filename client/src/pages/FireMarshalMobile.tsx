@@ -126,6 +126,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [overrideReason, setOverrideReason] = useState("");
   // Status option dropdown: personId that currently has the dropdown open, or null
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  // Fixed-position coords for the dropdown (avoids overflow-hidden clipping inside Cards)
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number } | null>(null);
 
   // Note and Photo capture state
   const [showNoteDialog, setShowNoteDialog] = useState(false);
@@ -753,7 +755,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   return (
     <div
       className={`min-h-screen pb-24 overflow-x-hidden w-full max-w-full ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}
-      onClick={() => openDropdownId && setOpenDropdownId(null)}
+      onClick={() => { if (openDropdownId) { setOpenDropdownId(null); setDropdownPos(null); } }}
     >
 
       {/* Sweep confirmation dialog */}
@@ -1281,42 +1283,28 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                           <CheckCircle2 className="h-4 w-4 mr-1" />Safe
                         </Button>
                         {musterSettings?.statusOptionsEnabled && (
-                          <>
-                            <Button
-                              className="bg-amber-500 hover:bg-amber-600 text-white font-bold h-12 px-2 text-sm rounded-l-none border-l border-amber-400"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!marshalName) {
-                                  toast({ title: "Name Required", description: "Please enter your name first", variant: "destructive" });
-                                  return;
-                                }
-                                setOpenDropdownId(openDropdownId === person.id ? null : person.id);
-                              }}
-                              disabled={!marshalName}
-                              data-testid={`button-status-option-${person.id}`}
-                            >
-                              <ChevronDown className="h-4 w-4" />
-                            </Button>
-                            {openDropdownId === person.id && (
-                              <div
-                                className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl min-w-[200px]"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <p className="text-[11px] text-gray-500 px-3 pt-2 pb-1 font-semibold uppercase tracking-wide">Mark as:</p>
-                                {(musterSettings.statusOptions || []).map((option) => (
-                                  <button
-                                    key={option}
-                                    className="w-full text-left px-3 py-2.5 text-sm text-gray-800 dark:text-gray-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-800 dark:hover:text-amber-200 transition-colors"
-                                    onClick={() => {
-                                      markSafeWithOptionMutation.mutate({ personId: person.id, statusOption: option });
-                                    }}
-                                  >
-                                    {option}
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-                          </>
+                          <Button
+                            className="bg-amber-500 hover:bg-amber-600 text-white font-bold h-12 px-2 text-sm rounded-l-none border-l border-amber-400"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!marshalName) {
+                                toast({ title: "Name Required", description: "Please enter your name first", variant: "destructive" });
+                                return;
+                              }
+                              if (openDropdownId === person.id) {
+                                setOpenDropdownId(null);
+                                setDropdownPos(null);
+                              } else {
+                                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                                setDropdownPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                                setOpenDropdownId(person.id);
+                              }
+                            }}
+                            disabled={!marshalName}
+                            data-testid={`button-status-option-${person.id}`}
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
                     )}
@@ -1353,6 +1341,30 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
             <Shield className="h-4 w-4 text-gray-400 flex-shrink-0" />
             <span>To end this emergency, a manager must log in to the main system</span>
           </div>
+        </div>
+      )}
+
+      {/* Fixed-position status option dropdown — rendered outside Cards to avoid overflow-hidden clipping */}
+      {openDropdownId && dropdownPos && musterSettings?.statusOptionsEnabled && (
+        <div
+          className="fixed z-[9999] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-2xl min-w-[220px]"
+          style={{ top: dropdownPos.top, right: dropdownPos.right }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-[11px] text-gray-500 px-3 pt-2.5 pb-1 font-semibold uppercase tracking-wide border-b border-gray-100 dark:border-gray-700">Mark as accounted — reason:</p>
+          {(musterSettings.statusOptions || []).map((option) => (
+            <button
+              key={option}
+              className="w-full text-left px-4 py-3 text-sm text-gray-800 dark:text-gray-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-800 dark:hover:text-amber-200 transition-colors"
+              onClick={() => {
+                markSafeWithOptionMutation.mutate({ personId: openDropdownId, statusOption: option });
+                setOpenDropdownId(null);
+                setDropdownPos(null);
+              }}
+            >
+              {option}
+            </button>
+          ))}
         </div>
       )}
     </div>
