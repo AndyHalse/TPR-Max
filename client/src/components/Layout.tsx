@@ -235,9 +235,9 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/incident-reports", icon: ScrollText, label: "Incident Reports", featureKey: "featureIncidentReports", defaultOn: true },
     { path: "/hs-incidents", icon: AlertTriangle, label: "H&S Incidents", featureKey: "featureHsIncidents", defaultOn: true },
     { path: "/fire-risk-assessment", icon: Flame, label: "Fire Risk Assessment", featureKey: "featureFireRiskAssessment", defaultOn: true },
-    { path: "/ppm", icon: Wrench, label: "PPM", featureKey: "featurePPM", defaultOn: false, badge: ppmGapsCount > 0 ? ppmGapsCount : undefined },
-    { path: "/compliance-certificates", icon: ShieldCheck, label: "Compliance Register", featureKey: "featureComplianceCertificates", defaultOn: false },
-    { path: "/permit-to-work", icon: ClipboardList, label: "Permit to Work", featureKey: "featurePermitToWork", defaultOn: false },
+    { path: "/ppm", icon: Wrench, label: "PPM", tooltip: "Planned Preventive Maintenance", featureKey: "featurePPM", defaultOn: false, badge: ppmGapsCount > 0 ? ppmGapsCount : undefined },
+    { path: "/compliance-certificates", icon: ShieldCheck, label: "Compliance Register", tooltip: "Compliance Certificate Register — EICR, gas safety, fire alarms, LOLER & more", featureKey: "featureComplianceCertificates", defaultOn: false },
+    { path: "/permit-to-work", icon: ClipboardList, label: "Permit to Work", tooltip: "Permit-to-Work System — hot works, electrical isolation, confined space & more", featureKey: "featurePermitToWork", defaultOn: false },
     { path: "/helpdesk", icon: Ticket, label: "Help Desk", featureKey: "featureHelpDesk", defaultOn: false },
     { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw" },
     { path: "/reports", icon: FileText, label: "Reports", featureKey: "featureReports", defaultOn: true },
@@ -331,7 +331,7 @@ export default function Layout({ children }: LayoutProps) {
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>{item.label}{item.path === '/hr' ? ' (Beta)' : ''}{('badge' in item && item.badge !== undefined) ? ` (${item.badge} gap${item.badge !== 1 ? 's' : ''})` : ''}</p>
+                    <p>{'tooltip' in item && item.tooltip ? item.tooltip : item.label}{item.path === '/hr' ? ' (Beta)' : ''}{('badge' in item && item.badge !== undefined) ? ` (${item.badge} gap${item.badge !== 1 ? 's' : ''})` : ''}</p>
                   </TooltipContent>
                 </Tooltip>
               ))}
