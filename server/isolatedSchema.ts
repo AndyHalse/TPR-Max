@@ -498,6 +498,10 @@ export const companySettings = pgTable("company_settings", {
   featureHelpDesk: boolean("feature_help_desk").default(false),
   featureHsIncidents: boolean("feature_hs_incidents").default(true),
   featureFireRiskAssessment: boolean("feature_fire_risk_assessment").default(true),
+  featureComplianceCertificates: boolean("feature_compliance_certificates").default(false),
+  complianceCertAlertHour: integer("compliance_cert_alert_hour").default(7),
+  featurePermitToWork: boolean("feature_permit_to_work").default(false),
+  ptwAlertHour: integer("ptw_alert_hour").default(7),
   // Core navigation feature toggles — default ON
   featureDashboard: boolean("feature_dashboard").default(true),
   featureVisitors: boolean("feature_visitors").default(true),
@@ -2430,5 +2434,134 @@ export const fireRiskAssessments = pgTable("fire_risk_assessments", {
 export const insertFireRiskAssessmentSchema = createInsertSchema(fireRiskAssessments).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertFireRiskAssessment = z.infer<typeof insertFireRiskAssessmentSchema>;
 export type FireRiskAssessment = typeof fireRiskAssessments.$inferSelect;
+
+// ── Compliance Certificate Register ───────────────────────────────────────────
+
+export const complianceCertificateTypes = pgTable("compliance_certificate_types", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  certificateType: text("certificate_type").notNull(),
+  displayName: text("display_name").notNull(),
+  legalBasis: text("legal_basis"),
+  frequency: text("frequency").notNull(),
+  customDays: integer("custom_days"),
+  isActive: boolean("is_active").default(true).notNull(),
+  reminderDaysBefore: integer("reminder_days_before").default(30).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertComplianceCertificateTypeSchema = createInsertSchema(complianceCertificateTypes).omit({ id: true, createdAt: true });
+export type InsertComplianceCertificateType = z.infer<typeof insertComplianceCertificateTypeSchema>;
+export type ComplianceCertificateType = typeof complianceCertificateTypes.$inferSelect;
+
+export const complianceCertificates = pgTable("compliance_certificates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  certificateTypeId: varchar("certificate_type_id").notNull().references(() => complianceCertificateTypes.id),
+  certificateType: text("certificate_type").notNull(),
+  issueDate: text("issue_date").notNull(),
+  expiryDate: text("expiry_date"),
+  nextDueDate: text("next_due_date"),
+  referenceNumber: text("reference_number"),
+  issuedBy: text("issued_by"),
+  issuingCompany: text("issuing_company"),
+  documentUrl: text("document_url"),
+  fileName: text("file_name"),
+  status: text("status").default("current").notNull(),
+  linkedPpmWorkOrderId: varchar("linked_ppm_work_order_id"),
+  uploadedBy: varchar("uploaded_by"),
+  notes: text("notes"),
+  isCurrent: boolean("is_current").default(true).notNull(),
+  expiryAlertedAt: timestamp("expiry_alerted_at"),
+  deletedAt: timestamp("deleted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertComplianceCertificateSchema = createInsertSchema(complianceCertificates).omit({ id: true, createdAt: true });
+export type InsertComplianceCertificate = z.infer<typeof insertComplianceCertificateSchema>;
+export type ComplianceCertificate = typeof complianceCertificates.$inferSelect;
+
+// ── Permit-to-Work ────────────────────────────────────────────────────────────
+
+export const permitToWork = pgTable("permit_to_work", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  permitNumber: text("permit_number").notNull(),
+  permitType: text("permit_type").notNull(),
+  workDescription: text("work_description").notNull(),
+  workLocation: text("work_location").notNull(),
+  contractorCompanyId: varchar("contractor_company_id"),
+  contractorCompanyName: text("contractor_company_name"),
+  contractorWorkerId: varchar("contractor_worker_id"),
+  contractorWorkerName: text("contractor_worker_name"),
+  staffId: varchar("staff_id"),
+  staffName: text("staff_name"),
+  plannedStartDate: text("planned_start_date").notNull(),
+  plannedStartTime: text("planned_start_time").notNull(),
+  plannedEndDate: text("planned_end_date").notNull(),
+  plannedEndTime: text("planned_end_time").notNull(),
+  actualStartAt: timestamp("actual_start_at"),
+  actualEndAt: timestamp("actual_end_at"),
+  permitValidFrom: timestamp("permit_valid_from").notNull(),
+  permitValidUntil: timestamp("permit_valid_until").notNull(),
+  status: text("status").notNull().default("draft"),
+  authorisedById: varchar("authorised_by_id"),
+  authorisedByName: text("authorised_by_name"),
+  authorisedAt: timestamp("authorised_at"),
+  authNotes: text("auth_notes"),
+  rejectedById: varchar("rejected_by_id"),
+  rejectedAt: timestamp("rejected_at"),
+  rejectionReason: text("rejection_reason"),
+  closedById: varchar("closed_by_id"),
+  closedByName: text("closed_by_name"),
+  closedAt: timestamp("closed_at"),
+  closureNotes: text("closure_notes"),
+  workCompletedSatisfactorily: boolean("work_completed_satisfactorily"),
+  suspendedById: varchar("suspended_by_id"),
+  suspendedAt: timestamp("suspended_at"),
+  suspensionReason: text("suspension_reason"),
+  linkedPpmWorkOrderId: varchar("linked_ppm_work_order_id"),
+  linkedIncidentId: varchar("linked_incident_id"),
+  linkedComplianceCertId: varchar("linked_compliance_cert_id"),
+  expiryAlertedAt: timestamp("expiry_alerted_at"),
+  overdueClosureAlertedAt: timestamp("overdue_closure_alerted_at"),
+  createdById: varchar("created_by_id"),
+  createdByName: text("created_by_name"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPermitToWorkSchema = createInsertSchema(permitToWork).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertPermitToWork = z.infer<typeof insertPermitToWorkSchema>;
+export type PermitToWork = typeof permitToWork.$inferSelect;
+
+export const permitChecklist = pgTable("permit_checklist", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  permitId: varchar("permit_id").notNull().references(() => permitToWork.id),
+  checklistSection: text("checklist_section").notNull(),
+  itemDescription: text("item_description").notNull(),
+  isRequired: boolean("is_required").default(true).notNull(),
+  response: text("response"),
+  respondedById: varchar("responded_by_id"),
+  respondedAt: timestamp("responded_at"),
+  notes: text("notes"),
+  displayOrder: integer("display_order").default(0).notNull(),
+});
+
+export const insertPermitChecklistSchema = createInsertSchema(permitChecklist).omit({ id: true });
+export type InsertPermitChecklist = z.infer<typeof insertPermitChecklistSchema>;
+export type PermitChecklistItem = typeof permitChecklist.$inferSelect;
+
+export const permitAttachments = pgTable("permit_attachments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  permitId: varchar("permit_id").notNull().references(() => permitToWork.id),
+  documentType: text("document_type").notNull(),
+  fileName: text("file_name").notNull(),
+  fileUrl: text("file_url").notNull(),
+  uploadedById: varchar("uploaded_by_id"),
+  uploadedByName: text("uploaded_by_name"),
+  uploadedAt: timestamp("uploaded_at").defaultNow(),
+});
+
+export const insertPermitAttachmentSchema = createInsertSchema(permitAttachments).omit({ id: true, uploadedAt: true });
+export type InsertPermitAttachment = z.infer<typeof insertPermitAttachmentSchema>;
+export type PermitAttachment = typeof permitAttachments.$inferSelect;
 
 export type BiostarDevice = typeof biostarDevices.$inferSelect;

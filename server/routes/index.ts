@@ -23,6 +23,8 @@ import { registerCdmRoutes } from './cdm';
 import { registerHelpdeskRoutes } from './helpdesk';
 import { registerHsIncidentRoutes } from './hsIncidents';
 import { registerFireRiskAssessmentRoutes } from './fireRiskAssessment';
+import { registerComplianceCertificateRoutes } from './complianceCertificates';
+import { registerPermitToWorkRoutes } from './permitToWork';
 import { registerHrStaffRoutes } from './hrStaff';
 import { registerHrRightToWorkRoutes } from './hrRightToWork';
 import { registerHrTrainingRoutes } from './hrTraining';
@@ -63,6 +65,8 @@ export async function registerSplitRoutes(
   registerHelpdeskRoutes(app);
   registerHsIncidentRoutes(app);
   registerFireRiskAssessmentRoutes(app);
+  registerComplianceCertificateRoutes(app);
+  registerPermitToWorkRoutes(app);
   registerHrStaffRoutes(app);
   registerHrRightToWorkRoutes(app);
   registerHrTrainingRoutes(app);

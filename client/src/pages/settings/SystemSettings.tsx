@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, Flame, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, Ticket, UserCheck, UserPlus, Video, Wrench } from "lucide-react";
+import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, Flame, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, Ticket, UserCheck, UserPlus, Video, Wrench } from "lucide-react";
 
 export default function SystemSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -1034,6 +1034,40 @@ export default function SystemSettings() {
           checked={currentSettings?.featureFireRiskAssessment !== false}
           onCheckedChange={(checked) => handleInputChange("featureFireRiskAssessment", checked)}
           data-testid="toggle-fire-risk-assessment"
+        />
+      </div>
+      {/* Compliance Certificate Register */}
+      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-100 rounded-lg">
+            <ShieldCheck className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-fixed">Compliance Certificate Register</h4>
+            <p className="text-xs text-variable">Track 14 statutory UK compliance certificates — EICR, gas safety, fire alarms, LOLER, legionella & more</p>
+          </div>
+        </div>
+        <Switch
+          checked={currentSettings?.featureComplianceCertificates === true}
+          onCheckedChange={(checked) => handleInputChange("featureComplianceCertificates", checked)}
+          data-testid="toggle-compliance-certificates"
+        />
+      </div>
+      {/* Permit-to-Work */}
+      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-orange-100 rounded-lg">
+            <ClipboardList className="w-5 h-5 text-orange-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-fixed">Permit-to-Work System</h4>
+            <p className="text-xs text-variable">Authorise & track high-risk work — hot works, electrical isolation, confined space, working at height & more</p>
+          </div>
+        </div>
+        <Switch
+          checked={currentSettings?.featurePermitToWork === true}
+          onCheckedChange={(checked) => handleInputChange("featurePermitToWork", checked)}
+          data-testid="toggle-permit-to-work"
         />
       </div>
       {/* Kiosk Mode */}

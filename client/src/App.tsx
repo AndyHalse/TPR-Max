@@ -54,6 +54,8 @@ import IncidentManagerMonitor from "@/pages/IncidentManagerMonitor";
 import LoneWorkerConfirmation from "@/pages/LoneWorkerConfirmation";
 import HSIncidents from "@/pages/HSIncidents";
 import FireRiskAssessmentPage from "@/pages/FireRiskAssessment";
+import ComplianceCertificateRegister from "@/pages/ComplianceCertificateRegister";
+import PermitToWorkPage from "@/pages/PermitToWork";
 import HrHub from "@/pages/hr/HrHub";
 import StaffProfile from "@/pages/hr/StaffProfile";
 import OrgChart from "@/pages/hr/OrgChart";
@@ -421,6 +423,8 @@ function Router() {
             <Route path="/profile" component={Profile} />
             <Route path="/hs-incidents" component={HSIncidents} />
             <Route path="/fire-risk-assessment" component={FireRiskAssessmentPage} />
+            <Route path="/compliance-certificates" component={ComplianceCertificateRegister} />
+            <Route path="/permit-to-work" component={PermitToWorkPage} />
             <Route path="/hr" component={HrHub} />
             <Route path="/hr/staff/:id" component={StaffProfile} />
             <Route path="/hr/org-chart" component={OrgChart} />

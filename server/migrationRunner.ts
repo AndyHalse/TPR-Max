@@ -355,6 +355,138 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         logger.info('✅ [048] muster_settings table and status_option column ensured');
       }
     },
+    {
+      version: '20260515_049_compliance_certificates',
+      description: 'Create compliance_certificate_types and compliance_certificates tables, add feature flags to company_settings',
+      async up(db: any) {
+        const stmts = [
+          `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_compliance_certificates BOOLEAN NOT NULL DEFAULT false`,
+          `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS compliance_cert_alert_hour INTEGER NOT NULL DEFAULT 7`,
+          `CREATE TABLE IF NOT EXISTS compliance_certificate_types (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            certificate_type TEXT NOT NULL,
+            display_name TEXT NOT NULL,
+            legal_basis TEXT,
+            frequency TEXT NOT NULL,
+            custom_days INTEGER,
+            is_active BOOLEAN NOT NULL DEFAULT true,
+            reminder_days_before INTEGER NOT NULL DEFAULT 30,
+            created_at TIMESTAMP DEFAULT NOW()
+          )`,
+          `CREATE TABLE IF NOT EXISTS compliance_certificates (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            certificate_type_id VARCHAR NOT NULL REFERENCES compliance_certificate_types(id),
+            certificate_type TEXT NOT NULL,
+            issue_date TEXT NOT NULL,
+            expiry_date TEXT,
+            next_due_date TEXT,
+            reference_number TEXT,
+            issued_by TEXT,
+            issuing_company TEXT,
+            document_url TEXT,
+            file_name TEXT,
+            status TEXT NOT NULL DEFAULT 'current',
+            linked_ppm_work_order_id VARCHAR,
+            uploaded_by VARCHAR,
+            notes TEXT,
+            is_current BOOLEAN NOT NULL DEFAULT true,
+            expiry_alerted_at TIMESTAMP,
+            deleted_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT NOW()
+          )`,
+        ];
+        for (const sql of stmts) {
+          try { await db.execute(sql); } catch (err: any) {
+            logger.info(`⚠️ [049] compliance certs: ${err.message?.substring(0, 80)}`);
+          }
+        }
+        logger.info('✅ [049] compliance_certificate tables and columns ensured');
+      }
+    },
+    {
+      version: '20260515_050_permit_to_work',
+      description: 'Create permit_to_work, permit_checklist, permit_attachments tables, add feature flags to company_settings',
+      async up(db: any) {
+        const stmts = [
+          `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_permit_to_work BOOLEAN NOT NULL DEFAULT false`,
+          `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS ptw_alert_hour INTEGER NOT NULL DEFAULT 7`,
+          `CREATE TABLE IF NOT EXISTS permit_to_work (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            permit_number TEXT NOT NULL,
+            permit_type TEXT NOT NULL,
+            work_description TEXT NOT NULL,
+            work_location TEXT NOT NULL,
+            contractor_company_id VARCHAR,
+            contractor_company_name TEXT,
+            contractor_worker_id VARCHAR,
+            contractor_worker_name TEXT,
+            staff_id VARCHAR,
+            staff_name TEXT,
+            planned_start_date TEXT NOT NULL,
+            planned_start_time TEXT NOT NULL,
+            planned_end_date TEXT NOT NULL,
+            planned_end_time TEXT NOT NULL,
+            actual_start_at TIMESTAMP,
+            actual_end_at TIMESTAMP,
+            permit_valid_from TIMESTAMP NOT NULL,
+            permit_valid_until TIMESTAMP NOT NULL,
+            status TEXT NOT NULL DEFAULT 'draft',
+            authorised_by_id VARCHAR,
+            authorised_by_name TEXT,
+            authorised_at TIMESTAMP,
+            auth_notes TEXT,
+            rejected_by_id VARCHAR,
+            rejected_at TIMESTAMP,
+            rejection_reason TEXT,
+            closed_by_id VARCHAR,
+            closed_by_name TEXT,
+            closed_at TIMESTAMP,
+            closure_notes TEXT,
+            work_completed_satisfactorily BOOLEAN,
+            suspended_by_id VARCHAR,
+            suspended_at TIMESTAMP,
+            suspension_reason TEXT,
+            linked_ppm_work_order_id VARCHAR,
+            linked_incident_id VARCHAR,
+            linked_compliance_cert_id VARCHAR,
+            expiry_alerted_at TIMESTAMP,
+            overdue_closure_alerted_at TIMESTAMP,
+            created_by_id VARCHAR,
+            created_by_name TEXT,
+            created_at TIMESTAMP DEFAULT NOW(),
+            updated_at TIMESTAMP DEFAULT NOW()
+          )`,
+          `CREATE TABLE IF NOT EXISTS permit_checklist (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            permit_id VARCHAR NOT NULL REFERENCES permit_to_work(id) ON DELETE CASCADE,
+            checklist_section TEXT NOT NULL,
+            item_description TEXT NOT NULL,
+            is_required BOOLEAN NOT NULL DEFAULT true,
+            response TEXT,
+            responded_by_id VARCHAR,
+            responded_at TIMESTAMP,
+            notes TEXT,
+            display_order INTEGER NOT NULL DEFAULT 0
+          )`,
+          `CREATE TABLE IF NOT EXISTS permit_attachments (
+            id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            permit_id VARCHAR NOT NULL REFERENCES permit_to_work(id) ON DELETE CASCADE,
+            document_type TEXT NOT NULL,
+            file_name TEXT NOT NULL,
+            file_url TEXT NOT NULL,
+            uploaded_by_id VARCHAR,
+            uploaded_by_name TEXT,
+            uploaded_at TIMESTAMP DEFAULT NOW()
+          )`,
+        ];
+        for (const sql of stmts) {
+          try { await db.execute(sql); } catch (err: any) {
+            logger.info(`⚠️ [050] permit to work: ${err.message?.substring(0, 80)}`);
+          }
+        }
+        logger.info('✅ [050] permit_to_work tables and columns ensured');
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {
