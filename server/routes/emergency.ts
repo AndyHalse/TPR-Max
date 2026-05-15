@@ -61,6 +61,68 @@ async function generateSafetyToken(
 
 export function registerEmergencyRoutes(app: Express): void {
 
+  // Ensure status_option column exists in central evacuation_accountability table
+  db.execute(sql.raw(`ALTER TABLE evacuation_accountability ADD COLUMN IF NOT EXISTS status_option TEXT`))
+    .catch(err => logger.warn('[startup] Could not add status_option to evacuation_accountability:', err?.message?.substring(0, 80)));
+
+  // ── Muster Settings (admin) ─────────────────────────────────────────────────
+
+  app.get("/api/muster/settings", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "Not authenticated" });
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const [row] = await custDb
+        .select()
+        .from(isolatedSchema.musterSettings)
+        .where(eq(isolatedSchema.musterSettings.customerId, customerId))
+        .limit(1);
+      const defaults = { statusOptionsEnabled: false, statusOptions: ['Location unknown', 'Working remotely / offsite', 'Sent to another location'] };
+      if (!row) return res.json(defaults);
+      return res.json({
+        statusOptionsEnabled: row.statusOptionsEnabled,
+        statusOptions: row.statusOptions || defaults.statusOptions,
+      });
+    } catch (err) {
+      logger.error('GET /api/muster/settings error:', err);
+      res.status(500).json({ error: 'Failed to load muster settings' });
+    }
+  });
+
+  app.put("/api/muster/settings", requireAuth, async (req, res) => {
+    try {
+      const customerId = req.session.customerId;
+      if (!customerId) return res.status(401).json({ error: "Not authenticated" });
+      const { statusOptionsEnabled, statusOptions } = req.body as { statusOptionsEnabled?: boolean; statusOptions?: string[] };
+      const custDb = await customerDbService.getCustomerDatabase(customerId);
+      const [existing] = await custDb
+        .select()
+        .from(isolatedSchema.musterSettings)
+        .where(eq(isolatedSchema.musterSettings.customerId, customerId))
+        .limit(1);
+      if (existing) {
+        await custDb
+          .update(isolatedSchema.musterSettings)
+          .set({
+            ...(statusOptionsEnabled !== undefined ? { statusOptionsEnabled } : {}),
+            ...(statusOptions !== undefined ? { statusOptions } : {}),
+            updatedAt: new Date(),
+          })
+          .where(eq(isolatedSchema.musterSettings.customerId, customerId));
+      } else {
+        await custDb.insert(isolatedSchema.musterSettings).values({
+          customerId,
+          statusOptionsEnabled: statusOptionsEnabled ?? false,
+          statusOptions: statusOptions ?? ['Location unknown', 'Working remotely / offsite', 'Sent to another location'],
+        });
+      }
+      return res.json({ success: true });
+    } catch (err) {
+      logger.error('PUT /api/muster/settings error:', err);
+      res.status(500).json({ error: 'Failed to save muster settings' });
+    }
+  });
+
   // Muster endpoint for emergency situations (includes staff, visitors, and contractors)
   app.get("/api/muster", requireAuth, async (req, res) => {
     try {
@@ -2412,6 +2474,14 @@ ${fmPhotos.map((ph: any) => {
                 : `<span style="color:#dc2626; font-weight:bold;">&#10007; Missing</span>`
               }
             </td>
+            <td style="padding:6px 8px;">
+              ${(p as any).statusOption
+                ? `<span style="color:#d97706; font-weight:500;">${esc((p as any).statusOption)}</span>`
+                : p.isAccountedFor
+                ? `<span style="color:#16a34a;">&mdash; Safe</span>`
+                : '&mdash;'
+              }
+            </td>
             <td style="padding:6px 8px;">${p.accountedAt ? formatTime(new Date(p.accountedAt)) : '—'}</td>
           </tr>`).join('');
 
@@ -2479,6 +2549,20 @@ ${evac.isDrill ? '<div class="drill-banner">&#128998; FIRE DRILL &mdash; This ev
   <div class="stat-box"><div class="stat-num">${contractorPeople.length}</div><div class="stat-label">Contractors</div></div>
   ${memberPeople.length > 0 ? `<div class="stat-box"><div class="stat-num">${memberPeople.length}</div><div class="stat-label">Members</div></div>` : ''}
 </div>
+${(() => {
+  const withStatus = accounted.filter((p: any) => p.statusOption);
+  if (withStatus.length === 0) return '';
+  const directSafe = accounted.filter((p: any) => !p.statusOption).length;
+  const byOption = new Map<string, number>();
+  for (const p of withStatus as any[]) {
+    byOption.set(p.statusOption, (byOption.get(p.statusOption) || 0) + 1);
+  }
+  const rows = [
+    directSafe > 0 ? `<tr><td style="padding:4px 8px;">Marked Safe (direct)</td><td style="padding:4px 8px; font-weight:bold; color:#16a34a;">${directSafe}</td></tr>` : '',
+    ...[...byOption.entries()].map(([opt, cnt]) => `<tr><td style="padding:4px 8px;">${esc(opt)}</td><td style="padding:4px 8px; font-weight:bold; color:#d97706;">${cnt}</td></tr>`),
+  ].join('');
+  return `<h3 style="margin:16px 0 6px; font-size:14px; color:#555;">Status Breakdown</h3><table style="width:auto; border-collapse:collapse; font-size:13px; border:1px solid #e5e7eb; border-radius:6px; overflow:hidden;"><thead><tr style="background:#f3f4f6;"><th style="padding:4px 8px; text-align:left; font-weight:600;">Status</th><th style="padding:4px 8px; text-align:left; font-weight:600;">Count</th></tr></thead><tbody>${rows}</tbody></table>`;
+})()}
 
 ${hasDetailedData ? `
 <h2>Zone-by-Zone Breakdown</h2>
@@ -2540,7 +2624,7 @@ ${hasDetailedData
   ? (unaccounted.length > 0
       ? `<h2 style="color:#dc2626;">&#9888; Unaccounted Personnel (${unaccounted.length})</h2>
 <table>
-  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Last Known Zone</th><th>Status</th><th>Accounted At</th></tr>
+  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Last Known Zone</th><th>Status</th><th>Status Detail</th><th>Accounted At</th></tr>
   ${personRows(unaccounted)}
 </table>`
       : '<h2 style="color:#16a34a;">&#10003; All Personnel Accounted For</h2>')
@@ -2553,7 +2637,7 @@ ${hasDetailedData
 <h2>Full Personnel Register</h2>
 ${hasDetailedData
   ? `<table>
-  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Last Known Zone</th><th>Status</th><th>Accounted At</th></tr>
+  <tr><th>Name</th><th>Type</th><th>Dept / Company</th><th>Last Known Zone</th><th>Status</th><th>Status Detail</th><th>Accounted At</th></tr>
   ${personRows(accountability)}
 </table>`
   : `<p style="color:#888; font-style:italic; font-size:13px; padding:8px 0;">
@@ -4516,6 +4600,42 @@ ${evacuationPhotosData.length > 0 ? `
         );
       }
       
+      // Fetch active evacuation to get statusOption values from evacuationAccountability
+      const [activeEvacForStatus] = await db
+        .select()
+        .from(evacuations)
+        .where(and(eq(evacuations.customerId, context.customerId as any), eq(evacuations.status, 'active')))
+        .orderBy(desc(evacuations.startedAt))
+        .limit(1);
+
+      // Build personId → statusOption map from evacuationAccountability
+      const statusOptionMap = new Map<string, string | null>();
+      if (activeEvacForStatus) {
+        const accountabilityRows = await db
+          .select({ personId: evacuationAccountability.personId, statusOption: evacuationAccountability.statusOption })
+          .from(evacuationAccountability)
+          .where(eq(evacuationAccountability.evacuationId, activeEvacForStatus.evacuationId));
+        for (const row of accountabilityRows) {
+          statusOptionMap.set(row.personId, (row as any).statusOption ?? null);
+        }
+      }
+
+      // Fetch musterSettings for this customer
+      let musterSettingsData = { statusOptionsEnabled: false, statusOptions: ['Location unknown', 'Working remotely / offsite', 'Sent to another location'] };
+      try {
+        const [msRow] = await custDb
+          .select()
+          .from(isolatedSchema.musterSettings)
+          .where(eq(isolatedSchema.musterSettings.customerId, context.customerId))
+          .limit(1);
+        if (msRow) {
+          musterSettingsData = {
+            statusOptionsEnabled: msRow.statusOptionsEnabled,
+            statusOptions: msRow.statusOptions || musterSettingsData.statusOptions,
+          };
+        }
+      } catch { /* muster_settings table may not exist yet on older schemas */ }
+
       const musterList = [
         ...checkedInStaff.map(staff => ({
           id: staff.id,
@@ -4530,6 +4650,7 @@ ${evacuationPhotosData.length > 0 ? `
           accounted: staff.isAccountedFor || false,
           needsEvacuationAssistance: (staff as any).needsEvacuationAssistance || false,
           hasEmail: !!staff.email,
+          statusOption: statusOptionMap.get(staff.id) ?? null,
         })),
         ...currentVisitors.map(visitor => ({
           id: visitor.id,
@@ -4544,8 +4665,9 @@ ${evacuationPhotosData.length > 0 ? `
           accounted: visitor.isAccountedFor || false,
           needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance || false,
           hasEmail: !!visitor.email,
+          statusOption: statusOptionMap.get(visitor.id) ?? null,
         })),
-        ...checkedInContractors.map(c => ({ ...c, hasEmail: !!c.email }))
+        ...checkedInContractors.map(c => ({ ...c, hasEmail: !!c.email, statusOption: statusOptionMap.get(c.id) ?? null }))
       ];
       
       // Prevent browser caching for real-time updates
@@ -4553,7 +4675,7 @@ ${evacuationPhotosData.length > 0 ? `
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
       
-      res.json(musterList);
+      res.json({ people: musterList, musterSettings: musterSettingsData });
     } catch (error) {
       logger.error("Failed to fetch emergency muster list:", error);
       res.status(500).json({ error: "Failed to fetch emergency muster list" });
@@ -4614,7 +4736,7 @@ ${evacuationPhotosData.length > 0 ? `
   app.post("/api/emergency/toggle-accounted/:token", async (req, res) => {
     try {
       const { token } = req.params;
-      const { personId, type } = req.body;
+      const { personId, type, statusOption } = req.body as { personId: string; type: string; statusOption?: string | null };
       
       // Get customer context for isolation based on logged-in user
       const username = req.user?.username || 'system';
@@ -4626,7 +4748,7 @@ ${evacuationPhotosData.length > 0 ? `
         return res.status(401).json({ error: "Invalid or expired emergency token" });
       }
       
-      // Get active evacuation for WebSocket broadcasting
+      // Get active evacuation for WebSocket broadcasting and accountability update
       const activeEvacuations = await db
         .select()
         .from(evacuations)
@@ -4686,6 +4808,47 @@ ${evacuationPhotosData.length > 0 ? `
       if (!success) {
         return res.status(404).json({ error: "Person not found" });
       }
+
+      const newAccountedStatus = !accounted;
+      const marshalName = `${marshal.firstName} ${marshal.lastName}`;
+
+      // Update or insert evacuationAccountability record to persist statusOption and accounted state
+      if (activeEvacuation) {
+        try {
+          const updateResult = await db
+            .update(evacuationAccountability)
+            .set({
+              isAccountedFor: newAccountedStatus,
+              statusOption: newAccountedStatus ? (statusOption ?? null) : null,
+              accountedBy: newAccountedStatus ? marshalName : null,
+              accountedAt: newAccountedStatus ? new Date() : null,
+              updatedAt: new Date(),
+            } as any)
+            .where(and(
+              eq(evacuationAccountability.evacuationId, activeEvacuation.evacuationId),
+              eq(evacuationAccountability.personId, personId),
+              eq(evacuationAccountability.customerId, context.customerId as any)
+            ))
+            .returning();
+
+          if (updateResult.length === 0) {
+            // Person not yet in accountability table (late arrival) — insert
+            await db.insert(evacuationAccountability).values({
+              evacuationId: activeEvacuation.evacuationId,
+              customerId: context.customerId || '',
+              personId,
+              personType: type as any,
+              personName,
+              isAccountedFor: newAccountedStatus,
+              statusOption: newAccountedStatus ? (statusOption ?? null) : null,
+              accountedBy: newAccountedStatus ? marshalName : null,
+              accountedAt: newAccountedStatus ? new Date() : null,
+            } as any);
+          }
+        } catch (e) {
+          logger.warn('Could not update evacuationAccountability during toggle:', (e as Error)?.message?.substring(0, 80));
+        }
+      }
       
       // Broadcast update via WebSocket for real-time sync
       if (activeEvacuation) {
@@ -4696,15 +4859,17 @@ ${evacuationPhotosData.length > 0 ? `
             personId,
             personName,
             personType: type as 'staff' | 'visitor' | 'contractor' | 'member',
-            isAccountedFor: !accounted
-          }
+            isAccountedFor: newAccountedStatus,
+            statusOption: newAccountedStatus ? (statusOption ?? null) : null,
+          } as any
         );
       }
       
       res.json({ 
         success: true, 
         name: personName,
-        accounted: !accounted // Status after toggle
+        accounted: newAccountedStatus,
+        statusOption: newAccountedStatus ? (statusOption ?? null) : null,
       });
     } catch (error) {
       logger.error("Failed to toggle accounted status:", error);

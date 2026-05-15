@@ -1,0 +1,121 @@
+## Replit Prompt — Muster Status Dropdown Button (Updated)
+
+**Context:**
+The Fire Marshal public muster page (`FireMarshalMuster.tsx`) currently has a green "Safe" button for each person. We need to add a dropdown button to the **left** of the Safe button, giving the fire marshal additional status options beyond just marking someone safe. This is for situations where a person can't be physically accounted for but their whereabouts are known.
+
+There also needs to be a control panel in the main `/muster` admin page where an admin can toggle the dropdown on/off and customise the options. The Evacuation Incident Report PDF must be updated to capture and display these statuses for post-event analysis.
+
+---
+
+### 1. Database Changes
+
+**`evacuationAccountability` table — add one column:**
+```
+statusOption: text, nullable, default null
+```
+Stores the selected option text (e.g. "Working remotely / offsite") when someone is marked via the dropdown. Null means they were marked via the plain Safe button.
+
+**New table: `musterSettings`** (one row per customer)
+```
+id: uuid, primary key
+customerId: text, not null
+statusOptionsEnabled: boolean, default false
+statusOptions: json array of strings, default ["Location unknown", "Working remotely / offsite", "Sent to another location"]
+```
+
+---
+
+### 2. Fire Marshal Page — `FireMarshalMuster.tsx`
+
+When `statusOptionsEnabled` is true for the customer, show a **split button** to the left of each person's Safe button:
+
+- A small button (chevron/arrow) that opens a dropdown menu
+- Dropdown shows the configured `statusOptions` list
+- Selecting an option calls `POST /api/emergency/toggle-accounted/:token` with `{ personId, personType, statusOption: "Working remotely / offsite" }` — marks the person as `isAccountedFor: true` AND stores the `statusOption` text in `evacuationAccountability`
+- Show the selected status as a small amber badge beneath the person's name (e.g. "Working remotely / offsite")
+- The existing green Safe button still works exactly as now — sets `isAccountedFor: true` with `statusOption: null`
+
+The `GET /api/emergency/muster/:token` response should include `musterSettings.statusOptionsEnabled` and `statusOptions`, plus each person's current `statusOption` value from `evacuationAccountability`.
+
+---
+
+### 3. API Changes — `emergency.ts`
+
+**`POST /api/emergency/toggle-accounted/:token`**
+- Accept optional `statusOption: string` in request body
+- Write it to `evacuationAccountability.statusOption` when present; write `null` when not present
+- WebSocket broadcast via `broadcastMusterUpdate()` must include `statusOption` so all connected devices update their badges in real time
+
+**`GET /api/emergency/muster/:token`**
+- Include in response:
+  ```json
+  "musterSettings": {
+    "statusOptionsEnabled": true,
+    "statusOptions": ["Location unknown", "Working remotely / offsite", "Sent to another location"]
+  }
+  ```
+- Each person in the list should include their current `statusOption` value
+
+**New authenticated endpoints:**
+- `GET /api/muster/settings` — returns the `musterSettings` row for the logged-in customer
+- `PUT /api/muster/settings` — updates `statusOptionsEnabled` and/or `statusOptions` (admin only)
+
+---
+
+### 4. Admin `/muster` Page — `MusterList.tsx`
+
+Add a **"Status Options" settings panel** (behind a settings cog or collapsible section):
+
+- **Toggle switch** — "Enable status dropdown on Fire Marshal page" — reads/writes `musterSettings.statusOptionsEnabled`
+- **Editable list** — current `statusOptions` array with delete (×) per row, an "Add option" input + button, and a Save button
+- Default options pre-populated for new customers: "Location unknown", "Working remotely / offsite", "Sent to another location"
+
+Also show a "Status" column or inline label in the admin personnel list for anyone with a `statusOption` set during an active evacuation.
+
+---
+
+### 5. Evacuation Incident Report — `emergency.ts` (report HTML generation)
+
+The report is built in `emergency.ts` around the `personRows()` function, which currently renders columns: Name, Type, Dept/Company, Last Known Zone, Status, Accounted At.
+
+**Changes needed:**
+
+**A — Personnel table columns**
+
+Add a **"Status Detail"** column to both the Full Personnel Register table and the Unaccounted Personnel table:
+
+```
+Name | Type | Dept / Company | Last Known Zone | Status | Status Detail | Accounted At
+```
+
+- If `statusOption` is set, show the option text in amber (e.g. `<span style="color:#d97706">Working remotely / offsite</span>`)
+- If `statusOption` is null and person is accounted, show `<span style="color:#16a34a">— Safe</span>`
+- If person is unaccounted, leave blank `—`
+
+**B — Accountability Statistics section**
+
+Below the existing stat boxes (Total On-Site / Accounted For / Unaccounted / Completion Rate), add a **Status Breakdown** sub-section — but only if any `statusOption` values were recorded during the event:
+
+```
+Status Breakdown:
+  Marked Safe (direct)     : 7
+  Location unknown         : 1
+  Working remotely / offsite : 2
+  Sent to another location : 1
+```
+
+Render this as a simple table or definition list beneath the stat boxes. Group by `statusOption` value, with a "Marked Safe (direct)" row for anyone where `isAccountedFor: true` and `statusOption` is null.
+
+**C — Data fetching for the report**
+
+When the report queries `evacuationAccountability` to build `allAccountability`, ensure `statusOption` is included in the selected columns and mapped through to the `personRows()` function and the statistics calculation.
+
+---
+
+### 6. Display in Existing Admin Muster View
+
+In the admin `/muster` personnel list, add a "Status" column or inline label showing the `statusOption` text for anyone where it's set during an active evacuation.
+
+---
+
+That covers everything. Let me know if you want any tweaks before it goes to the developer.

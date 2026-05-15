@@ -330,6 +330,31 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         logger.info('✅ [047] SSO fields ensured on company_settings and users');
       }
     },
+    {
+      version: '20260515_048_add_muster_status_options',
+      description: 'Add muster_settings table and status_option column to evacuation_accountability',
+      async up(db: any) {
+        const stmts = [
+          `CREATE TABLE IF NOT EXISTS muster_settings (
+            id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
+            customer_id TEXT NOT NULL DEFAULT '',
+            status_options_enabled BOOLEAN NOT NULL DEFAULT false,
+            status_options TEXT[] DEFAULT ARRAY['Location unknown','Working remotely / offsite','Sent to another location'],
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          )`,
+          `ALTER TABLE evacuation_accountability ADD COLUMN IF NOT EXISTS status_option TEXT`,
+        ];
+        for (const sql of stmts) {
+          try {
+            await db.execute(sql);
+          } catch (err: any) {
+            logger.info(`⚠️ [048] muster status options: ${err.message?.substring(0, 80)}`);
+          }
+        }
+        logger.info('✅ [048] muster_settings table and status_option column ensured');
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

@@ -17,6 +17,7 @@ import {
   Clock,
   Layers,
   ChevronRight,
+  ChevronDown,
   Footprints,
   Mail,
   Accessibility,
@@ -36,6 +37,17 @@ interface MusterListItem {
   accounted: boolean;
   needsEvacuationAssistance?: boolean;
   hasEmail?: boolean;
+  statusOption?: string | null;
+}
+
+interface MusterSettings {
+  statusOptionsEnabled: boolean;
+  statusOptions: string[];
+}
+
+interface MusterResponse {
+  people: MusterListItem[];
+  musterSettings: MusterSettings;
 }
 
 interface Zone {
@@ -70,10 +82,11 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
   const [activeZoneFilter, setActiveZoneFilter] = useState<string | null>(null);
   const [marshalZoneId, setMarshalZoneId] = useState<string | null>(null);
   const [zoneSweepMode, setZoneSweepMode] = useState(false);
-  // Confirm dialog for sweeping a zone with unaccounted people
   const [sweepConfirmZone, setSweepConfirmZone] = useState<{ id: string; name: string; unaccountedCount: number } | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
   const [emailingPersonId, setEmailingPersonId] = useState<string | null>(null);
+  // Status option dropdown open state: personId or null
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const wsRef = useRef<WebSocket | null>(null);
@@ -200,7 +213,6 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
 
   const handleSweepZone = (zone: { id: string; name: string }, unaccountedCount: number) => {
     if (unaccountedCount > 0) {
-      // Show confirmation dialog
       setSweepConfirmZone({ id: zone.id, name: zone.name, unaccountedCount });
     } else {
       sweepZoneMutation.mutate({ zoneId: zone.id, zoneName: zone.name });
@@ -229,12 +241,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
 
       ws.onopen = () => {
         setWsConnected(true);
-        
-        ws.send(JSON.stringify({
-          type: 'register',
-          customerId,
-          evacuationId
-        }));
+        ws.send(JSON.stringify({ type: 'register', customerId, evacuationId }));
       };
 
       ws.onmessage = (event) => {
@@ -242,7 +249,6 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
           const message = JSON.parse(event.data);
           if (message.type === 'muster_update') {
             queryClient.invalidateQueries({ queryKey: ["/api/emergency/muster", token] });
-            
             const statusText = message.isAccountedFor ? 'SAFE' : 'UNSAFE';
             toast({
               title: "Real-time Update",
@@ -254,16 +260,11 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
         }
       };
 
-      ws.onerror = () => {
-        setWsConnected(false);
-      };
+      ws.onerror = () => { setWsConnected(false); };
 
       ws.onclose = () => {
         setWsConnected(false);
-        
-        reconnectTimeoutRef.current = setTimeout(() => {
-          connectWebSocket();
-        }, 3000);
+        reconnectTimeoutRef.current = setTimeout(() => { connectWebSocket(); }, 3000);
       };
 
       wsRef.current = ws;
@@ -272,25 +273,28 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
     connectWebSocket();
 
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-      }
+      if (wsRef.current) { wsRef.current.close(); wsRef.current = null; }
+      if (reconnectTimeoutRef.current) { clearTimeout(reconnectTimeoutRef.current); }
     };
   }, [isValidToken, customerId, evacuationId, token, toast, queryClient]);
 
-  // Fetch muster list
-  const { data: musterList = [], isLoading, refetch } = useQuery<MusterListItem[]>({
+  // Fetch muster list (includes musterSettings)
+  const { data: musterResponse, isLoading, refetch } = useQuery<MusterResponse>({
     queryKey: ["/api/emergency/muster", token],
     enabled: isValidToken && !!token,
     refetchInterval: 30000,
     retry: 3,
+    queryFn: async () => {
+      const res = await fetch(`/api/emergency/muster/${token}`, { credentials: 'include' });
+      if (!res.ok) return { people: [], musterSettings: { statusOptionsEnabled: false, statusOptions: [] } };
+      return res.json();
+    },
   });
 
-  // Toggle accounted status mutation
+  const musterList: MusterListItem[] = musterResponse?.people || [];
+  const musterSettings: MusterSettings = musterResponse?.musterSettings || { statusOptionsEnabled: false, statusOptions: [] };
+
+  // Toggle accounted status mutation (plain SAFE button)
   const toggleAccountedMutation = useMutation({
     mutationFn: async ({ personId, type }: { personId: string, type: string }) => {
       const response = await fetch(`/api/emergency/toggle-accounted/${token}`, {
@@ -300,26 +304,41 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
         credentials: 'include'
       });
       
-      if (!response.ok) {
-        throw new Error('Failed to update status');
-      }
-      
+      if (!response.ok) throw new Error('Failed to update status');
       return await response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/emergency/muster", token] });
-      
       toast({
         title: "Status Updated", 
         description: `${data.name} marked as ${data.accounted ? 'safe' : 'unsafe'}`,
       });
     },
     onError: (error: any) => {
-      toast({
-        title: "Update Failed",
-        description: error.message || "Failed to update status",
-        variant: "destructive",
+      toast({ title: "Update Failed", description: error.message || "Failed to update status", variant: "destructive" });
+    },
+  });
+
+  // Status option mutation (dropdown selection)
+  const statusOptionMutation = useMutation({
+    mutationFn: async ({ personId, type, statusOption }: { personId: string; type: string; statusOption: string }) => {
+      const response = await fetch(`/api/emergency/toggle-accounted/${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ personId, type, statusOption }),
+        credentials: 'include'
       });
+      if (!response.ok) throw new Error('Failed to update status');
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/emergency/muster", token] });
+      setOpenDropdownId(null);
+      toast({ title: "Status Set", description: `${data.name}: ${data.statusOption || 'Safe'}` });
+    },
+    onError: (error: any) => {
+      setOpenDropdownId(null);
+      toast({ title: "Update Failed", description: error.message || "Failed to set status", variant: "destructive" });
     },
   });
 
@@ -425,7 +444,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
   const sweptCount = zoneStats.filter(z => z.swept).length;
 
   return (
-    <div className="min-h-screen bg-red-600 text-white">
+    <div className="min-h-screen bg-red-600 text-white" onClick={() => openDropdownId && setOpenDropdownId(null)}>
       {/* Sweep confirmation dialog */}
       {sweepConfirmZone && (
         <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
@@ -609,7 +628,6 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                         activeZoneFilter === zone.id ? 'ring-2 ring-white' : ''
                       }`}
                     >
-                      {/* Zone row — tap to filter */}
                       <button
                         onClick={() => setActiveZoneFilter(zone.id === activeZoneFilter ? null : zone.id)}
                         className={`w-full flex items-center justify-between p-2 text-sm font-medium transition-colors ${
@@ -652,7 +670,6 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                         </div>
                       </button>
 
-                      {/* Mark Zone Clear button */}
                       {activeZoneFilter === zone.id && (
                         <div className="bg-red-900/40 px-2 pb-2 pt-1">
                           {zone.swept ? (
@@ -843,6 +860,14 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                       Last known: {person.location}
                     </p>
                   )}
+                  {/* Amber status option badge */}
+                  {person.accounted && person.statusOption && (
+                    <div className="mt-1.5">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-400/20 text-amber-300 border border-amber-500/40">
+                        {person.statusOption}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -859,6 +884,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                 </Badge>
 
                 <div className="flex items-center gap-2">
+                  {/* Email reminder button */}
                   {!person.accounted && (
                     <Button
                       size="sm"
@@ -884,6 +910,41 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
                     </Button>
                   )}
 
+                  {/* Status options dropdown button — shown to the LEFT of SAFE when enabled and person is not yet accounted */}
+                  {musterSettings.statusOptionsEnabled && !person.accounted && (
+                    <div className="relative" onClick={e => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        className="h-10 w-10 p-0 rounded-xl bg-amber-500 hover:bg-amber-600 text-white border-2 border-amber-400 flex items-center justify-center"
+                        onClick={() => setOpenDropdownId(openDropdownId === person.id ? null : person.id)}
+                        title="Mark with status option"
+                        data-testid={`button-status-dropdown-${person.id}`}
+                        disabled={statusOptionMutation.isPending}
+                      >
+                        <ChevronDown size={16} />
+                      </Button>
+
+                      {openDropdownId === person.id && (
+                        <div className="absolute right-0 bottom-12 z-50 bg-white rounded-xl shadow-2xl border border-gray-200 min-w-[220px] overflow-hidden">
+                          <div className="px-3 py-2 bg-amber-50 border-b border-amber-100">
+                            <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Mark as — with reason</p>
+                          </div>
+                          {musterSettings.statusOptions.map(option => (
+                            <button
+                              key={option}
+                              className="w-full text-left px-4 py-3 text-sm text-gray-800 hover:bg-amber-50 hover:text-amber-900 border-b border-gray-100 last:border-0 font-medium transition-colors"
+                              onClick={() => statusOptionMutation.mutate({ personId: person.id, type: person.type, statusOption: option })}
+                              disabled={statusOptionMutation.isPending}
+                            >
+                              {option}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Main SAFE / UNSAFE toggle button */}
                   <Button
                     size="lg"
                     className={`px-6 py-3 rounded-xl font-bold text-lg min-w-[120px] ${

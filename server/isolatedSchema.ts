@@ -97,7 +97,18 @@ export const evacuationAccountability = pgTable("evacuation_accountability", {
   accountedBy: text("accounted_by"), // Fire Marshal who marked them safe
   accountedAt: timestamp("accounted_at"),
   musterPoint: text("muster_point"),
+  statusOption: text("status_option"), // Selected status option text when using dropdown
   notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull()
+});
+
+// Muster Settings table — one row per customer for status dropdown configuration
+export const musterSettings = pgTable("muster_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: text("customer_id").notNull().default(""),
+  statusOptionsEnabled: boolean("status_options_enabled").default(false).notNull(),
+  statusOptions: text("status_options").array().default(sql`ARRAY['Location unknown','Working remotely / offsite','Sent to another location']`),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull()
 });

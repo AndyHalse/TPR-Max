@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
-import { Download, Printer, Users, UserCheck, Shield, Fingerprint, Eye, Wifi, WifiOff } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { Download, Printer, Users, UserCheck, Shield, Fingerprint, Eye, Wifi, WifiOff, Settings, Plus, Trash2, ChevronDown, ChevronUp, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
 interface BiostarStaffMember {
@@ -32,9 +34,20 @@ interface MusterEntry {
   isBiostarOnly?: boolean;
 }
 
+interface MusterSettings {
+  statusOptionsEnabled: boolean;
+  statusOptions: string[];
+}
+
+const DEFAULT_OPTIONS = ['Location unknown', 'Working remotely / offsite', 'Sent to another location'];
+
 export default function MusterList() {
   const [activeFilter, setActiveFilter] = useState<"all" | "staff" | "visitors" | "contractors" | "members">("all");
   const [showBiostarData, setShowBiostarData] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [localEnabled, setLocalEnabled] = useState<boolean | null>(null);
+  const [localOptions, setLocalOptions] = useState<string[] | null>(null);
+  const [newOption, setNewOption] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -45,7 +58,7 @@ export default function MusterList() {
   const { data: biostarStaff, isLoading: biostarLoading } = useQuery<BiostarStaffMember[]>({
     queryKey: ["/api/biostar/staff-status"],
     enabled: showBiostarData,
-    refetchInterval: 30000, // Refresh every 30 seconds
+    refetchInterval: 30000,
   });
 
   const { data: settings } = useQuery<{
@@ -55,28 +68,52 @@ export default function MusterList() {
     queryKey: ["/api/settings"],
   });
 
-  // This will be defined after enhancedMusterList
-  // const filteredList is moved after getCounts
+  const { data: musterSettings, isLoading: settingsLoading } = useQuery<MusterSettings>({
+    queryKey: ["/api/muster/settings"],
+  });
 
-  const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+  // Save muster settings
+  const saveSettingsMutation = useMutation({
+    mutationFn: async (payload: { statusOptionsEnabled: boolean; statusOptions: string[] }) => {
+      return apiRequest("PUT", "/api/muster/settings", payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/muster/settings"] });
+      toast({ title: "Settings Saved", description: "Muster status options updated." });
+      setLocalEnabled(null);
+      setLocalOptions(null);
+    },
+    onError: () => {
+      toast({ title: "Save Failed", description: "Could not save muster settings.", variant: "destructive" });
+    },
+  });
+
+  // Derived local state (falls back to server values)
+  const effectiveEnabled = localEnabled !== null ? localEnabled : (musterSettings?.statusOptionsEnabled ?? false);
+  const effectiveOptions = localOptions !== null ? localOptions : (musterSettings?.statusOptions ?? DEFAULT_OPTIONS);
+
+  const handleSave = () => {
+    saveSettingsMutation.mutate({ statusOptionsEnabled: effectiveEnabled, statusOptions: effectiveOptions });
   };
 
-  const getAvatarColor = (type: string, index: number) => {
-    if (type === "staff") {
-      const colors = ["bg-blue-500", "bg-purple-500", "bg-indigo-500"];
-      return colors[index % colors.length];
-    }
-    const colors = ["bg-green-500", "bg-orange-500", "bg-teal-500"];
-    return colors[index % colors.length];
+  const handleAddOption = () => {
+    const trimmed = newOption.trim();
+    if (!trimmed || effectiveOptions.includes(trimmed)) return;
+    setLocalOptions([...effectiveOptions, trimmed]);
+    setNewOption("");
   };
 
-  const formatTime = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+  const handleRemoveOption = (idx: number) => {
+    setLocalOptions(effectiveOptions.filter((_, i) => i !== idx));
   };
+
+  const handleOptionChange = (idx: number, value: string) => {
+    const updated = [...effectiveOptions];
+    updated[idx] = value;
+    setLocalOptions(updated);
+  };
+
+  const isDirty = localEnabled !== null || localOptions !== null;
 
   // Merge muster list with Biostar data
   const getEnhancedMusterList = () => {
@@ -86,7 +123,6 @@ export default function MusterList() {
       return regularMuster;
     }
 
-    // Add Biostar staff who are on-site but not in regular muster
     const biostarOnSite = biostarStaff.filter(staff => staff.isOnSite);
     const existingStaffIds = new Set(regularMuster
       .filter(entry => entry.type === 'staff')
@@ -117,14 +153,7 @@ export default function MusterList() {
     const members = enhancedMusterList.filter(e => e.type === "member").length;
     const biostarOnly = enhancedMusterList.filter(e => e.isBiostarOnly).length;
     
-    return {
-      all: enhancedMusterList.length,
-      staff,
-      visitors,
-      contractors,
-      members,
-      biostarOnly
-    };
+    return { all: enhancedMusterList.length, staff, visitors, contractors, members, biostarOnly };
   };
 
   const counts = getCounts();
@@ -137,6 +166,21 @@ export default function MusterList() {
     if (activeFilter === "members") return entry.type === "member";
     return true;
   });
+
+  const getInitials = (name: string) => name.split(' ').map(n => n[0]).join('').toUpperCase();
+
+  const getAvatarColor = (type: string, index: number) => {
+    if (type === "staff") {
+      const colors = ["bg-blue-500", "bg-purple-500", "bg-indigo-500"];
+      return colors[index % colors.length];
+    }
+    const colors = ["bg-green-500", "bg-orange-500", "bg-teal-500"];
+    return colors[index % colors.length];
+  };
+
+  const formatTime = (dateString: string) => {
+    return new Date(dateString).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  };
 
   if (isLoading) {
     return <div>Loading muster list...</div>;
@@ -180,6 +224,16 @@ export default function MusterList() {
         <div className="flex gap-3">
           <Button
             variant="outline"
+            className={`font-medium hover:shadow-lg transition-all duration-300 border-dashed ${showSettings ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-950' : ''}`}
+            onClick={() => setShowSettings(v => !v)}
+            data-testid="button-muster-settings"
+          >
+            <Settings className="mr-2" size={16} />
+            Muster Settings
+            {showSettings ? <ChevronUp size={14} className="ml-1" /> : <ChevronDown size={14} className="ml-1" />}
+          </Button>
+          <Button
+            variant="outline"
             className="bg-gradient-to-r from-green-600 to-emerald-600 text-white font-medium hover:shadow-lg transition-all duration-300"
             data-testid="button-export-pdf"
           >
@@ -195,6 +249,117 @@ export default function MusterList() {
           </Button>
         </div>
       </div>
+
+      {/* Muster Settings Panel */}
+      {showSettings && (
+        <GlassCard className="p-5 border border-blue-200 dark:border-blue-800">
+          <div className="flex items-center gap-2 mb-4">
+            <Settings size={18} className="text-blue-600" />
+            <h3 className="text-base font-semibold text-fixed">Muster Status Options</h3>
+            {musterSettings?.statusOptionsEnabled && (
+              <Badge className="bg-green-100 text-green-800 text-xs">Enabled</Badge>
+            )}
+          </div>
+
+          <p className="text-sm text-variable mb-4">
+            When enabled, Fire Marshals will see a dropdown button next to each person's <strong>SAFE</strong> button on the muster screen.
+            They can use it to mark someone as accounted for with an additional status reason (e.g. "Working remotely / offsite").
+            The person will appear as <span className="text-amber-600 font-semibold">amber</span> in the muster list and incident report.
+          </p>
+
+          <div className="flex items-center gap-3 mb-5 p-3 bg-white/50 dark:bg-white/10 rounded-lg border border-gray-200 dark:border-gray-700">
+            <Switch
+              checked={effectiveEnabled}
+              onCheckedChange={(v) => setLocalEnabled(v)}
+              data-testid="switch-status-options-enabled"
+            />
+            <div>
+              <Label className="text-sm font-medium text-fixed">Enable Status Options Dropdown</Label>
+              <p className="text-xs text-variable mt-0.5">Shows a dropdown chevron next to the SAFE button on the Fire Marshal muster screen</p>
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <Label className="text-sm font-medium text-fixed mb-2 block">Status Options</Label>
+            <p className="text-xs text-variable mb-3">These options appear in the dropdown when a Fire Marshal marks someone as accounted for with a reason.</p>
+
+            <div className="space-y-2 mb-3">
+              {effectiveOptions.map((option, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <Input
+                    value={option}
+                    onChange={e => handleOptionChange(idx, e.target.value)}
+                    className="flex-1 text-sm h-9"
+                    data-testid={`status-option-input-${idx}`}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-9 w-9 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                    onClick={() => handleRemoveOption(idx)}
+                    disabled={effectiveOptions.length <= 1}
+                    data-testid={`button-remove-option-${idx}`}
+                    title="Remove option"
+                  >
+                    <Trash2 size={14} />
+                  </Button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Input
+                value={newOption}
+                onChange={e => setNewOption(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAddOption()}
+                placeholder="Add a new status option..."
+                className="flex-1 text-sm h-9"
+                data-testid="input-new-status-option"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 px-3 text-blue-600 border-blue-300 hover:bg-blue-50"
+                onClick={handleAddOption}
+                disabled={!newOption.trim()}
+                data-testid="button-add-option"
+              >
+                <Plus size={14} className="mr-1" />
+                Add
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center gap-2">
+              {isDirty && (
+                <span className="text-xs text-amber-600 font-medium">Unsaved changes</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-variable"
+                onClick={() => { setLocalEnabled(null); setLocalOptions(null); setNewOption(""); }}
+                disabled={!isDirty || saveSettingsMutation.isPending}
+              >
+                Reset
+              </Button>
+              <Button
+                size="sm"
+                className="gradient-blue text-white font-medium"
+                onClick={handleSave}
+                disabled={saveSettingsMutation.isPending}
+                data-testid="button-save-muster-settings"
+              >
+                <Save size={14} className="mr-1.5" />
+                {saveSettingsMutation.isPending ? "Saving..." : "Save Settings"}
+              </Button>
+            </div>
+          </div>
+        </GlassCard>
+      )}
 
       {/* Filter Tabs */}
       <GlassCard className="p-1 inline-flex">
@@ -282,24 +447,12 @@ export default function MusterList() {
             <table className="w-full">
               <thead className="bg-white/50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Name
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Company/Department
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Check-in Time
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Host/ID
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">
-                    Location
-                  </th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Type</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Company/Department</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Check-in Time</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Host/ID</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Location</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/20">
@@ -308,9 +461,7 @@ export default function MusterList() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className={`w-8 h-8 ${getAvatarColor(entry.type, index)} rounded-full flex items-center justify-center mr-3`}>
-                          <span className="text-white text-xs font-medium">
-                            {getInitials(entry.name)}
-                          </span>
+                          <span className="text-white text-xs font-medium">{getInitials(entry.name)}</span>
                         </div>
                         <span className="text-sm font-medium text-fixed" data-testid={`muster-name-${entry.id}`}>
                           {entry.name}
