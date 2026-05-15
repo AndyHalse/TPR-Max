@@ -131,6 +131,8 @@ export default function MarketingPage() {
           "reports",
           "hs-incidents",
           "fire-risk",
+          "compliance-register",
+          "permit-to-work",
         ].includes(hash)
       ) {
         setActiveTab(hash);
@@ -403,6 +405,8 @@ export default function MarketingPage() {
                   "Muster Status Dropdown",
                   "RIDDOR 2013 Incident Reporting",
                   "Fire Risk Assessment (RRO 2005)",
+                  "Compliance Certificate Register",
+                  "Permit-to-Work System",
                 ].map((f) => (
                   <div key={f} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -571,7 +575,7 @@ export default function MarketingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: "19", label: "Platform Modules", sub: "All included, no hidden extras" },
+              { value: "21", label: "Platform Modules", sub: "All included, no hidden extras" },
               { value: "99.9%", label: "Platform Uptime", sub: "Cloud-native reliability" },
               { value: "UK", label: "Built & Supported", sub: "UK regulations first" },
               { value: "GDPR", label: "Fully Compliant", sub: "Data stays in your tenant" },
@@ -669,6 +673,8 @@ export default function MarketingPage() {
                   "AI Safety Inductions",
                   "CO2 Sustainability Reporting",
                   "CDM 2015 & Martyn's Law Tools",
+                  "Compliance Certificate Register",
+                  "Permit-to-Work System",
                   "Reports, Audit Logs & Time Tracking",
                 ].map((feature) => (
                   <div key={feature} className="flex items-center gap-3 bg-white/70 dark:bg-slate-800/50 rounded-lg px-4 py-2.5 border border-emerald-200 dark:border-emerald-700">
@@ -724,11 +730,11 @@ export default function MarketingPage() {
               Complete Platform
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              19 Powerful Modules.{" "}
+              21 Powerful Modules.{" "}
               <span style={{ color: "#2460A9" }}>One Platform.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              Every tool your organisation needs — from visitor sign-in to CDM 2015 construction compliance — built in and ready to use from day one.
+              Every tool your organisation needs — from visitor sign-in to statutory compliance certificates and high-risk work permits — built in and ready to use from day one.
             </p>
           </div>
 
@@ -885,6 +891,22 @@ export default function MarketingPage() {
                 bg: "bg-red-50 dark:bg-red-900/20",
                 border: "border-red-200 dark:border-red-800",
                 desc: "Fire Risk Assessment register under RRO 2005 — schedule reviews, track competent assessors, and receive automated overdue reminders.",
+              },
+              {
+                icon: ShieldCheck,
+                name: "Cert Register",
+                color: "text-emerald-700",
+                bg: "bg-emerald-50 dark:bg-emerald-900/20",
+                border: "border-emerald-200 dark:border-emerald-800",
+                desc: "Statutory compliance certificate register — EICR, gas safety, fire alarms, LOLER, legionella, PAT testing & more. Expiry tracking with automated alerts.",
+              },
+              {
+                icon: ClipboardList,
+                name: "Permit to Work",
+                color: "text-orange-600",
+                bg: "bg-orange-50 dark:bg-orange-900/20",
+                border: "border-orange-200 dark:border-orange-800",
+                desc: "Formal permit-to-work system for high-risk activities — hot works, confined space, electrical isolation, working at height. Full lifecycle with pre-seeded safety checklists.",
               },
             ].map(({ icon: Icon, name, color, bg, border, desc }) => (
               <div
@@ -1071,6 +1093,22 @@ export default function MarketingPage() {
               >
                 <Flame className="h-4 w-4 mb-1" />
                 Fire Risk
+              </TabsTrigger>
+              <TabsTrigger
+                value="compliance-register"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-emerald-700 transition-all duration-200"
+                data-testid="tab-compliance-register"
+              >
+                <ShieldCheck className="h-4 w-4 mb-1" />
+                Cert Register
+              </TabsTrigger>
+              <TabsTrigger
+                value="permit-to-work"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-orange-600 transition-all duration-200"
+                data-testid="tab-permit-to-work"
+              >
+                <ClipboardList className="h-4 w-4 mb-1" />
+                Permits
               </TabsTrigger>
             </TabsList>
 
@@ -2607,6 +2645,192 @@ export default function MarketingPage() {
                           <div className="text-[10px] text-slate-400">{label}</div>
                         </div>
                       ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Compliance Certificate Register Tab */}
+            <TabsContent value="compliance-register" className="space-y-6" data-testid="content-compliance-register">
+              <div className="grid lg:grid-cols-2 gap-8 items-center">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-emerald-700 text-white">
+                      <ShieldCheck className="h-3 w-3 mr-1" />
+                      Statutory UK Compliance
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Compliance Certificate Register
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Every UK workplace has a legal duty to keep statutory inspection certificates current — from EICR electrical safety to gas safety, fire alarms, LOLER lifting equipment, and legionella assessments. TPR Max gives you a centralised register with colour-coded status, document storage, and automated expiry alerts so you never miss a renewal.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { title: "14 Statutory Certificate Types Pre-Loaded", desc: "EICR, gas safety, fire alarm, emergency lighting, LOLER, legionella, PAT testing, sprinkler, asbestos, boiler, fire extinguisher, EPC, DDA lift, and fixed wire testing — all with correct legal basis and default frequencies" },
+                      { title: "Colour-Coded Status Dashboard", desc: "Instant visual overview — Current (green), Expiring Soon (amber), Expired (red), Missing (grey). Card-grid layout lets facilities managers see the full picture at a glance" },
+                      { title: "Automated Expiry Alerts", desc: "Daily email alerts sent to administrators as certificates approach renewal — configurable lead time per certificate type. Escalates to expired alerts with urgency flagging" },
+                      { title: "Document Upload & History", desc: "Attach the certificate PDF or photo to each record. Full version history kept — see current certificate alongside all previous ones, with renewal date trail" },
+                      { title: "Custom Certificate Types", desc: "Add your own certificate types for industry-specific requirements beyond the standard 14 — with custom display names, frequencies, and lead times" },
+                    ].map(({ title, desc }) => (
+                      <div key={title} className="flex items-start space-x-3">
+                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700 dark:text-slate-300 text-sm">
+                          <strong>{title}:</strong> {desc}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <Button size="lg" onClick={() => scrollToSection("contact")} className="text-white bg-emerald-700 hover:bg-emerald-800">
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                    See Certificate Register Live
+                  </Button>
+                </div>
+
+                <div className="relative">
+                  <div className="rounded-xl shadow-2xl border border-emerald-200 dark:border-emerald-800 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/30 dark:to-teal-900/30 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-5 w-5 text-emerald-700" />
+                        <span className="font-bold text-emerald-800 dark:text-emerald-200 text-sm">Compliance Register</span>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-red-50 text-red-700 border-red-200">
+                        <AlertTriangle className="h-2.5 w-2.5" /> 2 expired
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2 mb-4">
+                      {[
+                        { label: "Current", val: 9, cls: "bg-green-100 text-green-700 border-green-200" },
+                        { label: "Expiring", val: 2, cls: "bg-amber-100 text-amber-700 border-amber-200" },
+                        { label: "Expired", val: 2, cls: "bg-red-100 text-red-700 border-red-200" },
+                        { label: "Missing", val: 1, cls: "bg-gray-100 text-gray-600 border-gray-200" },
+                      ].map(({ label, val, cls }) => (
+                        <div key={label} className={`rounded-lg p-2 text-center border ${cls}`}>
+                          <div className="text-xl font-bold">{val}</div>
+                          <div className="text-[10px]">{label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      {[
+                        { name: "EICR — Fixed Wire Test", due: "12 Jan 2027", status: "current", badge: "bg-green-100 text-green-700" },
+                        { name: "Gas Safety Certificate", due: "03 Jun 2025", status: "Expired", badge: "bg-red-600 text-white" },
+                        { name: "Fire Alarm Service", due: "18 Jul 2025", status: "Expiring Soon", badge: "bg-amber-100 text-amber-700" },
+                        { name: "LOLER — Lift Inspection", due: "22 Oct 2026", status: "current", badge: "bg-green-100 text-green-700" },
+                        { name: "Legionella Risk Assessment", due: "—", status: "Missing", badge: "bg-gray-100 text-gray-600" },
+                      ].map((cert) => (
+                        <div key={cert.name} className="bg-white/90 dark:bg-slate-800/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{cert.name}</div>
+                              <div className="text-[10px] text-slate-500">Due: {cert.due}</div>
+                            </div>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${cert.badge}`}>
+                              {cert.status === "current" ? "Current" : cert.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Permit-to-Work Tab */}
+            <TabsContent value="permit-to-work" className="space-y-6" data-testid="content-permit-to-work">
+              <div className="grid lg:grid-cols-2 gap-8 items-center">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-orange-600 text-white">
+                      <ClipboardList className="h-3 w-3 mr-1" />
+                      High-Risk Work Control
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Permit-to-Work System
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      A formal permit-to-work system is required by law for activities including hot works, electrical isolation, confined space entry, and working at height. TPR Max provides a complete digital PTW workflow — from creation and checklist sign-off through to authorisation, activation, suspension, and final closure — with a full audit trail.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { title: "7 Permit Types with Pre-Seeded Checklists", desc: "Hot Works, Working at Height, Electrical Isolation, Confined Space, Excavation, Asbestos, and General High Risk — each with duty-of-care checklist items pre-loaded from CDM 2015 and HSE guidance" },
+                      { title: "Full 7-Stage Lifecycle", desc: "Draft → Submitted → Authorised → Active → Suspended → Completed (or Expired/Cancelled). Authorisation segregation enforced — the requester cannot authorise their own permit" },
+                      { title: "YES / NO / N/A Checklists", desc: "'No' answers require a written mitigating control before the permit can be submitted — preventing high-risk work proceeding with unresolved safety gaps" },
+                      { title: "Automatic Expiry & Overdue Alerts", desc: "Daily cron checks for stale permits — auto-expires authorised permits past their planned end date, sends 2-hour pre-expiry warnings, and escalates overdue closures to admins" },
+                      { title: "Complete Audit Trail", desc: "Every status change, approval, suspension, and closure timestamped and attributed to a named user — providing evidence for HSE, insurers, and CDM duty holders" },
+                    ].map(({ title, desc }) => (
+                      <div key={title} className="flex items-start space-x-3">
+                        <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-slate-700 dark:text-slate-300 text-sm">
+                          <strong>{title}:</strong> {desc}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <Button size="lg" onClick={() => scrollToSection("contact")} className="text-white bg-orange-600 hover:bg-orange-700">
+                    <ClipboardList className="h-4 w-4 mr-2" />
+                    See Permit-to-Work Live
+                  </Button>
+                </div>
+
+                <div className="relative">
+                  <div className="rounded-xl shadow-2xl border border-orange-200 dark:border-orange-800 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-2">
+                        <ClipboardList className="h-5 w-5 text-orange-600" />
+                        <span className="font-bold text-orange-800 dark:text-orange-200 text-sm">Permit-to-Work</span>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full border bg-green-50 text-green-700 border-green-200">
+                        3 active
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-4 gap-2 mb-4">
+                      {[
+                        { label: "Active", val: 3, cls: "bg-green-100 text-green-700 border-green-200" },
+                        { label: "Pending", val: 2, cls: "bg-amber-100 text-amber-700 border-amber-200" },
+                        { label: "Auth'd", val: 1, cls: "bg-blue-100 text-blue-700 border-blue-200" },
+                        { label: "Closed", val: 14, cls: "bg-gray-100 text-gray-600 border-gray-200" },
+                      ].map(({ label, val, cls }) => (
+                        <div key={label} className={`rounded-lg p-2 text-center border ${cls}`}>
+                          <div className="text-xl font-bold">{val}</div>
+                          <div className="text-[10px]">{label}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2">
+                      {[
+                        { ref: "PTW-0041", type: "Hot Works", location: "Boiler Room", status: "ACTIVE", statusCls: "bg-green-600 text-white", icon: "🔥" },
+                        { ref: "PTW-0042", type: "Electrical Isolation", location: "Sub-Station B", status: "ACTIVE", statusCls: "bg-green-600 text-white", icon: "⚡" },
+                        { ref: "PTW-0043", type: "Working at Height", location: "Roof Access — Zone 3", status: "PENDING AUTH", statusCls: "bg-amber-100 text-amber-700", icon: "🪜" },
+                        { ref: "PTW-0044", type: "Confined Space", location: "Tank 7 — Basement", status: "SUBMITTED", statusCls: "bg-blue-100 text-blue-700", icon: "⚠️" },
+                      ].map((permit) => (
+                        <div key={permit.ref} className="bg-white/90 dark:bg-slate-800/90 rounded-lg p-3 border border-slate-200 dark:border-slate-700">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0">
+                              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                                <span>{permit.icon}</span>
+                                <span className="truncate">{permit.ref} — {permit.type}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 truncate">{permit.location}</div>
+                            </div>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0 ${permit.statusCls}`}>
+                              {permit.status}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 p-3 rounded-lg bg-orange-50 border border-orange-200 text-xs text-orange-800">
+                      <strong>CDM 2015 · Working at Height Regs 2005 · Confined Spaces Regs 1997 · Electricity at Work Regs 1989</strong>
                     </div>
                   </div>
                 </div>
