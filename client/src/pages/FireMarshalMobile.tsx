@@ -45,7 +45,13 @@ interface PersonOnSite {
   accountedBy?: string;
   accountedAt?: string;
   musterPoint?: string;
+  statusOption?: string | null;
   needsEvacuationAssistance?: boolean;
+}
+
+interface MusterSettings {
+  statusOptionsEnabled: boolean;
+  statusOptions: string[];
 }
 
 interface PersonnelData {
@@ -54,6 +60,7 @@ interface PersonnelData {
   totalOnSite: number;
   accountedFor: number;
   unaccounted: number;
+  musterSettings?: MusterSettings;
 }
 
 interface ActiveEvacuationResponse {
@@ -117,6 +124,8 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const [showMyZoneOnly, setShowMyZoneOnly] = useState(false);
   const [sweepConfirmZone, setSweepConfirmZone] = useState<{ id: string; name: string; unaccountedCount: number } | null>(null);
   const [overrideReason, setOverrideReason] = useState("");
+  // Status option dropdown: personId that currently has the dropdown open, or null
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
   // Note and Photo capture state
   const [showNoteDialog, setShowNoteDialog] = useState(false);
@@ -383,6 +392,71 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
     },
     onError: (_error, _vars, context: any) => {
       // Roll back the optimistic update on failure
+      if (context?.previousData) {
+        queryClient.setQueryData(['/api/emergency/fire-marshal', urlId, 'personnel'], context.previousData);
+      }
+      toast({ title: "Error", description: "Failed to update status", variant: "destructive" });
+    }
+  });
+
+  // Mark safe with a status option (amber — e.g. "Working remotely / offsite")
+  const markSafeWithOptionMutation = useMutation({
+    mutationFn: async ({ personId, statusOption }: { personId: string; statusOption: string }) => {
+      const headers: HeadersInit = { "Content-Type": "application/json" };
+      if (token) headers["X-Emergency-Token"] = token;
+      else if (urlId) headers["X-Fire-Marshal-Id"] = urlId;
+
+      const response = await fetch(`/api/emergency/mark-safe/${personId}`, {
+        method: "POST",
+        headers,
+        credentials: "include",
+        body: JSON.stringify({
+          musterPoint: "Safe Location",
+          evacuationId: activeEvacuationId || 'standalone',
+          marshalName,
+          statusOption,
+        })
+      });
+      if (!response.ok) throw new Error("Failed to mark person as safe");
+      return response.json();
+    },
+    onMutate: async ({ personId, statusOption }) => {
+      await queryClient.cancelQueries({ queryKey: ['/api/emergency/fire-marshal', urlId, 'personnel'] });
+      const previousData = queryClient.getQueryData(['/api/emergency/fire-marshal', urlId, 'personnel']);
+      queryClient.setQueryData(
+        ['/api/emergency/fire-marshal', urlId, 'personnel'],
+        (old: any) => {
+          if (!old?.people) return old;
+          const updatedPeople = old.people.map((p: any) =>
+            p.id === personId
+              ? { ...p, isAccountedFor: true, accountedBy: marshalName, statusOption }
+              : p
+          );
+          const accountedFor = updatedPeople.filter((p: any) => p.isAccountedFor).length;
+          return { ...old, people: updatedPeople, accountedFor, unaccounted: old.totalOnSite - accountedFor };
+        }
+      );
+      setOpenDropdownId(null);
+      return { previousData };
+    },
+    onSuccess: (data, { statusOption }) => {
+      if (data.evacuationId && !activeEvacuationId) setActiveEvacuationId(data.evacuationId);
+      queryClient.setQueryData(
+        ['/api/emergency/fire-marshal', urlId, 'personnel'],
+        (old: any) => {
+          if (!old?.people) return old;
+          const updatedPeople = old.people.map((p: any) =>
+            p.id === data.personId
+              ? { ...p, isAccountedFor: true, accountedBy: marshalName, statusOption }
+              : p
+          );
+          const accountedFor = updatedPeople.filter((p: any) => p.isAccountedFor).length;
+          return { ...old, people: updatedPeople, accountedFor, unaccounted: old.totalOnSite - accountedFor };
+        }
+      );
+      if (navigator.vibrate) navigator.vibrate(100);
+    },
+    onError: (_error, _vars, context: any) => {
       if (context?.previousData) {
         queryClient.setQueryData(['/api/emergency/fire-marshal', urlId, 'personnel'], context.previousData);
       }
@@ -674,8 +748,13 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const isEmergencyActive = !!activeEvacuationId;
   const displayData = personnelData;
 
+  const musterSettings = personnelData?.musterSettings;
+
   return (
-    <div className={`min-h-screen pb-24 overflow-x-hidden w-full max-w-full ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}>
+    <div
+      className={`min-h-screen pb-24 overflow-x-hidden w-full max-w-full ${isEmergencyActive ? 'bg-red-50 dark:bg-red-950/20' : 'bg-orange-50 dark:bg-orange-950/20'}`}
+      onClick={() => openDropdownId && setOpenDropdownId(null)}
+    >
 
       {/* Sweep confirmation dialog */}
       {sweepConfirmZone && (
@@ -1177,23 +1256,69 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
                       {person.isAccountedFor && person.accountedBy && (
                         <p className="text-[11px] text-green-600 mt-0.5">Confirmed by {person.accountedBy}</p>
                       )}
+                      {person.isAccountedFor && person.statusOption && (
+                        <span className="inline-block mt-0.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200">
+                          {person.statusOption}
+                        </span>
+                      )}
                     </div>
                     {/* Mark Safe button — for unaccounted people */}
                     {!person.isAccountedFor && (
-                      <Button
-                        className="bg-green-600 hover:bg-green-700 text-white font-bold h-12 px-4 flex-shrink-0 text-sm"
-                        onClick={() => {
-                          if (!marshalName) {
-                            toast({ title: "Name Required", description: "Please enter your name first", variant: "destructive" });
-                            return;
-                          }
-                          markSafeMutation.mutate({ personId: person.id });
-                        }}
-                        disabled={!marshalName}
-                        data-testid={`button-mark-safe-mobile-${person.id}`}
-                      >
-                        <><CheckCircle2 className="h-4 w-4 mr-1" />Safe</>
-                      </Button>
+                      <div className="flex items-center flex-shrink-0 relative">
+                        <Button
+                          className="bg-green-600 hover:bg-green-700 text-white font-bold h-12 px-4 text-sm rounded-r-none"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!marshalName) {
+                              toast({ title: "Name Required", description: "Please enter your name first", variant: "destructive" });
+                              return;
+                            }
+                            markSafeMutation.mutate({ personId: person.id });
+                          }}
+                          disabled={!marshalName}
+                          data-testid={`button-mark-safe-mobile-${person.id}`}
+                        >
+                          <CheckCircle2 className="h-4 w-4 mr-1" />Safe
+                        </Button>
+                        {musterSettings?.statusOptionsEnabled && (
+                          <>
+                            <Button
+                              className="bg-amber-500 hover:bg-amber-600 text-white font-bold h-12 px-2 text-sm rounded-l-none border-l border-amber-400"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!marshalName) {
+                                  toast({ title: "Name Required", description: "Please enter your name first", variant: "destructive" });
+                                  return;
+                                }
+                                setOpenDropdownId(openDropdownId === person.id ? null : person.id);
+                              }}
+                              disabled={!marshalName}
+                              data-testid={`button-status-option-${person.id}`}
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </Button>
+                            {openDropdownId === person.id && (
+                              <div
+                                className="absolute right-0 top-full mt-1 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl min-w-[200px]"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <p className="text-[11px] text-gray-500 px-3 pt-2 pb-1 font-semibold uppercase tracking-wide">Mark as:</p>
+                                {(musterSettings.statusOptions || []).map((option) => (
+                                  <button
+                                    key={option}
+                                    className="w-full text-left px-3 py-2.5 text-sm text-gray-800 dark:text-gray-200 hover:bg-amber-50 dark:hover:bg-amber-900/30 hover:text-amber-800 dark:hover:text-amber-200 transition-colors"
+                                    onClick={() => {
+                                      markSafeWithOptionMutation.mutate({ personId: person.id, statusOption: option });
+                                    }}
+                                  >
+                                    {option}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     )}
                     {/* Unmark button — only visible when safe people are revealed */}
                     {person.isAccountedFor && showSafePeople && (

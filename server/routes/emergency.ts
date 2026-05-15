@@ -1047,7 +1047,7 @@ export function registerEmergencyRoutes(app: Express): void {
       }
       
       const { personId } = req.params;
-      const { musterPoint, evacuationId: requestedEvacuationId, marshalName: providedMarshal } = req.body;
+      const { musterPoint, evacuationId: requestedEvacuationId, marshalName: providedMarshal, statusOption } = req.body;
       const marshalName = providedMarshal || `${validatedStaff.firstName} ${validatedStaff.lastName}`;
       
       logger.info(`MARK SAFE REQUEST - PersonID: ${personId}, EvacID: ${requestedEvacuationId}, Fire Marshal: ${marshalName} (Customer: ${customerId}), MusterPoint: ${musterPoint}`);
@@ -1180,8 +1180,9 @@ export function registerEmergencyRoutes(app: Express): void {
           accountedBy: marshalName,
           accountedAt: new Date(),
           musterPoint,
+          statusOption: statusOption ?? null,
           updatedAt: new Date()
-        })
+        } as any)
         .where(
           and(
             eq(evacuationAccountability.evacuationId, evacuationId),
@@ -4137,6 +4138,22 @@ ${evacuationPhotosData.length > 0 ? `
         logger.info(`No active evacuation found for customer ${customerId} - accountability status will default to false`);
       }
       
+      // Fetch muster settings for this customer (gracefully handle missing table)
+      let musterSettingsForMarshal = { statusOptionsEnabled: false, statusOptions: ['Location unknown', 'Working remotely / offsite', 'Sent to another location'] };
+      try {
+        const [msRow] = await customerDb
+          .select()
+          .from(isolatedSchema.musterSettings)
+          .where(eq(isolatedSchema.musterSettings.customerId, customerId))
+          .limit(1);
+        if (msRow) {
+          musterSettingsForMarshal = {
+            statusOptionsEnabled: msRow.statusOptionsEnabled,
+            statusOptions: msRow.statusOptions || musterSettingsForMarshal.statusOptions,
+          };
+        }
+      } catch { /* table may not exist yet */ }
+
       // Combine all personnel for Fire Marshal view with REAL accountability status
       const personnelList = [
         ...checkedInStaff.map(staff => {
@@ -4153,6 +4170,7 @@ ${evacuationPhotosData.length > 0 ? `
             accountedBy: accountabilityRecord?.accountedBy,
             accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
             musterPoint: accountabilityRecord?.musterPoint,
+            statusOption: (accountabilityRecord as any)?.statusOption ?? null,
             needsEvacuationAssistance: (staff as any).needsEvacuationAssistance ?? false
           };
         }),
@@ -4170,6 +4188,7 @@ ${evacuationPhotosData.length > 0 ? `
             accountedBy: accountabilityRecord?.accountedBy,
             accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
             musterPoint: accountabilityRecord?.musterPoint,
+            statusOption: (accountabilityRecord as any)?.statusOption ?? null,
             needsEvacuationAssistance: (visitor as any).needsEvacuationAssistance ?? false
           };
         }),
@@ -4187,6 +4206,7 @@ ${evacuationPhotosData.length > 0 ? `
             accountedBy: accountabilityRecord?.accountedBy,
             accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
             musterPoint: accountabilityRecord?.musterPoint,
+            statusOption: (accountabilityRecord as any)?.statusOption ?? null,
             needsEvacuationAssistance: (contractor as any).needsEvacuationAssistance ?? false
           };
         }),
@@ -4205,6 +4225,7 @@ ${evacuationPhotosData.length > 0 ? `
             accountedBy: accountabilityRecord?.accountedBy,
             accountedAt: accountabilityRecord?.accountedAt?.toISOString(),
             musterPoint: accountabilityRecord?.musterPoint,
+            statusOption: (accountabilityRecord as any)?.statusOption ?? null,
             needsEvacuationAssistance: false
           };
         })
@@ -4220,7 +4241,8 @@ ${evacuationPhotosData.length > 0 ? `
         totalOnSite: personnelList.length,
         accountedFor: personnelList.filter(p => p.isAccountedFor).length,
         unaccounted: personnelList.filter(p => !p.isAccountedFor).length,
-        evacuationId: activeEvacuation.length > 0 ? activeEvacuation[0].evacuationId : null
+        evacuationId: activeEvacuation.length > 0 ? activeEvacuation[0].evacuationId : null,
+        musterSettings: musterSettingsForMarshal,
       });
     } catch (error) {
       logger.error("Error fetching Fire Marshal personnel:", error);
