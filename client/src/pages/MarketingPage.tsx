@@ -349,7 +349,7 @@ export default function MarketingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="text-center lg:text-left">
-              <div className="flex items-center justify-center lg:justify-start space-x-2 mb-6">
+              <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mb-6">
                 <Badge variant="secondary" className="text-white bg-red-600">
                   <Siren className="h-3 w-3 mr-1" />
                   Emergency Mustering & Accountability
@@ -362,9 +362,13 @@ export default function MarketingPage() {
                   <Shield className="h-3 w-3 mr-1" />
                   Health & Safety First
                 </Badge>
+                <Badge variant="secondary" className="text-white bg-emerald-600">
+                  <Zap className="h-3 w-3 mr-1" />
+                  One Platform Solution
+                </Badge>
               </div>
 
-              <h1 className="text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white mb-6">
+              <h1 className="text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white mb-4">
                 Save Lives with Instant
                 <span style={{ color: "#2460A9" }}>
                   {" "}
@@ -372,8 +376,15 @@ export default function MarketingPage() {
                 </span>
               </h1>
 
+              <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-400 mb-4 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 rounded-full px-4 py-1.5">
+                  <CheckCircle className="h-4 w-4" />
+                  Replace 8+ disconnected systems with one unified platform
+                </span>
+              </p>
+
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
-                Know exactly who is on your site at all times. When an emergency strikes, TPR-Max gives you instant accountability — every visitor, contractor, and staff member accounted for in seconds.
+                Know exactly who is on your site at all times. When an emergency strikes, TPR Max gives you instant accountability — every visitor, contractor, and staff member accounted for in seconds. One subscription. One login. Everything connected.
               </p>
 
               <div className="grid grid-cols-2 gap-2 mb-8">
@@ -389,7 +400,7 @@ export default function MarketingPage() {
                   "ID Card & Pass Printing",
                   "CO2 Sustainability Reporting",
                   "Help Desk & Reactive Maintenance",
-                  "Worker Document Requests",
+                  "Muster Status Dropdown",
                   "RIDDOR 2013 Incident Reporting",
                   "Fire Risk Assessment (RRO 2005)",
                 ].map((f) => (
@@ -575,6 +586,135 @@ export default function MarketingPage() {
         </div>
       </section>
 
+      {/* One Platform Solution Section */}
+      <section className="py-20 bg-gradient-to-br from-[#2460A9]/5 via-white to-emerald-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-14">
+            <Badge className="mb-4 text-white bg-emerald-600">
+              <Zap className="h-3 w-3 mr-1" />
+              One Platform Solution
+            </Badge>
+            <h2 className="text-3xl lg:text-5xl font-bold text-slate-900 dark:text-white mb-4">
+              Stop Juggling Multiple Systems.
+              <span className="text-emerald-600"> Consolidate Everything.</span>
+            </h2>
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
+              Most organisations manage health & safety, visitor management, and compliance across 6–10 separate tools. TPR Max replaces them all — one login, one database, one subscription.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-10 items-start mb-14">
+            {/* Before — multiple systems */}
+            <div className="rounded-2xl border-2 border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-8">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-full bg-red-100 dark:bg-red-800 flex items-center justify-center">
+                  <X className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 dark:text-white text-lg">Without TPR Max</div>
+                  <div className="text-sm text-red-600 font-medium">Fragmented. Expensive. Risky.</div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  { system: "Visitor Management Software", cost: "£150/mo" },
+                  { system: "Contractor Compliance Portal", cost: "£200/mo" },
+                  { system: "Emergency Muster / Roll-Call App", cost: "£120/mo" },
+                  { system: "Lone Worker Protection System", cost: "£180/mo" },
+                  { system: "H&S Incident Reporting Tool", cost: "£100/mo" },
+                  { system: "RAMS & Document Management", cost: "£130/mo" },
+                  { system: "PPM & Maintenance Scheduler", cost: "£160/mo" },
+                  { system: "Spreadsheets for everything else", cost: "Free but risky" },
+                ].map(({ system, cost }) => (
+                  <div key={system} className="flex items-center justify-between gap-3 bg-white/70 dark:bg-slate-800/50 rounded-lg px-4 py-2.5 border border-red-100 dark:border-red-800">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-red-400 flex-shrink-0"></div>
+                      <span className="text-sm text-slate-700 dark:text-slate-300">{system}</span>
+                    </div>
+                    <span className="text-xs font-semibold text-red-600 whitespace-nowrap">{cost}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 pt-5 border-t border-red-200 dark:border-red-700 flex items-center justify-between">
+                <span className="font-bold text-slate-900 dark:text-white">Estimated monthly cost</span>
+                <span className="text-2xl font-extrabold text-red-600">£1,040+</span>
+              </div>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">Plus separate logins, siloed data, integration headaches, and staff training on each system.</p>
+            </div>
+
+            {/* After — TPR Max */}
+            <div className="rounded-2xl border-2 border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 p-8 relative">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                <Badge className="text-white bg-emerald-600 shadow-lg px-4 py-1 text-sm font-bold">
+                  ✓ Recommended
+                </Badge>
+              </div>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-800 flex items-center justify-center">
+                  <CheckCircle className="h-6 w-6 text-emerald-600" />
+                </div>
+                <div>
+                  <div className="font-bold text-slate-900 dark:text-white text-lg">With TPR Max</div>
+                  <div className="text-sm text-emerald-600 font-medium">Unified. Affordable. Compliant.</div>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {[
+                  "Visitor & Reception Management",
+                  "Contractor Compliance & RAMS",
+                  "Emergency Mustering & Fire Marshal",
+                  "Lone Worker Protection",
+                  "H&S Incident & RIDDOR Reporting",
+                  "PPM & Reactive Maintenance",
+                  "AI Safety Inductions",
+                  "CO2 Sustainability Reporting",
+                  "CDM 2015 & Martyn's Law Tools",
+                  "Reports, Audit Logs & Time Tracking",
+                ].map((feature) => (
+                  <div key={feature} className="flex items-center gap-3 bg-white/70 dark:bg-slate-800/50 rounded-lg px-4 py-2.5 border border-emerald-200 dark:border-emerald-700">
+                    <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                    <span className="text-sm text-slate-700 dark:text-slate-300">{feature}</span>
+                    <span className="ml-auto text-xs font-semibold text-emerald-600">Included</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-5 pt-5 border-t border-emerald-300 dark:border-emerald-700 flex items-center justify-between">
+                <span className="font-bold text-slate-900 dark:text-white">One subscription covers all</span>
+                <div className="text-right">
+                  <div className="text-2xl font-extrabold text-emerald-600">See Pricing</div>
+                  <div className="text-xs text-slate-500">No hidden extras</div>
+                </div>
+              </div>
+              <Button
+                className="w-full mt-4 text-white bg-emerald-600 hover:bg-emerald-700"
+                onClick={() => scrollToSection("pricing")}
+              >
+                View Pricing Plans
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Platform benefits row */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { icon: Database, title: "One Database", desc: "All your personnel data in a single, secure tenant — no syncing between systems." },
+              { icon: Users, title: "One Login", desc: "Your team accesses everything from one URL. No juggling accounts." },
+              { icon: BarChart3, title: "Connected Reporting", desc: "Reports span all modules — visitors, contractors, incidents, and compliance in one view." },
+              { icon: Shield, title: "UK Compliance Built-In", desc: "RIDDOR, CDM 2015, Martyn's Law, GDPR, and RRO 2005 — all covered from day one." },
+            ].map(({ icon: Icon, title, desc }) => (
+              <div key={title} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 text-center shadow-sm hover:shadow-md transition-shadow">
+                <div className="h-10 w-10 rounded-lg bg-[#2460A9]/10 flex items-center justify-center mx-auto mb-3">
+                  <Icon className="h-5 w-5 text-[#2460A9]" />
+                </div>
+                <div className="font-semibold text-slate-900 dark:text-white text-sm mb-1">{title}</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">{desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* All Modules Overview Section */}
       <section id="modules" className="py-20 bg-white dark:bg-slate-900 scroll-mt-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -656,7 +796,7 @@ export default function MarketingPage() {
                 color: "text-red-600",
                 bg: "bg-red-50 dark:bg-red-900/20",
                 border: "border-red-200 dark:border-red-800",
-                desc: "Zone-based evacuation mustering, fire marshal static URLs, digital roll-call, PEEP evacuation assistance, and self-service mark-safe links.",
+                desc: "Zone-based evacuation mustering, fire marshal static URLs, digital roll-call, PEEP evacuation assistance, self-service mark-safe links, and status dropdown for marshals to record reasons (e.g. 'Working remotely').",
               },
               {
                 icon: Clock,

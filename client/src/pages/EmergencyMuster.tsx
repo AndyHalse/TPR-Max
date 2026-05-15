@@ -892,7 +892,11 @@ export default function EmergencyMuster() {
           <div className="flex items-center gap-3 mb-5 p-3 bg-white/50 dark:bg-white/10 rounded-lg border border-gray-200 dark:border-gray-700">
             <Switch
               checked={effectiveEnabled}
-              onCheckedChange={(v) => setLocalEnabled(v)}
+              onCheckedChange={(v) => {
+                setLocalEnabled(v);
+                saveSettingsMutation.mutate({ statusOptionsEnabled: v, statusOptions: effectiveOptions });
+              }}
+              disabled={saveSettingsMutation.isPending}
               data-testid="switch-status-options-enabled"
             />
             <div>
