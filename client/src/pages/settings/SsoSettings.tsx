@@ -1,24 +1,70 @@
 import { useState, useEffect } from "react";
 import { useSettingsAutoSave } from "@/hooks/useSettingsAutoSave";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 import GlassCard from "@/components/GlassCard";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import { Shield, AlertTriangle } from "lucide-react";
+import { Shield, AlertTriangle, Eye, EyeOff, Save, ExternalLink } from "lucide-react";
 
 export default function SsoSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const [ssoStatus, setSsoStatus] = useState<{ configured: boolean; reason?: string } | null>(null);
+  const [tenantId, setTenantId] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const [redirectUri, setRedirectUri] = useState('');
+  const [showSecret, setShowSecret] = useState(false);
+  const [statusLoaded, setStatusLoaded] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/sso/status')
       .then(res => res.json())
-      .then(data => setSsoStatus(data))
-      .catch(() => setSsoStatus({ configured: false, reason: 'Unable to check SSO status' }));
+      .then(data => {
+        setSsoStatus(data);
+        setStatusLoaded(true);
+      })
+      .catch(() => {
+        setSsoStatus({ configured: false, reason: 'Unable to check SSO status' });
+        setStatusLoaded(true);
+      });
   }, []);
+
+  useEffect(() => {
+    if (!redirectUri && typeof window !== 'undefined') {
+      setRedirectUri(`${window.location.origin}/api/auth/sso/callback`);
+    }
+  }, []);
+
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest('PUT', '/api/settings/sso-credentials', {
+        ssoTenantId: tenantId,
+        ssoClientId: clientId,
+        ssoClientSecret: clientSecret,
+        ssoRedirectUri: redirectUri,
+      });
+    },
+    onSuccess: (data: any) => {
+      setSsoStatus({ configured: data.configured });
+      setClientSecret('');
+      toast({ title: 'SSO credentials saved', description: 'Your Azure app details have been saved successfully.' });
+      queryClient.invalidateQueries({ queryKey: ['/api/auth/sso/status'] });
+    },
+    onError: () => {
+      toast({ title: 'Save failed', description: 'Could not save SSO credentials. Please try again.', variant: 'destructive' });
+    },
+  });
 
   const ssoLoginMode = currentSettings?.ssoLoginMode || 'standard';
   const ssoAutoProvision = currentSettings?.ssoAutoProvision ?? true;
@@ -37,20 +83,109 @@ export default function SsoSettings() {
       </div>
 
       <div className="mb-6">
-        {ssoStatus === null ? (
-          <Badge variant="secondary" className="text-xs">Checking SSO server status…</Badge>
-        ) : ssoStatus.configured ? (
+        {!statusLoaded ? (
+          <Badge variant="secondary" className="text-xs">Checking SSO status…</Badge>
+        ) : ssoStatus?.configured ? (
           <Badge className="bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border border-green-300 dark:border-green-700 text-xs font-medium">
-            ✓ Microsoft SSO is available on this server
+            ✓ Microsoft SSO is configured and ready
           </Badge>
         ) : (
           <Badge variant="destructive" className="text-xs">
-            ✗ SSO is not configured on this server — contact ACS support
+            ✗ SSO is not configured — enter your Azure app credentials below
           </Badge>
         )}
       </div>
 
       <div className="space-y-6">
+
+        {/* Azure App Credentials */}
+        <div className="space-y-4">
+          <div>
+            <h4 className="text-sm font-semibold text-fixed mb-0.5">Azure App Credentials</h4>
+            <p className="text-xs text-muted-foreground">
+              Enter the details from your Azure App Registration.{' '}
+              <a
+                href="https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline inline-flex items-center gap-0.5"
+              >
+                Open Azure portal <ExternalLink size={10} />
+              </a>
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-fixed">Azure Tenant ID</Label>
+              <Input
+                value={tenantId}
+                onChange={e => setTenantId(e.target.value)}
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">Found in Azure AD → Overview → Tenant ID</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-fixed">Application (Client) ID</Label>
+              <Input
+                value={clientId}
+                onChange={e => setClientId(e.target.value)}
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">Found in your App Registration → Overview → Application (client) ID</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-fixed">Client Secret</Label>
+              <div className="relative">
+                <Input
+                  type={showSecret ? 'text' : 'password'}
+                  value={clientSecret}
+                  onChange={e => setClientSecret(e.target.value)}
+                  placeholder={ssoStatus?.configured ? '(leave blank to keep existing secret)' : 'Enter Azure app client secret'}
+                  className="font-mono text-sm pr-10"
+                />
+                <button
+                  type="button"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setShowSecret(v => !v)}
+                  tabIndex={-1}
+                >
+                  {showSecret ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">Create under App Registration → Certificates &amp; secrets. Stored encrypted.</p>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-fixed">Redirect URI</Label>
+              <Input
+                value={redirectUri}
+                onChange={e => setRedirectUri(e.target.value)}
+                placeholder="https://your-domain.com/api/auth/sso/callback"
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">Add this exact URI to your App Registration → Authentication → Redirect URIs</p>
+            </div>
+          </div>
+
+          <Button
+            onClick={() => saveMutation.mutate()}
+            disabled={saveMutation.isPending}
+            className="gap-2"
+            size="sm"
+          >
+            <Save size={14} />
+            {saveMutation.isPending ? 'Saving…' : 'Save Credentials'}
+          </Button>
+        </div>
+
+        <Separator />
+
+        {/* Login Mode */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-fixed">Login Mode</Label>
           <p className="text-xs text-muted-foreground mb-2">Choose how users sign in to TPR Max for your organisation</p>
@@ -79,6 +214,7 @@ export default function SsoSettings() {
 
         <Separator />
 
+        {/* Auto-provision */}
         <div className="flex items-start justify-between gap-6">
           <div className="flex-1">
             <Label className="text-sm font-medium text-fixed">Auto-provision users</Label>

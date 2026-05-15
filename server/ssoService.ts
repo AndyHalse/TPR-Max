@@ -1,42 +1,40 @@
 import * as client from 'openid-client';
 import { logger } from './utils/logger';
 
-function requireEnvVars(): { tenantId: string; clientId: string; clientSecret: string } {
-  const tenantId = process.env.AZURE_TENANT_ID;
-  const clientId = process.env.AZURE_CLIENT_ID;
-  const clientSecret = process.env.AZURE_CLIENT_SECRET;
-  if (!tenantId || !clientId || !clientSecret) {
-    const msg = 'Azure SSO environment variables are not configured on this server';
-    logger.error(`❌ SSO: ${msg}`);
-    throw new Error(msg);
-  }
-  return { tenantId, clientId, clientSecret };
+export interface SsoCredentials {
+  tenantId: string;
+  clientId: string;
+  clientSecret: string;
+  redirectUri?: string;
 }
 
-let cachedConfig: client.Configuration | null = null;
-
-async function getConfig(): Promise<client.Configuration> {
-  const { tenantId, clientId, clientSecret } = requireEnvVars();
-  if (!cachedConfig) {
-    cachedConfig = await client.discovery(
-      new URL(`https://login.microsoftonline.com/${tenantId}/v2.0`),
-      clientId,
-      clientSecret
-    );
-    logger.info('✅ SSO: OpenID Connect discovery completed');
-  }
-  return cachedConfig;
+export function isSsoConfigured(creds: { ssoTenantId?: string | null; ssoClientId?: string | null; ssoClientSecret?: string | null }): boolean {
+  return !!(creds.ssoTenantId && creds.ssoClientId && creds.ssoClientSecret);
 }
 
-export function getDiscoveryUrl(): string {
-  const { tenantId } = requireEnvVars();
-  return `https://login.microsoftonline.com/${tenantId}/v2.0/.well-known/openid-configuration`;
+export function getMissingConfigReason(creds: { ssoTenantId?: string | null; ssoClientId?: string | null; ssoClientSecret?: string | null }): string | null {
+  if (!creds.ssoTenantId) return 'Azure Tenant ID is not configured';
+  if (!creds.ssoClientId) return 'Azure Client ID is not configured';
+  if (!creds.ssoClientSecret) return 'Azure Client Secret is not configured';
+  return null;
 }
 
-export async function buildAuthUrl(state: string): Promise<{ url: string; codeVerifier: string }> {
-  const config = await getConfig();
-  const baseUrl = process.env.APP_BASE_URL || '';
-  const redirectUri = `${baseUrl}/api/auth/sso/callback`;
+async function buildConfig(creds: SsoCredentials): Promise<client.Configuration> {
+  const config = await client.discovery(
+    new URL(`https://login.microsoftonline.com/${creds.tenantId}/v2.0`),
+    creds.clientId,
+    creds.clientSecret
+  );
+  logger.info('✅ SSO: OpenID Connect discovery completed');
+  return config;
+}
+
+export async function buildAuthUrl(
+  state: string,
+  creds: SsoCredentials
+): Promise<{ url: string; codeVerifier: string }> {
+  const config = await buildConfig(creds);
+  const redirectUri = creds.redirectUri || `${process.env.APP_BASE_URL || ''}/api/auth/sso/callback`;
 
   const codeVerifier = client.randomPKCECodeVerifier();
   const codeChallenge = await client.calculatePKCECodeChallenge(codeVerifier);
@@ -55,10 +53,11 @@ export async function buildAuthUrl(state: string): Promise<{ url: string; codeVe
 export async function handleCallback(
   fullCallbackUrl: string,
   expectedState: string,
-  codeVerifier: string
+  codeVerifier: string,
+  creds: SsoCredentials
 ): Promise<{ oid: string; email: string; displayName: string; givenName?: string; surname?: string } | null> {
   try {
-    const config = await getConfig();
+    const config = await buildConfig(creds);
     const tokens = await client.authorizationCodeGrant(config, new URL(fullCallbackUrl), {
       pkceCodeVerifier: codeVerifier,
       expectedState,
@@ -132,15 +131,4 @@ export async function findOrProvisionUser(
   }).returning();
 
   return newUsers[0] || null;
-}
-
-export function isSsoConfigured(): boolean {
-  return !!(process.env.AZURE_TENANT_ID && process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET);
-}
-
-export function getMissingConfigReason(): string | null {
-  if (!process.env.AZURE_TENANT_ID) return 'AZURE_TENANT_ID is missing';
-  if (!process.env.AZURE_CLIENT_ID) return 'AZURE_CLIENT_ID is missing';
-  if (!process.env.AZURE_CLIENT_SECRET) return 'AZURE_CLIENT_SECRET is missing';
-  return null;
 }

@@ -308,6 +308,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addHelpDeskMigration,
     addAiKeyColumnsMigration,
     addInductionSettingsColumnsMigration,
+    addSsoCredentialsMigration,
     {
       version: '20260513_047_add_sso_fields',
       description: 'Add Azure Entra ID SSO columns to company_settings and users',
@@ -2348,6 +2349,27 @@ const addAiKeyColumnsMigration: Migration = {
       }
     }
     logger.info('✅ [045] customer_api_keys AI key columns ensured');
+  }
+};
+
+const addSsoCredentialsMigration: Migration = {
+  version: '20260515_051_add_sso_per_customer_credentials',
+  description: 'Add per-customer Azure SSO credential columns to company_settings',
+  async up(db: any) {
+    const cols = [
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS sso_tenant_id VARCHAR`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS sso_client_id VARCHAR`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS sso_client_secret VARCHAR`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS sso_client_secret_iv VARCHAR`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS sso_client_secret_tag VARCHAR`,
+      `ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS sso_redirect_uri VARCHAR`,
+    ];
+    for (const sql of cols) {
+      try { await db.execute(sql); } catch (err: any) {
+        logger.info(`⚠️ [051] company_settings column: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    logger.info('✅ [051] Per-customer SSO credential columns ensured');
   }
 };
 

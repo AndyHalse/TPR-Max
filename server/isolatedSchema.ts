@@ -564,6 +564,12 @@ export const companySettings = pgTable("company_settings", {
   ssoLoginMode: text("sso_login_mode").default("standard"),
   ssoAutoProvision: boolean("sso_auto_provision").default(true),
   ssoDefaultRole: text("sso_default_role").default("user"),
+  ssoTenantId: varchar("sso_tenant_id"),
+  ssoClientId: varchar("sso_client_id"),
+  ssoClientSecret: varchar("sso_client_secret"),
+  ssoClientSecretIv: varchar("sso_client_secret_iv"),
+  ssoClientSecretTag: varchar("sso_client_secret_tag"),
+  ssoRedirectUri: varchar("sso_redirect_uri"),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
