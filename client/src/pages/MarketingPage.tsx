@@ -1152,7 +1152,7 @@ export default function MarketingPage() {
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0" />
                       <span className="text-slate-700 dark:text-slate-300">
                         <strong>Security Alerts:</strong> Immediate
-                        notifications for unauthorized access or compliance
+                        notifications for unauthorised access or compliance
                         violations
                       </span>
                     </div>
@@ -1293,7 +1293,7 @@ export default function MarketingPage() {
                       Intelligent Room Management
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Maximize facility utilisation with intelligent room
+                      Maximise facility utilisation with intelligent room
                       booking and management. Integrated calendar systems,
                       equipment tracking, and automated notifications ensure
                       optimal space usage and seamless meeting experiences.

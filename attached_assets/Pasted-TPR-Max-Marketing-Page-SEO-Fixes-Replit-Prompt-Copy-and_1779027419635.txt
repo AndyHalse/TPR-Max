@@ -1,0 +1,101 @@
+TPR Max Marketing Page — SEO Fixes Replit Prompt
+Copy and paste the prompt below directly into Replit AI. It covers all the quick-win SEO improvements identified in the audit.
+
+REPLIT PROMPT — PASTE THIS:
+
+I need you to make a series of SEO improvements to the TPR Max marketing page. The marketing page component is the main public-facing page (likely at /marketing route). Please find the relevant file(s) and make all of the following changes:
+
+1. PAGE TITLE
+Find the <title> tag (or wherever the page title is set — this may be in a <Helmet>, useHead, <Head>, or <title> component).
+Change it from:
+TPR Max - Total Personnel Register
+To:
+Visitor & Contractor Management System UK | TPR Max
+
+2. META DESCRIPTION
+In the same location as the title tag, add a meta description if one does not already exist:
+html<meta name="description" content="TPR Max is a UK-built visitor, contractor and staff management platform. Emergency mustering, CDM 2015 compliance, RAMS, PPM and 14 modules in one system. Book a free demo." />
+If a meta description already exists, replace its content with the text above.
+
+3. HTML LANGUAGE ATTRIBUTE
+Find the root <html> tag (likely in index.html or the root layout file).
+Change:
+html<html>
+or
+html<html lang="en">
+To:
+html<html lang="en-GB">
+
+4. CANONICAL TAG
+In the <head> section of the marketing page, add a canonical tag pointing to the root domain:
+html<link rel="canonical" href="https://www.tpr-max.com/" />
+If a canonical tag already exists, update its href to https://www.tpr-max.com/.
+
+5. OPEN GRAPH TAGS
+In the <head> section, add the following Open Graph meta tags if they do not already exist:
+html<meta property="og:title" content="Visitor & Contractor Management System UK | TPR Max" />
+<meta property="og:description" content="UK-built platform for visitor management, contractor compliance, CDM 2015, emergency mustering, RAMS, PPM and more. 14 modules. No app download required." />
+<meta property="og:url" content="https://www.tpr-max.com/" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+
+6. ORGANISATION SCHEMA MARKUP
+Add the following JSON-LD schema script inside the <head> section of the marketing page:
+html<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "TPR Max",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web",
+  "url": "https://www.tpr-max.com",
+  "description": "UK-built visitor, contractor and staff management platform with 14 modules covering emergency mustering, CDM 2015 compliance, RAMS, PPM, site inductions, and more.",
+  "offers": {
+    "@type": "Offer",
+    "availability": "https://schema.org/InStock"
+  },
+  "provider": {
+    "@type": "Organization",
+    "name": "ACS Safety & Security Ltd",
+    "url": "https://www.acsltd.eu",
+    "address": {
+      "@type": "PostalAddress",
+      "streetAddress": "Wittas House, Two Rivers, Station Lane",
+      "addressLocality": "Witney",
+      "postalCode": "OX28 4BH",
+      "addressCountry": "GB"
+    },
+    "telephone": "+441344771569",
+    "email": "andy@acsltd.eu"
+  }
+}
+</script>
+
+7. UK SPELLING FIXES
+Search the entire marketing page component file(s) for the following US English spellings and replace them with British English:
+FindReplace withunauthorizedunauthorisedUnauthorizedUnauthorisedutilizationutilisationUtilizationUtilisationorganizeorganiseorganizationorganisationOrganizationOrganisationoptimizeoptimiseOptimizeOptimise
+Note: Only change these in visible page content/copy strings — do NOT change them inside variable names, function names, CSS class names, API calls, or JavaScript logic. Only change text that appears on screen.
+
+8. IMAGE ALT TEXT
+Find all <img> tags in the marketing page component. For any that have an empty alt="" attribute or no alt attribute at all, add descriptive alt text based on what the image shows. Use the following as a guide:
+
+Screenshots of the Fire Marshal Panel → alt="TPR Max fire marshal mustering panel showing live evacuation status"
+Screenshots of the Dashboard → alt="TPR Max dashboard showing live site occupancy and personnel count"
+Screenshots of the Emergency screen → alt="TPR Max emergency mustering screen with zone targeting and roll call"
+Screenshots of the Normal Operations screen → alt="TPR Max normal operations view showing on-site personnel count"
+Any other product screenshots → alt="TPR Max [module name] screen" — use the module name shown in the screenshot
+
+
+9. COPYRIGHT YEAR
+Find the copyright notice in the footer. It currently shows © 2025. Update it to © 2026.
+
+10. ROBOTS META TAG
+In the <head> section, confirm there is NO <meta name="robots" content="noindex"> tag present on the marketing page. If one exists, remove it entirely. The page must be indexable.
+
+IMPORTANT NOTES FOR REPLIT:
+
+Do NOT change any routing logic, database queries, authentication code, or API endpoints.
+Do NOT rename any variables, functions, or CSS classes.
+Only make changes to visible copy text and HTML <head> metadata.
+If the <head> is managed by a shared layout component (e.g. Layout.jsx, _document.jsx, app.jsx), make the page-specific changes (title, meta description, canonical, schema) in the marketing page's own head override — not the shared layout.
+After making all changes, confirm which files were modified.
