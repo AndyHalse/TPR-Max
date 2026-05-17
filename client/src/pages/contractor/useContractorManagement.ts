@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { ContractorCompany, ContractorWorker } from "@shared/schema";
 import { type ExtendedContractorCompany, type CdmProject, isF10Overdue } from "./types";
+import { printPassViaIframe } from "@/lib/printUtils";
 
 export function useContractorManagement() {
   const { toast } = useToast();
@@ -163,9 +164,7 @@ export function useContractorManagement() {
         setSelectedWorker(worker);
         setSelectedCompanyName(company?.name || "Unknown Company");
         setShowPassPreview(true);
-        try {
-          window.open(`/api/passes/print/contractor/${worker.id}`, '_blank');
-        } catch { /* popup blocked — physical pass preview shown as fallback */ }
+        printPassViaIframe(`/api/passes/print/contractor/${worker.id}`);
         const ePassFailed = data.hasEmail && data.ePassEnabled && !data.ePassSent;
         toast({ title: "Checked In", description: ePassFailed ? "E-pass could not be sent — pass is printing." : "Contractor checked in. Pass is printing.", variant: ePassFailed ? "destructive" : "default", duration: 6000 });
       }

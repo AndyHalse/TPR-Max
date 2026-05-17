@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { printPassViaIframe } from "@/lib/printUtils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { format, addDays } from "date-fns";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -321,10 +322,7 @@ export default function PreBooking() {
           duration: 6000,
         });
       } else {
-        // Auto-print the pass after a short delay
-        setTimeout(() => {
-          window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
-        }, 500);
+        printPassViaIframe(`/api/passes/print/visitor/${visitor.id}`);
         toast({
           title: "Success",
           description: "Visitor checked in manually! Pass is printing...",

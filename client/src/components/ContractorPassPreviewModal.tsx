@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Printer, X, Check, Building2, HardHat, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import type { ContractorWorker } from "@shared/schema";
+import { printPassViaIframe } from "@/lib/printUtils";
 
 interface ContractorPassPreviewModalProps {
   isOpen: boolean;
@@ -23,25 +24,13 @@ export default function ContractorPassPreviewModal({
 
   const handlePrint = () => {
     setIsPrinting(true);
-    const printUrl = `/api/passes/print/contractor/${worker.id}`;
-    const printWindow = window.open(printUrl, '_blank', 'width=500,height=400,noopener,noreferrer');
-    if (!printWindow) {
-      toast({
-        title: "Popup blocked",
-        description: `Your browser blocked the print window. Please allow popups for this site, or open the pass manually: ${window.location.origin}${printUrl}`,
-        variant: "destructive",
-        duration: 10000,
-      });
-    } else {
-      toast({
-        title: "Print window opened",
-        description: "Select your thermal printer (95 × 65 mm) in the browser print dialog.",
-        duration: 5000,
-      });
-    }
-    setTimeout(() => {
-      setIsPrinting(false);
-    }, 1000);
+    printPassViaIframe(`/api/passes/print/contractor/${worker.id}`);
+    toast({
+      title: "Sending to printer",
+      description: "Contractor pass is being sent to the thermal printer.",
+      duration: 4000,
+    });
+    setTimeout(() => setIsPrinting(false), 1500);
   };
 
   return (

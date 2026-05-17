@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from "react";
+import { printPassViaIframe } from "@/lib/printUtils";
 import { useParams, useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -603,7 +604,7 @@ export default function ContractorDetails() {
   };
 
   const handlePrintWorkerQrPass = (workerId: string) => {
-    window.open(`/api/passes/print/contractor/${workerId}`, '_blank');
+    printPassViaIframe(`/api/passes/print/contractor/${workerId}`);
   };
 
   const handleDownloadWorkerQrPass = async (qrCode: string, workerName: string, workerCompanyName: string) => {

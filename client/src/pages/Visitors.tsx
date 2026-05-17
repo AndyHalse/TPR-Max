@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useId } from "react";
+import { printPassViaIframe } from "@/lib/printUtils";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -526,10 +527,7 @@ export default function Visitors() {
         // Don't show pass preview for e-Pass
         setShowPassPreview(false);
       } else {
-        // Auto-print the pass after a short delay
-        setTimeout(() => {
-          window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
-        }, 500);
+        printPassViaIframe(`/api/passes/print/visitor/${visitor.id}`);
         // Show visitor pass preview (same as previous visitors)
         setShowPassPreview(true);
       }
@@ -629,10 +627,7 @@ export default function Visitors() {
         // Don't show pass preview for e-Pass
         setShowPassPreview(false);
       } else {
-        // Auto-print the pass after a short delay
-        setTimeout(() => {
-          window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
-        }, 500);
+        printPassViaIframe(`/api/passes/print/visitor/${visitor.id}`);
         setShowPassPreview(true);
         toast({
           title: "Success",

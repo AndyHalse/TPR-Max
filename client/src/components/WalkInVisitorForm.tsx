@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { User, ArrowLeft, Check, Search, X, UserCheck } from "lucide-react";
 import type { Staff, InsertVisitor, Visitor, CompanySettings } from "@shared/schema";
+import { printPassViaIframe } from "@/lib/printUtils";
 
 interface WalkInVisitorFormProps {
   onBack: () => void;
@@ -137,9 +138,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       } else {
         setCreatedVisitor(visitor);
         setShowPassPreview(true);
-        try {
-          window.open(`/api/passes/print/visitor/${visitor.id}`, '_blank');
-        } catch { /* popup blocked — pass preview shown as fallback */ }
+        printPassViaIframe(`/api/passes/print/visitor/${visitor.id}`);
         toast({
           title: "Success",
           description: "Visitor checked in! Pass is printing...",

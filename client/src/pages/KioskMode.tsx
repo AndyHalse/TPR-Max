@@ -15,6 +15,7 @@ import type { Staff, Visitor, CompanySettings } from "@shared/schema";
 import jsQR from "jsqr";
 import ScannerReticle from "@/components/ScannerReticle";
 import { playBeep } from "@/hooks/useCameraScanner";
+import { printPassViaIframe } from "@/lib/printUtils";
 
 
 export default function KioskMode() {
@@ -167,11 +168,9 @@ export default function KioskMode() {
       const visitorName = `${data.visitor.firstName} ${data.visitor.lastName}`;
       const visitorCompany = data.visitor.company || undefined;
 
-      // Auto-print pass if not using digital e-pass
+      // Auto-print pass via hidden iframe — no popup, works in kiosk mode
       if (!data.visitor.ePassSent && !settings?.ePassEnabled) {
-        try {
-          window.open(`/api/passes/print/visitor/${data.visitor.id}`, '_blank');
-        } catch { /* popup blocked — receptionist can print manually */ }
+        printPassViaIframe(`/api/passes/print/visitor/${data.visitor.id}`);
       }
 
       // Show named check-in success overlay on the scan screen for 3.5s then go home

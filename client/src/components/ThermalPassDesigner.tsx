@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { QrCode, Type, Image, Save, Printer, Plus, Trash2 } from "lucide-react";
+import { printPassViaIframe } from "@/lib/printUtils";
 
 // Thermal pass constraints for B-FV4D (95mm x 65mm)
 const THERMAL_PASS_WIDTH = 361; // 95mm at 96dpi
@@ -296,8 +297,8 @@ export function ThermalPassDesigner() {
     setIsPrinting(true);
     
     try {
-      window.open('/api/passes/print/visitor/demo', '_blank');
-      setLastPrintStatus('Demo pass opened — use browser print dialog (Ctrl+P)');
+      printPassViaIframe('/api/passes/print/visitor/demo');
+      setLastPrintStatus('Demo pass sent to printer via silent iframe');
       toast({
         title: "Print Preview Opened",
         description: "Use your browser's print dialog to print the pass",
@@ -463,7 +464,7 @@ export function ThermalPassDesigner() {
           
           {/* Browser Print Button */}
           <Button
-            onClick={() => window.open('/api/passes/print/visitor/demo', '_blank')}
+            onClick={() => printPassViaIframe('/api/passes/print/visitor/demo')}
             variant="outline"
             size="sm"
             data-testid="button-browser-print"

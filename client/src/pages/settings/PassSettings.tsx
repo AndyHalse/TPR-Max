@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { Printer, QrCode, Barcode, FileText, CreditCard, Move, User, Hash, Building, Scan, Settings2, Eye, Download, Copy, CalendarPlus, Dock, BadgeCheck, Ticket, Mail, Phone, Globe, Monitor, Plus, RefreshCw, Server, Settings, Shield, TestTube } from "lucide-react";
+import { printPassViaIframe } from "@/lib/printUtils";
 
 export default function PassSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -48,31 +49,60 @@ export default function PassSettings() {
             <Printer className="text-white" size={20} />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100 mb-1">Browser Print — Recommended</h3>
+            <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100 mb-1">Direct Thermal Printing — Kiosk Ready</h3>
             <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
-              TPR Max uses your browser's built-in print dialog. When a visitor or contractor
-              checks in, a pass opens automatically in a new tab. Press <strong>Ctrl+P</strong>
-              (or <strong>Cmd+P</strong> on Mac) to print to any printer your computer can see.
+              When a visitor or contractor checks in, TPR Max automatically sends their pass to the printer
+              using a hidden background process — <strong>no popup windows, no new tabs</strong>.
+              The pass prints directly to whichever printer the browser has set as default.
+              Compatible with any direct thermal printer including <strong>Toshiba B-EV4, Zebra ZD220</strong> and similar 95 &times; 65 mm roll printers.
             </p>
             <ul className="text-xs text-blue-600 dark:text-blue-400 space-y-1">
-              <li>&#10003; Works with any printer — USB, Wi-Fi, or network</li>
-              <li>&#10003; No IP addresses, no TCP/IP configuration needed</li>
-              <li>&#10003; Set paper size to 95 &times; 65 mm in the print dialog</li>
-              <li>&#10003; Works in all modern browsers — Chrome, Edge, Firefox, Safari</li>
+              <li>&#10003; No popup windows — stays on the kiosk screen</li>
+              <li>&#10003; Works with any USB or network thermal printer</li>
+              <li>&#10003; Set paper size to 95 &times; 65 mm in Chrome printer settings</li>
+              <li>&#10003; Compatible with Toshiba B-EV4, B-FV4, Zebra ZD220, ZD420 and more</li>
             </ul>
           </div>
         </div>
       </div>
-    
+
+      <div className="p-6 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+        <div className="flex items-start gap-4">
+          <div className="w-10 h-10 bg-amber-500 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Monitor className="text-white" size={20} />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-base font-semibold text-amber-900 dark:text-amber-100 mb-1">Fully Silent Printing — Chrome Kiosk Mode</h3>
+            <p className="text-sm text-amber-800 dark:text-amber-300 mb-3">
+              By default, the browser still shows its print dialog once per job. To make printing
+              completely silent — no dialog at all, pass goes straight to the thermal printer — launch
+              Chrome or Edge with the <strong>--kiosk-printing</strong> flag.
+            </p>
+            <div className="bg-slate-900 text-green-400 rounded-lg px-4 py-3 text-xs font-mono mb-3 break-all">
+              chrome.exe --kiosk --kiosk-printing --app=https://your-tpr-domain.com/kiosk
+            </div>
+            <ul className="text-xs text-amber-700 dark:text-amber-400 space-y-1">
+              <li>&#10003; <strong>--kiosk</strong> — full-screen, no browser chrome, no address bar</li>
+              <li>&#10003; <strong>--kiosk-printing</strong> — suppresses the print dialog entirely</li>
+              <li>&#10003; <strong>--app=URL</strong> — launches directly to your kiosk check-in page</li>
+              <li>&#9888; Set the Toshiba / Zebra as the <strong>default printer in Windows</strong> before launching</li>
+              <li>&#9888; In Chrome printer settings, pre-set paper size to <strong>95 mm &times; 65 mm, no margins</strong></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       <div className="p-4 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl">
         <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Print a Demo Pass</h4>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">Preview how your visitor passes will look before going live.</p>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+          Test your thermal printer setup — this sends a sample pass to your default printer right now.
+        </p>
         <button
           type="button"
-          onClick={() => window.open('/api/passes/print/visitor/demo', '_blank')}
+          onClick={() => printPassViaIframe('/api/passes/print/visitor/demo')}
           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
         >
-          Open Demo Pass
+          Print Demo Pass
         </button>
       </div>
     </div>

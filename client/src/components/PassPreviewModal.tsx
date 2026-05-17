@@ -4,6 +4,7 @@ import QRCodeImage from "@/components/QRCodeImage";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import type { Visitor, CompanySettings } from "@shared/schema";
+import { printPassViaIframe } from "@/lib/printUtils";
 
 interface PassPreviewModalProps {
   isOpen: boolean;
@@ -30,22 +31,12 @@ export default function PassPreviewModal({ isOpen, onClose, visitor, hostName, i
   };
 
   const handlePrint = () => {
-    const printUrl = `/api/passes/print/visitor/${visitor.id}`;
-    const printWindow = window.open(printUrl, '_blank', 'width=500,height=400,noopener,noreferrer');
-    if (!printWindow) {
-      toast({
-        title: "Popup blocked",
-        description: `Your browser blocked the print window. Please allow popups for this site, or open the pass manually: ${window.location.origin}${printUrl}`,
-        variant: "destructive",
-        duration: 10000,
-      });
-    } else {
-      toast({
-        title: "Print window opened",
-        description: "Select your printer in the browser print dialog.",
-        duration: 5000,
-      });
-    }
+    printPassViaIframe(`/api/passes/print/visitor/${visitor.id}`);
+    toast({
+      title: "Sending to printer",
+      description: "Your visitor pass is being sent to the printer.",
+      duration: 4000,
+    });
   };
 
   const logoUrl = settings?.logoUrl || null;
