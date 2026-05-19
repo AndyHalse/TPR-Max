@@ -616,6 +616,9 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/activity/recent"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       toast({
         title: "Success",
         description: "Visitor checked out successfully",

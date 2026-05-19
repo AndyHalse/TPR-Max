@@ -402,13 +402,17 @@ export default function Visitors() {
     onSuccess: () => {
       if (isTenantView) {
         queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/visitors`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/tenants/${slug}/prebookings/upcoming`] });
       } else {
         queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
       }
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
       toast({
         title: "Success",
         description: "Visitor checked out successfully",
