@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -60,6 +60,15 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
     queryKey: ["/api/visit-reasons"],
   });
   const visitorReasons = allReasons.filter((r: any) => r.appliesTo === "visitors" || r.appliesTo === "both");
+
+  // Auto-open the reason picker as the very first step, once visitor reasons load
+  const autoPickerShown = useRef(false);
+  useEffect(() => {
+    if (!autoPickerShown.current && visitorReasons.length > 0) {
+      autoPickerShown.current = true;
+      setShowReasonPicker(true);
+    }
+  }, [visitorReasons.length]);
 
   const filteredStaff = useMemo(() => {
     if (!allStaff) return [];
