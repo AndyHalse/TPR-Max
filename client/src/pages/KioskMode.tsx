@@ -148,20 +148,34 @@ export default function KioskMode() {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       setScannedCode("");
       setActiveSection("main");
-      toast({
-        title: "Success",
-        description: "Visitor checked out successfully!",
-      });
+      const isCheckIn = data?.action === 'checkin';
+      const name = data?.firstName ? `${data.firstName} ${data.lastName}` : undefined;
+      if (isCheckIn && name) {
+        setCheckinSuccess({ name, company: data?.company || undefined });
+        setCameraState("off");
+        setTimeout(() => {
+          setCheckinSuccess(null);
+          isProcessingRef.current = false;
+          lastScannedRef.current = null;
+        }, 3500);
+      } else {
+        toast({
+          title: "Checked out",
+          description: name ? `${name} has been checked out.` : "Visitor checked out successfully.",
+        });
+      }
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to check out visitor",
+        description: "Failed to process visitor QR code",
         variant: "destructive",
       });
     },

@@ -941,11 +941,28 @@ export function registerVisitorRoutes(app: Express): void {
       if (!visitor) {
         return res.status(404).json({ error: "Visitor not found" });
       }
-      
+
+      if (!visitor.isCheckedIn) {
+        // Visitor is currently out — check them IN
+        const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const [checkedInVisitor] = await customerDb
+          .update(isolatedSchema.visitors)
+          .set({
+            isCheckedIn: true,
+            checkedInAt: new Date(),
+            checkedOutAt: null,
+            updatedAt: new Date(),
+          })
+          .where(eq(isolatedSchema.visitors.id, visitor.id))
+          .returning();
+        return res.json({ ...checkedInVisitor, action: 'checkin' });
+      }
+
+      // Visitor is currently on-site — check them OUT
       const checkedOutVisitor = await databaseService.checkOutVisitor(context, visitor.id);
-      res.json(checkedOutVisitor);
+      res.json({ ...checkedOutVisitor, action: 'checkout' });
     } catch (error) {
-      res.status(500).json({ error: "Failed to check out visitor" });
+      res.status(500).json({ error: "Failed to process visitor QR" });
     }
   });
   
