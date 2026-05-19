@@ -308,6 +308,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addHelpDeskMigration,
     addAiKeyColumnsMigration,
     addInductionSettingsColumnsMigration,
+    addHrModuleFeatureToggleMigration,
     addSsoCredentialsMigration,
     {
       version: '20260513_047_add_sso_fields',
@@ -2409,5 +2410,18 @@ const addInductionSettingsColumnsMigration: Migration = {
       }
     }
     logger.info('✅ [046] Induction/AI/QR/CLUe settings columns ensured');
+  }
+};
+
+const addHrModuleFeatureToggleMigration: Migration = {
+  version: '20260519_052_add_hr_module_feature_toggle',
+  description: 'Add feature_hr_module toggle to company_settings',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS feature_hr_module BOOLEAN DEFAULT true`);
+      logger.info('✅ [052] feature_hr_module column ensured');
+    } catch (err: any) {
+      logger.info(`⚠️ [052] feature_hr_module column: ${err.message?.substring(0, 80)}`);
+    }
   }
 };
