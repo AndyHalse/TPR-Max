@@ -7,7 +7,7 @@ import GlassCard from "@/components/GlassCard";
 import PassPreviewModal from "@/components/PassPreviewModal";
 import WalkInVisitorForm from "@/components/WalkInVisitorForm";
 import HSAcceptanceModal from "@/components/HSAcceptanceModal";
-import { UserPlus, BadgeInfo, LogOut, QrCode, Camera, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { UserPlus, BadgeInfo, LogOut, QrCode, Camera, Loader2, CheckCircle, XCircle, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -16,7 +16,8 @@ import jsQR from "jsqr";
 import ScannerReticle from "@/components/ScannerReticle";
 import { playBeep } from "@/hooks/useCameraScanner";
 import { printPassViaIframe } from "@/lib/printUtils";
-
+import { createPortal } from "react-dom";
+import VisitInstructionsModal from "@/components/VisitInstructionsModal";
 
 export default function KioskMode() {
   const { toast } = useToast();
@@ -30,6 +31,12 @@ export default function KioskMode() {
   const [staffCheckResult, setStaffCheckResult] = useState<{ action: string; staff: any; message: string } | null>(null);
   const [showHSModal, setShowHSModal] = useState(false);
   const [pendingQrCode, setPendingQrCode] = useState<string | null>(null);
+
+  // Visitor pre-booking QR reason picker state
+  const [showVisitorQrReasonPicker, setShowVisitorQrReasonPicker] = useState(false);
+  const [pendingVisitorQrCode, setPendingVisitorQrCode] = useState<string | null>(null);
+  const [visitorQrSelectedReason, setVisitorQrSelectedReason] = useState<any | null>(null);
+  const [showVisitorQrInstructionsModal, setShowVisitorQrInstructionsModal] = useState(false);
 
   // Camera scanning state
   const [cameraState, setCameraState] = useState<"off" | "starting" | "scanning" | "processing" | "error">("off");
@@ -52,6 +59,9 @@ export default function KioskMode() {
   const { data: staff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
   });
+
+  const { data: allReasons = [] } = useQuery<any[]>({ queryKey: ["/api/visit-reasons"] });
+  const visitorQrReasons = (allReasons as any[]).filter((r: any) => r.appliesTo === "visitors" || r.appliesTo === "both");
 
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -278,12 +288,18 @@ export default function KioskMode() {
 
     // Visitor pre-booking (PB- is the stored DB format; PRE- is the email invitation format; PBK- is a dashboard alias)
     if (code.startsWith("PB-") || code.startsWith("PRE-") || code.startsWith("PBK-")) {
+      setCameraState("off");
+      if (visitorQrReasons.length > 0) {
+        setPendingVisitorQrCode(code);
+        setShowVisitorQrReasonPicker(true);
+        return;
+      }
+      // No visitor reasons configured — fall back to H&S check then check-in
       const settingsAny = settings as any;
       if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
         setScannedCode(code);
         setPendingQrCode(code);
         setShowHSModal(true);
-        setCameraState("off");
         return;
       }
       preBookingCheckInMutation.mutate(code);
@@ -454,6 +470,23 @@ export default function KioskMode() {
     }
     return () => stopCamera();
   }, [activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // After reason selection, decide whether H&S is needed then check in
+  const proceedAfterVisitorQrReason = (qrCode: string, reason: any | null) => {
+    const settingsAny = settings as any;
+    const perReasonHs = reason?.requireHsAcceptance;
+    const companyHs = !perReasonHs &&
+      settingsAny?.hsRulesEnabled !== false &&
+      settingsAny?.hsRulesRequireAcceptance &&
+      settingsAny?.hsRulesContent;
+    if (perReasonHs || companyHs) {
+      setPendingQrCode(qrCode);
+      setShowHSModal(true);
+    } else {
+      preBookingCheckInMutation.mutate(qrCode);
+      setScanResult({ success: true, message: "Pre-booking found — checking in…" });
+    }
+  };
 
   const handleKioskHSAccepted = () => {
     setShowHSModal(false);
@@ -860,6 +893,87 @@ export default function KioskMode() {
         hsRulesContent={(settings as any)?.hsRulesContent || ""}
         onAccept={handleKioskHSAccepted}
         onDecline={handleKioskHSDeclined}
+      />
+
+      {/* Visitor pre-booking QR — reason picker */}
+      {showVisitorQrReasonPicker && createPortal(
+        <div className="fixed inset-0 z-[9990] flex flex-col bg-slate-900">
+          <div className="flex-shrink-0 bg-slate-800 px-6 py-5 border-b border-slate-700">
+            <h2 className="text-white text-2xl font-bold">What is the reason for your visit?</h2>
+            <p className="text-slate-400 text-sm mt-1">Select the option that best describes your visit today</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+              {visitorQrReasons.map((reason: any) => (
+                <button
+                  key={reason.id}
+                  onClick={() => {
+                    setVisitorQrSelectedReason(reason);
+                    setShowVisitorQrReasonPicker(false);
+                    if (reason.instructions?.trim()) {
+                      setShowVisitorQrInstructionsModal(true);
+                    } else {
+                      if (pendingVisitorQrCode) {
+                        proceedAfterVisitorQrReason(pendingVisitorQrCode, reason);
+                        setPendingVisitorQrCode(null);
+                      }
+                    }
+                  }}
+                  className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-2xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 active:bg-blue-100 transition-all shadow-md text-center"
+                >
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <MapPin size={24} className="text-blue-600" />
+                  </div>
+                  <span className="font-semibold text-slate-800 text-lg leading-tight">{reason.label}</span>
+                  {reason.requireHsAcceptance && (
+                    <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                      H&amp;S acceptance required
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-shrink-0 border-t border-slate-700 p-4 flex gap-3">
+            <button
+              onClick={() => {
+                setShowVisitorQrReasonPicker(false);
+                if (pendingVisitorQrCode) {
+                  proceedAfterVisitorQrReason(pendingVisitorQrCode, null);
+                  setPendingVisitorQrCode(null);
+                }
+              }}
+              className="flex-1 py-3 text-slate-400 hover:text-slate-200 text-sm font-medium transition-colors"
+            >
+              Skip — continue without selecting
+            </button>
+            <button
+              onClick={() => {
+                setShowVisitorQrReasonPicker(false);
+                setPendingVisitorQrCode(null);
+                setActiveSection("main");
+              }}
+              className="py-3 px-5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Visitor pre-booking QR — instructions modal after reason selection */}
+      <VisitInstructionsModal
+        isOpen={showVisitorQrInstructionsModal}
+        reasonLabel={visitorQrSelectedReason?.label || ""}
+        instructions={visitorQrSelectedReason?.instructions || ""}
+        onContinue={() => {
+          setShowVisitorQrInstructionsModal(false);
+          if (pendingVisitorQrCode) {
+            proceedAfterVisitorQrReason(pendingVisitorQrCode, visitorQrSelectedReason);
+            setPendingVisitorQrCode(null);
+          }
+        }}
       />
     </div>
   );
