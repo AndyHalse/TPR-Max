@@ -2736,7 +2736,12 @@ export default function Dashboard() {
                         setOpenModal(null);
                         queryClient.invalidateQueries({ queryKey: ['/api/reception/diary'] });
                         queryClient.invalidateQueries({ queryKey: ['/api/visitors/current'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/visitors'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/visitors/today'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/prebookings'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/prebookings/upcoming'] });
                         queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/muster'] });
                       }
                     } catch (error: any) {
                       toast({

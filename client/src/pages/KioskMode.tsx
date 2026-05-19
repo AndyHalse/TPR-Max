@@ -175,8 +175,13 @@ export default function KioskMode() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/prebookings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/reception/diary"] });
 
       const visitorName = `${data.visitor.firstName} ${data.visitor.lastName}`;
       const visitorCompany = data.visitor.company || undefined;
