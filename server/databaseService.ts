@@ -555,11 +555,13 @@ export class DatabaseService {
       }
     }
     
-    // Reset any linked pre-booking so the QR code can be scanned again
+    // Mark any linked pre-booking as completed on checkout so it no longer
+    // appears in Upcoming Visits. isCheckedIn is reset so the QR remains valid
+    // for a re-scan if needed, but status:'completed' keeps it off the list.
     if (updated[0]) {
       await db
         .update(isolatedSchema.preBookings)
-        .set({ isCheckedIn: false })
+        .set({ isCheckedIn: false, status: 'completed' })
         .where(eq(isolatedSchema.preBookings.visitorId, id));
     }
     
