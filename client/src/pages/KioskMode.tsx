@@ -907,12 +907,26 @@ export default function KioskMode() {
       {/* Visitor pre-booking QR — reason picker */}
       {showVisitorQrReasonPicker && createPortal(
         <div className="fixed inset-0 z-[9990] flex flex-col bg-background">
-          <div className="flex-shrink-0 px-6 py-5 border-b border-black/10">
+          <div className="flex-shrink-0 px-6 pt-5 pb-4 border-b border-black/10">
+            {settings?.bannerUrl && (
+              <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden mb-4" style={{ maxHeight: '16vh' }}>
+                <img
+                  src={`/objects${settings.bannerUrl}`}
+                  alt={settings.companyName}
+                  className="w-full h-full object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    const container = e.currentTarget.parentElement;
+                    if (container) container.style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
             <h2 className="text-fixed text-2xl font-bold">What is the reason for your visit?</h2>
             <p className="text-variable text-sm mt-1">Select the option that best describes your visit today</p>
           </div>
-          <div className="flex-1 overflow-y-auto p-6">
-            <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+          <div className="flex-1 flex items-center justify-center p-6">
+            <div className="grid grid-cols-2 gap-4 max-w-2xl w-full mx-auto">
               {visitorQrReasons.map((reason: any) => (
                 <button
                   key={reason.id}
