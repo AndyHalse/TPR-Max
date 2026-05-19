@@ -907,9 +907,9 @@ export default function KioskMode() {
       {/* Visitor pre-booking QR — reason picker */}
       {showVisitorQrReasonPicker && createPortal(
         <div className="fixed inset-0 z-[9990] flex flex-col bg-background">
-          <div className="flex-shrink-0 pb-4 border-b border-black/10">
+          <div className="flex-shrink-0 px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-4 border-b border-black/10">
             {settings?.bannerUrl && (
-              <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden flex-shrink-0 mb-4" style={{ maxHeight: '18vh' }}>
+              <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden flex-shrink-0 mb-2 sm:mb-3" style={{ maxHeight: '18vh' }}>
                 <img
                   src={`/objects${settings.bannerUrl}`}
                   alt={settings.companyName}
@@ -922,8 +922,8 @@ export default function KioskMode() {
                 />
               </div>
             )}
-            <h2 className="text-fixed text-2xl font-bold text-center px-6">What is the reason for your visit?</h2>
-            <p className="text-variable text-sm mt-1 text-center px-6">Select the option that best describes your visit today</p>
+            <h2 className="text-fixed text-2xl font-bold text-center">What is the reason for your visit?</h2>
+            <p className="text-variable text-sm mt-1 text-center">Select the option that best describes your visit today</p>
           </div>
           <div className="flex-1 flex items-center justify-center p-6">
             <div className="grid grid-cols-2 gap-4 max-w-2xl w-full mx-auto">
