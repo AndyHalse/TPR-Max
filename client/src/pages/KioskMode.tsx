@@ -909,11 +909,11 @@ export default function KioskMode() {
         <div className="fixed inset-0 z-[9990] flex flex-col bg-background">
           <div className="flex-shrink-0 px-3 sm:px-6 lg:px-8 pt-3 sm:pt-4 pb-4 border-b border-black/10">
             {settings?.bannerUrl && (
-              <div className="w-full max-w-2xl mx-auto rounded-xl overflow-hidden flex-shrink-0 mb-2 sm:mb-3" style={{ maxHeight: '18vh' }}>
+              <div className="w-full text-center mb-2 sm:mb-3">
                 <img
                   src={`/objects${settings.bannerUrl}`}
                   alt={settings.companyName}
-                  className="w-full h-full object-contain"
+                  className="inline-block max-h-[18vh] w-auto rounded-xl object-contain"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                     const container = e.currentTarget.parentElement;
