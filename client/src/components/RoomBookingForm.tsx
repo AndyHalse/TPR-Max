@@ -149,17 +149,28 @@ export function RoomBookingForm({
       
       if (editBooking.attendees && Array.isArray(editBooking.attendees)) {
         editBooking.attendees.forEach((attendee: any) => {
-          // Skip the organizer (they're already set as bookedByStaffId)
-          if (attendee.isOrganizer) return;
-          
           if (attendee.staffId) {
-            // This is a staff attendee
             staffAttendeeIds.push(attendee.staffId);
           } else if (attendee.email) {
-            // This is an external attendee
             externalAttendeeEmails.push(attendee.email);
           }
         });
+      }
+
+      // Parse recurrence pattern from stored JSON
+      let isRecurring = editBooking.isRecurring || false;
+      let recurringType = '';
+      let recurringEndDate = '';
+      if (isRecurring && editBooking.recurrencePattern) {
+        try {
+          const pattern = typeof editBooking.recurrencePattern === 'string'
+            ? JSON.parse(editBooking.recurrencePattern)
+            : editBooking.recurrencePattern;
+          recurringType = pattern.type || '';
+          recurringEndDate = pattern.until
+            ? format(new Date(pattern.until), 'yyyy-MM-dd')
+            : '';
+        } catch { /* ignore parse errors */ }
       }
       
       form.reset({
@@ -170,13 +181,15 @@ export function RoomBookingForm({
         expectedAttendees: editBooking.expectedAttendees || 1,
         startDateTime: format(startDate, "yyyy-MM-dd'T'HH:mm"),
         endDateTime: format(endDate, "yyyy-MM-dd'T'HH:mm"),
-        staffAttendeeIds: staffAttendeeIds,
-        externalAttendeeEmails: externalAttendeeEmails,
-        cateringRequired: editBooking.cateringRequired || false,
+        staffAttendeeIds,
+        externalAttendeeEmails,
+        cateringRequired: editBooking.cateringRequired || editBooking.requiresCatering || false,
         cateringNotes: editBooking.cateringNotes || '',
-        technicalRequirements: editBooking.technicalRequirements || '',
+        technicalRequirements: editBooking.technicalRequirements || editBooking.specialRequirements || '',
         priority: editBooking.priority || 'normal',
-        isRecurring: false, // Simplify for now
+        isRecurring,
+        recurringType,
+        recurringEndDate,
       });
     }
   }, [editBooking, form]);
@@ -640,7 +653,29 @@ export function RoomBookingForm({
                       )}
                     </div>
 
-                    {/* Recurring Booking Toggle */}
+                    {/* Recurring info panel when editing a recurring booking */}
+                    {editBooking && form.watch('isRecurring') && (
+                      <div className="border rounded-lg p-4 bg-blue-50/40 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800 space-y-2">
+                        <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300">
+                          <Repeat className="h-4 w-4" />
+                          This is part of a recurring series
+                        </div>
+                        {form.watch('recurringType') && (
+                          <p className="text-xs text-muted-foreground">
+                            Repeats{' '}
+                            <span className="font-medium">
+                              {{ weekly: 'weekly', fortnightly: 'every 2 weeks', monthly: 'monthly' }[form.watch('recurringType') || ''] || form.watch('recurringType')}
+                            </span>
+                            {form.watch('recurringEndDate') && (
+                              <> until <span className="font-medium">{format(new Date(form.watch('recurringEndDate')!), 'd MMM yyyy')}</span></>
+                            )}
+                          </p>
+                        )}
+                        <p className="text-xs text-muted-foreground italic">Only this occurrence will be updated.</p>
+                      </div>
+                    )}
+
+                    {/* Recurring Booking Toggle — new bookings only */}
                     {!editBooking && (
                       <div className="border rounded-lg p-4 space-y-4 bg-blue-50/40 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
                         <FormField

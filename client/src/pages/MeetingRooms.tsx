@@ -20,6 +20,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { RoomBookingCalendar } from "@/components/RoomBookingCalendar";
 import { RoomBookingForm } from "@/components/RoomBookingForm";
 import GlassCard from "@/components/GlassCard";
+import { format, parseISO } from "date-fns";
 import { 
   Plus, 
   Edit, 
@@ -34,7 +35,10 @@ import {
   Calendar,
   CalendarDays,
   Settings,
-  DoorOpen
+  DoorOpen,
+  Repeat,
+  UserCheck,
+  Mail
 } from "lucide-react";
 
 export default function MeetingRooms() {
@@ -741,18 +745,63 @@ export default function MeetingRooms() {
           <DialogHeader>
             <DialogTitle data-testid="text-view-title">Booking Details</DialogTitle>
           </DialogHeader>
-          {viewBooking && (
+          {viewBooking && (() => {
+            // Parse recurrence pattern once
+            let recurringPattern: { type?: string; until?: string; groupId?: string } | null = null;
+            if (viewBooking.isRecurring && viewBooking.recurrencePattern) {
+              try {
+                recurringPattern = typeof viewBooking.recurrencePattern === 'string'
+                  ? JSON.parse(viewBooking.recurrencePattern)
+                  : viewBooking.recurrencePattern;
+              } catch {}
+            }
+            const typeLabel: Record<string, string> = { weekly: 'Weekly', fortnightly: 'Every 2 weeks', monthly: 'Monthly' };
+            const attendees: any[] = viewBooking.attendees || [];
+
+            return (
             <div className="space-y-4">
+              {/* Title + Status + Recurring badge */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Title</h4>
-                  <p className="text-lg font-semibold" data-testid="text-booking-title">{viewBooking.title}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-lg font-semibold" data-testid="text-booking-title">{viewBooking.title}</p>
+                    {viewBooking.isRecurring && (
+                      <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
+                        <Repeat className="h-3 w-3" />
+                        Recurring
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Status</h4>
                   <Badge className="mt-1" data-testid="badge-booking-status">{viewBooking.status}</Badge>
                 </div>
               </div>
+
+              {/* Recurring series detail */}
+              {recurringPattern && (
+                <div className="rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-sm font-medium text-blue-700 dark:text-blue-300">
+                    <Repeat className="h-4 w-4" />
+                    Recurring Series
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    <div>
+                      <span className="font-medium">Frequency: </span>
+                      {typeLabel[recurringPattern.type || ''] || recurringPattern.type || 'Unknown'}
+                    </div>
+                    {recurringPattern.until && (
+                      <div>
+                        <span className="font-medium">Repeats until: </span>
+                        {format(new Date(recurringPattern.until), 'd MMM yyyy')}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground italic">Editing affects only this occurrence.</p>
+                </div>
+              )}
 
               <Separator />
 
@@ -781,24 +830,41 @@ export default function MeetingRooms() {
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">Start Time</h4>
                   <p className="font-medium" data-testid="text-booking-start">
-                    {viewBooking.startTime ? new Date(viewBooking.startTime).toLocaleString() : 'N/A'}
+                    {viewBooking.startTime ? format(new Date(viewBooking.startTime), 'dd/MM/yyyy, HH:mm') : 'N/A'}
                   </p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-muted-foreground">End Time</h4>
                   <p className="font-medium" data-testid="text-booking-end">
-                    {viewBooking.endTime ? new Date(viewBooking.endTime).toLocaleString() : 'N/A'}
+                    {viewBooking.endTime ? format(new Date(viewBooking.endTime), 'dd/MM/yyyy, HH:mm') : 'N/A'}
                   </p>
                 </div>
               </div>
 
               <Separator />
 
+              {/* Attendees */}
               <div>
-                <h4 className="text-sm font-medium text-muted-foreground">Expected Attendees</h4>
-                <p className="font-medium" data-testid="text-booking-attendees">
-                  {viewBooking.expectedAttendees || 1} people
-                </p>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">
+                  Attendees ({viewBooking.expectedAttendees || 1} expected)
+                </h4>
+                {attendees.length > 0 ? (
+                  <div className="space-y-1.5">
+                    {attendees.map((att: any, i: number) => (
+                      <div key={i} className="flex items-center gap-2 text-sm">
+                        {att.staffId ? (
+                          <UserCheck className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                        ) : (
+                          <Mail className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                        )}
+                        <span className="font-medium">{att.name}</span>
+                        {att.email && <span className="text-muted-foreground">({att.email})</span>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No additional attendees recorded.</p>
+                )}
               </div>
 
               {viewBooking.description && (
@@ -834,7 +900,8 @@ export default function MeetingRooms() {
                 </>
               )}
             </div>
-          )}
+            );
+          })()}
           <DialogFooter>
             <Button 
               variant="outline" 

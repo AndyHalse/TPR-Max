@@ -209,16 +209,30 @@ export function registerMeetingRoomRoutes(app: Express): void {
           .where(inArray(isolatedSchema.staff.id, staffIds as string[]));
         staffMap = new Map(staffMembers.map(s => [s.id, s]));
       }
+
+      // Fetch all attendees for these bookings in one query
+      const bookingIds = rawBookings.map(b => b.id);
+      let attendeesMap = new Map<string, any[]>();
+      if (bookingIds.length > 0) {
+        const allAttendees = await bookingsDb.select().from(isolatedSchema.roomBookingAttendees)
+          .where(inArray(isolatedSchema.roomBookingAttendees.bookingId, bookingIds));
+        for (const att of allAttendees) {
+          if (!attendeesMap.has(att.bookingId)) attendeesMap.set(att.bookingId, []);
+          attendeesMap.get(att.bookingId)!.push(att);
+        }
+      }
       
       const enrichedBookings = rawBookings.map(booking => {
         const room = roomMap.get(booking.meetingRoomId);
         const organizer = booking.bookedByStaffId ? staffMap.get(booking.bookedByStaffId) : null;
+        const attendees = attendeesMap.get(booking.id) || [];
         return {
           ...booking,
           room: room || { id: booking.meetingRoomId, name: 'Unknown Room', location: '', capacity: 0 },
           organizer: organizer 
             ? { id: organizer.id, firstName: organizer.firstName, lastName: organizer.lastName, email: organizer.email || '' }
             : { id: '', firstName: 'Unknown', lastName: 'Organizer', email: '' },
+          attendees,
         };
       });
 
