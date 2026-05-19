@@ -316,7 +316,9 @@ export function RoomBookingForm({
   });
 
   const onSubmit = (data: BookingFormData) => {
-    if (availabilityStatus === 'conflict') {
+    // For recurring bookings, a conflict on the first slot is handled server-side
+    // (that slot will be skipped). Only hard-block single bookings.
+    if (availabilityStatus === 'conflict' && !data.isRecurring) {
       toast({
         title: "Room Unavailable",
         description: "Please select a different time or room.",

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { CalendarDays, Clock, Users, MapPin, Eye, Edit, Trash2, Plus } from 'lucide-react';
+import { CalendarDays, Clock, Users, MapPin, Eye, Edit, Trash2, Plus, Repeat } from 'lucide-react';
 import { format, addDays, startOfDay, endOfDay, isSameDay, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { RoomBooking, MeetingRoom } from '@shared/schema';
@@ -143,9 +143,17 @@ export function RoomBookingCalendar({
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1">
-              <h4 className="font-semibold text-lg mb-1" data-testid={`booking-title-${booking.id}`}>
-                {booking.title}
-              </h4>
+              <div className="flex items-center gap-2 mb-1">
+                <h4 className="font-semibold text-lg" data-testid={`booking-title-${booking.id}`}>
+                  {booking.title}
+                </h4>
+                {booking.isRecurring && (
+                  <span className="inline-flex items-center gap-1 text-xs bg-blue-100 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-full font-medium">
+                    <Repeat className="h-3 w-3" />
+                    Recurring
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                 <Clock className="h-4 w-4" />
                 <span data-testid={`booking-time-${booking.id}`}>
