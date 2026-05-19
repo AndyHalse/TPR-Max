@@ -25,16 +25,16 @@ export default function EmergencySettings() {
   const [newOptionText, setNewOptionText] = useState("");
 
   const { data: musterSettings } = useQuery<{ statusOptionsEnabled: boolean; statusOptions: string[] }>({
-    queryKey: ["/api/emergency/muster-settings"],
+    queryKey: ["/api/muster/settings"],
   });
 
   const saveMusterSettingsMutation = useMutation({
     mutationFn: async (payload: { statusOptionsEnabled?: boolean; statusOptions?: string[] }) => {
-      const res = await apiRequest("POST", "/api/emergency/muster-settings", payload);
+      const res = await apiRequest("PUT", "/api/muster/settings", payload);
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/emergency/muster-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/muster/settings"] });
       toast({ title: "Saved", description: "Muster status options updated." });
     },
     onError: () => {
