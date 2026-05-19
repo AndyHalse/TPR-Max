@@ -1070,6 +1070,7 @@ export function registerVisitorRoutes(app: Express): void {
         .where(
           and(
             ne(isolatedSchema.preBookings.status, 'cancelled'),
+            ne(isolatedSchema.preBookings.status, 'completed'),
             eq(isolatedSchema.preBookings.isCheckedIn, false)
           )
         );
