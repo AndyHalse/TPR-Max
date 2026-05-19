@@ -997,7 +997,8 @@ export function registerVisitorRoutes(app: Express): void {
         .where(and(
           gte(isolatedSchema.preBookings.visitDate, startOfToday),
           ne(isolatedSchema.preBookings.status, 'cancelled'),
-          ne(isolatedSchema.preBookings.status, 'completed')
+          ne(isolatedSchema.preBookings.status, 'completed'),
+          eq(isolatedSchema.preBookings.isCheckedIn, false)
         ))
         .orderBy(isolatedSchema.preBookings.visitDate);
       res.json(preBookings);
