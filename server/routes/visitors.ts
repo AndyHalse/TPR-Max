@@ -18,7 +18,7 @@ import { db } from '../db';
 import { websocketService } from '../websocketService';
 import { VoiceNotificationService } from '../voiceNotificationService';
 import { paxtonService } from '../paxtonService';
-import { eq, and, desc, gte, ne, or } from 'drizzle-orm';
+import { eq, and, desc, gte, ne, or, isNull } from 'drizzle-orm';
 import { randomUUID, randomBytes } from 'crypto';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
@@ -1071,7 +1071,8 @@ export function registerVisitorRoutes(app: Express): void {
           and(
             ne(isolatedSchema.preBookings.status, 'cancelled'),
             ne(isolatedSchema.preBookings.status, 'completed'),
-            eq(isolatedSchema.preBookings.isCheckedIn, false)
+            eq(isolatedSchema.preBookings.isCheckedIn, false),
+            isNull(isolatedSchema.preBookings.visitorId) // exclude any booking already used (visitor was linked then checked out)
           )
         );
 
@@ -1747,6 +1748,13 @@ This is an automated notification from your visitor management system.`;
           const [checkedOut] = await customerDb.update(isolatedSchema.visitors)
             .set({ isCheckedIn: false, checkedOutAt: new Date() })
             .where(eq(isolatedSchema.visitors.id, visitor.id)).returning();
+          // Mark any linked pre-booking as completed so it leaves Upcoming Visits
+          await customerDb.update(isolatedSchema.preBookings)
+            .set({ isCheckedIn: false, status: 'completed' })
+            .where(and(
+              eq(isolatedSchema.preBookings.visitorId, visitor.id),
+              ne(isolatedSchema.preBookings.status, 'cancelled')
+            ));
           return res.json({
             success: true,
             type: 'visitor',
@@ -2071,7 +2079,12 @@ This is an automated notification from your visitor management system.`;
       
       const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
       
-      const allStoredPreBookings = await customerDb.select().from(isolatedSchema.preBookings);
+      const allStoredPreBookings = await customerDb.select().from(isolatedSchema.preBookings)
+        .where(and(
+          ne(isolatedSchema.preBookings.status, 'cancelled'),
+          ne(isolatedSchema.preBookings.status, 'completed'),
+          eq(isolatedSchema.preBookings.isCheckedIn, false)
+        ));
       const visitorPreBookings = allStoredPreBookings.filter((pb: any) => {
         const visitDate = new Date(pb.visitDate);
         return visitDate >= targetDate && visitDate <= endDate;
