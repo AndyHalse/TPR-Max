@@ -599,11 +599,11 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
         />
 
         {showReasonPicker && createPortal(
-          <div className="fixed inset-0 z-[9990] flex flex-col bg-slate-900">
+          <div className="fixed inset-0 z-[9990] flex flex-col bg-background">
             {/* Header */}
-            <div className="flex-shrink-0 bg-slate-800 px-6 py-5 border-b border-slate-700">
-              <h2 className="text-white text-2xl font-bold">What is the reason for your visit?</h2>
-              <p className="text-slate-400 text-sm mt-1">Select the option that best describes your visit</p>
+            <div className="flex-shrink-0 px-6 py-5 border-b border-black/10">
+              <h2 className="text-fixed text-2xl font-bold">What is the reason for your visit?</h2>
+              <p className="text-variable text-sm mt-1">Select the option that best describes your visit</p>
             </div>
             {/* Reason buttons */}
             <div className="flex-1 overflow-y-auto p-6">
@@ -612,10 +612,10 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                   <button
                     key={reason.id}
                     onClick={() => handleReasonSelect(reason)}
-                    className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-2xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 active:bg-blue-100 transition-all shadow-md text-center"
+                    className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-2xl border-2 border-white/80 hover:border-variable hover:bg-white active:scale-95 transition-all shadow-md text-center"
                   >
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                      <MapPin size={24} className="text-blue-600" />
+                    <div className="w-12 h-12 bg-variable/10 rounded-full flex items-center justify-center">
+                      <MapPin size={24} className="text-variable" />
                     </div>
                     <span className="font-semibold text-slate-800 text-lg leading-tight">{reason.label}</span>
                     {reason.requireHsAcceptance && (
@@ -628,13 +628,13 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
               </div>
             </div>
             {/* Footer skip */}
-            <div className="flex-shrink-0 border-t border-slate-700 p-4">
+            <div className="flex-shrink-0 border-t border-black/10 p-4">
               <button
                 onClick={() => {
                   setShowReasonPicker(false);
                   setActiveField("hostSearch");
                 }}
-                className="w-full py-3 text-slate-400 hover:text-slate-200 text-sm font-medium transition-colors"
+                className="w-full py-3 text-variable hover:text-fixed text-sm font-medium transition-colors"
               >
                 Skip — continue without selecting a reason
               </button>

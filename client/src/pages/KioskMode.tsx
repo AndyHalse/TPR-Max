@@ -295,6 +295,7 @@ export default function KioskMode() {
       if (visitorQrReasonsRef.current.length > 0) {
         setPendingVisitorQrCode(code);
         setShowVisitorQrReasonPicker(true);
+        setActiveSection("main"); // exit scan early-return so portal renders
         return;
       }
       // No visitor reasons configured — fall back to H&S check then check-in
@@ -900,10 +901,10 @@ export default function KioskMode() {
 
       {/* Visitor pre-booking QR — reason picker */}
       {showVisitorQrReasonPicker && createPortal(
-        <div className="fixed inset-0 z-[9990] flex flex-col bg-slate-900">
-          <div className="flex-shrink-0 bg-slate-800 px-6 py-5 border-b border-slate-700">
-            <h2 className="text-white text-2xl font-bold">What is the reason for your visit?</h2>
-            <p className="text-slate-400 text-sm mt-1">Select the option that best describes your visit today</p>
+        <div className="fixed inset-0 z-[9990] flex flex-col bg-background">
+          <div className="flex-shrink-0 px-6 py-5 border-b border-black/10">
+            <h2 className="text-fixed text-2xl font-bold">What is the reason for your visit?</h2>
+            <p className="text-variable text-sm mt-1">Select the option that best describes your visit today</p>
           </div>
           <div className="flex-1 overflow-y-auto p-6">
             <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
@@ -922,10 +923,10 @@ export default function KioskMode() {
                       }
                     }
                   }}
-                  className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-2xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 active:bg-blue-100 transition-all shadow-md text-center"
+                  className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-2xl border-2 border-white/80 hover:border-variable hover:bg-white active:scale-95 transition-all shadow-md text-center"
                 >
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <MapPin size={24} className="text-blue-600" />
+                  <div className="w-12 h-12 bg-variable/10 rounded-full flex items-center justify-center">
+                    <MapPin size={24} className="text-variable" />
                   </div>
                   <span className="font-semibold text-slate-800 text-lg leading-tight">{reason.label}</span>
                   {reason.requireHsAcceptance && (
@@ -937,7 +938,7 @@ export default function KioskMode() {
               ))}
             </div>
           </div>
-          <div className="flex-shrink-0 border-t border-slate-700 p-4 flex gap-3">
+          <div className="flex-shrink-0 border-t border-black/10 p-4 flex gap-3">
             <button
               onClick={() => {
                 setShowVisitorQrReasonPicker(false);
@@ -946,7 +947,7 @@ export default function KioskMode() {
                   setPendingVisitorQrCode(null);
                 }
               }}
-              className="flex-1 py-3 text-slate-400 hover:text-slate-200 text-sm font-medium transition-colors"
+              className="flex-1 py-3 text-variable hover:text-fixed text-sm font-medium transition-colors"
             >
               Skip — continue without selecting
             </button>
@@ -956,7 +957,7 @@ export default function KioskMode() {
                 setPendingVisitorQrCode(null);
                 setActiveSection("main");
               }}
-              className="py-3 px-5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-xl transition-colors"
+              className="py-3 px-5 bg-white/70 hover:bg-white text-fixed text-sm font-medium rounded-xl transition-colors shadow-sm"
             >
               Cancel
             </button>
