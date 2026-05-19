@@ -62,6 +62,9 @@ export default function KioskMode() {
 
   const { data: allReasons = [] } = useQuery<any[]>({ queryKey: ["/api/visit-reasons"] });
   const visitorQrReasons = (allReasons as any[]).filter((r: any) => r.appliesTo === "visitors" || r.appliesTo === "both");
+  // Keep a ref so the memoised handleQrScan callback always reads the latest value
+  const visitorQrReasonsRef = useRef<any[]>([]);
+  useEffect(() => { visitorQrReasonsRef.current = visitorQrReasons; }, [visitorQrReasons]);
 
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
@@ -289,7 +292,7 @@ export default function KioskMode() {
     // Visitor pre-booking (PB- is the stored DB format; PRE- is the email invitation format; PBK- is a dashboard alias)
     if (code.startsWith("PB-") || code.startsWith("PRE-") || code.startsWith("PBK-")) {
       setCameraState("off");
-      if (visitorQrReasons.length > 0) {
+      if (visitorQrReasonsRef.current.length > 0) {
         setPendingVisitorQrCode(code);
         setShowVisitorQrReasonPicker(true);
         return;
