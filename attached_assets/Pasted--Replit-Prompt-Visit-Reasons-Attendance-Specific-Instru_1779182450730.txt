@@ -1,0 +1,208 @@
+# Replit Prompt — Visit Reasons & Attendance-Specific Instructions
+
+## Feature Overview
+
+Add a **Visit Reasons** system that lets site administrators define a list of visit types (e.g. Contractor, Interview, Meeting, Delivery, Service Engineer). When a visitor or contractor signs in at the kiosk, they tap their reason from the configured list. The system then displays purpose-specific instructions and — if configured for that reason — requires the visitor to accept a tailored set of H&S rules before completing sign-in.
+
+This replaces the current free-text "Purpose" field in `WalkInVisitorForm.tsx` with a touch-friendly button selection step.
+
+---
+
+## Files to create
+
+- `server/routes/visitReasons.ts` — CRUD API for visit reason records
+- `client/src/pages/settings/VisitReasonsSettings.tsx` — admin settings page to manage reasons
+
+## Files to modify
+
+- `server/isolatedSchema.ts` — add `visitReasons` table definition
+- `server/simpleDatabaseService.ts` — add schema migration to create `visit_reasons` table in each customer schema
+- `server/index.ts` (or wherever routes are registered) — mount the new visitReasons router
+- `client/src/components/WalkInVisitorForm.tsx` — replace free-text purpose with tap-to-select reason buttons; show instructions modal; trigger per-reason H&S acceptance
+- `client/src/pages/ContractorKiosk.tsx` — same tap-to-select treatment for contractor QR and walk-in flows (currently purpose is collected in `WalkInContractorForm.tsx` as free text but never shown to the worker)
+- `client/src/components/WalkInContractorForm.tsx` — same reason selection treatment as visitor form
+- `client/src/pages/Settings.tsx` — add "Visit Reasons" tab to the settings page (both the desktop `TabsList` and the mobile `Select` dropdown)
+
+---
+
+## Database — new table: `visit_reasons`
+
+Add to `server/isolatedSchema.ts` following the existing pgTable pattern used throughout the file:
+
+```ts
+export const visitReasons = pgTable("visit_reasons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  label: text("label").notNull(),                    // e.g. "Delivery", "Interview"
+  instructions: text("instructions").default(""),    // directions shown after selection
+  requireHsAcceptance: boolean("require_hs_acceptance").default(false),
+  hsContent: text("hs_content").default(""),         // per-reason H&S text (overrides company-wide when set)
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  appliesTo: text("applies_to").default("both"),     // "visitors", "contractors", or "both"
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertVisitReasonSchema = createInsertSchema(visitReasons).omit({ id: true, createdAt: true, updatedAt: true });
+export type VisitReason = typeof visitReasons.$inferSelect;
+export type InsertVisitReason = typeof insertVisitReasonSchema._type;
+```
+
+The `visit_reasons` table lives **in each customer's isolated schema**, exactly like every other table. It does not go in a shared schema.
+
+Add the DDL to `simpleDatabaseService.ts` in the same pattern as other `CREATE TABLE IF NOT EXISTS` statements so it is created automatically in new and existing schemas.
+
+The DDL should be:
+
+```sql
+CREATE TABLE IF NOT EXISTS visit_reasons (
+  id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+  label TEXT NOT NULL,
+  instructions TEXT DEFAULT '',
+  require_hs_acceptance BOOLEAN DEFAULT FALSE,
+  hs_content TEXT DEFAULT '',
+  is_active BOOLEAN DEFAULT TRUE,
+  sort_order INTEGER DEFAULT 0,
+  applies_to TEXT DEFAULT 'both',
+  created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+  updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+);
+```
+
+Seed three default reasons on first creation (only if the table is empty after creation):
+
+| label | instructions | requires H&S | applies_to |
+|---|---|---|---|
+| Meeting / Appointment | Please wait in reception — your host will come to meet you. | false | visitors |
+| Delivery | Please proceed to the loading bay at the rear of the building. Do not enter the main office. | false | both |
+| Contractor / Engineer | You must sign in fully before accessing any work area. Ensure you have your ID and any required documentation. | true | contractors |
+
+---
+
+## API routes — `server/routes/visitReasons.ts`
+
+All routes use the existing `simpleDatabaseService` / `customerDb.execute(sql\`...\`)` pattern. All routes require authentication via the existing auth middleware. Follow the same file structure as `server/routes/visitors.ts`.
+
+```
+GET    /api/visit-reasons          — list all active reasons (ordered by sort_order)
+GET    /api/visit-reasons/all      — list all reasons including inactive (admin only)
+POST   /api/visit-reasons          — create a new reason (admin only)
+PUT    /api/visit-reasons/:id      — update a reason (admin only)
+DELETE /api/visit-reasons/:id      — soft-delete (set is_active = false) (admin only)
+PUT    /api/visit-reasons/reorder  — accepts { ids: string[] } and updates sort_order sequentially (admin only)
+```
+
+The `GET /api/visit-reasons` endpoint is public-facing (used by the kiosk without admin auth) — apply the same auth exemption pattern used by other kiosk endpoints in `server/routes/visitors.ts`.
+
+---
+
+## Settings page — `client/src/pages/settings/VisitReasonsSettings.tsx`
+
+Create a new settings page for managing visit reasons. It should:
+
+- List all visit reasons in their sort order, showing label, applies_to, whether H&S acceptance is required, and active/inactive status
+- Allow drag-to-reorder (or up/down arrow buttons if drag-drop is complex — keep it simple)
+- "Add Reason" button opens an inline form or modal with fields:
+  - **Label** (text, required) — what the visitor sees on the button
+  - **Applies to** (select: Visitors only / Contractors only / Both)
+  - **Instructions** (textarea) — directions shown to the visitor after they select this reason. Can be left blank if no specific instructions are needed
+  - **Require H&S acceptance** (toggle)
+  - **H&S rules content** (textarea, shown only when toggle is on) — the specific rules for this visit type. If left blank and H&S acceptance is toggled on, falls back to the company-wide H&S rules content from `companySettings`
+  - **Active** (toggle, default on)
+- Inline edit and delete (soft delete — sets `is_active = false`) per row
+- Use React Query (`useQuery`, `useMutation`, `queryClient.invalidateQueries`) matching the patterns in other settings pages
+- Follow the existing shadcn/ui component style used across the settings pages (Card, Button, Input, Textarea, Switch, Badge, etc.)
+- The page header should read "Visit Reasons" with a subheading: "Define the reasons visitors and contractors can select when signing in, and the instructions shown to them."
+
+Register this page in `Settings.tsx`:
+
+1. Import `VisitReasonsSettings` at the top of the file
+2. Add `<SelectItem value="visit-reasons">Visit Reasons</SelectItem>` to the mobile dropdown (alongside the other SelectItems)
+3. Add `<TabsTrigger value="visit-reasons">Visit Reasons</TabsTrigger>` to the desktop `TabsList`
+4. Add `<TabsContent value="visit-reasons"><VisitReasonsSettings /></TabsContent>` in the tabs body
+
+---
+
+## Kiosk sign-in flow — `WalkInVisitorForm.tsx`
+
+The current flow collects: First Name → Last Name → Company → Purpose (free text) → Host Selection → Submit.
+
+**New flow:** First Name → Last Name → Company → **Reason Selection** → (Instructions screen if instructions exist) → Host Selection → Submit → (H&S modal if required for this reason)
+
+### Changes to `WalkInVisitorForm.tsx`
+
+1. **Fetch visit reasons** — add a `useQuery` for `/api/visit-reasons` (filtered to `applies_to = 'visitors'` or `'both'`). If the API returns an empty list, skip the reason step entirely and keep the free-text purpose field as a fallback so the form still works even if no reasons are configured.
+
+2. **Replace the free-text purpose field** with a full-screen reason selection step when reasons are configured. The step shows large touch-friendly buttons (one per reason), styled like the existing numbered field boxes. The selected reason label is stored in `formData.purpose`.
+
+3. **Instructions modal** — after a reason is selected, if that reason has non-empty `instructions`, show a modal overlay (new component: `VisitInstructionsModal.tsx`) that displays the instructions prominently with a single "Got it — Continue" button. The modal must be dismissed before the visitor can proceed. Style it simply: white card, large readable text, full-screen on mobile.
+
+4. **H&S acceptance** — at form submission, check `selectedReason.requireHsAcceptance`. If true, show `HSAcceptanceModal` with the content from `selectedReason.hsContent` (falling back to `settingsAny.hsRulesContent` if `hsContent` is blank). This is in addition to (not instead of) the existing company-wide H&S check — so if both the reason and the company settings require H&S acceptance, the reason-level acceptance takes priority and the company-level check is skipped to avoid showing two modals back-to-back. If the reason does not require H&S acceptance, the existing company-wide H&S logic continues to work exactly as before.
+
+5. **Store the reason ID** — add `visitReasonId: string | null` to the visitor data sent to the API. Add a corresponding nullable `visit_reason_id` column to the `visitors` table in `isolatedSchema.ts` and in the DDL migration. This is for reporting — so admins can later filter visitors by the reason they selected.
+
+---
+
+## Contractor kiosk — `ContractorKiosk.tsx` and `WalkInContractorForm.tsx`
+
+Apply the same reason selection logic to the contractor walk-in form (`WalkInContractorForm.tsx`):
+
+- Fetch `/api/visit-reasons` filtered to `applies_to = 'contractors'` or `'both'`
+- Replace the free-text purpose field with reason buttons
+- Show instructions modal if instructions are set
+- Trigger H&S acceptance per-reason before completing check-in
+
+For QR code check-ins in `ContractorKiosk.tsx` (where a contractor scans their QR and is checked in automatically): show the reason selection screen as an interstitial step between the QR scan and the final check-in API call, if any reasons are configured for contractors. This gives contractors who scan in the same instructions experience as walk-in visitors.
+
+---
+
+## New component — `VisitInstructionsModal.tsx`
+
+Create `client/src/components/VisitInstructionsModal.tsx`:
+
+```tsx
+interface VisitInstructionsModalProps {
+  isOpen: boolean;
+  reasonLabel: string;
+  instructions: string;
+  onContinue: () => void;
+}
+```
+
+Rendered via `createPortal` to `document.body`, the same pattern as `HSAcceptanceModal.tsx`. Full-screen on small screens, centred card on larger screens.
+
+Design:
+- Blue header bar with a map-pin or directions icon, showing "Where to go" as the title and the `reasonLabel` as a subtitle
+- The `instructions` text in large, readable body text (min 18px on kiosk)
+- A single prominent "Got it — Continue" button (green, full width)
+- No decline/cancel option — the visitor must acknowledge before proceeding
+
+---
+
+## What NOT to change
+
+- The existing company-wide `hsRulesEnabled` / `hsRulesContent` / `hsRulesRequireAcceptance` settings in `companySettings` — leave these exactly as they are. The per-reason H&S content sits alongside them, not instead of them.
+- `HSAcceptanceModal.tsx` — do not change this component. It already works correctly and accepts `hsRulesContent` as a prop. Just call it with the per-reason content.
+- The pre-booking visitor flow — leave that alone for now. This feature applies to walk-in sign-ins only.
+- The QR code badge printing flow — no change needed.
+- Any existing database records or migrations — only add new tables and columns, never drop or alter existing ones.
+
+---
+
+## Tier / feature gating
+
+No feature gating required. Visit Reasons is available on all plan tiers (Basic, Pro, Max). Do not add a `requirePlan()` check.
+
+---
+
+## Acceptance criteria
+
+- [ ] Admin can create, edit, reorder, and deactivate visit reasons in Settings → Visit Reasons
+- [ ] Visitor kiosk shows reason buttons when reasons are configured; skips the step if none are configured
+- [ ] Selecting a reason with instructions shows the instructions modal before proceeding
+- [ ] Reason requiring H&S acceptance triggers `HSAcceptanceModal` with the correct content before sign-in completes
+- [ ] Selected reason label is stored in the `purpose` field on the visitor record
+- [ ] Contractor walk-in form has the same reason selection behaviour, filtered to contractor-applicable reasons
+- [ ] Contractor QR scan shows a reason selection interstitial if contractor reasons are configured
+- [ ] If no reasons are configured, all existing behaviour is unchanged (free-text purpose field remains)
+- [ ] All API routes are protected by auth middleware except the public `GET /api/visit-reasons` used by the kiosk

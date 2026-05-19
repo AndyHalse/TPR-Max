@@ -11,8 +11,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
   ArrowLeft, ArrowRight, CheckCircle2, Building2, User, Shield,
-  Lock, AlertTriangle, FileText, ClipboardCheck, HardHat
+  Lock, AlertTriangle, FileText, ClipboardCheck, HardHat, MapPin
 } from "lucide-react";
+import VisitInstructionsModal from "@/components/VisitInstructionsModal";
 
 interface WalkInContractorFormProps {
   onBack: () => void;
@@ -115,6 +116,13 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
   const { data: zones = [] } = useQuery<any[]>({ queryKey: ["/api/zones"] });
 
   const [step, setStep] = useState(1);
+
+  // Visit reasons for contractors
+  const { data: allReasons = [] } = useQuery<any[]>({ queryKey: ["/api/visit-reasons"] });
+  const contractorReasons = allReasons.filter((r: any) => r.appliesTo === "contractors" || r.appliesTo === "both");
+  const [selectedReason, setSelectedReason] = useState<any | null>(null);
+  const [reasonPickerDone, setReasonPickerDone] = useState(false);
+  const [showReasonInstructions, setShowReasonInstructions] = useState(false);
 
   // ── Step 1 state — Company ─────────────────────────────────────────────────
   const [company, setCompany] = useState({
@@ -276,6 +284,80 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
       });
     },
   });
+
+  // ── Reason picker pre-step — shown before step 1 when contractor reasons exist
+  if (!reasonPickerDone && contractorReasons.length > 0) {
+    return (
+      <div className="min-h-screen bg-background p-4 md:p-6">
+        <div className="max-w-2xl mx-auto space-y-6">
+          <GlassCard className="text-center">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <MapPin className="h-8 w-8 text-blue-600" />
+              <h1 className="text-2xl sm:text-3xl font-bold text-fixed">Walk-in Contractor Registration</h1>
+            </div>
+            <p className="text-variable text-sm">First, tell us the reason for your visit today</p>
+          </GlassCard>
+
+          <GlassCard>
+            <div className="flex items-center gap-2 mb-5">
+              <MapPin className="h-5 w-5 text-blue-600" />
+              <h2 className="text-lg font-semibold text-fixed">What is the reason for your visit?</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {contractorReasons.map((reason: any) => (
+                <button
+                  key={reason.id}
+                  onClick={() => {
+                    setSelectedReason(reason);
+                    if (reason.instructions?.trim()) {
+                      setShowReasonInstructions(true);
+                    } else {
+                      setReasonPickerDone(true);
+                    }
+                  }}
+                  className="flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all text-left"
+                >
+                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <MapPin size={20} className="text-blue-600" />
+                  </div>
+                  <div>
+                    <span className="font-semibold text-slate-800 dark:text-slate-100">{reason.label}</span>
+                    {reason.requireHsAcceptance && (
+                      <span className="block text-xs text-amber-600 mt-0.5">H&amp;S acceptance required at check-in</span>
+                    )}
+                    {reason.instructions?.trim() && (
+                      <span className="block text-xs text-blue-500 mt-0.5">Includes site instructions</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setReasonPickerDone(true)}
+              className="mt-4 w-full py-3 text-slate-400 hover:text-slate-600 text-sm transition-colors"
+            >
+              Skip — continue without selecting a reason
+            </button>
+          </GlassCard>
+
+          <Button variant="outline" onClick={onBack} className="w-full h-12">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Cancel
+          </Button>
+        </div>
+
+        <VisitInstructionsModal
+          isOpen={showReasonInstructions}
+          reasonLabel={selectedReason?.label || ""}
+          instructions={selectedReason?.instructions || ""}
+          onContinue={() => {
+            setShowReasonInstructions(false);
+            setReasonPickerDone(true);
+          }}
+        />
+      </div>
+    );
+  }
 
   // ── Step progress indicator ─────────────────────────────────────────────────
   const steps = [

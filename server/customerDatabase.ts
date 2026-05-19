@@ -885,6 +885,38 @@ export class CustomerDatabaseService {
     // New customer schemas start completely blank - NO data migration from public schema
     // This ensures 100% customer isolation with zero cross-contamination
     
+    // Ensure visit_reasons table exists and seed defaults
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".visit_reasons (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          label TEXT NOT NULL,
+          instructions TEXT DEFAULT '',
+          require_hs_acceptance BOOLEAN DEFAULT FALSE,
+          hs_content TEXT DEFAULT '',
+          is_active BOOLEAN DEFAULT TRUE,
+          sort_order INTEGER DEFAULT 0,
+          applies_to TEXT DEFAULT 'both',
+          created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+          updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+        )
+      `);
+      await pool.query(`ALTER TABLE "${schemaName}".visitors ADD COLUMN IF NOT EXISTS visit_reason_id VARCHAR`);
+      // Seed three default reasons only if the table is empty
+      const vrCheck = await pool.query(`SELECT COUNT(*) as cnt FROM "${schemaName}".visit_reasons`);
+      if (parseInt(vrCheck.rows[0]?.cnt || '0') === 0) {
+        await pool.query(`
+          INSERT INTO "${schemaName}".visit_reasons (label, instructions, require_hs_acceptance, is_active, sort_order, applies_to) VALUES
+          ('Meeting / Appointment', 'Please wait in reception — your host will come to meet you.', false, true, 0, 'visitors'),
+          ('Delivery', 'Please proceed to the loading bay at the rear of the building. Do not enter the main office.', false, true, 1, 'both'),
+          ('Contractor / Engineer', 'You must sign in fully before accessing any work area. Ensure you have your ID and any required documentation.', true, true, 2, 'contractors')
+        `);
+      }
+      logger.info(`✅ visit_reasons table ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ visit_reasons table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Seed company_settings if empty, or correct company_name if it doesn't match the customer record
     try {
       const settingsCheck = await db.execute(`SELECT id, company_name FROM "${schemaName}".company_settings LIMIT 1`);

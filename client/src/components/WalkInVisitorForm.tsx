@@ -9,9 +9,11 @@ import HSAcceptanceModal from "@/components/HSAcceptanceModal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { User, ArrowLeft, Check, Search, X, UserCheck } from "lucide-react";
+import { User, ArrowLeft, Check, Search, X, UserCheck, MapPin, CheckCircle2 } from "lucide-react";
 import type { Staff, InsertVisitor, Visitor, CompanySettings } from "@shared/schema";
 import { printPassViaIframe } from "@/lib/printUtils";
+import { createPortal } from "react-dom";
+import VisitInstructionsModal from "@/components/VisitInstructionsModal";
 
 interface WalkInVisitorFormProps {
   onBack: () => void;
@@ -42,6 +44,9 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [showHSModal, setShowHSModal] = useState(false);
   const [pendingVisitorData, setPendingVisitorData] = useState<InsertVisitor | null>(null);
+  const [selectedReason, setSelectedReason] = useState<any | null>(null);
+  const [showReasonPicker, setShowReasonPicker] = useState(false);
+  const [showInstructionsModal, setShowInstructionsModal] = useState(false);
 
   const { data: allStaff } = useQuery<Staff[]>({
     queryKey: ["/api/staff"],
@@ -50,6 +55,11 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
+
+  const { data: allReasons = [] } = useQuery<any[]>({
+    queryKey: ["/api/visit-reasons"],
+  });
+  const visitorReasons = allReasons.filter((r: any) => r.appliesTo === "visitors" || r.appliesTo === "both");
 
   const filteredStaff = useMemo(() => {
     if (!allStaff) return [];
@@ -158,6 +168,17 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const handleReasonSelect = (reason: any) => {
+    setSelectedReason(reason);
+    setFormData(prev => ({ ...prev, purpose: reason.label }));
+    setShowReasonPicker(false);
+    if (reason.instructions?.trim()) {
+      setShowInstructionsModal(true);
+    } else {
+      setActiveField("hostSearch");
+    }
+  };
+
   const handleNextField = () => {
     if (!activeField) return;
     if (activeField === "hostSearch") {
@@ -165,8 +186,14 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       return;
     }
     const currentIndex = FIELD_ORDER.indexOf(activeField as any);
+    // If moving to "purpose" and visitor reasons are configured, open the picker instead
     if (currentIndex < FIELD_ORDER.length - 1) {
-      setActiveField(FIELD_ORDER[currentIndex + 1]);
+      const nextField = FIELD_ORDER[currentIndex + 1];
+      if (nextField === "purpose" && visitorReasons.length > 0) {
+        setShowReasonPicker(true);
+        return;
+      }
+      setActiveField(nextField);
     } else {
       setActiveField(null);
     }
@@ -211,7 +238,13 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
     };
 
     const settingsAny = settings as any;
-    if (settingsAny?.hsRulesEnabled !== false && settingsAny?.hsRulesRequireAcceptance && settingsAny?.hsRulesContent) {
+    // Per-reason H&S takes priority; fallback to company-level H&S if no per-reason trigger
+    const reasonHsRequired = selectedReason?.requireHsAcceptance;
+    const companyHsRequired = !reasonHsRequired &&
+      settingsAny?.hsRulesEnabled !== false &&
+      settingsAny?.hsRulesRequireAcceptance &&
+      settingsAny?.hsRulesContent;
+    if (reasonHsRequired || companyHsRequired) {
       setPendingVisitorData(visitorData);
       setShowHSModal(true);
       return;
@@ -350,21 +383,34 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                   <div className="space-y-1">
                     <Label className="text-base font-semibold text-fixed flex items-center gap-2">
                       <span className="w-5 h-5 bg-gray-500 text-white rounded-full text-xs flex items-center justify-center">4</span>
-                      Purpose <span className="text-xs text-variable font-normal">(Optional)</span>
+                      {visitorReasons.length > 0 ? "Visit Reason" : "Purpose"} <span className="text-xs text-variable font-normal">(Optional)</span>
                     </Label>
                     <div
-                      onClick={() => setActiveField("purpose")}
-                      className={`w-full px-6 py-5 rounded-xl border-2 cursor-pointer transition-all text-lg font-medium ${
-                        activeField === "purpose" 
-                          ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-lg" 
+                      onClick={() => {
+                        if (visitorReasons.length > 0) {
+                          setShowReasonPicker(true);
+                        } else {
+                          setActiveField("purpose");
+                        }
+                      }}
+                      className={`w-full px-6 py-5 rounded-xl border-2 cursor-pointer transition-all text-lg font-medium flex items-center gap-2 ${
+                        selectedReason
+                          ? "border-green-400 bg-green-50 shadow-md"
                           : formData.purpose
                             ? "border-green-400 bg-green-50 shadow-md"
                             : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
                       }`}
                       data-testid="input-purpose"
                     >
-                      <span className={formData.purpose ? "text-slate-800" : "text-slate-400"}>
-                        {formData.purpose || "Touch to enter purpose"}
+                      {selectedReason && <MapPin size={18} className="text-green-600 flex-shrink-0" />}
+                      <span className={selectedReason || formData.purpose ? "text-slate-800" : "text-slate-400"}>
+                        {selectedReason
+                          ? selectedReason.label
+                          : formData.purpose
+                            ? formData.purpose
+                            : visitorReasons.length > 0
+                              ? "Touch to select reason"
+                              : "Touch to enter purpose"}
                       </span>
                     </div>
                   </div>
@@ -524,10 +570,69 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
         <HSAcceptanceModal
           isOpen={showHSModal}
           companyName={(settings as any)?.companyName}
-          hsRulesContent={(settings as any)?.hsRulesContent || ""}
+          hsRulesContent={
+            selectedReason?.requireHsAcceptance && selectedReason?.hsContent
+              ? selectedReason.hsContent
+              : (settings as any)?.hsRulesContent || ""
+          }
           onAccept={handleHSAccepted}
           onDecline={handleHSDeclined}
         />
+
+        <VisitInstructionsModal
+          isOpen={showInstructionsModal}
+          reasonLabel={selectedReason?.label || ""}
+          instructions={selectedReason?.instructions || ""}
+          onContinue={() => {
+            setShowInstructionsModal(false);
+            setActiveField("hostSearch");
+          }}
+        />
+
+        {showReasonPicker && createPortal(
+          <div className="fixed inset-0 z-[9990] flex flex-col bg-slate-900">
+            {/* Header */}
+            <div className="flex-shrink-0 bg-slate-800 px-6 py-5 border-b border-slate-700">
+              <h2 className="text-white text-2xl font-bold">What is the reason for your visit?</h2>
+              <p className="text-slate-400 text-sm mt-1">Select the option that best describes your visit</p>
+            </div>
+            {/* Reason buttons */}
+            <div className="flex-1 overflow-y-auto p-6">
+              <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+                {visitorReasons.map((reason: any) => (
+                  <button
+                    key={reason.id}
+                    onClick={() => handleReasonSelect(reason)}
+                    className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-2xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 active:bg-blue-100 transition-all shadow-md text-center"
+                  >
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                      <MapPin size={24} className="text-blue-600" />
+                    </div>
+                    <span className="font-semibold text-slate-800 text-lg leading-tight">{reason.label}</span>
+                    {reason.requireHsAcceptance && (
+                      <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                        H&amp;S acceptance required
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Footer skip */}
+            <div className="flex-shrink-0 border-t border-slate-700 p-4">
+              <button
+                onClick={() => {
+                  setShowReasonPicker(false);
+                  setActiveField("hostSearch");
+                }}
+                className="w-full py-3 text-slate-400 hover:text-slate-200 text-sm font-medium transition-colors"
+              >
+                Skip — continue without selecting a reason
+              </button>
+            </div>
+          </div>,
+          document.body
+        )}
       </div>
     </div>
   );

@@ -173,6 +173,8 @@ export const visitors = pgTable("visitors", {
   // Notes field for additional visitor information
   notes: text("notes"),
   photoUrl: text("photo_url"),
+  // Visit reason tracking
+  visitReasonId: varchar("visit_reason_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
@@ -2571,3 +2573,21 @@ export type InsertPermitAttachment = z.infer<typeof insertPermitAttachmentSchema
 export type PermitAttachment = typeof permitAttachments.$inferSelect;
 
 export type BiostarDevice = typeof biostarDevices.$inferSelect;
+
+// ─── Visit Reasons ────────────────────────────────────────────────────────────
+export const visitReasons = pgTable("visit_reasons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  label: text("label").notNull(),
+  instructions: text("instructions").default(""),
+  requireHsAcceptance: boolean("require_hs_acceptance").default(false),
+  hsContent: text("hs_content").default(""),
+  isActive: boolean("is_active").default(true),
+  sortOrder: integer("sort_order").default(0),
+  appliesTo: text("applies_to").default("both"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertVisitReasonSchema = createInsertSchema(visitReasons).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertVisitReason = z.infer<typeof insertVisitReasonSchema>;
+export type VisitReason = typeof visitReasons.$inferSelect;

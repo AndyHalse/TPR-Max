@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -35,7 +36,9 @@ import {
   Camera,
   Loader2,
   XCircle,
+  MapPin,
 } from "lucide-react";
+import VisitInstructionsModal from "@/components/VisitInstructionsModal";
 import jsQR from "jsqr";
 import ScannerReticle from "@/components/ScannerReticle";
 import { playBeep } from "@/hooks/useCameraScanner";
@@ -82,10 +85,18 @@ export default function ContractorKiosk() {
   const [showHSModal, setShowHSModal] = useState(false);
   const [pendingCheckin, setPendingCheckin] = useState<{ workerId?: string; hostId?: string; qrCode?: string; prebookingMode?: boolean } | null>(null);
   const [pendingWorkerName, setPendingWorkerName] = useState<string>("");
+  // QR reason picker state
+  const [showQrReasonPicker, setShowQrReasonPicker] = useState(false);
+  const [pendingQrWorker, setPendingQrWorker] = useState<{ worker: any; companyName: string } | null>(null);
+  const [qrSelectedReason, setQrSelectedReason] = useState<any | null>(null);
+  const [showQrInstructionsModal, setShowQrInstructionsModal] = useState(false);
 
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
+
+  const { data: allReasons = [] } = useQuery<any[]>({ queryKey: ["/api/visit-reasons"] });
+  const contractorQrReasons = (allReasons as any[]).filter((r: any) => r.appliesTo === "contractors" || r.appliesTo === "both");
 
   const { data: companies = [] } = useQuery<ContractorCompany[]>({
     queryKey: ["/api/contractors"],
@@ -286,9 +297,14 @@ export default function ContractorKiosk() {
       } else {
         setCameraState("off");
         setIsQrLookupLoading(false);
-        setSelectedWorkerForCheckIn(worker);
-        setCheckedInCompanyName(companyName);
-        setShowHostSelection(true);
+        if (contractorQrReasons.length > 0) {
+          setPendingQrWorker({ worker, companyName });
+          setShowQrReasonPicker(true);
+        } else {
+          setSelectedWorkerForCheckIn(worker);
+          setCheckedInCompanyName(companyName);
+          setShowHostSelection(true);
+        }
         isProcessingRef.current = false;
       }
     } catch {
@@ -1051,6 +1067,99 @@ export default function ContractorKiosk() {
         hsRulesContent={settingsAny?.hsRulesContent || ""}
         onAccept={handleHSAccepted}
         onDecline={handleHSDeclined}
+      />
+
+      {/* QR reason picker overlay */}
+      {showQrReasonPicker && createPortal(
+        <div className="fixed inset-0 z-[9990] flex flex-col bg-slate-900">
+          <div className="flex-shrink-0 bg-slate-800 px-6 py-5 border-b border-slate-700">
+            {pendingQrWorker && (
+              <p className="text-blue-300 text-sm font-medium mb-1">
+                {pendingQrWorker.worker.firstName} {pendingQrWorker.worker.lastName} · {pendingQrWorker.companyName}
+              </p>
+            )}
+            <h2 className="text-white text-2xl font-bold">What is the reason for your visit?</h2>
+            <p className="text-slate-400 text-sm mt-1">Select the option that best describes your visit today</p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+              {contractorQrReasons.map((reason: any) => (
+                <button
+                  key={reason.id}
+                  onClick={() => {
+                    setQrSelectedReason(reason);
+                    setShowQrReasonPicker(false);
+                    if (reason.instructions?.trim()) {
+                      setShowQrInstructionsModal(true);
+                    } else {
+                      if (pendingQrWorker) {
+                        setSelectedWorkerForCheckIn(pendingQrWorker.worker);
+                        setCheckedInCompanyName(pendingQrWorker.companyName);
+                        setShowHostSelection(true);
+                        setPendingQrWorker(null);
+                      }
+                    }
+                  }}
+                  className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-2xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 active:bg-blue-100 transition-all shadow-md text-center"
+                >
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <MapPin size={24} className="text-blue-600" />
+                  </div>
+                  <span className="font-semibold text-slate-800 text-lg leading-tight">{reason.label}</span>
+                  {reason.requireHsAcceptance && (
+                    <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                      H&amp;S acceptance required
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex-shrink-0 border-t border-slate-700 p-4 flex gap-3">
+            <button
+              onClick={() => {
+                setShowQrReasonPicker(false);
+                if (pendingQrWorker) {
+                  setSelectedWorkerForCheckIn(pendingQrWorker.worker);
+                  setCheckedInCompanyName(pendingQrWorker.companyName);
+                  setShowHostSelection(true);
+                  setPendingQrWorker(null);
+                }
+              }}
+              className="flex-1 py-3 text-slate-400 hover:text-slate-200 text-sm font-medium transition-colors"
+            >
+              Skip — continue without selecting
+            </button>
+            <button
+              onClick={() => {
+                setShowQrReasonPicker(false);
+                setPendingQrWorker(null);
+                setCameraState("off");
+                setActiveSection("main");
+              }}
+              className="py-3 px-5 bg-slate-700 hover:bg-slate-600 text-slate-200 text-sm font-medium rounded-xl transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* QR reason instructions modal */}
+      <VisitInstructionsModal
+        isOpen={showQrInstructionsModal}
+        reasonLabel={qrSelectedReason?.label || ""}
+        instructions={qrSelectedReason?.instructions || ""}
+        onContinue={() => {
+          setShowQrInstructionsModal(false);
+          if (pendingQrWorker) {
+            setSelectedWorkerForCheckIn(pendingQrWorker.worker);
+            setCheckedInCompanyName(pendingQrWorker.companyName);
+            setShowHostSelection(true);
+            setPendingQrWorker(null);
+          }
+        }}
       />
     </div>
   );
