@@ -1360,71 +1360,158 @@ For questions about this report, please contact the administrator.
     // Get company branding color or use default
     const primaryColor = companySettings?.accentColor || companySettings?.primaryColor || '#3b82f6';
     
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e5e7eb;">
-        <div style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%); color: white; padding: 30px; text-align: center;">
-          ${logoBase64 ? `
-            <div style="margin-bottom: 20px;">
-              <img src="${logoBase64}" alt="${companySettings?.companyName || 'Company'} Logo" style="max-height: 60px; max-width: 200px;">
-            </div>
-          ` : ''}
-          <h1 style="margin: 0; font-size: 24px;">🎯 You're Invited to Visit</h1>
-          ${companySettings?.companyName ? `<p style="margin: 10px 0 0 0; opacity: 0.95;">${companySettings.companyName}</p>` : ''}
-        </div>
-        
-        <div style="padding: 30px; background: #f8f9fa;">
-          <h2 style="color: #333; margin-top: 0;">Welcome ${preBooking.visitorFirstName}!</h2>
-          
-          <div style="background: white; padding: 20px; border-radius: 8px; margin: 20px 0;">
-            <h3 style="color: ${primaryColor}; margin-top: 0;">📍 Visit Details</h3>
-            <p><strong>Date & Time:</strong> ${visitDateTime}</p>
-            <p><strong>Purpose:</strong> ${preBooking.purpose || 'Business meeting'}</p>
-            <p><strong>Your Host:</strong> ${hostStaff.firstName} ${hostStaff.lastName}</p>
-            <p><strong>Host Email:</strong> ${hostStaff.email}</p>
-            ${preBooking.company ? `<p><strong>Visiting Company:</strong> ${preBooking.company}</p>` : ''}
-            
-            ${meetingRoom ? `
-              <div style="background: #f0f9ff; padding: 15px; border-radius: 6px; margin-top: 15px; border-left: 4px solid ${primaryColor};">
-                <h4 style="color: #1e293b; margin: 0 0 10px 0;">🏢 Meeting Room</h4>
-                <p style="margin: 5px 0;"><strong>Room:</strong> ${meetingRoom.name}</p>
-                <p style="margin: 5px 0;"><strong>Location:</strong> ${meetingRoom.location}</p>
-                <p style="margin: 5px 0;"><strong>Capacity:</strong> ${meetingRoom.capacity} people</p>
-                
-                <div style="margin-top: 10px;">
-                  <strong>Facilities:</strong>
-                  <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px;">
-                    ${meetingRoom.hasProjector ? '<span style="background: #4caf50; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">📽️ Projector</span>' : ''}
-                    ${meetingRoom.hasVideoConference ? '<span style="background: #2196f3; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">📹 Video Call</span>' : ''}
-                    ${meetingRoom.hasWhiteboard ? '<span style="background: #ff9800; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">📝 Whiteboard</span>' : ''}
-                    ${meetingRoom.hasTV ? '<span style="background: #9c27b0; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">📺 TV</span>' : ''}
-                    ${meetingRoom.hasAirCon ? '<span style="background: #00bcd4; color: white; padding: 2px 6px; border-radius: 3px; font-size: 11px;">❄️ Air Con</span>' : ''}
-                  </div>
-                </div>
-              </div>
-            ` : ''}
-            
-            <div style="background: #fef3c7; padding: 15px; border-radius: 6px; margin-top: 15px;">
-              <h4 style="color: #92400e; margin: 0 0 10px 0;">📋 Important Information</h4>
-              <p style="margin: 5px 0;">• Please bring a valid photo ID for security</p>
-              <p style="margin: 5px 0;">• Arrive 5-10 minutes early for check-in</p>
-              <p style="margin: 5px 0;">• Your QR code: <strong>PRE-${preBooking.qrCode}</strong></p>
-              <p style="margin: 5px 0;">• Show this email at reception for quick check-in</p>
-              
-              <div style="text-align: center; margin-top: 15px; padding: 20px; background: white; border-radius: 8px;">
-                <img src="${qrCodeUrl}" alt="QR Code for Check-in" style="width: 200px; height: 200px;">
-                <p style="margin-top: 10px; font-size: 12px; color: #666;">Scan this QR code at reception for express check-in</p>
-              </div>
-            </div>
-          </div>
+    const companyName = companySettings?.companyName || 'TPR Max';
+    const textColor = companySettings?.foregroundColor || '#1e293b';
+    const variableTextColor = companySettings?.variableTextColor || '#374151';
 
-          <div style="text-align: center; margin-top: 30px;">
-            <p style="color: #666; font-size: 14px;">
-              📧 This invitation was sent automatically by TPR<br>
-              Questions? Contact your host: ${hostStaff.email}
-            </p>
-          </div>
-        </div>
-      </div>
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+          <title>Visit Invitation - ${companyName}</title>
+          <style>
+            @media only screen and (max-width: 600px) {
+              .mobile-padding { padding: 15px !important; }
+              .qr-code { width: 150px !important; height: 150px !important; }
+              h1 { font-size: 22px !important; }
+              h2 { font-size: 18px !important; }
+            }
+          </style>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background: #f8fafc; -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%;">
+          <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td align="center" style="padding: 0;">
+                <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; max-width: 600px; border-collapse: collapse; background: white; margin: 0 auto;">
+
+                  <!-- Header -->
+                  <tr>
+                    <td style="background: linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}ee 100%); padding: 25px 20px; text-align: center;">
+                      ${logoBase64 ? `
+                      <img src="${logoBase64}" alt="${companyName}" style="width: 80px; height: 80px; margin: 0 auto 15px; display: block; border-radius: 12px; background: white; padding: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                      ` : `
+                      <table role="presentation" cellpadding="0" cellspacing="0" style="width: 80px; height: 80px; background: white; border-radius: 12px; margin: 0 auto 15px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                        <tr><td align="center" valign="middle" style="font-size: 22px; font-weight: bold; color: ${primaryColor}; font-family: Arial, sans-serif;">${companyName.substring(0, 3).toUpperCase()}</td></tr>
+                      </table>
+                      `}
+                      <h1 style="margin: 0; color: white; font-size: 26px; font-weight: 600; text-shadow: 0 2px 4px rgba(0,0,0,0.1);">You're Invited to Visit</h1>
+                      <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.95); font-size: 15px; font-weight: 500;">${companyName}</p>
+                    </td>
+                  </tr>
+
+                  <!-- Welcome -->
+                  <tr>
+                    <td class="mobile-padding" style="padding: 25px 25px 0 25px;">
+                      <h2 style="margin: 0 0 8px 0; color: ${textColor}; font-size: 22px; font-weight: 600;">Welcome, ${preBooking.visitorFirstName}!</h2>
+                      <p style="margin: 0 0 20px 0; color: ${variableTextColor}; font-size: 15px; line-height: 1.5;">
+                        You have been invited for a visit to <strong>${companyName}</strong>. Your host <strong>${hostStaff.firstName} ${hostStaff.lastName}</strong> is expecting you.
+                      </p>
+                    </td>
+                  </tr>
+
+                  <!-- QR Code -->
+                  <tr>
+                    <td class="mobile-padding" style="padding: 0 25px 20px 25px;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                          <td style="background: linear-gradient(to bottom, #ffffff, #fafafa); border: 2px solid ${primaryColor}20; border-radius: 12px; padding: 25px; text-align: center;">
+                            <img src="${qrCodeUrl}" alt="Check-in QR Code" class="qr-code" style="width: 180px; height: 180px; margin: 0 auto 15px; display: block; border: 3px solid white; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 8px;">
+                            <p style="margin: 0 0 5px 0; color: ${textColor}; font-weight: 700; font-size: 17px;">Pass ID: PRE-${preBooking.qrCode}</p>
+                            <p style="margin: 0; color: ${variableTextColor}; font-size: 13px;">Show this QR code at reception for express check-in</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <!-- Visit Details -->
+                  <tr>
+                    <td class="mobile-padding" style="padding: 0 25px 20px 25px;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;">
+                        <tr>
+                          <td style="background: ${primaryColor}10; padding: 12px 18px; border-bottom: 1px solid #e5e7eb;">
+                            <p style="margin: 0; font-weight: 700; color: ${textColor}; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Visit Details</p>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 18px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                              <tr><td style="padding: 5px 0; color: ${variableTextColor}; font-size: 14px;"><strong style="color: ${textColor};">Date &amp; Time:</strong>&nbsp; ${visitDateTime}</td></tr>
+                              <tr><td style="padding: 5px 0; color: ${variableTextColor}; font-size: 14px;"><strong style="color: ${textColor};">Purpose:</strong>&nbsp; ${preBooking.purpose || 'Business meeting'}</td></tr>
+                              <tr><td style="padding: 5px 0; color: ${variableTextColor}; font-size: 14px;"><strong style="color: ${textColor};">Your Host:</strong>&nbsp; ${hostStaff.firstName} ${hostStaff.lastName}</td></tr>
+                              <tr><td style="padding: 5px 0; color: ${variableTextColor}; font-size: 14px;"><strong style="color: ${textColor};">Host Email:</strong>&nbsp; ${hostStaff.email}</td></tr>
+                              ${preBooking.company ? `<tr><td style="padding: 5px 0; color: ${variableTextColor}; font-size: 14px;"><strong style="color: ${textColor};">Your Company:</strong>&nbsp; ${preBooking.company}</td></tr>` : ''}
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  ${meetingRoom ? `
+                  <!-- Meeting Room -->
+                  <tr>
+                    <td class="mobile-padding" style="padding: 0 25px 20px 25px;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 1px solid ${primaryColor}30; border-radius: 10px; overflow: hidden;">
+                        <tr>
+                          <td style="background: ${primaryColor}10; padding: 12px 18px; border-bottom: 1px solid ${primaryColor}20;">
+                            <p style="margin: 0; font-weight: 700; color: ${textColor}; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Meeting Room</p>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 18px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                              <tr><td style="padding: 4px 0; color: ${variableTextColor}; font-size: 14px;"><strong style="color: ${textColor};">Room:</strong>&nbsp; ${meetingRoom.name}</td></tr>
+                              <tr><td style="padding: 4px 0; color: ${variableTextColor}; font-size: 14px;"><strong style="color: ${textColor};">Location:</strong>&nbsp; ${meetingRoom.location}</td></tr>
+                              <tr><td style="padding: 4px 0; color: ${variableTextColor}; font-size: 14px;"><strong style="color: ${textColor};">Capacity:</strong>&nbsp; ${meetingRoom.capacity} people</td></tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  ` : ''}
+
+                  <!-- Arrival Tips -->
+                  <tr>
+                    <td class="mobile-padding" style="padding: 0 25px 20px 25px;">
+                      <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse; border: 1px solid #e5e7eb; border-radius: 10px; overflow: hidden;">
+                        <tr>
+                          <td style="background: #f8fafc; padding: 12px 18px; border-bottom: 1px solid #e5e7eb;">
+                            <p style="margin: 0; font-weight: 700; color: ${textColor}; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px;">Before You Arrive</p>
+                          </td>
+                        </tr>
+                        <tr>
+                          <td style="padding: 15px 18px;">
+                            <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+                              <tr><td style="padding: 4px 0; color: ${variableTextColor}; font-size: 14px;">&#x2713;&nbsp; Please bring a valid photo ID for security</td></tr>
+                              <tr><td style="padding: 4px 0; color: ${variableTextColor}; font-size: 14px;">&#x2713;&nbsp; Arrive 5–10 minutes early for check-in</td></tr>
+                              <tr><td style="padding: 4px 0; color: ${variableTextColor}; font-size: 14px;">&#x2713;&nbsp; Show the QR code above at reception for instant check-in</td></tr>
+                            </table>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <!-- Footer -->
+                  <tr>
+                    <td style="padding: 20px 25px; text-align: center; border-top: 1px solid #e5e7eb; background: #f8fafc;">
+                      <p style="margin: 0; color: #9ca3af; font-size: 13px; line-height: 1.5;">
+                        This invitation was sent automatically by TPR<br>
+                        Questions? Contact your host: <a href="mailto:${hostStaff.email}" style="color: ${primaryColor}; text-decoration: none;">${hostStaff.email}</a>
+                      </p>
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
     `;
 
     const text = `You're Invited to Visit\n\nHello ${preBooking.visitorFirstName},\n\nYou have been invited for a visit:\n\nDate & Time: ${visitDateTime}\nPurpose: ${preBooking.purpose || 'Business meeting'}\nYour Host: ${hostStaff.firstName} ${hostStaff.lastName}\nHost Email: ${hostStaff.email}\n\n${meetingRoom ? `Meeting Room: ${meetingRoom.name}\nLocation: ${meetingRoom.location}\nCapacity: ${meetingRoom.capacity} people\n\n` : ''}Important Information:\n• Please bring a valid photo ID for security\n• Arrive 5-10 minutes early for check-in\n• Your QR code: ${preBooking.qrCode}\n• Show this email at reception for quick check-in\n\nQuestions? Contact your host: ${hostStaff.email}\n\nThis invitation was sent automatically by TPR.`;
