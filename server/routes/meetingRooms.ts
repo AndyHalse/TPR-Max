@@ -365,14 +365,10 @@ export function registerMeetingRoomRoutes(app: Express): void {
       const bookingDb = await customerDbService.getCustomerDatabase(bookingContext.customerId);
       
       let bookedByStaffId = bookingData.bookedByStaffId;
-      let staffMember = null;
       if (!bookedByStaffId && req.user?.id) {
         const [foundStaff] = await bookingDb.select().from(isolatedSchema.staff)
           .where(eq(isolatedSchema.staff.userId, req.user.id));
-        staffMember = foundStaff;
-        if (staffMember) {
-          bookedByStaffId = staffMember.id;
-        }
+        if (foundStaff) bookedByStaffId = foundStaff.id;
       }
       
       if (!bookedByStaffId) {
@@ -382,88 +378,149 @@ export function registerMeetingRoomRoutes(app: Express): void {
       if (!bookingData.roomId || !bookingData.startDateTime || !bookingData.endDateTime) {
         return res.status(400).json({ error: "Missing required fields" });
       }
-      
-      const createStart = new Date(bookingData.startDateTime);
-      const createEnd = new Date(bookingData.endDateTime);
-      const createConflicts = await bookingDb.select().from(isolatedSchema.roomBookings)
-        .where(and(
-          eq(isolatedSchema.roomBookings.meetingRoomId, bookingData.roomId),
-          ne(isolatedSchema.roomBookings.status, 'cancelled'),
-          sql`${isolatedSchema.roomBookings.startTime} < ${createEnd}`,
-          sql`${isolatedSchema.roomBookings.endTime} > ${createStart}`
-        ));
 
-      if (createConflicts.length > 0) {
-        return res.status(409).json({ 
-          error: "Room is not available during the requested time" 
+      // ── Helpers ──────────────────────────────────────────────────────────────
+      const staffAttendeeIds: string[] = bookingData.staffAttendeeIds || [];
+      const externalAttendeeEmails: string[] = bookingData.externalAttendeeEmails || [];
+
+      // Pre-load staff attendees once (shared across all occurrences)
+      const staffMembers = staffAttendeeIds.length > 0
+        ? await bookingDb.select().from(isolatedSchema.staff).where(inArray(isolatedSchema.staff.id, staffAttendeeIds))
+        : [];
+      const staffMap = new Map(staffMembers.map(s => [s.id, s]));
+
+      const insertAttendees = async (bookingId: string) => {
+        const vals: any[] = [];
+        for (const sid of staffAttendeeIds) {
+          const s = staffMap.get(sid);
+          vals.push({ bookingId, staffId: sid, name: s ? `${s.firstName} ${s.lastName}` : 'Unknown', email: s?.email || '' });
+        }
+        for (const email of externalAttendeeEmails) {
+          vals.push({ bookingId, email, name: email, staffId: null });
+        }
+        if (vals.length > 0) await bookingDb.insert(isolatedSchema.roomBookingAttendees).values(vals);
+      };
+
+      const createSingleBooking = async (startTime: Date, endTime: Date, recurrencePattern?: string) => {
+        // Conflict check
+        const conflicts = await bookingDb.select().from(isolatedSchema.roomBookings)
+          .where(and(
+            eq(isolatedSchema.roomBookings.meetingRoomId, bookingData.roomId),
+            ne(isolatedSchema.roomBookings.status, 'cancelled'),
+            sql`${isolatedSchema.roomBookings.startTime} < ${endTime}`,
+            sql`${isolatedSchema.roomBookings.endTime} > ${startTime}`
+          ));
+        if (conflicts.length > 0) return null; // skip conflicting slot
+
+        const [booking] = await bookingDb.insert(isolatedSchema.roomBookings)
+          .values({
+            title: bookingData.title,
+            description: bookingData.description,
+            meetingRoomId: bookingData.roomId,
+            bookedByStaffId,
+            startTime,
+            endTime,
+            status: 'confirmed',
+            expectedAttendees: bookingData.expectedAttendees || 1,
+            isRecurring: !!recurrencePattern,
+            recurrencePattern: recurrencePattern || null,
+            requiresCatering: bookingData.cateringRequired || false,
+            cateringNotes: bookingData.cateringNotes || null,
+            specialRequirements: bookingData.technicalRequirements || null,
+            isPrivate: false,
+          })
+          .returning();
+        await insertAttendees(booking.id);
+        return booking;
+      };
+
+      // ── Recurring path ────────────────────────────────────────────────────────
+      if (bookingData.isRecurring && bookingData.recurringType && bookingData.recurringEndDate) {
+        const baseStart = new Date(bookingData.startDateTime);
+        const baseEnd = new Date(bookingData.endDateTime);
+        const durationMs = baseEnd.getTime() - baseStart.getTime();
+        const until = new Date(bookingData.recurringEndDate);
+        until.setHours(23, 59, 59, 999);
+
+        const groupId = crypto.randomUUID();
+        const recurrencePattern = JSON.stringify({
+          groupId,
+          type: bookingData.recurringType,
+          until: until.toISOString(),
         });
-      }
 
-      const [booking] = await bookingDb.insert(isolatedSchema.roomBookings)
-        .values({
-          ...bookingData,
-          meetingRoomId: bookingData.roomId,
-          startTime: createStart,
-          endTime: createEnd,
-          bookedByStaffId,
-        })
-        .returning();
-      
-      const staffAttendeeIds = bookingData.staffAttendeeIds || [];
-      const externalAttendeeEmails = bookingData.externalAttendeeEmails || [];
-      
-      if (staffAttendeeIds.length > 0 || externalAttendeeEmails.length > 0) {
-        const attendeeValues: any[] = [];
-        
-        if (staffAttendeeIds.length > 0) {
-          const staffMembers = await bookingDb.select().from(isolatedSchema.staff)
-            .where(inArray(isolatedSchema.staff.id, staffAttendeeIds));
-          const staffMap = new Map(staffMembers.map(s => [s.id, s]));
-          
-          for (const sid of staffAttendeeIds) {
-            const s = staffMap.get(sid);
-            const name = s ? `${s.firstName} ${s.lastName}` : 'Unknown Staff';
-            const email = s?.email || '';
-            attendeeValues.push({ bookingId: booking.id, staffId: sid, name, email });
+        const dates: Date[] = [];
+        let cursor = baseStart;
+        while (cursor <= until) {
+          dates.push(new Date(cursor));
+          if (bookingData.recurringType === 'weekly') cursor = new Date(cursor.getTime() + 7 * 86400000);
+          else if (bookingData.recurringType === 'fortnightly') cursor = new Date(cursor.getTime() + 14 * 86400000);
+          else if (bookingData.recurringType === 'monthly') {
+            const next = new Date(cursor);
+            next.setMonth(next.getMonth() + 1);
+            cursor = next;
+          } else break;
+        }
+
+        let created = 0;
+        let skipped = 0;
+        let firstBooking: any = null;
+
+        for (const occStart of dates) {
+          const occEnd = new Date(occStart.getTime() + durationMs);
+          const booking = await createSingleBooking(occStart, occEnd, recurrencePattern);
+          if (booking) {
+            created++;
+            if (!firstBooking) firstBooking = booking;
+          } else {
+            skipped++;
           }
         }
-        
-        for (const email of externalAttendeeEmails) {
-          attendeeValues.push({ bookingId: booking.id, email, name: email, staffId: null });
+
+        // Send one confirmation email for the series (based on first booking)
+        if (firstBooking) {
+          try {
+            const [bookingRoom] = await bookingDb.select().from(isolatedSchema.meetingRooms)
+              .where(eq(isolatedSchema.meetingRooms.id, firstBooking.meetingRoomId));
+            const [organizer] = await bookingDb.select().from(isolatedSchema.staff)
+              .where(eq(isolatedSchema.staff.id, firstBooking.bookedByStaffId));
+            const [settings] = await bookingDb.select().from(isolatedSchema.companySettings).limit(1);
+            await emailService.forCustomer(req.customerId).sendBookingConfirmation(
+              firstBooking, bookingRoom, organizer, staffMembers, externalAttendeeEmails,
+              settings ? { companyName: settings.companyName, logoUrl: settings.logoUrl, address: settings.address, phone: settings.phone, website: settings.website, email: settings.email } : undefined
+            );
+          } catch (emailError) {
+            logger.error("Failed to send recurring booking confirmation email:", emailError);
+          }
         }
-        if (attendeeValues.length > 0) {
-          await bookingDb.insert(isolatedSchema.roomBookingAttendees).values(attendeeValues);
-        }
-      }
-      
-      const [fullBooking] = await bookingDb.select().from(isolatedSchema.roomBookings)
-        .where(eq(isolatedSchema.roomBookings.id, booking.id));
-      
-      if (fullBooking) {
-        const staffAttendees = staffAttendeeIds.length > 0 
-          ? await bookingDb.select().from(isolatedSchema.staff).where(inArray(isolatedSchema.staff.id, staffAttendeeIds))
-          : [];
-        
-        try {
-          const [bookingRoom] = await bookingDb.select().from(isolatedSchema.meetingRooms)
-            .where(eq(isolatedSchema.meetingRooms.id, fullBooking.meetingRoomId));
-          const [organizer] = await bookingDb.select().from(isolatedSchema.staff)
-            .where(eq(isolatedSchema.staff.id, fullBooking.bookedByStaffId));
-          const [settings] = await bookingDb.select().from(isolatedSchema.companySettings).limit(1);
-          await emailService.forCustomer(req.customerId).sendBookingConfirmation(
-            fullBooking, 
-            bookingRoom, 
-            organizer, 
-            staffAttendees,
-            externalAttendeeEmails,
-            settings ? { companyName: settings.companyName, logoUrl: settings.logoUrl, address: settings.address, phone: settings.phone, website: settings.website, email: settings.email } : undefined
-          );
-        } catch (emailError) {
-          logger.error("Failed to send booking confirmation email:", emailError);
-        }
+
+        return res.json({ recurring: true, created, skipped, groupId });
       }
 
-      res.json(booking);
+      // ── Single booking path ───────────────────────────────────────────────────
+      const createStart = new Date(bookingData.startDateTime);
+      const createEnd = new Date(bookingData.endDateTime);
+      const booking = await createSingleBooking(createStart, createEnd);
+
+      if (!booking) {
+        return res.status(409).json({ error: "Room is not available during the requested time" });
+      }
+
+      try {
+        const [bookingRoom] = await bookingDb.select().from(isolatedSchema.meetingRooms)
+          .where(eq(isolatedSchema.meetingRooms.id, booking.meetingRoomId));
+        const [organizer] = await bookingDb.select().from(isolatedSchema.staff)
+          .where(eq(isolatedSchema.staff.id, booking.bookedByStaffId));
+        const [settings] = await bookingDb.select().from(isolatedSchema.companySettings).limit(1);
+        await emailService.forCustomer(req.customerId).sendBookingConfirmation(
+          booking, bookingRoom, organizer, staffMembers, externalAttendeeEmails,
+          settings ? { companyName: settings.companyName, logoUrl: settings.logoUrl, address: settings.address, phone: settings.phone, website: settings.website, email: settings.email } : undefined
+        );
+      } catch (emailError) {
+        logger.error("Failed to send booking confirmation email:", emailError);
+      }
+
+      res.json({ recurring: false, created: 1, skipped: 0, booking });
     } catch (error) {
       logger.error("Error creating room booking:", error);
       res.status(500).json({ error: "Failed to create room booking" });

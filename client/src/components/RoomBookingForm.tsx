@@ -3,7 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { format, addMinutes, parseISO, isBefore, isAfter } from 'date-fns';
+import { format, addMinutes, addWeeks, addMonths, parseISO, isBefore, isAfter, differenceInWeeks, differenceInMonths } from 'date-fns';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -15,7 +15,8 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Calendar, Clock, Users, MapPin, Wifi, Monitor, Coffee, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Calendar, Clock, Users, MapPin, Wifi, Monitor, Coffee, AlertTriangle, CheckCircle, XCircle, Repeat } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import type { MeetingRoom, Staff } from '@shared/schema';
@@ -232,9 +233,21 @@ export function RoomBookingForm({
     }
   };
 
+  // Calculate how many occurrences a recurring booking will create
+  const getOccurrenceCount = (startStr: string, endDateStr: string, type: string): number => {
+    if (!startStr || !endDateStr || !type) return 0;
+    const start = new Date(startStr);
+    const end = new Date(endDateStr);
+    if (isNaN(start.getTime()) || isNaN(end.getTime()) || !isBefore(start, end)) return 0;
+    if (type === 'weekly') return Math.floor(differenceInWeeks(end, start)) + 1;
+    if (type === 'fortnightly') return Math.floor(differenceInWeeks(end, start) / 2) + 1;
+    if (type === 'monthly') return Math.floor(differenceInMonths(end, start)) + 1;
+    return 0;
+  };
+
   const createBookingMutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
-      return await apiRequest('POST', '/api/room-bookings', {
+      const res = await apiRequest('POST', '/api/room-bookings', {
         ...data,
         status: 'confirmed',
         startDateTime: new Date(data.startDateTime).toISOString(),
@@ -242,18 +255,20 @@ export function RoomBookingForm({
         staffAttendeeIds: data.staffAttendeeIds || [],
         externalAttendeeEmails: data.externalAttendeeEmails || [],
       });
+      return res.json();
     },
-    onSuccess: () => {
-      toast({
-        title: "Booking Created",
-        description: "Room has been successfully booked.",
-      });
-      // Reset availability status and form
+    onSuccess: (data) => {
+      const isRecurring = data?.recurring;
+      const created = data?.created ?? 1;
+      const skipped = data?.skipped ?? 0;
+      let desc = isRecurring
+        ? `${created} recurring booking${created !== 1 ? 's' : ''} created${skipped > 0 ? ` (${skipped} skipped due to conflicts)` : ''}.`
+        : "Room has been successfully booked.";
+      toast({ title: "Booking Created", description: desc });
       setAvailabilityStatus(null);
       setConflictingBookings([]);
       form.reset();
       onOpenChange(false);
-      // Invalidate bookings cache to refresh calendar
       queryClient.invalidateQueries({ 
         predicate: (query) => query.queryKey[0] === '/api/room-bookings'
       });
@@ -622,6 +637,92 @@ export function RoomBookingForm({
                         </Alert>
                       )}
                     </div>
+
+                    {/* Recurring Booking Toggle */}
+                    {!editBooking && (
+                      <div className="border rounded-lg p-4 space-y-4 bg-blue-50/40 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+                        <FormField
+                          control={form.control}
+                          name="isRecurring"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Repeat className="h-4 w-4 text-blue-600" />
+                                <div>
+                                  <FormLabel className="text-sm font-medium cursor-pointer">Repeat this booking</FormLabel>
+                                  <p className="text-xs text-muted-foreground">Book the same room at the same time on a recurring basis</p>
+                                </div>
+                              </div>
+                              <FormControl>
+                                <Switch checked={field.value} onCheckedChange={field.onChange} />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+
+                        {form.watch('isRecurring') && (
+                          <div className="space-y-3 pt-1">
+                            <Separator />
+                            <div className="grid grid-cols-2 gap-3">
+                              <FormField
+                                control={form.control}
+                                name="recurringType"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Repeat every</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value || ''}>
+                                      <FormControl>
+                                        <SelectTrigger className="h-9 text-sm">
+                                          <SelectValue placeholder="Select…" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="weekly">Week (weekly)</SelectItem>
+                                        <SelectItem value="fortnightly">2 weeks (fortnightly)</SelectItem>
+                                        <SelectItem value="monthly">Month (monthly)</SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+
+                              <FormField
+                                control={form.control}
+                                name="recurringEndDate"
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel className="text-xs">Repeat until</FormLabel>
+                                    <FormControl>
+                                      <Input type="date" {...field} className="h-9 text-sm" />
+                                    </FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+
+                            {(() => {
+                              const count = getOccurrenceCount(
+                                form.watch('startDateTime'),
+                                form.watch('recurringEndDate') || '',
+                                form.watch('recurringType') || ''
+                              );
+                              const typeLabel = { weekly: 'weekly', fortnightly: 'fortnightly', monthly: 'monthly' }[form.watch('recurringType') || ''] || '';
+                              if (count > 1 && typeLabel) {
+                                return (
+                                  <div className="flex items-center gap-2 text-xs text-blue-700 dark:text-blue-300 bg-blue-100 dark:bg-blue-900/40 rounded px-3 py-2">
+                                    <CheckCircle className="h-3.5 w-3.5 shrink-0" />
+                                    Will create <strong>{count} {typeLabel} bookings</strong> including today's
+                                  </div>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {/* Conflicting Bookings */}
                     {conflictingBookings.length > 0 && (
