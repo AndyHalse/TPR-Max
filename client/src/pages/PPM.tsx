@@ -20,11 +20,12 @@ import {
   ClipboardCheck, UserCheck, FileUp, HardHat, FileText, Filter, X,
   Download, Upload, Mail, RefreshCw, Eye, Sparkles, Phone, MapPin, Globe, User,
   Layers, ChevronDown, ChevronRight, Bell, FileDown, BellOff, Scan, CalendarDays,
-  LayoutDashboard, Info,
+  LayoutDashboard, Info, Lock, ShieldAlert,
 } from "lucide-react";
 import { Link, useSearch } from "wouter";
 import PpmAnnualPlanner from "@/components/PpmAnnualPlanner";
 import PpmDashboard from "@/components/PpmDashboard";
+import { getCompanyClearance, getWorkerClearance } from "@/pages/contractor/types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -146,6 +147,9 @@ interface ContractorWorker {
   cscsStatus?: string | null;
   rightToWork?: string | null;
   postcode?: string | null;
+  workerStatus?: string | null;
+  inductionCompleted?: boolean | null;
+  siteInductionCompleted?: boolean | null;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -2086,7 +2090,24 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                 {/* Assign Contractor */}
                 <div className="space-y-2 border-t pt-4">
                   <p className="text-sm font-semibold flex items-center gap-1.5"><HardHat className="h-4 w-4" />Assign Contractor</p>
+                  {(() => {
+                    const selectedCompany = contractors.find(c => c.id === assignForm.contractorCompanyId);
+                    const companyClearance = selectedCompany ? getCompanyClearance((selectedCompany as any).documentsStatus) : { cleared: true, reasons: [] as string[] };
+                    const selectedWorker = companyWorkers.find(w => w.id === assignForm.contractorWorkerId);
+                    const workerClearance = selectedWorker ? getWorkerClearance(selectedWorker) : { cleared: true, reasons: [] as string[] };
+                    const blockedByCompliance = !!selectedCompany && !companyClearance.cleared;
+                    const blockedByWorker = !!selectedWorker && !workerClearance.cleared;
+                    const blockReason = blockedByCompliance
+                      ? `Cannot assign — ${selectedCompany!.name} is not cleared: ${companyClearance.reasons.join(", ")}`
+                      : blockedByWorker
+                        ? `Cannot assign — ${selectedWorker!.firstName} ${selectedWorker!.lastName} is not cleared: ${workerClearance.reasons.join(", ")}`
+                        : "";
+                    return (
                   <div className="space-y-2">
+                    <div className="rounded-md border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 px-2.5 py-1.5 text-[11px] text-blue-800 dark:text-blue-200 flex items-start gap-1.5">
+                      <ShieldAlert className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <span>Only contractors with valid <strong>Public Liability</strong> &amp; <strong>Employers' Liability</strong> can be assigned. Workers must have Right to Work verified and site induction completed.</span>
+                    </div>
                     <div>
                       <Label className="text-xs">Company</Label>
                       <Select
@@ -2107,7 +2128,23 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                         <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select company" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="_none">— None —</SelectItem>
-                          {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                          {contractors.map(c => {
+                            const clr = getCompanyClearance((c as any).documentsStatus);
+                            return (
+                              <SelectItem
+                                key={c.id}
+                                value={c.id}
+                                disabled={!clr.cleared}
+                                title={clr.cleared ? undefined : `Not cleared: ${clr.reasons.join(", ")}`}
+                              >
+                                <span className="flex items-center gap-1.5">
+                                  {!clr.cleared && <Lock className="h-3 w-3 text-red-500" />}
+                                  <span className={clr.cleared ? "" : "line-through text-muted-foreground"}>{c.name}</span>
+                                  {!clr.cleared && <span className="text-[10px] text-red-600">— {clr.reasons[0]}</span>}
+                                </span>
+                              </SelectItem>
+                            );
+                          })}
                         </SelectContent>
                       </Select>
                     </div>
@@ -2129,9 +2166,41 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                           <SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select worker" /></SelectTrigger>
                           <SelectContent>
                             <SelectItem value="_none">— Company only —</SelectItem>
-                            {companyWorkers.map(w => <SelectItem key={w.id} value={w.id}>{w.firstName} {w.lastName}</SelectItem>)}
+                            {companyWorkers.map(w => {
+                              const wc = getWorkerClearance(w);
+                              return (
+                                <SelectItem
+                                  key={w.id}
+                                  value={w.id}
+                                  disabled={!wc.cleared}
+                                  title={wc.cleared ? undefined : `Not cleared: ${wc.reasons.join(", ")}`}
+                                >
+                                  <span className="flex items-center gap-1.5">
+                                    {!wc.cleared && <Lock className="h-3 w-3 text-red-500" />}
+                                    <span className={wc.cleared ? "" : "line-through text-muted-foreground"}>{w.firstName} {w.lastName}</span>
+                                    {!wc.cleared && <span className="text-[10px] text-red-600">— {wc.reasons[0]}</span>}
+                                  </span>
+                                </SelectItem>
+                              );
+                            })}
                           </SelectContent>
                         </Select>
+                      </div>
+                    )}
+                    {(blockedByCompliance || blockedByWorker) && (
+                      <div className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-800 px-2.5 py-2">
+                        <Lock className="h-3.5 w-3.5 text-red-600 mt-0.5 shrink-0" />
+                        <div className="text-[11px] text-red-700 dark:text-red-300">
+                          <p className="font-semibold">Not cleared to work</p>
+                          <ul className="list-disc pl-4 mt-0.5">
+                            {(blockedByCompliance ? companyClearance.reasons : workerClearance.reasons).map((r, i) => (
+                              <li key={i}>{r}</li>
+                            ))}
+                          </ul>
+                          <Link href={blockedByWorker ? `/contractors?company=${assignForm.contractorCompanyId}` : "/contractors"} className="underline underline-offset-2 mt-1 inline-block">
+                            Open contractor profile to resolve →
+                          </Link>
+                        </div>
                       </div>
                     )}
                     <div>
@@ -2144,15 +2213,24 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                         onChange={e => setAssignForm(f => ({ ...f, assignedEmail: e.target.value }))}
                       />
                     </div>
-                    <Button
-                      size="sm"
-                      className="w-full"
-                      disabled={!assignForm.contractorCompanyId || assignMutation.isPending}
-                      onClick={() => assignMutation.mutate({ id: selectedWO.id, data: assignForm })}
-                    >
-                      <Mail className="h-3.5 w-3.5 mr-1.5" />
-                      {assignMutation.isPending ? "Assigning…" : assignForm.assignedEmail ? "Assign & Notify" : "Assign (No Email)"}
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-block w-full">
+                          <Button
+                            size="sm"
+                            className="w-full"
+                            disabled={!assignForm.contractorCompanyId || assignMutation.isPending || blockedByCompliance || blockedByWorker}
+                            onClick={() => assignMutation.mutate({ id: selectedWO.id, data: assignForm })}
+                          >
+                            <Mail className="h-3.5 w-3.5 mr-1.5" />
+                            {assignMutation.isPending ? "Assigning…" : assignForm.assignedEmail ? "Assign & Notify" : "Assign (No Email)"}
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      {(blockedByCompliance || blockedByWorker) && (
+                        <TooltipContent side="top"><p className="text-xs max-w-[260px]">{blockReason}</p></TooltipContent>
+                      )}
+                    </Tooltip>
                     {contractorLink && (
                       <p className="text-xs text-muted-foreground">
                         Contractor link:{" "}
@@ -2167,6 +2245,8 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
                       </p>
                     )}
                   </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Documents */}

@@ -111,6 +111,52 @@ export function getComplianceBadge(documentsStatus?: Record<string, string>) {
   return { label: 'Compliant', className: 'bg-green-100 text-green-700', icon: '🟢' };
 }
 
+/** Returns whether a contractor company is cleared to be assigned to work.
+ * Mirrors the server-side hard-gate in /api/ppm/work-orders/:id/assign.
+ * Legally required: Public Liability Insurance + Employers' Liability Insurance
+ * — both must exist and not be expired. */
+export function getCompanyClearance(documentsStatus?: Record<string, string>): {
+  cleared: boolean;
+  reasons: string[];
+} {
+  const reasons: string[] = [];
+  if (!documentsStatus) {
+    return { cleared: false, reasons: ["No compliance documents on file"] };
+  }
+  const checks: Array<{ key: string; label: string }> = [
+    { key: "publicLiability", label: "Public Liability Insurance" },
+    { key: "employersLiability", label: "Employers' Liability Insurance" },
+  ];
+  for (const c of checks) {
+    const v = documentsStatus[c.key];
+    if (v === "missing" || v === undefined) reasons.push(`${c.label} missing`);
+    else if (v === "expired") reasons.push(`${c.label} expired`);
+  }
+  return { cleared: reasons.length === 0, reasons };
+}
+
+/** Returns whether a contractor worker is cleared to be assigned to work. */
+export function getWorkerClearance(worker: {
+  workerStatus?: string | null;
+  rightToWork?: string | null;
+  inductionCompleted?: boolean | null;
+  siteInductionCompleted?: boolean | null;
+}): { cleared: boolean; reasons: string[] } {
+  const reasons: string[] = [];
+  if (worker.workerStatus === "banned" || worker.workerStatus === "suspended") {
+    reasons.push(`Worker is ${worker.workerStatus}`);
+  }
+  const rtw = worker.rightToWork;
+  if (rtw !== "valid") {
+    reasons.push("Right to Work not verified");
+  }
+  const inducted = worker.inductionCompleted ?? worker.siteInductionCompleted;
+  if (!inducted) {
+    reasons.push("Site induction not completed");
+  }
+  return { cleared: reasons.length === 0, reasons };
+}
+
 /** Returns true if a company/worker matches the search term */
 export function matchesSearch(item: any, search: string): boolean {
   if (!search) return true;

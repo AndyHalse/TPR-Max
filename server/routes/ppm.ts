@@ -11,6 +11,34 @@ import { logger } from '../utils/logger';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, sql, desc, or, not, ne, isNotNull, gt, gte, lt, lte, inArray, count, like } from 'drizzle-orm';
 import { ppmTokenCacheGet, ppmTokenCacheSet, ppmTokenCacheEvict, ppmPublicRateLimit } from '../routeState';
+import { getCompanyComplianceStatus, getWorkerClearanceStatus } from '../utils/contractorCompliance';
+
+/**
+ * Hard-gate helper: validates that a (company, worker) pair is cleared to be assigned
+ * to a PPM work order. Returns null if cleared, or a JSON-ready error payload if blocked.
+ * Centralised here so create/update/duplicate/assign all enforce the same rules.
+ */
+async function assertContractorClearance(
+  custDb: any,
+  companyId: string | null | undefined,
+  workerId: string | null | undefined,
+): Promise<{ error: string; code: string; reasons: string[] } | null> {
+  if (!companyId && workerId) {
+    return { error: "Select a contractor company before assigning a worker", code: "WORKER_WITHOUT_COMPANY", reasons: ["No company selected"] };
+  }
+  if (!companyId) return null;
+  const company = await getCompanyComplianceStatus(custDb, companyId);
+  if (!company.compliant) {
+    return { error: "Contractor is not cleared to work", code: "CONTRACTOR_NOT_COMPLIANT", reasons: company.reasons };
+  }
+  if (workerId) {
+    const worker = await getWorkerClearanceStatus(custDb, workerId);
+    if (!worker.compliant) {
+      return { error: "Worker is not cleared to work", code: "WORKER_NOT_CLEARED", reasons: worker.reasons };
+    }
+  }
+  return null;
+}
 
 // ─── Module-scope helpers ─────────────────────────────────────────────────────
 
@@ -456,6 +484,8 @@ app.post("/api/ppm/work-orders", requireAuth, async (req, res) => {
     const accessToken = randomBytes(24).toString("hex");
     const accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000); // 90 days
     const parsed = isolatedSchema.insertPpmWorkOrderSchema.parse({ ...req.body, accessToken, accessTokenExpiresAt });
+    const gate = await assertContractorClearance(custDb, parsed.contractorCompanyId, parsed.contractorWorkerId);
+    if (gate) return res.status(400).json(gate);
     const [row] = await custDb.insert(isolatedSchema.ppmWorkOrders).values(parsed).returning();
     res.json(row);
   } catch (error: unknown) {
@@ -475,6 +505,20 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
     delete updates.id;
     delete updates.createdAt;
     delete updates.accessToken;
+    if ("contractorCompanyId" in updates || "contractorWorkerId" in updates) {
+      // Load existing row and merge so partial updates can't bypass the gate
+      // (e.g. caller sets only contractorCompanyId while the row already has a worker, or vice versa).
+      const [existing] = await custDb.select().from(isolatedSchema.ppmWorkOrders).where(eq(isolatedSchema.ppmWorkOrders.id, id));
+      if (!existing) return res.status(404).json({ error: "Work order not found" });
+      const effectiveCompanyId = "contractorCompanyId" in updates
+        ? (updates.contractorCompanyId as string | null | undefined)
+        : existing.contractorCompanyId;
+      const effectiveWorkerId = "contractorWorkerId" in updates
+        ? (updates.contractorWorkerId as string | null | undefined)
+        : existing.contractorWorkerId;
+      const gate = await assertContractorClearance(custDb, effectiveCompanyId, effectiveWorkerId);
+      if (gate) return res.status(400).json(gate);
+    }
     if (updates.status === "completed" && !updates.completedDate) {
       updates.completedDate = new Date().toISOString().split("T")[0];
     }
@@ -541,17 +585,25 @@ app.post("/api/ppm/work-orders/:id/duplicate", requireAuth, async (req, res) => 
     if (!original) return res.status(404).json({ error: "Work order not found" });
     const accessToken = randomBytes(24).toString("hex");
     const accessTokenExpiresAt = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+    // Re-validate clearance on duplicate — the original may have been compliant at assignment time
+    // but documents could have expired or worker could have been banned since.
+    const dupGate = await assertContractorClearance(custDb, original.contractorCompanyId, original.contractorWorkerId);
+    const carryCompany = dupGate ? null : original.contractorCompanyId;
+    const carryCompanyName = dupGate ? null : original.contractorCompanyName;
+    const carryWorker = dupGate ? null : original.contractorWorkerId;
+    const carryWorkerName = dupGate ? null : original.contractorWorkerName;
+    const carryEmail = dupGate ? null : original.assignedEmail;
     const [copy] = await custDb.insert(isolatedSchema.ppmWorkOrders).values({
       scheduleId: original.scheduleId,
       assetId: original.assetId,
       title: `${original.title} (Copy)`,
       description: original.description,
       status: "scheduled",
-      contractorCompanyId: original.contractorCompanyId,
-      contractorCompanyName: original.contractorCompanyName,
-      contractorWorkerId: original.contractorWorkerId,
-      contractorWorkerName: original.contractorWorkerName,
-      assignedEmail: original.assignedEmail,
+      contractorCompanyId: carryCompany,
+      contractorCompanyName: carryCompanyName,
+      contractorWorkerId: carryWorker,
+      contractorWorkerName: carryWorkerName,
+      assignedEmail: carryEmail,
       dueDate: original.dueDate,
       notes: original.notes,
       requiresCertificate: original.requiresCertificate,
@@ -583,15 +635,8 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
         .from(isolatedSchema.contractorCompanies)
         .where(eq(isolatedSchema.contractorCompanies.id, contractorCompanyId));
       if (!company) return res.status(400).json({ error: "Contractor company not found" });
-    }
-    if (contractorWorkerId) {
-      const workerQuery = custDb.select({ id: isolatedSchema.contractorWorkers.id })
-        .from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.id, contractorWorkerId));
-      const [worker] = await workerQuery;
-      if (!worker) return res.status(400).json({ error: "Contractor worker not found" });
-      // If both company and worker are provided, verify the worker belongs to the company
-      if (contractorCompanyId) {
+
+      if (contractorWorkerId) {
         const [workerWithCompany] = await custDb.select({ id: isolatedSchema.contractorWorkers.id })
           .from(isolatedSchema.contractorWorkers)
           .where(
@@ -603,6 +648,10 @@ app.post("/api/ppm/work-orders/:id/assign", requireAuth, async (req, res) => {
         if (!workerWithCompany) return res.status(400).json({ error: "Contractor worker does not belong to the selected company" });
       }
     }
+
+    // Compliance hard-gate: legally-required docs valid + worker cleared (induction, RTW, not banned)
+    const clearanceGate = await assertContractorClearance(custDb, contractorCompanyId, contractorWorkerId);
+    if (clearanceGate) return res.status(400).json(clearanceGate);
 
     // Rotate access token on every assignment/reassignment so old recipients lose access
     const newAccessToken = randomBytes(24).toString("hex");
