@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -182,6 +182,7 @@ function StartOnboardingDialog({ open, setOpen, toast }: any) {
   const qc = useQueryClient();
   const [mode, setMode] = useState<"existing" | "new">("existing");
   const [staffId, setStaffId] = useState("");
+  const [templateId, setTemplateId] = useState<string>("");
   const [form, setForm] = useState({ firstName: "", lastName: "", email: "", department: "", jobTitle: "", contractStartDate: "" });
 
   const { data: eligible = [] } = useQuery<any[]>({
@@ -190,8 +191,21 @@ function StartOnboardingDialog({ open, setOpen, toast }: any) {
     enabled: open,
   });
 
+  const { data: templates = [] } = useQuery<any[]>({
+    queryKey: ["/api/onboarding/templates"],
+    queryFn: () => fetch("/api/onboarding/templates", { credentials: "include" }).then(r => r.json()),
+    enabled: open,
+  });
+
+  useEffect(() => {
+    if (open && templates.length && !templateId) {
+      const def = templates.find((t: any) => t.is_default) || templates[0];
+      if (def) setTemplateId(def.id);
+    }
+  }, [open, templates, templateId]);
+
   const startExisting = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/onboarding/start", { staffId }),
+    mutationFn: () => apiRequest("POST", "/api/onboarding/start", { staffId, templateId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/onboarding/overview"] });
       qc.invalidateQueries({ queryKey: ["/api/onboarding/overview/summary"] });
@@ -204,7 +218,7 @@ function StartOnboardingDialog({ open, setOpen, toast }: any) {
   });
 
   const startNew = useMutation({
-    mutationFn: () => apiRequest("POST", "/api/onboarding/start-new-starter", form),
+    mutationFn: () => apiRequest("POST", "/api/onboarding/start-new-starter", { ...form, templateId }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/onboarding/overview"] });
       qc.invalidateQueries({ queryKey: ["/api/onboarding/overview/summary"] });
@@ -230,6 +244,20 @@ function StartOnboardingDialog({ open, setOpen, toast }: any) {
           </TabsList>
         </Tabs>
 
+        <div>
+          <Label>Onboarding template</Label>
+          <Select value={templateId} onValueChange={setTemplateId}>
+            <SelectTrigger><SelectValue placeholder="Choose template…" /></SelectTrigger>
+            <SelectContent>
+              {templates.map((t: any) => (
+                <SelectItem key={t.id} value={t.id}>
+                  {t.name}{t.is_default ? " (default)" : ""}{t.is_builtin ? " — built-in" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         {mode === "existing" ? (
           <div className="space-y-3">
             <div>
@@ -246,7 +274,6 @@ function StartOnboardingDialog({ open, setOpen, toast }: any) {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500 mt-1">Uses the active onboarding template.</p>
             </div>
           </div>
         ) : (
@@ -285,13 +312,13 @@ function StartOnboardingDialog({ open, setOpen, toast }: any) {
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
           {mode === "existing" ? (
-            <Button onClick={() => startExisting.mutate()} disabled={!staffId || startExisting.isPending}>
+            <Button onClick={() => startExisting.mutate()} disabled={!staffId || !templateId || startExisting.isPending}>
               {startExisting.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Start
             </Button>
           ) : (
             <Button
               onClick={() => startNew.mutate()}
-              disabled={!form.firstName || !form.lastName || !form.email || !form.contractStartDate || startNew.isPending}
+              disabled={!form.firstName || !form.lastName || !form.email || !form.contractStartDate || !templateId || startNew.isPending}
             >
               {startNew.isPending && <Loader2 className="h-4 w-4 animate-spin mr-1" />} Add &amp; Start
             </Button>

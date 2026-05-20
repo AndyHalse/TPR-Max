@@ -775,6 +775,15 @@ export class CustomerDatabaseService {
       `);
       await pool.query(`ALTER TABLE "${schemaName}".onboarding_templates ADD COLUMN IF NOT EXISTS due_day_offset INTEGER`).catch(() => {});
       await pool.query(`ALTER TABLE "${schemaName}".onboarding_templates ADD COLUMN IF NOT EXISTS is_required BOOLEAN DEFAULT TRUE`).catch(() => {});
+      await pool.query(`ALTER TABLE "${schemaName}".onboarding_templates ADD COLUMN IF NOT EXISTS template_set_id UUID`).catch(() => {});
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".onboarding_template_sets (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          name TEXT NOT NULL,
+          is_default BOOLEAN DEFAULT FALSE,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
       logger.info(`✅ Onboarding tables ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Onboarding table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

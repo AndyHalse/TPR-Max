@@ -37,17 +37,47 @@ export const DEFAULT_ONBOARDING_ITEMS = [
   { item_key: 'probation_review_set', label: 'Probation review date confirmed', display_order: 16, due_day_offset: 7, is_required: true },
 ];
 
-async function loadTemplate(pool: any, schemaName: string) {
-  const r = await pool.query(
-    `SELECT item_key, label, display_order, COALESCE(due_day_offset, 0) AS due_day_offset, COALESCE(is_required, TRUE) AS is_required, COALESCE(is_active, TRUE) AS is_active
-     FROM "${schemaName}".onboarding_templates ORDER BY display_order`
+const BUILTIN_DEFAULT_SET = { id: 'builtin-default', name: 'Default (UK SME)', is_default: true, is_builtin: true };
+
+// Get items for a template set; if templateId is null/'builtin-default'/no custom, return built-in defaults
+async function loadTemplateItems(pool: any, schemaName: string, templateId?: string | null) {
+  if (templateId && templateId !== BUILTIN_DEFAULT_SET.id) {
+    const r = await pool.query(
+      `SELECT item_key, label, display_order, due_day_offset, COALESCE(is_required, TRUE) AS is_required
+       FROM "${schemaName}".onboarding_templates
+       WHERE template_set_id = $1 AND COALESCE(is_active, TRUE) = TRUE
+       ORDER BY display_order`,
+      [templateId]
+    );
+    if (r.rows.length) return r.rows;
+  }
+  // Try legacy single template (rows with NULL template_set_id) for backwards compatibility
+  const legacy = await pool.query(
+    `SELECT item_key, label, display_order, due_day_offset, COALESCE(is_required, TRUE) AS is_required
+     FROM "${schemaName}".onboarding_templates
+     WHERE template_set_id IS NULL AND COALESCE(is_active, TRUE) = TRUE
+     ORDER BY display_order`
   );
-  const isCustom = r.rows.length > 0;
-  const items = isCustom ? r.rows.filter((i: any) => i.is_active) : DEFAULT_ONBOARDING_ITEMS;
-  return { items, isCustom };
+  if (legacy.rows.length && (!templateId || templateId === BUILTIN_DEFAULT_SET.id)) return legacy.rows;
+  return DEFAULT_ONBOARDING_ITEMS;
 }
 
-export async function createOnboardingChecklist(customerId: string, staffId: string): Promise<string | null> {
+async function listTemplateSets(pool: any, schemaName: string) {
+  const sets = await pool.query(
+    `SELECT id, name, is_default FROM "${schemaName}".onboarding_template_sets ORDER BY is_default DESC, name`
+  );
+  // Always include the built-in default as a choice if no customer "default" custom set exists
+  const hasCustomDefault = sets.rows.some((s: any) => s.is_default);
+  const out: any[] = [];
+  if (!hasCustomDefault) out.push(BUILTIN_DEFAULT_SET);
+  return [...out, ...sets.rows.map((s: any) => ({ ...s, is_builtin: false }))];
+}
+
+export async function createOnboardingChecklist(
+  customerId: string,
+  staffId: string,
+  templateId?: string | null,
+): Promise<string | null> {
   try {
     const { pool, schemaName } = await getPool(customerId);
 
@@ -63,8 +93,7 @@ export async function createOnboardingChecklist(customerId: string, staffId: str
     );
     const checklistId = checklist.rows[0].id;
 
-    const { items } = await loadTemplate(pool, schemaName);
-
+    const items = await loadTemplateItems(pool, schemaName, templateId);
     for (const item of items) {
       await pool.query(
         `INSERT INTO "${schemaName}".onboarding_items (checklist_id, item_key, label, display_order, due_day_offset, is_required)
@@ -84,7 +113,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   // POST /api/staff/:staffId/onboarding/create
   app.post('/api/staff/:staffId/onboarding/create', requireAuth, async (req, res) => {
     try {
-      const id = await createOnboardingChecklist(req.customerId!, req.params.staffId);
+      const id = await createOnboardingChecklist(req.customerId!, req.params.staffId, req.body?.templateId);
       res.json({ success: true, checklistId: id });
     } catch (err: any) {
       logger.error('Onboarding create error:', err);
@@ -96,22 +125,18 @@ export function registerHrOnboardingRoutes(app: Express): void {
   app.get('/api/staff/:staffId/onboarding', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
-
       const checklist = await pool.query(
         `SELECT * FROM "${schemaName}".onboarding_checklists WHERE staff_id = $1 LIMIT 1`,
         [req.params.staffId]
       );
       if (!checklist.rows[0]) return res.json(null);
-
       const items = await pool.query(
         `SELECT * FROM "${schemaName}".onboarding_items WHERE checklist_id = $1 ORDER BY display_order`,
         [checklist.rows[0].id]
       );
-
       const total = items.rows.length;
       const completed = items.rows.filter((i: any) => i.completed).length;
       const pct = total ? Math.round((completed / total) * 100) : 0;
-
       res.json({ checklist: checklist.rows[0], items: items.rows, total, completed, percent: pct });
     } catch (err: any) {
       logger.error('Onboarding fetch error:', err);
@@ -125,7 +150,6 @@ export function registerHrOnboardingRoutes(app: Express): void {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { completed, notes } = req.body;
       const completedBy = req.user?.username || 'unknown';
-
       const result = await pool.query(
         `UPDATE "${schemaName}".onboarding_items
          SET completed = $1, notes = $2,
@@ -134,7 +158,6 @@ export function registerHrOnboardingRoutes(app: Express): void {
          WHERE id = $4 RETURNING *`,
         [completed, notes || null, completedBy, req.params.itemId]
       );
-
       res.json(result.rows[0]);
     } catch (err: any) {
       logger.error('Onboarding item update error:', err);
@@ -142,7 +165,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
     }
   });
 
-  // GET /api/onboarding/overview/summary — counts for dashboard cards
+  // GET /api/onboarding/overview/summary
   app.get('/api/onboarding/overview/summary', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
@@ -184,7 +207,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
     }
   });
 
-  // GET /api/onboarding/overview?filter=in_progress|starting_this_month|overdue
+  // GET /api/onboarding/overview?filter=...
   app.get('/api/onboarding/overview', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
@@ -250,12 +273,12 @@ export function registerHrOnboardingRoutes(app: Express): void {
     }
   });
 
-  // POST /api/onboarding/start — start onboarding for existing staff
+  // POST /api/onboarding/start — start onboarding for existing staff with chosen template
   app.post('/api/onboarding/start', requireAuth, async (req, res) => {
     try {
-      const { staffId } = req.body;
+      const { staffId, templateId } = req.body;
       if (!staffId) return res.status(400).json({ error: 'staffId required' });
-      const id = await createOnboardingChecklist(req.customerId!, staffId);
+      const id = await createOnboardingChecklist(req.customerId!, staffId, templateId);
       res.json({ success: true, checklistId: id, staffId });
     } catch (err: any) {
       logger.error('Onboarding start error:', err);
@@ -263,15 +286,14 @@ export function registerHrOnboardingRoutes(app: Express): void {
     }
   });
 
-  // POST /api/onboarding/start-new-starter — create staff stub + checklist
+  // POST /api/onboarding/start-new-starter
   app.post('/api/onboarding/start-new-starter', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
-      const { firstName, lastName, email, department, jobTitle, contractStartDate } = req.body;
+      const { firstName, lastName, email, department, jobTitle, contractStartDate, templateId } = req.body;
       if (!firstName || !lastName || !email || !contractStartDate) {
         return res.status(400).json({ error: 'firstName, lastName, email and contractStartDate are required' });
       }
-
       const empId = `EMP-${Date.now().toString().slice(-6)}`;
       const inserted = await pool.query(
         `INSERT INTO "${schemaName}".staff
@@ -279,20 +301,17 @@ export function registerHrOnboardingRoutes(app: Express): void {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE,'staff')
          RETURNING id`,
         [req.customerId!, firstName, lastName, email, department || 'General', jobTitle || null, empId, contractStartDate]
-      ).catch(async (e: any) => {
-        // Fallback if contract_start_date column lives elsewhere
-        const r2 = await pool.query(
+      ).catch(async () => {
+        return await pool.query(
           `INSERT INTO "${schemaName}".staff
              (customer_id, first_name, last_name, email, department, job_title, employee_id, is_active, access_level)
            VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE,'staff')
            RETURNING id`,
           [req.customerId!, firstName, lastName, email, department || 'General', jobTitle || null, empId]
         );
-        return r2;
       });
-
       const newStaffId = inserted.rows[0].id;
-      const checklistId = await createOnboardingChecklist(req.customerId!, newStaffId);
+      const checklistId = await createOnboardingChecklist(req.customerId!, newStaffId, templateId);
       res.json({ success: true, staffId: newStaffId, checklistId });
     } catch (err: any) {
       logger.error('Onboarding new-starter error:', err);
@@ -300,7 +319,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
     }
   });
 
-  // GET /api/onboarding/eligible-staff — staff with no onboarding checklist yet
+  // GET /api/onboarding/eligible-staff
   app.get('/api/onboarding/eligible-staff', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
@@ -318,41 +337,113 @@ export function registerHrOnboardingRoutes(app: Express): void {
     }
   });
 
-  // GET /api/onboarding/template
-  app.get('/api/onboarding/template', requireAuth, requireAdmin, async (req, res) => {
+  // ===== Template Sets =====
+
+  // GET /api/onboarding/templates — list available template sets (for picker; auth required, not admin)
+  app.get('/api/onboarding/templates', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
-      const { items, isCustom } = await loadTemplate(pool, schemaName);
-      res.json({ items, isCustom });
+      const sets = await listTemplateSets(pool, schemaName);
+      res.json(sets);
     } catch (err: any) {
-      logger.error('Onboarding template fetch error:', err);
-      res.status(500).json({ error: 'Failed to fetch onboarding template' });
+      logger.error('Onboarding templates list error:', err);
+      res.status(500).json({ error: 'Failed to list templates' });
     }
   });
 
-  // PUT /api/onboarding/template
-  app.put('/api/onboarding/template', requireAuth, requireAdmin, async (req, res) => {
+  // GET /api/onboarding/templates/:id — get one template (items)
+  app.get('/api/onboarding/templates/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
-      const { items } = req.body as { items: any[] };
+      const id = req.params.id;
+      if (id === BUILTIN_DEFAULT_SET.id) {
+        return res.json({ id, name: BUILTIN_DEFAULT_SET.name, is_default: true, is_builtin: true, items: DEFAULT_ONBOARDING_ITEMS });
+      }
+      const setRow = await pool.query(
+        `SELECT id, name, is_default FROM "${schemaName}".onboarding_template_sets WHERE id = $1`, [id]
+      );
+      if (!setRow.rows[0]) return res.status(404).json({ error: 'Template not found' });
+      const items = await pool.query(
+        `SELECT item_key, label, display_order, due_day_offset, COALESCE(is_required, TRUE) AS is_required
+         FROM "${schemaName}".onboarding_templates
+         WHERE template_set_id = $1 ORDER BY display_order`,
+        [id]
+      );
+      res.json({ ...setRow.rows[0], is_builtin: false, items: items.rows });
+    } catch (err: any) {
+      logger.error('Onboarding template fetch error:', err);
+      res.status(500).json({ error: 'Failed to fetch template' });
+    }
+  });
+
+  // POST /api/onboarding/templates — create new template set
+  app.post('/api/onboarding/templates', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getPool(req.customerId!);
+      const { name, items, is_default, copyFromId } = req.body;
+      if (!name?.trim()) return res.status(400).json({ error: 'name required' });
+
+      if (is_default) {
+        await pool.query(`UPDATE "${schemaName}".onboarding_template_sets SET is_default = FALSE WHERE is_default = TRUE`);
+      }
+      const ins = await pool.query(
+        `INSERT INTO "${schemaName}".onboarding_template_sets (name, is_default) VALUES ($1,$2) RETURNING id`,
+        [name.trim(), !!is_default]
+      );
+      const newId = ins.rows[0].id;
+
+      let seedItems: any[] = Array.isArray(items) ? items : [];
+      if (!seedItems.length && copyFromId) {
+        seedItems = await loadTemplateItems(pool, schemaName, copyFromId);
+      }
+      if (!seedItems.length) seedItems = DEFAULT_ONBOARDING_ITEMS;
+
+      for (let i = 0; i < seedItems.length; i++) {
+        const it = seedItems[i];
+        if (!it.label?.trim()) continue;
+        await pool.query(
+          `INSERT INTO "${schemaName}".onboarding_templates
+             (item_key, label, display_order, is_active, due_day_offset, is_required, template_set_id)
+           VALUES ($1,$2,$3,TRUE,$4,$5,$6)`,
+          [it.item_key || `tpl_${Date.now()}_${i}`, it.label, i, it.due_day_offset ?? null, it.is_required !== false, newId]
+        );
+      }
+      res.json({ success: true, id: newId });
+    } catch (err: any) {
+      logger.error('Onboarding template create error:', err);
+      res.status(500).json({ error: 'Failed to create template' });
+    }
+  });
+
+  // PUT /api/onboarding/templates/:id — replace items / rename / set default
+  app.put('/api/onboarding/templates/:id', requireAuth, requireAdmin, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getPool(req.customerId!);
+      const id = req.params.id;
+      const { name, items, is_default } = req.body as { name?: string; items: any[]; is_default?: boolean };
+      if (id === BUILTIN_DEFAULT_SET.id) return res.status(400).json({ error: 'Built-in default cannot be edited. Create a copy.' });
       if (!Array.isArray(items)) return res.status(400).json({ error: 'items array required' });
 
-      await pool.query(`DELETE FROM "${schemaName}".onboarding_templates`);
+      if (is_default) {
+        await pool.query(`UPDATE "${schemaName}".onboarding_template_sets SET is_default = FALSE WHERE id <> $1`, [id]);
+      }
+      if (name || typeof is_default === 'boolean') {
+        await pool.query(
+          `UPDATE "${schemaName}".onboarding_template_sets
+             SET name = COALESCE($2, name), is_default = COALESCE($3, is_default)
+           WHERE id = $1`,
+          [id, name?.trim() || null, typeof is_default === 'boolean' ? is_default : null]
+        );
+      }
+      await pool.query(`DELETE FROM "${schemaName}".onboarding_templates WHERE template_set_id = $1`, [id]);
       for (let i = 0; i < items.length; i++) {
         const it = items[i];
         if (!it.label?.trim()) continue;
         await pool.query(
           `INSERT INTO "${schemaName}".onboarding_templates
-             (item_key, label, display_order, is_active, due_day_offset, is_required)
-           VALUES ($1,$2,$3,$4,$5,$6)`,
-          [
-            it.item_key || `tpl_${Date.now()}_${i}`,
-            it.label,
-            i,
-            it.is_active !== false,
-            it.due_day_offset ?? null,
-            it.is_required !== false,
-          ]
+             (item_key, label, display_order, is_active, due_day_offset, is_required, template_set_id)
+           VALUES ($1,$2,$3,TRUE,$4,$5,$6)`,
+          [it.item_key || `tpl_${Date.now()}_${i}`, it.label, i, it.due_day_offset ?? null, it.is_required !== false, id]
         );
       }
       res.json({ success: true });
@@ -362,15 +453,18 @@ export function registerHrOnboardingRoutes(app: Express): void {
     }
   });
 
-  // POST /api/onboarding/template/reset
-  app.post('/api/onboarding/template/reset', requireAuth, requireAdmin, async (req, res) => {
+  // DELETE /api/onboarding/templates/:id
+  app.delete('/api/onboarding/templates/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
-      await pool.query(`DELETE FROM "${schemaName}".onboarding_templates`);
+      const id = req.params.id;
+      if (id === BUILTIN_DEFAULT_SET.id) return res.status(400).json({ error: 'Built-in default cannot be deleted.' });
+      await pool.query(`DELETE FROM "${schemaName}".onboarding_templates WHERE template_set_id = $1`, [id]);
+      await pool.query(`DELETE FROM "${schemaName}".onboarding_template_sets WHERE id = $1`, [id]);
       res.json({ success: true });
     } catch (err: any) {
-      logger.error('Onboarding template reset error:', err);
-      res.status(500).json({ error: 'Failed to reset template' });
+      logger.error('Onboarding template delete error:', err);
+      res.status(500).json({ error: 'Failed to delete template' });
     }
   });
 }
