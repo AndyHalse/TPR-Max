@@ -8,7 +8,7 @@ import { EmailService } from '../emailService';
 import { ObjectStorageService, objectStorageClient } from '../objectStorage';
 import { randomUUID } from 'crypto';
 import * as isolatedSchema from '../isolatedSchema';
-import { eq, and, inArray, lt, lte, isNull } from 'drizzle-orm';
+import { eq, and, inArray, lt, lte, isNull, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 import { PTW_CHECKLISTS, PERMIT_TYPE_LABELS } from '../utils/ptwChecklists';
 
@@ -239,9 +239,8 @@ export function registerPermitToWorkRoutes(app: Express): void {
 
       const uploadedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
       const result = await custDb.execute(
-        `INSERT INTO ${schemaName}.ptw_company_documents (id, document_type, title, notes, file_url, file_name, expiry_date, uploaded_by_id, uploaded_by_name, uploaded_at)
-         VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING *`,
-        [documentType, title, notes || null, fileUrl, fileName, expiryDate || null, req.user!.id, uploadedByName]
+        sql`INSERT INTO ${sql.raw(schemaName)}.ptw_company_documents (id, document_type, title, notes, file_url, file_name, expiry_date, uploaded_by_id, uploaded_by_name, uploaded_at)
+         VALUES (gen_random_uuid()::text, ${documentType}, ${title}, ${notes || null}, ${fileUrl}, ${fileName}, ${expiryDate || null}, ${req.user!.id}, ${uploadedByName}, NOW()) RETURNING *`
       );
       const doc = (result.rows || result)[0];
       res.status(201).json({ ...doc, status: calcDocStatus(doc.expiry_date) });
@@ -260,7 +259,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       const { docId } = req.params;
 
-      const existing = await custDb.execute(`SELECT * FROM ${schemaName}.ptw_company_documents WHERE id = $1`, [docId]);
+      const existing = await custDb.execute(sql`SELECT * FROM ${sql.raw(schemaName)}.ptw_company_documents WHERE id = ${docId}`);
       const existingDoc = (existing.rows || existing)[0];
       if (!existingDoc) return res.status(404).json({ error: 'Document not found.' });
 
@@ -283,11 +282,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
 
       const uploadedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
       const result = await custDb.execute(
-        `UPDATE ${schemaName}.ptw_company_documents
-         SET file_url = $1, file_name = $2, notes = $3, expiry_date = $4,
-             uploaded_by_id = $5, uploaded_by_name = $6, replaced_at = NOW()
-         WHERE id = $7 RETURNING *`,
-        [fileUrl, fileName, notes || null, expiryDate || null, req.user!.id, uploadedByName, docId]
+        sql`UPDATE ${sql.raw(schemaName)}.ptw_company_documents
+         SET file_url = ${fileUrl}, file_name = ${fileName}, notes = ${notes || null}, expiry_date = ${expiryDate || null},
+             uploaded_by_id = ${req.user!.id}, uploaded_by_name = ${uploadedByName}, replaced_at = NOW()
+         WHERE id = ${docId} RETURNING *`
       );
       const doc = (result.rows || result)[0];
       res.json({ ...doc, status: calcDocStatus(doc.expiry_date) });
@@ -305,7 +303,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       const { docId } = req.params;
-      await custDb.execute(`DELETE FROM ${schemaName}.ptw_company_documents WHERE id = $1`, [docId]);
+      await custDb.execute(sql`DELETE FROM ${sql.raw(schemaName)}.ptw_company_documents WHERE id = ${docId}`);
       res.json({ success: true });
     } catch (err) {
       logger.error('DELETE /api/ptw/company-documents/:docId', err);
@@ -703,12 +701,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
           const now30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
           const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           const companyDocsResult = await custDb.execute(
-            `SELECT * FROM ${schemaName}.ptw_company_documents
+            sql`SELECT * FROM ${sql.raw(schemaName)}.ptw_company_documents
              WHERE expiry_date IS NOT NULL
                AND replaced_at IS NULL
-               AND expiry_date <= $1
-               AND (expiry_alerted_at IS NULL OR expiry_alerted_at < $2)`,
-            [now30.toISOString().split('T')[0], sevenDaysAgo.toISOString()]
+               AND expiry_date <= ${now30.toISOString().split('T')[0]}
+               AND (expiry_alerted_at IS NULL OR expiry_alerted_at < ${sevenDaysAgo.toISOString()})`
           ).catch(() => ({ rows: [] }));
           const companyDocs = companyDocsResult.rows || companyDocsResult;
           const DOC_TYPE_LABELS: Record<string, string> = {
@@ -741,8 +738,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
             const text = `${subject}\n\nDocument: ${doc.title}\nType: ${docLabel}\nExpiry: ${expiryStr}\n\nPlease visit the Compliance Library to upload a replacement.`;
             await notifyAdmins(custDb, customer, settings, subject, html, text);
             await custDb.execute(
-              `UPDATE ${schemaName}.ptw_company_documents SET expiry_alerted_at = $1 WHERE id = $2`,
-              [now.toISOString(), doc.id]
+              sql`UPDATE ${sql.raw(schemaName)}.ptw_company_documents SET expiry_alerted_at = ${now.toISOString()} WHERE id = ${doc.id}`
             ).catch(() => {});
             logger.info(`[PTW Cron] Compliance doc alert sent: ${doc.title} (${doc.document_type})`);
           }
