@@ -556,14 +556,15 @@ function PermitDetailView({
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
 
   // Group checklist by section
+  const checklist = permit.checklist || [];
   const sections: Record<string, ChecklistItem[]> = {};
-  for (const item of permit.checklist || []) {
+  for (const item of checklist) {
     if (!sections[item.checklistSection]) sections[item.checklistSection] = [];
     sections[item.checklistSection].push(item);
   }
 
-  const checklistComplete = permit.checklist.length === 0 || permit.checklist.every(i => !i.isRequired || !!i.response);
-  const completedCount = permit.checklist.filter(i => !!i.response).length;
+  const checklistComplete = checklist.length === 0 || checklist.every(i => !i.isRequired || !!i.response);
+  const completedCount = checklist.filter(i => !!i.response).length;
 
   const canEdit = permit.status === 'draft' || permit.status === 'submitted';
   const isSameUserAsCreator = permit.createdById === currentUserId;
@@ -589,9 +590,9 @@ function PermitDetailView({
         <TabsList className="grid grid-cols-3 w-full">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="checklist">
-            Checklist {permit.checklist.length > 0 && (
+            Checklist {checklist.length > 0 && (
               <span className={`ml-1 text-xs px-1.5 rounded-full ${checklistComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                {completedCount}/{permit.checklist.length}
+                {completedCount}/{checklist.length}
               </span>
             )}
           </TabsTrigger>
