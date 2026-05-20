@@ -77,8 +77,10 @@ async function ensureTables(custDb: any, schemaName: string) {
     expiry_date TEXT,
     uploaded_by_id VARCHAR, uploaded_by_name TEXT,
     uploaded_at TIMESTAMP DEFAULT NOW(),
-    replaced_at TIMESTAMP
+    replaced_at TIMESTAMP,
+    expiry_alerted_at TIMESTAMP
   )`);
+  await custDb.execute(`ALTER TABLE ${schemaName}.ptw_company_documents ADD COLUMN IF NOT EXISTS expiry_alerted_at TIMESTAMP`).catch(() => {});
 }
 
 async function generatePermitNumber(custDb: any, year: number): Promise<string> {
@@ -676,6 +678,56 @@ export function registerPermitToWorkRoutes(app: Express): void {
             const html = `<div style="font-family:Arial,sans-serif;max-width:640px"><div style="background:#d97706;color:#fff;padding:20px;border-radius:8px 8px 0 0"><h2 style="margin:0">${subject}</h2></div><div style="background:#fff;padding:20px;border:1px solid #e5e7eb"><p>Permit ${p.permitNumber} for <strong>${PERMIT_TYPE_LABELS[p.permitType] || p.permitType}</strong> expires at ${new Date(p.permitValidUntil).toLocaleString('en-GB')}.</p><p>Location: ${p.workLocation}</p></div></div>`;
             await notifyAdmins(custDb, customer, settings, subject, html, `Permit ${p.permitNumber} expiring in 2 hours.`);
             await custDb.update(isolatedSchema.permitToWork).set({ expiryAlertedAt: now }).where(eq(isolatedSchema.permitToWork.id, p.id));
+          }
+
+          // 4. Company compliance document expiry alerts (PLI, ELI, H&S Policy)
+          const schemaName = customerDbService.generateSchemaName(customer.id);
+          await custDb.execute(`ALTER TABLE ${schemaName}.ptw_company_documents ADD COLUMN IF NOT EXISTS expiry_alerted_at TIMESTAMP`).catch(() => {});
+          const now30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+          const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          const companyDocsResult = await custDb.execute(
+            `SELECT * FROM ${schemaName}.ptw_company_documents
+             WHERE expiry_date IS NOT NULL
+               AND replaced_at IS NULL
+               AND expiry_date <= $1
+               AND (expiry_alerted_at IS NULL OR expiry_alerted_at < $2)`,
+            [now30.toISOString().split('T')[0], sevenDaysAgo.toISOString()]
+          ).catch(() => ({ rows: [] }));
+          const companyDocs = companyDocsResult.rows || companyDocsResult;
+          const DOC_TYPE_LABELS: Record<string, string> = {
+            pli: 'Public Liability Insurance (PLI)',
+            eli: 'Employers\' Liability Insurance (ELI)',
+            hs_policy: 'Health & Safety Policy',
+          };
+          for (const doc of companyDocs) {
+            const expiryDate = new Date(doc.expiry_date);
+            const isExpired = expiryDate < now;
+            const daysUntilExpiry = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+            const docLabel = DOC_TYPE_LABELS[doc.document_type] || doc.document_type;
+            const expiryStr = expiryDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+            const subject = isExpired
+              ? `🚨 Compliance Document EXPIRED — ${docLabel}`
+              : `⚠️ Compliance Document Expiring in ${daysUntilExpiry} Day${daysUntilExpiry === 1 ? '' : 's'} — ${docLabel}`;
+            const statusBg = isExpired ? '#dc2626' : '#d97706';
+            const statusMsg = isExpired
+              ? `<strong style="color:#dc2626">This document expired on ${expiryStr}.</strong> Please upload a replacement immediately to remain compliant.`
+              : `This document expires on <strong>${expiryStr}</strong> (in ${daysUntilExpiry} day${daysUntilExpiry === 1 ? '' : 's'}). Please upload a replacement before it expires.`;
+            const html = `<div style="font-family:Arial,sans-serif;max-width:640px">
+              <div style="background:${statusBg};color:#fff;padding:20px;border-radius:8px 8px 0 0"><h2 style="margin:0">${subject}</h2></div>
+              <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
+                <p><strong>Document:</strong> ${doc.title}</p>
+                <p><strong>Type:</strong> ${docLabel}</p>
+                <p>${statusMsg}</p>
+                <p>Go to the <a href="/permit-to-work?tab=compliance">Compliance Library</a> to upload a replacement document.</p>
+              </div>
+            </div>`;
+            const text = `${subject}\n\nDocument: ${doc.title}\nType: ${docLabel}\nExpiry: ${expiryStr}\n\nPlease visit the Compliance Library to upload a replacement.`;
+            await notifyAdmins(custDb, customer, settings, subject, html, text);
+            await custDb.execute(
+              `UPDATE ${schemaName}.ptw_company_documents SET expiry_alerted_at = $1 WHERE id = $2`,
+              [now.toISOString(), doc.id]
+            ).catch(() => {});
+            logger.info(`[PTW Cron] Compliance doc alert sent: ${doc.title} (${doc.document_type})`);
           }
         } catch (custErr) {
           logger.error(`[PTW Cron] Error for customer ${customer.id}:`, custErr);
