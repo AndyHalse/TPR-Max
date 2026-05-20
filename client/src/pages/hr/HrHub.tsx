@@ -128,7 +128,10 @@ type SummaryCard = {
   iconBg: string;
   iconText: string;
   detail?: React.ReactNode;
+  featureKey: string;
 };
+
+type CompanySettings = Record<string, any>;
 
 export default function HrHub() {
   const [, navigate] = useLocation();
@@ -140,6 +143,19 @@ export default function HrHub() {
   const { data: dashboard, isLoading: dashboardLoading, isError: dashboardError } = useQuery<DashboardResp>({
     queryKey: ["/api/hr/dashboard"],
   });
+
+  const { data: companySettings } = useQuery<CompanySettings>({
+    queryKey: ["/api/company-settings"],
+  });
+
+  // Per-card feature gating. Today every HR sub-module is gated by the single
+  // featureHrModule toggle (no per-submodule toggles exist yet) — if/when more
+  // granular toggles are added this map is the single point of change.
+  const isCardEnabled = (featureKey: string): boolean => {
+    if (!companySettings) return true; // optimistic until settings load
+    const v = companySettings[featureKey];
+    return v === undefined || v === null ? true : v !== false;
+  };
 
   const onLeaveDetail =
     dashboard && dashboard.onLeaveToday.length > 0 ? (
@@ -162,15 +178,17 @@ export default function HrHub() {
           icon: UserCheck,
           iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
           iconText: "text-emerald-600 dark:text-emerald-400",
+          featureKey: "featureStaff",
         },
         {
           label: "On leave today",
           value: dashboard.counts.onLeaveToday,
-          href: "/hr/leave",
+          href: "/hr/leave?view=today",
           icon: Calendar,
           iconBg: "bg-green-100 dark:bg-green-900/40",
           iconText: "text-green-600 dark:text-green-400",
           detail: onLeaveDetail,
+          featureKey: "featureHrModule",
         },
         {
           label: "Starting this month",
@@ -179,6 +197,7 @@ export default function HrHub() {
           icon: UserPlus,
           iconBg: "bg-teal-100 dark:bg-teal-900/40",
           iconText: "text-teal-600 dark:text-teal-400",
+          featureKey: "featureHrModule",
         },
         {
           label: "Leavers this month",
@@ -187,6 +206,7 @@ export default function HrHub() {
           icon: UserMinus,
           iconBg: "bg-orange-100 dark:bg-orange-900/40",
           iconText: "text-orange-600 dark:text-orange-400",
+          featureKey: "featureHrModule",
         },
         {
           label: "Onboarding in progress",
@@ -195,6 +215,7 @@ export default function HrHub() {
           icon: ClipboardList,
           iconBg: "bg-cyan-100 dark:bg-cyan-900/40",
           iconText: "text-cyan-600 dark:text-cyan-400",
+          featureKey: "featureHrModule",
         },
         {
           label: "Training expiring (30 days)",
@@ -203,6 +224,7 @@ export default function HrHub() {
           icon: GraduationCap,
           iconBg: "bg-purple-100 dark:bg-purple-900/40",
           iconText: "text-purple-600 dark:text-purple-400",
+          featureKey: "featureHrModule",
         },
         {
           label: "Appraisals due (30 days)",
@@ -211,6 +233,7 @@ export default function HrHub() {
           icon: ClipboardCheck,
           iconBg: "bg-amber-100 dark:bg-amber-900/40",
           iconText: "text-amber-600 dark:text-amber-400",
+          featureKey: "featureHrModule",
         },
         {
           label: "Pending leave approvals",
@@ -219,8 +242,9 @@ export default function HrHub() {
           icon: Calendar,
           iconBg: "bg-rose-100 dark:bg-rose-900/40",
           iconText: "text-rose-600 dark:text-rose-400",
+          featureKey: "featureHrModule",
         },
-      ]
+      ].filter((c) => isCardEnabled(c.featureKey))
     : [];
 
   const today = dashboard?.today;

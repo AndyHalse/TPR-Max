@@ -49,7 +49,10 @@ export default function LeaveCalendar() {
   const qc = useQueryClient();
   const { toast } = useToast();
   const search = useSearch();
-  const initialTab = new URLSearchParams(search).get("tab");
+  const sp = new URLSearchParams(search);
+  const initialTab = sp.get("tab");
+  const initialView = sp.get("view");
+  const [todayOnly, setTodayOnly] = useState(initialView === "today");
   const pendingRef = useRef<HTMLDivElement>(null);
 
   const start = new Date(year, month, 1).toISOString().slice(0, 10);
@@ -84,7 +87,11 @@ export default function LeaveCalendar() {
   }, [initialTab, pendingLoading, pendingData.length]);
 
   const departments = Array.from(new Set(leaveData.map((l: any) => l.department).filter(Boolean)));
-  const filtered = filterDept === "all" ? leaveData : leaveData.filter((l: any) => l.department === filterDept);
+  const todayIso = todayStr();
+  const deptFiltered = filterDept === "all" ? leaveData : leaveData.filter((l: any) => l.department === filterDept);
+  const filtered = todayOnly
+    ? deptFiltered.filter((l: any) => todayIso >= l.start_date && todayIso <= l.end_date)
+    : deptFiltered;
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDay = (new Date(year, month, 1).getDay() + 6) % 7;
@@ -114,6 +121,13 @@ export default function LeaveCalendar() {
           </Button>
         </div>
       </div>
+
+      {todayOnly && (
+        <div className="flex items-center justify-between p-3 rounded-lg bg-green-50 border border-green-200 text-sm text-green-800">
+          <span>Showing only people on leave <strong>today</strong> ({filtered.length} found).</span>
+          <Button size="sm" variant="ghost" onClick={() => setTodayOnly(false)}>Show all</Button>
+        </div>
+      )}
 
       {pendingData.length > 0 && (
         <Card ref={pendingRef} className={`border-yellow-200 bg-yellow-50 ${initialTab === "pending" ? "ring-2 ring-yellow-400" : ""}`}>
