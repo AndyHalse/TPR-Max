@@ -2,7 +2,7 @@ import type { Express } from 'express';
 import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
-import { calculateWorkingDays, calculateLeaveBalance, getLeaveYear } from '../utils/leaveUtils';
+import { calculateWorkingDays, calculateLeaveBalance, getLeaveYear, UK_BANK_HOLIDAYS, bankHolidaysInRange } from '../utils/leaveUtils';
 import { logger } from '../utils/logger';
 
 async function getPool(customerId: string) {
@@ -56,10 +56,28 @@ export function registerHrLeaveRoutes(app: Express): void {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
-      const { leaveType, startDate, endDate, reason, notes } = req.body;
+      const { leaveType, startDate, endDate, reason, notes, halfDay } = req.body;
 
       if (!leaveType || !startDate || !endDate) {
         return res.status(400).json({ error: 'leaveType, startDate and endDate are required' });
+      }
+
+      const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+      const s = String(startDate).slice(0, 10);
+      const e = String(endDate).slice(0, 10);
+      if (!dateRe.test(s) || !dateRe.test(e)) {
+        return res.status(400).json({ error: 'Dates must be in YYYY-MM-DD format' });
+      }
+      if (s > e) {
+        return res.status(400).json({ error: 'startDate must be on or before endDate' });
+      }
+
+      // half-day only valid for single-day requests
+      const validHalfDay: 'none' | 'am' | 'pm' =
+        (halfDay === 'am' || halfDay === 'pm') && s === e ? halfDay : 'none';
+
+      if (leaveType === 'other' && !(reason && String(reason).trim())) {
+        return res.status(400).json({ error: 'Reason is required when leave type is "other"' });
       }
 
       const staffResult = await pool.query(
@@ -73,14 +91,15 @@ export function registerHrLeaveRoutes(app: Express): void {
       const daysTaken = calculateWorkingDays(
         new Date(startDate),
         new Date(endDate),
-        Number(staff.working_days_per_week ?? 5)
+        Number(staff.working_days_per_week ?? 5),
+        { halfDay: validHalfDay, excludeBankHolidays: true }
       );
 
       const result = await pool.query(
         `INSERT INTO "${schemaName}".leave_requests
-          (staff_id, leave_type, start_date, end_date, days_taken, status, reason, notes)
-         VALUES ($1,$2,$3,$4,$5,'pending',$6,$7) RETURNING *`,
-        [staffId, leaveType, startDate, endDate, daysTaken, reason || null, notes || null]
+          (staff_id, leave_type, start_date, end_date, days_taken, status, reason, notes, half_day)
+         VALUES ($1,$2,$3,$4,$5,'pending',$6,$7,$8) RETURNING *`,
+        [staffId, leaveType, startDate, endDate, daysTaken, reason || null, notes || null, validHalfDay]
       );
 
       // Notify line manager
@@ -221,6 +240,56 @@ export function registerHrLeaveRoutes(app: Express): void {
     } catch (err: any) {
       logger.error('Leave calendar error:', err);
       res.status(500).json({ error: 'Failed to fetch leave calendar' });
+    }
+  });
+
+  // GET /api/leave/overlap-check?start=YYYY-MM-DD&end=YYYY-MM-DD&excludeStaffId=...
+  app.get('/api/leave/overlap-check', requireAuth, async (req, res) => {
+    try {
+      const { pool, schemaName } = await getPool(req.customerId!);
+      const { start, end, excludeStaffId } = req.query as Record<string, string>;
+      if (!start || !end) return res.status(400).json({ error: 'start and end required' });
+
+      const result = await pool.query(
+        `SELECT lr.id, lr.staff_id, lr.leave_type, lr.start_date, lr.end_date,
+                s.first_name, s.last_name, s.department
+         FROM "${schemaName}".leave_requests lr
+         JOIN "${schemaName}".staff s ON s.id = lr.staff_id
+         WHERE lr.status IN ('approved','pending')
+           AND lr.start_date <= $1
+           AND lr.end_date >= $2
+           AND ($3::text IS NULL OR lr.staff_id <> $3)`,
+        [end, start, excludeStaffId || null]
+      );
+      res.json({ count: result.rows.length, overlaps: result.rows });
+    } catch (err: any) {
+      logger.error('Leave overlap check error:', err);
+      res.status(500).json({ error: 'Failed to check overlap' });
+    }
+  });
+
+  // GET /api/leave/bank-holidays
+  app.get('/api/leave/bank-holidays', requireAuth, async (_req, res) => {
+    res.json({ holidays: UK_BANK_HOLIDAYS });
+  });
+
+  // GET /api/leave/working-days?start=...&end=...&halfDay=...&workingDaysPerWeek=...
+  app.get('/api/leave/working-days', requireAuth, async (req, res) => {
+    try {
+      const { start, end, halfDay, workingDaysPerWeek } = req.query as Record<string, string>;
+      if (!start || !end) return res.status(400).json({ error: 'start and end required' });
+      const wdpw = Number(workingDaysPerWeek) || 5;
+      const days = calculateWorkingDays(
+        new Date(start),
+        new Date(end),
+        wdpw,
+        { halfDay: (halfDay === 'am' || halfDay === 'pm') ? halfDay : 'none', excludeBankHolidays: true }
+      );
+      const bankHols = bankHolidaysInRange(start, end);
+      res.json({ days, bankHolidays: bankHols });
+    } catch (err: any) {
+      logger.error('Working days calc error:', err);
+      res.status(500).json({ error: 'Failed to calculate working days' });
     }
   });
 

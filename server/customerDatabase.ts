@@ -676,6 +676,7 @@ export class CustomerDatabaseService {
       `);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_staff_id ON "${schemaName}".leave_requests(staff_id)`);
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_leave_status ON "${schemaName}".leave_requests(status)`);
+      await pool.query(`ALTER TABLE "${schemaName}".leave_requests ADD COLUMN IF NOT EXISTS half_day TEXT DEFAULT 'none'`).catch(() => {});
       logger.info(`✅ Leave requests table ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Leave table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
