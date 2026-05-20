@@ -157,24 +157,59 @@ export function registerHrStaffRoutes(app: Express): void {
         return res.status(400).json({ error: 'A staff member cannot be their own line manager' });
       }
 
-      // Circular reference guard: walk up the proposed manager chain
+      // Circular reference guard: walk up the proposed manager chain (works on any DB client)
       if (lineManagerId) {
         const chainPool = (custDb as any).$client ?? (custDb as any).session?.client;
-        if (chainPool) {
-          const seen = new Set<string>([id]);
-          let cursor: string | null = lineManagerId;
-          let safety = 0;
-          while (cursor && safety < 100) {
-            if (seen.has(cursor)) {
-              return res.status(400).json({ error: 'That assignment would create a circular reporting line.' });
-            }
-            seen.add(cursor);
+        const seen = new Set<string>([id]);
+        let cursor: string | null = lineManagerId;
+        let safety = 0;
+        while (cursor && safety < 1000) {
+          if (seen.has(cursor)) {
+            return res.status(400).json({ error: 'That assignment would create a circular reporting line.' });
+          }
+          seen.add(cursor);
+          let nextId: string | null = null;
+          if (chainPool) {
             const next: any = await chainPool.query(
               `SELECT line_manager_id FROM "${schemaName}".staff WHERE id = $1`,
               [cursor]
             );
-            cursor = next.rows[0]?.line_manager_id || null;
-            safety++;
+            nextId = next.rows[0]?.line_manager_id ?? null;
+          } else {
+            const next: any = await custDb.execute(
+              sql`SELECT line_manager_id FROM ${sql.raw(`"${schemaName}"`)}.staff WHERE id = ${cursor}`
+            );
+            nextId = (next.rows[0] as any)?.line_manager_id ?? null;
+          }
+          cursor = nextId;
+          safety++;
+        }
+      }
+
+      // Cascade direct reports up one level if this update marks the staff as a leaver/archived
+      if (employmentStatus && ['leaver', 'archived'].includes(employmentStatus)) {
+        const cascadePool = (custDb as any).session?.client ?? (custDb as any).$client;
+        if (cascadePool) {
+          const current = await cascadePool.query(
+            `SELECT employment_status, line_manager_id FROM "${schemaName}".staff WHERE id = $1`,
+            [id]
+          );
+          const prevStatus = current.rows[0]?.employment_status;
+          if (prevStatus !== employmentStatus) {
+            const upstreamMgr = current.rows[0]?.line_manager_id || null;
+            const reassign = await cascadePool.query(
+              `UPDATE "${schemaName}".staff
+               SET line_manager_id = $1, updated_at = NOW()
+               WHERE line_manager_id = $2
+               RETURNING id, first_name, last_name`,
+              [upstreamMgr, id]
+            );
+            if (reassign.rowCount && reassign.rowCount > 0) {
+              const names = reassign.rows.map((r: any) => `${r.first_name} ${r.last_name}`).join(', ');
+              logger.info(
+                `[hr-audit] Staff ${id} → ${employmentStatus}: reassigned ${reassign.rowCount} direct report(s) to ${upstreamMgr || 'Unassigned'} — ${names}`
+              );
+            }
           }
         }
       }
