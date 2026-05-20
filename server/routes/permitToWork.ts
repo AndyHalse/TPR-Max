@@ -5,7 +5,8 @@ import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { EmailService } from '../emailService';
-import { ObjectStorageService } from '../objectStorage';
+import { ObjectStorageService, objectStorageClient } from '../objectStorage';
+import { randomUUID } from 'crypto';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, inArray, lt, lte, isNull } from 'drizzle-orm';
 import { logger } from '../utils/logger';
@@ -223,8 +224,16 @@ export function registerPermitToWorkRoutes(app: Express): void {
       let fileName = req.body.fileName || '';
       if (req.file) {
         fileName = req.file.originalname;
-        const objectKey = `ptw-company-docs/${req.customerId}/${documentType}-${Date.now()}_${fileName}`;
-        fileUrl = await objectStorage.uploadObject(objectKey, req.file.buffer, req.file.mimetype);
+        const privateDir = objectStorage.getPrivateObjectDir();
+        const objectId = randomUUID();
+        const fullPath = `${privateDir}/uploads/${objectId}`;
+        const parts = fullPath.slice(1).split('/');
+        const bucketName = parts[0];
+        const objectName = parts.slice(1).join('/');
+        const bucket = objectStorageClient.bucket(bucketName);
+        const fileObj = bucket.file(objectName);
+        await fileObj.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
+        fileUrl = `/objects/uploads/${objectId}`;
       }
       if (!fileUrl || !fileName) return res.status(400).json({ error: 'File is required.' });
 
@@ -260,8 +269,16 @@ export function registerPermitToWorkRoutes(app: Express): void {
       let fileName = existingDoc.file_name;
       if (req.file) {
         fileName = req.file.originalname;
-        const objectKey = `ptw-company-docs/${req.customerId}/${existingDoc.document_type}-${Date.now()}_${fileName}`;
-        fileUrl = await objectStorage.uploadObject(objectKey, req.file.buffer, req.file.mimetype);
+        const privateDir = objectStorage.getPrivateObjectDir();
+        const objectId = randomUUID();
+        const fullPath = `${privateDir}/uploads/${objectId}`;
+        const parts = fullPath.slice(1).split('/');
+        const bucketName = parts[0];
+        const objectName = parts.slice(1).join('/');
+        const bucket = objectStorageClient.bucket(bucketName);
+        const fileObj = bucket.file(objectName);
+        await fileObj.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
+        fileUrl = `/objects/uploads/${objectId}`;
       }
 
       const uploadedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
