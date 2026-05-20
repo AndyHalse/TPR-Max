@@ -28,6 +28,22 @@ const NEW_CATEGORIES = [
     color: "#8b5cf6",
     sortOrder: 14,
     isActive: true
+  },
+  {
+    name: "Human Resources",
+    description: "Staff records, leave, training matrix, absence, onboarding, leavers, appraisals and payroll export",
+    icon: "users",
+    color: "#6366f1",
+    sortOrder: 15,
+    isActive: true
+  },
+  {
+    name: "Pre-bookings & Invitations",
+    description: "Pre-booking visitors, sending invitations, recurring visits and QR check-in",
+    icon: "mail",
+    color: "#0ea5e9",
+    sortOrder: 16,
+    isActive: true
   }
 ];
 
@@ -509,6 +525,1007 @@ After loading, use the year picker to navigate between years and explore the ful
       isFeatured: true,
       isQuickStart: true,
       sortOrder: 2,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR MODULE OVERVIEW ───────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "HR Module Overview",
+      slug: createSlug("HR Module Overview"),
+      summary: "Tour of the HR landing dashboard and the sub-modules: leave, training, absence, onboarding, leavers, appraisals and payroll export",
+      content: `# HR Module Overview
+
+The HR module brings staff record management, people operations and UK employment compliance into one place. It sits at **/hr** and is currently in Beta — verify critical data (right-to-work, payroll, appraisals) independently until full release.
+
+## The HR Landing Dashboard
+The /hr page opens with a live summary dashboard above the module tiles. Each card is click-through to the relevant area:
+
+- **Active staff** — currently employed (excludes leavers / archived)
+- **On leave today** — names of staff on any approved leave today
+- **Starting this month** — new starters with a contract start date in the current month
+- **Leavers this month** — staff whose contract end date falls this month
+- **Onboarding in progress** — checklists with outstanding tasks
+- **Training expiring (30 days)** — mandatory training expiring within 30 days
+- **Appraisals due (30 days)** — performance reviews scheduled in the next 30 days
+- **Pending leave approvals** — leave requests awaiting line manager decision
+
+A "Today" panel underneath shows birthdays, work anniversaries and people returning from leave today.
+
+## Sub-modules
+Each tile below the dashboard opens a dedicated area:
+
+- **Org Chart** — visual reporting structure
+- **Leave Calendar & Requests** — annual leave, sickness, parental leave
+- **Training Matrix** — mandatory training, certifications, expiry tracking
+- **Absence Overview** — absence records, Bradford Factor scores and trends
+- **Onboarding** — new-starter checklists and progress
+- **Leavers** — exit process, return of equipment, final pay
+- **Appraisals** — performance reviews and next-review dates
+- **Payroll Export** — month-end export to your payroll provider
+
+## Feature Toggles
+The HR module is gated by the **featureHrModule** customer setting. Administrators can enable/disable the whole module under **Settings** > **Features**. When disabled, the HR tile and dashboard are hidden from navigation.`,
+      targetPages: ["hr", "/hr"],
+      searchKeywords: ["HR", "human resources", "people", "staff records", "dashboard", "onboarding", "leave", "training", "appraisal", "payroll"],
+      estimatedReadTime: 4,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: true,
+      sortOrder: 1,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR LEAVE MANAGEMENT ──────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "Leave Management & Calendar",
+      slug: createSlug("HR Leave Management and Calendar"),
+      summary: "Requesting, approving and viewing annual leave, sickness, parental and compassionate leave on the company calendar",
+      content: `# Leave Management & Calendar
+
+The HR Leave module covers all forms of staff time off — annual leave, sickness, parental, compassionate, unpaid, and TOIL — with a shared company calendar and approval workflow.
+
+## Requesting Leave
+1. Navigate to **HR** > **Leave**
+2. Click **"Request Leave"**
+3. Select the leave type, start date and end date (half-days supported)
+4. Add an optional reason / notes
+5. Submit — the request is sent to the staff member's line manager
+
+## Approving Leave
+Line managers see pending requests in the HR dashboard card "Pending leave approvals":
+1. Click into the request to see overlap with team members
+2. Click **Approve** or **Decline** with an optional note
+3. The requester is notified by email
+
+## The Leave Calendar
+The calendar view (default) shows every approved and pending request across the company:
+- Each leave type has its own colour
+- Filter by department, leave type or status
+- Today's column is highlighted
+- Click **"Today"** to jump to the current date
+- Use the **/hr/leave?view=today** deep-link from the HR dashboard's "On leave today" card
+
+## Entitlements & Balances
+Each staff member has:
+- **Annual leave entitlement** (set on their profile)
+- **Carried-over days** from the previous holiday year
+- **Days taken** (auto-calculated from approved annual leave)
+- **Days remaining** (entitlement + carry + accrual − taken)
+
+Balances appear on the staff profile and in the Leave dashboard.
+
+## Bank Holidays
+UK bank holidays are auto-populated for England & Wales. Adjust the calendar in **Settings** > **HR** > **Bank Holidays** if you operate in Scotland or Northern Ireland.
+
+## Pending Approvals Tab
+The **/hr/leave?tab=pending** view groups requests awaiting decision by line manager, useful for HR teams chasing overdue approvals.`,
+      targetPages: ["hr-leave", "/hr/leave"],
+      searchKeywords: ["leave", "holiday", "annual leave", "sickness", "parental", "TOIL", "calendar", "approval", "entitlement"],
+      estimatedReadTime: 5,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 2,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR TRAINING MATRIX ───────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "Training Matrix & Certifications",
+      slug: createSlug("HR Training Matrix and Certifications"),
+      summary: "Recording mandatory training, certifications and renewals with expiry tracking and reminders",
+      content: `# Training Matrix & Certifications
+
+The Training Matrix is a grid view of every staff member against every mandatory and optional training course, with at-a-glance status colours.
+
+## Adding a Training Course
+1. Navigate to **HR** > **Training**
+2. Click **"Add Course"**
+3. Enter:
+   - Course name (e.g., "First Aid at Work", "Manual Handling")
+   - Validity period in months (3, 12, 24, 36)
+   - Whether it is **Mandatory**
+   - Provider / awarding body (optional)
+4. Save — the course appears as a column in the matrix
+
+## Recording a Training Record
+For each staff member who has completed the course:
+1. Click the cell where their row meets the course column
+2. Enter the **Completion date**
+3. Upload the certificate (PDF / image)
+4. The expiry date is auto-calculated from validity period
+5. Save
+
+## Status Colours
+- **Green** — Valid, expires more than 90 days from now
+- **Amber** — Expiring within 90 days
+- **Red** — Expired or expires within 30 days
+- **Grey** — Not yet completed
+
+## Expiry Alerts
+The HR dashboard card "Training expiring (30 days)" surfaces every mandatory course expiring soon. Click through to **/hr/training** and the matrix filters to those records.
+
+## Bulk Operations
+- **Filter** by department, course or status
+- **Export to CSV** for audit evidence
+- **Send reminders** — selects expiring records and emails the staff and line manager
+
+## Auditable History
+Every training record retains its history of renewals. Click a cell and choose **"View History"** to see all past completions, certificates and who recorded them.`,
+      targetPages: ["hr-training", "/hr/training"],
+      searchKeywords: ["training", "matrix", "certification", "competency", "first aid", "mandatory", "expiry", "renewal", "CPD"],
+      estimatedReadTime: 4,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 3,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR ABSENCE & BRADFORD FACTOR ─────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "Absence Overview & Bradford Factor",
+      slug: createSlug("HR Absence Overview Bradford Factor"),
+      summary: "Recording absences, calculating Bradford Factor scores and identifying patterns",
+      content: `# Absence Overview & Bradford Factor
+
+Absence Overview tracks every period of unplanned time off and gives line managers a Bradford Factor score for each staff member to flag persistent short-term absence.
+
+## What Is Bradford Factor?
+Bradford Factor is a UK-standard formula: **B = S² × D**, where:
+- **S** = number of separate absence spells in the rolling 12 months
+- **D** = total days absent in the rolling 12 months
+
+A worker absent for 1 day on 5 occasions (S=5, D=5) scores 125 — much higher than a single 10-day spell (S=1, D=10 → score 10), reflecting the disruption of frequent short absences.
+
+## Typical Triggers
+Many UK employers act on Bradford scores:
+- **125+** — Verbal informal review
+- **250+** — Formal absence review meeting
+- **400+** — Written warning stage
+- **800+** — Final review / capability process
+
+Configure your trigger thresholds in **Settings** > **HR** > **Absence Triggers**.
+
+## Recording an Absence
+1. Navigate to **HR** > **Absence**
+2. Click **"Record Absence"**
+3. Select the staff member, dates and reason
+4. Indicate whether a fit note (doctor's certificate) is held
+5. Save — the Bradford Factor recalculates
+
+Sickness leave requests submitted through the Leave module automatically flow into Absence Overview.
+
+## Bradford Factor Trend Chart
+The chart shows rolling-12-month scores per staff member. Spikes indicate patterns that may need a return-to-work interview.
+
+## Return-to-Work Interviews
+After each absence:
+1. Click the absence record
+2. Click **"Record Return to Work"**
+3. Capture the conversation, agreed actions and signatures
+4. The record is stored against the staff member for HR audit evidence`,
+      targetPages: ["hr-absence", "/hr/absence"],
+      searchKeywords: ["absence", "Bradford Factor", "sickness", "return to work", "fit note", "trigger"],
+      estimatedReadTime: 5,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 4,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR ONBOARDING ────────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "Onboarding Checklists",
+      slug: createSlug("HR Onboarding Checklists"),
+      summary: "Creating onboarding checklists, assigning task owners and tracking new-starter progress",
+      content: `# Onboarding Checklists
+
+The Onboarding module gives every new starter a structured first-day, first-week and first-month checklist with task owners and deadlines.
+
+## Onboarding Templates
+Build reusable templates so every joiner of a given role gets the right tasks:
+1. Navigate to **HR** > **Onboarding** > **Templates**
+2. Click **"New Template"** (e.g., "Office Staff Standard")
+3. Add tasks — each has:
+   - A title (e.g., "Issue laptop")
+   - A category (IT, HR, Facilities, Compliance, Manager)
+   - A due-by offset (e.g., "Day 1", "Week 1", "Month 1")
+   - A default owner role
+4. Save the template
+
+## Creating a New-Starter Checklist
+When a new staff member is added:
+1. Open their profile and click **"Start Onboarding"**
+2. Pick a template — tasks are copied to their personal checklist
+3. Assign owners to each task (line manager, IT, HR)
+4. Add a target completion date
+
+## Tracking Progress
+The HR dashboard card "Onboarding in progress" shows starters with outstanding tasks. Click through to **/hr/onboarding** to see:
+- Percent complete per starter
+- Tasks overdue (red)
+- Tasks due today (amber)
+- Recently completed (green)
+
+## Marking Tasks Complete
+Task owners receive an email reminder before each due date. They tick the task off in the staff profile — completion is timestamped and attributed.
+
+## Probation Reviews
+Most onboarding templates include 3- and 6-month probation review tasks that surface in the **Appraisals** module when due.`,
+      targetPages: ["hr-onboarding", "/hr/onboarding"],
+      searchKeywords: ["onboarding", "new starter", "checklist", "induction", "probation", "first day"],
+      estimatedReadTime: 4,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 5,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR LEAVERS ───────────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "Leavers Process",
+      slug: createSlug("HR Leavers Process"),
+      summary: "Recording resignations, running the exit checklist and archiving leavers cleanly",
+      content: `# Leavers Process
+
+The Leavers module manages the full exit process from resignation through to final pay and equipment return.
+
+## Recording a Resignation
+1. Navigate to **HR** > **Leavers**
+2. Click **"New Leaver"**
+3. Pick the staff member and enter:
+   - Resignation date (date received)
+   - Last working day
+   - Reason for leaving (resignation, redundancy, retirement, dismissal)
+   - Notice period
+4. Save — the staff member's status changes to **"Notice"**
+
+## Exit Checklist
+A standard exit checklist is auto-created:
+- Return of company laptop, phone, keys, pass
+- Final timesheet submitted
+- Outstanding annual leave taken or paid out
+- Access removed from systems (TPR-Max, email, BioStar 2, Paxton, payroll)
+- Exit interview booked and completed
+
+Track progress on the leaver record. The HR dashboard card "Leavers this month" surfaces anyone with a last working day in the current month.
+
+## Exit Interview
+Capture leaver feedback against a configurable questionnaire. The aggregate report shows trends — useful for retention planning.
+
+## Final Pay & P45
+After the last working day:
+1. Mark the leaver as **"Final pay processed"**
+2. The leaver appears in the next payroll export with their P45 indicator
+3. Their status changes to **"Leaver"** and they are excluded from active personnel reports
+
+## Auditable Archive
+Leaver records are retained with their full history — leave taken, training records, absence history — for GDPR retention periods (typically 6 years for payroll, 1 year for general HR records).`,
+      targetPages: ["hr-leavers", "/hr/leavers"],
+      searchKeywords: ["leaver", "resignation", "exit", "P45", "termination", "redundancy", "off-boarding"],
+      estimatedReadTime: 4,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 6,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR APPRAISALS ────────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "Appraisals & Performance Reviews",
+      slug: createSlug("HR Appraisals Performance Reviews"),
+      summary: "Scheduling and recording performance reviews, objectives and next-review dates",
+      content: `# Appraisals & Performance Reviews
+
+The Appraisals module schedules and records performance reviews — annual, mid-year, probation and ad-hoc.
+
+## Scheduling an Appraisal
+1. Navigate to **HR** > **Appraisals**
+2. Click **"New Appraisal"**
+3. Select the staff member, review type and review date
+4. Set the **Next review date** — this drives the HR dashboard card "Appraisals due (30 days)"
+5. Save — the line manager is notified
+
+## Conducting the Review
+On the appraisal record, capture:
+- **Performance against objectives** — RAG-rated per objective from the previous review
+- **Strengths & development areas**
+- **New objectives for the next period** — SMART format with target dates
+- **Training needs** — these feed into the Training Matrix
+- **Overall rating** — Exceeds / Meets / Below / New starter
+- **Manager comments** and **employee comments**
+
+## Sign-off
+Both the employee and the line manager confirm the record via a digital signature. The signed PDF is stored against the staff record.
+
+## Tracking Due Appraisals
+The HR dashboard card "Appraisals due (30 days)" shows distinct staff whose latest appraisal has a next-review-date within 30 days. Click through to **/hr/appraisals** for the full list.
+
+## Reports
+- **Rating distribution** — count of staff at each overall rating
+- **Overdue appraisals** — next-review-date has passed
+- **Training needs** — aggregate of needs raised across all reviews`,
+      targetPages: ["hr-appraisals", "/hr/appraisals"],
+      searchKeywords: ["appraisal", "performance review", "objectives", "SMART", "probation", "rating", "next review"],
+      estimatedReadTime: 4,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 7,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR PAYROLL EXPORT ────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "Payroll Export",
+      slug: createSlug("HR Payroll Export"),
+      summary: "Exporting month-end pay data to Sage, Xero, BrightPay or generic CSV",
+      content: `# Payroll Export
+
+The Payroll Export turns the month's time, leave, absence and pay-affecting events into a single file you can import into your payroll system.
+
+## Supported Targets
+- **Sage Payroll** — Sage 50 / Business Cloud CSV
+- **Xero Payroll** — Xero timesheet & employee CSV
+- **BrightPay** — BrightPay weekly / monthly import CSV
+- **Generic CSV** — wide CSV with all columns for custom import
+
+## Running an Export
+1. Navigate to **HR** > **Payroll Export**
+2. Pick the pay period (e.g., 1–30 November 2026)
+3. Select the export target format
+4. Click **"Preview"** — the table shows every line that will be exported with totals
+5. Resolve any flagged warnings:
+   - Missing tax code
+   - Unpaid leave overlapping with pay period
+   - Outstanding leave approvals
+6. Click **"Download CSV"** to save the file
+
+## What Gets Exported
+- Staff ID and name
+- Tax code and NI number
+- Pay period dates
+- Basic hours from Time & Attendance
+- Overtime hours
+- Holiday paid
+- SSP (Statutory Sick Pay) — driven by absence records and fit notes
+- Bonuses / one-off payments recorded in the period
+- Leavers — flagged with the P45 indicator and final pay marker
+
+## Audit Log
+Every export creates an immutable record in the **Payroll Export History** table:
+- Run at / Run by user
+- Period from-to
+- Number of staff included
+- A copy of the file is retained for 6 years
+- Re-download the file from the history at any time
+
+## Important — Beta Module
+The HR module is currently in Beta. Always reconcile a payroll export against your previous run before importing to your payroll provider until full release.`,
+      targetPages: ["hr-payroll", "/hr/payroll"],
+      searchKeywords: ["payroll", "export", "Sage", "Xero", "BrightPay", "SSP", "tax code", "P45", "pay period"],
+      estimatedReadTime: 4,
+      difficulty: "advanced",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 8,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── MARTYN'S LAW ─────────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Safety & Compliance"],
+      title: "Martyn's Law (Protect Duty) Compliance",
+      slug: createSlug("Martyns Law Protect Duty Compliance"),
+      summary: "Meeting the Terrorism (Protection of Premises) Act / Protect Duty using TPR-Max occupancy, plans and drills",
+      content: `# Martyn's Law (Protect Duty) Compliance
+
+Martyn's Law — the Terrorism (Protection of Premises) Act 2025 — places duties on operators of public-facing premises to reduce the risk of and harm from terrorist attacks.
+
+## Who It Applies To
+Premises and events where **200 or more people** could reasonably be expected to be present at the same time fall in scope:
+- **Standard tier** (200–799 capacity) — public protection procedures
+- **Enhanced tier** (800+ capacity) — additional documented public protection measures, monitoring, security plan
+
+## How TPR-Max Helps
+TPR-Max provides the evidence and tools the new law requires:
+
+### Real-time Occupancy Awareness
+The dashboard shows total people on site (visitors + staff + contractors + members) live. Zone-based counts are available in the muster module.
+
+### Capacity Thresholds
+Set **maximum capacity** in **Settings** > **Premises** > **Capacity**. When occupancy approaches threshold the dashboard surfaces an amber → red banner.
+
+### Public Protection Plan
+Upload your written public protection plan in **Settings** > **Compliance** > **Public Protection**. Document who is responsible for each duty (Senior Lead, evacuation lead, lockdown lead, comms lead).
+
+### Drills & Exercises
+Use the Evacuation module to run drills and capture timings as evidence of plan testing. A drill is logged the same way as a real evacuation but marked **"Drill"**.
+
+### Lockdown / Invacuation
+The Emergency module supports **Lockdown** alongside Evacuate — useful for terror, intruder or external hazard incidents where staying inside is safer. Lockdown sends a different alert template and instructs people to shelter in place.
+
+### Incident Record
+Every drill, lockdown and real incident is logged with timestamps, headcounts and a downloadable PDF — useful as audit evidence to the regulator (the Security Industry Authority).
+
+## Training Records
+Public protection training for staff (e.g., ACT Awareness e-learning, See, Check & Notify SCaN) can be recorded in the **HR Training Matrix** with expiry dates and certificates.
+
+## Further Reading
+- Home Office guidance: protectukcampaign.com / Home Office Protect Duty guidance
+- ACT Awareness: National Counter Terrorism Security Office (NaCTSO)`,
+      targetPages: ["compliance", "/compliance", "/muster", "settings"],
+      searchKeywords: ["Martyn's Law", "Protect Duty", "terrorism", "TPPA", "public protection", "lockdown", "invacuation", "ACT Awareness", "SCaN", "NaCTSO", "SIA"],
+      estimatedReadTime: 5,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 6,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── RIDDOR / H&S INCIDENTS ───────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Safety & Compliance"],
+      title: "H&S Incident Reporting (RIDDOR)",
+      slug: createSlug("HS Incident Reporting RIDDOR"),
+      summary: "Recording accidents, near-misses and reportable RIDDOR incidents under the 2013 regulations",
+      content: `# H&S Incident Reporting (RIDDOR)
+
+The Incident module records every accident, dangerous occurrence and near-miss, and flags those that must be reported to the HSE under RIDDOR 2013.
+
+## What Is RIDDOR?
+The Reporting of Injuries, Diseases and Dangerous Occurrences Regulations 2013 require employers to report:
+- Work-related deaths
+- Specified injuries (fractures, amputations, loss of sight, etc.)
+- Injuries causing >7 days incapacitation
+- Occupational diseases (e.g., carpal tunnel, occupational dermatitis)
+- Dangerous occurrences (e.g., scaffold collapse, electrical short)
+- Gas incidents
+
+## Recording an Incident
+1. Navigate to **H&S** > **Incidents**
+2. Click **"New Incident"**
+3. Capture:
+   - **What, where, when** — date, time, location (which zone)
+   - **Who** — injured person(s), witnesses, first aider
+   - **Severity** — first aid only, lost-time, hospitalised, serious, fatal
+   - **Type** — slip/trip, manual handling, struck-by, fall from height, contact with machinery, etc.
+   - **Cause analysis** — root cause findings
+4. Upload evidence — photos, statements, medical notes
+5. Save — the system flags whether RIDDOR is likely required
+
+## RIDDOR Flag
+TPR-Max auto-flags incidents as **"RIDDOR-reportable likely"** based on the severity and type fields. The flag is advisory — you must always make the final judgement and submit through the HSE F2508 online form within the legal timescale (10 days for over-7-day injuries, "without delay" for fatalities and specified injuries).
+
+## Investigations
+Each incident has an investigation record:
+- Investigation lead
+- Witness statements
+- Root cause (5 Whys, fishbone)
+- Corrective actions with owners and due dates
+- Sign-off
+
+## Reports
+- **Incidents by month** — trend chart
+- **Incidents by type / zone / severity**
+- **Open corrective actions** — outstanding fixes from previous incidents
+- **RIDDOR register** — list of all RIDDOR-flagged incidents with submission dates
+
+## Near-Miss Reporting
+Encourage a near-miss culture: any worker can log a near-miss through the kiosk **"Report a near-miss"** quick action. Pattern detection across multiple near-misses often precedes a serious incident.`,
+      targetPages: ["hs-incidents", "/hs-incidents", "/incidents"],
+      searchKeywords: ["RIDDOR", "incident", "accident", "near miss", "F2508", "HSE", "investigation", "lost time", "specified injury", "dangerous occurrence"],
+      estimatedReadTime: 6,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 7,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── FIRE RISK ASSESSMENT ─────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Safety & Compliance"],
+      title: "Fire Risk Assessment (RRO 2005)",
+      slug: createSlug("Fire Risk Assessment RRO 2005"),
+      summary: "Conducting and recording Fire Risk Assessments under the Regulatory Reform (Fire Safety) Order 2005",
+      content: `# Fire Risk Assessment (RRO 2005)
+
+The Regulatory Reform (Fire Safety) Order 2005 requires the Responsible Person of every workplace (and most non-domestic premises) to carry out a written Fire Risk Assessment and keep it up to date.
+
+## The Five Steps
+TPR-Max follows the Government's five-step FRA structure:
+1. **Identify fire hazards** — sources of ignition, fuel, oxygen
+2. **Identify people at risk** — staff, visitors, vulnerable people
+3. **Evaluate, remove or reduce risks** — controls in place / required
+4. **Record, plan, inform, instruct and train** — written FRA, evacuation plan, training records
+5. **Review** — at least annually, or after any significant change
+
+## Starting an FRA
+1. Navigate to **H&S** > **Fire Risk Assessment**
+2. Click **"New FRA"**
+3. Pick the premises / zone, the Responsible Person and the assessor's name
+4. Work through the five-step wizard — each section has guided questions
+5. Record findings against each hazard with a residual risk rating (Low / Medium / High)
+
+## Action Plan
+Any finding rated Medium or High generates an entry on the FRA action plan:
+- Required action
+- Owner
+- Target completion date
+- Status (open / in progress / closed)
+
+Open actions appear on the H&S dashboard until closed with evidence.
+
+## Annual Review
+The system reminds you 30 days before your annual review date and surfaces the alert on the Compliance dashboard. Marking the FRA reviewed creates a new version — earlier versions are retained as audit history.
+
+## Evidence & Audit
+A completed FRA can be exported as a signed PDF including:
+- The five-step record
+- Site plan with hazard markers
+- Action plan with status
+- Reviewer signatures and dates
+
+This is the document a Fire Officer will ask to see during an inspection.
+
+## Linked Modules
+- **PPM** — fire extinguisher / emergency lighting / fire door / alarm servicing
+- **Evacuations** — drill timings used as evidence
+- **HR Training Matrix** — Fire Marshal and Fire Awareness training records`,
+      targetPages: ["fire-risk", "/fire-risk", "/fra"],
+      searchKeywords: ["fire risk assessment", "FRA", "RRO 2005", "Regulatory Reform Order", "responsible person", "fire safety", "fire marshal", "evacuation"],
+      estimatedReadTime: 6,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 8,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── COMPLIANCE CERTIFICATE REGISTER ──────────────────────────────────────
+    {
+      categoryId: categoryMap["Safety & Compliance"],
+      title: "Compliance Certificate Register",
+      slug: createSlug("Compliance Certificate Register"),
+      summary: "Storing and tracking statutory inspection certificates: EICR, gas safety, PAT, lift LOLER, fire alarms and more",
+      content: `# Compliance Certificate Register
+
+The Compliance Certificate Register is the single place to store every statutory and regulatory certificate your premises requires, with automated expiry tracking.
+
+## Certificate Types Tracked Out-of-the-Box
+- **EICR** — Electrical Installation Condition Report (5-yearly)
+- **Gas Safety** — annual CP12 / commercial gas certificate
+- **PAT** — Portable Appliance Testing (annual / risk-based)
+- **LOLER** — lift and lifting equipment (6-monthly for passenger lifts)
+- **Fire Alarm** — BS 5839 service certificate (6-monthly)
+- **Emergency Lighting** — annual full-discharge test
+- **Fire Extinguishers** — BS 5306 service certificate (annual)
+- **Asbestos** — management survey, re-inspection
+- **Water Hygiene** — Legionella risk assessment, monthly temperatures
+- **Air Conditioning** — F-Gas register and TM44 inspection
+- **Insurance** — Employers Liability, Public Liability certificates
+
+You can add custom certificate types in **Settings** > **Compliance** > **Certificate Types**.
+
+## Adding a Certificate
+1. Navigate to **Compliance** > **Certificates**
+2. Click **"Upload Certificate"**
+3. Pick the type, premises / zone, certificate number, issuer
+4. Enter the issue and expiry dates
+5. Upload the PDF / scan
+6. Save — the certificate appears on the register
+
+## Expiry Dashboard
+The Compliance Register dashboard shows:
+- **Valid** (green) — more than 90 days to expiry
+- **Renew soon** (amber) — within 90 days
+- **Expired / Renew now** (red) — expired or within 30 days
+
+## Email Reminders
+30, 14 and 1 days before expiry, the certificate owner and the Compliance Lead receive automatic email reminders.
+
+## Audit Pack
+The **"Export Audit Pack"** button produces a ZIP containing every current certificate plus a cover index — useful for insurance renewals or pre-acquisition due diligence.
+
+## Linked Modules
+- **PPM** — schedules that produce a new certificate auto-link the certificate to the work order
+- **Contractors** — the contractor who serviced the asset is tagged for traceability`,
+      targetPages: ["compliance", "/compliance", "/compliance/certificates"],
+      searchKeywords: ["compliance", "certificate", "EICR", "gas safety", "CP12", "PAT", "LOLER", "fire alarm", "BS 5839", "BS 5306", "legionella", "asbestos", "F-Gas", "insurance"],
+      estimatedReadTime: 5,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 9,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── PERMIT-TO-WORK ───────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Safety & Compliance"],
+      title: "Permit-to-Work System",
+      slug: createSlug("Permit to Work System"),
+      summary: "Issuing, tracking and closing Hot Work, Confined Space, Working at Height, Electrical and Excavation permits",
+      content: `# Permit-to-Work System
+
+The Permit-to-Work module controls high-risk activities on site, ensuring the right authorisations, isolations and safety controls are in place before work starts and confirming reinstatement after work ends.
+
+## Permit Types
+- **Hot Work** — welding, cutting, grinding, hot bitumen
+- **Confined Space** — tanks, ducts, voids
+- **Working at Height** — roof work, MEWPs, fragile surfaces
+- **Electrical** — live work, isolations, lock-out-tag-out (LOTO)
+- **Excavation** — service strikes, ground disturbance
+- **General** — any other risk-controlled task
+
+Customise the list in **Settings** > **Compliance** > **Permit Types**.
+
+## Issuing a Permit
+1. Navigate to **Compliance** > **Permits-to-Work**
+2. Click **"Issue Permit"**
+3. Pick the type — a tailored checklist appears
+4. Capture:
+   - Contractor / worker(s) on the permit
+   - Scope of work, location, start time, end time
+   - Hazards identified
+   - Controls in place (e.g., fire watch, gas tests, isolations)
+   - Required PPE
+   - Emergency arrangements
+5. The Permit Issuer signs digitally — the workers sign on acceptance
+6. The permit is active for the stated window
+
+## Live Permit Board
+The Permits page shows every active permit with:
+- Time remaining
+- Workers on the permit (with their RTW / induction status)
+- Location on a site plan
+- A countdown that turns amber 30 min before expiry
+
+## Closing / Reinstatement
+At the end of the work:
+1. The permit holder ticks off the reinstatement checklist (cooling check after hot work, gas re-test, isolations restored, area clean)
+2. The Permit Issuer signs the permit closed
+3. The closed permit is archived for audit
+
+## Suspension
+If conditions change (alarm activation, weather change, scope drift) the permit can be **suspended** — work stops until re-authorised.
+
+## Audit
+Every permit, suspension and closure is timestamped and attributed. Export the permit register to PDF or CSV for insurer or HSE inspection evidence.`,
+      targetPages: ["permits", "/permits", "/permit-to-work"],
+      searchKeywords: ["permit", "permit to work", "PTW", "hot work", "confined space", "working at height", "MEWP", "LOTO", "isolation", "excavation"],
+      estimatedReadTime: 5,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 10,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── RAMS DOCUMENT MANAGEMENT ─────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Contractor Management"] ?? categoryMap["Safety & Compliance"],
+      title: "RAMS Document Management",
+      slug: createSlug("RAMS Document Management"),
+      summary: "Uploading, reviewing and approving contractor Risk Assessments and Method Statements",
+      content: `# RAMS Document Management
+
+The RAMS module manages Risk Assessment and Method Statement submissions from contractors before they are allowed to start work on site.
+
+## What Are RAMS?
+- **Risk Assessment** — identifies hazards, who could be harmed, evaluates risk and lists controls
+- **Method Statement** — describes step-by-step how a task will be carried out safely
+
+Most UK clients require RAMS for non-trivial contractor work — and your insurer or principal contractor almost certainly does.
+
+## Uploading RAMS
+A contractor can upload RAMS through their contractor portal, or your team can upload on their behalf:
+1. Navigate to **Contractors** > pick the contractor > **RAMS** tab
+2. Click **"Upload RAMS"**
+3. Pick the work activity (e.g., "Annual fire alarm service")
+4. Upload the RAMS PDF and any supporting documents
+5. Set the validity period (typically per project or annual)
+
+## Review Workflow
+Uploaded RAMS enter the **Pending Review** queue:
+1. The H&S reviewer opens the document, reads it and either:
+   - **Approves** — set approved-until date and sign digitally
+   - **Returns** — write comments / requested changes; the contractor is notified
+   - **Rejects** — sign-off withheld with reason
+2. Approved RAMS are stamped onto the contractor's record with the reviewer's name and date
+
+## RAMS Gate for PPM
+When **Contractor compliance gate** is enabled, contractors and workers with an expired or missing RAMS for the activity are blocked from being assigned to a PPM work order until valid RAMS are uploaded and approved. See "PPM Contractor Compliance Gate" for the full list of checks.
+
+## Activity Library
+Build a library of common work activities in **Settings** > **Compliance** > **Work Activities**. Each activity can have its own RAMS template the contractor downloads, fills in and re-uploads — much faster than starting from scratch each time.
+
+## Expiry & Renewal
+RAMS approved as "annual" auto-expire on the renewal date. The contractor and the compliance reviewer receive 30-day notice. Expired RAMS appear in red on the contractor's record.`,
+      targetPages: ["rams", "/rams", "/contractors"],
+      searchKeywords: ["RAMS", "risk assessment", "method statement", "contractor", "approval", "review", "compliance"],
+      estimatedReadTime: 5,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 11,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── PAXTON NET2 INTEGRATION ──────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Settings & Configuration"],
+      title: "Paxton Net2 Access Control Integration",
+      slug: createSlug("Paxton Net2 Access Control Integration"),
+      summary: "Connecting TPR-Max to Paxton Net2 for personnel sync, door event logging and access control",
+      content: `# Paxton Net2 Access Control Integration
+
+TPR-Max integrates with Paxton Net2, one of the UK's most widely deployed access control systems, to synchronise people records and bring door events into the personnel dashboard.
+
+## What Is Paxton Net2?
+Net2 is a PC-based access control system from Paxton Access. It manages door readers, intercoms, tokens, fobs and biometric devices for everything from a single-door office to a large multi-site estate.
+
+## Connecting TPR-Max to Net2
+The integration uses Net2's local API. You will need:
+- A Net2 server (Net2 software v6 or later) on your network
+- An Operator account with API access
+- Network connectivity from the TPR-Max server to the Net2 server (typically a VPN or a dedicated IP allow-list)
+
+Configure in **Settings** > **Paxton Net2 Integration**:
+1. **Net2 server URL** — including port (default: 8080)
+2. **Operator username** and **password**
+3. **Department mapping** — match Net2 departments to TPR-Max staff departments
+4. Click **"Test Connection"**
+5. Click **"Save"** to enable the integration
+
+## What the Integration Does
+**Personnel sync** — TPR-Max staff records can be pushed to Net2 as Net2 users, with their access token reference linked. When you add or terminate a staff member in TPR-Max, the change is reflected in Net2 automatically.
+
+**Live door events** — Door grant / deny events flow into TPR-Max in real time. View them in **Settings** > **Paxton** > **Event Log**.
+
+**Auto check-in** — Optionally, an access-grant event at the main entrance triggers check-in for the staff member in TPR-Max — removing the need for them to also use the kiosk.
+
+**Leaver de-provisioning** — When a staff member is moved to **Leaver** status in HR, their Net2 token is automatically blocked on their last working day.
+
+## Security
+- Net2 credentials are stored encrypted; never exposed to the browser
+- Communication runs server-side over your private network
+- Each TPR-Max customer has their own isolated Net2 connection
+
+## Troubleshooting
+**Connection refused / timeout**:
+- Confirm the Net2 server is reachable from the TPR-Max server (ping / curl)
+- Check Windows Firewall rules on the Net2 PC
+- Verify the API user has been granted access in Net2 itself
+
+**Events not arriving**:
+- Confirm the integration is **Connected** (green status)
+- Trigger a door event and refresh — events appear within ~5 seconds
+- Check the Net2 server time matches your TPR-Max time zone`,
+      targetPages: ["settings", "/settings", "paxton"],
+      searchKeywords: ["Paxton", "Net2", "access control", "door reader", "token", "fob", "integration", "RFID"],
+      estimatedReadTime: 5,
+      difficulty: "advanced",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 12,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── PRE-BOOKING & VISITOR INVITATIONS ────────────────────────────────────
+    {
+      categoryId: categoryMap["Pre-bookings & Invitations"] ?? categoryMap["Visitor Management"],
+      title: "Pre-bookings & Visitor Invitations",
+      slug: createSlug("Pre-bookings and Visitor Invitations"),
+      summary: "Pre-booking visitors, sending email invitations with QR codes, recurring visits and bulk arrivals",
+      content: `# Pre-bookings & Visitor Invitations
+
+Pre-booking lets hosts register expected visitors before they arrive — speeding up reception, capturing accurate data and giving visitors a polished pre-visit experience.
+
+## Creating a Pre-booking
+1. Navigate to **Visitors** > **Pre-bookings**
+2. Click **"New Pre-booking"**
+3. Enter:
+   - Visitor first name, last name, email, company
+   - Expected arrival date and time
+   - Host (staff member)
+   - Visit reason
+   - Any required induction or document acceptance
+4. Save
+
+## Email Invitation
+On save, TPR-Max can email the visitor an invitation containing:
+- Site address with map link
+- Date and arrival time
+- Host's name and contact
+- Pre-visit health & safety information
+- Any documents to read before arrival (e.g., site rules, PPE requirements)
+- A unique **QR check-in code** for fast kiosk arrival
+- A calendar (.ics) attachment
+
+## Fast Kiosk Check-in
+On the day:
+- The visitor walks to the kiosk
+- Scans the QR code from their phone
+- Their record loads with pre-filled details
+- They complete induction acceptance (if required) and take their photo
+- A badge is printed
+- The host receives an arrival notification
+
+## Recurring Pre-bookings
+For regular visitors (e.g., weekly cleaner, monthly auditor):
+1. Tick **"Recurring"** when creating the booking
+2. Pick the cadence (daily, weekly, monthly) and an end date
+3. Each occurrence is created automatically
+4. The visitor uses the same QR code for every visit
+
+## Bulk Arrivals
+For groups arriving together (e.g., training day, board meeting):
+1. Create one pre-booking and click **"Add Attendees"**
+2. Paste or upload a CSV of attendees
+3. Each attendee receives their own invitation email and QR code
+4. At reception, all attendees show up under one expected-visit group
+
+## Cancelling or Reschedule
+Open the pre-booking and click **"Cancel"** or **"Reschedule"** — the visitor is notified by email. Cancelled bookings remain visible in the history.
+
+## Reports
+- **Expected today** — today's arrivals at a glance for reception
+- **Pre-booking lead time** — average days between booking and visit
+- **No-shows** — pre-booked visitors who didn't arrive
+- **Conversion rate** — pre-booked vs walk-in over time`,
+      targetPages: ["pre-bookings", "/pre-bookings", "/visitors"],
+      searchKeywords: ["pre-booking", "prebooking", "invitation", "QR code", "expected visitor", "recurring", "bulk", "invite"],
+      estimatedReadTime: 5,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: true,
+      sortOrder: 1,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── PPM CONTRACTOR COMPLIANCE GATE ───────────────────────────────────────
+    {
+      categoryId: categoryMap["Planned Preventative Maintenance"] ?? categoryMap["Contractor Management"],
+      title: "PPM Contractor Compliance Gate",
+      slug: createSlug("PPM Contractor Compliance Gate"),
+      summary: "How TPR-Max blocks non-compliant contractors and workers from being assigned to PPM work orders",
+      content: `# PPM Contractor Compliance Gate
+
+When the Contractor Compliance Gate is enabled, TPR-Max prevents non-compliant contractors and workers from being assigned to PPM work orders. This protects you from liability and ensures every job is done by someone properly vetted.
+
+## What Gets Checked
+For each contractor company and each worker being assigned, TPR-Max checks:
+
+### Company-level checks
+- **Public liability insurance** present, not expired
+- **Employers liability insurance** present, not expired (where applicable)
+- **CHAS / Constructionline / SafeContractor** accreditation, not expired
+- **Approved RAMS** for the work activity
+- **Health & Safety policy** uploaded (companies with 5+ employees)
+
+### Worker-level checks
+- **Right to Work** confirmed and recorded
+- **Site induction** completed within the validity period
+- **DBS check** if the role requires one (e.g., schools, healthcare)
+- **Required training** valid (e.g., IPAF for MEWPs, CSCS for construction)
+- **Required PPE** declared
+
+## What the Gate Does
+On the PPM work order assignment screen:
+- **Compliant** contractors/workers appear normally and can be assigned
+- **Non-compliant** contractors/workers are **greyed out** with a tooltip listing the failing checks (e.g., "Public liability expired 12 days ago; RAMS for hot work not approved")
+- An administrator with **override permission** can still assign with a written justification, which is logged
+
+## Server-side Enforcement
+The gate is enforced server-side as well as in the UI — even with the API directly, you cannot create or update a PPM work order assigning a non-compliant contractor or worker without an override. This is by design: it prevents accidental bypass and gives you robust audit evidence.
+
+## Resolving Non-compliance
+1. Open the contractor or worker profile
+2. The compliance panel shows every failing check in red
+3. Upload / refresh the missing or expired document
+4. The reviewer approves (where review is required)
+5. Once all checks pass, the contractor / worker is automatically un-greyed in PPM
+
+## Enabling the Gate
+The gate is enabled per customer in **Settings** > **PPM** > **Compliance Gate**. New customers have it **enabled by default**. Existing customers can switch it on once their contractor base is in order.
+
+## Reports
+- **Non-compliant contractors** — list of companies with one or more failing checks
+- **Override log** — audit trail of every gate override with user, date and justification
+- **About to expire** — documents within 30 days of expiry across all contractors`,
+      targetPages: ["ppm", "/ppm", "contractors"],
+      searchKeywords: ["compliance gate", "PPM", "contractor compliance", "insurance", "RAMS", "RTW", "induction", "DBS", "CHAS", "block", "override"],
+      estimatedReadTime: 5,
+      difficulty: "advanced",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 3,
       helpfulCount: 0,
       notHelpfulCount: 0,
       viewCount: 0
