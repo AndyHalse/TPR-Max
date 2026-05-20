@@ -43,6 +43,7 @@ import BlogListPage from "@/pages/BlogListPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import AISettings from "@/pages/AISettings";
 import LeaverTemplateSettings from "@/pages/settings/LeaverTemplateSettings";
+import OnboardingTemplateSettings from "@/pages/settings/OnboardingTemplateSettings";
 import Billing from "@/pages/Billing";
 import Signup from "@/pages/Signup";
 import SignupPayment from "@/pages/SignupPayment";
@@ -418,6 +419,7 @@ function Router() {
             <Route path="/settings" component={Settings} />
             <Route path="/settings/ai" component={AISettings} />
             <Route path="/settings/leaver-template" component={LeaverTemplateSettings} />
+            <Route path="/settings/onboarding-template" component={OnboardingTemplateSettings} />
             <Route path="/induction-settings" component={InductionSettings} />
             <Route path="/email-outbox" component={EmailOutbox} />
             <Route path="/meeting-rooms" component={MeetingRooms} />

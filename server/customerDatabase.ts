@@ -755,18 +755,26 @@ export class CustomerDatabaseService {
           completed_at TIMESTAMP,
           completed_by TEXT,
           notes TEXT,
-          display_order INTEGER DEFAULT 0
+          display_order INTEGER DEFAULT 0,
+          due_day_offset INTEGER,
+          is_required BOOLEAN DEFAULT TRUE
         )
       `);
+      await pool.query(`ALTER TABLE "${schemaName}".onboarding_items ADD COLUMN IF NOT EXISTS due_day_offset INTEGER`).catch(() => {});
+      await pool.query(`ALTER TABLE "${schemaName}".onboarding_items ADD COLUMN IF NOT EXISTS is_required BOOLEAN DEFAULT TRUE`).catch(() => {});
       await pool.query(`
         CREATE TABLE IF NOT EXISTS "${schemaName}".onboarding_templates (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           item_key TEXT NOT NULL,
           label TEXT NOT NULL,
           display_order INTEGER DEFAULT 0,
-          is_active BOOLEAN DEFAULT TRUE
+          is_active BOOLEAN DEFAULT TRUE,
+          due_day_offset INTEGER,
+          is_required BOOLEAN DEFAULT TRUE
         )
       `);
+      await pool.query(`ALTER TABLE "${schemaName}".onboarding_templates ADD COLUMN IF NOT EXISTS due_day_offset INTEGER`).catch(() => {});
+      await pool.query(`ALTER TABLE "${schemaName}".onboarding_templates ADD COLUMN IF NOT EXISTS is_required BOOLEAN DEFAULT TRUE`).catch(() => {});
       logger.info(`✅ Onboarding tables ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Onboarding table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
