@@ -28,6 +28,107 @@ export function registerHrStaffRoutes(app: Express): void {
     }
   });
 
+  // GET /api/staff/org-chart/validation — issues that prevent a clean tree
+  app.get('/api/staff/org-chart/validation', requireAuth, async (req, res) => {
+    try {
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+
+      const rows: any[] = (await custDb.execute(sql.raw(`
+        SELECT id, first_name, last_name, line_manager_id, employment_status, is_active
+        FROM ${schemaName}.staff
+        WHERE is_active = true
+          AND (employment_status IS NULL OR employment_status NOT IN ('leaver','archived'))
+      `))).rows as any[];
+
+      const byId = new Map<string, any>(rows.map(r => [r.id, r]));
+
+      const noManager: any[] = [];
+      const inactiveManager: any[] = [];
+      const circularChains: string[][] = [];
+
+      // Fetch any referenced manager that's not in active set (could be inactive/leaver)
+      const referencedMgrIds = Array.from(new Set(rows.map(r => r.line_manager_id).filter(Boolean)));
+      const externalMgrs = new Map<string, any>();
+      if (referencedMgrIds.length > 0) {
+        const lookupPool = (custDb as any).$client ?? (custDb as any).session?.client;
+        const lookup = lookupPool
+          ? await lookupPool.query(
+              `SELECT id, first_name, last_name, is_active, employment_status
+               FROM "${schemaName}".staff
+               WHERE id = ANY($1::uuid[])`,
+              [referencedMgrIds]
+            )
+          : { rows: [] as any[] };
+        for (const m of lookup.rows as any[]) externalMgrs.set(m.id, m);
+      }
+
+      for (const r of rows) {
+        if (!r.line_manager_id) {
+          noManager.push({ id: r.id, name: `${r.first_name} ${r.last_name}` });
+          continue;
+        }
+        const mgr = externalMgrs.get(r.line_manager_id);
+        const mgrActive = mgr && mgr.is_active && (!mgr.employment_status || !['leaver', 'archived'].includes(mgr.employment_status));
+        if (!mgrActive) {
+          inactiveManager.push({
+            id: r.id,
+            name: `${r.first_name} ${r.last_name}`,
+            managerId: r.line_manager_id,
+            managerName: mgr ? `${mgr.first_name} ${mgr.last_name}` : null,
+          });
+        }
+      }
+
+      // Detect circular references via DFS over active staff only, deduplicating cycles
+      const visited = new Set<string>();
+      const seenCycles = new Set<string>();
+      for (const r of rows) {
+        if (visited.has(r.id)) continue;
+        const stack: string[] = [];
+        const onPath = new Set<string>();
+        let cur: any = r;
+        while (cur && cur.line_manager_id) {
+          if (visited.has(cur.id) && !onPath.has(cur.id)) break;
+          if (onPath.has(cur.id)) {
+            const cycleStart = stack.indexOf(cur.id);
+            const cycleIds = stack.slice(cycleStart);
+            const key = [...cycleIds].sort().join('|');
+            if (!seenCycles.has(key)) {
+              seenCycles.add(key);
+              circularChains.push(cycleIds.map(id => {
+                const s = byId.get(id);
+                return s ? `${s.first_name} ${s.last_name}` : id;
+              }));
+            }
+            cycleIds.forEach(id => visited.add(id));
+            break;
+          }
+          stack.push(cur.id);
+          onPath.add(cur.id);
+          const nextId = cur.line_manager_id;
+          if (!byId.has(nextId)) { stack.forEach(id => visited.add(id)); break; }
+          cur = byId.get(nextId);
+        }
+        stack.forEach(id => visited.add(id));
+      }
+
+      res.json({
+        noManager,
+        inactiveManager,
+        circular: circularChains,
+        totals: {
+          noManager: noManager.length,
+          inactiveManager: inactiveManager.length,
+          circular: circularChains.length,
+        },
+      });
+    } catch (err: any) {
+      logger.error('Org chart validation error:', err);
+      res.status(500).json({ error: 'Failed to validate org chart' });
+    }
+  });
+
   // PATCH /api/staff/:id/hr — update HR-specific fields only
   app.patch('/api/staff/:id/hr', requireAuth, async (req, res) => {
     try {
@@ -54,6 +155,28 @@ export function registerHrStaffRoutes(app: Express): void {
       // Validate
       if (lineManagerId && lineManagerId === id) {
         return res.status(400).json({ error: 'A staff member cannot be their own line manager' });
+      }
+
+      // Circular reference guard: walk up the proposed manager chain
+      if (lineManagerId) {
+        const chainPool = (custDb as any).$client ?? (custDb as any).session?.client;
+        if (chainPool) {
+          const seen = new Set<string>([id]);
+          let cursor: string | null = lineManagerId;
+          let safety = 0;
+          while (cursor && safety < 100) {
+            if (seen.has(cursor)) {
+              return res.status(400).json({ error: 'That assignment would create a circular reporting line.' });
+            }
+            seen.add(cursor);
+            const next: any = await chainPool.query(
+              `SELECT line_manager_id FROM "${schemaName}".staff WHERE id = $1`,
+              [cursor]
+            );
+            cursor = next.rows[0]?.line_manager_id || null;
+            safety++;
+          }
+        }
       }
       if (contractStartDate && contractEndDate && new Date(contractEndDate) <= new Date(contractStartDate)) {
         return res.status(400).json({ error: 'Contract end date must be after contract start date' });

@@ -652,9 +652,48 @@ function EmploymentTab({ staffId, staff }: { staffId: string; staff: any }) {
     employmentStatus: staff?.employment_status || "active",
     annualLeaveEntitlementDays: staff?.annual_leave_entitlement_days ?? 28,
     workingDaysPerWeek: staff?.working_days_per_week ?? 5,
+    lineManagerId: staff?.line_manager_id || "",
   });
+  const [mgrSearch, setMgrSearch] = useState("");
 
   const { data: allStaff = [] } = useQuery<any[]>({ queryKey: ["/api/staff"], queryFn: () => fetch("/api/staff", { credentials: "include" }).then(r => r.json()) });
+
+  // Compute descendant ids of the current staff member so we exclude them from the dropdown
+  const descendantIds = (() => {
+    const ids = new Set<string>([staffId]);
+    let added = true;
+    while (added) {
+      added = false;
+      for (const s of allStaff) {
+        const mgr = (s.lineManagerId ?? s.line_manager_id) as string | null | undefined;
+        if (mgr && ids.has(mgr) && !ids.has(s.id)) {
+          ids.add(s.id);
+          added = true;
+        }
+      }
+    }
+    return ids;
+  })();
+
+  const managerOptions = (allStaff as any[])
+    .filter(s => {
+      if (descendantIds.has(s.id)) return false;
+      if (s.isActive === false) return false;
+      const status = s.employmentStatus ?? s.employment_status;
+      if (status === "leaver" || status === "archived") return false;
+      const q = mgrSearch.trim().toLowerCase();
+      if (!q) return true;
+      const fn = (s.firstName ?? s.first_name ?? "").toLowerCase();
+      const ln = (s.lastName ?? s.last_name ?? "").toLowerCase();
+      const dept = (s.department ?? "").toLowerCase();
+      const jt = (s.jobTitle ?? s.job_title ?? "").toLowerCase();
+      return `${fn} ${ln} ${dept} ${jt}`.includes(q);
+    })
+    .sort((a, b) => `${a.lastName ?? a.last_name ?? ""}${a.firstName ?? a.first_name ?? ""}`
+      .localeCompare(`${b.lastName ?? b.last_name ?? ""}${b.firstName ?? b.first_name ?? ""}`))
+    .slice(0, 100);
+
+  const selectedManager = (allStaff as any[]).find(s => s.id === form.lineManagerId);
 
   const save = useMutation({
     mutationFn: (d: any) => apiRequest("PATCH", `/api/staff/${staffId}/hr`, d),
@@ -692,6 +731,39 @@ function EmploymentTab({ staffId, staff }: { staffId: string; staff: any }) {
             <div><Label>Pay Grade</Label><Input value={form.payGrade} onChange={e => setForm(f => ({ ...f, payGrade: e.target.value }))} /></div>
             <div><Label>Annual Leave Entitlement (days)</Label><Input type="number" step="0.5" value={form.annualLeaveEntitlementDays} onChange={e => setForm(f => ({ ...f, annualLeaveEntitlementDays: e.target.value }))} /></div>
             <div><Label>Working Days Per Week</Label><Input type="number" step="0.5" min="0.5" max="5" value={form.workingDaysPerWeek} onChange={e => setForm(f => ({ ...f, workingDaysPerWeek: e.target.value }))} /></div>
+            <div className="col-span-2">
+              <Label>Line Manager</Label>
+              <Select
+                value={form.lineManagerId || "__none__"}
+                onValueChange={v => setForm(f => ({ ...f, lineManagerId: v === "__none__" ? "" : v }))}
+              >
+                <SelectTrigger data-testid="select-line-manager">
+                  <SelectValue placeholder="No line manager" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <div className="p-2 sticky top-0 bg-white border-b">
+                    <Input
+                      placeholder="Search staff…"
+                      value={mgrSearch}
+                      onChange={e => setMgrSearch(e.target.value)}
+                      onKeyDown={e => e.stopPropagation()}
+                      className="h-8"
+                    />
+                  </div>
+                  <SelectItem value="__none__">No line manager</SelectItem>
+                  {managerOptions.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-gray-400">No matching active staff</div>
+                  )}
+                  {managerOptions.map((s: any) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {(s.firstName ?? s.first_name)} {(s.lastName ?? s.last_name)}
+                      {s.department ? <span className="text-gray-400 text-xs ml-1">— {s.department}</span> : null}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-400 mt-1">Current user and their direct/indirect reports are hidden to prevent circular references.</p>
+            </div>
           </div>
           <div className="border-t pt-3">
             <h4 className="font-medium text-gray-700 mb-3 flex items-center gap-2"><Phone className="h-4 w-4" /> Emergency Contact</h4>
@@ -714,6 +786,9 @@ function EmploymentTab({ staffId, staff }: { staffId: string; staff: any }) {
             ["Pay Grade", staff?.pay_grade || "—"],
             ["Annual Leave Entitlement", `${staff?.annual_leave_entitlement_days ?? 28} days`],
             ["Working Days / Week", staff?.working_days_per_week ?? 5],
+            ["Line Manager", selectedManager
+              ? `${selectedManager.firstName ?? selectedManager.first_name} ${selectedManager.lastName ?? selectedManager.last_name}`
+              : "—"],
           ].map(([label, value]) => (
             <div key={String(label)} className="bg-gray-50 rounded-lg p-3">
               <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">{label}</div>

@@ -35,6 +35,27 @@ export function registerHrLeaverRoutes(app: Express): void {
 
       if (!lastDay) return res.status(400).json({ error: 'lastDay is required' });
 
+      // 0. Cascade direct reports up one level (to leaver's own manager)
+      const leaverInfo = await pool.query(
+        `SELECT line_manager_id FROM "${schemaName}".staff WHERE id = $1`,
+        [staffId]
+      );
+      const upstreamManagerId = leaverInfo.rows[0]?.line_manager_id || null;
+
+      const reassign = await pool.query(
+        `UPDATE "${schemaName}".staff
+         SET line_manager_id = $1, updated_at = NOW()
+         WHERE line_manager_id = $2
+         RETURNING id, first_name, last_name`,
+        [upstreamManagerId, staffId]
+      );
+      if (reassign.rowCount && reassign.rowCount > 0) {
+        const reassignedNames = reassign.rows.map((r: any) => `${r.first_name} ${r.last_name}`).join(', ');
+        logger.info(
+          `[hr-audit] Leaver ${staffId}: reassigned ${reassign.rowCount} direct report(s) to ${upstreamManagerId || 'Unassigned'} — ${reassignedNames}`
+        );
+      }
+
       // 1. Set staff to leaver
       await pool.query(
         `UPDATE "${schemaName}".staff
