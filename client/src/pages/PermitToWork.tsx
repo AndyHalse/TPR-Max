@@ -423,8 +423,11 @@ function CreatePermitForm({ onSuccess, onCancel }: { onSuccess: (id: string) => 
     permitType: '', workDescription: '', workLocation: '',
     plannedStartDate: '', plannedStartTime: '08:00',
     plannedEndDate: '', plannedEndTime: '17:00',
-    contractorCompanyName: '', contractorWorkerName: '',
+    staffId: '', staffName: '',
   });
+  const [staffSearch, setStaffSearch] = useState('');
+
+  const { data: staffList = [] } = useQuery<any[]>({ queryKey: ['/api/staff'] });
 
   const mutation = useMutation({
     mutationFn: (data: any) => apiRequest('POST', '/api/ptw', data),
@@ -484,15 +487,45 @@ function CreatePermitForm({ onSuccess, onCancel }: { onSuccess: (id: string) => 
           <Input type="time" value={form.plannedEndTime} onChange={e => setForm(p => ({ ...p, plannedEndTime: e.target.value }))} />
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <Label>Contractor / Company</Label>
-          <Input value={form.contractorCompanyName} onChange={e => setForm(p => ({ ...p, contractorCompanyName: e.target.value }))} placeholder="Company name" />
-        </div>
-        <div>
-          <Label>Operative Name</Label>
-          <Input value={form.contractorWorkerName} onChange={e => setForm(p => ({ ...p, contractorWorkerName: e.target.value }))} placeholder="Worker name" />
-        </div>
+      <div>
+        <Label>Staff Member</Label>
+        <Select
+          value={form.staffId}
+          onValueChange={v => {
+            const member = staffList.find((s: any) => s.id === v);
+            setForm(p => ({
+              ...p,
+              staffId: v,
+              staffName: member ? `${member.firstName} ${member.lastName}` : '',
+            }));
+          }}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select staff member…" />
+          </SelectTrigger>
+          <SelectContent>
+            <div className="px-2 py-1.5">
+              <Input
+                placeholder="Search staff…"
+                value={staffSearch}
+                onChange={e => setStaffSearch(e.target.value)}
+                className="h-8 text-sm"
+                onKeyDown={e => e.stopPropagation()}
+              />
+            </div>
+            {staffList
+              .filter((s: any) => {
+                const name = `${s.firstName} ${s.lastName}`.toLowerCase();
+                return !staffSearch || name.includes(staffSearch.toLowerCase());
+              })
+              .map((s: any) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.firstName} {s.lastName}
+                  {s.jobTitle && <span className="text-muted-foreground ml-1 text-xs">— {s.jobTitle}</span>}
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
@@ -578,16 +611,10 @@ function PermitDetailView({
             <div>{permit.plannedStartDate} {permit.plannedStartTime}</div>
             <div className="text-gray-500 dark:text-gray-400">Planned end</div>
             <div>{permit.plannedEndDate} {permit.plannedEndTime}</div>
-            {(permit.contractorCompanyName || permit.contractorWorkerName) && (
-              <>
-                <div className="text-gray-500 dark:text-gray-400">Contractor</div>
-                <div>{permit.contractorCompanyName}{permit.contractorWorkerName ? ` — ${permit.contractorWorkerName}` : ''}</div>
-              </>
-            )}
             {permit.staffName && (
               <>
                 <div className="text-gray-500 dark:text-gray-400">Staff member</div>
-                <div>{permit.staffName}</div>
+                <div className="font-medium">{permit.staffName}</div>
               </>
             )}
             {permit.authorisedByName && (
