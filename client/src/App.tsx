@@ -42,6 +42,7 @@ import MarketingPage from "@/pages/MarketingPage";
 import BlogListPage from "@/pages/BlogListPage";
 import BlogPostPage from "@/pages/BlogPostPage";
 import AISettings from "@/pages/AISettings";
+import LeaverTemplateSettings from "@/pages/settings/LeaverTemplateSettings";
 import Billing from "@/pages/Billing";
 import Signup from "@/pages/Signup";
 import SignupPayment from "@/pages/SignupPayment";
@@ -416,6 +417,7 @@ function Router() {
             <Route path="/time-attendance" component={TimeAttendance} />
             <Route path="/settings" component={Settings} />
             <Route path="/settings/ai" component={AISettings} />
+            <Route path="/settings/leaver-template" component={LeaverTemplateSettings} />
             <Route path="/induction-settings" component={InductionSettings} />
             <Route path="/email-outbox" component={EmailOutbox} />
             <Route path="/meeting-rooms" component={MeetingRooms} />

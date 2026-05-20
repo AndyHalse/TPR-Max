@@ -17,6 +17,7 @@ import {
   FileText, CheckSquare, LogOut, Star, Briefcase, Phone,
   AlertTriangle, ChevronRight, Plus, Clock, CheckCircle, XCircle, Loader2
 } from "lucide-react";
+import LeaverDetail from "./LeaverDetail";
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -865,7 +866,7 @@ export default function StaffProfile() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="employment">
+      <Tabs defaultValue={new URLSearchParams(window.location.search).get("tab") || "employment"}>
         <TabsList className="w-full flex-wrap h-auto gap-1">
           <TabsTrigger value="employment" className="text-xs"><Briefcase className="h-3 w-3 mr-1" />Employment</TabsTrigger>
           <TabsTrigger value="rtw" className="text-xs"><Shield className="h-3 w-3 mr-1" />Right to Work</TabsTrigger>
@@ -891,10 +892,7 @@ export default function StaffProfile() {
           <TabsContent value="appraisals"><AppraisalsTab staffId={id!} /></TabsContent>
           {staff.employment_status === "leaver" && (
             <TabsContent value="leaver">
-              <div className="text-center py-8 text-gray-400">
-                <LogOut className="h-10 w-10 mx-auto mb-3 text-red-400" />
-                <p>Use the <strong>Leavers</strong> page in the HR section to manage this employee's offboarding checklist.</p>
-              </div>
+              <LeaverDetail staffId={id!} />
             </TabsContent>
           )}
         </div>

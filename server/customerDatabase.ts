@@ -799,6 +799,66 @@ export class CustomerDatabaseService {
           display_order INTEGER DEFAULT 0
         )
       `);
+      // Additive columns for redesigned leaver process
+      await pool.query(`ALTER TABLE "${schemaName}".leaver_checklists ADD COLUMN IF NOT EXISTS reason_code TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".leaver_checklists ADD COLUMN IF NOT EXISTS additional_detail TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".leaver_checklists ADD COLUMN IF NOT EXISTS deactivation_override_reason TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".leaver_checklists ADD COLUMN IF NOT EXISTS deactivation_override_by TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".leaver_checklists ADD COLUMN IF NOT EXISTS deactivation_override_at TIMESTAMP`);
+      await pool.query(`ALTER TABLE "${schemaName}".leaver_items ADD COLUMN IF NOT EXISTS category TEXT DEFAULT 'legal_payroll'`);
+      await pool.query(`ALTER TABLE "${schemaName}".leaver_items ADD COLUMN IF NOT EXISTS is_critical BOOLEAN DEFAULT FALSE`);
+      await pool.query(`ALTER TABLE "${schemaName}".leaver_items ADD COLUMN IF NOT EXISTS is_auto BOOLEAN DEFAULT FALSE`);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".leaver_equipment (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          checklist_id UUID NOT NULL REFERENCES "${schemaName}".leaver_checklists(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          asset_tag TEXT,
+          serial_number TEXT,
+          returned BOOLEAN DEFAULT FALSE,
+          returned_on DATE,
+          notes TEXT,
+          display_order INTEGER DEFAULT 0,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE INDEX IF NOT EXISTS idx_leaver_equipment_checklist ON "${schemaName}".leaver_equipment(checklist_id)`);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".leaver_exit_interviews (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          checklist_id UUID NOT NULL UNIQUE REFERENCES "${schemaName}".leaver_checklists(id) ON DELETE CASCADE,
+          reason_for_leaving TEXT,
+          what_worked_well TEXT,
+          what_could_improve TEXT,
+          would_recommend TEXT,
+          would_rehire TEXT,
+          additional_comments TEXT,
+          conducted_by TEXT,
+          conducted_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".leaver_template_items (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          category TEXT NOT NULL,
+          item_key TEXT NOT NULL,
+          label TEXT NOT NULL,
+          is_critical BOOLEAN DEFAULT FALSE,
+          is_auto BOOLEAN DEFAULT FALSE,
+          display_order INTEGER DEFAULT 0,
+          enabled BOOLEAN DEFAULT TRUE,
+          kind TEXT NOT NULL DEFAULT 'checklist',
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_leaver_template_unique ON "${schemaName}".leaver_template_items(kind, category, item_key)`);
+
       logger.info(`✅ Leaver tables ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Leaver table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

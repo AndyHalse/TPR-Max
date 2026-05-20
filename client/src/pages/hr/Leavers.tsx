@@ -7,18 +7,28 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { LogOut, CheckCircle, Clock, AlertTriangle, Loader2, Link as LinkIcon } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { LogOut, AlertTriangle, Loader2, Settings as SettingsIcon, ShieldAlert } from "lucide-react";
+import { Link } from "wouter";
+
+export const REASON_LABELS: Record<string, string> = {
+  resignation: "Resignation",
+  redundancy: "Redundancy",
+  dismissal: "Dismissal",
+  end_of_contract: "End of contract",
+  retirement: "Retirement",
+  death_in_service: "Death in service",
+  mutual_agreement: "Mutual agreement",
+};
 
 export default function Leavers() {
   const qc = useQueryClient();
   const { toast } = useToast();
-  const [, navigate] = useLocation();
   const [initiateOpen, setInitiateOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState("");
-  const [leaverForm, setLeaverForm] = useState({ lastDay: "", reason: "", isVoluntary: true });
+  const [form, setForm] = useState({ lastDay: "", reasonCode: "resignation", additionalDetail: "" });
 
   const { data: leavers = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/hr/leavers"],
@@ -31,26 +41,48 @@ export default function Leavers() {
   });
 
   const initiate = useMutation({
-    mutationFn: ({ staffId, ...data }: any) => apiRequest("POST", `/api/staff/${staffId}/initiate-leaver`, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/hr/leavers"] }); qc.invalidateQueries({ queryKey: ["/api/staff"] }); setInitiateOpen(false); toast({ title: "Leaver process initiated" }); },
+    mutationFn: ({ staffId, ...data }: any) =>
+      apiRequest("POST", `/api/staff/${staffId}/initiate-leaver`, {
+        ...data,
+        isVoluntary: data.reasonCode !== "dismissal" && data.reasonCode !== "redundancy",
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/hr/leavers"] });
+      qc.invalidateQueries({ queryKey: ["/api/staff"] });
+      setInitiateOpen(false);
+      setSelectedStaff("");
+      setForm({ lastDay: "", reasonCode: "resignation", additionalDetail: "" });
+      toast({ title: "Leaver process initiated" });
+    },
     onError: () => toast({ title: "Error", description: "Failed to initiate leaver process", variant: "destructive" }),
   });
 
-  const eligibleStaff = activeStaff.filter((s: any) => s.isActive && !["leaver", "archived"].includes(s.employment_status));
+  const eligibleStaff = activeStaff.filter((s: any) =>
+    s.isActive && !["leaver", "archived"].includes(s.employment_status)
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2"><LogOut className="h-6 w-6 text-red-500" /> Leavers</h1>
-          <p className="text-gray-500 text-sm mt-1">Manage offboarding for departing staff</p>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <LogOut className="h-6 w-6 text-red-500" /> Leavers
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">Structured offboarding for departing staff</p>
         </div>
-        <Button onClick={() => setInitiateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
-          <LogOut className="h-4 w-4 mr-2" /> Initiate Leaver Process
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/settings/leaver-template">
+            <Button variant="outline" size="sm"><SettingsIcon className="h-4 w-4 mr-1" /> Template</Button>
+          </Link>
+          <Button onClick={() => setInitiateOpen(true)} className="bg-red-600 hover:bg-red-700 text-white">
+            <LogOut className="h-4 w-4 mr-2" /> Initiate Leaver
+          </Button>
+        </div>
       </div>
 
-      {isLoading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div> : leavers.length === 0 ? (
+      {isLoading ? (
+        <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>
+      ) : leavers.length === 0 ? (
         <Card>
           <CardContent className="text-center py-12">
             <LogOut className="h-12 w-12 mx-auto text-gray-300 mb-3" />
@@ -65,15 +97,35 @@ export default function Leavers() {
             return (
               <Card key={l.id} className={urgent && !complete ? "border-red-200" : complete ? "border-green-200" : ""}>
                 <CardContent className="pt-4 pb-4">
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
                         <span className="font-semibold text-lg">{l.first_name} {l.last_name}</span>
-                        {complete ? <Badge className="bg-green-100 text-green-800">Complete</Badge> : urgent ? <Badge className="bg-red-100 text-red-800 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Urgent</Badge> : null}
+                        {complete ? <Badge className="bg-green-100 text-green-800">Complete</Badge>
+                          : urgent ? <Badge className="bg-red-100 text-red-800 flex items-center gap-1"><AlertTriangle className="h-3 w-3" />Urgent</Badge>
+                          : null}
+                        {!l.criticalComplete && !complete && (
+                          <Badge className="bg-amber-100 text-amber-800 flex items-center gap-1">
+                            <ShieldAlert className="h-3 w-3" />Critical pending
+                          </Badge>
+                        )}
+                        {l.deactivation_override_reason && (
+                          <Badge className="bg-orange-100 text-orange-800">Override used</Badge>
+                        )}
                       </div>
                       <div className="text-sm text-gray-500">{l.department} · {l.job_title}</div>
-                      <div className="text-sm text-gray-500 mt-1">Last day: <strong>{l.last_day ? new Date(l.last_day).toLocaleDateString("en-GB") : "—"}</strong> {l.daysUntilLastDay !== null && <span className={urgent ? "text-red-600 font-medium" : ""}> ({l.daysUntilLastDay} days)</span>}</div>
-                      {l.reason && <div className="text-sm text-gray-400 mt-1">Reason: {l.reason}</div>}
+                      <div className="text-sm text-gray-500 mt-1">
+                        Last day: <strong>{l.last_day ? new Date(l.last_day).toLocaleDateString("en-GB") : "—"}</strong>{" "}
+                        {l.daysUntilLastDay !== null && (
+                          <span className={urgent ? "text-red-600 font-medium" : ""}> ({l.daysUntilLastDay} days)</span>
+                        )}
+                      </div>
+                      {l.reason_code && (
+                        <div className="text-sm text-gray-500 mt-1">
+                          Reason: <strong>{REASON_LABELS[l.reason_code] || l.reason_code}</strong>
+                          {l.additional_detail && <span className="text-gray-400"> — {l.additional_detail}</span>}
+                        </div>
+                      )}
                     </div>
                     <div className="flex flex-col items-end gap-2">
                       <div className="text-right">
@@ -82,8 +134,8 @@ export default function Leavers() {
                           <div className={`h-2 rounded-full ${complete ? "bg-green-500" : "bg-blue-500"}`} style={{ width: `${l.percent}%` }} />
                         </div>
                       </div>
-                      <Link href={`/hr/staff/${l.id}`}>
-                        <Button size="sm" variant="outline">View Checklist</Button>
+                      <Link href={`/hr/staff/${l.id}?tab=leaver`}>
+                        <Button size="sm" variant="outline">Open Offboarding</Button>
                       </Link>
                     </div>
                   </div>
@@ -106,22 +158,44 @@ export default function Leavers() {
                 onChange={e => setSelectedStaff(e.target.value)}
               >
                 <option value="">Select staff member…</option>
-                {eligibleStaff.map((s: any) => <option key={s.id} value={s.id}>{s.firstName} {s.lastName} — {s.department}</option>)}
+                {eligibleStaff.map((s: any) => (
+                  <option key={s.id} value={s.id}>
+                    {s.firstName} {s.lastName} — {s.department}
+                  </option>
+                ))}
               </select>
             </div>
-            <div><Label>Last Working Day *</Label><Input type="date" value={leaverForm.lastDay} onChange={e => setLeaverForm(f => ({ ...f, lastDay: e.target.value }))} /></div>
-            <div><Label>Leaving Reason</Label><Textarea value={leaverForm.reason} onChange={e => setLeaverForm(f => ({ ...f, reason: e.target.value }))} rows={2} /></div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="voluntary" checked={leaverForm.isVoluntary} onChange={e => setLeaverForm(f => ({ ...f, isVoluntary: e.target.checked }))} />
-              <Label htmlFor="voluntary">Voluntary resignation</Label>
+            <div>
+              <Label>Last Working Day *</Label>
+              <Input type="date" value={form.lastDay} onChange={e => setForm(f => ({ ...f, lastDay: e.target.value }))} />
+            </div>
+            <div>
+              <Label>Reason *</Label>
+              <Select value={form.reasonCode} onValueChange={v => setForm(f => ({ ...f, reasonCode: v }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Object.entries(REASON_LABELS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Additional Detail (optional)</Label>
+              <Textarea
+                value={form.additionalDetail}
+                onChange={e => setForm(f => ({ ...f, additionalDetail: e.target.value }))}
+                rows={2}
+                placeholder="Any context the offboarding team should know"
+              />
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setInitiateOpen(false)}>Cancel</Button>
             <Button
               className="bg-red-600 hover:bg-red-700 text-white"
-              disabled={initiate.isPending || !selectedStaff || !leaverForm.lastDay}
-              onClick={() => initiate.mutate({ staffId: selectedStaff, ...leaverForm })}
+              disabled={initiate.isPending || !selectedStaff || !form.lastDay}
+              onClick={() => initiate.mutate({ staffId: selectedStaff, ...form })}
             >
               {initiate.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />} Initiate Leaver
             </Button>
