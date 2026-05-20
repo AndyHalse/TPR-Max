@@ -186,7 +186,19 @@ export function registerHrStaffRoutes(app: Express): void {
         }
       }
 
+      if (contractStartDate && contractEndDate && new Date(contractEndDate) <= new Date(contractStartDate)) {
+        return res.status(400).json({ error: 'Contract end date must be after contract start date' });
+      }
+      if (workingDaysPerWeek !== undefined && (Number(workingDaysPerWeek) < 0.5 || Number(workingDaysPerWeek) > 5)) {
+        return res.status(400).json({ error: 'Working days per week must be between 0.5 and 5' });
+      }
+      const validEmploymentTypes = ['full_time', 'part_time', 'casual', 'zero_hours', 'fixed_term', 'apprentice'];
+      if (employmentType && !validEmploymentTypes.includes(employmentType)) {
+        return res.status(400).json({ error: 'Invalid employment type' });
+      }
+
       // Cascade direct reports up one level if this update marks the staff as a leaver/archived
+      // (Runs AFTER all validations have passed so we don't leave reports orphaned by a rejected request.)
       if (employmentStatus && ['leaver', 'archived'].includes(employmentStatus)) {
         const cascadePool = (custDb as any).session?.client ?? (custDb as any).$client;
         if (cascadePool) {
@@ -212,16 +224,6 @@ export function registerHrStaffRoutes(app: Express): void {
             }
           }
         }
-      }
-      if (contractStartDate && contractEndDate && new Date(contractEndDate) <= new Date(contractStartDate)) {
-        return res.status(400).json({ error: 'Contract end date must be after contract start date' });
-      }
-      if (workingDaysPerWeek !== undefined && (Number(workingDaysPerWeek) < 0.5 || Number(workingDaysPerWeek) > 5)) {
-        return res.status(400).json({ error: 'Working days per week must be between 0.5 and 5' });
-      }
-      const validEmploymentTypes = ['full_time', 'part_time', 'casual', 'zero_hours', 'fixed_term', 'apprentice'];
-      if (employmentType && !validEmploymentTypes.includes(employmentType)) {
-        return res.status(400).json({ error: 'Invalid employment type' });
       }
 
       const updates: string[] = [];
