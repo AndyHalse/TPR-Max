@@ -518,6 +518,11 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  function getcsrfToken(): string {
+    const c = document.cookie.split(';').find(c => c.trim().startsWith('csrf-token='));
+    return c ? decodeURIComponent(c.split('=')[1]) : '';
+  }
+
   const uploadMutation = useMutation({
     mutationFn: async (data: FormData) => {
       const isReplace = !!uploadDialog?.replaceDoc;
@@ -525,7 +530,13 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
         ? `/api/ptw/company-documents/${uploadDialog!.replaceDoc!.id}/replace`
         : '/api/ptw/company-documents';
       const method = isReplace ? 'PATCH' : 'POST';
-      const res = await fetch(url, { method, credentials: 'include', body: data });
+      const csrfToken = getcsrfToken();
+      const res = await fetch(url, {
+        method,
+        credentials: 'include',
+        headers: { 'x-csrf-token': csrfToken },
+        body: data,
+      });
       if (!res.ok) { const j = await res.json(); throw new Error(j.error || 'Upload failed'); }
       return res.json();
     },
@@ -848,9 +859,10 @@ function CreatePermitForm({ onSuccess, onCancel, onGoToCompliance }: {
     mutation.mutate(form);
   };
 
-  // Compliance warning for staff permits
-  const expiredDocs = companyDocs.filter(d => d.status === 'expired');
-  const expiringSoonDocs = companyDocs.filter(d => d.status === 'expiring_soon');
+  // Compliance warning for staff permits — only count legally-required doc types
+  const legalCompanyDocs = companyDocs.filter(d => LEGAL_DOC_TYPES.includes(d.document_type));
+  const expiredDocs = legalCompanyDocs.filter(d => d.status === 'expired');
+  const expiringSoonDocs = legalCompanyDocs.filter(d => d.status === 'expiring_soon');
   const showComplianceWarning = form.staffId && (expiredDocs.length > 0 || expiringSoonDocs.length > 0);
 
   return (
@@ -991,8 +1003,7 @@ function PermitDetailView({
   const canEdit = permit.status === 'draft' || permit.status === 'submitted';
   const isSameUserAsCreator = permit.createdById === currentUserId;
 
-  // Compliance summary for this permit (only if it's a staff permit)
-  const isStaffPermit = !!permit.staffName;
+  // Compliance summary — legally-required docs for this permit
   const complianceSummary = LEGAL_DOC_TYPES.map(type => {
     const doc = companyDocs.find(d => d.document_type === type);
     return { type, label: COMP_DOC_TYPES[type].label, doc };
