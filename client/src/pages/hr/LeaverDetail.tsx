@@ -419,9 +419,8 @@ function EquipmentSection({ equipment, onPatch, onDelete, onAdd, newEq, setNewEq
             onChange={e => onPatch(eq.id, { returned: e.target.checked })}
           />
           <Input
-            className="col-span-3 h-8 text-sm" value={eq.name}
-            onChange={e => onPatch(eq.id, { name: e.target.value })}
-            onBlur={() => {}}
+            className="col-span-3 h-8 text-sm" defaultValue={eq.name}
+            onBlur={e => e.target.value !== eq.name && e.target.value.trim() && onPatch(eq.id, { name: e.target.value })}
           />
           <Input
             placeholder="Asset tag" className="col-span-2 h-8 text-sm" defaultValue={eq.asset_tag || ""}

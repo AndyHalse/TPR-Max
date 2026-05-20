@@ -86,6 +86,13 @@ async function loadTemplate(pool: any, schemaName: string) {
   return { checklist, equipment };
 }
 
+function requireAdmin(req: any, res: any, next: any) {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Admin role required' });
+  }
+  next();
+}
+
 export function registerHrLeaverRoutes(app: Express): void {
 
   // POST /api/staff/:staffId/initiate-leaver
@@ -438,8 +445,8 @@ export function registerHrLeaverRoutes(app: Express): void {
     }
   });
 
-  // POST /api/staff/:staffId/leaver/deactivate — gated on critical items, with override
-  app.post('/api/staff/:staffId/leaver/deactivate', requireAuth, async (req, res) => {
+  // POST /api/staff/:staffId/leaver/deactivate — gated on critical items, with override (admin only)
+  app.post('/api/staff/:staffId/leaver/deactivate', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { overrideReason } = req.body;
@@ -551,7 +558,7 @@ export function registerHrLeaverRoutes(app: Express): void {
 
   // ===== Customer-level Leaver Template =====
   // GET /api/hr/leaver-template
-  app.get('/api/hr/leaver-template', requireAuth, async (req, res) => {
+  app.get('/api/hr/leaver-template', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const tpl = await pool.query(
@@ -587,7 +594,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // PUT /api/hr/leaver-template — replace whole template
-  app.put('/api/hr/leaver-template', requireAuth, async (req, res) => {
+  app.put('/api/hr/leaver-template', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { items } = req.body as { items: any[] };
@@ -622,7 +629,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // POST /api/hr/leaver-template/reset — wipe overrides; defaults will be used
-  app.post('/api/hr/leaver-template/reset', requireAuth, async (req, res) => {
+  app.post('/api/hr/leaver-template/reset', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       await pool.query(`DELETE FROM "${schemaName}".leaver_template_items`);
