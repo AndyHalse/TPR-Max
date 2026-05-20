@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import { useSearch } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,9 @@ export default function LeaveCalendar() {
   const [bookOpen, setBookOpen] = useState(false);
   const qc = useQueryClient();
   const { toast } = useToast();
+  const search = useSearch();
+  const initialTab = new URLSearchParams(search).get("tab");
+  const pendingRef = useRef<HTMLDivElement>(null);
 
   const start = new Date(year, month, 1).toISOString().slice(0, 10);
   const end = new Date(year, month + 1, 0).toISOString().slice(0, 10);
@@ -72,6 +76,12 @@ export default function LeaveCalendar() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/leave"] }); qc.invalidateQueries({ queryKey: ["/api/leave/calendar"] }); qc.invalidateQueries({ queryKey: ["/api/leave/pending-approval"] }); toast({ title: "Leave declined" }); },
     onError: () => toast({ title: "Error", description: "Failed to decline leave", variant: "destructive" }),
   });
+
+  useEffect(() => {
+    if (initialTab === "pending" && !pendingLoading && pendingData.length > 0 && pendingRef.current) {
+      pendingRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [initialTab, pendingLoading, pendingData.length]);
 
   const departments = Array.from(new Set(leaveData.map((l: any) => l.department).filter(Boolean)));
   const filtered = filterDept === "all" ? leaveData : leaveData.filter((l: any) => l.department === filterDept);
@@ -106,7 +116,7 @@ export default function LeaveCalendar() {
       </div>
 
       {pendingData.length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50">
+        <Card ref={pendingRef} className={`border-yellow-200 bg-yellow-50 ${initialTab === "pending" ? "ring-2 ring-yellow-400" : ""}`}>
           <CardHeader className="pb-2"><CardTitle className="text-base text-yellow-800 flex items-center gap-2"><Clock className="h-4 w-4" /> {pendingData.length} Pending Approval{pendingData.length !== 1 ? "s" : ""}</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2">

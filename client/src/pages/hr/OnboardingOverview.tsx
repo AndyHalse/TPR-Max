@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearch } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,12 @@ type Filter = "in_progress" | "starting_this_month" | "overdue";
 
 export default function OnboardingOverview() {
   const { toast } = useToast();
-  const [filter, setFilter] = useState<Filter>("in_progress");
+  const search = useSearch();
+  const initialFilter: Filter = (() => {
+    const v = new URLSearchParams(search).get("filter");
+    return v === "starting_this_month" || v === "overdue" || v === "in_progress" ? v : "in_progress";
+  })();
+  const [filter, setFilter] = useState<Filter>(initialFilter);
   const [open, setOpen] = useState(false);
 
   const { data: summary } = useQuery<any>({
