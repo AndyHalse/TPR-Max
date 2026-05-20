@@ -1,6 +1,11 @@
-import { useLocation } from "wouter";
-import { Network, Calendar, BookOpen, Activity, CheckSquare, LogOut, Star, Download, Users, ArrowRight } from "lucide-react";
+import { useLocation, Link } from "wouter";
+import {
+  Network, Calendar, BookOpen, Activity, CheckSquare, LogOut, Star, Download,
+  Users, ArrowRight, UserCheck, UserPlus, UserMinus, GraduationCap,
+  ClipboardCheck, ClipboardList, Cake, PartyPopper, Sunrise,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import GlassCard from "@/components/GlassCard";
 import { useQuery } from "@tanstack/react-query";
 
@@ -95,12 +100,135 @@ const HR_MODULES = [
   },
 ];
 
+type DashboardResp = {
+  today_date?: string;
+  counts: {
+    activeStaff: number;
+    onLeaveToday: number;
+    startingThisMonth: number;
+    leaversThisMonth: number;
+    onboardingInProgress: number;
+    trainingExpiring: number;
+    appraisalsDue: number;
+    pendingLeaveApprovals: number;
+  };
+  onLeaveToday: Array<{ staffId: string; name: string; leaveType: string; endDate: string }>;
+  today: {
+    birthdays: Array<{ staffId: string; name: string }>;
+    anniversaries: Array<{ staffId: string; name: string; years: number }>;
+    returningFromLeave: Array<{ staffId: string; name: string; leaveType: string }>;
+  };
+};
+
+type SummaryCard = {
+  label: string;
+  value: number;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  iconBg: string;
+  iconText: string;
+  detail?: React.ReactNode;
+};
+
 export default function HrHub() {
   const [, navigate] = useLocation();
 
   const { data: stats } = useQuery<{ total: number; active: number }>({
     queryKey: ["/api/staff/stats"],
   });
+
+  const { data: dashboard, isLoading: dashboardLoading, isError: dashboardError } = useQuery<DashboardResp>({
+    queryKey: ["/api/hr/dashboard"],
+  });
+
+  const onLeaveDetail =
+    dashboard && dashboard.onLeaveToday.length > 0 ? (
+      <span className="line-clamp-2">
+        {dashboard.onLeaveToday.slice(0, 3).map((p) => p.name).join(", ")}
+        {dashboard.onLeaveToday.length > 3
+          ? ` +${dashboard.onLeaveToday.length - 3} more`
+          : ""}
+      </span>
+    ) : dashboard ? (
+      <span className="italic">No one on leave today</span>
+    ) : null;
+
+  const cards: SummaryCard[] = dashboard
+    ? [
+        {
+          label: "Active staff",
+          value: dashboard.counts.activeStaff,
+          href: "/staff",
+          icon: UserCheck,
+          iconBg: "bg-emerald-100 dark:bg-emerald-900/40",
+          iconText: "text-emerald-600 dark:text-emerald-400",
+        },
+        {
+          label: "On leave today",
+          value: dashboard.counts.onLeaveToday,
+          href: "/hr/leave",
+          icon: Calendar,
+          iconBg: "bg-green-100 dark:bg-green-900/40",
+          iconText: "text-green-600 dark:text-green-400",
+          detail: onLeaveDetail,
+        },
+        {
+          label: "Starting this month",
+          value: dashboard.counts.startingThisMonth,
+          href: "/hr/onboarding?filter=starting_this_month",
+          icon: UserPlus,
+          iconBg: "bg-teal-100 dark:bg-teal-900/40",
+          iconText: "text-teal-600 dark:text-teal-400",
+        },
+        {
+          label: "Leavers this month",
+          value: dashboard.counts.leaversThisMonth,
+          href: "/hr/leavers",
+          icon: UserMinus,
+          iconBg: "bg-orange-100 dark:bg-orange-900/40",
+          iconText: "text-orange-600 dark:text-orange-400",
+        },
+        {
+          label: "Onboarding in progress",
+          value: dashboard.counts.onboardingInProgress,
+          href: "/hr/onboarding",
+          icon: ClipboardList,
+          iconBg: "bg-cyan-100 dark:bg-cyan-900/40",
+          iconText: "text-cyan-600 dark:text-cyan-400",
+        },
+        {
+          label: "Training expiring (30 days)",
+          value: dashboard.counts.trainingExpiring,
+          href: "/hr/training",
+          icon: GraduationCap,
+          iconBg: "bg-purple-100 dark:bg-purple-900/40",
+          iconText: "text-purple-600 dark:text-purple-400",
+        },
+        {
+          label: "Appraisals due (30 days)",
+          value: dashboard.counts.appraisalsDue,
+          href: "/hr/appraisals",
+          icon: ClipboardCheck,
+          iconBg: "bg-amber-100 dark:bg-amber-900/40",
+          iconText: "text-amber-600 dark:text-amber-400",
+        },
+        {
+          label: "Pending leave approvals",
+          value: dashboard.counts.pendingLeaveApprovals,
+          href: "/hr/leave?tab=pending",
+          icon: Calendar,
+          iconBg: "bg-rose-100 dark:bg-rose-900/40",
+          iconText: "text-rose-600 dark:text-rose-400",
+        },
+      ]
+    : [];
+
+  const today = dashboard?.today;
+  const todayHasAnything =
+    !!today &&
+    (today.birthdays.length > 0 ||
+      today.anniversaries.length > 0 ||
+      today.returningFromLeave.length > 0);
 
   return (
     <div className="space-y-6 p-3 sm:p-6">
@@ -141,6 +269,98 @@ export default function HrHub() {
         )}
       </div>
 
+      {/* Dashboard summary cards */}
+      {dashboardError && (
+        <div className="p-4 rounded-lg border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 text-sm text-rose-700 dark:text-rose-300">
+          We couldn't load the HR dashboard summary. The module tiles below still work — please try again in a moment.
+        </div>
+      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {dashboardLoading
+          ? Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm"
+              >
+                <Skeleton className="h-8 w-8 rounded-lg mb-3" />
+                <Skeleton className="h-6 w-16 mb-2" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+            ))
+          : dashboard ? cards.map((c) => {
+              const Icon = c.icon;
+              return (
+                <Link
+                  key={c.label}
+                  href={c.href}
+                  className="group block p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                  data-testid={`card-${c.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <div className={`p-2 rounded-lg ${c.iconBg}`}>
+                      <Icon className={`w-4 h-4 ${c.iconText}`} />
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-variable opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </div>
+                  <p className="text-2xl font-bold text-fixed leading-tight">{c.value}</p>
+                  <p className="text-xs text-variable mt-1">{c.label}</p>
+                  {c.detail && (
+                    <p className="text-xs text-variable mt-2 leading-snug">{c.detail}</p>
+                  )}
+                </Link>
+              );
+            }) : null}
+      </div>
+
+      {/* Today panel */}
+      {dashboard && (
+        <GlassCard className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Sunrise className="w-4 h-4 text-indigo-500" />
+            <h3 className="text-sm font-semibold text-fixed">Today</h3>
+            <span className="text-xs text-variable">
+              {(dashboard.today_date ? new Date(dashboard.today_date + "T00:00:00") : new Date())
+                .toLocaleDateString(undefined, {
+                  weekday: "long",
+                  day: "numeric",
+                  month: "long",
+                })}
+            </span>
+          </div>
+          {todayHasAnything ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <TodaySection
+                icon={Cake}
+                colour="text-pink-500"
+                title="Birthdays"
+                empty="No birthdays today"
+                items={today!.birthdays.map((b) => b.name)}
+              />
+              <TodaySection
+                icon={PartyPopper}
+                colour="text-amber-500"
+                title="Work anniversaries"
+                empty="No anniversaries today"
+                items={today!.anniversaries.map(
+                  (a) => `${a.name} (${a.years} yr${a.years === 1 ? "" : "s"})`
+                )}
+              />
+              <TodaySection
+                icon={UserCheck}
+                colour="text-emerald-500"
+                title="Returning from leave"
+                empty="No one returning today"
+                items={today!.returningFromLeave.map((r) => r.name)}
+              />
+            </div>
+          ) : (
+            <p className="text-sm text-variable italic">
+              Nothing notable today — no birthdays, anniversaries or returning leave.
+            </p>
+          )}
+        </GlassCard>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {HR_MODULES.map((mod) => {
           const Icon = mod.icon;
@@ -178,6 +398,38 @@ export default function HrHub() {
           </span>
         </div>
       </GlassCard>
+    </div>
+  );
+}
+
+function TodaySection({
+  icon: Icon,
+  colour,
+  title,
+  empty,
+  items,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  colour: string;
+  title: string;
+  empty: string;
+  items: string[];
+}) {
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1.5">
+        <Icon className={`w-4 h-4 ${colour}`} />
+        <span className="text-xs font-medium text-fixed">{title}</span>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-xs text-variable italic">{empty}</p>
+      ) : (
+        <ul className="text-xs text-variable space-y-0.5">
+          {items.map((it) => (
+            <li key={it}>{it}</li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
