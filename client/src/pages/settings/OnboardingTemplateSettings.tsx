@@ -46,13 +46,20 @@ export default function OnboardingTemplateSettings() {
   useEffect(() => { setDirty(false); }, [selectedId]);
 
   const isBuiltin = selectedId === BUILTIN_ID || template?.is_builtin;
+  const canDelete = !isBuiltin;
 
   const save = useMutation({
-    mutationFn: () => apiRequest("PUT", `/api/onboarding/templates/${selectedId}`, { name, items, is_default: isDefault }),
-    onSuccess: () => {
+    mutationFn: () => apiRequest("PUT", `/api/onboarding/templates/${selectedId}`, { name, items, is_default: isDefault || selectedId === BUILTIN_ID }),
+    onSuccess: async (res: any) => {
+      const data = await res.json().catch(() => ({}));
       setDirty(false);
       qc.invalidateQueries({ queryKey: ["/api/onboarding/templates"] });
-      toast({ title: "Template saved" });
+      if (data?.materialized && data?.id) {
+        setSelectedId(data.id);
+        toast({ title: "Default template saved", description: "Built-in default has been copied into your customer settings and is now editable." });
+      } else {
+        toast({ title: "Template saved" });
+      }
     },
     onError: (e: any) => toast({ title: "Error", description: e?.message || "Failed to save", variant: "destructive" }),
   });
@@ -127,7 +134,7 @@ export default function OnboardingTemplateSettings() {
           <Button variant="outline" onClick={() => setNewDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-1" /> New template
           </Button>
-          {!isBuiltin && (
+          {canDelete && (
             <Button variant="outline" className="text-red-600" onClick={() => {
               if (confirm("Delete this template? Existing checklists are not affected.")) remove.mutate();
             }} disabled={remove.isPending}>
@@ -144,15 +151,13 @@ export default function OnboardingTemplateSettings() {
           <CardHeader className="py-3">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex-1 min-w-[240px]">
+                <Input value={name} onChange={e => { setName(e.target.value); setDirty(true); }}
+                  placeholder="Template name" className="font-semibold" />
                 {isBuiltin ? (
-                  <CardTitle className="text-base flex items-center gap-2">
-                    {name} <Badge className="bg-blue-100 text-blue-700">Built-in default</Badge>
-                  </CardTitle>
+                  <p className="text-xs text-blue-700 mt-2 flex items-center gap-1">
+                    <Copy className="h-3 w-3" /> Editing the built-in default — saving creates an editable copy saved as your default.
+                  </p>
                 ) : (
-                  <Input value={name} onChange={e => { setName(e.target.value); setDirty(true); }}
-                    placeholder="Template name" className="font-semibold" />
-                )}
-                {!isBuiltin && (
                   <label className="text-xs flex items-center gap-1 mt-2 text-gray-600">
                     <input type="checkbox" checked={isDefault}
                       onChange={e => { setIsDefault(e.target.checked); setDirty(true); }} />
@@ -160,16 +165,11 @@ export default function OnboardingTemplateSettings() {
                   </label>
                 )}
               </div>
-              <Button onClick={() => save.mutate()} disabled={!dirty || isBuiltin || save.isPending}>
+              <Button onClick={() => save.mutate()} disabled={!dirty || save.isPending}>
                 {save.isPending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
                 Save
               </Button>
             </div>
-            {isBuiltin && (
-              <p className="text-xs text-gray-500 mt-2 flex items-center gap-1">
-                <Copy className="h-3 w-3" /> Built-in template is read-only. Use "New template" to create an editable copy.
-              </p>
-            )}
             <p className="text-xs text-gray-500 mt-1">
               "Due day" is how many days after the start date the item is due. Negative = before start. Required items must be completed to finish onboarding.
             </p>
@@ -185,34 +185,32 @@ export default function OnboardingTemplateSettings() {
             {items.map((it, idx) => (
               <div key={idx} className="grid grid-cols-12 gap-2 items-center p-2 border rounded bg-gray-50">
                 <div className="col-span-1 flex flex-col items-center text-gray-400">
-                  <button className="hover:text-blue-600 disabled:opacity-30" onClick={() => move(idx, -1)} disabled={idx === 0 || isBuiltin}><ArrowUp className="h-3 w-3" /></button>
-                  <button className="hover:text-blue-600 disabled:opacity-30" onClick={() => move(idx, 1)} disabled={idx === items.length - 1 || isBuiltin}><ArrowDown className="h-3 w-3" /></button>
+                  <button className="hover:text-blue-600 disabled:opacity-30" onClick={() => move(idx, -1)} disabled={idx === 0}><ArrowUp className="h-3 w-3" /></button>
+                  <button className="hover:text-blue-600 disabled:opacity-30" onClick={() => move(idx, 1)} disabled={idx === items.length - 1}><ArrowDown className="h-3 w-3" /></button>
                 </div>
                 <Input
-                  className="col-span-6 h-8 text-sm" value={it.label} disabled={isBuiltin}
+                  className="col-span-6 h-8 text-sm" value={it.label}
                   onChange={e => update(idx, { label: e.target.value })} placeholder="Item label"
                 />
                 <Input
-                  type="number" className="col-span-2 h-8 text-sm text-center" disabled={isBuiltin}
+                  type="number" className="col-span-2 h-8 text-sm text-center"
                   value={it.due_day_offset ?? ""}
                   onChange={e => update(idx, { due_day_offset: e.target.value === "" ? null : Number(e.target.value) })}
                   placeholder="0"
                 />
                 <div className="col-span-2 flex justify-center">
-                  <input type="checkbox" checked={it.is_required !== false} disabled={isBuiltin}
+                  <input type="checkbox" checked={it.is_required !== false}
                     onChange={e => update(idx, { is_required: e.target.checked })} />
                 </div>
                 <Button variant="ghost" size="sm" className="col-span-1 h-7 w-7 p-0 text-gray-400 hover:text-red-600"
-                  onClick={() => removeItem(idx)} disabled={isBuiltin}>
+                  onClick={() => removeItem(idx)}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
             ))}
-            {!isBuiltin && (
-              <Button variant="ghost" size="sm" className="text-blue-600 h-7" onClick={addItem}>
-                <Plus className="h-3 w-3 mr-1" /> Add item
-              </Button>
-            )}
+            <Button variant="ghost" size="sm" className="text-blue-600 h-7" onClick={addItem}>
+              <Plus className="h-3 w-3 mr-1" /> Add item
+            </Button>
           </CardContent>
         </Card>
       )}

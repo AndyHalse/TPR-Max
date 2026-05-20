@@ -187,7 +187,8 @@ export function registerHrOnboardingRoutes(app: Express): void {
            GROUP BY oc.id, s.contract_start_date
          )
          SELECT
-           (SELECT COUNT(*) FROM "${schemaName}".staff s2
+           (SELECT COUNT(*) FROM "${schemaName}".onboarding_checklists oc2
+              JOIN "${schemaName}".staff s2 ON s2.id = oc2.staff_id
              WHERE s2.is_active = TRUE
                AND s2.contract_start_date IS NOT NULL
                AND date_trunc('month', s2.contract_start_date) = date_trunc('month', NOW())
@@ -301,15 +302,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,TRUE,'staff')
          RETURNING id`,
         [req.customerId!, firstName, lastName, email, department || 'General', jobTitle || null, empId, contractStartDate]
-      ).catch(async () => {
-        return await pool.query(
-          `INSERT INTO "${schemaName}".staff
-             (customer_id, first_name, last_name, email, department, job_title, employee_id, is_active, access_level)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE,'staff')
-           RETURNING id`,
-          [req.customerId!, firstName, lastName, email, department || 'General', jobTitle || null, empId]
-        );
-      });
+      );
       const newStaffId = inserted.rows[0].id;
       const checklistId = await createOnboardingChecklist(req.customerId!, newStaffId, templateId);
       res.json({ success: true, staffId: newStaffId, checklistId });
@@ -415,14 +408,34 @@ export function registerHrOnboardingRoutes(app: Express): void {
     }
   });
 
-  // PUT /api/onboarding/templates/:id — replace items / rename / set default
+  // PUT /api/onboarding/templates/:id — replace items / rename / set default.
+  // Editing the built-in transparently materialises a tenant-owned default set.
   app.put('/api/onboarding/templates/:id', requireAuth, requireAdmin, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
-      const id = req.params.id;
+      let id = req.params.id;
       const { name, items, is_default } = req.body as { name?: string; items: any[]; is_default?: boolean };
-      if (id === BUILTIN_DEFAULT_SET.id) return res.status(400).json({ error: 'Built-in default cannot be edited. Create a copy.' });
       if (!Array.isArray(items)) return res.status(400).json({ error: 'items array required' });
+
+      if (id === BUILTIN_DEFAULT_SET.id) {
+        await pool.query(`UPDATE "${schemaName}".onboarding_template_sets SET is_default = FALSE WHERE is_default = TRUE`);
+        const ins = await pool.query(
+          `INSERT INTO "${schemaName}".onboarding_template_sets (name, is_default) VALUES ($1, TRUE) RETURNING id`,
+          [name?.trim() || BUILTIN_DEFAULT_SET.name]
+        );
+        id = ins.rows[0].id;
+        for (let i = 0; i < items.length; i++) {
+          const it = items[i];
+          if (!it.label?.trim()) continue;
+          await pool.query(
+            `INSERT INTO "${schemaName}".onboarding_templates
+               (item_key, label, display_order, is_active, due_day_offset, is_required, template_set_id)
+             VALUES ($1,$2,$3,TRUE,$4,$5,$6)`,
+            [it.item_key || `tpl_${Date.now()}_${i}`, it.label, i, it.due_day_offset ?? null, it.is_required !== false, id]
+          );
+        }
+        return res.json({ success: true, id, materialized: true });
+      }
 
       if (is_default) {
         await pool.query(`UPDATE "${schemaName}".onboarding_template_sets SET is_default = FALSE WHERE id <> $1`, [id]);
