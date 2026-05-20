@@ -67,6 +67,18 @@ async function ensureTables(custDb: any, schemaName: string) {
     uploaded_by_id VARCHAR, uploaded_by_name TEXT,
     uploaded_at TIMESTAMP DEFAULT NOW()
   )`);
+  await custDb.execute(`CREATE TABLE IF NOT EXISTS ${schemaName}.ptw_company_documents (
+    id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+    document_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    notes TEXT,
+    file_url TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    expiry_date TEXT,
+    uploaded_by_id VARCHAR, uploaded_by_name TEXT,
+    uploaded_at TIMESTAMP DEFAULT NOW(),
+    replaced_at TIMESTAMP
+  )`);
 }
 
 async function generatePermitNumber(custDb: any, year: number): Promise<string> {
@@ -164,6 +176,121 @@ export function registerPermitToWorkRoutes(app: Express): void {
     } catch (err) {
       logger.error('POST /api/ptw', err);
       res.status(500).json({ error: 'Failed to create permit' });
+    }
+  });
+
+  // ─── Company compliance documents ────────────────────────────────────────────
+
+  function calcDocStatus(expiryDate: string | null): string {
+    if (!expiryDate) return 'valid';
+    const expiry = new Date(expiryDate);
+    const now = new Date();
+    const in30 = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    if (expiry < now) return 'expired';
+    if (expiry <= in30) return 'expiring_soon';
+    return 'valid';
+  }
+
+  app.get('/api/ptw/company-documents', requireAuth, requirePermitToWorkFeature, async (req, res) => {
+    try {
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureTables(custDb, schemaName);
+      const rows = await custDb.execute(`SELECT * FROM ${schemaName}.ptw_company_documents ORDER BY uploaded_at DESC`);
+      const docs = (rows.rows || rows).map((d: any) => ({ ...d, status: calcDocStatus(d.expiry_date) }));
+      res.json(docs);
+    } catch (err) {
+      logger.error('GET /api/ptw/company-documents', err);
+      res.status(500).json({ error: 'Failed to fetch company documents' });
+    }
+  });
+
+  app.post('/api/ptw/company-documents', requireAuth, requirePermitToWorkFeature, upload.single('file'), async (req: any, res) => {
+    try {
+      if (req.user!.role !== 'admin' && req.user!.role !== 'manager') {
+        return res.status(403).json({ error: 'Only managers or admins can upload company documents.' });
+      }
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      await ensureTables(custDb, schemaName);
+
+      const { documentType, title, notes, expiryDate } = req.body;
+      if (!documentType || !title) return res.status(400).json({ error: 'Document type and title are required.' });
+
+      let fileUrl = req.body.fileUrl || '';
+      let fileName = req.body.fileName || '';
+      if (req.file) {
+        fileName = req.file.originalname;
+        const objectKey = `ptw-company-docs/${req.customerId}/${documentType}-${Date.now()}_${fileName}`;
+        fileUrl = await objectStorage.uploadObject(objectKey, req.file.buffer, req.file.mimetype);
+      }
+      if (!fileUrl || !fileName) return res.status(400).json({ error: 'File is required.' });
+
+      const uploadedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
+      const result = await custDb.execute(
+        `INSERT INTO ${schemaName}.ptw_company_documents (id, document_type, title, notes, file_url, file_name, expiry_date, uploaded_by_id, uploaded_by_name, uploaded_at)
+         VALUES (gen_random_uuid()::text, $1, $2, $3, $4, $5, $6, $7, $8, NOW()) RETURNING *`,
+        [documentType, title, notes || null, fileUrl, fileName, expiryDate || null, req.user!.id, uploadedByName]
+      );
+      const doc = (result.rows || result)[0];
+      res.status(201).json({ ...doc, status: calcDocStatus(doc.expiry_date) });
+    } catch (err) {
+      logger.error('POST /api/ptw/company-documents', err);
+      res.status(500).json({ error: 'Failed to upload company document' });
+    }
+  });
+
+  app.patch('/api/ptw/company-documents/:docId/replace', requireAuth, requirePermitToWorkFeature, upload.single('file'), async (req: any, res) => {
+    try {
+      if (req.user!.role !== 'admin' && req.user!.role !== 'manager') {
+        return res.status(403).json({ error: 'Only managers or admins can replace company documents.' });
+      }
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      const { docId } = req.params;
+
+      const existing = await custDb.execute(`SELECT * FROM ${schemaName}.ptw_company_documents WHERE id = $1`, [docId]);
+      const existingDoc = (existing.rows || existing)[0];
+      if (!existingDoc) return res.status(404).json({ error: 'Document not found.' });
+
+      const { notes, expiryDate } = req.body;
+      let fileUrl = existingDoc.file_url;
+      let fileName = existingDoc.file_name;
+      if (req.file) {
+        fileName = req.file.originalname;
+        const objectKey = `ptw-company-docs/${req.customerId}/${existingDoc.document_type}-${Date.now()}_${fileName}`;
+        fileUrl = await objectStorage.uploadObject(objectKey, req.file.buffer, req.file.mimetype);
+      }
+
+      const uploadedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
+      const result = await custDb.execute(
+        `UPDATE ${schemaName}.ptw_company_documents
+         SET file_url = $1, file_name = $2, notes = $3, expiry_date = $4,
+             uploaded_by_id = $5, uploaded_by_name = $6, replaced_at = NOW()
+         WHERE id = $7 RETURNING *`,
+        [fileUrl, fileName, notes || null, expiryDate || null, req.user!.id, uploadedByName, docId]
+      );
+      const doc = (result.rows || result)[0];
+      res.json({ ...doc, status: calcDocStatus(doc.expiry_date) });
+    } catch (err) {
+      logger.error('PATCH /api/ptw/company-documents/:docId/replace', err);
+      res.status(500).json({ error: 'Failed to replace company document' });
+    }
+  });
+
+  app.delete('/api/ptw/company-documents/:docId', requireAuth, requirePermitToWorkFeature, async (req, res) => {
+    try {
+      if (req.user!.role !== 'admin' && req.user!.role !== 'manager') {
+        return res.status(403).json({ error: 'Only managers or admins can delete company documents.' });
+      }
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      const { docId } = req.params;
+      await custDb.execute(`DELETE FROM ${schemaName}.ptw_company_documents WHERE id = $1`, [docId]);
+      res.json({ success: true });
+    } catch (err) {
+      logger.error('DELETE /api/ptw/company-documents/:docId', err);
+      res.status(500).json({ error: 'Failed to delete company document' });
     }
   });
 
