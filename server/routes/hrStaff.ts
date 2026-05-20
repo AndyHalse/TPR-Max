@@ -45,7 +45,7 @@ export function registerHrStaffRoutes(app: Express): void {
 
       const noManager: any[] = [];
       const inactiveManager: any[] = [];
-      const circularChains: string[][] = [];
+      const circularChains: Array<Array<{ id: string; name: string }>> = [];
 
       // Fetch any referenced manager that's not in active set (could be inactive/leaver)
       const referencedMgrIds = Array.from(new Set(rows.map(r => r.line_manager_id).filter(Boolean)));
@@ -98,7 +98,7 @@ export function registerHrStaffRoutes(app: Express): void {
               seenCycles.add(key);
               circularChains.push(cycleIds.map(id => {
                 const s = byId.get(id);
-                return s ? `${s.first_name} ${s.last_name}` : id;
+                return { id, name: s ? `${s.first_name} ${s.last_name}` : id };
               }));
             }
             cycleIds.forEach(id => visited.add(id));

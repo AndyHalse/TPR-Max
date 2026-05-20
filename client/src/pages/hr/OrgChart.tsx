@@ -21,7 +21,7 @@ type StaffNode = {
 type ValidationData = {
   noManager: Array<{ id: string; name: string }>;
   inactiveManager: Array<{ id: string; name: string; managerId: string; managerName: string | null }>;
-  circular: string[][];
+  circular: Array<Array<{ id: string; name: string }>>;
   totals: { noManager: number; inactiveManager: number; circular: number };
 };
 
@@ -138,18 +138,17 @@ export default function OrgChart() {
         const arr = childrenByMgr.get(s.line_manager_id!) || [];
         arr.push(s);
         childrenByMgr.set(s.line_manager_id!, arr);
-      } else if (!s.line_manager_id || !byId.has(s.line_manager_id || "")) {
-        // No manager, or manager not in active staff → could be a real root or orphan.
-        // Treat as root only if they themselves are managers (have reports); otherwise unassigned.
-        // We delay this decision until after the children map is built.
+      } else if (!s.line_manager_id) {
+        // Genuinely top-level: no manager assigned.
         roots.push(s);
       } else {
-        // Member of a cycle — show in unassigned to break the cycle visually.
+        // Manager missing/inactive or this staff is part of a cycle → unassigned.
         unassigned.push(s);
       }
     }
 
-    // Sort: people with reports first (true roots), then alphabetical
+    // Real roots = top-level staff with at least one direct report.
+    // Top-level staff with NO reports are also unassigned (no place in the chart).
     const realRoots: StaffNode[] = [];
     for (const r of roots) {
       const hasReports = (childrenByMgr.get(r.id) || []).length > 0;
@@ -248,10 +247,22 @@ export default function OrgChart() {
             {validation.totals.circular > 0 && (
               <div>
                 <div className="font-medium text-amber-900 flex items-center gap-1"><Repeat className="h-4 w-4" /> {validation.totals.circular} circular reference{validation.totals.circular === 1 ? "" : "s"} detected</div>
-                <div className="space-y-1 mt-1">
+                <div className="space-y-2 mt-1">
                   {validation.circular.map((chain, i) => (
-                    <div key={i} className="text-xs text-amber-900 bg-white border border-amber-200 rounded px-2 py-1">
-                      {chain.join(" → ")} → {chain[0]}
+                    <div key={i} className="text-xs bg-white border border-amber-200 rounded px-2 py-1 flex flex-wrap items-center gap-1">
+                      {chain.map((member, idx) => (
+                        <span key={member.id} className="flex items-center gap-1">
+                          <button
+                            onClick={() => scrollToStaff(member.id)}
+                            className="px-2 py-0.5 rounded bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-900"
+                          >
+                            {member.name}
+                          </button>
+                          {idx < chain.length - 1 && <span className="text-amber-700">→</span>}
+                        </span>
+                      ))}
+                      <span className="text-amber-700">→</span>
+                      <span className="text-amber-700 italic">{chain[0].name}</span>
                     </div>
                   ))}
                 </div>
