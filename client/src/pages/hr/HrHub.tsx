@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import GlassCard from "@/components/GlassCard";
 import { useQuery } from "@tanstack/react-query";
 
@@ -15,6 +16,7 @@ const HR_MODULES = [
     icon: Network,
     label: "Org Chart",
     description: "Reporting structure & team hierarchy",
+    tooltip: "Visualise your whole company — who reports to whom, departments, and vacant roles. Click any person to jump to their HR profile.",
     color: "blue",
     bg: "bg-blue-100 dark:bg-blue-900/40",
     text: "text-blue-600 dark:text-blue-400",
@@ -26,6 +28,7 @@ const HR_MODULES = [
     icon: Calendar,
     label: "Leave Calendar",
     description: "Approve & track annual and sick leave",
+    tooltip: "See who's off and when. Approve or decline annual leave, sickness, and other absence in one place — with conflict warnings if too many staff are off together.",
     color: "green",
     bg: "bg-green-100 dark:bg-green-900/40",
     text: "text-green-600 dark:text-green-400",
@@ -37,6 +40,7 @@ const HR_MODULES = [
     icon: BookOpen,
     label: "Training Matrix",
     description: "Compliance training & certification tracking",
+    tooltip: "Every staff member's mandatory training and certifications in one grid. Warns you 30 days before anything expires so nothing lapses.",
     color: "purple",
     bg: "bg-purple-100 dark:bg-purple-900/40",
     text: "text-purple-600 dark:text-purple-400",
@@ -48,6 +52,7 @@ const HR_MODULES = [
     icon: Activity,
     label: "Absence Overview",
     description: "Bradford Factor scoring & absence trends",
+    tooltip: "Track sickness patterns using the Bradford Factor — a recognised UK HR scoring system that flags frequent short absences. Spot trends before they become a problem.",
     color: "red",
     bg: "bg-red-100 dark:bg-red-900/40",
     text: "text-red-600 dark:text-red-400",
@@ -59,6 +64,7 @@ const HR_MODULES = [
     icon: CheckSquare,
     label: "Onboarding",
     description: "New starter checklists & progress tracking",
+    tooltip: "Standardised checklist for every new starter — Right to Work, contract signed, IT setup, induction, first-day welcome. Nothing gets forgotten.",
     color: "teal",
     bg: "bg-teal-100 dark:bg-teal-900/40",
     text: "text-teal-600 dark:text-teal-400",
@@ -70,6 +76,7 @@ const HR_MODULES = [
     icon: LogOut,
     label: "Leavers",
     description: "Offboarding process & access deactivation",
+    tooltip: "Manage offboarding properly — exit interview, return of equipment, final pay, and automatic deactivation of building access and system logins on the leave date.",
     color: "orange",
     bg: "bg-orange-100 dark:bg-orange-900/40",
     text: "text-orange-600 dark:text-orange-400",
@@ -81,6 +88,7 @@ const HR_MODULES = [
     icon: Star,
     label: "Appraisals",
     description: "Performance reviews & objectives tracking",
+    tooltip: "Schedule and run performance reviews. Set objectives, capture line-manager and self-assessments, and keep a permanent record on each staff profile.",
     color: "amber",
     bg: "bg-amber-100 dark:bg-amber-900/40",
     text: "text-amber-600 dark:text-amber-400",
@@ -92,6 +100,7 @@ const HR_MODULES = [
     icon: Download,
     label: "Payroll Export",
     description: "Export to Sage, Xero & BrightPay formats",
+    tooltip: "Generate a payroll-ready file for your accountant. One-click export in Sage, Xero or BrightPay format including hours, overtime, absence and statutory deductions.",
     color: "indigo",
     bg: "bg-indigo-100 dark:bg-indigo-900/40",
     text: "text-indigo-600 dark:text-indigo-400",
@@ -99,6 +108,17 @@ const HR_MODULES = [
     hover: "hover:bg-indigo-50 dark:hover:bg-indigo-900/20",
   },
 ];
+
+const CARD_TOOLTIPS: Record<string, string> = {
+  "Active staff": "Total number of currently employed staff (excludes leavers and pending starters). Click to open the full staff directory.",
+  "On leave today": "Staff currently on any form of approved leave today — annual, sick, parental, compassionate, etc.",
+  "Starting this month": "New starters whose start date falls within the current calendar month. Use this to make sure onboarding tasks are on track.",
+  "Leavers this month": "Staff whose last working day falls within the current calendar month — make sure offboarding is complete.",
+  "Onboarding in progress": "New starters with onboarding tasks that aren't yet ticked off. Click to see what's outstanding for each person.",
+  "Training expiring (30 days)": "Mandatory training and certifications that will expire within the next 30 days. Renew before they lapse to stay compliant.",
+  "Appraisals due (30 days)": "Performance reviews scheduled to take place within the next 30 days.",
+  "Pending leave approvals": "Leave requests that line managers still need to approve or decline.",
+};
 
 type DashboardResp = {
   today_date?: string;
@@ -255,6 +275,7 @@ export default function HrHub() {
       today.returningFromLeave.length > 0);
 
   return (
+    <TooltipProvider delayDuration={200}>
     <div className="space-y-6 p-3 sm:p-6">
       <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3 mb-2">
         <span className="text-amber-600 text-lg">⚠️</span>
@@ -313,7 +334,8 @@ export default function HrHub() {
             ))
           : dashboard ? cards.map((c) => {
               const Icon = c.icon;
-              return (
+              const tip = CARD_TOOLTIPS[c.label];
+              const card = (
                 <Link
                   key={c.label}
                   href={c.href}
@@ -333,6 +355,12 @@ export default function HrHub() {
                   )}
                 </Link>
               );
+              return tip ? (
+                <Tooltip key={c.label}>
+                  <TooltipTrigger asChild>{card}</TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs text-xs leading-snug">{tip}</TooltipContent>
+                </Tooltip>
+              ) : card;
             }) : null}
       </div>
 
@@ -389,20 +417,25 @@ export default function HrHub() {
         {HR_MODULES.map((mod) => {
           const Icon = mod.icon;
           return (
-            <button
-              key={mod.path}
-              onClick={() => navigate(mod.path)}
-              className={`group text-left w-full p-5 rounded-xl border ${mod.border} ${mod.hover} bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400`}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <div className={`p-2.5 rounded-lg ${mod.bg}`}>
-                  <Icon className={`w-5 h-5 ${mod.text}`} />
-                </div>
-                <ArrowRight className={`w-4 h-4 ${mod.text} opacity-0 group-hover:opacity-100 transition-opacity mt-0.5`} />
-              </div>
-              <h3 className="font-semibold text-fixed mb-1">{mod.label}</h3>
-              <p className="text-xs text-variable leading-relaxed">{mod.description}</p>
-            </button>
+            <Tooltip key={mod.path}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => navigate(mod.path)}
+                  className={`group text-left w-full p-5 rounded-xl border ${mod.border} ${mod.hover} bg-white/60 dark:bg-slate-800/60 backdrop-blur-sm transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400`}
+                  data-testid={`module-${mod.label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className={`p-2.5 rounded-lg ${mod.bg}`}>
+                      <Icon className={`w-5 h-5 ${mod.text}`} />
+                    </div>
+                    <ArrowRight className={`w-4 h-4 ${mod.text} opacity-0 group-hover:opacity-100 transition-opacity mt-0.5`} />
+                  </div>
+                  <h3 className="font-semibold text-fixed mb-1">{mod.label}</h3>
+                  <p className="text-xs text-variable leading-relaxed">{mod.description}</p>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-xs leading-snug">{mod.tooltip}</TooltipContent>
+            </Tooltip>
           );
         })}
       </div>
@@ -423,6 +456,7 @@ export default function HrHub() {
         </div>
       </GlassCard>
     </div>
+    </TooltipProvider>
   );
 }
 
