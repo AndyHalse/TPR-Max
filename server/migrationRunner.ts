@@ -309,6 +309,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addAiKeyColumnsMigration,
     addInductionSettingsColumnsMigration,
     addHrModuleFeatureToggleMigration,
+    patchLoneWorkerColumnsMigration,
     addSsoCredentialsMigration,
     {
       version: '20260513_047_add_sso_fields',
@@ -2423,5 +2424,54 @@ const addHrModuleFeatureToggleMigration: Migration = {
     } catch (err: any) {
       logger.info(`⚠️ [052] feature_hr_module column: ${err.message?.substring(0, 80)}`);
     }
+  }
+};
+
+const patchLoneWorkerColumnsMigration: Migration = {
+  version: '20260521_053_patch_lone_worker_columns',
+  description: 'Remediation: ensure lone worker columns exist on staff, contractor_workers and company_settings (re-applies 033 ADD COLUMN IF NOT EXISTS safely)',
+  async up(db: any) {
+    const staffCols = [
+      { name: 'is_lone_worker', def: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'lone_worker_since', def: 'TIMESTAMP' },
+      { name: 'lone_worker_deadline', def: 'TIMESTAMP' },
+      { name: 'lone_worker_escalation_level', def: 'INTEGER DEFAULT 0' },
+    ];
+    for (const col of staffCols) {
+      try {
+        await db.execute(`ALTER TABLE staff ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+        logger.info(`✅ [053] staff.${col.name} ensured`);
+      } catch (err: any) {
+        logger.info(`⚠️ [053] staff.${col.name}: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    for (const col of staffCols) {
+      try {
+        await db.execute(`ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+        logger.info(`✅ [053] contractor_workers.${col.name} ensured`);
+      } catch (err: any) {
+        logger.info(`⚠️ [053] contractor_workers.${col.name}: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    const settingsCols = [
+      { name: 'lone_worker_enabled', def: 'BOOLEAN DEFAULT FALSE' },
+      { name: 'lone_worker_check_interval_mins', def: 'INTEGER DEFAULT 30' },
+      { name: 'lone_worker_grace_period_mins', def: 'INTEGER DEFAULT 10' },
+      { name: 'lone_worker_l1_name', def: "TEXT DEFAULT ''" },
+      { name: 'lone_worker_l1_email', def: "TEXT DEFAULT ''" },
+      { name: 'lone_worker_l2_name', def: "TEXT DEFAULT ''" },
+      { name: 'lone_worker_l2_email', def: "TEXT DEFAULT ''" },
+      { name: 'lone_worker_l2_delay_mins', def: 'INTEGER DEFAULT 15' },
+      { name: 'lone_worker_l3_delay_mins', def: 'INTEGER DEFAULT 30' },
+    ];
+    for (const col of settingsCols) {
+      try {
+        await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+        logger.info(`✅ [053] company_settings.${col.name} ensured`);
+      } catch (err: any) {
+        logger.info(`⚠️ [053] company_settings.${col.name}: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    logger.info('✅ [053] Lone worker column remediation complete');
   }
 };
