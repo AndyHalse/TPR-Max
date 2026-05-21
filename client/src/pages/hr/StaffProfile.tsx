@@ -15,10 +15,64 @@ import { apiRequest } from "@/lib/queryClient";
 import {
   User, ArrowLeft, Shield, BookOpen, Calendar, Activity,
   FileText, CheckSquare, LogOut, Star, Briefcase, Phone,
-  AlertTriangle, ChevronRight, Plus, Clock, CheckCircle, XCircle, Loader2
+  AlertTriangle, ChevronRight, Plus, Clock, CheckCircle, XCircle, Loader2, Upload
 } from "lucide-react";
 import LeaverDetail from "./LeaverDetail";
 import StaffDbsTab from "@/components/StaffDbsTab";
+
+function FileUploadField({ value, fileName, onUploaded, onClear }: {
+  value?: string;
+  fileName?: string;
+  onUploaded: (url: string, name: string) => void;
+  onClear: () => void;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64 = (reader.result as string).split(',')[1];
+          const res = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type }) as any;
+          onUploaded(res.objectPath, file.name);
+        } catch {
+          toast({ title: "Upload failed", variant: "destructive" });
+        } finally {
+          setUploading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      toast({ title: "Upload failed", variant: "destructive" });
+      setUploading(false);
+    }
+  };
+
+  if (value) {
+    return (
+      <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+        <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+        <a href={value} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline truncate flex-1">{fileName || "View file"}</a>
+        <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-600 h-6 px-2 text-xs flex-shrink-0" onClick={onClear}>Remove</Button>
+      </div>
+    );
+  }
+
+  return (
+    <label className="cursor-pointer block">
+      <input type="file" className="hidden" onChange={handleFile} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif" />
+      <div className={`flex items-center gap-2 p-2 border border-dashed border-gray-300 rounded-md hover:border-blue-400 hover:bg-blue-50 transition-colors ${uploading ? "opacity-60 pointer-events-none" : ""}`}>
+        {uploading ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> : <Upload className="h-4 w-4 text-gray-400" />}
+        <span className="text-sm text-gray-500">{uploading ? "Uploading…" : "Click to attach a file (PDF, Word, image)"}</span>
+      </div>
+    </label>
+  );
+}
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -132,7 +186,7 @@ function TrainingTab({ staffId }: { staffId: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ courseName: "", provider: "", completedDate: "", expiryDate: "", isMandatory: false, notes: "" });
+  const [form, setForm] = useState({ courseName: "", provider: "", completedDate: "", expiryDate: "", isMandatory: false, notes: "", documentUrl: "", documentName: "" });
 
   const { data: records = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/staff", staffId, "training"],
@@ -198,6 +252,15 @@ function TrainingTab({ staffId }: { staffId: string }) {
               <Label htmlFor="mandatory">Mandatory training</Label>
             </div>
             <div><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
+            <div>
+              <Label>Supporting Document</Label>
+              <FileUploadField
+                value={form.documentUrl}
+                fileName={form.documentName}
+                onUploaded={(url, name) => setForm(f => ({ ...f, documentUrl: url, documentName: name }))}
+                onClear={() => setForm(f => ({ ...f, documentUrl: "", documentName: "" }))}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
@@ -300,7 +363,7 @@ function AbsenceTab({ staffId }: { staffId: string }) {
   const { toast } = useToast();
   const [openRecord, setOpenRecord] = useState(false);
   const [openReturn, setOpenReturn] = useState<string | null>(null);
-  const [recordForm, setRecordForm] = useState({ absenceType: "sickness", startDate: "", reason: "" });
+  const [recordForm, setRecordForm] = useState({ absenceType: "sickness", startDate: "", reason: "", documentUrl: "", documentName: "" });
   const [returnForm, setReturnForm] = useState({ returnDate: "", returnToWorkNotes: "" });
 
   const { data, isLoading } = useQuery<any>({
@@ -382,6 +445,15 @@ function AbsenceTab({ staffId }: { staffId: string }) {
             </div>
             <div><Label>Start Date *</Label><Input type="date" value={recordForm.startDate} onChange={e => setRecordForm(f => ({ ...f, startDate: e.target.value }))} /></div>
             <div><Label>Reason</Label><Textarea value={recordForm.reason} onChange={e => setRecordForm(f => ({ ...f, reason: e.target.value }))} rows={2} /></div>
+            <div>
+              <Label>Supporting Document</Label>
+              <FileUploadField
+                value={recordForm.documentUrl}
+                fileName={recordForm.documentName}
+                onUploaded={(url, name) => setRecordForm(f => ({ ...f, documentUrl: url, documentName: name }))}
+                onClear={() => setRecordForm(f => ({ ...f, documentUrl: "", documentName: "" }))}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpenRecord(false)}>Cancel</Button>
@@ -411,7 +483,7 @@ function DocumentsTab({ staffId }: { staffId: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ documentType: "contract", title: "", fileUrl: "", fileName: "", isConfidential: false, expiryDate: "", notes: "" });
+  const [form, setForm] = useState({ documentType: "contract", title: "", fileUrl: "", fileName: "", isConfidential: false, expiryDate: "", notes: "", uploading: false });
 
   const { data: docs = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/staff", staffId, "documents"],
@@ -475,8 +547,15 @@ function DocumentsTab({ staffId }: { staffId: string }) {
               </Select>
             </div>
             <div><Label>Title *</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
-            <div><Label>File URL *</Label><Input value={form.fileUrl} onChange={e => setForm(f => ({ ...f, fileUrl: e.target.value }))} placeholder="https://..." /></div>
-            <div><Label>File Name *</Label><Input value={form.fileName} onChange={e => setForm(f => ({ ...f, fileName: e.target.value }))} /></div>
+            <div>
+              <Label>File *</Label>
+              <FileUploadField
+                value={form.fileUrl}
+                fileName={form.fileName}
+                onUploaded={(url, name) => setForm(f => ({ ...f, fileUrl: url, fileName: f.title || name ? f.title || name : name }))}
+                onClear={() => setForm(f => ({ ...f, fileUrl: "", fileName: "" }))}
+              />
+            </div>
             <div><Label>Expiry Date</Label><Input type="date" value={form.expiryDate} onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))} /></div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="confidential" checked={form.isConfidential} onChange={e => setForm(f => ({ ...f, isConfidential: e.target.checked }))} />
@@ -555,7 +634,7 @@ function AppraisalsTab({ staffId }: { staffId: string }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ reviewDate: "", reviewType: "annual", conductedBy: "", overallRating: "", summaryNotes: "", nextReviewDate: "" });
+  const [form, setForm] = useState({ reviewDate: "", reviewType: "annual", conductedBy: "", overallRating: "", summaryNotes: "", nextReviewDate: "", documentUrl: "", documentName: "" });
 
   const { data: appraisals = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/staff", staffId, "appraisals"],
@@ -627,6 +706,15 @@ function AppraisalsTab({ staffId }: { staffId: string }) {
             </div>
             <div><Label>Summary Notes</Label><Textarea value={form.summaryNotes} onChange={e => setForm(f => ({ ...f, summaryNotes: e.target.value }))} rows={3} /></div>
             <div><Label>Next Review Date</Label><Input type="date" value={form.nextReviewDate} onChange={e => setForm(f => ({ ...f, nextReviewDate: e.target.value }))} /></div>
+            <div>
+              <Label>Supporting Document</Label>
+              <FileUploadField
+                value={form.documentUrl}
+                fileName={form.documentName}
+                onUploaded={(url, name) => setForm(f => ({ ...f, documentUrl: url, documentName: name }))}
+                onClear={() => setForm(f => ({ ...f, documentUrl: "", documentName: "" }))}
+              />
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>

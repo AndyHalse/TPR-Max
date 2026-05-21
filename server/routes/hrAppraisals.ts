@@ -45,7 +45,7 @@ export function registerHrAppraisalRoutes(app: Express): void {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
-      const { reviewDate, reviewType = 'annual', conductedBy, overallRating, summaryNotes, nextReviewDate, objectives = [] } = req.body;
+      const { reviewDate, reviewType = 'annual', conductedBy, overallRating, summaryNotes, nextReviewDate, objectives = [], documentUrl, documentName } = req.body;
 
       if (!reviewDate || !conductedBy) {
         return res.status(400).json({ error: 'reviewDate and conductedBy are required' });
@@ -53,9 +53,10 @@ export function registerHrAppraisalRoutes(app: Express): void {
 
       const appraisal = await pool.query(
         `INSERT INTO "${schemaName}".appraisals
-          (staff_id, review_date, review_type, conducted_by, overall_rating, summary_notes, next_review_date)
-         VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-        [staffId, reviewDate, reviewType, conductedBy, overallRating || null, summaryNotes || null, nextReviewDate || null]
+          (staff_id, review_date, review_type, conducted_by, overall_rating, summary_notes, next_review_date, document_url, document_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING *`,
+        [staffId, reviewDate, reviewType, conductedBy, overallRating || null, summaryNotes || null, nextReviewDate || null,
+         documentUrl || null, documentName || null]
       );
 
       const appraisalId = appraisal.rows[0].id;

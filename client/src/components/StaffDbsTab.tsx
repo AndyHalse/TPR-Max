@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Plus, XCircle, Loader2, ShieldCheck, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Plus, XCircle, Loader2, ShieldCheck, AlertTriangle, ShieldAlert, Upload, FileText } from "lucide-react";
 
 const DBS_LEVELS: Record<string, string> = {
   basic: "Basic DBS Check",
@@ -38,6 +38,60 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function FileUploadField({ value, fileName, onUploaded, onClear }: {
+  value?: string;
+  fileName?: string;
+  onUploaded: (url: string, name: string) => void;
+  onClear: () => void;
+}) {
+  const { toast } = useToast();
+  const [uploading, setUploading] = useState(false);
+
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const base64 = (reader.result as string).split(',')[1];
+          const res = await apiRequest("POST", "/api/objects/upload", { data: base64, mimeType: file.type }) as any;
+          onUploaded(res.objectPath, file.name);
+        } catch {
+          toast({ title: "Upload failed", variant: "destructive" });
+        } finally {
+          setUploading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      toast({ title: "Upload failed", variant: "destructive" });
+      setUploading(false);
+    }
+  };
+
+  if (value) {
+    return (
+      <div className="flex items-center gap-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+        <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+        <a href={value} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 underline truncate flex-1">{fileName || "View file"}</a>
+        <Button size="sm" variant="ghost" className="text-red-400 hover:text-red-600 h-6 px-2 text-xs flex-shrink-0" onClick={onClear}>Remove</Button>
+      </div>
+    );
+  }
+
+  return (
+    <label className="cursor-pointer block">
+      <input type="file" className="hidden" onChange={handleFile} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif" />
+      <div className={`flex items-center gap-2 p-2 border border-dashed border-gray-300 rounded-md hover:border-blue-400 hover:bg-blue-50 transition-colors ${uploading ? "opacity-60 pointer-events-none" : ""}`}>
+        {uploading ? <Loader2 className="h-4 w-4 animate-spin text-gray-400" /> : <Upload className="h-4 w-4 text-gray-400" />}
+        <span className="text-sm text-gray-500">{uploading ? "Uploading…" : "Click to attach a file (PDF, Word, image)"}</span>
+      </div>
+    </label>
+  );
+}
+
 const EMPTY_FORM = {
   dbsLevel: "",
   certificateNumber: "",
@@ -48,6 +102,8 @@ const EMPTY_FORM = {
   verifiedBy: "",
   verifiedDate: "",
   notes: "",
+  documentUrl: "",
+  documentName: "",
 };
 
 export default function StaffDbsTab({ staffId }: { staffId: string }) {
@@ -206,6 +262,16 @@ export default function StaffDbsTab({ staffId }: { staffId: string }) {
             <div>
               <Label>Notes</Label>
               <Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} placeholder="Any additional information..." />
+            </div>
+
+            <div>
+              <Label>Certificate Document</Label>
+              <FileUploadField
+                value={form.documentUrl}
+                fileName={form.documentName}
+                onUploaded={(url, name) => setForm(f => ({ ...f, documentUrl: url, documentName: name }))}
+                onClear={() => setForm(f => ({ ...f, documentUrl: "", documentName: "" }))}
+              />
             </div>
 
             <p className="text-xs text-gray-400">

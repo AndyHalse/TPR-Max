@@ -34,14 +34,14 @@ export function registerHrAbsenceRoutes(app: Express): void {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
-      const { absenceType = 'sickness', startDate, reason } = req.body;
+      const { absenceType = 'sickness', startDate, reason, documentUrl, documentName } = req.body;
 
       if (!startDate) return res.status(400).json({ error: 'startDate is required' });
 
       const result = await pool.query(
-        `INSERT INTO "${schemaName}".absence_records (staff_id, absence_type, start_date, reason)
-         VALUES ($1,$2,$3,$4) RETURNING *`,
-        [staffId, absenceType, startDate, reason || null]
+        `INSERT INTO "${schemaName}".absence_records (staff_id, absence_type, start_date, reason, document_url, document_name)
+         VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+        [staffId, absenceType, startDate, reason || null, documentUrl || null, documentName || null]
       );
 
       await pool.query(

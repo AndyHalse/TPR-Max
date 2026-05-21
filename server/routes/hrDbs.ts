@@ -45,6 +45,7 @@ export function registerHrDbsRoutes(app: Express): void {
       const {
         dbsLevel, certificateNumber, applicationReference,
         issueDate, policyExpiryDate, requestedBy, verifiedBy, verifiedDate, notes,
+        documentUrl, documentName,
       } = req.body;
 
       if (!dbsLevel || !verifiedBy || !verifiedDate) {
@@ -59,8 +60,9 @@ export function registerHrDbsRoutes(app: Express): void {
       const result = await pool.query(
         `INSERT INTO "${schemaName}".staff_dbs
           (staff_id, dbs_level, certificate_number, application_reference,
-           issue_date, policy_expiry_date, requested_by, verified_by, verified_date, notes, is_current)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE)
+           issue_date, policy_expiry_date, requested_by, verified_by, verified_date, notes, is_current,
+           document_url, document_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,TRUE,$11,$12)
          RETURNING *,
            CASE
              WHEN policy_expiry_date IS NULL THEN 'no_expiry'
@@ -70,7 +72,8 @@ export function registerHrDbsRoutes(app: Express): void {
            END AS status`,
         [staffId, dbsLevel, certificateNumber || null, applicationReference || null,
          issueDate || null, policyExpiryDate || null, requestedBy || null,
-         verifiedBy, verifiedDate, notes || null]
+         verifiedBy, verifiedDate, notes || null,
+         documentUrl || null, documentName || null]
       );
 
       res.status(201).json(result.rows[0]);

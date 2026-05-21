@@ -658,6 +658,24 @@ export const createStaffDbsTableMigration: Migration = {
   }
 };
 
+const addHrDocumentAttachmentsMigration = {
+  version: '20260521_054_add_hr_document_attachments',
+  description: 'Add document_url and document_name columns to HR tables for file attachments',
+  async up(db: any) {
+    const tables = ['staff_training_records', 'absence_records', 'appraisals', 'staff_dbs'];
+    for (const table of tables) {
+      for (const col of ['document_url', 'document_name']) {
+        try {
+          await db.execute(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${col} TEXT`);
+        } catch (err: any) {
+          logger.info(`ℹ️ [054] ${table}.${col}: ${(err?.message || '').substring(0, 80)}`);
+        }
+      }
+    }
+    logger.info('✅ [054] HR document attachment columns ensured');
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -666,5 +684,6 @@ export const missingTablesMigrations = [
   createMembersTableMigration,
   ensureMembersTableProductionMigration,
   addStaffQrCodeColumnMigration,
-  createStaffDbsTableMigration
+  createStaffDbsTableMigration,
+  addHrDocumentAttachmentsMigration
 ];

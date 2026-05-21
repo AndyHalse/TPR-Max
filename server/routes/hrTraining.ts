@@ -46,7 +46,7 @@ export function registerHrTrainingRoutes(app: Express): void {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
-      const { courseName, provider, completedDate, expiryDate, isMandatory, mandatoryRole, notes } = req.body;
+      const { courseName, provider, completedDate, expiryDate, isMandatory, mandatoryRole, notes, documentUrl, documentName } = req.body;
 
       if (!courseName || !completedDate) {
         return res.status(400).json({ error: 'courseName and completedDate are required' });
@@ -54,10 +54,11 @@ export function registerHrTrainingRoutes(app: Express): void {
 
       const result = await pool.query(
         `INSERT INTO "${schemaName}".staff_training_records
-          (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory, mandatory_role, notes)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+          (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory, mandatory_role, notes, document_url, document_name)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
         [staffId, courseName, provider || null, completedDate, expiryDate || null,
-         isMandatory || false, mandatoryRole || null, notes || null]
+         isMandatory || false, mandatoryRole || null, notes || null,
+         documentUrl || null, documentName || null]
       );
 
       const row = result.rows[0];
