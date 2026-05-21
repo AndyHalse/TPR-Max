@@ -761,8 +761,8 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
           const ea = Math.abs(l.sOff) + l.days - 1;
           await pool.query(
             `INSERT INTO "${schemaName}".leave_requests
-               (staff_id, leave_type, start_date, end_date, days_taken, status, reason, requested_at)
-             VALUES ($1, $2, NOW() ${ss} INTERVAL '${sa} days', NOW() ${ss} INTERVAL '${ea} days', $3, $4, 'Sample leave request', NOW())`,
+               (staff_id, leave_type, start_date, end_date, days_taken, status, reason)
+             VALUES ($1, $2, (NOW() ${ss} INTERVAL '${sa} days')::date, (NOW() ${ss} INTERVAL '${ea} days')::date, $3, $4, 'Sample leave request')`,
             [staffIds[l.si], l.type, l.days, l.status]
           );
         }
@@ -784,8 +784,8 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
             const abs = Math.abs(offset);
             await pool.query(
               `INSERT INTO "${schemaName}".absence_records
-                 (staff_id, start_date, return_date, days_lost, reason, notes)
-               VALUES ($1, NOW() - INTERVAL '${abs} days', NOW() - INTERVAL '${abs - a.days} days', $2, $3, 'Sample absence record')`,
+                 (staff_id, absence_type, start_date, return_date, days_lost, reason)
+               VALUES ($1, 'sickness', (NOW() - INTERVAL '${abs} days')::date, (NOW() - INTERVAL '${abs - a.days} days')::date, $2, $3)`,
               [staffIds[a.si], a.days, a.reason]
             );
           }
@@ -793,86 +793,78 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       } catch (e) { logger.warn('Sample HR: absence_records failed', (e as any).message); }
 
       // 5. Training Requirements + Staff Training Records
-      const trainingReqIds: string[] = [];
+      const trainingCourseNames: string[] = [];
       const trainingDefs = [
-        { name: 'Fire Safety Awareness',   freq: 12 },
-        { name: 'Manual Handling',         freq: 36 },
-        { name: 'Health & Safety Induction', freq: 0 },
-        { name: 'GDPR Data Protection',    freq: 24 },
-        { name: 'First Aid Awareness',     freq: 36 },
+        { name: 'Fire Safety Awareness',     freq: 12 },
+        { name: 'Manual Handling',           freq: 36 },
+        { name: 'Health & Safety Induction', freq: 0  },
+        { name: 'GDPR Data Protection',      freq: 24 },
+        { name: 'First Aid Awareness',       freq: 36 },
       ];
       try {
         for (const tr of trainingDefs) {
-          let reqId: string | undefined;
           try {
-            const r = await pool.query(
-              `INSERT INTO "${schemaName}".training_requirements (name, description, required_frequency_months, is_mandatory)
-               VALUES ($1, $2, $3, TRUE) RETURNING id`,
-              [tr.name, `${tr.name} — mandatory training requirement`, tr.freq]
+            await pool.query(
+              `INSERT INTO "${schemaName}".training_requirements (course_name, renewal_period_months)
+               VALUES ($1, $2)`,
+              [tr.name, tr.freq]
             );
-            reqId = r.rows[0]?.id;
-          } catch {
-            const r = await pool.query(
-              `SELECT id FROM "${schemaName}".training_requirements WHERE name = $1`,
-              [tr.name]
-            );
-            reqId = r.rows[0]?.id;
-          }
-          if (reqId) trainingReqIds.push(reqId);
+          } catch { /* already exists — skip */ }
+          trainingCourseNames.push(tr.name);
         }
       } catch (e) { logger.warn('Sample HR: training_requirements failed', (e as any).message); }
 
-      if (trainingReqIds.length === 5) {
+      if (trainingCourseNames.length === 5) {
         try {
-          // Staff 0–3: all 5 trainings completed
+          // Staff 0–3: all 5 courses completed
           for (let i = 0; i < 4 && i < staffIds.length; i++) {
             for (let t = 0; t < 5; t++) {
               await pool.query(
-                `INSERT INTO "${schemaName}".staff_training
-                   (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
-                 VALUES ($1, $2, NOW() - INTERVAL '6 months', NOW() + INTERVAL '6 months', 'Internal Training', $3, 'completed')`,
-                [staffIds[i], trainingReqIds[t], `DEMO-TRN-${batchId}-${i}-${t}`]
+                `INSERT INTO "${schemaName}".staff_training_records
+                   (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
+                 VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '6 months')::date, (NOW() + INTERVAL '6 months')::date, TRUE)`,
+                [staffIds[i], trainingCourseNames[t]]
               );
             }
           }
-          // Staff 4: Fire Safety expired (14 months ago), rest completed
+          // Staff 4: Fire Safety expired (completed 14 months ago), rest current
           if (staffIds[4]) {
             await pool.query(
-              `INSERT INTO "${schemaName}".staff_training
-                 (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
-               VALUES ($1, $2, NOW() - INTERVAL '14 months', NOW() - INTERVAL '2 months', 'Internal Training', $3, 'expired')`,
-              [staffIds[4], trainingReqIds[0], `DEMO-TRN-${batchId}-4-0`]
+              `INSERT INTO "${schemaName}".staff_training_records
+                 (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
+               VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '14 months')::date, (NOW() - INTERVAL '2 months')::date, TRUE)`,
+              [staffIds[4], trainingCourseNames[0]]
             );
             for (let t = 1; t < 5; t++) {
               await pool.query(
-                `INSERT INTO "${schemaName}".staff_training
-                   (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
-                 VALUES ($1, $2, NOW() - INTERVAL '6 months', NOW() + INTERVAL '6 months', 'Internal Training', $3, 'completed')`,
-                [staffIds[4], trainingReqIds[t], `DEMO-TRN-${batchId}-4-${t}`]
+                `INSERT INTO "${schemaName}".staff_training_records
+                   (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
+                 VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '6 months')::date, (NOW() + INTERVAL '6 months')::date, TRUE)`,
+                [staffIds[4], trainingCourseNames[t]]
               );
             }
           }
-          // Staff 5: Manual Handling (1) + GDPR (3) only
+          // Staff 5: Manual Handling + GDPR only
           if (staffIds[5]) {
             for (const t of [1, 3]) {
               await pool.query(
-                `INSERT INTO "${schemaName}".staff_training
-                   (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
-                 VALUES ($1, $2, NOW() - INTERVAL '6 months', NOW() + INTERVAL '6 months', 'Internal Training', $3, 'completed')`,
-                [staffIds[5], trainingReqIds[t], `DEMO-TRN-${batchId}-5-${t}`]
+                `INSERT INTO "${schemaName}".staff_training_records
+                   (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
+                 VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '6 months')::date, (NOW() + INTERVAL '6 months')::date, TRUE)`,
+                [staffIds[5], trainingCourseNames[t]]
               );
             }
           }
-          // Staff 6–9: Health & Safety Induction (2) only
+          // Staff 6–9: Health & Safety Induction only (no expiry)
           for (let i = 6; i < staffIds.length; i++) {
             await pool.query(
-              `INSERT INTO "${schemaName}".staff_training
-                 (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
-               VALUES ($1, $2, NOW() - INTERVAL '3 months', NULL, 'Internal Training', $3, 'completed')`,
-              [staffIds[i], trainingReqIds[2], `DEMO-TRN-${batchId}-${i}-2`]
+              `INSERT INTO "${schemaName}".staff_training_records
+                 (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
+               VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '3 months')::date, NULL, TRUE)`,
+              [staffIds[i], trainingCourseNames[2]]
             );
           }
-        } catch (e) { logger.warn('Sample HR: staff_training failed', (e as any).message); }
+        } catch (e) { logger.warn('Sample HR: staff_training_records failed', (e as any).message); }
       }
 
       // 6. Appraisals
@@ -902,25 +894,10 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       // 7. Onboarding checklist for staff[9] (newest starter)
       if (staffIds[9]) {
         try {
-          const clRes = await pool.query(
-            `INSERT INTO "${schemaName}".onboarding_checklists (staff_id, start_date, status, created_by)
-             VALUES ($1, NOW(), 'in_progress', 'HR Manager') RETURNING id`,
+          await pool.query(
+            `INSERT INTO "${schemaName}".onboarding_checklists (staff_id) VALUES ($1)`,
             [staffIds[9]]
           );
-          const clId = clRes.rows[0]?.id;
-          if (clId) {
-            for (let idx = 0; idx < DEFAULT_ONBOARDING_ITEMS.length; idx++) {
-              const item = DEFAULT_ONBOARDING_ITEMS[idx];
-              const done = idx < 4;
-              await pool.query(
-                `INSERT INTO "${schemaName}".onboarding_checklist_items
-                   (checklist_id, item_key, label, display_order, is_required, due_day_offset, is_completed, completed_at, completed_by)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-                [clId, item.item_key, item.label, item.display_order, item.is_required, item.due_day_offset,
-                 done, done ? new Date() : null, done ? 'HR Manager' : null]
-              );
-            }
-          }
         } catch (e) { logger.warn('Sample HR: onboarding failed', (e as any).message); }
       }
 
@@ -933,30 +910,11 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
              WHERE id = $1`,
             [staffIds[8]]
           );
-          const lvRes = await pool.query(
-            `INSERT INTO "${schemaName}".leaver_checklists (staff_id, last_day, reason, status, created_by)
-             VALUES ($1, NOW() - INTERVAL '30 days', 'resignation', 'completed', 'HR Manager') RETURNING id`,
+          await pool.query(
+            `INSERT INTO "${schemaName}".leaver_checklists (staff_id, last_day, reason, is_voluntary, completed_at)
+             VALUES ($1, (NOW() - INTERVAL '30 days')::date, 'resignation', TRUE, NOW() - INTERVAL '28 days')`,
             [staffIds[8]]
           );
-          const lvId = lvRes.rows[0]?.id;
-          if (lvId) {
-            const leaverItems = [
-              { key: 'exit_interview',    label: 'Exit interview completed',  order: 1 },
-              { key: 'equipment_returned', label: 'Equipment returned',        order: 2 },
-              { key: 'access_revoked',    label: 'Building access revoked',    order: 3 },
-              { key: 'it_access_removed', label: 'IT access removed',          order: 4 },
-              { key: 'final_payroll',     label: 'Final payroll processed',    order: 5 },
-              { key: 'p45_issued',        label: 'P45 issued',                 order: 6 },
-            ];
-            for (const item of leaverItems) {
-              await pool.query(
-                `INSERT INTO "${schemaName}".leaver_checklist_items
-                   (checklist_id, item_key, label, display_order, is_completed, completed_at, completed_by)
-                 VALUES ($1, $2, $3, $4, TRUE, NOW() - INTERVAL '28 days', 'HR Manager')`,
-                [lvId, item.key, item.label, item.order]
-              );
-            }
-          }
         } catch (e) { logger.warn('Sample HR: leaver failed', (e as any).message); }
       }
 
@@ -965,14 +923,14 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
         for (let i = 0; i < staffIds.length; i++) {
           await pool.query(
             `INSERT INTO "${schemaName}".staff_documents
-               (staff_id, document_type, document_name, is_confidential, uploaded_by, notes)
-             VALUES ($1, 'contract', 'Employment Contract', TRUE, 'HR Manager', 'Sample document — uploaded for demonstration purposes')`,
+               (staff_id, document_type, title, file_url, file_name, is_confidential, uploaded_by, notes)
+             VALUES ($1, 'contract', 'Employment Contract', '#', 'employment_contract.pdf', TRUE, 'HR Manager', 'Sample document — uploaded for demonstration purposes')`,
             [staffIds[i]]
           );
           await pool.query(
             `INSERT INTO "${schemaName}".staff_documents
-               (staff_id, document_type, document_name, is_confidential, uploaded_by, notes)
-             VALUES ($1, 'right_to_work', 'Passport Copy', TRUE, 'HR Manager', 'Sample document — uploaded for demonstration purposes')`,
+               (staff_id, document_type, title, file_url, file_name, is_confidential, uploaded_by, notes)
+             VALUES ($1, 'right_to_work', 'Passport Copy', '#', 'passport_copy.pdf', TRUE, 'HR Manager', 'Sample document — uploaded for demonstration purposes')`,
             [staffIds[i]]
           );
         }
@@ -1011,7 +969,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
         // HR tables — delete by staff_id
         const hrTables = [
           'right_to_work', 'staff_dbs', 'leave_requests', 'absence_records',
-          'staff_training', 'staff_appraisals', 'staff_documents',
+          'staff_training_records', 'staff_documents',
         ];
         for (const table of hrTables) {
           try {
@@ -1020,32 +978,16 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
           } catch (e) { logger.warn(`Clear sample data: could not delete from ${table}`, (e as any).message); }
         }
 
-        // Onboarding checklists + items
+        // Onboarding checklists
         try {
-          const checklists = await pool.query(
-            `SELECT id FROM "${schemaName}".onboarding_checklists WHERE staff_id IN (${idList})`, sampleStaffIds
-          );
-          const checklistIds = checklists.rows.map((r: any) => r.id);
-          if (checklistIds.length > 0) {
-            const cIdList = checklistIds.map((_: any, i: number) => `$${i + 1}`).join(',');
-            await pool.query(`DELETE FROM "${schemaName}".onboarding_checklist_items WHERE checklist_id IN (${cIdList})`, checklistIds);
-            await pool.query(`DELETE FROM "${schemaName}".onboarding_checklists WHERE staff_id IN (${idList})`, sampleStaffIds);
-          }
-          deleted['onboarding'] = checklistIds.length;
+          const r = await pool.query(`DELETE FROM "${schemaName}".onboarding_checklists WHERE staff_id IN (${idList})`, sampleStaffIds);
+          deleted['onboarding'] = r.rowCount ?? 0;
         } catch (e) { logger.warn('Clear sample data: onboarding error', (e as any).message); }
 
-        // Leaver checklists + items
+        // Leaver checklists
         try {
-          const leavers = await pool.query(
-            `SELECT id FROM "${schemaName}".leaver_checklists WHERE staff_id IN (${idList})`, sampleStaffIds
-          );
-          const leaverIds = leavers.rows.map((r: any) => r.id);
-          if (leaverIds.length > 0) {
-            const lIdList = leaverIds.map((_: any, i: number) => `$${i + 1}`).join(',');
-            await pool.query(`DELETE FROM "${schemaName}".leaver_checklist_items WHERE checklist_id IN (${lIdList})`, leaverIds);
-            await pool.query(`DELETE FROM "${schemaName}".leaver_checklists WHERE staff_id IN (${idList})`, sampleStaffIds);
-          }
-          deleted['leavers'] = leaverIds.length;
+          const r = await pool.query(`DELETE FROM "${schemaName}".leaver_checklists WHERE staff_id IN (${idList})`, sampleStaffIds);
+          deleted['leavers'] = r.rowCount ?? 0;
         } catch (e) { logger.warn('Clear sample data: leaver error', (e as any).message); }
 
         // Restore any leavers to active before deleting staff row
