@@ -16,11 +16,14 @@ export function registerHrDocumentRoutes(app: Express): void {
   app.get('/api/staff/:staffId/documents', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
+      const userRole = req.user?.role || '';
       const result = await pool.query(
         `SELECT * FROM "${schemaName}".staff_documents
-         WHERE staff_id = $1 AND deleted_at IS NULL
+         WHERE staff_id = $1
+           AND deleted_at IS NULL
+           AND (is_confidential = FALSE OR $2 = ANY(ARRAY['admin','hr_admin']))
          ORDER BY created_at DESC`,
-        [req.params.staffId]
+        [req.params.staffId, userRole]
       );
       res.json(result.rows);
     } catch (err: any) {
@@ -69,6 +72,9 @@ export function registerHrDocumentRoutes(app: Express): void {
       );
       const doc = result.rows[0];
       if (!doc) return res.status(404).json({ error: 'Document not found' });
+      if (doc.is_confidential && !['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).json({ error: 'Access denied: this document is confidential' });
+      }
       res.json({ fileUrl: doc.file_url, fileName: doc.file_name });
     } catch (err: any) {
       logger.error('Document download error:', err);

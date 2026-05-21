@@ -1,0 +1,115 @@
+The HR module is substantive. What's been built has genuine depth — Bradford Factor, leaver process with override audit trail, multi-template onboarding, DBS expiry alerts, RTW reminders. Most competitors don't come close. But there are three bugs that need fixing before this goes in front of enterprise buyers.
+
+The single most important reason to act now: two of the three issues are GDPR/legal exposure, not just functionality gaps. A data protection officer reviewing the product during due diligence would find the confidential document bypass and the DBS hard delete. These are not complex fixes — they are small code changes — but they are the difference between a product that passes scrutiny and one that doesn't.
+
+Three fixes, one Replit prompt:
+
+DBS records — soft delete (replace DELETE with UPDATE ... SET deleted_at = NOW())
+Confidential documents — enforce the flag in the download endpoint
+Right to Work — wire blocksAccess to the staff QR check-in route
+One concrete next step today: Write the Replit prompt below and hand it to your developer. Then add the HR plan gate (requirePlan('tpr_max')) as a separate prompt once the safety fixes are in.
+
+Replit Prompt — HR Safety Fixes (Three Issues)
+PROMPT: Fix three safety/compliance issues in the HR module
+
+Context
+
+The HR module has three bugs that need fixing before it's safe to demonstrate to enterprise customers. All three are small code changes.
+
+Fix 1 — DBS Records: change hard delete to soft delete
+
+File: server/routes/hrDbs.ts
+
+Currently line ~126 runs DELETE FROM staff_dbs WHERE id = $1. Change this to a soft delete:
+
+// BEFORE:
+await pool.query(`DELETE FROM "${schemaName}".staff_dbs WHERE id = $1`, [req.params.id]);
+
+// AFTER:
+await pool.query(
+  `UPDATE "${schemaName}".staff_dbs SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`,
+  [req.params.id]
+);
+Also update every SELECT query in this file that reads from staff_dbs to add AND deleted_at IS NULL to the WHERE clause. Check the GET /api/staff/:staffId/dbs, the cron helper sendDbsExpiryReminders, and GET /api/dbs/expiry-alerts — all three need the filter.
+
+If the staff_dbs table doesn't already have a deleted_at column, add it via a raw SQL migration at the top of registerHrDbsRoutes using ensureColumn or a CREATE TABLE IF NOT EXISTS pattern (matching the approach used elsewhere in the codebase).
+
+Fix 2 — Confidential Documents: enforce the is_confidential flag on downloads
+
+File: server/routes/hrDocuments.ts
+
+In GET /api/staff/:staffId/documents/:id/download, after fetching the document record, add a role check before returning the URL:
+
+const doc = result.rows[0];
+if (!doc) return res.status(404).json({ error: 'Document not found' });
+
+// NEW: enforce confidential flag
+if (doc.is_confidential && !['admin', 'hr_admin'].includes(req.user?.role || '')) {
+  return res.status(403).json({ error: 'Access denied: this document is confidential' });
+}
+
+res.json({ fileUrl: doc.file_url, fileName: doc.file_name });
+Also apply the same check to the main document list GET /api/staff/:staffId/documents — confidential documents should only appear in the list for admin and hr_admin roles. Add:
+
+AND (is_confidential = FALSE OR $2 = ANY(ARRAY['admin','hr_admin']))
+...passing req.user?.role as the second parameter.
+
+Fix 3 — Right to Work: wire the blocksAccess flag to the staff QR check-in
+
+Find the staff QR check-in endpoint (likely in server/routes/staff.ts — the route that handles staff badge scan-in). Before completing the check-in, add a Right to Work status check:
+
+// After identifying the staff member, before recording the check-in:
+const rtwResult = await pool.query(
+  `SELECT is_current, expiry_date FROM "${schemaName}".right_to_work
+   WHERE staff_id = $1 AND is_current = TRUE LIMIT 1`,
+  [staffId]
+);
+const rtw = rtwResult.rows[0];
+if (rtw && rtw.expiry_date) {
+  const isExpired = new Date(rtw.expiry_date) < new Date();
+  if (isExpired) {
+    return res.status(403).json({
+      error: 'Check-in denied: Right to Work document has expired. Please contact HR.',
+      reason: 'rtw_expired',
+    });
+  }
+}
+This should only block entry if an RTW record exists and has an expiry date that has passed. If no RTW record exists (e.g., new starter who hasn't had it recorded yet), allow check-in and rely on the RTW expiry alert emails to prompt HR.
+
+What not to change
+
+Do not change anything in the leave, absence, payroll, or onboarding routes in this prompt.
+Do not change the DBS POST or PUT routes — only the DELETE and the SELECT queries.
+Do not change the OIDC/SSO routes.
+Test
+
+DBS: create a record, delete it, confirm it's no longer visible in the list but still exists in the database with deleted_at populated.
+Confidential document: upload a document with is_confidential = true, log in as a non-admin user, confirm the download endpoint returns 403.
+RTW: create a staff member, record an RTW document with an expiry date in the past, attempt QR check-in, confirm check-in is denied with reason: 'rtw_expired'.
+Now updating memory to reflect what was found.
+
+
+Read a file, edited a file
+Now add the log entry for today's session:
+
+
+Edited a file, ran a command
+Memory updated. Here's the summary of what COUNCIL found.
+
+The headline: the HR module is genuinely impressive — but it has five bugs, three of which carry real legal exposure.
+
+SSO — confirmed fixed ✅
+The ssoService.ts now uses the SsoCredentials parameter pattern correctly. Per-customer credentials are properly supported. That's done.
+
+HR module — what's solid:
+The depth here is real. Bradford Factor with rolling 365-day window and four-tier ratings, full leaver process with equipment return and admin override audit trail, 16-item onboarding checklist with due-date offsets per item, DBS expiry alerts, RTW 90-day advance warnings, training matrix, leave calendar with overlap detection, UK bank holidays. Most competitors don't come close.
+
+The five bugs — in priority order:
+
+#	Issue	Risk	Fix size
+1	DBS records are hard-deleted — no audit trail	Safeguarding/compliance liability	Tiny
+2	Confidential documents not enforced on download — any user can retrieve a colleague's contract or sickness note	GDPR Article 5(1)(f) breach	4 lines
+3	RTW blocksAccess is calculated but never checked at QR check-in	Sold as a feature, doesn't work	Small
+4	Payroll sick days read from leave_requests, Bradford Factor reads from absence_records — they'll never agree	Data inconsistency	Medium
+5	No requirePlan() gate on any HR route	TPR Basic gets TPR Max HR features	13 lines
+One Replit prompt covers bugs 1, 2, and 3 together — I've written it out in full above. That's the one to hand to your developer first. Bugs 4 and 5 can follow separately.

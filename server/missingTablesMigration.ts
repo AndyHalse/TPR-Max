@@ -676,6 +676,19 @@ const addHrDocumentAttachmentsMigration = {
   }
 };
 
+const addDbsSoftDeleteMigration = {
+  version: '20260521_055_add_dbs_soft_delete',
+  description: 'Add deleted_at column to staff_dbs for soft-delete audit trail',
+  async up(db: any) {
+    try {
+      await db.execute(`ALTER TABLE staff_dbs ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+      logger.info('✅ [055] staff_dbs.deleted_at column ensured');
+    } catch (err: any) {
+      logger.info(`ℹ️ [055] staff_dbs.deleted_at: ${(err?.message || '').substring(0, 80)}`);
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -685,5 +698,6 @@ export const missingTablesMigrations = [
   ensureMembersTableProductionMigration,
   addStaffQrCodeColumnMigration,
   createStaffDbsTableMigration,
-  addHrDocumentAttachmentsMigration
+  addHrDocumentAttachmentsMigration,
+  addDbsSoftDeleteMigration
 ];

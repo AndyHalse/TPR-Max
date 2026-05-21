@@ -936,6 +936,31 @@ export function registerStaffRoutes(app: Express): void {
         return res.status(404).json({ error: "Staff member not found for this QR code" });
       }
       
+      // RTW check — only block check-in (not check-out)
+      if (!foundStaff.isCheckedIn) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(foundContext.customerId);
+          const schemaName = customerDbService.generateSchemaName(foundContext.customerId);
+          const rtwPool = (custDb as any).$client ?? (custDb as any).session?.client;
+          if (rtwPool) {
+            const rtwResult = await rtwPool.query(
+              `SELECT is_current, expiry_date FROM "${schemaName}".right_to_work
+               WHERE staff_id = $1 AND is_current = TRUE LIMIT 1`,
+              [foundStaff.id]
+            );
+            const rtw = rtwResult.rows[0];
+            if (rtw && rtw.expiry_date && new Date(rtw.expiry_date) < new Date()) {
+              return res.status(403).json({
+                error: 'Check-in denied: Right to Work document has expired. Please contact HR.',
+                reason: 'rtw_expired',
+              });
+            }
+          }
+        } catch (rtwErr) {
+          logger.warn('RTW check failed (non-blocking):', rtwErr);
+        }
+      }
+
       if (foundStaff.isCheckedIn) {
         const checkedOut = await databaseService.checkOutStaff(foundContext, foundStaff.id);
         

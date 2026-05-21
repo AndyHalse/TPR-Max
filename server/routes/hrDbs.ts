@@ -26,7 +26,7 @@ export function registerHrDbsRoutes(app: Express): void {
             ELSE 'valid'
           END AS status
          FROM "${schemaName}".staff_dbs
-         WHERE staff_id = $1
+         WHERE staff_id = $1 AND deleted_at IS NULL
          ORDER BY created_at DESC`,
         [req.params.staffId]
       );
@@ -119,11 +119,14 @@ export function registerHrDbsRoutes(app: Express): void {
     }
   });
 
-  // DELETE /api/dbs/:id
+  // DELETE /api/dbs/:id — soft delete (audit trail preserved)
   app.delete('/api/dbs/:id', requireAuth, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
-      await pool.query(`DELETE FROM "${schemaName}".staff_dbs WHERE id = $1`, [req.params.id]);
+      await pool.query(
+        `UPDATE "${schemaName}".staff_dbs SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        [req.params.id]
+      );
       res.json({ success: true });
     } catch (err: any) {
       logger.error('DBS delete error:', err);
@@ -145,6 +148,7 @@ export function registerHrDbsRoutes(app: Express): void {
          FROM "${schemaName}".staff_dbs d
          JOIN "${schemaName}".staff s ON s.id = d.staff_id
          WHERE d.is_current = TRUE
+           AND d.deleted_at IS NULL
            AND d.policy_expiry_date IS NOT NULL
            AND d.policy_expiry_date <= CURRENT_DATE + INTERVAL '90 days'
          ORDER BY d.policy_expiry_date ASC`
@@ -166,6 +170,7 @@ export async function sendDbsExpiryReminders(customerId: string, companyName: st
        FROM "${schemaName}".staff_dbs d
        JOIN "${schemaName}".staff s ON s.id = d.staff_id
        WHERE d.is_current = TRUE
+         AND d.deleted_at IS NULL
          AND d.policy_expiry_date IS NOT NULL
          AND d.policy_expiry_date <= CURRENT_DATE + INTERVAL '90 days'
          AND (d.reminder_sent_at IS NULL OR d.reminder_sent_at < NOW() - INTERVAL '30 days')`
