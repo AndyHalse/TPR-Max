@@ -7,7 +7,7 @@ import GlassCard from "@/components/GlassCard";
 import PassPreviewModal from "@/components/PassPreviewModal";
 import WalkInVisitorForm from "@/components/WalkInVisitorForm";
 import HSAcceptanceModal from "@/components/HSAcceptanceModal";
-import { UserPlus, BadgeInfo, LogOut, QrCode, Camera, Loader2, CheckCircle, XCircle, MapPin, Search, ArrowLeft } from "lucide-react";
+import { UserPlus, BadgeInfo, LogOut, QrCode, Camera, Loader2, CheckCircle, XCircle, MapPin, Search, ArrowLeft, Delete } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -618,21 +618,79 @@ export default function KioskMode() {
                 <div className="p-4 border-b border-white/20 flex-shrink-0">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
-                    <Input
-                      ref={staffSearchInputRef}
-                      autoFocus
-                      type="text"
-                      placeholder="Type your name or department…"
-                      value={staffSearchQuery}
-                      onChange={(e) => setStaffSearchQuery(e.target.value)}
-                      className="pl-10 h-14 text-lg"
+                    <div
+                      className="w-full h-14 pl-10 pr-12 rounded-md border border-input bg-white/80 flex items-center text-lg font-medium text-fixed select-none"
                       data-testid="input-staff-search"
-                    />
+                      aria-label="Staff search query"
+                    >
+                      {staffSearchQuery
+                        ? <span className="tracking-wide">{staffSearchQuery}</span>
+                        : <span className="text-muted-foreground font-normal">Tap your name on the keyboard below…</span>
+                      }
+                      <span className="ml-0.5 inline-block w-0.5 h-6 bg-fixed/70 animate-pulse" aria-hidden />
+                    </div>
+                    {staffSearchQuery && (
+                      <button
+                        type="button"
+                        onClick={() => setStaffSearchQuery("")}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-xs font-medium text-muted-foreground hover:text-fixed"
+                        data-testid="button-staff-search-clear"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* On-screen keyboard (touch-friendly) */}
+                <div className="p-3 sm:p-4 border-b border-white/20 flex-shrink-0 bg-white/30">
+                  {([
+                    ["Q","W","E","R","T","Y","U","I","O","P"],
+                    ["A","S","D","F","G","H","J","K","L"],
+                    ["Z","X","C","V","B","N","M"],
+                  ]).map((row, ri) => (
+                    <div key={ri} className="flex justify-center gap-1 sm:gap-1.5 mb-1 sm:mb-1.5">
+                      {row.map((ch) => (
+                        <button
+                          key={ch}
+                          type="button"
+                          onClick={() => setStaffSearchQuery((q) => (q + ch).slice(0, 40))}
+                          className="flex-1 max-w-[3.5rem] sm:max-w-[4rem] h-12 sm:h-14 rounded-lg bg-white border border-white/80 text-base sm:text-lg font-semibold text-fixed shadow-sm active:scale-95 active:bg-variable/10 transition-all"
+                          data-testid={`key-${ch}`}
+                        >
+                          {ch}
+                        </button>
+                      ))}
+                    </div>
+                  ))}
+                  <div className="flex justify-center gap-1 sm:gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setStaffSearchQuery((q) => (q + " ").slice(0, 40))}
+                      className="flex-[3] h-12 sm:h-14 rounded-lg bg-white border border-white/80 text-sm sm:text-base font-medium text-fixed shadow-sm active:scale-95 active:bg-variable/10 transition-all"
+                      data-testid="key-space"
+                    >
+                      Space
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setStaffSearchQuery((q) => q.slice(0, -1))}
+                      disabled={staffSearchQuery.length === 0}
+                      className="flex-1 h-12 sm:h-14 rounded-lg bg-white border border-white/80 text-fixed shadow-sm flex items-center justify-center active:scale-95 active:bg-variable/10 transition-all disabled:opacity-40"
+                      data-testid="key-backspace"
+                      aria-label="Backspace"
+                    >
+                      <Delete className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </button>
                   </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">
-                  {filtered.length === 0 ? (
+                  {staffSearchQuery.trim().length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      Start typing your name above to find yourself.
+                    </div>
+                  ) : filtered.length === 0 ? (
                     <div className="text-center py-12 text-muted-foreground">
                       {allStaff.length === 0 ? "No staff members on file." : "No matches — try a different name."}
                     </div>
