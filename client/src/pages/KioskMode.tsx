@@ -7,7 +7,7 @@ import GlassCard from "@/components/GlassCard";
 import PassPreviewModal from "@/components/PassPreviewModal";
 import WalkInVisitorForm from "@/components/WalkInVisitorForm";
 import HSAcceptanceModal from "@/components/HSAcceptanceModal";
-import { UserPlus, BadgeInfo, LogOut, QrCode, Camera, Loader2, CheckCircle, XCircle, MapPin } from "lucide-react";
+import { UserPlus, BadgeInfo, LogOut, QrCode, Camera, Loader2, CheckCircle, XCircle, MapPin, Search, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -22,7 +22,38 @@ import VisitInstructionsModal from "@/components/VisitInstructionsModal";
 export default function KioskMode() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
-  const [activeSection, setActiveSection] = useState<"main" | "scan" | "walkin">("main");
+  const [activeSection, setActiveSection] = useState<"main" | "scan" | "walkin" | "staff-search">("main");
+  const [staffSearchQuery, setStaffSearchQuery] = useState("");
+  const staffSearchInputRef = useRef<HTMLInputElement>(null);
+
+  const staffToggleMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const response = await apiRequest("POST", `/api/staff/${id}/kiosk-toggle`, {});
+      return response.json() as Promise<{ action: "checkin" | "checkout"; staff: { id: string; firstName: string; lastName: string; department: string | null } }>;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/staff/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      const fullName = `${data.staff.firstName} ${data.staff.lastName}`.trim();
+      setCheckinSuccess({
+        name: fullName,
+        company: data.action === "checkin" ? "Checked in" : "Checked out",
+      });
+      setStaffSearchQuery("");
+      setTimeout(() => {
+        setCheckinSuccess(null);
+        setActiveSection("main");
+      }, 3000);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Could not update check-in",
+        description: error?.message || "Please try again or see reception.",
+        variant: "destructive",
+      });
+    },
+  });
   const [scannedCode, setScannedCode] = useState("");
   const [currentVisitor, setCurrentVisitor] = useState<Visitor | null>(null);
   const [showPreview, setShowPreview] = useState(false);
@@ -532,6 +563,141 @@ export default function KioskMode() {
     );
   }
 
+  if (activeSection === "staff-search") {
+    const q = staffSearchQuery.trim().toLowerCase();
+    const allStaff = (staff || []) as Staff[];
+    const filtered = q.length === 0
+      ? allStaff
+      : allStaff.filter((s) => {
+          const first = (s.firstName || "").toLowerCase();
+          const last = (s.lastName || "").toLowerCase();
+          const dept = (s.department || "").toLowerCase();
+          const full = `${first} ${last}`;
+          return first.includes(q) || last.includes(q) || dept.includes(q) || full.includes(q);
+        });
+
+    return (
+      <div className="min-h-screen max-h-screen overflow-auto bg-background p-2 sm:p-3 flex flex-col">
+        {settings?.bannerUrl && (
+          <div className="w-full max-w-3xl mx-auto mb-2 sm:mb-3 rounded-xl sm:rounded-2xl overflow-hidden flex-shrink-0">
+            <img
+              src={`/objects${settings.bannerUrl}`}
+              alt={settings.companyName}
+              className="w-full h-auto object-contain max-h-28 sm:max-h-36 lg:max-h-40"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+                const container = e.currentTarget.parentElement;
+                if (container) container.style.display = 'none';
+              }}
+            />
+          </div>
+        )}
+
+        <div className="max-w-3xl w-full mx-auto space-y-4 sm:space-y-6 flex-1 flex flex-col">
+          <div className="text-center flex-shrink-0">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-fixed mb-1 sm:mb-2 select-none">
+              Staff Check-In
+            </h2>
+            <p className="text-variable text-base sm:text-lg">Find your name below</p>
+          </div>
+
+          <GlassCard className="flex-1 flex flex-col overflow-hidden">
+            {checkinSuccess ? (
+              <div className="flex-1 flex items-center justify-center p-6">
+                <div className="mx-4 p-6 rounded-xl border-2 bg-green-50 border-green-400 text-center w-full max-w-xs">
+                  <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-3" />
+                  <h3 className="text-2xl font-bold text-green-700 mb-1">
+                    {checkinSuccess.company === "Checked out" ? "Goodbye!" : "Welcome!"}
+                  </h3>
+                  <p className="text-xl font-semibold text-gray-900">{checkinSuccess.name}</p>
+                  <p className="text-sm text-green-700 font-medium mt-3">✓ {checkinSuccess.company}</p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="p-4 border-b border-white/20 flex-shrink-0">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground pointer-events-none" />
+                    <Input
+                      ref={staffSearchInputRef}
+                      autoFocus
+                      type="text"
+                      placeholder="Type your name or department…"
+                      value={staffSearchQuery}
+                      onChange={(e) => setStaffSearchQuery(e.target.value)}
+                      className="pl-10 h-14 text-lg"
+                      data-testid="input-staff-search"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-2">
+                  {filtered.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                      {allStaff.length === 0 ? "No staff members on file." : "No matches — try a different name."}
+                    </div>
+                  ) : (
+                    filtered.map((s) => {
+                      const isIn = !!s.isCheckedIn;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          disabled={staffToggleMutation.isPending}
+                          onClick={() => staffToggleMutation.mutate(s.id)}
+                          data-testid={`button-staff-toggle-${s.id}`}
+                          className="w-full flex items-center gap-3 px-4 py-4 rounded-xl bg-white/70 hover:bg-white active:scale-[0.99] border border-white/80 transition-all text-left shadow-sm disabled:opacity-60"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-lg font-semibold text-fixed truncate">
+                              {s.firstName} {s.lastName}
+                            </div>
+                            {s.department && (
+                              <div className="text-sm text-muted-foreground truncate">{s.department}</div>
+                            )}
+                          </div>
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              isIn
+                                ? "bg-green-100 text-green-700 border border-green-200"
+                                : "bg-gray-100 text-gray-600 border border-gray-200"
+                            }`}
+                          >
+                            {isIn ? "Checked In" : "Not checked in"}
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                <div className="p-4 border-t border-white/20 flex flex-col sm:flex-row gap-2 sm:gap-3 flex-shrink-0">
+                  <Button
+                    variant="outline"
+                    onClick={() => { setStaffSearchQuery(""); setActiveSection("main"); }}
+                    className="sm:order-1"
+                    data-testid="button-staff-search-back"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => { setStaffSearchQuery(""); setActiveSection("scan"); }}
+                    className="text-sm font-medium text-variable underline underline-offset-4 py-2 sm:ml-auto"
+                    data-testid="button-staff-search-scan-instead"
+                  >
+                    Scan QR instead
+                  </button>
+                </div>
+              </>
+            )}
+          </GlassCard>
+        </div>
+      </div>
+    );
+  }
+
   if (activeSection === "scan") {
     return (
       <div className="min-h-screen max-h-screen overflow-auto bg-background p-2 sm:p-3 flex flex-col">
@@ -806,6 +972,14 @@ export default function KioskMode() {
               <div className="ml-auto text-muted-foreground">›</div>
             </GlassCard>
           </button>
+
+          <button
+            className="w-full text-center text-sm font-medium text-variable underline underline-offset-4 py-2"
+            onClick={() => setActiveSection("staff-search")}
+            data-testid="button-staff-no-badge"
+          >
+            No badge? Find my name
+          </button>
         </div>
 
         {/* Mobile instructions — compact horizontal strip */}
@@ -861,14 +1035,24 @@ export default function KioskMode() {
             </GlassCard>
           </div>
 
-          <div className="cursor-pointer" onClick={() => setActiveSection("scan")} data-testid="button-staff-checkin-tablet">
-            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
-                <BadgeInfo className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
-              </div>
-              <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Staff Check-In</h3>
-              <p className="text-muted-foreground text-xs sm:text-sm">Scan your employee ID</p>
-            </GlassCard>
+          <div className="flex flex-col">
+            <div className="cursor-pointer" onClick={() => setActiveSection("scan")} data-testid="button-staff-checkin-tablet">
+              <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
+                <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
+                  <BadgeInfo className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
+                </div>
+                <h3 className="text-base sm:text-lg lg:text-xl font-bold text-foreground mb-1">Staff Check-In</h3>
+                <p className="text-muted-foreground text-xs sm:text-sm">Scan your employee ID</p>
+              </GlassCard>
+            </div>
+            <button
+              type="button"
+              onClick={() => setActiveSection("staff-search")}
+              className="mt-2 text-center text-sm font-medium text-variable underline underline-offset-4 py-2"
+              data-testid="button-staff-no-badge-tablet"
+            >
+              No badge? Find my name
+            </button>
           </div>
         </div>
 

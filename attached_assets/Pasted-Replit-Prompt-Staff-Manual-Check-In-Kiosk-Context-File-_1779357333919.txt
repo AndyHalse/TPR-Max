@@ -1,0 +1,57 @@
+Replit Prompt — Staff Manual Check-In (Kiosk)
+Context
+
+File: client/src/pages/KioskMode.tsx
+
+The kiosk's "Staff Check-In" button currently opens the QR scanner (setActiveSection("scan")). If a staff member doesn't have their QR badge, there's no way to check in. We need a manual fallback: search by name → tap to check in or out.
+
+Step 1 — New API endpoint
+Add to the server routes:
+
+POST /api/staff/:id/kiosk-toggle
+Looks up the staff member by id
+If isCheckedIn is false → set isCheckedIn = true, set checkedInAt = now()
+If isCheckedIn is true → set isCheckedIn = false, clear checkedInAt
+Returns { action: "checkin" | "checkout", staff: { id, firstName, lastName, department } }
+Uses the same session authentication as all other /api/staff routes
+Step 2 — New kiosk section
+Add "staff-search" to the activeSection union type:
+
+useState<"main" | "scan" | "walkin" | "staff-search">("main")
+Step 3 — Entry point
+The existing "Staff Check-In" card on the main screen (both the mobile row and the desktop grid card — look for data-testid="button-staff-checkin" and data-testid="button-staff-checkin-tablet") currently calls setActiveSection("scan").
+
+Change both to open a small choice: keep QR scanner as the primary path, but add a secondary link/button underneath labelled "No badge? Find my name" that calls setActiveSection("staff-search").
+
+Simplest way: change the onClick to open the new section directly, and let the search screen have a "Scan QR instead" link back to scan. Or just add a second small text button below the staff card on the main screen. Your call — keep it clean and finger-friendly.
+
+Step 4 — Staff search screen
+When activeSection === "staff-search", render a full-screen page in the same style as the rest of the kiosk. It should contain:
+
+Company banner (same settings?.bannerUrl block as other sections)
+Heading: "Staff Check-In" / sub-text: "Find your name below"
+A GlassCard containing:
+A large search input (autofocus) that filters the already-loaded staff array client-side — no extra API call needed, the full list is already in state
+Filter on firstName, lastName, and department (case-insensitive)
+Results list: each row is a large tappable button showing full name + department, and a badge showing "Checked In" (green) or "Not checked in" (grey) based on the staff member's current isCheckedIn status
+Tapping a result calls POST /api/staff/:id/kiosk-toggle
+On success: show the same styled success overlay already used elsewhere in the file (checkinSuccess state — { name, company }) for 3 seconds, then return to activeSection("main")
+Toast on error
+Back button at the bottom → setActiveSection("main")
+What NOT to change
+Do not alter the QR scanner, camera logic, or staffQrMutation
+Do not alter visitor or contractor flows
+Keep all existing GlassCard, text-fixed, text-variable CSS class patterns
+Testing checklist
+not done
+"No badge?" path on main screen is visible and leads to the search screen
+not done
+Typing a name filters the staff list instantly (client-side)
+not done
+Tapping a "not checked in" staff member checks them in — success overlay shows, then returns to main
+not done
+Tapping a "checked in" staff member checks them out — success overlay shows, then returns to main
+not done
+Back button works from the search screen
+not done
+QR scanner path for staff is completely unchanged

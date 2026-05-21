@@ -796,6 +796,115 @@ export function registerStaffRoutes(app: Express): void {
     }
   });
 
+  // Kiosk manual staff check-in/out toggle (search-by-name fallback for staff without a QR badge)
+  app.post("/api/staff/:id/kiosk-toggle", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      // Look up current state via customer-isolated service
+      const existing = await databaseService.getStaffById(context, id);
+      if (!existing) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+
+      const isCheckedIn = !!existing.isCheckedIn;
+      const staff = isCheckedIn
+        ? await databaseService.checkOutStaff(context, id)
+        : await databaseService.checkInStaff(context, id, true);
+
+      if (!staff) {
+        return res.status(404).json({ error: "Staff member not found" });
+      }
+
+      const action: "checkin" | "checkout" = isCheckedIn ? "checkout" : "checkin";
+
+      // Evacuation accountability — mirror behaviour of /api/staff/:id/checkin
+      if (action === "checkin") {
+        try {
+          if (!context.customerId) throw new Error('No customerId in context — skipping evacuation accountability');
+          const activeEvacuations = await db
+            .select()
+            .from(evacuations)
+            .where(and(
+              eq(evacuations.status, 'active'),
+              eq(evacuations.customerId, context.customerId)
+            ))
+            .orderBy(desc(evacuations.startedAt))
+            .limit(1);
+
+          if (activeEvacuations.length > 0) {
+            const evacuation = activeEvacuations[0];
+            const staffEvacDb = await customerDbService.getCustomerDatabase(context.customerId);
+            const existingRecord = await staffEvacDb
+              .select()
+              .from(isolatedSchema.evacuationAccountability)
+              .where(and(
+                eq(isolatedSchema.evacuationAccountability.evacuationId, evacuation.evacuationId),
+                eq(isolatedSchema.evacuationAccountability.personId, staff.id)
+              ))
+              .limit(1);
+
+            if (existingRecord.length === 0) {
+              await staffEvacDb.insert(isolatedSchema.evacuationAccountability).values({
+                customerId: context.customerId,
+                evacuationId: evacuation.evacuationId,
+                personId: staff.id,
+                personType: 'staff',
+                personName: `${staff.firstName} ${staff.lastName}`,
+                department: staff.department || '',
+                company: '',
+                lastKnownLocation: 'Just Checked In',
+                isAccountedFor: false
+              });
+            }
+          }
+        } catch (evacErr) {
+          logger.error('Failed to update evacuation accountability on kiosk staff toggle:', evacErr);
+        }
+      } else {
+        // Auto-end any active lone worker session on checkout — mirror /api/staff/:id/checkout
+        try {
+          const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+          const [activeSession] = await customerDb.select().from(isolatedSchema.loneWorkerSessions)
+            .where(sql`${isolatedSchema.loneWorkerSessions.personId} = ${id} AND ${isolatedSchema.loneWorkerSessions.personType} = 'staff' AND ${isolatedSchema.loneWorkerSessions.status} IN ('active','escalated')`)
+            .limit(1);
+          if (activeSession) {
+            await customerDb.update(isolatedSchema.loneWorkerSessions)
+              .set({ status: 'ended_ok', endedAt: new Date(), endedBy: 'checkout' })
+              .where(sql`${isolatedSchema.loneWorkerSessions.id} = ${activeSession.id}`);
+            await customerDb.update(isolatedSchema.staff)
+              .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
+              .where(sql`${isolatedSchema.staff.id} = ${id}`);
+          }
+        } catch (lwErr) {
+          logger.warn('Could not auto-end lone worker session on kiosk staff toggle:', lwErr);
+        }
+      }
+
+      websocketService.broadcastPersonnelUpdate(context.customerId, {
+        personId: staff.id,
+        personName: `${staff.firstName} ${staff.lastName}`,
+        personType: 'staff',
+        action,
+      });
+
+      res.json({
+        action,
+        staff: {
+          id: staff.id,
+          firstName: staff.firstName,
+          lastName: staff.lastName,
+          department: staff.department,
+        },
+      });
+    } catch (error) {
+      logger.error("Error toggling staff kiosk check-in:", error);
+      res.status(500).json({ error: "Failed to update staff check-in" });
+    }
+  });
+
   // Staff QR code check-in from kiosk
   app.post("/api/staff/qr-checkin", async (req, res) => {
     try {
