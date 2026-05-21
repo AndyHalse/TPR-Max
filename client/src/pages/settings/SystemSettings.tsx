@@ -11,9 +11,10 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, Flame, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, Ticket, UserCheck, UserPlus, Video, Wrench } from "lucide-react";
+import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, Flame, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2 } from "lucide-react";
 
 export default function SystemSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -22,6 +23,7 @@ export default function SystemSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showManualResetDialog, setShowManualResetDialog] = useState(false);
   const [isManualResetDisabled, setIsManualResetDisabled] = useState(false);
+  const [showClearSampleDataDialog, setShowClearSampleDataDialog] = useState(false);
 
   const { data: systemStatus } = useQuery<{
     success: boolean;
@@ -142,6 +144,27 @@ export default function SystemSettings() {
       toast({ title: "Sample Data Loaded!", description: data.message });
     },
     onError: (error: any) => { toast({ title: "Failed to Load Sample Data", description: error.message || "An error occurred", variant: "destructive" }); },
+  });
+
+  const clearSampleDataMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/import/clear-sample-data', {});
+      if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to clear sample data'); }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hr"] });
+      toast({ title: "Sample Data Cleared!", description: data.message });
+    },
+    onError: (error: any) => { toast({ title: "Failed to Clear Sample Data", description: error.message || "An error occurred", variant: "destructive" }); },
   });
 
   const handleBackupDatabase = () => backupMutation.mutate();
@@ -711,6 +734,26 @@ export default function SystemSettings() {
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
+      <TooltipProvider delayDuration={200}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="whitespace-nowrap border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+              onClick={() => setShowClearSampleDataDialog(true)}
+              disabled={clearSampleDataMutation.isPending}
+              data-testid="button-clear-sample-data"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {clearSampleDataMutation.isPending ? "Clearing..." : "Remove Sample Data"}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p>Removes all demo records loaded by "Load Sample Data" — staff, visitors, contractors, members, and all linked HR records. Only removes records with @example.com email addresses.</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   </GlassCard>
 </div>
@@ -1141,6 +1184,27 @@ export default function SystemSettings() {
 </div>
 </TooltipProvider>
 
+
+      {/* Clear Sample Data Confirm Dialog */}
+      <AlertDialog open={showClearSampleDataDialog} onOpenChange={setShowClearSampleDataDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove All Sample Data?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete all records loaded by "Load Sample Data" — including all staff, visitors, contractors, members, and their linked HR records (RTW, DBS, leave, absences, training, appraisals, documents, onboarding and leaver records). Only records with @example.com email addresses will be removed. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={() => { setShowClearSampleDataDialog(false); clearSampleDataMutation.mutate(); }}
+            >
+              Yes, Remove All Sample Data
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Manual Reset Confirm Dialog */}
       <Dialog open={showManualResetDialog} onOpenChange={setShowManualResetDialog}>

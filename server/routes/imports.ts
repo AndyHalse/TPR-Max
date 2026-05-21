@@ -6,6 +6,7 @@ import { customerDbService, CustomerDatabaseService } from '../customerDatabase'
 import * as isolatedSchema from '../isolatedSchema';
 import { eq } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+import { DEFAULT_ONBOARDING_ITEMS } from './hrOnboarding';
 
 export async function registerImportRoutes(app: Express): Promise<void> {
 // ============================================================================
@@ -534,9 +535,10 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
     const staffJobTitles = ['Site Manager', 'Administrator', 'Sales Executive', 'Operations Manager',
                             'Finance Officer', 'HR Manager', 'IT Support', 'Marketing Manager',
                             'Logistics Coordinator', 'Security Officer'];
+    const staffIds: string[] = [];
     for (let i = 0; i < 10; i++) {
       try {
-        await customerDb.insert(isolatedSchema.staff).values({
+        const inserted = await customerDb.insert(isolatedSchema.staff).values({
           firstName:   firstNames[i],
           lastName:    lastNames[i],
           email:       `demo.staff.${batchId}.${i}@example.com`,
@@ -545,7 +547,8 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
           employeeId:  `EMP-${batchId}-${String(i + 1).padStart(3, '0')}`,
           accessLevel: accessLevels[i],
           isActive:    true,
-        });
+        }).returning({ id: isolatedSchema.staff.id });
+        if (inserted[0]?.id) staffIds.push(inserted[0].id);
         staffAdded++;
       } catch (e) { logger.warn('Sample staff insert failed:', (e as any).message); }
     }
@@ -667,10 +670,319 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       } catch (e) { logger.warn('Sample member insert failed:', (e as any).message); }
     }
 
+    // ── HR data (all wrapped in individual try/catch — graceful if tables don't exist) ──
+    if (staffIds.length > 0) {
+      const hrDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
+      const pool = (hrDb as any).$client ?? (hrDb as any).session?.client;
+
+      // 1. Right to Work
+      try {
+        // [docType, yearsValid | null, daysOffset | null] — negative daysOffset = expired
+        const rtwScenarios: Array<[string, number | null, number | null]> = [
+          ['passport', 2, null],
+          ['passport', 3, null],
+          ['passport', 4, null],
+          ['passport', 5, null],
+          ['passport', 3, null],
+          ['passport', 4, null],
+          ['passport', null, 45],
+          ['passport', null, 20],
+          ['passport', null, -30],
+          ['british_passport', null, null],
+        ];
+        for (let i = 0; i < staffIds.length; i++) {
+          const [docType, years, days] = rtwScenarios[i];
+          const expirySQL = years !== null
+            ? `NOW() + INTERVAL '${years} years'`
+            : days === null ? 'NULL'
+            : days >= 0 ? `NOW() + INTERVAL '${days} days'`
+            : `NOW() - INTERVAL '${Math.abs(days)} days'`;
+          await pool.query(
+            `INSERT INTO "${schemaName}".right_to_work
+               (staff_id, document_type, document_reference, issue_date, expiry_date, verified_date, verified_by, verification_method, is_current)
+             VALUES ($1, $2, $3, NOW() - INTERVAL '6 months', ${expirySQL}, NOW() - INTERVAL '6 months', 'HR Manager', 'manual', TRUE)`,
+            [staffIds[i], docType, `DEMO-RTW-${batchId}-${i}`]
+          );
+        }
+      } catch (e) { logger.warn('Sample HR: right_to_work failed', (e as any).message); }
+
+      // 2. DBS Certificates
+      try {
+        const dbsData: Array<[string, number | null, number | null]> = [
+          ['enhanced_with_barred_lists', 3, null],
+          ['enhanced', 2, null],
+          ['standard', 1, null],
+          ['enhanced', null, 60],
+          ['enhanced_with_barred_lists', null, 15],
+          ['basic', 1, null],
+          ['enhanced', 2, null],
+          ['basic', 3, null],
+          ['enhanced', 4, null],
+          ['enhanced', 2, null],
+        ];
+        for (let i = 0; i < staffIds.length; i++) {
+          const [level, years, days] = dbsData[i];
+          const expirySQL = years !== null
+            ? `NOW() + INTERVAL '${years} years'`
+            : `NOW() + INTERVAL '${days} days'`;
+          await pool.query(
+            `INSERT INTO "${schemaName}".staff_dbs
+               (staff_id, dbs_level, certificate_number, issue_date, policy_expiry_date, verified_by, verified_date, is_current)
+             VALUES ($1, $2, $3, NOW() - INTERVAL '1 year', ${expirySQL}, 'HR Manager', NOW() - INTERVAL '1 year', TRUE)`,
+            [staffIds[i], level, `DEMO-DBS-${batchId}-${i}`]
+          );
+        }
+      } catch (e) { logger.warn('Sample HR: staff_dbs failed', (e as any).message); }
+
+      // 3. Leave Requests (15 entries across the 10 staff)
+      try {
+        const leaveData: Array<{ si: number; type: string; sOff: number; days: number; status: string }> = [
+          { si: 0, type: 'annual',        sOff: -60,  days: 5,  status: 'approved' },
+          { si: 1, type: 'annual',        sOff: -45,  days: 3,  status: 'approved' },
+          { si: 2, type: 'annual',        sOff: -30,  days: 10, status: 'approved' },
+          { si: 3, type: 'annual',        sOff: -20,  days: 2,  status: 'approved' },
+          { si: 4, type: 'annual',        sOff: -14,  days: 5,  status: 'approved' },
+          { si: 0, type: 'annual',        sOff: 14,   days: 5,  status: 'approved' },
+          { si: 5, type: 'annual',        sOff: 28,   days: 3,  status: 'approved' },
+          { si: 6, type: 'annual',        sOff: 56,   days: 5,  status: 'approved' },
+          { si: 7, type: 'annual',        sOff: 21,   days: 3,  status: 'pending'  },
+          { si: 8, type: 'annual',        sOff: 35,   days: 5,  status: 'pending'  },
+          { si: 2, type: 'sick',          sOff: -10,  days: 2,  status: 'approved' },
+          { si: 3, type: 'sick',          sOff: -25,  days: 1,  status: 'approved' },
+          { si: 4, type: 'parental',      sOff: -90,  days: 10, status: 'approved' },
+          { si: 5, type: 'parental',      sOff: -120, days: 5,  status: 'approved' },
+          { si: 1, type: 'compassionate', sOff: -40,  days: 3,  status: 'approved' },
+        ];
+        for (const l of leaveData) {
+          if (!staffIds[l.si]) continue;
+          const ss = l.sOff >= 0 ? '+' : '-';
+          const sa = Math.abs(l.sOff);
+          const ea = Math.abs(l.sOff) + l.days - 1;
+          await pool.query(
+            `INSERT INTO "${schemaName}".leave_requests
+               (staff_id, leave_type, start_date, end_date, days_taken, status, reason, requested_at)
+             VALUES ($1, $2, NOW() ${ss} INTERVAL '${sa} days', NOW() ${ss} INTERVAL '${ea} days', $3, $4, 'Sample leave request', NOW())`,
+            [staffIds[l.si], l.type, l.days, l.status]
+          );
+        }
+      } catch (e) { logger.warn('Sample HR: leave_requests failed', (e as any).message); }
+
+      // 4. Absence Records (Bradford Factor scenarios)
+      try {
+        const absenceData: Array<{ si: number; offsets: number[]; days: number; reason: string }> = [
+          { si: 0, offsets: [-120, -90, -45],                    days: 1, reason: 'Cold / Flu' },       // Bradford 27
+          { si: 1, offsets: [-100, -60],                          days: 2, reason: 'Stomach complaint' },// Bradford 16
+          { si: 2, offsets: [-180, -150, -120, -90, -45],         days: 1, reason: 'Cold / Flu' },       // Bradford 125
+          { si: 3, offsets: [-50],                                days: 5, reason: 'Back injury' },       // Bradford 5
+          { si: 4, offsets: [-330, -280, -240, -200, -160, -120], days: 1, reason: 'Cold / Flu' },       // Bradford 216
+          { si: 5, offsets: [-30],                                days: 2, reason: 'Migraine' },
+        ];
+        for (const a of absenceData) {
+          if (!staffIds[a.si]) continue;
+          for (const offset of a.offsets) {
+            const abs = Math.abs(offset);
+            await pool.query(
+              `INSERT INTO "${schemaName}".absence_records
+                 (staff_id, start_date, return_date, days_lost, reason, notes)
+               VALUES ($1, NOW() - INTERVAL '${abs} days', NOW() - INTERVAL '${abs - a.days} days', $2, $3, 'Sample absence record')`,
+              [staffIds[a.si], a.days, a.reason]
+            );
+          }
+        }
+      } catch (e) { logger.warn('Sample HR: absence_records failed', (e as any).message); }
+
+      // 5. Training Requirements + Staff Training Records
+      const trainingReqIds: string[] = [];
+      const trainingDefs = [
+        { name: 'Fire Safety Awareness',   freq: 12 },
+        { name: 'Manual Handling',         freq: 36 },
+        { name: 'Health & Safety Induction', freq: 0 },
+        { name: 'GDPR Data Protection',    freq: 24 },
+        { name: 'First Aid Awareness',     freq: 36 },
+      ];
+      try {
+        for (const tr of trainingDefs) {
+          let reqId: string | undefined;
+          try {
+            const r = await pool.query(
+              `INSERT INTO "${schemaName}".training_requirements (name, description, required_frequency_months, is_mandatory)
+               VALUES ($1, $2, $3, TRUE) RETURNING id`,
+              [tr.name, `${tr.name} — mandatory training requirement`, tr.freq]
+            );
+            reqId = r.rows[0]?.id;
+          } catch {
+            const r = await pool.query(
+              `SELECT id FROM "${schemaName}".training_requirements WHERE name = $1`,
+              [tr.name]
+            );
+            reqId = r.rows[0]?.id;
+          }
+          if (reqId) trainingReqIds.push(reqId);
+        }
+      } catch (e) { logger.warn('Sample HR: training_requirements failed', (e as any).message); }
+
+      if (trainingReqIds.length === 5) {
+        try {
+          // Staff 0–3: all 5 trainings completed
+          for (let i = 0; i < 4 && i < staffIds.length; i++) {
+            for (let t = 0; t < 5; t++) {
+              await pool.query(
+                `INSERT INTO "${schemaName}".staff_training
+                   (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
+                 VALUES ($1, $2, NOW() - INTERVAL '6 months', NOW() + INTERVAL '6 months', 'Internal Training', $3, 'completed')`,
+                [staffIds[i], trainingReqIds[t], `DEMO-TRN-${batchId}-${i}-${t}`]
+              );
+            }
+          }
+          // Staff 4: Fire Safety expired (14 months ago), rest completed
+          if (staffIds[4]) {
+            await pool.query(
+              `INSERT INTO "${schemaName}".staff_training
+                 (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
+               VALUES ($1, $2, NOW() - INTERVAL '14 months', NOW() - INTERVAL '2 months', 'Internal Training', $3, 'expired')`,
+              [staffIds[4], trainingReqIds[0], `DEMO-TRN-${batchId}-4-0`]
+            );
+            for (let t = 1; t < 5; t++) {
+              await pool.query(
+                `INSERT INTO "${schemaName}".staff_training
+                   (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
+                 VALUES ($1, $2, NOW() - INTERVAL '6 months', NOW() + INTERVAL '6 months', 'Internal Training', $3, 'completed')`,
+                [staffIds[4], trainingReqIds[t], `DEMO-TRN-${batchId}-4-${t}`]
+              );
+            }
+          }
+          // Staff 5: Manual Handling (1) + GDPR (3) only
+          if (staffIds[5]) {
+            for (const t of [1, 3]) {
+              await pool.query(
+                `INSERT INTO "${schemaName}".staff_training
+                   (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
+                 VALUES ($1, $2, NOW() - INTERVAL '6 months', NOW() + INTERVAL '6 months', 'Internal Training', $3, 'completed')`,
+                [staffIds[5], trainingReqIds[t], `DEMO-TRN-${batchId}-5-${t}`]
+              );
+            }
+          }
+          // Staff 6–9: Health & Safety Induction (2) only
+          for (let i = 6; i < staffIds.length; i++) {
+            await pool.query(
+              `INSERT INTO "${schemaName}".staff_training
+                 (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
+               VALUES ($1, $2, NOW() - INTERVAL '3 months', NULL, 'Internal Training', $3, 'completed')`,
+              [staffIds[i], trainingReqIds[2], `DEMO-TRN-${batchId}-${i}-2`]
+            );
+          }
+        } catch (e) { logger.warn('Sample HR: staff_training failed', (e as any).message); }
+      }
+
+      // 6. Appraisals
+      try {
+        const appraisalData = [
+          { si: 0, dOff: -180, nOff: 180,  status: 'completed',  rating: 'good',         reviewer: 'HR Manager'   },
+          { si: 1, dOff: -330, nOff: 30,   status: 'completed',  rating: 'excellent',     reviewer: 'Line Manager' },
+          { si: 2, dOff: 14,   nOff: 14,   status: 'scheduled',  rating: null,            reviewer: 'HR Manager'   },
+          { si: 3, dOff: -365, nOff: -30,  status: 'completed',  rating: 'good',          reviewer: 'Line Manager' },
+          { si: 4, dOff: -365, nOff: -30,  status: 'completed',  rating: 'satisfactory',  reviewer: 'HR Manager'   },
+        ];
+        for (const a of appraisalData) {
+          if (!staffIds[a.si]) continue;
+          const ds = a.dOff >= 0 ? '+' : '-';
+          const da = Math.abs(a.dOff);
+          const ns = a.nOff >= 0 ? '+' : '-';
+          const na = Math.abs(a.nOff);
+          await pool.query(
+            `INSERT INTO "${schemaName}".staff_appraisals
+               (staff_id, appraisal_date, next_review_date, reviewer, status, overall_rating, notes)
+             VALUES ($1, NOW() ${ds} INTERVAL '${da} days', NOW() ${ns} INTERVAL '${na} days', $2, $3, $4, 'Sample appraisal record')`,
+            [staffIds[a.si], a.reviewer, a.status, a.rating]
+          );
+        }
+      } catch (e) { logger.warn('Sample HR: staff_appraisals failed', (e as any).message); }
+
+      // 7. Onboarding checklist for staff[9] (newest starter)
+      if (staffIds[9]) {
+        try {
+          const clRes = await pool.query(
+            `INSERT INTO "${schemaName}".onboarding_checklists (staff_id, start_date, status, created_by)
+             VALUES ($1, NOW(), 'in_progress', 'HR Manager') RETURNING id`,
+            [staffIds[9]]
+          );
+          const clId = clRes.rows[0]?.id;
+          if (clId) {
+            for (let idx = 0; idx < DEFAULT_ONBOARDING_ITEMS.length; idx++) {
+              const item = DEFAULT_ONBOARDING_ITEMS[idx];
+              const done = idx < 4;
+              await pool.query(
+                `INSERT INTO "${schemaName}".onboarding_checklist_items
+                   (checklist_id, item_key, label, display_order, is_required, due_day_offset, is_completed, completed_at, completed_by)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+                [clId, item.item_key, item.label, item.display_order, item.is_required, item.due_day_offset,
+                 done, done ? new Date() : null, done ? 'HR Manager' : null]
+              );
+            }
+          }
+        } catch (e) { logger.warn('Sample HR: onboarding failed', (e as any).message); }
+      }
+
+      // 8. Leaver process for staff[8]
+      if (staffIds[8]) {
+        try {
+          await pool.query(
+            `UPDATE "${schemaName}".staff
+             SET employment_status = 'leaver', contract_end_date = NOW() - INTERVAL '30 days', is_active = FALSE
+             WHERE id = $1`,
+            [staffIds[8]]
+          );
+          const lvRes = await pool.query(
+            `INSERT INTO "${schemaName}".leaver_checklists (staff_id, last_day, reason, status, created_by)
+             VALUES ($1, NOW() - INTERVAL '30 days', 'resignation', 'completed', 'HR Manager') RETURNING id`,
+            [staffIds[8]]
+          );
+          const lvId = lvRes.rows[0]?.id;
+          if (lvId) {
+            const leaverItems = [
+              { key: 'exit_interview',    label: 'Exit interview completed',  order: 1 },
+              { key: 'equipment_returned', label: 'Equipment returned',        order: 2 },
+              { key: 'access_revoked',    label: 'Building access revoked',    order: 3 },
+              { key: 'it_access_removed', label: 'IT access removed',          order: 4 },
+              { key: 'final_payroll',     label: 'Final payroll processed',    order: 5 },
+              { key: 'p45_issued',        label: 'P45 issued',                 order: 6 },
+            ];
+            for (const item of leaverItems) {
+              await pool.query(
+                `INSERT INTO "${schemaName}".leaver_checklist_items
+                   (checklist_id, item_key, label, display_order, is_completed, completed_at, completed_by)
+                 VALUES ($1, $2, $3, $4, TRUE, NOW() - INTERVAL '28 days', 'HR Manager')`,
+                [lvId, item.key, item.label, item.order]
+              );
+            }
+          }
+        } catch (e) { logger.warn('Sample HR: leaver failed', (e as any).message); }
+      }
+
+      // 9. Staff Documents (2 per staff member)
+      try {
+        for (let i = 0; i < staffIds.length; i++) {
+          await pool.query(
+            `INSERT INTO "${schemaName}".staff_documents
+               (staff_id, document_type, document_name, is_confidential, uploaded_by, notes)
+             VALUES ($1, 'contract', 'Employment Contract', TRUE, 'HR Manager', 'Sample document — uploaded for demonstration purposes')`,
+            [staffIds[i]]
+          );
+          await pool.query(
+            `INSERT INTO "${schemaName}".staff_documents
+               (staff_id, document_type, document_name, is_confidential, uploaded_by, notes)
+             VALUES ($1, 'right_to_work', 'Passport Copy', TRUE, 'HR Manager', 'Sample document — uploaded for demonstration purposes')`,
+            [staffIds[i]]
+          );
+        }
+      } catch (e) { logger.warn('Sample HR: staff_documents failed', (e as any).message); }
+    }
+
     res.json({
       success: true,
-      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members`,
-      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded },
+      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members — plus HR records: RTW, DBS, leave, absence, training, appraisals, onboarding, leaver, and documents`,
+      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0 },
     });
   } catch (error) {
     logger.error('Error loading sample data:', error);
@@ -678,7 +990,108 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
   }
 });
 
+  // ── Clear sample data ──────────────────────────────────────────────────────
+  app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
+    try {
+      if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
+      const customerDb2 = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
+      const pool = (customerDb2 as any).$client ?? (customerDb2 as any).session?.client;
 
+      const sampleStaffResult = await pool.query(
+        `SELECT id FROM "${schemaName}".staff WHERE email LIKE '%@example.com'`
+      );
+      const sampleStaffIds = sampleStaffResult.rows.map((r: any) => r.id);
 
+      let deleted: Record<string, number> = {};
+
+      if (sampleStaffIds.length > 0) {
+        const idList = sampleStaffIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+
+        // HR tables — delete by staff_id
+        const hrTables = [
+          'right_to_work', 'staff_dbs', 'leave_requests', 'absence_records',
+          'staff_training', 'staff_appraisals', 'staff_documents',
+        ];
+        for (const table of hrTables) {
+          try {
+            const r = await pool.query(`DELETE FROM "${schemaName}".${table} WHERE staff_id IN (${idList})`, sampleStaffIds);
+            deleted[table] = r.rowCount;
+          } catch (e) { logger.warn(`Clear sample data: could not delete from ${table}`, (e as any).message); }
+        }
+
+        // Onboarding checklists + items
+        try {
+          const checklists = await pool.query(
+            `SELECT id FROM "${schemaName}".onboarding_checklists WHERE staff_id IN (${idList})`, sampleStaffIds
+          );
+          const checklistIds = checklists.rows.map((r: any) => r.id);
+          if (checklistIds.length > 0) {
+            const cIdList = checklistIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+            await pool.query(`DELETE FROM "${schemaName}".onboarding_checklist_items WHERE checklist_id IN (${cIdList})`, checklistIds);
+            await pool.query(`DELETE FROM "${schemaName}".onboarding_checklists WHERE staff_id IN (${idList})`, sampleStaffIds);
+          }
+          deleted['onboarding'] = checklistIds.length;
+        } catch (e) { logger.warn('Clear sample data: onboarding error', (e as any).message); }
+
+        // Leaver checklists + items
+        try {
+          const leavers = await pool.query(
+            `SELECT id FROM "${schemaName}".leaver_checklists WHERE staff_id IN (${idList})`, sampleStaffIds
+          );
+          const leaverIds = leavers.rows.map((r: any) => r.id);
+          if (leaverIds.length > 0) {
+            const lIdList = leaverIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+            await pool.query(`DELETE FROM "${schemaName}".leaver_checklist_items WHERE checklist_id IN (${lIdList})`, leaverIds);
+            await pool.query(`DELETE FROM "${schemaName}".leaver_checklists WHERE staff_id IN (${idList})`, sampleStaffIds);
+          }
+          deleted['leavers'] = leaverIds.length;
+        } catch (e) { logger.warn('Clear sample data: leaver error', (e as any).message); }
+
+        // Restore any leavers to active before deleting staff row
+        await pool.query(
+          `UPDATE "${schemaName}".staff SET employment_status = 'active', is_active = TRUE, contract_end_date = NULL WHERE id IN (${idList})`,
+          sampleStaffIds
+        );
+      }
+
+      // Core tables by @example.com email
+      for (const { table, col } of [
+        { table: 'visitors', col: 'email' },
+        { table: 'contractor_workers', col: 'email' },
+        { table: 'members', col: 'email' },
+      ]) {
+        try {
+          const r = await pool.query(`DELETE FROM "${schemaName}".${table} WHERE ${col} LIKE '%@example.com'`);
+          deleted[table] = r.rowCount;
+        } catch (e) { logger.warn(`Clear sample data: could not delete from ${table}`, (e as any).message); }
+      }
+
+      // Contractor companies by contact_email
+      try {
+        const companiesResult = await pool.query(
+          `SELECT id FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@example.com'`
+        );
+        const companyIds = companiesResult.rows.map((r: any) => r.id);
+        if (companyIds.length > 0) {
+          const cIdList = companyIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+          await pool.query(`DELETE FROM "${schemaName}".contractor_companies WHERE id IN (${cIdList})`, companyIds);
+          deleted['contractor_companies'] = companyIds.length;
+        }
+      } catch (e) { logger.warn('Clear sample data: contractor companies error', (e as any).message); }
+
+      // Finally delete sample staff
+      if (sampleStaffIds.length > 0) {
+        const idList = sampleStaffIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+        const r = await pool.query(`DELETE FROM "${schemaName}".staff WHERE id IN (${idList})`, sampleStaffIds);
+        deleted['staff'] = r.rowCount;
+      }
+
+      res.json({ success: true, message: 'Sample data cleared successfully', deleted });
+    } catch (error) {
+      logger.error('Error clearing sample data:', error);
+      res.status(500).json({ error: 'Failed to clear sample data', details: (error as any).message });
+    }
+  });
 
 }
