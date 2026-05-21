@@ -56,7 +56,7 @@ export function registerHrStaffRoutes(app: Express): void {
           ? await lookupPool.query(
               `SELECT id, first_name, last_name, is_active, employment_status
                FROM "${schemaName}".staff
-               WHERE id = ANY($1::uuid[])`,
+               WHERE id = ANY($1::text[])`,
               [referencedMgrIds]
             )
           : { rows: [] as any[] };

@@ -106,10 +106,12 @@ export default function OrgChart() {
     queryFn: () => fetch("/api/staff/org-chart", { credentials: "include" }).then(r => r.json()),
   });
 
-  const { data: validation } = useQuery<ValidationData>({
+  const { data: validationRaw } = useQuery({
     queryKey: ["/api/staff/org-chart/validation"],
-    queryFn: () => fetch("/api/staff/org-chart/validation", { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch("/api/staff/org-chart/validation", { credentials: "include" }).then(r => r.ok ? r.json() : null),
   });
+  const validation: ValidationData | undefined =
+    validationRaw && "noManager" in validationRaw ? (validationRaw as ValidationData) : undefined;
 
   // Build tree: only valid edges (manager exists in active set). Detect cycles and break them.
   const { rootNodes, unassigned, childrenByMgr } = useMemo(() => {
