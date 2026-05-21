@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { logger } from '../utils/logger';
@@ -96,7 +97,7 @@ function requireAdmin(req: any, res: any, next: any) {
 export function registerHrLeaverRoutes(app: Express): void {
 
   // POST /api/staff/:staffId/initiate-leaver
-  app.post('/api/staff/:staffId/initiate-leaver', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/initiate-leaver', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
@@ -200,7 +201,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // GET /api/staff/:staffId/leaver — full leaver record (checklist + equipment + interview)
-  app.get('/api/staff/:staffId/leaver', requireAuth, async (req, res) => {
+  app.get('/api/staff/:staffId/leaver', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const checklist = await pool.query(
@@ -250,7 +251,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // PATCH /api/staff/:staffId/leaver/items/:itemId
-  app.patch('/api/staff/:staffId/leaver/items/:itemId', requireAuth, async (req, res) => {
+  app.patch('/api/staff/:staffId/leaver/items/:itemId', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { completed, notes } = req.body;
@@ -272,7 +273,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // POST /api/staff/:staffId/leaver/items — add custom item
-  app.post('/api/staff/:staffId/leaver/items', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/leaver/items', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { category, label, isCritical } = req.body;
@@ -304,7 +305,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // DELETE /api/staff/:staffId/leaver/items/:itemId
-  app.delete('/api/staff/:staffId/leaver/items/:itemId', requireAuth, async (req, res) => {
+  app.delete('/api/staff/:staffId/leaver/items/:itemId', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       // Don't allow deleting auto items
@@ -324,7 +325,7 @@ export function registerHrLeaverRoutes(app: Express): void {
 
   // GET /api/staff/:staffId/leaver/equipment — included in main GET, but separate endpoint useful too
   // POST /api/staff/:staffId/leaver/equipment — add equipment row
-  app.post('/api/staff/:staffId/leaver/equipment', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/leaver/equipment', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { name, assetTag, serialNumber } = req.body;
@@ -352,7 +353,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // PATCH /api/staff/:staffId/leaver/equipment/:eqId
-  app.patch('/api/staff/:staffId/leaver/equipment/:eqId', requireAuth, async (req, res) => {
+  app.patch('/api/staff/:staffId/leaver/equipment/:eqId', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { name, assetTag, serialNumber, returned, returnedOn, notes } = req.body;
@@ -384,7 +385,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // DELETE /api/staff/:staffId/leaver/equipment/:eqId
-  app.delete('/api/staff/:staffId/leaver/equipment/:eqId', requireAuth, async (req, res) => {
+  app.delete('/api/staff/:staffId/leaver/equipment/:eqId', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       await pool.query(`DELETE FROM "${schemaName}".leaver_equipment WHERE id = $1`, [req.params.eqId]);
@@ -396,7 +397,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // GET + PUT /api/staff/:staffId/leaver/exit-interview
-  app.put('/api/staff/:staffId/leaver/exit-interview', requireAuth, async (req, res) => {
+  app.put('/api/staff/:staffId/leaver/exit-interview', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const checklist = await pool.query(
@@ -511,7 +512,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // POST /api/staff/:staffId/archive
-  app.post('/api/staff/:staffId/archive', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/archive', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       await pool.query(
@@ -526,7 +527,7 @@ export function registerHrLeaverRoutes(app: Express): void {
   });
 
   // GET /api/hr/leavers — all staff currently in leaver status
-  app.get('/api/hr/leavers', requireAuth, async (req, res) => {
+  app.get('/api/hr/leavers', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(

@@ -2,7 +2,7 @@ import { useLocation, Link } from "wouter";
 import {
   Network, Calendar, BookOpen, Activity, CheckSquare, LogOut, Star, Download,
   Users, ArrowRight, UserCheck, UserPlus, UserMinus, GraduationCap,
-  ClipboardCheck, ClipboardList, Cake, PartyPopper, Sunrise,
+  ClipboardCheck, ClipboardList, Cake, PartyPopper, Sunrise, Lock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -273,6 +273,27 @@ export default function HrHub() {
     (today.birthdays.length > 0 ||
       today.anniversaries.length > 0 ||
       today.returningFromLeave.length > 0);
+
+  if (companySettings && companySettings.featureHrModule === false) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] p-8 text-center">
+        <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full mb-4">
+          <Lock className="w-8 h-8 text-slate-400" />
+        </div>
+        <h2 className="text-xl font-bold text-fixed mb-2">HR Module — TPR Max</h2>
+        <p className="text-sm text-variable max-w-sm mb-4">
+          The HR module is available on the TPR Max plan. Upgrade to access staff records,
+          leave management, training matrix, appraisals, and more.
+        </p>
+        <a
+          href="mailto:support@tprmax.com?subject=Upgrade to TPR Max"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
+        >
+          Contact us to upgrade
+        </a>
+      </div>
+    );
+  }
 
   return (
     <TooltipProvider delayDuration={200}>

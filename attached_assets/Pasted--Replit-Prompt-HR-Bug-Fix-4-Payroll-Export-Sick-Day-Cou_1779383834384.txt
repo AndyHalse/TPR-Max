@@ -1,0 +1,102 @@
+
+Replit Prompt — HR Bug Fix 4: Payroll Export Sick Day Count
+PROMPT: Fix the payroll export to read sick days from the correct table
+
+Context
+
+The HR module has two separate systems for recording sickness:
+
+absence_records table — used by the Bradford Factor module (hrAbsence.ts). This is where sickness absences are actually recorded, with start date, return date, days lost, and return-to-work notes.
+leave_requests table — used for planned leave (annual leave, compassionate leave, etc.). This table also has a leave_type column that includes 'sick', but in practice sickness is recorded in absence_records, not leave_requests.
+The payroll export (server/routes/hrPayroll.ts) currently counts sick days by querying leave_requests WHERE leave_type = 'sick'. This means the sick days in the payroll CSV will always be zero (or wrong) for any customer using the Bradford Factor absence module, because their sickness is in a different table.
+
+What needs to change
+
+File: server/routes/hrPayroll.ts
+
+In the GET /api/hr/payroll-export route, replace the sick day calculation to read from absence_records instead of leave_requests.
+
+Currently the sick day count is:
+
+const sickDays = staffLeave.filter((l: any) => l.leave_type === 'sick' && l.status === 'approved')
+  .reduce((sum: number, l: any) => sum + Number(l.days_taken), 0);
+Replace this with a separate query to absence_records for the period. Add this query alongside the existing leaveResult and leaverResult queries at the top of the route:
+
+// Absence records (sickness) for period — separate from leave_requests
+const absenceResult = await pool.query(
+  `SELECT staff_id, days_lost, start_date
+   FROM "${schemaName}".absence_records
+   WHERE start_date <= $2 AND (return_date IS NULL OR return_date >= $1)`,
+  [period_start, period_end]
+);
+Then in the row mapping, replace the sick day calculation with:
+
+const sickDays = absenceResult.rows
+  .filter((a: any) => a.staff_id === s.id)
+  .reduce((sum: number, a: any) => sum + Number(a.days_lost || 0), 0);
+Also update the CSV column header from sick_days_taken to sick_days_absent to make clear this comes from absence records, not approved leave.
+
+Also update the annual leave count
+
+The current annual leave count includes all leave with leave_type === 'annual'. That is correct — leave this as-is, reading from leave_requests.
+
+What not to change
+
+Do not change the Bradford Factor module or hrAbsence.ts.
+Do not change the leave_requests table or any other leave routes.
+Do not change the JSON format option — the same fix applies when format=json is requested.
+Test
+
+Record a sickness absence for a staff member using the Bradford Factor absence form (POST to /api/staff/:staffId/absences).
+Run the payroll export for the same period.
+Confirm the exported CSV shows the correct sick days for that staff member.
+Confirm the sick days figure matches what appears in the Bradford Factor absence view.
+Replit Prompt — HR Bug Fix 5: Add Plan Gate to All HR Routes
+PROMPT: Gate the HR module to TPR Max plan only
+
+Context
+
+TPR Max has three pricing tiers — TPR Basic (£49/month), TPR Pro (£89/month), TPR Max (£195/month). The HR module is a premium feature that should only be available to TPR Max customers. Currently there is no plan gate on any HR route — any customer on any tier can access the full HR module.
+
+There is already a requirePlan() middleware pattern in the codebase — look at server/routes/ppm.ts for the reference implementation of how requirePlan or requirePPMFeature is used. Use the same pattern.
+
+What needs to change
+
+Add requirePlan('tpr_max') (or whatever the correct middleware is called in this codebase — check ppm.ts for the exact import and usage) to the route registration in each of the following files. The gate should be applied at the router level, not route-by-route, so it covers all endpoints in the file automatically.
+
+Files to update:
+
+server/routes/hrStaff.ts — Org chart and HR staff field updates
+server/routes/hrAbsence.ts — Bradford Factor absence recording
+server/routes/hrLeave.ts — Leave requests, calendar, balance
+server/routes/hrTraining.ts — Training matrix and records
+server/routes/hrRightToWork.ts — Right to Work records
+server/routes/hrPayroll.ts — Payroll CSV export
+server/routes/hrDashboard.ts — HR dashboard counts
+server/routes/hrLeaver.ts — Leaver process and templates
+server/routes/hrOnboarding.ts — Onboarding checklists and templates
+server/routes/hrAppraisals.ts — Appraisal records
+server/routes/hrDocuments.ts — Staff document storage
+server/routes/hrDbs.ts — DBS certificate tracking
+In each file, the gate should be applied inside the register...Routes(app) function — wrap the route group or apply the middleware to individual routes, whichever pattern matches what ppm.ts uses.
+
+Also gate the HR Hub page on the client side
+
+In client/src/pages/hr/HrHub.tsx, check whether the current customer's plan is tpr_max. If not, show an upgrade prompt instead of the HR module tiles. Look at how other pages handle plan gating in the frontend (there may be a usePlan() hook or similar) and use the same approach.
+
+Exception: the HR dashboard summary counts widget
+
+If the HR dashboard count (GET /api/hr/dashboard) is embedded in the main application dashboard (visible to all plans), move it behind a plan check within the route itself rather than blocking the whole endpoint. This is a judgement call — if the dashboard widget is HR-only, block the whole route. If it feeds into a shared dashboard, just return empty counts with a planRequired: 'tpr_max' flag for non-qualifying customers.
+
+What not to change
+
+Do not change any of the HR route logic — only add the plan gate.
+Do not change the billing or Stripe integration.
+Do not gate the staff management routes that are not part of the HR module (server/routes/staff.ts is separate — leave it alone).
+Test
+
+Log in as a TPR Basic customer.
+Attempt to access GET /api/hr/dashboard — confirm it returns 403 or an appropriate plan-required response.
+Confirm the HR Hub page shows an upgrade prompt rather than the module tiles.
+Log in as a TPR Max customer — confirm full HR access is restored.
+Both prompts are self-contained and ready to go. Hand prompt 4 first — it's the smaller, cleaner fix. Prompt 5 is a bit more involved since it touches 12 files, but it's all the same one-line pattern repeated.

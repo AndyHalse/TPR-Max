@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { calculateWorkingDays, calculateLeaveBalance, getLeaveYear, UK_BANK_HOLIDAYS, bankHolidaysInRange } from '../utils/leaveUtils';
@@ -15,7 +16,7 @@ async function getPool(customerId: string) {
 export function registerHrLeaveRoutes(app: Express): void {
 
   // GET /api/staff/:staffId/leave
-  app.get('/api/staff/:staffId/leave', requireAuth, async (req, res) => {
+  app.get('/api/staff/:staffId/leave', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
@@ -52,7 +53,7 @@ export function registerHrLeaveRoutes(app: Express): void {
   });
 
   // POST /api/staff/:staffId/leave — submit request
-  app.post('/api/staff/:staffId/leave', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/leave', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
@@ -126,7 +127,7 @@ export function registerHrLeaveRoutes(app: Express): void {
   });
 
   // PUT /api/leave/:id/approve
-  app.put('/api/leave/:id/approve', requireAuth, async (req, res) => {
+  app.put('/api/leave/:id/approve', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
 
@@ -160,7 +161,7 @@ export function registerHrLeaveRoutes(app: Express): void {
   });
 
   // PUT /api/leave/:id/decline
-  app.put('/api/leave/:id/decline', requireAuth, async (req, res) => {
+  app.put('/api/leave/:id/decline', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { declineReason } = req.body;
@@ -195,7 +196,7 @@ export function registerHrLeaveRoutes(app: Express): void {
   });
 
   // PUT /api/leave/:id/cancel
-  app.put('/api/leave/:id/cancel', requireAuth, async (req, res) => {
+  app.put('/api/leave/:id/cancel', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
 
@@ -221,7 +222,7 @@ export function registerHrLeaveRoutes(app: Express): void {
   });
 
   // GET /api/leave/calendar
-  app.get('/api/leave/calendar', requireAuth, async (req, res) => {
+  app.get('/api/leave/calendar', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { start, end } = req.query;
@@ -244,7 +245,7 @@ export function registerHrLeaveRoutes(app: Express): void {
   });
 
   // GET /api/leave/overlap-check?start=YYYY-MM-DD&end=YYYY-MM-DD&excludeStaffId=...
-  app.get('/api/leave/overlap-check', requireAuth, async (req, res) => {
+  app.get('/api/leave/overlap-check', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { start, end, excludeStaffId } = req.query as Record<string, string>;
@@ -274,7 +275,7 @@ export function registerHrLeaveRoutes(app: Express): void {
   });
 
   // GET /api/leave/working-days?start=...&end=...&halfDay=...&workingDaysPerWeek=...
-  app.get('/api/leave/working-days', requireAuth, async (req, res) => {
+  app.get('/api/leave/working-days', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { start, end, halfDay, workingDaysPerWeek } = req.query as Record<string, string>;
       if (!start || !end) return res.status(400).json({ error: 'start and end required' });
@@ -294,7 +295,7 @@ export function registerHrLeaveRoutes(app: Express): void {
   });
 
   // GET /api/leave/pending-approval
-  app.get('/api/leave/pending-approval', requireAuth, async (req, res) => {
+  app.get('/api/leave/pending-approval', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
@@ -312,7 +313,7 @@ export function registerHrLeaveRoutes(app: Express): void {
   });
 
   // GET /api/leave/balance/:staffId
-  app.get('/api/leave/balance/:staffId', requireAuth, async (req, res) => {
+  app.get('/api/leave/balance/:staffId', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const [leaveResult, staffResult] = await Promise.all([

@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { logger } from '../utils/logger';
 
@@ -29,7 +30,7 @@ function toCsv(rows: any[]): string {
 export function registerHrPayrollRoutes(app: Express): void {
 
   // GET /api/hr/payroll-export
-  app.get('/api/hr/payroll-export', requireAuth, async (req, res) => {
+  app.get('/api/hr/payroll-export', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { period_start, period_end = new Date().toISOString().slice(0, 10) } = req.query as any;
@@ -56,6 +57,14 @@ export function registerHrPayrollRoutes(app: Express): void {
         [period_start, period_end]
       );
 
+      // Absence records (sickness) for period — separate from leave_requests
+      const absenceResult = await pool.query(
+        `SELECT staff_id, days_lost, start_date
+         FROM "${schemaName}".absence_records
+         WHERE start_date <= $2 AND (return_date IS NULL OR return_date >= $1)`,
+        [period_start, period_end]
+      );
+
       // Leaver info
       const leaverResult = await pool.query(
         `SELECT staff_id, last_day, reason
@@ -69,8 +78,9 @@ export function registerHrPayrollRoutes(app: Express): void {
         const staffLeave = leaveResult.rows.filter((l: any) => l.staff_id === s.id);
         const annualDays = staffLeave.filter((l: any) => l.leave_type === 'annual' && l.status === 'approved')
           .reduce((sum: number, l: any) => sum + Number(l.days_taken), 0);
-        const sickDays = staffLeave.filter((l: any) => l.leave_type === 'sick' && l.status === 'approved')
-          .reduce((sum: number, l: any) => sum + Number(l.days_taken), 0);
+        const sickDays = absenceResult.rows
+          .filter((a: any) => a.staff_id === s.id)
+          .reduce((sum: number, a: any) => sum + Number(a.days_lost || 0), 0);
         const otherDays = staffLeave.filter((l: any) => !['annual', 'sick'].includes(l.leave_type) && l.status === 'approved')
           .reduce((sum: number, l: any) => sum + Number(l.days_taken), 0);
         const pendingDays = staffLeave.filter((l: any) => l.status === 'pending')
@@ -90,7 +100,7 @@ export function registerHrPayrollRoutes(app: Express): void {
           contract_start_date: s.contract_start_date || '',
           employment_status: s.employment_status || 'active',
           annual_leave_days_taken: annualDays,
-          sick_days_taken: sickDays,
+          sick_days_absent: sickDays,
           other_leave_days_taken: otherDays,
           leave_days_pending_approval: pendingDays,
           is_new_starter: isNewStarter ? 'YES' : 'NO',

@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { logger } from '../utils/logger';
@@ -14,7 +15,7 @@ async function getDbsPool(customerId: string) {
 export function registerHrDbsRoutes(app: Express): void {
 
   // GET /api/staff/:staffId/dbs
-  app.get('/api/staff/:staffId/dbs', requireAuth, async (req, res) => {
+  app.get('/api/staff/:staffId/dbs', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const result = await pool.query(
@@ -38,7 +39,7 @@ export function registerHrDbsRoutes(app: Express): void {
   });
 
   // POST /api/staff/:staffId/dbs
-  app.post('/api/staff/:staffId/dbs', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/dbs', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const { staffId } = req.params;
@@ -84,7 +85,7 @@ export function registerHrDbsRoutes(app: Express): void {
   });
 
   // PUT /api/dbs/:id
-  app.put('/api/dbs/:id', requireAuth, async (req, res) => {
+  app.put('/api/dbs/:id', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const {
@@ -120,7 +121,7 @@ export function registerHrDbsRoutes(app: Express): void {
   });
 
   // DELETE /api/dbs/:id — soft delete (audit trail preserved)
-  app.delete('/api/dbs/:id', requireAuth, async (req, res) => {
+  app.delete('/api/dbs/:id', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       await pool.query(
@@ -135,7 +136,7 @@ export function registerHrDbsRoutes(app: Express): void {
   });
 
   // GET /api/dbs/expiry-alerts — all staff with expired/expiring DBS within 90 days
-  app.get('/api/dbs/expiry-alerts', requireAuth, async (req, res) => {
+  app.get('/api/dbs/expiry-alerts', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getDbsPool(req.customerId!);
       const result = await pool.query(

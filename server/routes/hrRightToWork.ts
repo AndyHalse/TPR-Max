@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { logger } from '../utils/logger';
@@ -14,7 +15,7 @@ async function getRtwPool(customerId: string) {
 export function registerHrRightToWorkRoutes(app: Express): void {
 
   // GET /api/staff/:staffId/right-to-work
-  app.get('/api/staff/:staffId/right-to-work', requireAuth, async (req, res) => {
+  app.get('/api/staff/:staffId/right-to-work', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getRtwPool(req.customerId!);
       const result = await pool.query(
@@ -29,7 +30,7 @@ export function registerHrRightToWorkRoutes(app: Express): void {
   });
 
   // POST /api/staff/:staffId/right-to-work
-  app.post('/api/staff/:staffId/right-to-work', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/right-to-work', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getRtwPool(req.customerId!);
       const { staffId } = req.params;
@@ -64,7 +65,7 @@ export function registerHrRightToWorkRoutes(app: Express): void {
   });
 
   // GET /api/right-to-work/expiring — all expiring within 90 days
-  app.get('/api/right-to-work/expiring', requireAuth, async (req, res) => {
+  app.get('/api/right-to-work/expiring', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getRtwPool(req.customerId!);
       const result = await pool.query(
@@ -84,7 +85,7 @@ export function registerHrRightToWorkRoutes(app: Express): void {
   });
 
   // GET /api/right-to-work/status/:staffId
-  app.get('/api/right-to-work/status/:staffId', requireAuth, async (req, res) => {
+  app.get('/api/right-to-work/status/:staffId', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getRtwPool(req.customerId!);
       const result = await pool.query(

@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { emailService } from '../emailService';
 import { logger } from '../utils/logger';
@@ -24,7 +25,7 @@ function trainingStatus(expiryDate: string | null): 'valid' | 'expiring_soon' | 
 export function registerHrTrainingRoutes(app: Express): void {
 
   // GET /api/staff/:staffId/training
-  app.get('/api/staff/:staffId/training', requireAuth, async (req, res) => {
+  app.get('/api/staff/:staffId/training', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
@@ -42,7 +43,7 @@ export function registerHrTrainingRoutes(app: Express): void {
   });
 
   // POST /api/staff/:staffId/training
-  app.post('/api/staff/:staffId/training', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/training', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
@@ -70,7 +71,7 @@ export function registerHrTrainingRoutes(app: Express): void {
   });
 
   // DELETE /api/staff/:staffId/training/:id — soft delete
-  app.delete('/api/staff/:staffId/training/:id', requireAuth, async (req, res) => {
+  app.delete('/api/staff/:staffId/training/:id', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       await pool.query(
@@ -85,7 +86,7 @@ export function registerHrTrainingRoutes(app: Express): void {
   });
 
   // GET /api/training/matrix
-  app.get('/api/training/matrix', requireAuth, async (req, res) => {
+  app.get('/api/training/matrix', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
 
@@ -119,7 +120,7 @@ export function registerHrTrainingRoutes(app: Express): void {
   });
 
   // GET /api/training/expiring
-  app.get('/api/training/expiring', requireAuth, async (req, res) => {
+  app.get('/api/training/expiring', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
@@ -140,7 +141,7 @@ export function registerHrTrainingRoutes(app: Express): void {
   });
 
   // GET /api/training/requirements
-  app.get('/api/training/requirements', requireAuth, async (req, res) => {
+  app.get('/api/training/requirements', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(`SELECT * FROM "${schemaName}".training_requirements ORDER BY course_name`);
@@ -152,7 +153,7 @@ export function registerHrTrainingRoutes(app: Express): void {
   });
 
   // POST /api/training/requirements
-  app.post('/api/training/requirements', requireAuth, async (req, res) => {
+  app.post('/api/training/requirements', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { courseName, appliesTo = 'all', appliesValue, renewalPeriodMonths } = req.body;
@@ -171,7 +172,7 @@ export function registerHrTrainingRoutes(app: Express): void {
   });
 
   // DELETE /api/training/requirements/:id
-  app.delete('/api/training/requirements/:id', requireAuth, async (req, res) => {
+  app.delete('/api/training/requirements/:id', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       await pool.query(`DELETE FROM "${schemaName}".training_requirements WHERE id = $1`, [req.params.id]);

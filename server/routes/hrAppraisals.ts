@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { logger } from '../utils/logger';
 
@@ -13,7 +14,7 @@ async function getPool(customerId: string) {
 export function registerHrAppraisalRoutes(app: Express): void {
 
   // GET /api/staff/:staffId/appraisals
-  app.get('/api/staff/:staffId/appraisals', requireAuth, async (req, res) => {
+  app.get('/api/staff/:staffId/appraisals', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const appraisals = await pool.query(
@@ -41,7 +42,7 @@ export function registerHrAppraisalRoutes(app: Express): void {
   });
 
   // POST /api/staff/:staffId/appraisals
-  app.post('/api/staff/:staffId/appraisals', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/appraisals', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
@@ -78,7 +79,7 @@ export function registerHrAppraisalRoutes(app: Express): void {
   });
 
   // PUT /api/appraisals/:id
-  app.put('/api/appraisals/:id', requireAuth, async (req, res) => {
+  app.put('/api/appraisals/:id', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { overallRating, summaryNotes, nextReviewDate, objectives } = req.body;
@@ -109,7 +110,7 @@ export function registerHrAppraisalRoutes(app: Express): void {
   });
 
   // GET /api/appraisals/due — staff with overdue/upcoming reviews
-  app.get('/api/appraisals/due', requireAuth, async (req, res) => {
+  app.get('/api/appraisals/due', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
 

@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { logger } from '../utils/logger';
 
@@ -13,7 +14,7 @@ async function getPool(customerId: string) {
 export function registerHrDocumentRoutes(app: Express): void {
 
   // GET /api/staff/:staffId/documents
-  app.get('/api/staff/:staffId/documents', requireAuth, async (req, res) => {
+  app.get('/api/staff/:staffId/documents', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const userRole = req.user?.role || '';
@@ -33,7 +34,7 @@ export function registerHrDocumentRoutes(app: Express): void {
   });
 
   // POST /api/staff/:staffId/documents/upload
-  app.post('/api/staff/:staffId/documents/upload', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/documents/upload', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
@@ -62,7 +63,7 @@ export function registerHrDocumentRoutes(app: Express): void {
   });
 
   // GET /api/staff/:staffId/documents/:id/download
-  app.get('/api/staff/:staffId/documents/:id/download', requireAuth, async (req, res) => {
+  app.get('/api/staff/:staffId/documents/:id/download', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
@@ -83,7 +84,7 @@ export function registerHrDocumentRoutes(app: Express): void {
   });
 
   // DELETE /api/staff/:staffId/documents/:id — soft delete
-  app.delete('/api/staff/:staffId/documents/:id', requireAuth, async (req, res) => {
+  app.delete('/api/staff/:staffId/documents/:id', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       await pool.query(

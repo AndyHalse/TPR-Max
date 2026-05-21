@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
@@ -7,7 +8,7 @@ import { logger } from '../utils/logger';
 export function registerHrStaffRoutes(app: Express): void {
 
   // GET /api/staff/org-chart — all active staff structured for org chart
-  app.get('/api/staff/org-chart', requireAuth, async (req, res) => {
+  app.get('/api/staff/org-chart', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
@@ -29,7 +30,7 @@ export function registerHrStaffRoutes(app: Express): void {
   });
 
   // GET /api/staff/org-chart/validation — issues that prevent a clean tree
-  app.get('/api/staff/org-chart/validation', requireAuth, async (req, res) => {
+  app.get('/api/staff/org-chart/validation', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
@@ -130,7 +131,7 @@ export function registerHrStaffRoutes(app: Express): void {
   });
 
   // PATCH /api/staff/:id/hr — update HR-specific fields only
-  app.patch('/api/staff/:id/hr', requireAuth, async (req, res) => {
+  app.patch('/api/staff/:id/hr', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { id } = req.params;
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);

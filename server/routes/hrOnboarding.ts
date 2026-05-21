@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { logger } from '../utils/logger';
 
@@ -111,7 +112,7 @@ export async function createOnboardingChecklist(
 export function registerHrOnboardingRoutes(app: Express): void {
 
   // POST /api/staff/:staffId/onboarding/create
-  app.post('/api/staff/:staffId/onboarding/create', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/onboarding/create', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const id = await createOnboardingChecklist(req.customerId!, req.params.staffId, req.body?.templateId);
       res.json({ success: true, checklistId: id });
@@ -122,7 +123,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   });
 
   // GET /api/staff/:staffId/onboarding
-  app.get('/api/staff/:staffId/onboarding', requireAuth, async (req, res) => {
+  app.get('/api/staff/:staffId/onboarding', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const checklist = await pool.query(
@@ -145,7 +146,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   });
 
   // PATCH /api/staff/:staffId/onboarding/items/:itemId
-  app.patch('/api/staff/:staffId/onboarding/items/:itemId', requireAuth, async (req, res) => {
+  app.patch('/api/staff/:staffId/onboarding/items/:itemId', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { completed, notes } = req.body;
@@ -166,7 +167,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   });
 
   // GET /api/onboarding/overview/summary
-  app.get('/api/onboarding/overview/summary', requireAuth, async (req, res) => {
+  app.get('/api/onboarding/overview/summary', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
@@ -209,7 +210,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   });
 
   // GET /api/onboarding/overview?filter=...
-  app.get('/api/onboarding/overview', requireAuth, async (req, res) => {
+  app.get('/api/onboarding/overview', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const filter = String(req.query.filter || 'in_progress');
@@ -275,7 +276,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   });
 
   // POST /api/onboarding/start — start onboarding for existing staff with chosen template
-  app.post('/api/onboarding/start', requireAuth, async (req, res) => {
+  app.post('/api/onboarding/start', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { staffId, templateId } = req.body;
       if (!staffId) return res.status(400).json({ error: 'staffId required' });
@@ -288,7 +289,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   });
 
   // POST /api/onboarding/start-new-starter
-  app.post('/api/onboarding/start-new-starter', requireAuth, async (req, res) => {
+  app.post('/api/onboarding/start-new-starter', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { firstName, lastName, email, department, jobTitle, contractStartDate, templateId } = req.body;
@@ -313,7 +314,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   });
 
   // GET /api/onboarding/eligible-staff
-  app.get('/api/onboarding/eligible-staff', requireAuth, async (req, res) => {
+  app.get('/api/onboarding/eligible-staff', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
@@ -333,7 +334,7 @@ export function registerHrOnboardingRoutes(app: Express): void {
   // ===== Template Sets =====
 
   // GET /api/onboarding/templates — list available template sets (for picker; auth required, not admin)
-  app.get('/api/onboarding/templates', requireAuth, async (req, res) => {
+  app.get('/api/onboarding/templates', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const sets = await listTemplateSets(pool, schemaName);

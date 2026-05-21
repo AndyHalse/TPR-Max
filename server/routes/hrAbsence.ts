@@ -1,5 +1,6 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
+import { requireHrFeature } from './hrMiddleware';
 import { customerDbService } from '../customerDatabase';
 import { calculateBradfordFactor } from '../utils/bradfordFactor';
 import { logger } from '../utils/logger';
@@ -14,7 +15,7 @@ async function getPool(customerId: string) {
 export function registerHrAbsenceRoutes(app: Express): void {
 
   // GET /api/staff/:staffId/absences
-  app.get('/api/staff/:staffId/absences', requireAuth, async (req, res) => {
+  app.get('/api/staff/:staffId/absences', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const result = await pool.query(
@@ -30,7 +31,7 @@ export function registerHrAbsenceRoutes(app: Express): void {
   });
 
   // POST /api/staff/:staffId/absences — record start of absence
-  app.post('/api/staff/:staffId/absences', requireAuth, async (req, res) => {
+  app.post('/api/staff/:staffId/absences', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId } = req.params;
@@ -57,7 +58,7 @@ export function registerHrAbsenceRoutes(app: Express): void {
   });
 
   // PUT /api/staff/:staffId/absences/:id/return — record return
-  app.put('/api/staff/:staffId/absences/:id/return', requireAuth, async (req, res) => {
+  app.put('/api/staff/:staffId/absences/:id/return', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
       const { staffId, id } = req.params;
@@ -108,7 +109,7 @@ export function registerHrAbsenceRoutes(app: Express): void {
   });
 
   // GET /api/absences/overview
-  app.get('/api/absences/overview', requireAuth, async (req, res) => {
+  app.get('/api/absences/overview', requireAuth, requireHrFeature, async (req, res) => {
     try {
       const { pool, schemaName } = await getPool(req.customerId!);
 
