@@ -1,0 +1,370 @@
+We have a "Load Sample Data" feature in Settings (POST /api/import/sample-data in server/routes/imports.ts) that currently adds staff, visitors, contractors, and members for demo purposes. We need to extend it to also populate all the HR module tables, and add a companion "Remove All Sample Data" function to clear everything down.
+
+The sample staff records use emails like demo.staff.{batchId}.{i}@example.com. We'll use the same pattern for all new HR demo data so it's easy to identify and remove.
+
+---
+
+PART A — Extend the existing POST /api/import/sample-data endpoint
+
+In server/routes/imports.ts, inside the existing POST /api/import/sample-data handler, add the following HR data inserts AFTER the 10 staff have been inserted and their IDs collected. You'll need to collect the inserted staff IDs first — change the staff insert loop to capture IDs using .returning({ id: isolatedSchema.staff.id }) and store them in a staffIds array.
+
+All HR inserts use raw SQL via the pool because the HR tables aren't in the Drizzle isolated schema. Get the pool using:
+
+  const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+  const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
+  const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+
+Use the staffIds array to link all HR records to real staff rows.
+
+---
+
+HR DATA TO ADD (using the pool and raw SQL):
+
+1. RIGHT TO WORK (right_to_work table)
+   Add one RTW record per staff member. Vary the scenarios:
+   - Staff 0–5: valid records. document_type = 'passport', expiry_date = 2–5 years in future, is_current = true, verified_date = 6 months ago, verified_by = 'HR Manager', verification_method = 'manual'
+   - Staff 6: expiring_soon. expiry_date = 45 days from today
+   - Staff 7: expiring_soon. expiry_date = 20 days from today
+   - Staff 8: expired. expiry_date = 30 days ago
+   - Staff 9: no expiry document. document_type = 'british_passport', expiry_date = NULL, is_current = true
+
+   SQL:
+   INSERT INTO "{schemaName}".right_to_work (staff_id, document_type, document_reference, issue_date, expiry_date, verified_date, verified_by, verification_method, is_current)
+   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
+
+2. DBS CERTIFICATES (staff_dbs table)
+   Add one DBS record per staff member:
+   - Staff 0: enhanced_with_barred_lists, valid 3 years from now
+   - Staff 1: enhanced, valid 2 years from now
+   - Staff 2: standard, valid 1 year from now
+   - Staff 3: enhanced, expiry_date = 60 days from today (expiring_soon)
+   - Staff 4: enhanced_with_barred_lists, expiry_date = 15 days from today (expiring_soon)
+   - Staff 5–9: basic or enhanced, valid dates 1–4 years from now
+   All records: is_current = true, deleted_at = NULL, verified_by = 'HR Manager', verified_date = 1 year ago
+
+   SQL:
+   INSERT INTO "{schemaName}".staff_dbs (staff_id, dbs_level, certificate_number, issue_date, policy_expiry_date, verified_by, verified_date, is_current)
+   VALUES ($1, $2, $3, $4, $5, $6, $7, TRUE)
+
+3. LEAVE REQUESTS (leave_requests table)
+   Add 15 leave requests spread across staff:
+   - 5 approved annual leave requests (past, 2–10 days each)
+   - 3 approved annual leave requests (future, starting 2–8 weeks from now)
+   - 2 pending annual leave requests awaiting approval (future)
+   - 2 approved sick leave requests (past, 1–3 days each) — leave_type = 'sick'
+   - 2 approved parental leave requests (past)
+   - 1 approved compassionate leave (past)
+   
+   Spread across staffIds[0] through staffIds[9]. Use realistic UK start/end dates.
+   
+   SQL:
+   INSERT INTO "{schemaName}".leave_requests (staff_id, leave_type, start_date, end_date, days_taken, status, reason, requested_at)
+   VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+
+4. ABSENCE RECORDS (absence_records table)
+   Add sickness absence records to generate interesting Bradford Factor scores:
+   - Staff 0: 3 separate absences of 1 day each (Bradford = 9×3 = 27 — Low)
+   - Staff 1: 2 absences of 2 days each (Bradford = 4×4 = 16 — Low)
+   - Staff 2: 5 absences of 1 day each (Bradford = 25×5 = 125 — Medium)
+   - Staff 3: 1 absence of 5 days (Bradford = 1×5 = 5 — Low)
+   - Staff 4: 6 absences of 1 day each (Bradford = 36×6 = 216 — High) — use past 12 months
+   - Staff 5–9: 0–1 absences
+   
+   All absences in the past 12 months, return_date set (not currently absent).
+   
+   SQL:
+   INSERT INTO "{schemaName}".absence_records (staff_id, start_date, return_date, days_lost, reason, notes)
+   VALUES ($1, $2, $3, $4, $5, $6)
+
+5. TRAINING REQUIREMENTS + RECORDS (training_requirements and staff_training tables)
+   
+   First insert 5 training requirements if they don't already exist:
+   - 'Fire Safety Awareness' — required_frequency_months = 12
+   - 'Manual Handling' — required_frequency_months = 36
+   - 'Health & Safety Induction' — required_frequency_months = 0 (one-off)
+   - 'GDPR Data Protection' — required_frequency_months = 24
+   - 'First Aid Awareness' — required_frequency_months = 36
+   
+   Then add staff_training records:
+   - Staff 0–3: all 5 trainings completed (completion_date in past, within renewal window)
+   - Staff 4: Fire Safety expired (completed 14 months ago, required every 12)
+   - Staff 5: Manual Handling and GDPR done, others missing
+   - Staff 6–9: Health & Safety Induction done, others missing
+   
+   SQL for requirements:
+   INSERT INTO "{schemaName}".training_requirements (name, description, required_frequency_months, is_mandatory)
+   VALUES ($1, $2, $3, TRUE)
+   ON CONFLICT (name) DO NOTHING
+   RETURNING id
+   
+   SQL for staff records:
+   INSERT INTO "{schemaName}".staff_training (staff_id, requirement_id, completion_date, expiry_date, provider, certificate_reference, status)
+   VALUES ($1, $2, $3, $4, $5, $6, $7)
+
+6. APPRAISALS (staff_appraisals table)
+   - Staff 0: appraisal completed 6 months ago, next_review_date = 6 months from now, status = 'completed', overall_rating = 'good'
+   - Staff 1: appraisal completed 11 months ago, next_review_date = 1 month from now (due soon), status = 'completed', overall_rating = 'excellent'
+   - Staff 2: appraisal scheduled in 2 weeks, status = 'scheduled'
+   - Staff 3–4: appraisal completed 1 year ago, next_review_date = overdue (1 month ago), status = 'completed'
+   - Staff 5–9: no appraisals (so they show as "never appraised")
+   - Reviewer = 'HR Manager' or 'Line Manager' on all records
+   
+   SQL:
+   INSERT INTO "{schemaName}".staff_appraisals (staff_id, appraisal_date, next_review_date, reviewer, status, overall_rating, notes)
+   VALUES ($1, $2, $3, $4, $5, $6, $7)
+
+7. ONBOARDING CHECKLIST (onboarding_checklists + onboarding_checklist_items tables)
+   Create one in-progress onboarding checklist for staff[9] (the newest "starter"):
+   - Insert a row into onboarding_checklists: staff_id = staffIds[9], start_date = today, status = 'in_progress', created_by = 'HR Manager'
+   - Then insert onboarding_checklist_items for that checklist using the standard items:
+     Mark items 1–4 as completed (completed_at = today, completed_by = 'HR Manager')
+     Leave items 5–12 as pending
+   
+   Get the default items from the DEFAULT_ONBOARDING_ITEMS export in server/routes/hrOnboarding.ts — import it at the top of imports.ts:
+   import { DEFAULT_ONBOARDING_ITEMS } from './hrOnboarding';
+   
+   SQL for checklist:
+   INSERT INTO "{schemaName}".onboarding_checklists (staff_id, start_date, status, created_by)
+   VALUES ($1, $2, 'in_progress', $3) RETURNING id
+   
+   SQL for items:
+   INSERT INTO "{schemaName}".onboarding_checklist_items (checklist_id, item_key, label, display_order, is_required, due_day_offset, is_completed, completed_at, completed_by)
+   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+
+8. LEAVER PROCESS (leaver_checklists + leaver_checklist_items tables)
+   Create one completed leaver process for staff[8] (who we'll mark as a leaver):
+   - First update staff[8]: employment_status = 'leaver', contract_end_date = 30 days ago
+   - Insert leaver_checklists: staff_id = staffIds[8], last_day = 30 days ago, reason = 'resignation', status = 'completed', created_by = 'HR Manager'
+   - Insert leaver_checklist_items: all items marked as completed
+   
+   SQL:
+   UPDATE "{schemaName}".staff SET employment_status = 'leaver', contract_end_date = $1, is_active = FALSE WHERE id = $2
+   
+   INSERT INTO "{schemaName}".leaver_checklists (staff_id, last_day, reason, status, created_by)
+   VALUES ($1, $2, 'resignation', 'completed', $3) RETURNING id
+
+9. STAFF DOCUMENTS (staff_documents table)
+   Add 2 documents per staff member (stored as references only — no actual files):
+   - Document 1: document_type = 'contract', document_name = 'Employment Contract', is_confidential = true, uploaded_by = 'HR Manager', uploaded_at = contract start date
+   - Document 2: document_type = 'right_to_work', document_name = 'Passport Copy', is_confidential = true, uploaded_by = 'HR Manager', uploaded_at = 6 months ago
+   
+   Set document_url = null (no actual file) and notes = 'Sample document — uploaded for demonstration purposes'
+   
+   SQL:
+   INSERT INTO "{schemaName}".staff_documents (staff_id, document_type, document_name, is_confidential, uploaded_by, notes)
+   VALUES ($1, $2, $3, TRUE, $4, 'Sample document — uploaded for demonstration purposes')
+
+---
+
+After all HR inserts, update the success message to include HR data counts:
+
+  res.json({
+    success: true,
+    message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members — plus HR records: RTW, DBS, leave, absence, training, appraisals, onboarding, leaver, and documents`,
+    results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: true },
+  });
+
+Wrap all HR inserts in try/catch with logger.warn so that if any HR table doesn't exist yet, it fails gracefully without breaking the entire sample data load.
+
+---
+
+PART B — Add POST /api/import/clear-sample-data endpoint
+
+Add this new endpoint in server/routes/imports.ts, just after the existing sample-data endpoint (before the closing }):
+
+  app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
+    try {
+      if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
+      
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
+      const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+
+      // Find all sample staff IDs (emails ending in @example.com)
+      const sampleStaffResult = await pool.query(
+        `SELECT id FROM "${schemaName}".staff WHERE email LIKE '%@example.com'`
+      );
+      const sampleStaffIds = sampleStaffResult.rows.map((r: any) => r.id);
+
+      let deleted: Record<string, number> = {};
+
+      if (sampleStaffIds.length > 0) {
+        const idList = sampleStaffIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+
+        // HR tables — delete by staff_id
+        const hrTables = [
+          'right_to_work', 'staff_dbs', 'leave_requests', 'absence_records',
+          'staff_training', 'staff_appraisals', 'staff_documents',
+        ];
+        for (const table of hrTables) {
+          try {
+            const r = await pool.query(`DELETE FROM "${schemaName}".${table} WHERE staff_id IN (${idList})`, sampleStaffIds);
+            deleted[table] = r.rowCount;
+          } catch (e) { logger.warn(`Clear sample data: could not delete from ${table}`, (e as any).message); }
+        }
+
+        // Onboarding checklists (items cascade or delete separately)
+        try {
+          const checklists = await pool.query(
+            `SELECT id FROM "${schemaName}".onboarding_checklists WHERE staff_id IN (${idList})`, sampleStaffIds
+          );
+          const checklistIds = checklists.rows.map((r: any) => r.id);
+          if (checklistIds.length > 0) {
+            const cIdList = checklistIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+            await pool.query(`DELETE FROM "${schemaName}".onboarding_checklist_items WHERE checklist_id IN (${cIdList})`, checklistIds);
+            await pool.query(`DELETE FROM "${schemaName}".onboarding_checklists WHERE staff_id IN (${idList})`, sampleStaffIds);
+          }
+          deleted['onboarding'] = checklistIds.length;
+        } catch (e) { logger.warn('Clear sample data: onboarding error', (e as any).message); }
+
+        // Leaver checklists
+        try {
+          const leavers = await pool.query(
+            `SELECT id FROM "${schemaName}".leaver_checklists WHERE staff_id IN (${idList})`, sampleStaffIds
+          );
+          const leaverIds = leavers.rows.map((r: any) => r.id);
+          if (leaverIds.length > 0) {
+            const lIdList = leaverIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+            await pool.query(`DELETE FROM "${schemaName}".leaver_checklist_items WHERE checklist_id IN (${lIdList})`, leaverIds);
+            await pool.query(`DELETE FROM "${schemaName}".leaver_checklists WHERE staff_id IN (${idList})`, sampleStaffIds);
+          }
+          deleted['leavers'] = leaverIds.length;
+        } catch (e) { logger.warn('Clear sample data: leaver error', (e as any).message); }
+
+        // Restore any leavers back to active before deleting staff row
+        await pool.query(`UPDATE "${schemaName}".staff SET employment_status = 'active', is_active = TRUE, contract_end_date = NULL WHERE id IN (${idList})`, sampleStaffIds);
+      }
+
+      // Delete core sample data (visitors, contractors workers, members by @example.com email)
+      const coreTables = [
+        { table: 'visitors', col: 'email' },
+        { table: 'contractor_workers', col: 'email' },
+        { table: 'members', col: 'email' },
+      ];
+      for (const { table, col } of coreTables) {
+        try {
+          const r = await pool.query(`DELETE FROM "${schemaName}".${table} WHERE ${col} LIKE '%@example.com'`);
+          deleted[table] = r.rowCount;
+        } catch (e) { logger.warn(`Clear sample data: could not delete from ${table}`, (e as any).message); }
+      }
+
+      // Delete sample contractor companies (contact_email @example.com)
+      try {
+        // Get company IDs first, delete workers already handled above
+        const companiesResult = await pool.query(
+          `SELECT id FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@example.com'`
+        );
+        const companyIds = companiesResult.rows.map((r: any) => r.id);
+        if (companyIds.length > 0) {
+          const cIdList = companyIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+          await pool.query(`DELETE FROM "${schemaName}".contractor_companies WHERE id IN (${cIdList})`, companyIds);
+          deleted['contractor_companies'] = companyIds.length;
+        }
+      } catch (e) { logger.warn('Clear sample data: contractor companies error', (e as any).message); }
+
+      // Finally delete sample staff
+      if (sampleStaffIds.length > 0) {
+        const idList = sampleStaffIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+        const r = await pool.query(`DELETE FROM "${schemaName}".staff WHERE id IN (${idList})`, sampleStaffIds);
+        deleted['staff'] = r.rowCount;
+      }
+
+      res.json({
+        success: true,
+        message: `Sample data cleared successfully`,
+        deleted,
+      });
+    } catch (error) {
+      logger.error('Error clearing sample data:', error);
+      res.status(500).json({ error: 'Failed to clear sample data', details: (error as any).message });
+    }
+  });
+
+---
+
+PART C — Add "Remove All Sample Data" button to Settings UI
+
+In client/src/pages/settings/SystemSettings.tsx:
+
+1. Add a new mutation alongside the existing sampleDataMutation (around line 127):
+
+  const clearSampleDataMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest('POST', '/api/import/clear-sample-data', {});
+      if (!response.ok) { const error = await response.json(); throw new Error(error.error || 'Failed to clear sample data'); }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/members"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/hr"] });
+      toast({ title: "Sample Data Cleared!", description: data.message });
+    },
+    onError: (error: any) => { toast({ title: "Failed to Clear Sample Data", description: error.message || "An error occurred", variant: "destructive" }); },
+  });
+
+2. Add a state variable for the confirmation dialog (near the top of the component with the other useState declarations):
+
+  const [showClearSampleDataDialog, setShowClearSampleDataDialog] = useState(false);
+
+3. Add the "Remove All Sample Data" button immediately after the existing "Load Sample Data" button (around line 713, inside the same flex gap-3 div). It should be styled in red/destructive colours to make it obvious it removes data:
+
+  <TooltipProvider delayDuration={200}>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="whitespace-nowrap border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+          onClick={() => setShowClearSampleDataDialog(true)}
+          disabled={clearSampleDataMutation.isPending}
+          data-testid="button-clear-sample-data"
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          {clearSampleDataMutation.isPending ? "Clearing..." : "Remove Sample Data"}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-xs">
+        <p>Removes all demo records loaded by "Load Sample Data" — staff, visitors, contractors, members, and all linked HR records. Only removes records with @example.com email addresses.</p>
+      </TooltipContent>
+    </Tooltip>
+  </TooltipProvider>
+
+4. Add a confirmation dialog for the clear action. Place it near the other dialogs in the return statement:
+
+  <AlertDialog open={showClearSampleDataDialog} onOpenChange={setShowClearSampleDataDialog}>
+    <AlertDialogContent>
+      <AlertDialogHeader>
+        <AlertDialogTitle>Remove All Sample Data?</AlertDialogTitle>
+        <AlertDialogDescription>
+          This will permanently delete all records loaded by "Load Sample Data" — including all staff, visitors, contractors, members, and their linked HR records (RTW, DBS, leave, absences, training, appraisals, documents, onboarding and leaver records). Only records with @example.com email addresses will be removed. This cannot be undone.
+        </AlertDialogDescription>
+      </AlertDialogHeader>
+      <AlertDialogFooter>
+        <AlertDialogCancel>Cancel</AlertDialogCancel>
+        <AlertDialogAction
+          className="bg-red-600 hover:bg-red-700 text-white"
+          onClick={() => { setShowClearSampleDataDialog(false); clearSampleDataMutation.mutate(); }}
+        >
+          Yes, Remove All Sample Data
+        </AlertDialogAction>
+      </AlertDialogFooter>
+    </AlertDialogContent>
+  </AlertDialog>
+
+5. Make sure Trash2 is imported from lucide-react (add it to the existing lucide import line if not already there).
+   Make sure AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction are imported from '@/components/ui/alert-dialog' if not already.
+
+---
+
+IMPORTANT NOTES FOR IMPLEMENTATION:
+- All HR inserts in Part A must be wrapped in individual try/catch blocks so that if a table doesn't exist, it skips gracefully rather than failing the whole request
+- The batchId (Date.now()) is already used for staff emails — use the same batchId approach for any HR data that needs a unique reference number (e.g. certificate_number = `DEMO-DBS-${batchId}-${i}`, document_reference = `DEMO-RTW-${batchId}-${i}`)
+- Use NOW() and date arithmetic in SQL for all dates rather than constructing date strings in JavaScript — it's cleaner and avoids timezone issues
+- Test the full flow: Load Sample Data → verify HR pages show data → Remove Sample Data → verify everything is gone

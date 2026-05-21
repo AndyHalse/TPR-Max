@@ -12,7 +12,7 @@ async function getPool(customerId: string) {
 }
 
 function requireAdmin(req: any, res: any, next: any) {
-  if (req.user?.role !== 'admin') {
+  if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
     return res.status(403).json({ error: 'Admin role required' });
   }
   next();
