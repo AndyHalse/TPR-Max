@@ -618,6 +618,46 @@ export const addStaffQrCodeColumnMigration: Migration = {
   }
 };
 
+export const createStaffDbsTableMigration: Migration = {
+  version: '20260521_001_staff_dbs',
+  description: 'Create staff_dbs table for DBS certificate and safeguarding management',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS staff_dbs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          staff_id TEXT NOT NULL,
+          dbs_level TEXT NOT NULL,
+          certificate_number TEXT,
+          application_reference TEXT,
+          issue_date DATE,
+          policy_expiry_date DATE,
+          requested_by TEXT,
+          verified_by TEXT NOT NULL,
+          verified_date DATE NOT NULL,
+          is_current BOOLEAN NOT NULL DEFAULT TRUE,
+          notes TEXT,
+          reminder_sent_at TIMESTAMP,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      logger.info('✅ staff_dbs table created/verified');
+    } catch (error: any) {
+      const msg = error?.message || '';
+      if (
+        msg.includes('already exists') ||
+        msg.includes('pg_type_typname_nsp_index') ||
+        error?.code === '23505'
+      ) {
+        logger.info('ℹ️ staff_dbs table already exists, skipping');
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -625,5 +665,6 @@ export const missingTablesMigrations = [
   addEPassSentColumnMigration,
   createMembersTableMigration,
   ensureMembersTableProductionMigration,
-  addStaffQrCodeColumnMigration
+  addStaffQrCodeColumnMigration,
+  createStaffDbsTableMigration
 ];

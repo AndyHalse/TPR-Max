@@ -5,13 +5,183 @@ import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import AddStaffModal from "@/components/AddStaffModal";
-import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera, Wallet, Loader2, Shield, ShieldOff } from "lucide-react";
+import StaffDbsTab from "@/components/StaffDbsTab";
+import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera, Wallet, Loader2, Shield, ShieldOff, FileText, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import type { Staff } from "@shared/schema";
 import QRScannerModal from "@/components/QRScannerModal";
+
+function StaffProfilePanel({
+  staff: vs,
+  zone,
+  staffPhotoInputId,
+  isUploadingStaffPhoto,
+  handleStaffPhotoUpload,
+  getFullName,
+  getInitials,
+  getAccessLevelBadgeColor,
+  getAccessLevelIcon,
+  getAccessLevelLabel,
+  onEdit,
+  onQrPass,
+}: {
+  staff: any;
+  zone: any;
+  staffPhotoInputId: string;
+  isUploadingStaffPhoto: boolean;
+  handleStaffPhotoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  getFullName: (s: any) => string;
+  getInitials: (s: any) => string;
+  getAccessLevelBadgeColor: (a: string) => string;
+  getAccessLevelIcon: (a: string) => string;
+  getAccessLevelLabel: (a: string) => string;
+  onEdit: () => void;
+  onQrPass: () => void;
+}) {
+  const { data: docs = [], isLoading: docsLoading } = useQuery<any[]>({
+    queryKey: ["/api/staff", vs.id, "documents"],
+    queryFn: () => fetch(`/api/staff/${vs.id}/documents`, { credentials: "include" }).then(r => r.json()),
+  });
+
+  const docTypeLabels: Record<string, string> = {
+    contract: "Contract", right_to_work: "Right to Work", certificate: "Certificate",
+    health_questionnaire: "Health Questionnaire", disciplinary: "Disciplinary",
+    appraisal: "Appraisal", other: "Other",
+  };
+
+  return (
+    <>
+      {/* Slim top bar */}
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 pr-10">
+        <p className="text-white/80 text-[10px] font-medium uppercase tracking-widest">Staff Profile · {vs.employeeId}</p>
+      </div>
+
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="w-full rounded-none border-b h-9 bg-gray-50 gap-0 px-4">
+          <TabsTrigger value="profile" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">Profile</TabsTrigger>
+          <TabsTrigger value="documents" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">
+            <FileText size={11} className="mr-1" />Documents {docs.length > 0 && <Badge className="ml-1 bg-blue-100 text-blue-700 text-[9px] px-1 py-0 h-4">{docs.length}</Badge>}
+          </TabsTrigger>
+          <TabsTrigger value="dbs" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">
+            <Shield size={11} className="mr-1" />DBS
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="profile" className="mt-0">
+          <div className="flex flex-col items-center px-6 pt-5 pb-6">
+            <input type="file" accept="image/*" id={staffPhotoInputId} className="hidden" onChange={handleStaffPhotoUpload} />
+            <div className="relative group">
+              <div className="w-28 h-28 rounded-full border-4 border-blue-100 shadow-xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                {vs.photoUrl ? (
+                  <img src={vs.photoUrl} alt={getFullName(vs)} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-white font-bold text-3xl">{getInitials(vs)}</span>
+                )}
+              </div>
+              <label htmlFor={staffPhotoInputId} className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity" title="Upload photo">
+                {isUploadingStaffPhoto ? <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full" /> : <Camera size={20} className="text-white" />}
+              </label>
+            </div>
+
+            <h2 className="mt-3 text-xl font-bold text-gray-900">{getFullName(vs)}</h2>
+            {vs.jobTitle && <p className="text-sm text-gray-500 mt-0.5">{vs.jobTitle}</p>}
+
+            <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${vs.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
+                {vs.isActive ? '● Active' : '● Inactive'}
+              </span>
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getAccessLevelBadgeColor(vs.accessLevel || 'staff')}`}>
+                {getAccessLevelIcon(vs.accessLevel || 'staff')} {getAccessLevelLabel(vs.accessLevel || 'staff')}
+              </span>
+              {vs.isFireMarshal && <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">🚨 Fire Marshal</span>}
+              {vs.isCheckedIn && <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800"><Clock size={10} /> On Site</span>}
+            </div>
+
+            <div className="mt-4 w-full space-y-2.5 border-t pt-4">
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0"><Mail size={13} className="text-blue-600" /></div>
+                <span className="text-gray-700 break-all">{vs.email || '—'}</span>
+              </div>
+              {vs.phoneNumber && (
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0"><Phone size={13} className="text-blue-600" /></div>
+                  <span className="text-gray-700">{vs.phoneNumber}</span>
+                </div>
+              )}
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0"><Briefcase size={13} className="text-blue-600" /></div>
+                <span className="text-gray-700">{vs.department || '—'}</span>
+              </div>
+              {zone && (
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0"><MapPin size={13} className="text-blue-600" /></div>
+                  <span className="flex items-center gap-1.5 text-gray-700">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
+                    {zone.name}
+                  </span>
+                </div>
+              )}
+              {vs.isCheckedIn && vs.checkedInAt && (
+                <div className="flex items-center gap-3 text-sm">
+                  <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0"><Clock size={13} className="text-green-600" /></div>
+                  <span className="text-gray-700">Signed in at {new Date(vs.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 mt-4 w-full">
+              <Button variant="outline" size="sm" className="flex-1 text-xs" onClick={onEdit}><Edit size={13} className="mr-1" /> Edit Profile</Button>
+              <Button variant="outline" size="sm" className="flex-1 text-xs text-indigo-600 border-indigo-300 hover:bg-indigo-50" onClick={onQrPass}><QrCode size={13} className="mr-1" /> QR Pass</Button>
+            </div>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-0 px-4 py-4 max-h-96 overflow-y-auto">
+          {docsLoading ? (
+            <div className="text-center py-4 text-gray-400 text-sm flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading...</div>
+          ) : docs.length === 0 ? (
+            <div className="text-center py-8">
+              <FileText className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+              <p className="text-gray-400 text-sm">No documents stored.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {docs.map((d: any) => (
+                <Card key={d.id}>
+                  <CardContent className="pt-2 pb-2">
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm truncate">{d.title}</div>
+                        <div className="text-xs text-gray-500">{docTypeLabels[d.document_type] || d.document_type} · {new Date(d.created_at).toLocaleDateString("en-GB")}</div>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {d.is_confidential && <Badge className="bg-red-100 text-red-700 text-xs">Confidential</Badge>}
+                        {d.file_url && <a href={d.file_url} target="_blank" rel="noopener noreferrer"><Button size="sm" variant="outline" className="h-7 text-xs">View</Button></a>}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="dbs" className="mt-0 px-4 py-4 max-h-[500px] overflow-y-auto">
+          <StaffDbsTab staffId={vs.id} />
+        </TabsContent>
+      </Tabs>
+    </>
+  );
+}
 
 export default function StaffManagement() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -974,142 +1144,24 @@ export default function StaffManagement() {
 
       {/* Staff Profile Card Dialog */}
       <Dialog open={!!viewingStaff} onOpenChange={(open) => { if (!open) setViewingStaff(null); }}>
-        <DialogContent className="sm:max-w-sm p-0 overflow-hidden rounded-2xl" aria-describedby={undefined}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden rounded-2xl" aria-describedby={undefined}>
           <DialogTitle className="sr-only">Staff Profile</DialogTitle>
-          {viewingStaff && (() => {
-            const vs = viewingStaff as any;
-            const zone = zones.find((z: any) => z.id === vs.zoneId);
-            return (
-              <>
-                {/* Slim top bar */}
-                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-2 pr-10">
-                  <p className="text-white/80 text-[10px] font-medium uppercase tracking-widest">Staff Profile · {vs.employeeId}</p>
-                </div>
-
-                {/* Photo + details — no overlap, clean layout */}
-                <div className="flex flex-col items-center px-6 pt-5 pb-6">
-                  {/* Hidden file input */}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    id={staffPhotoInputId}
-                    className="hidden"
-                    onChange={handleStaffPhotoUpload}
-                  />
-
-                  {/* Avatar with upload overlay */}
-                  <div className="relative group">
-                    <div className="w-36 h-36 rounded-full border-4 border-blue-100 shadow-xl overflow-hidden bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
-                      {vs.photoUrl ? (
-                        <img src={vs.photoUrl} alt={getFullName(vs)} className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-white font-bold text-4xl">{getInitials(vs)}</span>
-                      )}
-                    </div>
-                    <label
-                      htmlFor={staffPhotoInputId}
-                      className="absolute inset-0 rounded-full flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity"
-                      title="Upload photo"
-                    >
-                      {isUploadingStaffPhoto ? (
-                        <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full" />
-                      ) : (
-                        <Camera size={24} className="text-white" />
-                      )}
-                    </label>
-                  </div>
-
-                  <h2 className="mt-3 text-xl font-bold text-gray-900">{getFullName(vs)}</h2>
-                  {vs.jobTitle && <p className="text-sm text-gray-500 mt-0.5">{vs.jobTitle}</p>}
-
-                  {/* Status + role badges */}
-                  <div className="flex items-center gap-2 mt-2 flex-wrap justify-center">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${vs.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                      {vs.isActive ? '● Active' : '● Inactive'}
-                    </span>
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${getAccessLevelBadgeColor(vs.accessLevel || 'staff')}`}>
-                      {getAccessLevelIcon(vs.accessLevel || 'staff')} {getAccessLevelLabel(vs.accessLevel || 'staff')}
-                    </span>
-                    {vs.isFireMarshal && (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800">
-                        🚨 Fire Marshal
-                      </span>
-                    )}
-                    {vs.isCheckedIn && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                        <Clock size={10} /> On Site
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Details grid */}
-                  <div className="mt-5 w-full space-y-3 border-t pt-4">
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                        <Mail size={13} className="text-blue-600" />
-                      </div>
-                      <span className="text-gray-700 break-all">{vs.email || '—'}</span>
-                    </div>
-                    {vs.phoneNumber && (
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                          <Phone size={13} className="text-blue-600" />
-                        </div>
-                        <span className="text-gray-700">{vs.phoneNumber}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-3 text-sm">
-                      <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                        <Briefcase size={13} className="text-blue-600" />
-                      </div>
-                      <span className="text-gray-700">{vs.department || '—'}</span>
-                    </div>
-                    {zone && (
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                          <MapPin size={13} className="text-blue-600" />
-                        </div>
-                        <span className="flex items-center gap-1.5 text-gray-700">
-                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: zone.color }} />
-                          {zone.name}
-                        </span>
-                      </div>
-                    )}
-                    {vs.isCheckedIn && vs.checkedInAt && (
-                      <div className="flex items-center gap-3 text-sm">
-                        <div className="w-7 h-7 rounded-full bg-green-50 flex items-center justify-center flex-shrink-0">
-                          <Clock size={13} className="text-green-600" />
-                        </div>
-                        <span className="text-gray-700">
-                          Signed in at {new Date(vs.checkedInAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Action buttons */}
-                  <div className="flex gap-2 mt-5 w-full">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs"
-                      onClick={() => { setViewingStaff(null); setEditingStaff(viewingStaff); }}
-                    >
-                      <Edit size={13} className="mr-1" /> Edit Profile
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-xs text-indigo-600 border-indigo-300 hover:bg-indigo-50"
-                      onClick={() => { setViewingStaff(null); setQrPassStaff(viewingStaff); }}
-                    >
-                      <QrCode size={13} className="mr-1" /> QR Pass
-                    </Button>
-                  </div>
-                </div>
-              </>
-            );
-          })()}
+          {viewingStaff && (
+            <StaffProfilePanel
+              staff={viewingStaff as any}
+              zone={(zones as any[]).find((z: any) => z.id === (viewingStaff as any).zoneId)}
+              staffPhotoInputId={staffPhotoInputId}
+              isUploadingStaffPhoto={isUploadingStaffPhoto}
+              handleStaffPhotoUpload={handleStaffPhotoUpload}
+              getFullName={getFullName}
+              getInitials={getInitials}
+              getAccessLevelBadgeColor={getAccessLevelBadgeColor}
+              getAccessLevelIcon={getAccessLevelIcon}
+              getAccessLevelLabel={getAccessLevelLabel}
+              onEdit={() => { setViewingStaff(null); setEditingStaff(viewingStaff); }}
+              onQrPass={() => { setViewingStaff(null); setQrPassStaff(viewingStaff); }}
+            />
+          )}
         </DialogContent>
       </Dialog>
 

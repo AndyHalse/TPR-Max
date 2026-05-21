@@ -18,6 +18,7 @@ import {
   AlertTriangle, ChevronRight, Plus, Clock, CheckCircle, XCircle, Loader2
 } from "lucide-react";
 import LeaverDetail from "./LeaverDetail";
+import StaffDbsTab from "@/components/StaffDbsTab";
 
 function statusBadge(status: string) {
   const map: Record<string, string> = {
@@ -870,6 +871,7 @@ export default function StaffProfile() {
         <TabsList className="w-full flex-wrap h-auto gap-1">
           <TabsTrigger value="employment" className="text-xs"><Briefcase className="h-3 w-3 mr-1" />Employment</TabsTrigger>
           <TabsTrigger value="rtw" className="text-xs"><Shield className="h-3 w-3 mr-1" />Right to Work</TabsTrigger>
+          <TabsTrigger value="dbs" className="text-xs"><Shield className="h-3 w-3 mr-1" />DBS &amp; Safeguarding</TabsTrigger>
           <TabsTrigger value="training" className="text-xs"><BookOpen className="h-3 w-3 mr-1" />Training</TabsTrigger>
           <TabsTrigger value="leave" className="text-xs"><Calendar className="h-3 w-3 mr-1" />Leave</TabsTrigger>
           <TabsTrigger value="absence" className="text-xs"><Activity className="h-3 w-3 mr-1" />Absence</TabsTrigger>
@@ -884,6 +886,7 @@ export default function StaffProfile() {
         <div className="mt-4">
           <TabsContent value="employment"><EmploymentTab staffId={id!} staff={staff} /></TabsContent>
           <TabsContent value="rtw"><RtwTab staffId={id!} /></TabsContent>
+          <TabsContent value="dbs"><StaffDbsTab staffId={id!} /></TabsContent>
           <TabsContent value="training"><TrainingTab staffId={id!} /></TabsContent>
           <TabsContent value="leave"><LeaveTab staffId={id!} /></TabsContent>
           <TabsContent value="absence"><AbsenceTab staffId={id!} /></TabsContent>

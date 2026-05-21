@@ -36,6 +36,7 @@ import { registerHrLeaverRoutes } from './hrLeaver';
 import { registerHrAppraisalRoutes } from './hrAppraisals';
 import { registerHrPayrollRoutes } from './hrPayroll';
 import { registerHrDashboardRoutes } from './hrDashboard';
+import { registerHrDbsRoutes } from './hrDbs';
 import { registerSsoRoutes } from './sso';
 import { registerVisitReasonRoutes } from './visitReasons';
 
@@ -80,6 +81,7 @@ export async function registerSplitRoutes(
   registerHrAppraisalRoutes(app);
   registerHrPayrollRoutes(app);
   registerHrDashboardRoutes(app);
+  registerHrDbsRoutes(app);
   registerVisitReasonRoutes(app);
   await registerRemainingRoutes(app, server);
 }
