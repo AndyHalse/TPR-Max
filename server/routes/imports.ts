@@ -1371,51 +1371,62 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       } catch (e) { logger.warn(`Clear sample (old): members — ${(e as any).message}`); }
 
       try {
-        // Old-style contractor data: any remaining contractor_workers/companies/visits
-        // that are clearly sample (visitors already deleted, if workers remain with no
-        // real email domain, clean those up too)
-        // Only run if @example.com data is gone (avoid deleting real data)
-        const remainingWorkers = await pool.query(`SELECT COUNT(*)::int AS n FROM "${schemaName}".contractor_workers WHERE email LIKE '%@example.com'`);
-        if (remainingWorkers.rows[0].n === 0) {
-          // All old-style contractor data was loaded via sample system - safe to check
-          const sampleCompanyNames = [
-            'BuildRight Contractors Ltd','SafeWork Facilities UK','Delta Technical Services',
-            'Apex Maintenance Group','Horizon Build & Civil',
-            'BuildRight Construction Ltd','SparkTech Electrical Services','SteelFrame Engineering',
-            'PipeFix Plumbing Ltd','SafeClean Environmental','TopCoat Decorators',
-            'SecureIT Solutions','CoolAir Services Ltd','FireGuard UK Ltd',
-            'BuildRight Co','Volt-Safe Electrical Ltd','AquaSafe Hygiene Ltd',
-            'SecureAccess Systems','SteelFrame Engineering',
-          ];
-          const oldCoRes = await pool.query(
-            `SELECT id FROM "${schemaName}".contractor_companies WHERE company_name = ANY($1)`,
-            [sampleCompanyNames]
-          );
-          if (oldCoRes.rows.length > 0) {
-            const oldCoIds: string[] = oldCoRes.rows.map((r: any) => r.id);
-            const oP = inP(oldCoIds);
-            // Clear dependents first
-            const oldWorkerRes = await pool.query(`SELECT id FROM "${schemaName}".contractor_workers WHERE company_id IN (${oP})`, oldCoIds);
-            const oldWorkerIds: string[] = oldWorkerRes.rows.map((r: any) => r.id);
-            if (oldWorkerIds.length > 0) {
-              const owP = inP(oldWorkerIds);
-              await pool.query(`DELETE FROM "${schemaName}".worker_certifications WHERE worker_id IN (${owP})`, oldWorkerIds);
-              await pool.query(`DELETE FROM "${schemaName}".worker_competencies WHERE worker_id IN (${owP})`, oldWorkerIds);
-              await pool.query(`DELETE FROM "${schemaName}".worker_document_assignments WHERE worker_id IN (${owP})`, oldWorkerIds);
-              await pool.query(`DELETE FROM "${schemaName}".induction_tokens WHERE worker_id IN (${owP})`, oldWorkerIds);
-              await pool.query(`DELETE FROM "${schemaName}".co2_records WHERE worker_id IN (${owP})`, oldWorkerIds);
-              await pool.query(`DELETE FROM "${schemaName}".local_labour_records WHERE worker_id IN (${owP})`, oldWorkerIds);
+        // Old-style contractor data: companies/workers loaded by older sample data code
+        // that used realistic-looking .co.uk emails instead of @example.com.
+        // Identified by a fixed list of known sample company names.
+        const sampleCompanyNames = [
+          'BuildRight Contractors Ltd','SafeWork Facilities UK','Delta Technical Services',
+          'Apex Maintenance Group','Horizon Build & Civil',
+          'BuildRight Construction Ltd','SparkTech Electrical Services','SteelFrame Engineering',
+          'PipeFix Plumbing Ltd','SafeClean Environmental','TopCoat Decorators',
+          'SecureIT Solutions','CoolAir Services Ltd','FireGuard UK Ltd',
+          'BuildRight Co','Volt-Safe Electrical Ltd','AquaSafe Hygiene Ltd',
+          'SecureAccess Systems',
+        ];
+        const oldCoRes = await pool.query(
+          `SELECT id FROM "${schemaName}".contractor_companies WHERE company_name = ANY($1)`,
+          [sampleCompanyNames]
+        );
+        if (oldCoRes.rows.length > 0) {
+          const oldCoIds: string[] = oldCoRes.rows.map((r: any) => r.id);
+          const oP = inP(oldCoIds);
+          // Collect all workers for these companies
+          const oldWorkerRes = await pool.query(`SELECT id FROM "${schemaName}".contractor_workers WHERE company_id IN (${oP})`, oldCoIds);
+          const oldWorkerIds: string[] = oldWorkerRes.rows.map((r: any) => r.id);
+          if (oldWorkerIds.length > 0) {
+            const owP = inP(oldWorkerIds);
+            // Clear every FK that references workers (same list as new-style cleanup)
+            for (const t of ['worker_certifications','worker_competencies','worker_document_assignments','induction_tokens','co2_records','local_labour_records','worker_notes']) {
+              try { await pool.query(`DELETE FROM "${schemaName}".${t} WHERE worker_id IN (${owP})`, oldWorkerIds); } catch {}
             }
-            await pool.query(`DELETE FROM "${schemaName}".contractor_visits WHERE company_id IN (${oP})`, oldCoIds);
-            await pool.query(`DELETE FROM "${schemaName}".contractor_prebookings WHERE company_name = ANY($1)`, [sampleCompanyNames]);
-            await pool.query(`DELETE FROM "${schemaName}".co2_records WHERE company_id IN (${oP})`, oldCoIds);
-            await pool.query(`DELETE FROM "${schemaName}".company_notes WHERE company_id IN (${oP})`, oldCoIds);
-            await pool.query(`DELETE FROM "${schemaName}".enhanced_company_details WHERE company_id IN (${oP})`, oldCoIds);
-            await pool.query(`DELETE FROM "${schemaName}".rams_documents WHERE company_id IN (${oP})`, oldCoIds);
-            await pool.query(`DELETE FROM "${schemaName}".contractor_workers WHERE company_id IN (${oP})`, oldCoIds);
-            await pool.query(`DELETE FROM "${schemaName}".contractor_companies WHERE id IN (${oP})`, oldCoIds);
-            deleted['old_style_contractors'] = oldCoIds.length;
+            try {
+              await pool.query(
+                `DELETE FROM "${schemaName}".worker_document_acceptances WHERE worker_id IN (${owP}) OR submitted_by IN (${owP})`,
+                oldWorkerIds
+              );
+            } catch {}
+            // Permit to work referencing these workers
+            try { await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE contractor_worker_id IN (${owP})`, oldWorkerIds); } catch {}
           }
+          // Permit to work referencing these companies
+          try { await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE contractor_company_id IN (${oP})`, oldCoIds); } catch {}
+          // Contractor visits for these companies (covers worker_id fk too via cascade logic)
+          try { await pool.query(`DELETE FROM "${schemaName}".contractor_visits WHERE company_id IN (${oP})`, oldCoIds); } catch {}
+          // Pre-bookings
+          try { await pool.query(`DELETE FROM "${schemaName}".contractor_prebookings WHERE company_name = ANY($1)`, [sampleCompanyNames]); } catch {}
+          // Company-level dependents
+          for (const t of ['co2_records','company_notes','enhanced_company_details','local_labour_records','rams_documents']) {
+            try { await pool.query(`DELETE FROM "${schemaName}".${t} WHERE company_id IN (${oP})`, oldCoIds); } catch {}
+          }
+          try {
+            await pool.query(`DELETE FROM "${schemaName}".cdm_projects WHERE company_id IN (${oP}) OR principal_contractor_id IN (${oP})`, oldCoIds);
+          } catch {}
+          // Now safe to delete workers and companies
+          if (oldWorkerIds.length > 0) {
+            try { await pool.query(`DELETE FROM "${schemaName}".contractor_workers WHERE company_id IN (${oP})`, oldCoIds); } catch (e) { logger.warn(`Clear old-style: contractor_workers — ${(e as any).message}`); }
+          }
+          try { await pool.query(`DELETE FROM "${schemaName}".contractor_companies WHERE id IN (${oP})`, oldCoIds); } catch (e) { logger.warn(`Clear old-style: contractor_companies — ${(e as any).message}`); }
+          deleted['old_style_contractors'] = oldCoIds.length;
         }
       } catch (e) { logger.warn(`Clear sample (old): contractors — ${(e as any).message}`); }
 
