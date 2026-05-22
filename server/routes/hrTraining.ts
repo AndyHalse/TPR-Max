@@ -103,9 +103,9 @@ export function registerHrTrainingRoutes(app: Express): void {
       const matrix = staffList.map((s: any) => {
         const staffRecords = records.filter((r: any) => r.staff_id === s.id);
         const courses: Record<string, any> = {};
-        for (const req of requirements) {
-          const match = staffRecords.find((r: any) => r.course_name === req.course_name);
-          courses[req.course_name] = match
+        for (const requirement of requirements) {
+          const match = staffRecords.find((r: any) => r.course_name === requirement.course_name);
+          courses[requirement.course_name] = match
             ? { completedDate: match.completed_date, expiryDate: match.expiry_date, status: trainingStatus(match.expiry_date) }
             : { status: 'not_completed' };
         }

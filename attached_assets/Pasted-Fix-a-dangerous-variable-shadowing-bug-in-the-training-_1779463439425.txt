@@ -1,0 +1,46 @@
+Fix a dangerous variable shadowing bug in the training matrix route in
+server/routes/hrTraining.ts.
+
+ROOT CAUSE:
+Inside the async handler for GET /api/training/matrix, the loop variable is named `req`,
+which shadows the outer Express `req` (the HTTP request object). This works by coincidence
+today, but any future developer adding req.body, req.params, req.customerId, or similar
+inside that loop will silently read from the training requirement object instead of the
+HTTP request, causing hard-to-diagnose bugs.
+
+---
+
+FILE: server/routes/hrTraining.ts
+
+Find this loop inside the training matrix route handler (around line 103):
+
+      const matrix = staffList.map((s: any) => {
+        const staffRecords = records.filter((r: any) => r.staff_id === s.id);
+        const courses: Record<string, any> = {};
+        for (const req of requirements) {
+          const match = staffRecords.find((r: any) => r.course_name === req.course_name);
+          courses[req.course_name] = match
+            ? { completedDate: match.completed_date, expiryDate: match.expiry_date, status: trainingStatus(match.expiry_date) }
+            : { status: 'not_completed' };
+        }
+        return { staff: s, courses };
+      });
+
+Replace it with (rename 'req' to 'requirement' throughout the loop):
+
+      const matrix = staffList.map((s: any) => {
+        const staffRecords = records.filter((r: any) => r.staff_id === s.id);
+        const courses: Record<string, any> = {};
+        for (const requirement of requirements) {
+          const match = staffRecords.find((r: any) => r.course_name === requirement.course_name);
+          courses[requirement.course_name] = match
+            ? { completedDate: match.completed_date, expiryDate: match.expiry_date, status: trainingStatus(match.expiry_date) }
+            : { status: 'not_completed' };
+        }
+        return { staff: s, courses };
+      });
+
+---
+
+The behaviour is identical — this is a pure rename to eliminate the shadowing.
+No other files need changing.
