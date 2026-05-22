@@ -1,0 +1,1 @@
+- [line_manager_id raw SQL only](line-manager-id-raw-sql.md) — staff.line_manager_id exists in DB via raw ALTER TABLE but NOT in Drizzle schema; Zod strips it silently; must use raw SQL to write it.

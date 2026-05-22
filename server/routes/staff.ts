@@ -568,9 +568,14 @@ export function registerStaffRoutes(app: Express): void {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      // line_manager_id was added via raw ALTER TABLE (not in the Drizzle schema), so
+      // Zod's insertStaffSchema strips lineManagerId as an unknown field.
+      // Extract it before parsing so we can apply it separately via raw SQL.
+      const { lineManagerId, ...bodyWithoutLineManager } = req.body;
       
       // Add customerId to updates for proper customer isolation
-      let updates = insertStaffSchema.partial().parse({ ...req.body, customerId: context.customerId });
+      let updates = insertStaffSchema.partial().parse({ ...bodyWithoutLineManager, customerId: context.customerId });
       
       // AUTO-GENERATE Fire Marshal URL only when explicitly enabling the role
       if (updates.isFireMarshal === true) {
@@ -586,6 +591,23 @@ export function registerStaffRoutes(app: Express): void {
       
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found" });
+      }
+
+      // Apply line_manager_id via raw SQL (column exists in DB but not in Drizzle schema)
+      if (lineManagerId !== undefined) {
+        try {
+          const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+          const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
+          const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+          const newManagerId = lineManagerId === null || lineManagerId === '' ? null : lineManagerId;
+          await pool.query(
+            `UPDATE "${schemaName}".staff SET line_manager_id = $1 WHERE id = $2`,
+            [newManagerId, id]
+          );
+          logger.info(`Set line_manager_id=${newManagerId} for staff ${id}`);
+        } catch (lmErr) {
+          logger.warn(`Failed to set line_manager_id for staff ${id}:`, lmErr);
+        }
       }
       
       res.json(staff);
