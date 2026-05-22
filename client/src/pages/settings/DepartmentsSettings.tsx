@@ -9,8 +9,31 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Building, Plus, Edit, Trash2, BarChart3, Download, Users } from "lucide-react";
+import { Building, Plus, Edit, Trash2, BarChart3, Download, Users, ListPlus, CheckSquare, Square } from "lucide-react";
 import type { Department, InsertDepartment } from "@shared/schema";
+
+const UK_DEFAULTS: Array<{ name: string; description: string; color: string }> = [
+  { name: "Executive & Leadership", description: "Board, directors and senior leadership team", color: "bg-indigo-500" },
+  { name: "Finance & Accounts", description: "Financial management, payroll and accounting", color: "bg-green-50 dark:bg-green-950/300" },
+  { name: "Human Resources", description: "Recruitment, employee relations and people operations", color: "bg-pink-500" },
+  { name: "Information Technology", description: "IT infrastructure, software and technical support", color: "bg-blue-50 dark:bg-blue-950/300" },
+  { name: "Sales", description: "New business development and account management", color: "bg-orange-500" },
+  { name: "Marketing", description: "Brand, campaigns, digital and communications", color: "bg-purple-500" },
+  { name: "Operations", description: "Day-to-day business processes and service delivery", color: "bg-cyan-500" },
+  { name: "Customer Service", description: "Client support, helpdesk and customer success", color: "bg-emerald-500" },
+  { name: "Legal & Compliance", description: "Legal affairs, contracts and regulatory compliance", color: "bg-indigo-500" },
+  { name: "Health & Safety", description: "Workplace safety, risk assessments and H&S compliance", color: "bg-red-500" },
+  { name: "Facilities Management", description: "Building, maintenance and workplace services", color: "bg-yellow-500" },
+  { name: "Administration", description: "General office administration and support functions", color: "bg-blue-50 dark:bg-blue-950/300" },
+  { name: "Procurement & Supply Chain", description: "Purchasing, supplier management and logistics", color: "bg-orange-500" },
+  { name: "Research & Development", description: "Product development, innovation and engineering", color: "bg-purple-500" },
+  { name: "Quality Assurance", description: "Product and process quality control and testing", color: "bg-green-50 dark:bg-green-950/300" },
+  { name: "Project Management", description: "Project delivery, planning and programme management", color: "bg-cyan-500" },
+  { name: "Production & Manufacturing", description: "Manufacturing, assembly and production operations", color: "bg-yellow-500" },
+  { name: "Logistics & Distribution", description: "Warehousing, shipping and delivery operations", color: "bg-orange-500" },
+  { name: "Business Development", description: "Partnerships, growth strategy and new markets", color: "bg-emerald-500" },
+  { name: "Security", description: "Physical security, access control and guarding", color: "bg-indigo-500" },
+];
 
 export default function DepartmentsSettings() {
   const { toast } = useToast();
@@ -21,6 +44,9 @@ export default function DepartmentsSettings() {
     description: "",
     color: "bg-blue-50 dark:bg-blue-950/300"
   });
+  const [showDefaultsDialog, setShowDefaultsDialog] = useState(false);
+  const [selectedDefaults, setSelectedDefaults] = useState<Set<string>>(new Set());
+  const [addingDefaults, setAddingDefaults] = useState(false);
 
   const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role: string }>({
     queryKey: ["/api/auth/me"],
@@ -81,6 +107,32 @@ export default function DepartmentsSettings() {
     }
   };
 
+  const handleAddDefaults = async () => {
+    if (!currentUser?.customerId || selectedDefaults.size === 0) return;
+    const existing = new Set((departments || []).map((d: Department) => d.name.toLowerCase()));
+    const toAdd = UK_DEFAULTS.filter(d => selectedDefaults.has(d.name) && !existing.has(d.name.toLowerCase()));
+    if (toAdd.length === 0) {
+      toast({ title: "No new departments", description: "All selected departments already exist." });
+      setShowDefaultsDialog(false);
+      return;
+    }
+    setAddingDefaults(true);
+    let added = 0;
+    for (const dept of toAdd) {
+      try {
+        await apiRequest("POST", "/api/departments", { ...dept, customerId: currentUser.customerId });
+        added++;
+      } catch {}
+    }
+    setAddingDefaults(false);
+    queryClient.invalidateQueries({ queryKey: ["/api/departments"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/departments/names"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/analytics/departments"] });
+    setShowDefaultsDialog(false);
+    setSelectedDefaults(new Set());
+    toast({ title: `${added} department${added !== 1 ? "s" : ""} added`, description: added < toAdd.length ? `${toAdd.length - added} already existed and were skipped.` : "All selected departments have been created." });
+  };
+
   const handleDepartmentSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!departmentForm.name?.trim()) {
@@ -116,7 +168,7 @@ export default function DepartmentsSettings() {
         </p>
       </div>
     </div>
-    <div className="flex gap-3">
+    <div className="flex gap-3 flex-wrap">
       <Button
         variant="outline"
         className="text-variable border-slate-300"
@@ -124,6 +176,18 @@ export default function DepartmentsSettings() {
       >
         <Download className="mr-2" size={16} />
         Export
+      </Button>
+      <Button
+        variant="outline"
+        className="text-variable border-slate-300"
+        onClick={() => {
+          setSelectedDefaults(new Set(UK_DEFAULTS.map(d => d.name)));
+          setShowDefaultsDialog(true);
+        }}
+        data-testid="button-uk-defaults"
+      >
+        <ListPlus className="mr-2" size={16} />
+        UK Defaults
       </Button>
       <Button
         onClick={() => {
@@ -338,6 +402,72 @@ export default function DepartmentsSettings() {
         </Button>
       </DialogFooter>
     </form>
+  </DialogContent>
+</Dialog>
+
+{/* UK Defaults Dialog */}
+<Dialog open={showDefaultsDialog} onOpenChange={setShowDefaultsDialog}>
+  <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+    <DialogHeader>
+      <DialogTitle>UK Default Departments</DialogTitle>
+      <DialogDescription>
+        Typical departments for UK companies up to 250 staff. Tick the ones you want — any that already exist will be skipped.
+      </DialogDescription>
+    </DialogHeader>
+    <div className="flex items-center justify-between mb-2 px-1">
+      <span className="text-sm text-gray-500">{selectedDefaults.size} of {UK_DEFAULTS.length} selected</span>
+      <div className="flex gap-2">
+        <button className="text-xs text-blue-600 hover:underline" onClick={() => setSelectedDefaults(new Set(UK_DEFAULTS.map(d => d.name)))}>Select all</button>
+        <span className="text-gray-300">|</span>
+        <button className="text-xs text-blue-600 hover:underline" onClick={() => setSelectedDefaults(new Set())}>Clear</button>
+      </div>
+    </div>
+    <div className="overflow-y-auto flex-1 -mx-1 px-1 space-y-1">
+      {UK_DEFAULTS.map((dept) => {
+        const checked = selectedDefaults.has(dept.name);
+        const alreadyExists = (departments || []).some((d: Department) => d.name.toLowerCase() === dept.name.toLowerCase());
+        return (
+          <button
+            key={dept.name}
+            type="button"
+            onClick={() => {
+              if (alreadyExists) return;
+              setSelectedDefaults(prev => {
+                const next = new Set(prev);
+                if (next.has(dept.name)) next.delete(dept.name); else next.add(dept.name);
+                return next;
+              });
+            }}
+            className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${
+              alreadyExists
+                ? "opacity-40 cursor-not-allowed bg-gray-50 border-gray-200"
+                : checked
+                ? "bg-blue-50 border-blue-300 hover:bg-blue-100"
+                : "bg-white border-gray-200 hover:bg-gray-50"
+            }`}
+          >
+            <span className="mt-0.5 flex-shrink-0 text-blue-600">
+              {alreadyExists ? <CheckSquare size={16} className="text-gray-400" /> : checked ? <CheckSquare size={16} /> : <Square size={16} className="text-gray-400" />}
+            </span>
+            <span className="flex-1 min-w-0">
+              <span className="block text-sm font-medium text-gray-800">{dept.name}</span>
+              <span className="block text-xs text-gray-500 mt-0.5">{dept.description}</span>
+            </span>
+            {alreadyExists && <span className="text-xs text-gray-400 mt-0.5 flex-shrink-0">exists</span>}
+          </button>
+        );
+      })}
+    </div>
+    <DialogFooter className="gap-2 pt-4 border-t mt-2">
+      <Button variant="outline" onClick={() => setShowDefaultsDialog(false)}>Cancel</Button>
+      <Button
+        className="gradient-blue text-white"
+        disabled={selectedDefaults.size === 0 || addingDefaults}
+        onClick={handleAddDefaults}
+      >
+        {addingDefaults ? "Adding…" : `Add ${selectedDefaults.size} Department${selectedDefaults.size !== 1 ? "s" : ""}`}
+      </Button>
+    </DialogFooter>
   </DialogContent>
 </Dialog>
 
