@@ -1,0 +1,92 @@
+The two utility files that handle business-critical calculations have no 
+unit tests. Both have bugs that were only discovered by manual code review 
+— a test suite would have caught them immediately.
+
+Create a new test file at: server/utils/utils.test.ts
+
+Use vitest (already installed as a dev dependency). Add tests for the 
+following:
+
+--- bradfordFactor.ts tests ---
+
+import { calculateBradfordFactor } from './bradfordFactor';
+
+test('returns zero score for empty absences', () => {
+  const result = calculateBradfordFactor([]);
+  expect(result.score).toBe(0);
+  expect(result.rating).toBe('low');
+});
+
+test('calculates correctly with snake_case DB rows', () => {
+  const absences = [
+    { start_date: new Date().toISOString(), days_lost: 3 },
+    { start_date: new Date().toISOString(), days_lost: 2 },
+  ];
+  const result = calculateBradfordFactor(absences as any);
+  // 2 spells × 2 spells × 5 days = 20
+  expect(result.spells).toBe(2);
+  expect(result.totalDays).toBe(5);
+  expect(result.score).toBe(20);
+});
+
+test('filters out absences older than rolling window', () => {
+  const old = new Date();
+  old.setFullYear(old.getFullYear() - 2);
+  const absences = [{ start_date: old.toISOString(), days_lost: 10 }];
+  const result = calculateBradfordFactor(absences as any);
+  expect(result.spells).toBe(0);
+  expect(result.score).toBe(0);
+});
+
+test('rates correctly: medium at 50, high at 200, critical at 450', () => {
+  // 3 spells × 3 spells × 6 days = 54 → medium
+  const makeAbsences = (count: number, days: number) =>
+    Array.from({ length: count }, () => ({
+      start_date: new Date().toISOString(),
+      days_lost: days,
+    }));
+  expect(calculateBradfordFactor(makeAbsences(3, 6) as any).rating).toBe('medium');
+  expect(calculateBradfordFactor(makeAbsences(5, 9) as any).rating).toBe('high');  // 5×5×9=225
+  expect(calculateBradfordFactor(makeAbsences(6, 13) as any).rating).toBe('critical');  // 6×6×13=468
+});
+
+--- leaveUtils.ts tests ---
+
+import { calculateWorkingDays, getLeaveYear, calculateLeaveBalance } from './leaveUtils';
+
+test('calculateWorkingDays excludes weekends', () => {
+  // Monday to Friday = 5 days
+  const mon = new Date('2025-05-19');
+  const fri = new Date('2025-05-23');
+  expect(calculateWorkingDays(mon, fri)).toBe(5);
+});
+
+test('calculateWorkingDays excludes bank holidays by default', () => {
+  // 2025-04-18 is Good Friday (bank holiday)
+  const thu = new Date('2025-04-17');
+  const fri = new Date('2025-04-18');
+  expect(calculateWorkingDays(thu, fri)).toBe(1); // only Thursday counts
+});
+
+test('half day returns 0.5 for single working day', () => {
+  const mon = new Date('2025-05-19');
+  expect(calculateWorkingDays(mon, mon, 5, { halfDay: 'am' })).toBe(0.5);
+});
+
+test('calculateLeaveBalance returns correct remaining days', () => {
+  const year = { start: new Date('2025-01-01'), end: new Date('2025-12-31') };
+  const leave = [
+    { id: '1', startDate: '2025-03-01', endDate: '2025-03-05', 
+      daysTaken: 5, status: 'approved', leaveType: 'annual' },
+    { id: '2', startDate: '2025-06-01', endDate: '2025-06-03', 
+      daysTaken: 3, status: 'pending', leaveType: 'annual' },
+  ];
+  const result = calculateLeaveBalance(25, year, leave as any);
+  expect(result.taken).toBe(5);
+  expect(result.pending).toBe(3);
+  expect(result.remaining).toBe(20);
+});
+
+Run the tests with: npx vitest run server/utils/utils.test.ts
+
+All tests should pass after the Bradford Factor fix (Prompt 1) is applied.
