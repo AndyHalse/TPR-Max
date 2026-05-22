@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Link } from "wouter";
-import { CheckSquare, Loader2, Plus, AlertCircle, CalendarClock, Users, Settings } from "lucide-react";
+import { CheckSquare, Loader2, Plus, AlertCircle, CalendarClock, Users, Settings, ArrowLeft } from "lucide-react";
 
 type Filter = "in_progress" | "starting_this_month" | "overdue";
 
@@ -38,6 +38,9 @@ export default function OnboardingOverview() {
 
   return (
     <div className="space-y-6">
+      <Link to="/hr" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors py-1 px-2 -ml-2 rounded-lg hover:bg-gray-100">
+        <ArrowLeft className="h-4 w-4" /> Back to HR Hub
+      </Link>
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

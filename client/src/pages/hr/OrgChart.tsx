@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Network, Search, Users, Loader2, AlertTriangle, UserX, Repeat, ChevronDown, ChevronRight, GripVertical } from "lucide-react";
+import { Network, Search, Users, Loader2, AlertTriangle, UserX, Repeat, ChevronDown, ChevronRight, GripVertical, ArrowLeft } from "lucide-react";
 import { useState, useMemo, useRef, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -353,6 +353,9 @@ export default function OrgChart() {
 
   return (
     <div className="space-y-6">
+      <Link to="/hr" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors py-1 px-2 -ml-2 rounded-lg hover:bg-gray-100">
+        <ArrowLeft className="h-4 w-4" /> Back to HR Hub
+      </Link>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>

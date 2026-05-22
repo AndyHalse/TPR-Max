@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { BookOpen, Plus, AlertTriangle, CheckCircle, Clock, XCircle, Loader2, Search } from "lucide-react";
+import { BookOpen, Plus, AlertTriangle, CheckCircle, Clock, XCircle, Loader2, Search, ArrowLeft } from "lucide-react";
 
 const STATUS_STYLE: Record<string, { bg: string; icon: any; label: string }> = {
   valid: { bg: "bg-green-100", icon: CheckCircle, label: "Valid" },
@@ -54,6 +54,9 @@ export default function TrainingMatrix() {
 
   return (
     <div className="space-y-6">
+      <Link to="/hr" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors py-1 px-2 -ml-2 rounded-lg hover:bg-gray-100">
+        <ArrowLeft className="h-4 w-4" /> Back to HR Hub
+      </Link>
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><BookOpen className="h-6 w-6 text-blue-600" /> Training Matrix</h1>

@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { LogOut, AlertTriangle, Loader2, Settings as SettingsIcon, ShieldAlert } from "lucide-react";
+import { LogOut, AlertTriangle, Loader2, Settings as SettingsIcon, ShieldAlert, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
 
 export const REASON_LABELS: Record<string, string> = {
@@ -63,6 +63,9 @@ export default function Leavers() {
 
   return (
     <div className="space-y-6">
+      <Link to="/hr" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors py-1 px-2 -ml-2 rounded-lg hover:bg-gray-100">
+        <ArrowLeft className="h-4 w-4" /> Back to HR Hub
+      </Link>
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">

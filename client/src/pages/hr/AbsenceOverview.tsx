@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Link } from "wouter";
-import { Activity, Search, AlertTriangle, Loader2 } from "lucide-react";
+import { Activity, Search, AlertTriangle, Loader2, ArrowLeft } from "lucide-react";
 import { useState } from "react";
 
 const BF_STYLE: Record<string, string> = {
@@ -29,6 +29,9 @@ export default function AbsenceOverview() {
 
   return (
     <div className="space-y-6">
+      <Link to="/hr" className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors py-1 px-2 -ml-2 rounded-lg hover:bg-gray-100">
+        <ArrowLeft className="h-4 w-4" /> Back to HR Hub
+      </Link>
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2"><Activity className="h-6 w-6 text-blue-600" /> Absence Overview</h1>
