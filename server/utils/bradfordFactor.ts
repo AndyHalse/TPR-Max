@@ -1,8 +1,11 @@
 export interface AbsenceRecord {
-  id: string;
-  startDate: string | Date;
-  returnDate: string | Date | null;
-  daysLost: number | null;
+  id?: string;
+  startDate?: string | Date;
+  start_date?: string | Date;
+  returnDate?: string | Date | null;
+  return_date?: string | Date | null;
+  daysLost?: number | null;
+  days_lost?: number | null;
 }
 
 export type BradfordRating = 'low' | 'medium' | 'high' | 'critical';
@@ -20,12 +23,12 @@ export function calculateBradfordFactor(
   cutoff.setDate(cutoff.getDate() - rollingDays);
 
   const relevant = absences.filter((a) => {
-    const s = new Date(a.startDate);
-    return s >= cutoff;
+    const s = new Date((a as any).startDate ?? (a as any).start_date);
+    return !isNaN(s.getTime()) && s >= cutoff;
   });
 
   const spells = relevant.length;
-  const totalDays = relevant.reduce((sum, a) => sum + (Number(a.daysLost) || 0), 0);
+  const totalDays = relevant.reduce((sum, a) => sum + (Number((a as any).daysLost ?? (a as any).days_lost) || 0), 0);
   const score = spells * spells * totalDays;
 
   let rating: BradfordRating = 'low';

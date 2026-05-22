@@ -1,0 +1,68 @@
+Fix a bug in the Bradford Factor utility where the score is always 0 for every staff member.
+
+ROOT CAUSE:
+The function `calculateBradfordFactor` in server/utils/bradfordFactor.ts defines its interface using
+camelCase property names (startDate, daysLost, returnDate). However, every caller passes raw
+PostgreSQL result rows which use snake_case (start_date, days_lost, return_date).
+
+The result: `new Date(undefined)` is created for every absence record, which produces Invalid Date.
+Invalid Date fails the `>= cutoff` filter, so ALL absence records are excluded. spells = 0,
+totalDays = 0, score = 0 for every staff member, every time. The Bradford Factor feature is
+completely broken.
+
+---
+
+FILE: server/utils/bradfordFactor.ts
+
+Find the `calculateBradfordFactor` function. Make these two changes:
+
+CHANGE 1 — the filter that checks if an absence falls within the rolling period:
+
+  BEFORE:
+    const relevant = absences.filter((a) => {
+      const s = new Date(a.startDate);
+      return s >= cutoff;
+    });
+
+  AFTER:
+    const relevant = absences.filter((a) => {
+      const s = new Date((a as any).startDate ?? (a as any).start_date);
+      return !isNaN(s.getTime()) && s >= cutoff;
+    });
+
+CHANGE 2 — the totalDays reduction:
+
+  BEFORE:
+    const totalDays = relevant.reduce((sum, a) => sum + (Number(a.daysLost) || 0), 0);
+
+  AFTER:
+    const totalDays = relevant.reduce((sum, a) => sum + (Number((a as any).daysLost ?? (a as any).days_lost) || 0), 0);
+
+Also update the AbsenceRecord interface to make the properties optional so it accepts both formats:
+
+  BEFORE:
+    export interface AbsenceRecord {
+      id: string;
+      startDate: string | Date;
+      returnDate: string | Date | null;
+      daysLost: number | null;
+    }
+
+  AFTER:
+    export interface AbsenceRecord {
+      id?: string;
+      startDate?: string | Date;
+      start_date?: string | Date;
+      returnDate?: string | Date | null;
+      return_date?: string | Date | null;
+      daysLost?: number | null;
+      days_lost?: number | null;
+    }
+
+---
+
+No other files need changing. The two callers in hrAbsence.ts already pass the right data —
+the fix is entirely within bradfordFactor.ts.
+
+After the change, a staff member with 3 separate 1-day absences in the past 12 months should
+show a Bradford score of 9 (3² × 3 = 9, rating: low). Previously it would show 0.
