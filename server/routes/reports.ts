@@ -17,7 +17,13 @@ export function registerReportRoutes(app: Express): void {
   // Generate test data for load testing
   // Clear duplicate visitors endpoint
   app.delete("/api/test-data/visitors/duplicates", requireAuth, async (req, res) => {
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(404).json({ error: 'Not found' });
+    }
     try {
+      if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       logger.info(`🧹 Removing duplicate visitors for customer: ${context.customerId}`);
@@ -564,6 +570,9 @@ export function registerReportRoutes(app: Express): void {
   // Clear all reports for the current customer
   app.delete("/api/reports", requireAuth, async (req, res) => {
     try {
+      if (!['admin', 'hr_admin'].includes(req.user?.role || '')) {
+        return res.status(403).json({ error: 'Admin access required' });
+      }
       if (!req.user?.username) {
         return res.status(401).json({ error: "Not authenticated" });
       }
