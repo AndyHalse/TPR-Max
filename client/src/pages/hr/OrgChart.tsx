@@ -72,7 +72,7 @@ function OrgNodeCard({
   isDragOver: boolean;
   onToggle: () => void;
   onDragOver: (e: React.DragEvent) => void;
-  onDragLeave: () => void;
+  onDragLeave: (e: React.DragEvent) => void;
   onDrop: (e: React.DragEvent) => void;
 }) {
   return (
@@ -91,8 +91,9 @@ function OrgNodeCard({
           Drop to assign
         </div>
       )}
-      <Link href={`/hr/staff/${node.id}`} onClick={e => e.stopPropagation()}>
-        <div className="flex flex-col items-center gap-1.5 cursor-pointer">
+      {/* draggable={false} stops the browser treating the <a> as a native draggable link */}
+      <Link href={`/hr/staff/${node.id}`} onClick={e => e.stopPropagation()} draggable={false}>
+        <div className="flex flex-col items-center gap-1.5 cursor-pointer pointer-events-none">
           <NodeAvatar node={node} size={10} />
           <div className="text-center min-w-0 w-full">
             <div className="font-semibold text-xs leading-tight truncate">{node.first_name} {node.last_name}</div>
@@ -148,11 +149,17 @@ function LandscapeNode({
     setDragOverId(node.id);
   }, [node.id, setDragOverId]);
 
-  const handleDragLeave = useCallback(() => {
-    setDragOverId(null);
+  // Only clear the highlight when the cursor genuinely leaves this card,
+  // not when it moves between child elements inside it (avatar, text, badge).
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOverId(null);
+    }
   }, [setDragOverId]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setDragOverId(null);
     onDropOnManager(node.id, e);
   }, [node.id, onDropOnManager, setDragOverId]);
