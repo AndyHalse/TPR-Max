@@ -1070,6 +1070,82 @@ export function registerSettingsRoutes(
     }
   });
 
+  // ── Job Titles ─────────────────────────────────────────────────────────────
+
+  const DEFAULT_UK_JOB_TITLES = [
+    'Chief Executive Officer','Managing Director','Chief Financial Officer','Chief Operating Officer',
+    'Chief Technology Officer','Chief Information Officer','Chief Marketing Officer','Chairman',
+    'Non-Executive Director','Board Director',
+    'Finance Director','HR Director','IT Director','Sales Director','Marketing Director',
+    'Operations Director','Commercial Director','Technical Director','Legal Director','Procurement Director',
+    'General Manager','Operations Manager','Finance Manager','HR Manager','IT Manager','Sales Manager',
+    'Marketing Manager','Project Manager','Account Manager','Office Manager','Branch Manager',
+    'Warehouse Manager','Production Manager','Quality Manager','Compliance Manager','Risk Manager',
+    'Business Development Manager','Procurement Manager','Logistics Manager','Facilities Manager',
+    'Maintenance Manager','Site Manager','Customer Service Manager','Health & Safety Manager',
+    'HR Business Partner','HR Advisor','HR Coordinator','Recruitment Advisor',
+    'Training Manager','Learning & Development Manager','Payroll Manager',
+    'Administrator','Senior Administrator','Office Administrator',
+    'Executive Assistant','Personal Assistant','Receptionist',
+    'Finance Analyst','Finance Assistant','Finance Business Partner',
+    'Accountant','Management Accountant','Financial Controller',
+    'Payroll Administrator','Accounts Assistant','Credit Controller',
+    'Senior Engineer','Engineer','Mechanical Engineer','Electrical Engineer','Civil Engineer',
+    'Software Engineer','Systems Engineer','Design Engineer','Project Engineer','Graduate Engineer',
+    'IT Support Engineer','Network Engineer','Cyber Security Analyst','Systems Analyst',
+    'Data Analyst','Business Analyst','IT Technician','IT Support Lead',
+    'Infrastructure Engineer','DevOps Engineer',
+    'Senior Sales Executive','Sales Executive','Account Executive','Key Account Manager',
+    'Marketing Coordinator','Marketing Executive','Digital Marketing Manager',
+    'Marketing Assistant','Brand Manager','PR Manager','Content Manager',
+    'Facilities Supervisor','Maintenance Technician','Site Supervisor',
+    'Operations Supervisor','Warehouse Supervisor','Production Supervisor',
+    'Health & Safety Advisor','Health & Safety Officer','Compliance Officer',
+    'Data Protection Officer','Risk Analyst','Legal Counsel','Solicitor',
+    'Electrician','Plumber','Carpenter','Welder','Fitter','Crane Operator','Plant Operator','CCTV Operator',
+    'Customer Service Advisor','Call Centre Agent','Helpdesk Analyst','Support Technician',
+    'Graduate Trainee','Apprentice','Intern',
+  ];
+
+  app.get("/api/settings/job-titles", requireAuth, async (req, res) => {
+    try {
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
+      const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS custom_job_titles TEXT DEFAULT '[]'`);
+      const result = await pool.query(`SELECT custom_job_titles FROM "${schemaName}".company_settings LIMIT 1`);
+      let customTitles: string[] = [];
+      try { customTitles = JSON.parse(result.rows[0]?.custom_job_titles || '[]'); } catch {}
+      const allTitles = [...new Set([...DEFAULT_UK_JOB_TITLES, ...customTitles])].sort((a, b) => a.localeCompare(b));
+      res.json({ titles: allTitles, customTitles, defaultCount: DEFAULT_UK_JOB_TITLES.length });
+    } catch (error) {
+      logger.error("Failed to get job titles:", error);
+      res.status(500).json({ error: "Failed to get job titles" });
+    }
+  });
+
+  app.put("/api/settings/job-titles", requireAuth, async (req, res) => {
+    try {
+      if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
+      const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS custom_job_titles TEXT DEFAULT '[]'`);
+      const { customTitles } = req.body as { customTitles: string[] };
+      const cleaned = (Array.isArray(customTitles) ? customTitles : [])
+        .map((t: string) => t.trim()).filter(Boolean);
+      await pool.query(`UPDATE "${schemaName}".company_settings SET custom_job_titles = $1`, [JSON.stringify(cleaned)]);
+      res.json({ success: true, customTitles: cleaned });
+    } catch (error) {
+      logger.error("Failed to update job titles:", error);
+      res.status(500).json({ error: "Failed to update job titles" });
+    }
+  });
+
   // ── Printer compliance / capabilities ─────────────────────────────────────
 
   // Get Zebra printer capabilities

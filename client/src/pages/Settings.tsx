@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Bot, Building2, Palette, Users, Building, Globe, Mail, Phone, FileText, Printer, HardHat, AlertTriangle, Brain, Wrench, Settings2, Bell, ScrollText, MapPin, Shield, ClipboardList } from "lucide-react";
+import { Bot, Building2, Palette, Users, Building, Globe, Mail, Phone, FileText, Printer, HardHat, AlertTriangle, Brain, Wrench, Settings2, Bell, ScrollText, MapPin, Shield, ClipboardList, Briefcase } from "lucide-react";
 
 import GeneralSettings from "./settings/GeneralSettings";
 import BrandingSettings from "./settings/BrandingSettings";
@@ -23,6 +23,7 @@ import PhoneSystemsSettings from "./settings/PhoneSystemsSettings";
 import LoneWorkerSettings from "./settings/LoneWorkerSettings";
 import SystemSettings from "./settings/SystemSettings";
 import VisitReasonsSettings from "./settings/VisitReasonsSettings";
+import JobTitlesSettings from "./settings/JobTitlesSettings";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("company");
@@ -78,6 +79,7 @@ export default function Settings() {
               <SelectItem value="integrations">Integrations</SelectItem>
               <SelectItem value="sso">Single Sign-On</SelectItem>
               <SelectItem value="visit-reasons">Visit Reasons</SelectItem>
+              <SelectItem value="job-titles">Job Titles</SelectItem>
               <SelectItem value="lone-worker">Lone Worker</SelectItem>
               <SelectItem value="system">System</SelectItem>
             </SelectContent>
@@ -134,6 +136,9 @@ export default function Settings() {
           <TabsTrigger value="visit-reasons" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
             <ClipboardList size={14} />Visit Reasons
           </TabsTrigger>
+          <TabsTrigger value="job-titles" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <Briefcase size={14} />Job Titles
+          </TabsTrigger>
           <TabsTrigger value="lone-worker" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
             <Bell size={14} />Lone Worker
           </TabsTrigger>
@@ -158,6 +163,7 @@ export default function Settings() {
         <TabsContent value="integrations" className="space-y-6 mt-6"><IntegrationSettings /></TabsContent>
         <TabsContent value="sso" className="space-y-6 mt-6"><SsoSettings /></TabsContent>
         <TabsContent value="visit-reasons" className="space-y-6 mt-6"><VisitReasonsSettings /></TabsContent>
+        <TabsContent value="job-titles" className="space-y-6 mt-6"><JobTitlesSettings /></TabsContent>
         <TabsContent value="lone-worker" className="space-y-6 mt-6"><LoneWorkerSettings /></TabsContent>
         <TabsContent value="system" className="space-y-6 mt-6"><SystemSettings /></TabsContent>
       </Tabs>

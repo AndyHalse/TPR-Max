@@ -251,7 +251,7 @@ export default function OrgChart() {
 
   const assignManager = useMutation({
     mutationFn: ({ staffId, managerId }: { staffId: string; managerId: string }) =>
-      apiRequest("PUT", `/api/staff/${staffId}`, { lineManagerId: managerId }),
+      apiRequest("PATCH", `/api/staff/${staffId}/line-manager`, { lineManagerId: managerId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff/org-chart"] });
       queryClient.invalidateQueries({ queryKey: ["/api/staff/org-chart/validation"] });

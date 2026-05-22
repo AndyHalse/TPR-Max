@@ -561,6 +561,30 @@ export function registerStaffRoutes(app: Express): void {
     }
   });
 
+  // Dedicated line-manager endpoint — raw SQL only, no Zod interference
+  app.patch("/api/staff/:id/line-manager", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { lineManagerId } = req.body;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
+      const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+      const newManagerId = (lineManagerId === null || lineManagerId === '' || lineManagerId === undefined)
+        ? null : lineManagerId;
+      await pool.query(
+        `UPDATE "${schemaName}".staff SET line_manager_id = $1 WHERE id = $2`,
+        [newManagerId, id]
+      );
+      logger.info(`[line-manager] Set line_manager_id=${newManagerId} for staff ${id}`);
+      res.json({ success: true, staffId: id, lineManagerId: newManagerId });
+    } catch (error) {
+      logger.error("[line-manager] Failed:", error);
+      res.status(500).json({ error: "Failed to update line manager" });
+    }
+  });
+
   app.put("/api/staff/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;

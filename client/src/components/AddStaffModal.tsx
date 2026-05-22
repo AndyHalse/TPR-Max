@@ -54,6 +54,12 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
     queryKey: ["/api/departments/names"],
   });
 
+  // Fetch job titles list
+  const { data: jobTitlesData } = useQuery<{ titles: string[] }>({
+    queryKey: ["/api/settings/job-titles"],
+    queryFn: () => fetch("/api/settings/job-titles", { credentials: "include" }).then(r => r.json()),
+  });
+
   const { data: zones = [] } = useQuery<any[]>({
     queryKey: ["/api/zones"],
   });
@@ -422,13 +428,20 @@ export default function AddStaffModal({ isOpen, onClose, staffToEdit }: AddStaff
             </Label>
             <Input
               id="jobTitle"
+              list="job-titles-datalist"
               type="text"
               value={formData.jobTitle}
               onChange={(e) => handleInputChange("jobTitle", e.target.value)}
               className="w-full px-3 py-2 rounded-xl border border-white/30 bg-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed"
-              placeholder="e.g. Site Manager, Engineer"
+              placeholder="Select or type a job title…"
               data-testid="input-job-title"
+              autoComplete="off"
             />
+            <datalist id="job-titles-datalist">
+              {(jobTitlesData?.titles || []).map(t => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
           </div>
 
           <div className="space-y-2">
