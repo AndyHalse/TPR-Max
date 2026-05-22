@@ -510,13 +510,45 @@ app.post("/api/import/members", requireAuth, upload.single('file'), async (req, 
 });
 
 
+// Check whether sample data already exists
+app.get("/api/import/sample-data-status", requireAuth, async (req, res) => {
+  try {
+    if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
+    const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+    const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
+    const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+    const result = await pool.query(
+      `SELECT COUNT(*)::int as count FROM "${schemaName}".staff WHERE email LIKE '%@example.com'`
+    );
+    const count = result.rows[0].count as number;
+    res.json({ exists: count > 0, staffCount: count });
+  } catch (error) {
+    logger.error('Error checking sample data status:', error);
+    res.status(500).json({ error: 'Failed to check sample data status' });
+  }
+});
+
 // Load sample data for demos
 app.post("/api/import/sample-data", requireAuth, async (req, res) => {
   try {
     if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
     const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+
+    // ── Idempotency guard: block duplicate loads ──────────────────────────────
+    const schemaNameCheck = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
+    const poolCheck = (customerDb as any).$client ?? (customerDb as any).session?.client;
+    const existingCheck = await poolCheck.query(
+      `SELECT COUNT(*)::int as count FROM "${schemaNameCheck}".staff WHERE email LIKE '%@example.com'`
+    );
+    if ((existingCheck.rows[0].count as number) > 0) {
+      return res.status(409).json({
+        error: 'Sample data already loaded. Use "Remove Sample Data" first before loading again.',
+        existingCount: existingCheck.rows[0].count,
+      });
+    }
+
     const now = new Date();
-    const batchId = Date.now(); // unique per call so repeated loads always add fresh records
+    const batchId = Date.now();
 
     const firstNames = ['James', 'Emma', 'Oliver', 'Sophia', 'Harry', 'Amelia', 'Jack', 'Isabella', 'George', 'Mia', 'Thomas', 'Charlotte', 'William', 'Grace', 'Daniel'];
     const lastNames  = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Wilson', 'Taylor', 'Anderson', 'Harris', 'Clark', 'Lewis', 'Walker'];

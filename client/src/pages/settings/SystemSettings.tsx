@@ -126,6 +126,11 @@ export default function SystemSettings() {
     onError: (error: any) => { toast({ title: "Import Failed", description: error.message || "Failed to import file", variant: "destructive" }); },
   });
 
+  const { data: sampleDataStatus, refetch: refetchSampleStatus } = useQuery<{ exists: boolean; staffCount: number }>({
+    queryKey: ['/api/import/sample-data-status'],
+  });
+  const sampleDataExists = sampleDataStatus?.exists ?? false;
+
   const sampleDataMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest('POST', '/api/import/sample-data', {});
@@ -141,6 +146,7 @@ export default function SystemSettings() {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/import/sample-data-status"] });
       toast({ title: "Sample Data Loaded!", description: data.message });
     },
     onError: (error: any) => { toast({ title: "Failed to Load Sample Data", description: error.message || "An error occurred", variant: "destructive" }); },
@@ -162,6 +168,7 @@ export default function SystemSettings() {
       queryClient.invalidateQueries({ queryKey: ["/api/members"] });
       queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
       queryClient.invalidateQueries({ queryKey: ["/api/hr"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/import/sample-data-status"] });
       toast({ title: "Sample Data Cleared!", description: data.message });
     },
     onError: (error: any) => { toast({ title: "Failed to Clear Sample Data", description: error.message || "An error occurred", variant: "destructive" }); },
@@ -722,15 +729,15 @@ export default function SystemSettings() {
               size="sm"
               className="whitespace-nowrap border-purple-300 text-purple-700 hover:bg-purple-50 dark:border-purple-700 dark:text-purple-300 dark:hover:bg-purple-900/30"
               onClick={() => sampleDataMutation.mutate()}
-              disabled={sampleDataMutation.isPending}
+              disabled={sampleDataMutation.isPending || sampleDataExists}
               data-testid="button-load-sample-data"
             >
               <FlaskConical className="w-4 h-4 mr-2" />
-              {sampleDataMutation.isPending ? "Loading..." : "Load Sample Data"}
+              {sampleDataMutation.isPending ? "Loading..." : sampleDataExists ? "Sample Data Loaded" : "Load Sample Data"}
             </Button>
           </TooltipTrigger>
           <TooltipContent className="max-w-xs">
-            <p>Loads demo data for presentations and testing — adds 10 staff, 10 visitors, 5 contractor companies (with 3–5 workers each), and 10 members. Each record gets a unique email address so you can load sample data multiple times without conflicts.</p>
+            <p>{sampleDataExists ? "Sample data is already loaded. Use \"Remove Sample Data\" to clear it first before loading again." : "Loads demo data for presentations and testing — adds 10 staff, 10 visitors, 5 contractor companies (with 3–5 workers each), and 10 members, plus full HR records. Remove it afterwards using \"Remove Sample Data\"."}</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
