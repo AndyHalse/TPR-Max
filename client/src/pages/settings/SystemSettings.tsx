@@ -139,8 +139,10 @@ export default function SystemSettings() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
@@ -160,8 +162,10 @@ export default function SystemSettings() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/staff"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/visitors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/current"] });
       queryClient.invalidateQueries({ queryKey: ["/api/visitors/today"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/prebookings/upcoming"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/checked-in"] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers/all"] });
