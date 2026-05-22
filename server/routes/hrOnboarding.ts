@@ -308,11 +308,21 @@ export function registerHrOnboardingRoutes(app: Express): void {
       const checklistId = await createOnboardingChecklist(req.customerId!, newStaffId, templateId);
       res.json({ success: true, staffId: newStaffId, checklistId });
     } catch (err: any) {
-      // PostgreSQL unique constraint violation — most likely a duplicate email address
-      if (err.code === '23505' || err.message?.includes('unique')) {
-        return res.status(409).json({ error: 'A staff member with that email address already exists. Please check the Staff directory.' });
+      // PostgreSQL unique constraint violation — duplicate email
+      if (err.code === '23505' && err.constraint?.includes('email')) {
+        return res.status(409).json({
+          error: 'A staff member with this email address already exists.',
+          code: 'DUPLICATE_EMAIL'
+        });
       }
-      logger.error('Onboarding new-starter error:', err);
+      // Generic duplicate (constraint name may vary by DB setup)
+      if (err.code === '23505') {
+        return res.status(409).json({
+          error: 'A staff member with these details already exists. Please check for duplicates.',
+          code: 'DUPLICATE_RECORD'
+        });
+      }
+      logger.error('Failed to start new starter:', err);
       res.status(500).json({ error: 'Failed to create new starter' });
     }
   });

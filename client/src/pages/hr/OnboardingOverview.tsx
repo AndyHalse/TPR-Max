@@ -235,7 +235,7 @@ function StartOnboardingDialog({ open, setOpen, toast }: any) {
       setOpen(false);
       setForm({ firstName: "", lastName: "", email: "", department: "", jobTitle: "", contractStartDate: "" });
     },
-    onError: () => toast({ title: "Error", description: "Failed to add new starter", variant: "destructive" }),
+    onError: (err: any) => toast({ title: "Error", description: err?.message || "Failed to add new starter", variant: "destructive" }),
   });
 
   return (
