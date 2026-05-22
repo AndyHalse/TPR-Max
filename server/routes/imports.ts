@@ -567,34 +567,82 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
     const departments = ['Engineering', 'Administration', 'Sales', 'Operations', 'Finance', 'HR', 'IT', 'Marketing', 'Logistics', 'Security'];
     const visitorCompanies = ['Acme Corp', 'BuildRight Ltd', 'TechFix Solutions', 'Prime Facilities', 'SafeWork UK', 'Delta Contractors', 'Apex Services', 'Horizon Group', 'Nexus Build', 'Swift Maintenance', 'InsureCo Ltd', 'BakerConsulting', 'CityCouncil', 'HealthSafe UK', 'DataTrust Ltd'];
     const memberTypes  = ['full', 'associate', 'honorary', 'student', 'corporate', 'full', 'associate', 'full', 'honorary', 'full'];
-    const accessLevels = ['staff', 'staff', 'staff', 'staff', 'staff', 'staff', 'manager', 'supervisor', 'staff', 'staff'];
     const ukPhones = ['07700 900123', '07700 900456', '07700 900789', '07700 900321', '07700 900654',
                       '07700 900987', '07700 900111', '07700 900222', '07700 900333', '07700 900444',
                       '07700 900555', '07700 900666', '07700 900777', '07700 900888', '07700 900999'];
 
     let staffAdded = 0, visitorsAdded = 0, contractorsAdded = 0, workersAdded = 0, membersAdded = 0;
 
-    // ── 10 sample staff ──────────────────────────────────────────────────────
-    const staffJobTitles = ['Site Manager', 'Administrator', 'Sales Executive', 'Operations Manager',
-                            'Finance Officer', 'HR Manager', 'IT Support', 'Marketing Manager',
-                            'Logistics Coordinator', 'Security Officer'];
+    // ── 30 sample staff with full org hierarchy ──────────────────────────────
+    // mgr = index into this array of the person's line manager (null = no manager)
+    const sampleStaffDefs: Array<{ firstName: string; lastName: string; dept: string; title: string; lvl: string; mgr: number | null }> = [
+      // Tier 1: C-Suite (index 0–1)
+      { firstName: 'Richard',  lastName: 'Blackwood',  dept: 'Executive',      title: 'Chief Executive Officer',    lvl: 'admin',      mgr: null },
+      { firstName: 'Sarah',    lastName: 'Pemberton',  dept: 'Executive',      title: 'Managing Director',          lvl: 'admin',      mgr: 0 },
+      // Tier 2: Directors (index 2–6)
+      { firstName: 'Caroline', lastName: 'Hughes',     dept: 'Finance',        title: 'Finance Director',           lvl: 'manager',    mgr: 0 },
+      { firstName: 'Ben',      lastName: 'Ashworth',   dept: 'IT',             title: 'IT Director',                lvl: 'manager',    mgr: 0 },
+      { firstName: 'Marcus',   lastName: 'Webb',       dept: 'Operations',     title: 'Operations Director',        lvl: 'manager',    mgr: 1 },
+      { firstName: 'David',    lastName: 'Thornton',   dept: 'HR',             title: 'HR Director',                lvl: 'manager',    mgr: 1 },
+      { firstName: 'Rachel',   lastName: 'Forsythe',   dept: 'Sales',          title: 'Sales Director',             lvl: 'manager',    mgr: 1 },
+      // Tier 3: Managers (index 7–14)
+      { firstName: 'James',    lastName: 'Fletcher',   dept: 'Operations',     title: 'Operations Manager',         lvl: 'manager',    mgr: 4 },
+      { firstName: 'Louise',   lastName: 'Grant',      dept: 'Facilities',     title: 'Facilities Manager',         lvl: 'manager',    mgr: 4 },
+      { firstName: 'Natalie',  lastName: 'Simmons',    dept: 'HR',             title: 'HR Manager',                 lvl: 'manager',    mgr: 5 },
+      { firstName: 'Paul',     lastName: 'Hennessey',  dept: 'Sales',          title: 'Sales Manager',              lvl: 'manager',    mgr: 6 },
+      { firstName: 'Gemma',    lastName: 'Lawson',     dept: 'Sales',          title: 'Sales Manager',              lvl: 'manager',    mgr: 6 },
+      { firstName: 'Sophie',   lastName: 'Ainsworth',  dept: 'Marketing',      title: 'Marketing Manager',          lvl: 'manager',    mgr: 6 },
+      { firstName: 'Tom',      lastName: 'Whitfield',  dept: 'Finance',        title: 'Finance Manager',            lvl: 'manager',    mgr: 2 },
+      { firstName: 'Chris',    lastName: 'Patel',      dept: 'IT',             title: 'IT Manager',                 lvl: 'manager',    mgr: 3 },
+      // Tier 4: Supervisors / Seniors (index 15–23)
+      { firstName: 'Daniel',   lastName: 'Moss',       dept: 'Engineering',    title: 'Senior Engineer',            lvl: 'supervisor', mgr: 7 },
+      { firstName: 'Becky',    lastName: 'Crane',      dept: 'Facilities',     title: 'Facilities Supervisor',      lvl: 'supervisor', mgr: 8 },
+      { firstName: 'Matt',     lastName: 'Collins',    dept: 'Administration', title: 'Administrator',              lvl: 'staff',      mgr: 8 },
+      { firstName: 'Priya',    lastName: 'Singh',      dept: 'HR',             title: 'HR Coordinator',             lvl: 'staff',      mgr: 9 },
+      { firstName: 'Kyle',     lastName: 'Donovan',    dept: 'Sales',          title: 'Senior Sales Executive',     lvl: 'supervisor', mgr: 10 },
+      { firstName: 'Lucy',     lastName: 'Chapman',    dept: 'Sales',          title: 'Sales Executive',            lvl: 'staff',      mgr: 11 },
+      { firstName: 'Amy',      lastName: 'Blackwood',  dept: 'Marketing',      title: 'Marketing Coordinator',      lvl: 'staff',      mgr: 12 },
+      { firstName: 'Aaron',    lastName: 'Sherwood',   dept: 'Finance',        title: 'Finance Analyst',            lvl: 'supervisor', mgr: 13 },
+      { firstName: 'Raj',      lastName: 'Kapoor',     dept: 'IT',             title: 'IT Support Lead',            lvl: 'supervisor', mgr: 14 },
+      // Tier 5: Staff (index 24–29)
+      { firstName: 'Owen',     lastName: 'Clarke',     dept: 'Engineering',    title: 'Engineer',                   lvl: 'staff',      mgr: 15 },
+      { firstName: 'Hannah',   lastName: 'Foster',     dept: 'Engineering',    title: 'Engineer',                   lvl: 'staff',      mgr: 15 },
+      { firstName: 'Liam',     lastName: 'Porter',     dept: 'Sales',          title: 'Sales Executive',            lvl: 'staff',      mgr: 19 },
+      { firstName: 'Ella',     lastName: 'Whitmore',   dept: 'Finance',        title: 'Finance Assistant',          lvl: 'staff',      mgr: 22 },
+      { firstName: 'Josh',     lastName: 'Neville',    dept: 'IT',             title: 'IT Technician',              lvl: 'staff',      mgr: 23 },
+      { firstName: 'Zoe',      lastName: 'Harrison',   dept: 'Sales',          title: 'Sales Executive',            lvl: 'staff',      mgr: 11 },
+    ];
     const staffIds: string[] = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < sampleStaffDefs.length; i++) {
       try {
+        const s = sampleStaffDefs[i];
         const inserted = await customerDb.insert(isolatedSchema.staff).values({
-          firstName:   firstNames[i],
-          lastName:    lastNames[i],
+          firstName:   s.firstName,
+          lastName:    s.lastName,
           email:       `demo.staff.${batchId}.${i}@example.com`,
-          department:  departments[i],
-          jobTitle:    staffJobTitles[i],
+          department:  s.dept,
+          jobTitle:    s.title,
           employeeId:  `EMP-${batchId}-${String(i + 1).padStart(3, '0')}`,
-          accessLevel: accessLevels[i],
+          accessLevel: s.lvl,
           isActive:    true,
+          phoneNumber: ukPhones[i % ukPhones.length],
         }).returning({ id: isolatedSchema.staff.id });
         if (inserted[0]?.id) staffIds.push(inserted[0].id);
         staffAdded++;
       } catch (e) { logger.warn('Sample staff insert failed:', (e as any).message); }
     }
+    // Wire up the reporting structure now that all IDs are known
+    try {
+      for (let i = 0; i < sampleStaffDefs.length; i++) {
+        const mgrIdx = sampleStaffDefs[i].mgr;
+        if (mgrIdx !== null && staffIds[i] && staffIds[mgrIdx]) {
+          await pool.query(
+            `UPDATE "${schemaName}".staff SET line_manager_id = $1 WHERE id = $2`,
+            [staffIds[mgrIdx], staffIds[i]]
+          );
+        }
+      }
+    } catch (e) { logger.warn('Sample staff: reporting structure failed', (e as any).message); }
 
     // ── 15 sample visitors ── mix of past visits + pre-bookings ──────────────
     const visitorIds: string[] = [];
