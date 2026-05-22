@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import compression from "compression";
 import session from "express-session";
 import ConnectPgSimple from "connect-pg-simple";
@@ -75,6 +76,11 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const app = express();
+
+app.use(helmet({
+  contentSecurityPolicy: false,       // CSP is already handled by Vite/custom headers
+  crossOriginEmbedderPolicy: false    // prevents issues with embedded kiosk content
+}));
 
 // ── Gzip compression ── applied to all routes before anything else
 // On 3G/4G, this alone cuts HTML payload by 60-70% (text compresses extremely well)
