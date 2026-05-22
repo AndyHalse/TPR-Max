@@ -914,6 +914,74 @@ export class CustomerDatabaseService {
       logger.warn(`⚠️ Appraisals table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Section 10 – Permit to Work
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".permit_to_work (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          permit_number TEXT NOT NULL,
+          permit_type TEXT NOT NULL,
+          work_description TEXT NOT NULL,
+          work_location TEXT NOT NULL,
+          contractor_company_id VARCHAR, contractor_company_name TEXT,
+          contractor_worker_id VARCHAR, contractor_worker_name TEXT,
+          staff_id VARCHAR, staff_name TEXT,
+          planned_start_date TEXT NOT NULL, planned_start_time TEXT NOT NULL,
+          planned_end_date TEXT NOT NULL, planned_end_time TEXT NOT NULL,
+          actual_start_at TIMESTAMP, actual_end_at TIMESTAMP,
+          permit_valid_from TIMESTAMP NOT NULL, permit_valid_until TIMESTAMP NOT NULL,
+          status TEXT NOT NULL DEFAULT 'draft',
+          authorised_by_id VARCHAR, authorised_by_name TEXT, authorised_at TIMESTAMP, auth_notes TEXT,
+          rejected_by_id VARCHAR, rejected_at TIMESTAMP, rejection_reason TEXT,
+          closed_by_id VARCHAR, closed_by_name TEXT, closed_at TIMESTAMP,
+          closure_notes TEXT, work_completed_satisfactorily BOOLEAN,
+          suspended_by_id VARCHAR, suspended_at TIMESTAMP, suspension_reason TEXT,
+          linked_ppm_work_order_id VARCHAR, linked_incident_id VARCHAR, linked_compliance_cert_id VARCHAR,
+          expiry_alerted_at TIMESTAMP, overdue_closure_alerted_at TIMESTAMP,
+          created_by_id VARCHAR, created_by_name TEXT,
+          created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".permit_checklist (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          permit_id VARCHAR NOT NULL REFERENCES "${schemaName}".permit_to_work(id) ON DELETE CASCADE,
+          checklist_section TEXT NOT NULL, item_description TEXT NOT NULL,
+          is_required BOOLEAN NOT NULL DEFAULT true,
+          response TEXT, responded_by_id VARCHAR, responded_at TIMESTAMP,
+          notes TEXT, display_order INTEGER NOT NULL DEFAULT 0
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".permit_attachments (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          permit_id VARCHAR NOT NULL REFERENCES "${schemaName}".permit_to_work(id) ON DELETE CASCADE,
+          document_type TEXT NOT NULL, file_name TEXT NOT NULL, file_url TEXT NOT NULL,
+          uploaded_by_id VARCHAR, uploaded_by_name TEXT,
+          uploaded_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".ptw_company_documents (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          document_type TEXT NOT NULL,
+          title TEXT NOT NULL,
+          notes TEXT,
+          file_url TEXT NOT NULL,
+          file_name TEXT NOT NULL,
+          expiry_date TEXT,
+          uploaded_by_id VARCHAR, uploaded_by_name TEXT,
+          uploaded_at TIMESTAMP DEFAULT NOW(),
+          replaced_at TIMESTAMP,
+          expiry_alerted_at TIMESTAMP
+        )
+      `);
+      await pool.query(`ALTER TABLE "${schemaName}".ptw_company_documents ADD COLUMN IF NOT EXISTS expiry_alerted_at TIMESTAMP`).catch(() => {});
+      logger.info(`✅ Permit to Work tables ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Permit to Work table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // HR feature toggle in company_settings
     try {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_hr_module BOOLEAN DEFAULT true`);

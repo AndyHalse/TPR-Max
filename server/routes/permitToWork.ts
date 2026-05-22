@@ -109,8 +109,6 @@ export function registerPermitToWorkRoutes(app: Express): void {
   app.get('/api/ptw', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
-      const schemaName = customerDbService.generateSchemaName(req.customerId!);
-      await ensureTables(custDb, schemaName);
       const permits = await custDb.select().from(isolatedSchema.permitToWork)
         .orderBy(isolatedSchema.permitToWork.createdAt);
       res.json(permits.reverse());
@@ -124,8 +122,6 @@ export function registerPermitToWorkRoutes(app: Express): void {
   app.post('/api/ptw', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
-      const schemaName = customerDbService.generateSchemaName(req.customerId!);
-      await ensureTables(custDb, schemaName);
 
       const { permitType, workDescription, workLocation, plannedStartDate, plannedStartTime, plannedEndDate, plannedEndTime, contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName, staffId, staffName, linkedPpmWorkOrderId } = req.body;
 
@@ -198,7 +194,6 @@ export function registerPermitToWorkRoutes(app: Express): void {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
-      await ensureTables(custDb, schemaName);
       const rows = await custDb.execute(`SELECT * FROM ${schemaName}.ptw_company_documents ORDER BY uploaded_at DESC`);
       const docs = (rows.rows || rows).map((d: any) => ({ ...d, status: calcDocStatus(d.expiry_date) }));
       res.json(docs);
@@ -215,7 +210,6 @@ export function registerPermitToWorkRoutes(app: Express): void {
       }
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
-      await ensureTables(custDb, schemaName);
 
       const { documentType, title, notes, expiryDate } = req.body;
       if (!documentType || !title) return res.status(400).json({ error: 'Document type and title are required.' });

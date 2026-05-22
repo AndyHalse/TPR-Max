@@ -1,0 +1,43 @@
+In server/routes/permitToWork.ts, there is an ensureTables() function 
+that runs four CREATE TABLE IF NOT EXISTS statements. This function is 
+called on the first API request to any permit endpoint, meaning every 
+customer's first permit-related page load triggers DDL (schema-changing) 
+database queries.
+
+This is inefficient and non-standard. Table creation should happen once 
+at application startup, not on user requests.
+
+Make the following change:
+
+1. Find the ensureTables() function definition (near the top of the file, 
+   after the imports).
+
+2. Find where ensureTables() is called (look for `await ensureTables(...)` 
+   in route handlers).
+
+3. Move the ensureTables() call OUT of the route handlers and instead call 
+   it once during module initialisation. The cleanest way is to add a 
+   self-executing async call at the bottom of the registerPermitToWorkRoutes 
+   function, after all the routes are defined:
+
+   // Run once at startup to ensure tables exist
+   (async () => {
+     try {
+       // Get a representative customer DB to run the DDL against
+       // Note: for schema-per-tenant architectures, this needs to run
+       // per-tenant. If per-tenant, keep the existing pattern but move
+       // it to a one-time call in the customer provisioning flow.
+       console.log('[permitToWork] Schema tables verified at startup');
+     } catch (err) {
+       console.error('[permitToWork] Failed to verify schema tables:', err);
+     }
+   })();
+
+IMPORTANT: Before making changes, check how ensureTables() receives its 
+custDb and schemaName parameters. If it requires a per-customer database 
+connection (i.e. each customer has their own schema), then the DDL must 
+run once per customer during their account provisioning — not at global 
+startup. In that case, the correct fix is to add ensureTables() to the 
+customer onboarding flow (customerOnboardingService.ts) rather than 
+running it on every API request. Use whichever approach matches the 
+existing architecture — do not guess.
