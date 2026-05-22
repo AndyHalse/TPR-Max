@@ -518,10 +518,16 @@ app.get("/api/import/sample-data-status", requireAuth, async (req, res) => {
     const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
     const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
     const result = await pool.query(
-      `SELECT COUNT(*)::int as count FROM "${schemaName}".staff WHERE email LIKE '%@example.com'`
+      `SELECT
+        (SELECT COUNT(*)::int FROM "${schemaName}".staff               WHERE email         LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".visitors             WHERE email         LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_workers   WHERE email         LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".members              WHERE email         LIKE '%@example.com')
+       AS total`
     );
-    const count = result.rows[0].count as number;
-    res.json({ exists: count > 0, staffCount: count });
+    const total = result.rows[0].total as number;
+    res.json({ exists: total > 0, totalCount: total });
   } catch (error) {
     logger.error('Error checking sample data status:', error);
     res.status(500).json({ error: 'Failed to check sample data status' });
@@ -538,12 +544,18 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
     const schemaNameCheck = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
     const poolCheck = (customerDb as any).$client ?? (customerDb as any).session?.client;
     const existingCheck = await poolCheck.query(
-      `SELECT COUNT(*)::int as count FROM "${schemaNameCheck}".staff WHERE email LIKE '%@example.com'`
+      `SELECT
+        (SELECT COUNT(*)::int FROM "${schemaNameCheck}".staff               WHERE email         LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaNameCheck}".visitors             WHERE email         LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaNameCheck}".contractor_workers   WHERE email         LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaNameCheck}".contractor_companies WHERE contact_email LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaNameCheck}".members              WHERE email         LIKE '%@example.com')
+       AS total`
     );
-    if ((existingCheck.rows[0].count as number) > 0) {
+    if ((existingCheck.rows[0].total as number) > 0) {
       return res.status(409).json({
         error: 'Sample data already loaded. Use "Remove Sample Data" first before loading again.',
-        existingCount: existingCheck.rows[0].count,
+        existingCount: existingCheck.rows[0].total,
       });
     }
 
@@ -980,101 +992,122 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
   }
 });
 
-  // ── Clear sample data ──────────────────────────────────────────────────────
-  app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
+app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
     try {
       if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
       const customerDb2 = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
       const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
       const pool = (customerDb2 as any).$client ?? (customerDb2 as any).session?.client;
 
-      const sampleStaffResult = await pool.query(
-        `SELECT id FROM "${schemaName}".staff WHERE email LIKE '%@example.com'`
-      );
-      const sampleStaffIds = sampleStaffResult.rows.map((r: any) => r.id);
+      // ── Step 1: Collect all sample entity IDs ─────────────────────────────
+      const staffRes   = await pool.query(`SELECT id FROM "${schemaName}".staff WHERE email LIKE '%@example.com'`);
+      const workerRes  = await pool.query(`SELECT id FROM "${schemaName}".contractor_workers WHERE email LIKE '%@example.com'`);
+      const companyRes = await pool.query(`SELECT id FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@example.com'`);
 
-      let deleted: Record<string, number> = {};
+      const staffIds:   string[] = staffRes.rows.map((r: any) => r.id);
+      const workerIds:  string[] = workerRes.rows.map((r: any) => r.id);
+      const companyIds: string[] = companyRes.rows.map((r: any) => r.id);
 
-      if (sampleStaffIds.length > 0) {
-        const idList = sampleStaffIds.map((_: any, i: number) => `$${i + 1}`).join(',');
+      const deleted: Record<string, number> = {};
+      const del = async (table: string, sql: string, params: any[] = []) => {
+        try {
+          const r = await pool.query(`DELETE FROM "${schemaName}".${table} ${sql}`, params);
+          deleted[table] = (deleted[table] ?? 0) + (r.rowCount ?? 0);
+        } catch (e) { logger.warn(`Clear sample: ${table} — ${(e as any).message}`); }
+      };
+      const inP = (ids: string[]) => ids.map((_, i) => `$${i + 1}`).join(',');
 
-        // HR tables — delete by staff_id
-        const hrTables = [
-          'right_to_work', 'staff_dbs', 'leave_requests', 'absence_records',
-          'staff_training_records', 'staff_documents', 'appraisals',
-        ];
-        for (const table of hrTables) {
+      // ── Step 2: Delete worker-dependent rows first (NO ACTION FKs) ─────────
+      if (workerIds.length > 0) {
+        const wP = inP(workerIds);
+        await del('worker_certifications',        `WHERE worker_id IN (${wP})`, workerIds);
+        await del('worker_competencies',           `WHERE worker_id IN (${wP})`, workerIds);
+        await del('worker_document_assignments',   `WHERE worker_id IN (${wP})`, workerIds);
+        await del('induction_tokens',              `WHERE worker_id IN (${wP})`, workerIds);
+        // worker_document_acceptances has both worker_id and submitted_by pointing to workers
+        try {
+          const r = await pool.query(
+            `DELETE FROM "${schemaName}".worker_document_acceptances WHERE worker_id IN (${wP}) OR submitted_by IN (${wP})`,
+            workerIds
+          );
+          deleted['worker_document_acceptances'] = r.rowCount ?? 0;
+        } catch (e) { logger.warn(`Clear sample: worker_document_acceptances — ${(e as any).message}`); }
+        await del('co2_records',          `WHERE worker_id IN (${wP})`, workerIds);
+        await del('local_labour_records', `WHERE worker_id IN (${wP})`, workerIds);
+      }
+
+      // ── Step 3: Delete company-dependent rows (NO ACTION FKs) ─────────────
+      if (companyIds.length > 0) {
+        const cP = inP(companyIds);
+        await del('co2_records',               `WHERE company_id IN (${cP})`, companyIds);
+        await del('company_notes',             `WHERE company_id IN (${cP})`, companyIds);
+        await del('enhanced_company_details',  `WHERE company_id IN (${cP})`, companyIds);
+        await del('local_labour_records',      `WHERE company_id IN (${cP})`, companyIds);
+        await del('rams_documents',            `WHERE company_id IN (${cP})`, companyIds);
+        // cdm_projects has two FK columns to contractor_companies
+        try {
+          const r = await pool.query(
+            `DELETE FROM "${schemaName}".cdm_projects WHERE company_id IN (${cP}) OR principal_contractor_id IN (${cP})`,
+            companyIds
+          );
+          deleted['cdm_projects'] = r.rowCount ?? 0;
+        } catch (e) { logger.warn(`Clear sample: cdm_projects — ${(e as any).message}`); }
+      }
+
+      // ── Step 4: Delete contractor_visits (NO ACTION FKs to staff+workers+companies) ──
+      {
+        const conditions: string[] = [];
+        const params: string[] = [];
+        let p = 1;
+        if (staffIds.length > 0)   { conditions.push(`host_staff_id IN (${staffIds.map(  () => `$${p++}`).join(',')})`); params.push(...staffIds);   }
+        if (workerIds.length > 0)  { conditions.push(`worker_id IN (${workerIds.map(     () => `$${p++}`).join(',')})`); params.push(...workerIds);  }
+        if (companyIds.length > 0) { conditions.push(`company_id IN (${companyIds.map(   () => `$${p++}`).join(',')})`); params.push(...companyIds); }
+        if (conditions.length > 0) {
           try {
-            const r = await pool.query(`DELETE FROM "${schemaName}".${table} WHERE staff_id IN (${idList})`, sampleStaffIds);
-            deleted[table] = r.rowCount;
-          } catch (e) { logger.warn(`Clear sample data: could not delete from ${table}`, (e as any).message); }
+            const r = await pool.query(
+              `DELETE FROM "${schemaName}".contractor_visits WHERE ${conditions.join(' OR ')}`,
+              params
+            );
+            deleted['contractor_visits'] = r.rowCount ?? 0;
+          } catch (e) { logger.warn(`Clear sample: contractor_visits — ${(e as any).message}`); }
         }
-
-        // Onboarding checklists
-        try {
-          const r = await pool.query(`DELETE FROM "${schemaName}".onboarding_checklists WHERE staff_id IN (${idList})`, sampleStaffIds);
-          deleted['onboarding'] = r.rowCount ?? 0;
-        } catch (e) { logger.warn('Clear sample data: onboarding error', (e as any).message); }
-
-        // Leaver checklists
-        try {
-          const r = await pool.query(`DELETE FROM "${schemaName}".leaver_checklists WHERE staff_id IN (${idList})`, sampleStaffIds);
-          deleted['leavers'] = r.rowCount ?? 0;
-        } catch (e) { logger.warn('Clear sample data: leaver error', (e as any).message); }
-
-        // Restore any leavers to active before deleting staff row
-
-        await pool.query(
-          `UPDATE "${schemaName}".staff SET employment_status = 'active', is_active = TRUE, contract_end_date = NULL WHERE id IN (${idList})`,
-          sampleStaffIds
-        );
       }
 
-      // Core tables by @example.com email
-      for (const { table, col } of [
-        { table: 'visitors', col: 'email' },
-        { table: 'contractor_workers', col: 'email' },
-        { table: 'members', col: 'email' },
-      ]) {
+      // ── Step 5: Staff HR records ──────────────────────────────────────────
+      if (staffIds.length > 0) {
+        const sP = inP(staffIds);
+        for (const t of ['right_to_work','staff_dbs','leave_requests','absence_records','staff_training_records','staff_documents','appraisals','onboarding_checklists','leaver_checklists']) {
+          await del(t, `WHERE staff_id IN (${sP})`, staffIds);
+        }
+        // Reset leavers to active so staff row can be deleted cleanly
         try {
-          const r = await pool.query(`DELETE FROM "${schemaName}".${table} WHERE ${col} LIKE '%@example.com'`);
-          deleted[table] = r.rowCount;
-        } catch (e) { logger.warn(`Clear sample data: could not delete from ${table}`, (e as any).message); }
+          await pool.query(
+            `UPDATE "${schemaName}".staff SET employment_status='active', is_active=TRUE, contract_end_date=NULL WHERE id IN (${sP})`,
+            staffIds
+          );
+        } catch (e) { logger.warn(`Clear sample: staff reset — ${(e as any).message}`); }
       }
 
-      // Contractor companies by contact_email
-      try {
-        const companiesResult = await pool.query(
-          `SELECT id FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@example.com'`
-        );
-        const companyIds = companiesResult.rows.map((r: any) => r.id);
-        if (companyIds.length > 0) {
-          const cIdList = companyIds.map((_: any, i: number) => `$${i + 1}`).join(',');
-          await pool.query(`DELETE FROM "${schemaName}".contractor_companies WHERE id IN (${cIdList})`, companyIds);
-          deleted['contractor_companies'] = companyIds.length;
-        }
-      } catch (e) { logger.warn('Clear sample data: contractor companies error', (e as any).message); }
+      // ── Step 6: Delete main records (dependency order: workers → companies → visitors → members → staff) ──
+      await del('contractor_workers',   `WHERE email LIKE '%@example.com'`);
+      if (companyIds.length > 0) {
+        await del('contractor_companies', `WHERE id IN (${inP(companyIds)})`, companyIds);
+      }
+      await del('visitors', `WHERE email LIKE '%@example.com'`);
+      await del('members',  `WHERE email LIKE '%@example.com'`);
+      if (staffIds.length > 0) {
+        await del('staff', `WHERE id IN (${inP(staffIds)})`, staffIds);
+      }
 
-      // Training requirements — no staff_id FK, delete by known sample course names
+      // ── Step 7: Training requirements (no FK, matched by known course names) ──
       try {
-        const sampleCourseNames = [
-          'Fire Safety Awareness', 'Manual Handling', 'Health & Safety Induction',
-          'GDPR Data Protection', 'First Aid Awareness',
-        ];
-        const courseParams = sampleCourseNames.map((_: string, i: number) => `$${i + 1}`).join(',');
+        const courses = ['Fire Safety Awareness','Manual Handling','Health & Safety Induction','GDPR Data Protection','First Aid Awareness'];
         const r = await pool.query(
-          `DELETE FROM "${schemaName}".training_requirements WHERE course_name IN (${courseParams})`,
-          sampleCourseNames
+          `DELETE FROM "${schemaName}".training_requirements WHERE course_name IN (${courses.map((_, i) => `$${i + 1}`).join(',')})`,
+          courses
         );
         deleted['training_requirements'] = r.rowCount ?? 0;
-      } catch (e) { logger.warn('Clear sample data: training_requirements error', (e as any).message); }
-
-      // Finally delete sample staff
-      if (sampleStaffIds.length > 0) {
-        const idList = sampleStaffIds.map((_: any, i: number) => `$${i + 1}`).join(',');
-        const r = await pool.query(`DELETE FROM "${schemaName}".staff WHERE id IN (${idList})`, sampleStaffIds);
-        deleted['staff'] = r.rowCount;
-      }
+      } catch (e) { logger.warn(`Clear sample: training_requirements — ${(e as any).message}`); }
 
       res.json({ success: true, message: 'Sample data cleared successfully', deleted });
     } catch (error) {
