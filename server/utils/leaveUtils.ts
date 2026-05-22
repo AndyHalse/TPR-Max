@@ -12,8 +12,9 @@ export interface LeaveYear {
   end: Date;
 }
 
-// UK England & Wales bank holidays. Update annually.
-// Source: gov.uk/bank-holidays
+// ⚠️ UPDATE ANNUALLY — add the next year's dates each December.
+// Source: https://www.gov.uk/bank-holidays
+// Currently covers through end of 2029.
 export const UK_BANK_HOLIDAYS: string[] = [
   // 2025
   '2025-01-01', '2025-04-18', '2025-04-21', '2025-05-05', '2025-05-26',
@@ -24,6 +25,12 @@ export const UK_BANK_HOLIDAYS: string[] = [
   // 2027
   '2027-01-01', '2027-03-26', '2027-03-29', '2027-05-03', '2027-05-31',
   '2027-08-30', '2027-12-27', '2027-12-28',
+  // 2028
+  '2028-01-01', '2028-04-14', '2028-04-17', '2028-05-01', '2028-05-29',
+  '2028-08-28', '2028-12-25', '2028-12-26',
+  // 2029
+  '2029-01-01', '2029-03-30', '2029-04-02', '2029-05-07', '2029-05-28',
+  '2029-08-27', '2029-12-25', '2029-12-26',
 ];
 
 const BANK_HOLIDAY_SET = new Set(UK_BANK_HOLIDAYS);
