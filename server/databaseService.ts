@@ -1,4 +1,4 @@
-import { eq, and, desc, asc, gte, lte, lt, gt, sql, isNull, inArray, or } from "drizzle-orm";
+import { eq, and, ne, desc, asc, gte, lte, lt, gt, sql, isNull, inArray, or } from "drizzle-orm";
 import { customerDbService, type CustomerContext } from "./customerDatabase";
 import type {
   Staff,
@@ -184,6 +184,18 @@ export class DatabaseService {
       }
     }
     
+    // If a non-null biostarUserId is being set, clear it from any other staff record first
+    // to avoid unique constraint violations (the ID "transfers" to this person)
+    if (updates.biostarUserId) {
+      await db
+        .update(isolatedSchema.staff)
+        .set({ biostarUserId: null })
+        .where(and(
+          eq(isolatedSchema.staff.biostarUserId, updates.biostarUserId),
+          ne(isolatedSchema.staff.id, id)
+        ));
+    }
+
     const updated = await db
       .update(isolatedSchema.staff)
       .set({ ...updates, updatedAt: new Date() })

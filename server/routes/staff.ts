@@ -593,7 +593,11 @@ export function registerStaffRoutes(app: Express): void {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid staff data", details: error.errors });
       } else if (error instanceof Error) {
-        res.status(400).json({ error: error.message });
+        if (error.message.includes('staff_biostar_user_id_key')) {
+          res.status(400).json({ error: "That Biostar 2 User ID is already assigned to another staff member. Please clear it from the other staff record first." });
+        } else {
+          res.status(400).json({ error: error.message });
+        }
       } else {
         res.status(500).json({ error: "Failed to update staff member" });
       }
