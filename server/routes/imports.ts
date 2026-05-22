@@ -539,17 +539,17 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
   try {
     if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
     const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
+    const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
+    const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
 
     // ── Idempotency guard: block duplicate loads ──────────────────────────────
-    const schemaNameCheck = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
-    const poolCheck = (customerDb as any).$client ?? (customerDb as any).session?.client;
-    const existingCheck = await poolCheck.query(
+    const existingCheck = await pool.query(
       `SELECT
-        (SELECT COUNT(*)::int FROM "${schemaNameCheck}".staff               WHERE email         LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaNameCheck}".visitors             WHERE email         LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaNameCheck}".contractor_workers   WHERE email         LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaNameCheck}".contractor_companies WHERE contact_email LIKE '%@example.com') +
-        (SELECT COUNT(*)::int FROM "${schemaNameCheck}".members              WHERE email         LIKE '%@example.com')
+        (SELECT COUNT(*)::int FROM "${schemaName}".staff               WHERE email         LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".visitors             WHERE email         LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_workers   WHERE email         LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@example.com') +
+        (SELECT COUNT(*)::int FROM "${schemaName}".members              WHERE email         LIKE '%@example.com')
        AS total`
     );
     if ((existingCheck.rows[0].total as number) > 0) {
@@ -565,7 +565,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
     const firstNames = ['James', 'Emma', 'Oliver', 'Sophia', 'Harry', 'Amelia', 'Jack', 'Isabella', 'George', 'Mia', 'Thomas', 'Charlotte', 'William', 'Grace', 'Daniel'];
     const lastNames  = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Wilson', 'Taylor', 'Anderson', 'Harris', 'Clark', 'Lewis', 'Walker'];
     const departments = ['Engineering', 'Administration', 'Sales', 'Operations', 'Finance', 'HR', 'IT', 'Marketing', 'Logistics', 'Security'];
-    const visitorCompanies = ['Acme Corp', 'BuildRight Ltd', 'TechFix Solutions', 'Prime Facilities', 'SafeWork UK', 'Delta Contractors', 'Apex Services', 'Horizon Group', 'Nexus Build', 'Swift Maintenance'];
+    const visitorCompanies = ['Acme Corp', 'BuildRight Ltd', 'TechFix Solutions', 'Prime Facilities', 'SafeWork UK', 'Delta Contractors', 'Apex Services', 'Horizon Group', 'Nexus Build', 'Swift Maintenance', 'InsureCo Ltd', 'BakerConsulting', 'CityCouncil', 'HealthSafe UK', 'DataTrust Ltd'];
     const memberTypes  = ['full', 'associate', 'honorary', 'student', 'corporate', 'full', 'associate', 'full', 'honorary', 'full'];
     const accessLevels = ['staff', 'staff', 'staff', 'staff', 'staff', 'staff', 'manager', 'supervisor', 'staff', 'staff'];
     const ukPhones = ['07700 900123', '07700 900456', '07700 900789', '07700 900321', '07700 900654',
@@ -575,7 +575,6 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
     let staffAdded = 0, visitorsAdded = 0, contractorsAdded = 0, workersAdded = 0, membersAdded = 0;
 
     // ── 10 sample staff ──────────────────────────────────────────────────────
-    // email must be unique per row, so generate per-person addresses
     const staffJobTitles = ['Site Manager', 'Administrator', 'Sales Executive', 'Operations Manager',
                             'Finance Officer', 'HR Manager', 'IT Support', 'Marketing Manager',
                             'Logistics Coordinator', 'Security Officer'];
@@ -597,96 +596,115 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       } catch (e) { logger.warn('Sample staff insert failed:', (e as any).message); }
     }
 
-    // ── 10 sample visitors (past visits, not currently on-site) ──────────────
-    for (let i = 0; i < 10; i++) {
+    // ── 15 sample visitors ── mix of past visits + pre-bookings ──────────────
+    const visitorIds: string[] = [];
+    const visitorScenarios = [
+      // past visitors (checked in and out)
+      { daysAgo: 7,  hoursStay: 2,  prebooked: false },
+      { daysAgo: 14, hoursStay: 3,  prebooked: false },
+      { daysAgo: 21, hoursStay: 1,  prebooked: false },
+      { daysAgo: 30, hoursStay: 4,  prebooked: false },
+      { daysAgo: 45, hoursStay: 2,  prebooked: false },
+      { daysAgo: 60, hoursStay: 3,  prebooked: false },
+      { daysAgo: 5,  hoursStay: 2,  prebooked: false },
+      { daysAgo: 10, hoursStay: 1,  prebooked: false },
+      { daysAgo: 3,  hoursStay: 5,  prebooked: false },
+      { daysAgo: 90, hoursStay: 2,  prebooked: false },
+      // pre-booked upcoming
+      { daysAhead: 3,  hoursStay: 2, prebooked: true },
+      { daysAhead: 7,  hoursStay: 3, prebooked: true },
+      { daysAhead: 14, hoursStay: 2, prebooked: true },
+      { daysAhead: 21, hoursStay: 4, prebooked: true },
+      { daysAhead: 28, hoursStay: 2, prebooked: true },
+    ] as Array<{ daysAgo?: number; daysAhead?: number; hoursStay: number; prebooked: boolean }>;
+
+    for (let i = 0; i < visitorScenarios.length; i++) {
       try {
-        const pastDate    = new Date(now.getTime() - (7 + i) * 24 * 60 * 60 * 1000);
-        const pastCheckout = new Date(pastDate.getTime() + 2 * 60 * 60 * 1000);
-        await customerDb.insert(isolatedSchema.visitors).values({
+        const s = visitorScenarios[i];
+        let checkedInAt: Date | undefined, checkedOutAt: Date | undefined;
+        if (s.daysAgo !== undefined) {
+          checkedInAt  = new Date(now.getTime() - s.daysAgo * 86400000);
+          checkedOutAt = new Date(checkedInAt.getTime() + s.hoursStay * 3600000);
+        }
+        const hostStaffId = staffIds.length > 0 ? staffIds[i % staffIds.length] : undefined;
+        const inserted = await customerDb.insert(isolatedSchema.visitors).values({
           firstName:    firstNames[(i + 3) % firstNames.length],
           lastName:     lastNames[(i + 5) % lastNames.length],
           email:        `demo.visitor.${batchId}.${i}@example.com`,
           company:      visitorCompanies[i % visitorCompanies.length],
-          jobTitle:     'Representative',
-          purpose:      'Demo Visit',
+          jobTitle:     ['Sales Manager', 'Project Lead', 'Consultant', 'Account Manager', 'Director'][i % 5],
+          purpose:      ['Business Meeting', 'Site Inspection', 'Training', 'Delivery', 'Audit', 'Consultation'][i % 6],
           qrCode:       `VISITOR-DEMO-${batchId}-${i}`,
-          isPreBooked:  false,
+          isPreBooked:  s.prebooked,
           isCheckedIn:  false,
-          checkedInAt:  pastDate,
-          checkedOutAt: pastCheckout,
-          checkoutType: 'manual-reset',
-        });
+          hostStaffId:  hostStaffId ?? undefined,
+          ...(checkedInAt  ? { checkedInAt }  : {}),
+          ...(checkedOutAt ? { checkedOutAt, checkoutType: 'manual' } : {}),
+        }).returning({ id: isolatedSchema.visitors.id });
+        if (inserted[0]?.id) visitorIds.push(inserted[0].id);
         visitorsAdded++;
       } catch (e) { logger.warn('Sample visitor insert failed:', (e as any).message); }
     }
 
-    // ── 5 contractor companies, each with 3–6 workers ────────────────────────
+    // ── 5 contractor companies, each with 3–4 workers ────────────────────────
     const contractorCompanyData = [
-      { name: 'BuildRight Contractors Ltd',   firstName: 'Bob',   lastName: 'Builder',  phone: '01234 567890' },
-      { name: 'SafeWork Facilities UK',        firstName: 'Sarah', lastName: 'Safe',     phone: '01234 567891' },
-      { name: 'Delta Technical Services',      firstName: 'David', lastName: 'Delta',    phone: '01234 567892' },
-      { name: 'Apex Maintenance Group',        firstName: 'Alice', lastName: 'Apex',     phone: '01234 567893' },
-      { name: 'Horizon Build & Civil',         firstName: 'Henry', lastName: 'Horizon',  phone: '01234 567894' },
+      { name: 'BuildRight Contractors Ltd',   firstName: 'Bob',   lastName: 'Builder',  phone: '01234 567890', industry: 'Construction' },
+      { name: 'SafeWork Facilities UK',        firstName: 'Sarah', lastName: 'Safe',     phone: '01234 567891', industry: 'Facilities Management' },
+      { name: 'Delta Technical Services',      firstName: 'David', lastName: 'Delta',    phone: '01234 567892', industry: 'Technical Services' },
+      { name: 'Apex Maintenance Group',        firstName: 'Alice', lastName: 'Apex',     phone: '01234 567893', industry: 'Maintenance' },
+      { name: 'Horizon Build & Civil',         firstName: 'Henry', lastName: 'Horizon',  phone: '01234 567894', industry: 'Civil Engineering' },
     ];
     const workerJobTitles = [
       'Site Engineer', 'Electrician', 'Plumber', 'HVAC Technician', 'Health & Safety Officer',
       'Project Manager', 'Scaffolder', 'Welder', 'Carpenter', 'Painter & Decorator',
       'Structural Engineer', 'Forklift Operator', 'Mechanical Fitter', 'Site Supervisor', 'Labourer',
+      'Fire Safety Technician', 'Security Engineer', 'Water Treatment Specialist',
     ];
     const rightToWorkStatuses = ['valid', 'valid', 'valid', 'pending', 'valid'];
-    const cscsStatuses        = ['valid', 'valid', 'pending', 'valid', 'none'];
+    const cscsStatuses        = ['valid', 'valid', 'pending', 'valid', 'expired'];
+    const companyIds: string[] = [];
+    const workerIds: string[]  = [];
     let workerSeq = 0;
 
     for (let c = 0; c < contractorCompanyData.length; c++) {
       try {
         const co = contractorCompanyData[c];
-        let companyId: string;
-
-        const existing = await customerDb
-          .select({ id: isolatedSchema.contractorCompanies.id })
-          .from(isolatedSchema.contractorCompanies)
-          .where(eq(isolatedSchema.contractorCompanies.companyName, co.name))
-          .limit(1);
-
-        if (existing.length > 0) {
-          companyId = existing[0].id;
-        } else {
-          const newCo = await customerDb
-            .insert(isolatedSchema.contractorCompanies)
-            .values({
-              companyName:      co.name,
-              contactEmail:     `demo.company.${batchId}.${c}@example.com`,
-              contactPhone:     co.phone,
-              contactFirstName: co.firstName,
-              contactLastName:  co.lastName,
-            })
-            .returning({ id: isolatedSchema.contractorCompanies.id });
-          companyId = newCo[0].id;
-        }
+        const newCo = await customerDb
+          .insert(isolatedSchema.contractorCompanies)
+          .values({
+            companyName:      co.name,
+            contactEmail:     `demo.company.${batchId}.${c}@example.com`,
+            contactPhone:     co.phone,
+            contactFirstName: co.firstName,
+            contactLastName:  co.lastName,
+          })
+          .returning({ id: isolatedSchema.contractorCompanies.id });
+        const companyId = newCo[0].id;
+        companyIds.push(companyId);
         contractorsAdded++;
 
-        // Add 3–5 workers per company
-        const workerCount = 3 + (c % 3);
+        // Add 3–4 workers per company
+        const workerCount = 3 + (c % 2);
         for (let w = 0; w < workerCount; w++) {
           try {
             const seq   = workerSeq++;
             const fnIdx = seq % firstNames.length;
             const lnIdx = (seq + 4) % lastNames.length;
-            const jobIdx = seq % workerJobTitles.length;
-            await customerDb.insert(isolatedSchema.contractorWorkers).values({
+            const inserted = await customerDb.insert(isolatedSchema.contractorWorkers).values({
               companyId,
               firstName:   firstNames[fnIdx],
               lastName:    lastNames[lnIdx],
               email:       `demo.worker.${batchId}.${seq}@example.com`,
               phoneNumber: ukPhones[seq % ukPhones.length],
-              jobTitle:    workerJobTitles[jobIdx],
+              jobTitle:    workerJobTitles[seq % workerJobTitles.length],
               department:  departments[seq % departments.length],
               rightToWork: rightToWorkStatuses[c],
               cscsStatus:  cscsStatuses[c],
               postcode:    `EC${1 + (seq % 4)}V ${seq % 9}BB`,
               transportMethod: ['car_diesel', 'car_petrol', 'public_transport', 'bicycle', 'walking'][seq % 5],
               isActive:    true,
-            });
+            }).returning({ id: isolatedSchema.contractorWorkers.id });
+            if (inserted[0]?.id) workerIds.push(inserted[0].id);
             workersAdded++;
           } catch (e) { logger.warn('Sample worker insert failed:', (e as any).message); }
         }
@@ -694,57 +712,44 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
     }
 
     // ── 10 sample members ────────────────────────────────────────────────────
+    const memberIds: string[] = [];
     for (let i = 0; i < 10; i++) {
       try {
-        await customerDb.insert(isolatedSchema.members).values({
+        const inserted = await customerDb.insert(isolatedSchema.members).values({
           firstName:        firstNames[(i + 2) % firstNames.length],
           lastName:         lastNames[(i + 7) % lastNames.length],
           email:            `demo.member.${batchId}.${i}@example.com`,
           membershipType:   memberTypes[i],
           membershipId:     `MEM-${batchId}-${i}`,
-          membershipNumber: `MBR-${batchId}-${i}`,
+          membershipNumber: `MBR-DEMO-${String(i + 1).padStart(3, '0')}`,
           joinDate:         `${now.getFullYear()}-01-01`,
           expiryDate:       `${now.getFullYear()}-12-31`,
           membershipStatus: 'active',
           qrCode:           `MEMBER-DEMO-${batchId}-${i}`,
           isCheckedIn:      false,
           isActive:         true,
-        });
+        }).returning({ id: isolatedSchema.members.id });
+        if (inserted[0]?.id) memberIds.push(inserted[0].id);
         membersAdded++;
       } catch (e) { logger.warn('Sample member insert failed:', (e as any).message); }
     }
 
-    // ── HR data (all wrapped in individual try/catch — graceful if tables don't exist) ──
+    // ── HR data for staff ─────────────────────────────────────────────────────
     if (staffIds.length > 0) {
-      const hrDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
-      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
-      const pool = (hrDb as any).$client ?? (hrDb as any).session?.client;
-
       // 1. Right to Work
       try {
-        // [docType, yearsValid | null, daysOffset | null] — negative daysOffset = expired
         const rtwScenarios: Array<[string, number | null, number | null]> = [
-          ['passport', 2, null],
-          ['passport', 3, null],
-          ['passport', 4, null],
-          ['passport', 5, null],
-          ['passport', 3, null],
-          ['passport', 4, null],
-          ['passport', null, 45],
-          ['passport', null, 20],
-          ['passport', null, -30],
-          ['british_passport', null, null],
+          ['passport', 2, null], ['passport', 3, null], ['passport', 4, null], ['passport', 5, null],
+          ['passport', 3, null], ['passport', 4, null], ['passport', null, 45], ['passport', null, 20],
+          ['passport', null, -30], ['british_passport', null, null],
         ];
         for (let i = 0; i < staffIds.length; i++) {
           const [docType, years, days] = rtwScenarios[i];
-          const expirySQL = years !== null
-            ? `NOW() + INTERVAL '${years} years'`
-            : days === null ? 'NULL'
-            : days >= 0 ? `NOW() + INTERVAL '${days} days'`
+          const expirySQL = years !== null ? `NOW() + INTERVAL '${years} years'`
+            : days === null ? 'NULL' : days >= 0 ? `NOW() + INTERVAL '${days} days'`
             : `NOW() - INTERVAL '${Math.abs(days)} days'`;
           await pool.query(
-            `INSERT INTO "${schemaName}".right_to_work
-               (staff_id, document_type, document_reference, issue_date, expiry_date, verified_date, verified_by, verification_method, is_current)
+            `INSERT INTO "${schemaName}".right_to_work (staff_id, document_type, document_reference, issue_date, expiry_date, verified_date, verified_by, verification_method, is_current)
              VALUES ($1, $2, $3, NOW() - INTERVAL '6 months', ${expirySQL}, NOW() - INTERVAL '6 months', 'HR Manager', 'manual', TRUE)`,
             [staffIds[i], docType, `DEMO-RTW-${batchId}-${i}`]
           );
@@ -754,49 +759,39 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       // 2. DBS Certificates
       try {
         const dbsData: Array<[string, number | null, number | null]> = [
-          ['enhanced_with_barred_lists', 3, null],
-          ['enhanced', 2, null],
-          ['standard', 1, null],
-          ['enhanced', null, 60],
-          ['enhanced_with_barred_lists', null, 15],
-          ['basic', 1, null],
-          ['enhanced', 2, null],
-          ['basic', 3, null],
-          ['enhanced', 4, null],
-          ['enhanced', 2, null],
+          ['enhanced_with_barred_lists', 3, null], ['enhanced', 2, null], ['standard', 1, null],
+          ['enhanced', null, 60], ['enhanced_with_barred_lists', null, 15], ['basic', 1, null],
+          ['enhanced', 2, null], ['basic', 3, null], ['enhanced', 4, null], ['enhanced', 2, null],
         ];
         for (let i = 0; i < staffIds.length; i++) {
           const [level, years, days] = dbsData[i];
-          const expirySQL = years !== null
-            ? `NOW() + INTERVAL '${years} years'`
-            : `NOW() + INTERVAL '${days} days'`;
+          const expirySQL = years !== null ? `NOW() + INTERVAL '${years} years'` : `NOW() + INTERVAL '${days} days'`;
           await pool.query(
-            `INSERT INTO "${schemaName}".staff_dbs
-               (staff_id, dbs_level, certificate_number, issue_date, policy_expiry_date, verified_by, verified_date, is_current)
+            `INSERT INTO "${schemaName}".staff_dbs (staff_id, dbs_level, certificate_number, issue_date, policy_expiry_date, verified_by, verified_date, is_current)
              VALUES ($1, $2, $3, NOW() - INTERVAL '1 year', ${expirySQL}, 'HR Manager', NOW() - INTERVAL '1 year', TRUE)`,
             [staffIds[i], level, `DEMO-DBS-${batchId}-${i}`]
           );
         }
       } catch (e) { logger.warn('Sample HR: staff_dbs failed', (e as any).message); }
 
-      // 3. Leave Requests (15 entries across the 10 staff)
+      // 3. Leave Requests
       try {
-        const leaveData: Array<{ si: number; type: string; sOff: number; days: number; status: string }> = [
-          { si: 0, type: 'annual',        sOff: -60,  days: 5,  status: 'approved' },
-          { si: 1, type: 'annual',        sOff: -45,  days: 3,  status: 'approved' },
-          { si: 2, type: 'annual',        sOff: -30,  days: 10, status: 'approved' },
-          { si: 3, type: 'annual',        sOff: -20,  days: 2,  status: 'approved' },
-          { si: 4, type: 'annual',        sOff: -14,  days: 5,  status: 'approved' },
-          { si: 0, type: 'annual',        sOff: 14,   days: 5,  status: 'approved' },
-          { si: 5, type: 'annual',        sOff: 28,   days: 3,  status: 'approved' },
-          { si: 6, type: 'annual',        sOff: 56,   days: 5,  status: 'approved' },
-          { si: 7, type: 'annual',        sOff: 21,   days: 3,  status: 'pending'  },
-          { si: 8, type: 'annual',        sOff: 35,   days: 5,  status: 'pending'  },
-          { si: 2, type: 'sick',          sOff: -10,  days: 2,  status: 'approved' },
-          { si: 3, type: 'sick',          sOff: -25,  days: 1,  status: 'approved' },
-          { si: 4, type: 'parental',      sOff: -90,  days: 10, status: 'approved' },
-          { si: 5, type: 'parental',      sOff: -120, days: 5,  status: 'approved' },
-          { si: 1, type: 'compassionate', sOff: -40,  days: 3,  status: 'approved' },
+        const leaveData = [
+          { si: 0, type: 'annual', sOff: -60, days: 5, status: 'approved' },
+          { si: 1, type: 'annual', sOff: -45, days: 3, status: 'approved' },
+          { si: 2, type: 'annual', sOff: -30, days: 10, status: 'approved' },
+          { si: 3, type: 'annual', sOff: -20, days: 2, status: 'approved' },
+          { si: 4, type: 'annual', sOff: -14, days: 5, status: 'approved' },
+          { si: 0, type: 'annual', sOff: 14, days: 5, status: 'approved' },
+          { si: 5, type: 'annual', sOff: 28, days: 3, status: 'approved' },
+          { si: 6, type: 'annual', sOff: 56, days: 5, status: 'approved' },
+          { si: 7, type: 'annual', sOff: 21, days: 3, status: 'pending' },
+          { si: 8, type: 'annual', sOff: 35, days: 5, status: 'pending' },
+          { si: 2, type: 'sick', sOff: -10, days: 2, status: 'approved' },
+          { si: 3, type: 'sick', sOff: -25, days: 1, status: 'approved' },
+          { si: 4, type: 'parental', sOff: -90, days: 10, status: 'approved' },
+          { si: 5, type: 'parental', sOff: -120, days: 5, status: 'approved' },
+          { si: 1, type: 'compassionate', sOff: -40, days: 3, status: 'approved' },
         ];
         for (const l of leaveData) {
           if (!staffIds[l.si]) continue;
@@ -804,31 +799,29 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
           const sa = Math.abs(l.sOff);
           const ea = Math.abs(l.sOff) + l.days - 1;
           await pool.query(
-            `INSERT INTO "${schemaName}".leave_requests
-               (staff_id, leave_type, start_date, end_date, days_taken, status, reason)
+            `INSERT INTO "${schemaName}".leave_requests (staff_id, leave_type, start_date, end_date, days_taken, status, reason)
              VALUES ($1, $2, (NOW() ${ss} INTERVAL '${sa} days')::date, (NOW() ${ss} INTERVAL '${ea} days')::date, $3, $4, 'Sample leave request')`,
             [staffIds[l.si], l.type, l.days, l.status]
           );
         }
       } catch (e) { logger.warn('Sample HR: leave_requests failed', (e as any).message); }
 
-      // 4. Absence Records (Bradford Factor scenarios)
+      // 4. Absence Records
       try {
-        const absenceData: Array<{ si: number; offsets: number[]; days: number; reason: string }> = [
-          { si: 0, offsets: [-120, -90, -45],                    days: 1, reason: 'Cold / Flu' },       // Bradford 27
-          { si: 1, offsets: [-100, -60],                          days: 2, reason: 'Stomach complaint' },// Bradford 16
-          { si: 2, offsets: [-180, -150, -120, -90, -45],         days: 1, reason: 'Cold / Flu' },       // Bradford 125
-          { si: 3, offsets: [-50],                                days: 5, reason: 'Back injury' },       // Bradford 5
-          { si: 4, offsets: [-330, -280, -240, -200, -160, -120], days: 1, reason: 'Cold / Flu' },       // Bradford 216
-          { si: 5, offsets: [-30],                                days: 2, reason: 'Migraine' },
+        const absenceData = [
+          { si: 0, offsets: [-120, -90, -45], days: 1, reason: 'Cold / Flu' },
+          { si: 1, offsets: [-100, -60], days: 2, reason: 'Stomach complaint' },
+          { si: 2, offsets: [-180, -150, -120, -90, -45], days: 1, reason: 'Cold / Flu' },
+          { si: 3, offsets: [-50], days: 5, reason: 'Back injury' },
+          { si: 4, offsets: [-330, -280, -240, -200, -160, -120], days: 1, reason: 'Cold / Flu' },
+          { si: 5, offsets: [-30], days: 2, reason: 'Migraine' },
         ];
         for (const a of absenceData) {
           if (!staffIds[a.si]) continue;
           for (const offset of a.offsets) {
             const abs = Math.abs(offset);
             await pool.query(
-              `INSERT INTO "${schemaName}".absence_records
-                 (staff_id, absence_type, start_date, return_date, days_lost, reason)
+              `INSERT INTO "${schemaName}".absence_records (staff_id, absence_type, start_date, return_date, days_lost, reason)
                VALUES ($1, 'sickness', (NOW() - INTERVAL '${abs} days')::date, (NOW() - INTERVAL '${abs - a.days} days')::date, $2, $3)`,
               [staffIds[a.si], a.days, a.reason]
             );
@@ -839,74 +832,45 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       // 5. Training Requirements + Staff Training Records
       const trainingCourseNames: string[] = [];
       const trainingDefs = [
-        { name: 'Fire Safety Awareness',     freq: 12 },
-        { name: 'Manual Handling',           freq: 36 },
-        { name: 'Health & Safety Induction', freq: 0  },
-        { name: 'GDPR Data Protection',      freq: 24 },
-        { name: 'First Aid Awareness',       freq: 36 },
+        { name: 'Fire Safety Awareness', freq: 12 },
+        { name: 'Manual Handling', freq: 36 },
+        { name: 'Health & Safety Induction', freq: 0 },
+        { name: 'GDPR Data Protection', freq: 24 },
+        { name: 'First Aid Awareness', freq: 36 },
       ];
       try {
         for (const tr of trainingDefs) {
           try {
-            await pool.query(
-              `INSERT INTO "${schemaName}".training_requirements (course_name, renewal_period_months)
-               VALUES ($1, $2)`,
-              [tr.name, tr.freq]
-            );
-          } catch { /* already exists — skip */ }
+            await pool.query(`INSERT INTO "${schemaName}".training_requirements (course_name, renewal_period_months) VALUES ($1, $2)`, [tr.name, tr.freq]);
+          } catch { /* already exists */ }
           trainingCourseNames.push(tr.name);
         }
       } catch (e) { logger.warn('Sample HR: training_requirements failed', (e as any).message); }
 
       if (trainingCourseNames.length === 5) {
         try {
-          // Staff 0–3: all 5 courses completed
           for (let i = 0; i < 4 && i < staffIds.length; i++) {
             for (let t = 0; t < 5; t++) {
               await pool.query(
-                `INSERT INTO "${schemaName}".staff_training_records
-                   (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
+                `INSERT INTO "${schemaName}".staff_training_records (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
                  VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '6 months')::date, (NOW() + INTERVAL '6 months')::date, TRUE)`,
                 [staffIds[i], trainingCourseNames[t]]
               );
             }
           }
-          // Staff 4: Fire Safety expired (completed 14 months ago), rest current
           if (staffIds[4]) {
-            await pool.query(
-              `INSERT INTO "${schemaName}".staff_training_records
-                 (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
-               VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '14 months')::date, (NOW() - INTERVAL '2 months')::date, TRUE)`,
-              [staffIds[4], trainingCourseNames[0]]
-            );
+            await pool.query(`INSERT INTO "${schemaName}".staff_training_records (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory) VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '14 months')::date, (NOW() - INTERVAL '2 months')::date, TRUE)`, [staffIds[4], trainingCourseNames[0]]);
             for (let t = 1; t < 5; t++) {
-              await pool.query(
-                `INSERT INTO "${schemaName}".staff_training_records
-                   (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
-                 VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '6 months')::date, (NOW() + INTERVAL '6 months')::date, TRUE)`,
-                [staffIds[4], trainingCourseNames[t]]
-              );
+              await pool.query(`INSERT INTO "${schemaName}".staff_training_records (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory) VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '6 months')::date, (NOW() + INTERVAL '6 months')::date, TRUE)`, [staffIds[4], trainingCourseNames[t]]);
             }
           }
-          // Staff 5: Manual Handling + GDPR only
           if (staffIds[5]) {
             for (const t of [1, 3]) {
-              await pool.query(
-                `INSERT INTO "${schemaName}".staff_training_records
-                   (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
-                 VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '6 months')::date, (NOW() + INTERVAL '6 months')::date, TRUE)`,
-                [staffIds[5], trainingCourseNames[t]]
-              );
+              await pool.query(`INSERT INTO "${schemaName}".staff_training_records (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory) VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '6 months')::date, (NOW() + INTERVAL '6 months')::date, TRUE)`, [staffIds[5], trainingCourseNames[t]]);
             }
           }
-          // Staff 6–9: Health & Safety Induction only (no expiry)
           for (let i = 6; i < staffIds.length; i++) {
-            await pool.query(
-              `INSERT INTO "${schemaName}".staff_training_records
-                 (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory)
-               VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '3 months')::date, NULL, TRUE)`,
-              [staffIds[i], trainingCourseNames[2]]
-            );
+            await pool.query(`INSERT INTO "${schemaName}".staff_training_records (staff_id, course_name, provider, completed_date, expiry_date, is_mandatory) VALUES ($1, $2, 'Internal Training', (NOW() - INTERVAL '3 months')::date, NULL, TRUE)`, [staffIds[i], trainingCourseNames[2]]);
           }
         } catch (e) { logger.warn('Sample HR: staff_training_records failed', (e as any).message); }
       }
@@ -914,76 +878,276 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       // 6. Appraisals
       try {
         const appraisalData = [
-          { si: 0, dOff: -180, nOff: 180,  rating: 'good',        conductor: 'HR Manager'   },
-          { si: 1, dOff: -330, nOff: 30,   rating: 'excellent',   conductor: 'Line Manager' },
-          { si: 2, dOff: -90,  nOff: 90,   rating: null,          conductor: 'HR Manager'   },
-          { si: 3, dOff: -365, nOff: -30,  rating: 'good',        conductor: 'Line Manager' },
-          { si: 4, dOff: -365, nOff: -30,  rating: 'satisfactory',conductor: 'HR Manager'   },
+          { si: 0, dOff: -180, nOff: 180, rating: 'good', conductor: 'HR Manager' },
+          { si: 1, dOff: -330, nOff: 30, rating: 'excellent', conductor: 'Line Manager' },
+          { si: 2, dOff: -90, nOff: 90, rating: null, conductor: 'HR Manager' },
+          { si: 3, dOff: -365, nOff: -30, rating: 'good', conductor: 'Line Manager' },
+          { si: 4, dOff: -365, nOff: -30, rating: 'satisfactory', conductor: 'HR Manager' },
         ];
         for (const a of appraisalData) {
           if (!staffIds[a.si]) continue;
-          const ds = a.dOff >= 0 ? '+' : '-';
-          const da = Math.abs(a.dOff);
-          const ns = a.nOff >= 0 ? '+' : '-';
-          const na = Math.abs(a.nOff);
+          const ds = a.dOff >= 0 ? '+' : '-'; const da = Math.abs(a.dOff);
+          const ns = a.nOff >= 0 ? '+' : '-'; const na = Math.abs(a.nOff);
           await pool.query(
-            `INSERT INTO "${schemaName}".appraisals
-               (staff_id, review_date, next_review_date, conducted_by, overall_rating, summary_notes)
+            `INSERT INTO "${schemaName}".appraisals (staff_id, review_date, next_review_date, conducted_by, overall_rating, summary_notes)
              VALUES ($1, (NOW() ${ds} INTERVAL '${da} days')::date, (NOW() ${ns} INTERVAL '${na} days')::date, $2, $3, 'Sample appraisal record')`,
             [staffIds[a.si], a.conductor, a.rating]
           );
         }
       } catch (e) { logger.warn('Sample HR: appraisals failed', (e as any).message); }
 
-      // 7. Onboarding checklist for staff[9] (newest starter)
+      // 7. Onboarding checklist for newest starter
       if (staffIds[9]) {
-        try {
-          await pool.query(
-            `INSERT INTO "${schemaName}".onboarding_checklists (staff_id) VALUES ($1)`,
-            [staffIds[9]]
-          );
-        } catch (e) { logger.warn('Sample HR: onboarding failed', (e as any).message); }
+        try { await pool.query(`INSERT INTO "${schemaName}".onboarding_checklists (staff_id) VALUES ($1)`, [staffIds[9]]); }
+        catch (e) { logger.warn('Sample HR: onboarding failed', (e as any).message); }
       }
 
       // 8. Leaver process for staff[8]
       if (staffIds[8]) {
         try {
-          await pool.query(
-            `UPDATE "${schemaName}".staff
-             SET employment_status = 'leaver', contract_end_date = NOW() - INTERVAL '30 days', is_active = FALSE
-             WHERE id = $1`,
-            [staffIds[8]]
-          );
-          await pool.query(
-            `INSERT INTO "${schemaName}".leaver_checklists (staff_id, last_day, reason, is_voluntary, completed_at)
-             VALUES ($1, (NOW() - INTERVAL '30 days')::date, 'resignation', TRUE, NOW() - INTERVAL '28 days')`,
-            [staffIds[8]]
-          );
+          await pool.query(`UPDATE "${schemaName}".staff SET employment_status = 'leaver', contract_end_date = NOW() - INTERVAL '30 days', is_active = FALSE WHERE id = $1`, [staffIds[8]]);
+          await pool.query(`INSERT INTO "${schemaName}".leaver_checklists (staff_id, last_day, reason, is_voluntary, completed_at) VALUES ($1, (NOW() - INTERVAL '30 days')::date, 'resignation', TRUE, NOW() - INTERVAL '28 days')`, [staffIds[8]]);
         } catch (e) { logger.warn('Sample HR: leaver failed', (e as any).message); }
       }
 
-      // 9. Staff Documents (2 per staff member)
+      // 9. Staff Documents (2 per staff)
       try {
         for (let i = 0; i < staffIds.length; i++) {
-          await pool.query(
-            `INSERT INTO "${schemaName}".staff_documents
-               (staff_id, document_type, title, file_url, file_name, is_confidential, uploaded_by, notes)
-             VALUES ($1, 'contract', 'Employment Contract', '#', 'employment_contract.pdf', TRUE, 'HR Manager', 'Sample document — uploaded for demonstration purposes')`,
-            [staffIds[i]]
-          );
-          await pool.query(
-            `INSERT INTO "${schemaName}".staff_documents
-               (staff_id, document_type, title, file_url, file_name, is_confidential, uploaded_by, notes)
-             VALUES ($1, 'right_to_work', 'Passport Copy', '#', 'passport_copy.pdf', TRUE, 'HR Manager', 'Sample document — uploaded for demonstration purposes')`,
-            [staffIds[i]]
-          );
+          await pool.query(`INSERT INTO "${schemaName}".staff_documents (staff_id, document_type, title, file_url, file_name, is_confidential, uploaded_by, notes) VALUES ($1, 'contract', 'Employment Contract', '#', 'employment_contract.pdf', TRUE, 'HR Manager', 'Sample document — uploaded for demonstration purposes')`, [staffIds[i]]);
+          await pool.query(`INSERT INTO "${schemaName}".staff_documents (staff_id, document_type, title, file_url, file_name, is_confidential, uploaded_by, notes) VALUES ($1, 'right_to_work', 'Passport Copy', '#', 'passport_copy.pdf', TRUE, 'HR Manager', 'Sample document — uploaded for demonstration purposes')`, [staffIds[i]]);
         }
       } catch (e) { logger.warn('Sample HR: staff_documents failed', (e as any).message); }
+
+      // 10. Staff Sessions (attendance history — 8 sessions per staff member)
+      try {
+        for (let i = 0; i < staffIds.length; i++) {
+          for (let d = 1; d <= 8; d++) {
+            const daysBack = d * 3;
+            await pool.query(
+              `INSERT INTO "${schemaName}".staff_sessions (staff_id, check_in_time, check_out_time, is_manual, check_in_method)
+               VALUES ($1, NOW() - INTERVAL '${daysBack} days' + INTERVAL '8 hours', NOW() - INTERVAL '${daysBack} days' + INTERVAL '17 hours', FALSE, 'card')`,
+              [staffIds[i]]
+            );
+          }
+        }
+      } catch (e) { logger.warn('Sample HR: staff_sessions failed', (e as any).message); }
+    }
+
+    // ── Worker certifications ─────────────────────────────────────────────────
+    if (workerIds.length > 0) {
+      try {
+        const certTypes = [
+          { type: 'CSCS Card', expMonths: 60 },
+          { type: 'Asbestos Awareness', expMonths: 12 },
+          { type: 'First Aid at Work', expMonths: 36 },
+          { type: 'Working at Height', expMonths: 12 },
+          { type: 'Manual Handling', expMonths: 36 },
+        ];
+        for (let i = 0; i < workerIds.length; i++) {
+          const wid = workerIds[i];
+          await pool.query(
+            `INSERT INTO "${schemaName}".worker_certifications (worker_id, certification_type, certification_number, issuer, issued_date, expiry_date, status)
+             VALUES ($1, $2, $3, $4, NOW() - INTERVAL '1 year', NOW() + INTERVAL '${certTypes[0].expMonths} months', 'valid')`,
+            [wid, certTypes[0].type, `CSCS-DEMO-${batchId}-${i}`, 'CSCS']
+          );
+          if (i % 3 === 0) {
+            await pool.query(
+              `INSERT INTO "${schemaName}".worker_certifications (worker_id, certification_type, certification_number, issuer, issued_date, expiry_date, status)
+               VALUES ($1, $2, $3, $4, NOW() - INTERVAL '6 months', NOW() + INTERVAL '6 months', 'valid')`,
+              [wid, certTypes[1].type, `ASBE-DEMO-${batchId}-${i}`, 'UKATA']
+            );
+          }
+          if (i % 4 === 0) {
+            await pool.query(
+              `INSERT INTO "${schemaName}".worker_certifications (worker_id, certification_type, certification_number, issuer, issued_date, expiry_date, status)
+               VALUES ($1, $2, $3, $4, NOW() - INTERVAL '2 years', NOW() + INTERVAL '1 year', 'valid')`,
+              [wid, certTypes[2].type, `FAW-DEMO-${batchId}-${i}`, 'St John Ambulance']
+            );
+          }
+        }
+      } catch (e) { logger.warn('Sample worker_certifications failed', (e as any).message); }
+
+      // Worker competencies
+      try {
+        const compTypes = ['Manual Handling', 'COSHH Awareness', 'Fire Safety', 'Risk Assessment', 'Confined Spaces'];
+        for (let i = 0; i < Math.min(workerIds.length, 10); i++) {
+          await pool.query(
+            `INSERT INTO "${schemaName}".worker_competencies (worker_id, competency_type, issuer, issued_date, expiry_date, status)
+             VALUES ($1, $2, $3, NOW() - INTERVAL '8 months', NOW() + INTERVAL '4 months', 'valid')`,
+            [workerIds[i], compTypes[i % compTypes.length], 'Internal Training']
+          );
+        }
+      } catch (e) { logger.warn('Sample worker_competencies failed', (e as any).message); }
+    }
+
+    // ── Contractor visits ─────────────────────────────────────────────────────
+    if (workerIds.length > 0 && companyIds.length > 0) {
+      try {
+        const purposes = ['Maintenance Work', 'Installation', 'Inspection', 'Repair', 'Survey', 'Testing & Commissioning'];
+        let visitSeq = 0;
+        for (let i = 0; i < workerIds.length; i++) {
+          const wid = workerIds[i];
+          const cid = companyIds[Math.floor(i / 4) % companyIds.length];
+          const hostId = staffIds.length > 0 ? staffIds[i % staffIds.length] : null;
+          const hostFn = staffIds.length > 0 ? `${firstNames[i % firstNames.length]} ${lastNames[i % lastNames.length]}` : null;
+
+          // 2–3 past completed visits per worker
+          const pastCount = 2 + (i % 2);
+          for (let p = 0; p < pastCount; p++) {
+            const daysBack = (p + 1) * 14 + (i * 3);
+            await pool.query(
+              `INSERT INTO "${schemaName}".contractor_visits
+                 (worker_id, company_id, host_staff_id, host_name, checked_in_at, checked_out_at, purpose,
+                  hs_rules_accepted, hs_rules_accepted_at, induction_completed, induction_completed_at,
+                  is_accounted_for, checkout_type)
+               VALUES ($1,$2,$3,$4,
+                 NOW() - INTERVAL '${daysBack} days' + INTERVAL '8 hours',
+                 NOW() - INTERVAL '${daysBack} days' + INTERVAL '16 hours',
+                 $5, TRUE, NOW() - INTERVAL '${daysBack} days' + INTERVAL '8 hours',
+                 TRUE, NOW() - INTERVAL '${daysBack} days' + INTERVAL '8 hours 15 minutes',
+                 TRUE, 'manual')`,
+              [wid, cid, hostId, hostFn, purposes[visitSeq++ % purposes.length]]
+            );
+          }
+
+          // First 4 workers are currently on site (checked in, no checkout)
+          if (i < 4) {
+            await pool.query(
+              `INSERT INTO "${schemaName}".contractor_visits
+                 (worker_id, company_id, host_staff_id, host_name, checked_in_at, purpose,
+                  hs_rules_accepted, hs_rules_accepted_at, induction_completed, induction_completed_at,
+                  is_accounted_for)
+               VALUES ($1,$2,$3,$4, NOW() - INTERVAL '2 hours', $5,
+                 TRUE, NOW() - INTERVAL '2 hours',
+                 TRUE, NOW() - INTERVAL '1 hour 45 minutes', TRUE)`,
+              [wid, cid, hostId, hostFn, purposes[visitSeq++ % purposes.length]]
+            );
+          }
+        }
+      } catch (e) { logger.warn('Sample contractor_visits failed', (e as any).message); }
+
+      // Contractor pre-bookings (upcoming)
+      try {
+        const pbData = [
+          { coIdx: 0, wIdx: 0, daysAhead: 3,  purpose: 'Planned Maintenance',   time: '09:00', dur: '4' },
+          { coIdx: 1, wIdx: 4, daysAhead: 7,  purpose: 'Fire Alarm Testing',     time: '08:00', dur: '8' },
+          { coIdx: 2, wIdx: 8, daysAhead: 10, purpose: 'CCTV Installation',       time: '10:00', dur: '6' },
+          { coIdx: 3, wIdx: 11, daysAhead: 14, purpose: 'Annual HVAC Service',    time: '08:30', dur: '8' },
+          { coIdx: 4, wIdx: 14, daysAhead: 21, purpose: 'Structural Survey',      time: '09:00', dur: '4' },
+        ];
+        for (const pb of pbData) {
+          const coData = contractorCompanyData[pb.coIdx % contractorCompanyData.length];
+          const wIdx   = pb.wIdx % workerIds.length;
+          const wName  = `${firstNames[wIdx % firstNames.length]} ${lastNames[(wIdx + 4) % lastNames.length]}`;
+          const hIdx   = pb.coIdx % staffIds.length;
+          const hName  = staffIds.length > 0 ? `${firstNames[hIdx]} ${lastNames[hIdx]}` : 'Site Manager';
+          await pool.query(
+            `INSERT INTO "${schemaName}".contractor_prebookings
+               (company_name, contact_email, contact_phone, worker_name, worker_email, purpose,
+                scheduled_date, scheduled_time, duration, status, qr_code, host_staff_id, host_name)
+             VALUES ($1,$2,$3,$4,$5,$6,
+               (NOW() + INTERVAL '${pb.daysAhead} days')::date, $7, $8, 'approved',
+               $9, $10, $11)`,
+            [coData.name, `demo.company.${batchId}.${pb.coIdx}@example.com`, coData.phone,
+             wName, `demo.worker.${batchId}.${wIdx}@example.com`, pb.purpose,
+             pb.time, pb.dur, `CTPB-DEMO-${batchId}-${pb.coIdx}`,
+             staffIds.length > 0 ? staffIds[hIdx] : null, hName]
+          );
+        }
+      } catch (e) { logger.warn('Sample contractor_prebookings failed', (e as any).message); }
+
+      // Permit to Work records
+      try {
+        const ptwData = [
+          { wIdx: 0, coIdx: 0, type: 'hot_work',         desc: 'Welding on roof structure', loc: 'Roof Level 3', status: 'approved', dOff: -1, dur: 1 },
+          { wIdx: 1, coIdx: 1, type: 'electrical',        desc: 'Electrical panel upgrade',  loc: 'Plant Room',  status: 'approved', dOff: 0,  dur: 1 },
+          { wIdx: 2, coIdx: 2, type: 'confined_space',    desc: 'Drainage inspection',       loc: 'Basement',    status: 'draft',    dOff: 3,  dur: 1 },
+          { wIdx: 3, coIdx: 3, type: 'working_at_height', desc: 'Facade cleaning works',     loc: 'External',    status: 'closed',   dOff: -7, dur: 1 },
+        ];
+        for (let i = 0; i < ptwData.length; i++) {
+          const p = ptwData[i];
+          const wIdx = p.wIdx % workerIds.length;
+          const cIdx = p.coIdx % companyIds.length;
+          const sIdx = i % staffIds.length;
+          const coName = contractorCompanyData[p.coIdx % contractorCompanyData.length].name;
+          const wName  = `${firstNames[wIdx % firstNames.length]} ${lastNames[(wIdx + 4) % lastNames.length]}`;
+          const sName  = staffIds.length > 0 ? `${firstNames[sIdx]} ${lastNames[sIdx]}` : 'Site Manager';
+          const sign = p.dOff >= 0 ? '+' : '-';
+          const absD = Math.abs(p.dOff);
+          await pool.query(
+            `INSERT INTO "${schemaName}".permit_to_work
+               (permit_number, permit_type, work_description, work_location,
+                contractor_company_id, contractor_company_name, contractor_worker_id, contractor_worker_name,
+                staff_id, staff_name,
+                planned_start_date, planned_start_time, planned_end_date, planned_end_time,
+                permit_valid_from, permit_valid_until, status,
+                created_by_id, created_by_name)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+               (NOW() ${sign} INTERVAL '${absD} days')::date, '08:00',
+               (NOW() ${sign} INTERVAL '${absD} days')::date, '17:00',
+               (NOW() ${sign} INTERVAL '${absD} days')::date,
+               (NOW() ${sign} INTERVAL '${absD} days')::date + INTERVAL '${p.dur} days',
+               $11,$12,$13)`,
+            [`PTW-DEMO-${batchId}-${i}`, p.type, p.desc, p.loc,
+             companyIds[cIdx], coName, workerIds[wIdx], wName,
+             staffIds.length > 0 ? staffIds[sIdx] : null, sName,
+             p.status,
+             staffIds.length > 0 ? staffIds[sIdx] : null, sName]
+          );
+        }
+      } catch (e) { logger.warn('Sample permit_to_work failed', (e as any).message); }
+    }
+
+    // ── Visitor history (past visit records) ──────────────────────────────────
+    if (visitorIds.length > 0 && staffIds.length > 0) {
+      try {
+        for (let i = 0; i < Math.min(visitorIds.length, 10); i++) {
+          const daysBack = (i + 1) * 7;
+          const hIdx = i % staffIds.length;
+          await pool.query(
+            `INSERT INTO "${schemaName}".visitor_history
+               (visitor_id, check_in_time, check_out_time, purpose, host_staff_id, host_name,
+                induction_completed, hs_rules_accepted, checkout_type)
+             VALUES ($1, NOW() - INTERVAL '${daysBack} days' + INTERVAL '9 hours',
+               NOW() - INTERVAL '${daysBack} days' + INTERVAL '16 hours',
+               $2, $3, $4, TRUE, TRUE, 'manual')`,
+            [visitorIds[i],
+             ['Business Meeting', 'Site Visit', 'Training', 'Audit', 'Consultation'][i % 5],
+             staffIds[hIdx],
+             `${firstNames[hIdx]} ${lastNames[hIdx]}`]
+          );
+        }
+      } catch (e) { logger.warn('Sample visitor_history failed', (e as any).message); }
+
+      // Visitor pre-bookings (upcoming, linked to visitor records and host staff)
+      try {
+        for (let i = 0; i < 5 && i < visitorIds.length; i++) {
+          const daysAhead = (i + 1) * 7;
+          const hIdx = i % staffIds.length;
+          await pool.query(
+            `INSERT INTO "${schemaName}".pre_bookings
+               (visitor_id, visitor_first_name, visitor_last_name, visitor_email,
+                company, visit_date, visit_time, host_staff_id, host_name, purpose, status, qr_code)
+             VALUES ($1,$2,$3,$4,$5,
+               (NOW() + INTERVAL '${daysAhead} days')::date, '10:00',
+               $6, $7, $8, 'pending', $9)`,
+            [visitorIds[i + 10] ?? null,
+             firstNames[(i + 3) % firstNames.length],
+             lastNames[(i + 5) % lastNames.length],
+             `demo.visitor.${batchId}.${i + 10}@example.com`,
+             visitorCompanies[(i + 10) % visitorCompanies.length],
+             staffIds[hIdx],
+             `${firstNames[hIdx]} ${lastNames[hIdx]}`,
+             ['Business Meeting', 'Site Inspection', 'Training', 'Audit', 'Consultation'][i % 5],
+             `VPB-DEMO-${batchId}-${i}`]
+          );
+        }
+      } catch (e) { logger.warn('Sample pre_bookings failed', (e as any).message); }
     }
 
     res.json({
       success: true,
-      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members — plus HR records: RTW, DBS, leave, absence, training, appraisals, onboarding, leaver, and documents`,
+      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members — plus HR, certifications, visits, pre-bookings, permits, and attendance records`,
       results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0 },
     });
   } catch (error) {
@@ -999,14 +1163,16 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(req.customerId);
       const pool = (customerDb2 as any).$client ?? (customerDb2 as any).session?.client;
 
-      // ── Step 1: Collect all sample entity IDs ─────────────────────────────
+      // ── Step 1: Collect all sample entity IDs (@example.com marker) ────────
       const staffRes   = await pool.query(`SELECT id FROM "${schemaName}".staff WHERE email LIKE '%@example.com'`);
       const workerRes  = await pool.query(`SELECT id FROM "${schemaName}".contractor_workers WHERE email LIKE '%@example.com'`);
       const companyRes = await pool.query(`SELECT id FROM "${schemaName}".contractor_companies WHERE contact_email LIKE '%@example.com'`);
+      const visitorRes = await pool.query(`SELECT id FROM "${schemaName}".visitors WHERE email LIKE '%@example.com'`);
 
       const staffIds:   string[] = staffRes.rows.map((r: any) => r.id);
       const workerIds:  string[] = workerRes.rows.map((r: any) => r.id);
       const companyIds: string[] = companyRes.rows.map((r: any) => r.id);
+      const visitorIds: string[] = visitorRes.rows.map((r: any) => r.id);
 
       const deleted: Record<string, number> = {};
       const del = async (table: string, sql: string, params: any[] = []) => {
@@ -1020,11 +1186,11 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       // ── Step 2: Delete worker-dependent rows first (NO ACTION FKs) ─────────
       if (workerIds.length > 0) {
         const wP = inP(workerIds);
-        await del('worker_certifications',        `WHERE worker_id IN (${wP})`, workerIds);
-        await del('worker_competencies',           `WHERE worker_id IN (${wP})`, workerIds);
-        await del('worker_document_assignments',   `WHERE worker_id IN (${wP})`, workerIds);
-        await del('induction_tokens',              `WHERE worker_id IN (${wP})`, workerIds);
-        // worker_document_acceptances has both worker_id and submitted_by pointing to workers
+        await del('worker_certifications',      `WHERE worker_id IN (${wP})`, workerIds);
+        await del('worker_competencies',         `WHERE worker_id IN (${wP})`, workerIds);
+        await del('worker_document_assignments', `WHERE worker_id IN (${wP})`, workerIds);
+        await del('induction_tokens',            `WHERE worker_id IN (${wP})`, workerIds);
+        await del('worker_notes',                `WHERE worker_id IN (${wP})`, workerIds);
         try {
           const r = await pool.query(
             `DELETE FROM "${schemaName}".worker_document_acceptances WHERE worker_id IN (${wP}) OR submitted_by IN (${wP})`,
@@ -1034,17 +1200,18 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         } catch (e) { logger.warn(`Clear sample: worker_document_acceptances — ${(e as any).message}`); }
         await del('co2_records',          `WHERE worker_id IN (${wP})`, workerIds);
         await del('local_labour_records', `WHERE worker_id IN (${wP})`, workerIds);
+        // Lone worker sessions for sample workers
+        await del('lone_worker_sessions', `WHERE person_email LIKE '%@example.com'`);
       }
 
       // ── Step 3: Delete company-dependent rows (NO ACTION FKs) ─────────────
       if (companyIds.length > 0) {
         const cP = inP(companyIds);
-        await del('co2_records',               `WHERE company_id IN (${cP})`, companyIds);
-        await del('company_notes',             `WHERE company_id IN (${cP})`, companyIds);
-        await del('enhanced_company_details',  `WHERE company_id IN (${cP})`, companyIds);
-        await del('local_labour_records',      `WHERE company_id IN (${cP})`, companyIds);
-        await del('rams_documents',            `WHERE company_id IN (${cP})`, companyIds);
-        // cdm_projects has two FK columns to contractor_companies
+        await del('co2_records',              `WHERE company_id IN (${cP})`, companyIds);
+        await del('company_notes',            `WHERE company_id IN (${cP})`, companyIds);
+        await del('enhanced_company_details', `WHERE company_id IN (${cP})`, companyIds);
+        await del('local_labour_records',     `WHERE company_id IN (${cP})`, companyIds);
+        await del('rams_documents',           `WHERE company_id IN (${cP})`, companyIds);
         try {
           const r = await pool.query(
             `DELETE FROM "${schemaName}".cdm_projects WHERE company_id IN (${cP}) OR principal_contractor_id IN (${cP})`,
@@ -1052,9 +1219,25 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
           );
           deleted['cdm_projects'] = r.rowCount ?? 0;
         } catch (e) { logger.warn(`Clear sample: cdm_projects — ${(e as any).message}`); }
+        // Permit to work linked to sample companies or workers
+        const ptwConditions: string[] = [];
+        const ptwParams: string[] = [];
+        let pp = 1;
+        ptwConditions.push(`contractor_company_id IN (${companyIds.map(() => `$${pp++}`).join(',')})`);
+        ptwParams.push(...companyIds);
+        if (workerIds.length > 0) {
+          ptwConditions.push(`contractor_worker_id IN (${workerIds.map(() => `$${pp++}`).join(',')})`);
+          ptwParams.push(...workerIds);
+        }
+        try {
+          const r = await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE ${ptwConditions.join(' OR ')}`, ptwParams);
+          deleted['permit_to_work'] = r.rowCount ?? 0;
+        } catch (e) { logger.warn(`Clear sample: permit_to_work — ${(e as any).message}`); }
+        // Contractor pre-bookings
+        await del('contractor_prebookings', `WHERE contact_email LIKE '%@example.com'`);
       }
 
-      // ── Step 4: Delete contractor_visits (NO ACTION FKs to staff+workers+companies) ──
+      // ── Step 4: contractor_visits (NO ACTION FKs to staff+workers+companies) ──
       {
         const conditions: string[] = [];
         const params: string[] = [];
@@ -1064,31 +1247,31 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         if (companyIds.length > 0) { conditions.push(`company_id IN (${companyIds.map(   () => `$${p++}`).join(',')})`); params.push(...companyIds); }
         if (conditions.length > 0) {
           try {
-            const r = await pool.query(
-              `DELETE FROM "${schemaName}".contractor_visits WHERE ${conditions.join(' OR ')}`,
-              params
-            );
+            const r = await pool.query(`DELETE FROM "${schemaName}".contractor_visits WHERE ${conditions.join(' OR ')}`, params);
             deleted['contractor_visits'] = r.rowCount ?? 0;
           } catch (e) { logger.warn(`Clear sample: contractor_visits — ${(e as any).message}`); }
         }
       }
 
-      // ── Step 5: Staff HR records ──────────────────────────────────────────
+      // ── Step 4b: Visitor history + pre-bookings ───────────────────────────
+      if (visitorIds.length > 0) {
+        const vP = inP(visitorIds);
+        await del('visitor_history', `WHERE visitor_id IN (${vP})`, visitorIds);
+      }
+      await del('pre_bookings', `WHERE visitor_email LIKE '%@example.com'`);
+
+      // ── Step 5: Staff HR records + sessions ──────────────────────────────
       if (staffIds.length > 0) {
         const sP = inP(staffIds);
-        for (const t of ['right_to_work','staff_dbs','leave_requests','absence_records','staff_training_records','staff_documents','appraisals','onboarding_checklists','leaver_checklists']) {
+        for (const t of ['right_to_work','staff_dbs','leave_requests','absence_records','staff_training_records','staff_documents','appraisals','onboarding_checklists','leaver_checklists','staff_sessions']) {
           await del(t, `WHERE staff_id IN (${sP})`, staffIds);
         }
-        // Reset leavers to active so staff row can be deleted cleanly
         try {
-          await pool.query(
-            `UPDATE "${schemaName}".staff SET employment_status='active', is_active=TRUE, contract_end_date=NULL WHERE id IN (${sP})`,
-            staffIds
-          );
+          await pool.query(`UPDATE "${schemaName}".staff SET employment_status='active', is_active=TRUE, contract_end_date=NULL WHERE id IN (${sP})`, staffIds);
         } catch (e) { logger.warn(`Clear sample: staff reset — ${(e as any).message}`); }
       }
 
-      // ── Step 6: Delete main records (dependency order: workers → companies → visitors → members → staff) ──
+      // ── Step 6: Main records (dependency order: workers → companies → visitors → members → staff) ──
       await del('contractor_workers',   `WHERE email LIKE '%@example.com'`);
       if (companyIds.length > 0) {
         await del('contractor_companies', `WHERE id IN (${inP(companyIds)})`, companyIds);
@@ -1099,7 +1282,7 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         await del('staff', `WHERE id IN (${inP(staffIds)})`, staffIds);
       }
 
-      // ── Step 7: Training requirements (no FK, matched by known course names) ──
+      // ── Step 7: Training requirements ─────────────────────────────────────
       try {
         const courses = ['Fire Safety Awareness','Manual Handling','Health & Safety Induction','GDPR Data Protection','First Aid Awareness'];
         const r = await pool.query(
@@ -1108,6 +1291,85 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         );
         deleted['training_requirements'] = r.rowCount ?? 0;
       } catch (e) { logger.warn(`Clear sample: training_requirements — ${(e as any).message}`); }
+
+      // ── Step 8: Old-style sample data cleanup (pre-@example.com era) ───────
+      // Cleans up data loaded by older versions of the sample data loader that
+      // used realistic-looking emails instead of @example.com
+      try {
+        // Old-style visitors: had purpose='Demo Visit' or no purpose with high-frequency emails
+        const oldVisitorRes = await pool.query(`SELECT id FROM "${schemaName}".visitors WHERE purpose = 'Demo Visit' OR email LIKE '%@memberco.com'`);
+        const oldVisitorIds: string[] = oldVisitorRes.rows.map((r: any) => r.id);
+        if (oldVisitorIds.length > 0) {
+          const ovP = inP(oldVisitorIds);
+          await pool.query(`DELETE FROM "${schemaName}".visitor_history WHERE visitor_id IN (${ovP})`, oldVisitorIds);
+          await pool.query(`DELETE FROM "${schemaName}".pre_bookings WHERE visitor_id IN (${ovP})`, oldVisitorIds);
+          await pool.query(`DELETE FROM "${schemaName}".visitors WHERE id IN (${ovP})`, oldVisitorIds);
+          deleted['visitors_old_style'] = oldVisitorIds.length;
+        }
+      } catch (e) { logger.warn(`Clear sample (old): visitors — ${(e as any).message}`); }
+
+      try {
+        // Old-style members: @memberco.com or duplicate membership numbers
+        await pool.query(`DELETE FROM "${schemaName}".members WHERE email LIKE '%@memberco.com'`);
+        // Members that have the same membership_number as another member (old duplicate loads)
+        await pool.query(
+          `DELETE FROM "${schemaName}".members WHERE id IN (
+            SELECT id FROM (
+              SELECT id, ROW_NUMBER() OVER (PARTITION BY membership_number ORDER BY created_at) AS rn
+              FROM "${schemaName}".members WHERE membership_number IS NOT NULL
+            ) sub WHERE rn > 1
+          )`
+        );
+      } catch (e) { logger.warn(`Clear sample (old): members — ${(e as any).message}`); }
+
+      try {
+        // Old-style contractor data: any remaining contractor_workers/companies/visits
+        // that are clearly sample (visitors already deleted, if workers remain with no
+        // real email domain, clean those up too)
+        // Only run if @example.com data is gone (avoid deleting real data)
+        const remainingWorkers = await pool.query(`SELECT COUNT(*)::int AS n FROM "${schemaName}".contractor_workers WHERE email LIKE '%@example.com'`);
+        if (remainingWorkers.rows[0].n === 0) {
+          // All old-style contractor data was loaded via sample system - safe to check
+          const sampleCompanyNames = [
+            'BuildRight Contractors Ltd','SafeWork Facilities UK','Delta Technical Services',
+            'Apex Maintenance Group','Horizon Build & Civil',
+            'BuildRight Construction Ltd','SparkTech Electrical Services','SteelFrame Engineering',
+            'PipeFix Plumbing Ltd','SafeClean Environmental','TopCoat Decorators',
+            'SecureIT Solutions','CoolAir Services Ltd','FireGuard UK Ltd',
+            'BuildRight Co','Volt-Safe Electrical Ltd','AquaSafe Hygiene Ltd',
+            'SecureAccess Systems','SteelFrame Engineering',
+          ];
+          const oldCoRes = await pool.query(
+            `SELECT id FROM "${schemaName}".contractor_companies WHERE company_name = ANY($1)`,
+            [sampleCompanyNames]
+          );
+          if (oldCoRes.rows.length > 0) {
+            const oldCoIds: string[] = oldCoRes.rows.map((r: any) => r.id);
+            const oP = inP(oldCoIds);
+            // Clear dependents first
+            const oldWorkerRes = await pool.query(`SELECT id FROM "${schemaName}".contractor_workers WHERE company_id IN (${oP})`, oldCoIds);
+            const oldWorkerIds: string[] = oldWorkerRes.rows.map((r: any) => r.id);
+            if (oldWorkerIds.length > 0) {
+              const owP = inP(oldWorkerIds);
+              await pool.query(`DELETE FROM "${schemaName}".worker_certifications WHERE worker_id IN (${owP})`, oldWorkerIds);
+              await pool.query(`DELETE FROM "${schemaName}".worker_competencies WHERE worker_id IN (${owP})`, oldWorkerIds);
+              await pool.query(`DELETE FROM "${schemaName}".worker_document_assignments WHERE worker_id IN (${owP})`, oldWorkerIds);
+              await pool.query(`DELETE FROM "${schemaName}".induction_tokens WHERE worker_id IN (${owP})`, oldWorkerIds);
+              await pool.query(`DELETE FROM "${schemaName}".co2_records WHERE worker_id IN (${owP})`, oldWorkerIds);
+              await pool.query(`DELETE FROM "${schemaName}".local_labour_records WHERE worker_id IN (${owP})`, oldWorkerIds);
+            }
+            await pool.query(`DELETE FROM "${schemaName}".contractor_visits WHERE company_id IN (${oP})`, oldCoIds);
+            await pool.query(`DELETE FROM "${schemaName}".contractor_prebookings WHERE company_name = ANY($1)`, [sampleCompanyNames]);
+            await pool.query(`DELETE FROM "${schemaName}".co2_records WHERE company_id IN (${oP})`, oldCoIds);
+            await pool.query(`DELETE FROM "${schemaName}".company_notes WHERE company_id IN (${oP})`, oldCoIds);
+            await pool.query(`DELETE FROM "${schemaName}".enhanced_company_details WHERE company_id IN (${oP})`, oldCoIds);
+            await pool.query(`DELETE FROM "${schemaName}".rams_documents WHERE company_id IN (${oP})`, oldCoIds);
+            await pool.query(`DELETE FROM "${schemaName}".contractor_workers WHERE company_id IN (${oP})`, oldCoIds);
+            await pool.query(`DELETE FROM "${schemaName}".contractor_companies WHERE id IN (${oP})`, oldCoIds);
+            deleted['old_style_contractors'] = oldCoIds.length;
+          }
+        }
+      } catch (e) { logger.warn(`Clear sample (old): contractors — ${(e as any).message}`); }
 
       res.json({ success: true, message: 'Sample data cleared successfully', deleted });
     } catch (error) {
