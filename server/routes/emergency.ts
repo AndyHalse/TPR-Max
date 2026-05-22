@@ -70,7 +70,7 @@ export function registerEmergencyRoutes(app: Express): void {
   app.get("/api/muster/settings", requireAuth, async (req, res) => {
     const defaults = { statusOptionsEnabled: false, statusOptions: ['Location unknown', 'Working remotely / offsite', 'Sent to another location'] };
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
       const custDb = await customerDbService.getCustomerDatabase(customerId);
       try {
@@ -96,7 +96,7 @@ export function registerEmergencyRoutes(app: Express): void {
 
   app.put("/api/muster/settings", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
       const { statusOptionsEnabled, statusOptions } = req.body as { statusOptionsEnabled?: boolean; statusOptions?: string[] };
       const custDb = await customerDbService.getCustomerDatabase(customerId);
@@ -368,7 +368,7 @@ export function registerEmergencyRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       logger.info(`\n EMERGENCY ACTIVATION - PRE-FLIGHT VALIDATION`);
       logger.info(`============================================`);
@@ -821,7 +821,7 @@ export function registerEmergencyRoutes(app: Express): void {
   // Get active evacuation status for regular authenticated users
   app.get("/api/evacuation/status", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -1623,7 +1623,7 @@ export function registerEmergencyRoutes(app: Express): void {
   // Send nudge emails to unaccounted personnel during an active emergency
   app.post("/api/emergency/nudge-unaccounted", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -1727,7 +1727,7 @@ export function registerEmergencyRoutes(app: Express): void {
       const { token } = req.body || {};
 
       if (req.session?.customerId) {
-        customerId = req.session.customerId;
+        customerId = req.customerId;
       } else if (token) {
         // Use development/cross-schema context to validate token, then derive customer from the marshal record
         const devContext = simpleDatabaseService.createDevelopmentContext();
@@ -2335,7 +2335,7 @@ ${fmPhotos.map((ph: any) => {
   app.get("/api/emergency/incident-report/:evacuationId", requireAuth, async (req, res) => {
     try {
       const { evacuationId } = req.params;
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       const format = (req.query.format as string) || 'html';
       if (!customerId) {
         return res.status(401).json({ error: "Not authenticated" });
@@ -2757,7 +2757,7 @@ ${evacuationPhotosData.length > 0 ? `
   // List all saved incident reports for the authenticated customer
   app.get("/api/emergency/incident-reports", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
 
       // Fetch all completed evacuations from shared DB for this customer
@@ -2857,7 +2857,7 @@ ${evacuationPhotosData.length > 0 ? `
   app.delete("/api/emergency/incident-reports/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);
@@ -2886,7 +2886,7 @@ ${evacuationPhotosData.length > 0 ? `
   app.post("/api/emergency/incident-reports/:evacuationId/refresh", requireAuth, async (req, res) => {
     try {
       const { evacuationId } = req.params;
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
 
       // Verify evacuation belongs to this customer
@@ -2990,7 +2990,7 @@ ${evacuationPhotosData.length > 0 ? `
         addedBy = `${marshalResult.marshal.firstName} ${marshalResult.marshal.lastName}`;
         addedByType = "firemarshal";
       } else if (req.session?.customerId) {
-        customerId = req.session.customerId;
+        customerId = req.customerId;
         addedBy = (req as any).user?.username || (req as any).user?.firstName ? `${(req as any).user.firstName} ${(req as any).user.lastName}` : "Admin";
         addedByType = "admin";
       } else {
@@ -3030,7 +3030,7 @@ ${evacuationPhotosData.length > 0 ? `
   app.get("/api/emergency/evacuation-notes/:evacuationId", requireAuth, async (req, res) => {
     try {
       const { evacuationId } = req.params;
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);
@@ -3083,7 +3083,7 @@ ${evacuationPhotosData.length > 0 ? `
         addedBy = `${marshalResult.marshal.firstName} ${marshalResult.marshal.lastName}`;
         addedByType = "firemarshal";
       } else if (req.session?.customerId) {
-        customerId = req.session.customerId;
+        customerId = req.customerId;
         addedBy = (req as any).user?.username || (req as any).user?.firstName ? `${(req as any).user.firstName} ${(req as any).user.lastName}` : "Admin";
         addedByType = "admin";
       } else {
@@ -3125,7 +3125,7 @@ ${evacuationPhotosData.length > 0 ? `
   app.get("/api/emergency/evacuation-photos/:evacuationId", requireAuth, async (req, res) => {
     try {
       const { evacuationId } = req.params;
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "Not authenticated" });
 
       const custDb = await customerDbService.getCustomerDatabase(customerId);
@@ -3693,7 +3693,7 @@ ${evacuationPhotosData.length > 0 ? `
   // Get all muster points for a customer
   app.get("/api/muster-points", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -3726,9 +3726,9 @@ ${evacuationPhotosData.length > 0 ? `
           return res.status(401).json({ error: "Invalid Fire Marshal link" });
         }
         customerId = result.customerId;
-      } else if (req.session.customerId) {
+      } else if (req.customerId) {
         // Regular session authentication
-        customerId = req.session.customerId;
+        customerId = req.customerId;
       } else {
         return res.status(401).json({ error: "Not authenticated" });
       }
@@ -4939,7 +4939,7 @@ ${evacuationPhotosData.length > 0 ? `
   // Member endpoints
   app.get("/api/members", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "No tenant context" });
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
@@ -4958,7 +4958,7 @@ ${evacuationPhotosData.length > 0 ? `
 
   app.post("/api/members", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "No tenant context" });
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
@@ -4982,7 +4982,7 @@ ${evacuationPhotosData.length > 0 ? `
 
   app.patch("/api/members/:id", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "No tenant context" });
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
@@ -5008,7 +5008,7 @@ ${evacuationPhotosData.length > 0 ? `
 
   app.delete("/api/members/:id", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "No tenant context" });
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
@@ -5033,7 +5033,7 @@ ${evacuationPhotosData.length > 0 ? `
 
   app.post("/api/members/:id/check-in", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "No tenant context" });
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
@@ -5071,7 +5071,7 @@ ${evacuationPhotosData.length > 0 ? `
 
   app.post("/api/members/:id/check-out", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "No tenant context" });
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
@@ -5108,7 +5108,7 @@ ${evacuationPhotosData.length > 0 ? `
 
   app.get("/api/members/checked-in", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId;
+      const customerId = req.customerId;
       if (!customerId) return res.status(401).json({ error: "No tenant context" });
       const customerDb = await customerDbService.getCustomerDatabase(customerId);
       
@@ -5142,7 +5142,7 @@ ${evacuationPhotosData.length > 0 ? `
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Get company settings for CLUe configuration
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -5206,7 +5206,7 @@ ${evacuationPhotosData.length > 0 ? `
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Get company settings and visitor
       const [companySettings, visitor] = await Promise.all([
@@ -5269,7 +5269,7 @@ ${evacuationPhotosData.length > 0 ? `
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Get company settings
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -5303,7 +5303,7 @@ ${evacuationPhotosData.length > 0 ? `
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Get company settings and current people
       const [companySettings, visitors, staff] = await Promise.all([
@@ -5349,7 +5349,7 @@ ${evacuationPhotosData.length > 0 ? `
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Get company settings
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
