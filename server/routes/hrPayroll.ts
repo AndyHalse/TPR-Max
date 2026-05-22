@@ -87,9 +87,12 @@ export function registerHrPayrollRoutes(app: Express): void {
           .reduce((sum: number, l: any) => sum + Number(l.days_taken), 0);
 
         const leaverInfo = leaverResult.rows.find((l: any) => l.staff_id === s.id);
-        const isNewStarter = s.contract_start_date
-          && s.contract_start_date >= period_start
-          && s.contract_start_date <= period_end;
+        const contractStartStr = s.contract_start_date
+          ? new Date(s.contract_start_date).toISOString().slice(0, 10)
+          : null;
+        const isNewStarter = contractStartStr
+          && contractStartStr >= period_start
+          && contractStartStr <= period_end;
 
         return {
           staff_id: s.id,
