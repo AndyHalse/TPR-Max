@@ -902,11 +902,11 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       // 6. Appraisals
       try {
         const appraisalData = [
-          { si: 0, dOff: -180, nOff: 180,  status: 'completed',  rating: 'good',         reviewer: 'HR Manager'   },
-          { si: 1, dOff: -330, nOff: 30,   status: 'completed',  rating: 'excellent',     reviewer: 'Line Manager' },
-          { si: 2, dOff: 14,   nOff: 14,   status: 'scheduled',  rating: null,            reviewer: 'HR Manager'   },
-          { si: 3, dOff: -365, nOff: -30,  status: 'completed',  rating: 'good',          reviewer: 'Line Manager' },
-          { si: 4, dOff: -365, nOff: -30,  status: 'completed',  rating: 'satisfactory',  reviewer: 'HR Manager'   },
+          { si: 0, dOff: -180, nOff: 180,  rating: 'good',        conductor: 'HR Manager'   },
+          { si: 1, dOff: -330, nOff: 30,   rating: 'excellent',   conductor: 'Line Manager' },
+          { si: 2, dOff: -90,  nOff: 90,   rating: null,          conductor: 'HR Manager'   },
+          { si: 3, dOff: -365, nOff: -30,  rating: 'good',        conductor: 'Line Manager' },
+          { si: 4, dOff: -365, nOff: -30,  rating: 'satisfactory',conductor: 'HR Manager'   },
         ];
         for (const a of appraisalData) {
           if (!staffIds[a.si]) continue;
@@ -915,13 +915,13 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
           const ns = a.nOff >= 0 ? '+' : '-';
           const na = Math.abs(a.nOff);
           await pool.query(
-            `INSERT INTO "${schemaName}".staff_appraisals
-               (staff_id, appraisal_date, next_review_date, reviewer, status, overall_rating, notes)
-             VALUES ($1, NOW() ${ds} INTERVAL '${da} days', NOW() ${ns} INTERVAL '${na} days', $2, $3, $4, 'Sample appraisal record')`,
-            [staffIds[a.si], a.reviewer, a.status, a.rating]
+            `INSERT INTO "${schemaName}".appraisals
+               (staff_id, review_date, next_review_date, conducted_by, overall_rating, summary_notes)
+             VALUES ($1, (NOW() ${ds} INTERVAL '${da} days')::date, (NOW() ${ns} INTERVAL '${na} days')::date, $2, $3, 'Sample appraisal record')`,
+            [staffIds[a.si], a.conductor, a.rating]
           );
         }
-      } catch (e) { logger.warn('Sample HR: staff_appraisals failed', (e as any).message); }
+      } catch (e) { logger.warn('Sample HR: appraisals failed', (e as any).message); }
 
       // 7. Onboarding checklist for staff[9] (newest starter)
       if (staffIds[9]) {
@@ -1001,7 +1001,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
         // HR tables — delete by staff_id
         const hrTables = [
           'right_to_work', 'staff_dbs', 'leave_requests', 'absence_records',
-          'staff_training_records', 'staff_documents',
+          'staff_training_records', 'staff_documents', 'appraisals',
         ];
         for (const table of hrTables) {
           try {
@@ -1023,6 +1023,7 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
         } catch (e) { logger.warn('Clear sample data: leaver error', (e as any).message); }
 
         // Restore any leavers to active before deleting staff row
+
         await pool.query(
           `UPDATE "${schemaName}".staff SET employment_status = 'active', is_active = TRUE, contract_end_date = NULL WHERE id IN (${idList})`,
           sampleStaffIds
@@ -1053,6 +1054,20 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
           deleted['contractor_companies'] = companyIds.length;
         }
       } catch (e) { logger.warn('Clear sample data: contractor companies error', (e as any).message); }
+
+      // Training requirements — no staff_id FK, delete by known sample course names
+      try {
+        const sampleCourseNames = [
+          'Fire Safety Awareness', 'Manual Handling', 'Health & Safety Induction',
+          'GDPR Data Protection', 'First Aid Awareness',
+        ];
+        const courseParams = sampleCourseNames.map((_: string, i: number) => `$${i + 1}`).join(',');
+        const r = await pool.query(
+          `DELETE FROM "${schemaName}".training_requirements WHERE course_name IN (${courseParams})`,
+          sampleCourseNames
+        );
+        deleted['training_requirements'] = r.rowCount ?? 0;
+      } catch (e) { logger.warn('Clear sample data: training_requirements error', (e as any).message); }
 
       // Finally delete sample staff
       if (sampleStaffIds.length > 0) {
