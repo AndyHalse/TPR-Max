@@ -74,6 +74,37 @@ const FREQ_LABELS: Record<string, string> = {
   annual: 'Annual', five_yearly: '5-Yearly', custom: 'Custom',
 };
 
+const CERT_TOOLTIPS: Record<string, string> = {
+  fire_alarm_test_weekly:
+    'Weekly functional test confirming all call points, detectors and sounders operate correctly. Required by BS 5839-1 and the Regulatory Reform (Fire Safety) Order 2005.',
+  fire_alarm_test_full:
+    'Full bi-annual inspection covering all zones, detectors, call points and control equipment. Required by BS 5839-1. Typically carried out by a specialist fire alarm engineer.',
+  emergency_lighting_monthly:
+    'Monthly short-duration function test of every emergency luminaire to confirm it illuminates on mains failure. Required by BS 5266-1.',
+  emergency_lighting_annual:
+    'Full 3-hour discharge test of all emergency lighting to verify battery capacity and lumen output. Required annually by BS 5266-1.',
+  eicr:
+    'Five-yearly (or risk-based) inspection of the fixed electrical wiring installation. Required for workplaces under the Electricity at Work Regulations 1989. Previously called a Periodic Inspection Report.',
+  gas_safety:
+    'Annual safety check of all gas appliances, flues and pipework by a Gas Safe registered engineer. Legally required under the Gas Safety (Installation and Use) Regulations 1998.',
+  loler_lift:
+    'Six-monthly thorough examination of passenger or goods lifts by a competent person. Required by the Lifting Operations and Lifting Equipment Regulations 1998 (LOLER).',
+  legionella_risk_assessment:
+    'Formal assessment of water systems to identify Legionella bacteria growth risks. Required by HSE\'s L8 Approved Code of Practice (ACoP). Must be reviewed whenever significant changes are made to the building or water systems.',
+  legionella_water_testing:
+    'Regular microbiological and chemical water sampling from risk-assessed outlets. Frequency is set by the risk assessment; typically monthly for high-risk systems. Required under HSG274 and the L8 ACoP.',
+  asbestos_survey:
+    'Survey to identify and assess asbestos-containing materials (ACMs) in the premises. Required under the Control of Asbestos Regulations 2012 (Regulation 4 — Duty to Manage). Must be updated when the building changes.',
+  pat_testing:
+    'Portable Appliance Testing — inspection and electrical testing of portable equipment. Required under the Electricity at Work Regulations 1989. Frequency is risk-based (typically annual for offices, more frequent for construction or industrial use).',
+  sprinkler_system:
+    'Annual inspection and testing of the automatic sprinkler system by a competent engineer. Required under BS 9251 (residential) or BS EN 12845 (commercial/industrial premises).',
+  lightning_protection:
+    'Annual inspection and testing of the lightning protection system and all bonding conductors. Required under BS EN 62305. Protects the structure and electrical systems from lightning strike damage.',
+  fire_risk_assessment:
+    'Formal written assessment of fire hazards, risks and the adequacy of existing controls. Required by the Regulatory Reform (Fire Safety) Order 2005 for all non-domestic premises. Must be reviewed regularly and after any significant changes to the building or its use.',
+};
+
 export default function ComplianceCertificateRegister() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -307,9 +338,23 @@ export default function ComplianceCertificateRegister() {
                     <div className="flex items-start gap-2 min-w-0">
                       <StatusIcon className={`h-5 w-5 mt-0.5 shrink-0 ${s.text}`} />
                       <div className="min-w-0">
-                        <CardTitle className="text-sm font-semibold text-gray-900 dark:text-white leading-snug">
-                          {certType.displayName}
-                        </CardTitle>
+                        <div className="flex items-start gap-1">
+                          <CardTitle className="text-sm font-semibold text-gray-900 dark:text-white leading-snug">
+                            {certType.displayName}
+                          </CardTitle>
+                          {CERT_TOOLTIPS[certType.certificateType] && (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Info className="h-3.5 w-3.5 text-gray-400 hover:text-blue-500 shrink-0 mt-0.5 cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs text-xs p-2.5">
+                                  {CERT_TOOLTIPS[certType.certificateType]}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
+                        </div>
                         {certType.legalBasis && (
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate" title={certType.legalBasis}>
                             {certType.legalBasis}
