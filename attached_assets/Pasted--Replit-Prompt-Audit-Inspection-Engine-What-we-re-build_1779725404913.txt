@@ -1,0 +1,476 @@
+
+Replit Prompt — Audit & Inspection Engine
+What we're building
+A new module called the Audit & Inspection Engine at route /audits.
+
+This module lets users create inspection templates, schedule and conduct inspections across different categories (safety, fire, environmental, vehicle, housekeeping, etc.), record findings with photo evidence, assign corrective actions, and track closure. Think of it as the inspection and audit layer that sits on top of everything TPR Max already manages.
+
+This is a large module. It has the same structural complexity as PPM — it's multi-tab, it has templates, it has live records, and it has a mobile completion flow. Build it in the same style as PPM throughout.
+
+Codebase context
+TypeScript full-stack application:
+
+Server: Express.js, Drizzle ORM, PostgreSQL (isolated per-customer schema)
+Client: React, Wouter routing, TanStack Query, Tailwind CSS, shadcn/ui, Lucide icons
+Auth: requireAuth middleware, req.customerId on all authenticated requests
+Customer DB pattern: const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId) then const custDb = await customerDbService.getCustomerDatabase(context.customerId)
+Schema file: server/isolatedSchema.ts — all new tables go here
+Routes file: server/routes/index.ts — all new route registrations go here
+File uploads: Use the existing ObjectUploader component at client/src/components/ObjectUploader.tsx. It calls POST /api/objects/upload and returns a path starting with /objects/. Store that path in the database as the fileUrl.
+Feature gates: Follow the requirePPMFeature pattern in server/routes/ppm.ts (lines 65–78) for the feature gate middleware
+Follow patterns from:
+
+Server routes: server/routes/ppm.ts (structure, error handling, auth patterns, DB queries)
+Client page structure: client/src/pages/PPM.tsx (tab layout, GlassCard use, mutation patterns, form patterns)
+Mobile public page: client/src/pages/PPMWorkOrderMobile.tsx (no-login public page pattern)
+Help panel: Follow the help panel pattern used in PPM.tsx and ComplianceCertificateRegister.tsx
+Step 1 — Database schema
+In server/isolatedSchema.ts, add the following new tables at the end of the file, before the final insert schema exports section.
+
+auditTemplates
+export const auditTemplates = pgTable("audit_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default("safety"),
+  // category values: safety | fire | environmental | vehicle | housekeeping | behavioural | custom
+  frequency: text("frequency").notNull().default("monthly"),
+  // frequency values: daily | weekly | monthly | quarterly | annual | one-off
+  customDays: integer("custom_days"),
+  estimatedMinutes: integer("estimated_minutes"),
+  passScore: integer("pass_score").default(80), // Minimum % to pass
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAuditTemplateSchema = createInsertSchema(auditTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAuditTemplate = z.infer<typeof insertAuditTemplateSchema>;
+export type AuditTemplate = typeof auditTemplates.$inferSelect;
+auditTemplateItems
+Each template has a list of checklist items (questions/checks). These are the individual line items an inspector ticks off during the audit.
+
+export const auditTemplateItems = pgTable("audit_template_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull().references(() => auditTemplates.id, { onDelete: "cascade" }),
+  question: text("question").notNull(),        // e.g. "Are fire exits clear and unobstructed?"
+  category: text("category"),                  // Optional sub-category within the inspection
+  requiresPhoto: boolean("requires_photo").default(false).notNull(),
+  requiresNote: boolean("requires_note").default(false).notNull(),
+  isCritical: boolean("is_critical").default(false).notNull(), // Critical items: fail = whole audit fails
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuditTemplateItemSchema = createInsertSchema(auditTemplateItems).omit({ id: true, createdAt: true });
+export type InsertAuditTemplateItem = z.infer<typeof insertAuditTemplateItemSchema>;
+export type AuditTemplateItem = typeof auditTemplateItems.$inferSelect;
+auditRecords
+A completed or in-progress inspection instance.
+
+export const auditRecords = pgTable("audit_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").references(() => auditTemplates.id, { onDelete: "set null" }),
+  templateName: text("template_name").notNull(), // Snapshot of name at time of audit
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  conductedBy: text("conducted_by").notNull(),
+  conductedAt: timestamp("conducted_at"),        // Set when audit is submitted
+  scheduledDate: text("scheduled_date"),         // ISO date — when it was due
+  location: text("location"),
+  status: text("status").notNull().default("scheduled"),
+  // status values: scheduled | in_progress | completed | overdue | cancelled
+  overallScore: integer("overall_score"),        // 0–100, calculated on submission
+  passed: boolean("passed"),                     // True if score >= passScore
+  summary: text("summary"),                      // Inspector notes
+  accessToken: varchar("access_token"),          // For mobile/public access link
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  overdueAlertedAt: timestamp("overdue_alerted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAuditRecordSchema = createInsertSchema(auditRecords).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAuditRecord = z.infer<typeof insertAuditRecordSchema>;
+export type AuditRecord = typeof auditRecords.$inferSelect;
+auditRecordItems
+The individual responses to each checklist item within an audit record.
+
+export const auditRecordItems = pgTable("audit_record_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  auditId: varchar("audit_id").notNull().references(() => auditRecords.id, { onDelete: "cascade" }),
+  templateItemId: varchar("template_item_id").references(() => auditTemplateItems.id, { onDelete: "set null" }),
+  question: text("question").notNull(),          // Snapshot of question text
+  isCritical: boolean("is_critical").default(false).notNull(),
+  response: text("response"),
+  // response values: pass | fail | na | not_checked
+  note: text("note"),
+  photoUrl: text("photo_url"),                   // Object storage path
+  photoFileName: text("photo_file_name"),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuditRecordItemSchema = createInsertSchema(auditRecordItems).omit({ id: true, createdAt: true });
+export type InsertAuditRecordItem = z.infer<typeof insertAuditRecordItemSchema>;
+export type AuditRecordItem = typeof auditRecordItems.$inferSelect;
+auditCorrectiveActions
+CAPA — corrective and preventive actions raised from audit findings.
+
+export const auditCorrectiveActions = pgTable("audit_corrective_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  auditId: varchar("audit_id").notNull().references(() => auditRecords.id, { onDelete: "cascade" }),
+  auditItemId: varchar("audit_item_id").references(() => auditRecordItems.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  priority: text("priority").notNull().default("medium"),
+  // priority values: low | medium | high | critical
+  assignedTo: text("assigned_to"),
+  assignedEmail: text("assigned_email"),
+  dueDate: text("due_date"),                     // ISO date
+  status: text("status").notNull().default("open"),
+  // status values: open | in_progress | completed | overdue | cancelled
+  closureNotes: text("closure_notes"),
+  closureEvidenceUrl: text("closure_evidence_url"),
+  closureEvidenceFileName: text("closure_evidence_file_name"),
+  closedAt: timestamp("closed_at"),
+  closedBy: text("closed_by"),
+  overdueAlertedAt: timestamp("overdue_alerted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAuditCorrectiveActionSchema = createInsertSchema(auditCorrectiveActions).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAuditCorrectiveAction = z.infer<typeof insertAuditCorrectiveActionSchema>;
+export type AuditCorrectiveAction = typeof auditCorrectiveActions.$inferSelect;
+Add feature flag to companySettings
+In the companySettings pgTable (around line 503 near the other feature flags), add:
+
+featureAuditEngine: boolean("feature_audit_engine").default(false),
+Default to false — this is a new paid-tier feature, not switched on for everyone automatically.
+
+Step 2 — Server routes
+Create server/routes/auditEngine.ts. Export registerAuditEngineRoutes(app: Express).
+
+Add a feature gate middleware at the top of the file, exactly like the requirePPMFeature pattern in ppm.ts:
+
+const requireAuditFeature = async (req: any, res: any, next: any) => {
+  try {
+    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featureAuditEngine) {
+      return res.status(403).json({ error: 'Audit & Inspection module is not enabled for your account.' });
+    }
+    next();
+  } catch (error) { next(error); }
+};
+Apply requireAuditFeature after requireAuth on all /api/audits/* routes.
+
+Templates CRUD
+GET    /api/audits/templates              — list all templates
+POST   /api/audits/templates              — create template (with items array in body)
+GET    /api/audits/templates/:id          — get single template with its items
+PUT    /api/audits/templates/:id          — update template metadata
+DELETE /api/audits/templates/:id          — delete template (cascades to items)
+GET    /api/audits/templates/:id/items    — list items for a template
+POST   /api/audits/templates/:id/items    — add item to template
+PUT    /api/audits/templates/:id/items/:itemId  — update item
+DELETE /api/audits/templates/:id/items/:itemId  — delete item
+When creating a template via POST /api/audits/templates, the body may include an items array. Insert the template first, then insert all items with templateId set and sortOrder based on array index.
+
+Records CRUD
+GET    /api/audits/records                — list all audit records (with summary data)
+POST   /api/audits/records                — create new audit record (schedules it)
+GET    /api/audits/records/:id            — get single audit with all items and corrective actions
+PUT    /api/audits/records/:id            — update record metadata
+DELETE /api/audits/records/:id            — delete record
+POST   /api/audits/records/:id/start      — set status = in_progress, create auditRecordItems from template
+POST   /api/audits/records/:id/submit     — calculate score, set status = completed, set conductedAt
+GET    /api/audits/records/:id/token      — generate/refresh mobile access token (same pattern as PPM work order token)
+Score calculation in POST /api/audits/records/:id/submit:
+
+passCount = items where response = 'pass'
+failCount = items where response = 'fail'
+naCount   = items where response = 'na'
+scoreable = passCount + failCount   // na items don't count toward total
+score     = scoreable > 0 ? Math.round((passCount / scoreable) * 100) : 100
+If any item where isCritical = true has response = 'fail', set passed = false regardless of score.
+Otherwise passed = score >= template.passScore.
+
+Set overallScore, passed, conductedAt = new Date(), status = 'completed'.
+
+Corrective Actions CRUD
+GET    /api/audits/records/:id/actions    — list corrective actions for an audit
+POST   /api/audits/records/:id/actions    — create corrective action
+PUT    /api/audits/actions/:id            — update action (status, assignee, closure notes, etc.)
+DELETE /api/audits/actions/:id            — delete action
+POST   /api/audits/actions/:id/close      — close action: set status = completed, closedAt, closedBy
+Record items (for live audit completion)
+PUT    /api/audits/records/:id/items/:itemId   — update a single item response, note, photoUrl
+This is used during audit completion — the user marks each item as pass/fail/na and optionally adds a note or photo.
+
+Mobile public endpoint (no auth required)
+GET    /api/audits/public/:token          — get audit record with items (no login required)
+PUT    /api/audits/public/:token          — update item responses during mobile completion
+POST   /api/audits/public/:token/submit   — submit the completed audit
+Rate-limit this endpoint at 60 requests per minute per IP. Validate the token against auditRecords.accessToken and check accessTokenExpiresAt. Tokens expire after 7 days.
+
+Dashboard summary
+GET    /api/audits/summary
+Returns:
+
+{
+  totalScheduled: number,
+  overdueCount: number,
+  completedThisMonth: number,
+  openActions: number,
+  overdueActions: number,
+  passRate: number,             // % of completed audits that passed, last 90 days
+  recentAudits: AuditRecord[],  // Last 10 completed
+  upcomingAudits: AuditRecord[] // Next 10 scheduled
+}
+Cron job
+Register a daily cron (at 08:00 Europe/London, same pattern as the PPM overdue cron) that:
+
+Finds all auditRecords where status = 'scheduled' and scheduledDate < today and overdueAlertedAt IS NULL — mark them status = 'overdue' and set overdueAlertedAt = now()
+Finds all auditCorrectiveActions where status = 'open' OR status = 'in_progress' and dueDate < today — mark them status = 'overdue'
+No email notifications required for this first build. Just status updates.
+
+Step 3 — Client page
+Create client/src/pages/Audits.tsx.
+
+Structure it as a tabbed page with four tabs, exactly like PPM.tsx:
+
+Tabs: Overview | Templates | Audit Records | Actions
+Tab 1 — Overview
+Pulls from GET /api/audits/summary. Shows:
+
+Stats row: 4 metric cards (Scheduled / Overdue / Completed This Month / Open Actions)
+Pass rate: a prominent percentage with a progress bar, labelled "Pass Rate (Last 90 Days)"
+Two side-by-side panels:
+Upcoming Audits (next 5, with date chip, category badge, template name, status badge)
+Open Actions (next 5 by due date, with priority badge, title, due date, who it's assigned to)
+Tab 2 — Templates
+Lists all inspection templates. Each template renders as a GlassCard showing:
+
+Name and category badge
+Frequency and estimated duration
+Number of checklist items
+Pass score threshold
+Active/inactive status badge
+Edit and Delete buttons
+Create / Edit Template dialog:
+
+Fields:
+
+Name (text)
+Category (select: Safety | Fire | Environmental | Vehicle | Housekeeping | Behavioural | Custom)
+Frequency (select: Daily | Weekly | Monthly | Quarterly | Annual | One-off)
+Estimated duration in minutes (number input, optional)
+Pass score % (number input, default 80)
+Description (textarea, optional)
+After the main fields, a Checklist Builder section. This is the key part of the template:
+
+A list of checklist items, each showing: drag handle, question text, sub-category (optional), toggle badges for "Requires Photo", "Requires Note", "Critical", and a delete button
+"Add Item" button that appends a new blank row
+Inline editing — clicking the question text makes it editable in place
+Items can be reordered by dragging (or if drag-and-drop is complex, up/down arrow buttons)
+Sortorder is saved as the array index
+On save, POST to /api/audits/templates with { ...formData, items: [...] }.
+
+Seed templates: Include a "Load Starter Template" button next to the category selector. When clicked, pre-populates the checklist items with sensible defaults for that category. Use these starter sets:
+
+Safety Inspection:
+
+Are fire exits clear and unobstructed?
+Are all walkways and corridors free from obstruction?
+Is PPE available and in good condition? (Critical)
+Are hazardous materials stored correctly?
+Is first aid kit fully stocked and accessible?
+Are all machinery guards in place? (Critical)
+Is adequate lighting in all work areas?
+Are all spills cleaned up promptly?
+Is signage in place and legible?
+Are all tools and equipment in good working order?
+Fire Inspection:
+
+Are all fire exits signed and unobstructed? (Critical)
+Are fire extinguishers present, charged and in date?
+Are fire alarm call points visible and accessible?
+Is the fire evacuation plan displayed?
+Are fire doors self-closing and not wedged open? (Critical)
+Is the fire log book up to date?
+Are escape route floor markings visible?
+Are emergency lighting units functional?
+Vehicle Inspection:
+
+Are tyres at correct pressure and within legal tread depth?
+Are all lights operational (headlights, indicators, brake lights)?
+Is the windscreen free from damage?
+Are mirrors clean and properly adjusted?
+Is the first aid kit present and stocked?
+Are warning triangles/breakdown kit present?
+Is the vehicle documentation in order?
+Are seatbelts present and working?
+Housekeeping:
+
+Are all work areas clean and tidy?
+Is waste disposed of correctly?
+Are storage areas organised and accessible?
+Are floors free from slip and trip hazards?
+Are toilets and welfare facilities clean?
+Is food stored and prepared hygienically?
+Are recycling bins in place and used correctly?
+Environmental:
+
+Are chemical storage areas clearly labelled?
+Are bund/spill containment areas in good condition?
+Is waste segregated correctly?
+Are drains protected from contamination?
+Are environmental permits displayed?
+Is noise monitored and within permitted levels?
+Behavioural Observation:
+
+Is the worker wearing appropriate PPE?
+Is the worker following safe working procedures?
+Is the workstation/area arranged safely?
+Is the worker using equipment correctly?
+Is communication between workers clear and safe?
+Tab 3 — Audit Records
+Shows all audit records in a filterable list. Filters: status (all / scheduled / in_progress / overdue / completed), category.
+
+Each record renders as a GlassCard row showing:
+
+Title and category badge
+Template name (smaller text)
+Scheduled date
+Status badge (colour-coded: scheduled = blue, in_progress = amber, overdue = red, completed = green/red based on passed)
+If completed: score percentage and pass/fail badge
+Three action buttons: View Details | Conduct Audit | Delete
+Create Audit Record dialog:
+
+Fields:
+
+Title (text, pre-filled from template name but editable)
+Select Template (searchable dropdown)
+Conducted By (text, pre-filled from logged-in user name)
+Scheduled Date (date picker)
+Location (text, optional)
+View/Conduct Audit dialog (or full-screen panel):
+
+When the user clicks "Conduct Audit":
+
+If status is scheduled, call POST /api/audits/records/:id/start first to create the auditRecordItems
+Show a checklist view — each item displayed as a card with:
+Question text
+Critical badge (if applicable)
+Three response buttons: Pass (green) | Fail (red) | N/A (grey)
+Note textarea (shows if requiresNote = true or if the user has clicked fail)
+Photo upload using ObjectUploader (shows if requiresPhoto = true or if response is fail)
+Auto-save each item response with PUT /api/audits/records/:id/items/:itemId immediately when the response button is clicked
+Progress indicator at the top: "7 of 12 items completed"
+"Submit Audit" button — disabled until all non-NA items have a response
+On submit: POST to /api/audits/records/:id/submit, show score result
+Score result view after submission:
+
+Large score number with colour (green ≥ pass threshold, red < threshold)
+Pass / Fail badge
+Summary of: X passed, Y failed, Z not applicable
+List of failed items highlighted
+"Raise Corrective Action" button next to each failed item
+Tab 4 — Actions (CAPA)
+A unified view of all corrective actions across all audits.
+
+Filters: status (all / open / in_progress / overdue / completed), priority.
+
+Each action card shows:
+
+Title and priority badge (colour-coded: critical = red, high = orange, medium = amber, low = blue)
+Which audit it came from (link)
+Assigned to / due date
+Status badge
+"Close Action" button (for open/in_progress actions)
+"Edit" button
+Close Action dialog:
+
+Closure notes (textarea, required)
+Evidence upload (optional, uses ObjectUploader)
+Confirm button → calls POST /api/audits/actions/:id/close
+Step 4 — Mobile completion page
+Create client/src/pages/AuditMobile.tsx.
+
+This is a public, no-login-required page at /audit/complete/:token. It allows an inspector to complete an audit on their phone.
+
+Structure:
+
+Fetch the audit via GET /api/audits/public/:token
+Show company logo (from audit record metadata if available), audit title, location, date
+Show checklist items in card format, one section at a time or scrollable
+Each item: question, Pass / Fail / N/A buttons, note textarea, photo upload using the same base64 file upload pattern as PPMWorkOrderMobile.tsx
+Progress bar at top
+Submit button → POST /api/audits/public/:token/submit
+Success screen showing score and pass/fail result
+Follow PPMWorkOrderMobile.tsx exactly for the no-auth pattern, the base64 file upload approach, and the success/error state handling.
+
+Step 5 — Wire up routing
+In server/routes/index.ts:
+
+import { registerAuditEngineRoutes } from './auditEngine';
+// Add inside registerSplitRoutes:
+registerAuditEngineRoutes(app);
+In client/src/App.tsx:
+
+import Audits from "@/pages/Audits";
+import AuditMobile from "@/pages/AuditMobile";
+
+// Inside the protected routes:
+<Route path="/audits" component={Audits} />
+
+// Inside the public routes (outside auth, alongside /lone-worker/ok/:token):
+<Route path="/audit/complete/:token">
+  {(params) => <AuditMobile token={params.token!} />}
+</Route>
+In client/src/components/Layout.tsx:
+
+Add to the navItems array, after the PPM entry:
+
+{ path: "/audits", icon: ClipboardCheck, label: "Audits & Inspections", featureKey: "featureAuditEngine", defaultOn: false }
+ClipboardCheck is available in lucide-react. Import it if not already present.
+
+Step 6 — System Settings toggle
+In client/src/pages/settings/SystemSettings.tsx, add a toggle for featureAuditEngine using the exact same pattern as the PPM feature toggle.
+
+Label: "Audit & Inspection Engine"
+Description: "Conduct site audits, safety inspections, vehicle checks, and behavioural observations with CAPA management"
+
+Important implementation notes
+Checklist builder state. The template creation form manages checklist items as local React state — an array of objects. Each item has a temporary id (use crypto.randomUUID() locally) for React key purposes. On save, strip the local ids and POST the full items array. On edit, load items from GET /api/audits/templates/:id and populate local state.
+Auto-save during audit. When a user is conducting an audit and clicks pass/fail/na on an item, immediately fire PUT /api/audits/records/:id/items/:itemId. Don't wait for a form submit. This prevents data loss if the browser closes. Show a small "Saving…" indicator.
+Score calculation is server-side only. The client shows the score returned from POST /api/audits/records/:id/submit. Don't calculate the score on the client — calculate it in the server endpoint and return it.
+Critical item failure. If an item with isCritical = true is marked as fail, show a red warning banner: "This is a critical item. Failing a critical check will result in an overall audit failure regardless of score." This is informational only — don't prevent them marking it as fail.
+Mobile token generation. Follow the exact pattern used for PPM work order tokens in ppm.ts. Generate a random hex token with randomBytes(24).toString('hex'). Store in auditRecords.accessToken. Set accessTokenExpiresAt to 7 days from now.
+Category badges. Use consistent colours throughout:
+Safety = blue
+Fire = red/orange
+Environmental = green
+Vehicle = purple
+Housekeeping = amber
+Behavioural = teal
+Custom = grey
+Corrective action email (future — not this build). The assignedEmail field is captured now so email notifications can be wired up later. For this build, no emails are sent — just store the data.
+Audit record creation from the Overview tab. The "Schedule New Audit" button on the Overview tab should open the same "Create Audit Record" dialog as the one in the Records tab. Reuse the same component.
+Error handling. If any query fails, return a proper JSON error with status 500 and a clear message. Log with logger.error(). Don't let unhandled errors crash the route.
+TypeScript. No any types except where using the Drizzle custDb instance (that one is unavoidable — use as any only for the custDb itself as per existing patterns). All interfaces defined at the top of the client file, all types exported from the schema.
+Definition of done
+/audits loads without errors with all four tabs working
+Templates can be created, edited, and deleted including their checklist items
+Starter template loader pre-populates items for each category
+Audit records can be created, conducted (with auto-save), and submitted
+Score is calculated correctly and displayed after submission
+Critical item failures correctly override the pass/fail result
+Corrective actions can be raised from failed items, tracked, and closed
+Mobile completion page (/audit/complete/:token) works without login
+Feature toggle in System Settings controls nav visibility
+Cron marks overdue audits and actions daily
+No TypeScript errors, no console errors
+Page is fully responsive

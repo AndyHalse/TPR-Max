@@ -30,6 +30,8 @@ import MartynLaw from "@/pages/MartynLaw";
 import IncidentReports from "@/pages/IncidentReports";
 import PPM from "@/pages/PPM";
 import PPMWorkOrderMobile from "@/pages/PPMWorkOrderMobile";
+import Audits from "@/pages/Audits";
+import AuditMobile from "@/pages/AuditMobile";
 import HelpDesk from "@/pages/HelpDesk";
 import InductionSettings from "@/pages/InductionSettings";
 import EmailOutbox from "@/pages/EmailOutbox";
@@ -378,6 +380,9 @@ function Router() {
       <Route path="/kiosk" component={KioskMode} />
       <Route path="/contractor" component={ContractorKiosk} />
       <Route path="/marketing" component={MarketingPage} />
+      <Route path="/audit/complete/:token">
+        {(params) => <AuditMobile token={params.token!} />}
+      </Route>
       <Route path="/lone-worker/ok/:token" component={LoneWorkerConfirmation} />
       <Route path="/lone-worker/ok/:customerId/:token" component={LoneWorkerConfirmation} />
       <Route path="/induction-preview/:roleType">
@@ -411,6 +416,7 @@ function Router() {
             <Route path="/muster" component={EmergencyMuster} />
             <Route path="/incident-reports" component={IncidentReports} />
             <Route path="/ppm" component={PPM} />
+            <Route path="/audits" component={Audits} />
             <Route path="/helpdesk" component={HelpDesk} />
             <Route path="/martyn-law" component={MartynLaw} />
             <Route path="/fire-marshal-panel" component={FireMarshalPanel} />

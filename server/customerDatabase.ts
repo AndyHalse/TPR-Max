@@ -995,6 +995,106 @@ export class CustomerDatabaseService {
     }
     // ─── END HR MODULE TABLES ─────────────────────────────────────────────────
 
+    // Section — Audit & Inspection Engine
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_audit_engine BOOLEAN DEFAULT false`);
+    } catch (err: any) {
+      logger.warn(`⚠️ feature_audit_engine column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".audit_templates (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          name TEXT NOT NULL,
+          description TEXT,
+          category TEXT NOT NULL DEFAULT 'safety',
+          frequency TEXT NOT NULL DEFAULT 'monthly',
+          custom_days INTEGER,
+          estimated_minutes INTEGER,
+          pass_score INTEGER DEFAULT 80,
+          is_active BOOLEAN NOT NULL DEFAULT true,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".audit_template_items (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          template_id VARCHAR NOT NULL REFERENCES "${schemaName}".audit_templates(id) ON DELETE CASCADE,
+          question TEXT NOT NULL,
+          category TEXT,
+          requires_photo BOOLEAN NOT NULL DEFAULT false,
+          requires_note BOOLEAN NOT NULL DEFAULT false,
+          is_critical BOOLEAN NOT NULL DEFAULT false,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".audit_records (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          template_id VARCHAR REFERENCES "${schemaName}".audit_templates(id) ON DELETE SET NULL,
+          template_name TEXT NOT NULL,
+          category TEXT NOT NULL,
+          title TEXT NOT NULL,
+          conducted_by TEXT NOT NULL,
+          conducted_at TIMESTAMP,
+          scheduled_date TEXT,
+          location TEXT,
+          status TEXT NOT NULL DEFAULT 'scheduled',
+          overall_score INTEGER,
+          passed BOOLEAN,
+          summary TEXT,
+          access_token VARCHAR,
+          access_token_expires_at TIMESTAMP,
+          overdue_alerted_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".audit_record_items (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          audit_id VARCHAR NOT NULL REFERENCES "${schemaName}".audit_records(id) ON DELETE CASCADE,
+          template_item_id VARCHAR REFERENCES "${schemaName}".audit_template_items(id) ON DELETE SET NULL,
+          question TEXT NOT NULL,
+          is_critical BOOLEAN NOT NULL DEFAULT false,
+          response TEXT,
+          note TEXT,
+          photo_url TEXT,
+          photo_file_name TEXT,
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".audit_corrective_actions (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          audit_id VARCHAR NOT NULL REFERENCES "${schemaName}".audit_records(id) ON DELETE CASCADE,
+          audit_item_id VARCHAR REFERENCES "${schemaName}".audit_record_items(id) ON DELETE SET NULL,
+          title TEXT NOT NULL,
+          description TEXT,
+          priority TEXT NOT NULL DEFAULT 'medium',
+          assigned_to TEXT,
+          assigned_email TEXT,
+          due_date TEXT,
+          status TEXT NOT NULL DEFAULT 'open',
+          closure_notes TEXT,
+          closure_evidence_url TEXT,
+          closure_evidence_file_name TEXT,
+          closed_at TIMESTAMP,
+          closed_by TEXT,
+          overdue_alerted_at TIMESTAMP,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      logger.info(`✅ Audit Engine tables ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Audit Engine table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+    // ─── END AUDIT ENGINE TABLES ──────────────────────────────────────────────
+
     // Ensure site induction + AI/video + QR + CLUe columns on company_settings
     try {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS site_address TEXT`);

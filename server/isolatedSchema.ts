@@ -506,6 +506,7 @@ export const companySettings = pgTable("company_settings", {
   featurePermitToWork: boolean("feature_permit_to_work").default(false),
   ptwAlertHour: integer("ptw_alert_hour").default(7),
   featureHrModule: boolean("feature_hr_module").default(true),
+  featureAuditEngine: boolean("feature_audit_engine").default(false),
   // Core navigation feature toggles — default ON
   featureDashboard: boolean("feature_dashboard").default(true),
   featureVisitors: boolean("feature_visitors").default(true),
@@ -2593,3 +2594,107 @@ export const visitReasons = pgTable("visit_reasons", {
 export const insertVisitReasonSchema = createInsertSchema(visitReasons).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertVisitReason = z.infer<typeof insertVisitReasonSchema>;
 export type VisitReason = typeof visitReasons.$inferSelect;
+
+// ─── Audit & Inspection Engine ────────────────────────────────────────────────
+
+export const auditTemplates = pgTable("audit_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  description: text("description"),
+  category: text("category").notNull().default("safety"),
+  frequency: text("frequency").notNull().default("monthly"),
+  customDays: integer("custom_days"),
+  estimatedMinutes: integer("estimated_minutes"),
+  passScore: integer("pass_score").default(80),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAuditTemplateSchema = createInsertSchema(auditTemplates).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAuditTemplate = z.infer<typeof insertAuditTemplateSchema>;
+export type AuditTemplate = typeof auditTemplates.$inferSelect;
+
+export const auditTemplateItems = pgTable("audit_template_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").notNull().references(() => auditTemplates.id, { onDelete: "cascade" }),
+  question: text("question").notNull(),
+  category: text("category"),
+  requiresPhoto: boolean("requires_photo").default(false).notNull(),
+  requiresNote: boolean("requires_note").default(false).notNull(),
+  isCritical: boolean("is_critical").default(false).notNull(),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuditTemplateItemSchema = createInsertSchema(auditTemplateItems).omit({ id: true, createdAt: true });
+export type InsertAuditTemplateItem = z.infer<typeof insertAuditTemplateItemSchema>;
+export type AuditTemplateItem = typeof auditTemplateItems.$inferSelect;
+
+export const auditRecords = pgTable("audit_records", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  templateId: varchar("template_id").references(() => auditTemplates.id, { onDelete: "set null" }),
+  templateName: text("template_name").notNull(),
+  category: text("category").notNull(),
+  title: text("title").notNull(),
+  conductedBy: text("conducted_by").notNull(),
+  conductedAt: timestamp("conducted_at"),
+  scheduledDate: text("scheduled_date"),
+  location: text("location"),
+  status: text("status").notNull().default("scheduled"),
+  overallScore: integer("overall_score"),
+  passed: boolean("passed"),
+  summary: text("summary"),
+  accessToken: varchar("access_token"),
+  accessTokenExpiresAt: timestamp("access_token_expires_at"),
+  overdueAlertedAt: timestamp("overdue_alerted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAuditRecordSchema = createInsertSchema(auditRecords).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAuditRecord = z.infer<typeof insertAuditRecordSchema>;
+export type AuditRecord = typeof auditRecords.$inferSelect;
+
+export const auditRecordItems = pgTable("audit_record_items", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  auditId: varchar("audit_id").notNull().references(() => auditRecords.id, { onDelete: "cascade" }),
+  templateItemId: varchar("template_item_id").references(() => auditTemplateItems.id, { onDelete: "set null" }),
+  question: text("question").notNull(),
+  isCritical: boolean("is_critical").default(false).notNull(),
+  response: text("response"),
+  note: text("note"),
+  photoUrl: text("photo_url"),
+  photoFileName: text("photo_file_name"),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertAuditRecordItemSchema = createInsertSchema(auditRecordItems).omit({ id: true, createdAt: true });
+export type InsertAuditRecordItem = z.infer<typeof insertAuditRecordItemSchema>;
+export type AuditRecordItem = typeof auditRecordItems.$inferSelect;
+
+export const auditCorrectiveActions = pgTable("audit_corrective_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  auditId: varchar("audit_id").notNull().references(() => auditRecords.id, { onDelete: "cascade" }),
+  auditItemId: varchar("audit_item_id").references(() => auditRecordItems.id, { onDelete: "set null" }),
+  title: text("title").notNull(),
+  description: text("description"),
+  priority: text("priority").notNull().default("medium"),
+  assignedTo: text("assigned_to"),
+  assignedEmail: text("assigned_email"),
+  dueDate: text("due_date"),
+  status: text("status").notNull().default("open"),
+  closureNotes: text("closure_notes"),
+  closureEvidenceUrl: text("closure_evidence_url"),
+  closureEvidenceFileName: text("closure_evidence_file_name"),
+  closedAt: timestamp("closed_at"),
+  closedBy: text("closed_by"),
+  overdueAlertedAt: timestamp("overdue_alerted_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertAuditCorrectiveActionSchema = createInsertSchema(auditCorrectiveActions).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertAuditCorrectiveAction = z.infer<typeof insertAuditCorrectiveActionSchema>;
+export type AuditCorrectiveAction = typeof auditCorrectiveActions.$inferSelect;

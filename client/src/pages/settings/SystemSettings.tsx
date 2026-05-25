@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, Flame, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2 } from "lucide-react";
+import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, Flame, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, ClipboardCheck, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2 } from "lucide-react";
 
 export default function SystemSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -1122,6 +1122,23 @@ export default function SystemSettings() {
           checked={currentSettings?.featurePermitToWork === true}
           onCheckedChange={(checked) => handleInputChange("featurePermitToWork", checked)}
           data-testid="toggle-permit-to-work"
+        />
+      </div>
+      {/* Audit & Inspection Engine */}
+      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-indigo-100 rounded-lg">
+            <ClipboardCheck className="w-5 h-5 text-indigo-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-fixed">Audit & Inspection Engine</h4>
+            <p className="text-xs text-variable">Conduct site audits, safety inspections, vehicle checks, and behavioural observations with CAPA management</p>
+          </div>
+        </div>
+        <Switch
+          checked={currentSettings?.featureAuditEngine === true}
+          onCheckedChange={(checked) => handleInputChange("featureAuditEngine", checked)}
+          data-testid="toggle-audit-engine"
         />
       </div>
       {/* Kiosk Mode */}

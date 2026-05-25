@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame, Briefcase, ShieldCheck, ClipboardList, Activity } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame, Briefcase, ShieldCheck, ClipboardList, Activity, ClipboardCheck } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
@@ -237,6 +237,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/hs-incidents", icon: AlertTriangle, label: "H&S Incidents", featureKey: "featureHsIncidents", defaultOn: true },
     { path: "/fire-risk-assessment", icon: Flame, label: "Fire Risk Assessment", featureKey: "featureFireRiskAssessment", defaultOn: true },
     { path: "/ppm", icon: Wrench, label: "PPM", tooltip: "Planned Preventive Maintenance", featureKey: "featurePPM", defaultOn: false, badge: ppmGapsCount > 0 ? ppmGapsCount : undefined },
+    { path: "/audits", icon: ClipboardCheck, label: "Audits & Inspections", tooltip: "Audit & Inspection Engine — safety, fire, vehicle, behavioural & environmental audits", featureKey: "featureAuditEngine", defaultOn: false },
     { path: "/compliance-certificates", icon: ShieldCheck, label: "Compliance Register", tooltip: "Compliance Certificate Register — EICR, gas safety, fire alarms, LOLER & more", featureKey: "featureComplianceCertificates", defaultOn: false },
     { path: "/permit-to-work", icon: ClipboardList, label: "Permit to Work", tooltip: "Permit-to-Work System — hot works, electrical isolation, confined space & more", featureKey: "featurePermitToWork", defaultOn: false },
     { path: "/helpdesk", icon: Ticket, label: "Help Desk", featureKey: "featureHelpDesk", defaultOn: false },
