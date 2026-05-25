@@ -1175,6 +1175,23 @@ export default function SystemSettings() {
           data-testid="toggle-hr-module"
         />
       </div>
+      {/* Compliance Intelligence Dashboard */}
+      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-teal-100 rounded-lg">
+            <Activity className="w-5 h-5 text-teal-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-fixed">Compliance Intelligence Dashboard</h4>
+            <p className="text-xs text-variable">Weighted compliance health score across all modules — insurance, RAMS, inductions, certificates, PPM, FRA & RTW</p>
+          </div>
+        </div>
+        <Switch
+          checked={currentSettings?.featureComplianceDashboard !== false}
+          onCheckedChange={(checked) => handleInputChange("featureComplianceDashboard", checked)}
+          data-testid="toggle-compliance-dashboard"
+        />
+      </div>
     </div>
     
     <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
