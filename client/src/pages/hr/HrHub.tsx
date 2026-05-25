@@ -2,7 +2,7 @@ import { useLocation, Link } from "wouter";
 import {
   Network, Calendar, BookOpen, Activity, CheckSquare, LogOut, Star, Download,
   Users, ArrowRight, UserCheck, UserPlus, UserMinus, GraduationCap,
-  ClipboardCheck, ClipboardList, Cake, PartyPopper, Sunrise, Lock,
+  ClipboardCheck, ClipboardList, Cake, PartyPopper, Sunrise, Lock, Clock,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -107,6 +107,18 @@ const HR_MODULES = [
     border: "border-indigo-200 dark:border-indigo-800",
     hover: "hover:bg-indigo-50 dark:hover:bg-indigo-900/20",
   },
+  {
+    path: "/time-attendance",
+    icon: Clock,
+    label: "Time & Attendance",
+    description: "Check-in/out history, hours worked & sessions",
+    tooltip: "View and export all staff check-in/check-out records for any date range. Shows hours worked, manual vs card entries, and open sessions still on site.",
+    color: "sky",
+    bg: "bg-sky-100 dark:bg-sky-900/40",
+    text: "text-sky-600 dark:text-sky-400",
+    border: "border-sky-200 dark:border-sky-800",
+    hover: "hover:bg-sky-50 dark:hover:bg-sky-900/20",
+  },
 ];
 
 const CARD_TOOLTIPS: Record<string, string> = {
@@ -131,6 +143,7 @@ type DashboardResp = {
     trainingExpiring: number;
     appraisalsDue: number;
     pendingLeaveApprovals: number;
+    onSiteCount: number;
   };
   onLeaveToday: Array<{ staffId: string; name: string; leaveType: string; endDate: string }>;
   today: {
@@ -263,6 +276,15 @@ export default function HrHub() {
           iconBg: "bg-rose-100 dark:bg-rose-900/40",
           iconText: "text-rose-600 dark:text-rose-400",
           featureKey: "featureHrModule",
+        },
+        {
+          label: "On site right now",
+          value: dashboard.counts.onSiteCount ?? 0,
+          href: "/time-attendance",
+          icon: Clock,
+          iconBg: "bg-sky-100 dark:bg-sky-900/40",
+          iconText: "text-sky-600 dark:text-sky-400",
+          featureKey: "featureTimeAttendance",
         },
       ].filter((c) => isCardEnabled(c.featureKey))
     : [];

@@ -255,7 +255,7 @@ export class DatabaseService {
     return updated[0];
   }
 
-  async checkOutStaff(context: CustomerContext, id: string): Promise<Staff | undefined> {
+  async checkOutStaff(context: CustomerContext, id: string, method: string = 'card'): Promise<Staff | undefined> {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     // Update staff record
@@ -282,13 +282,16 @@ export class DatabaseService {
         .limit(1);
       
       if (openSession[0]) {
-        // Update the session record
         const checkOutTime = new Date();
+        const durationMinutes = Math.round(
+          (checkOutTime.getTime() - openSession[0].checkInTime.getTime()) / (1000 * 60)
+        );
         await db
           .update(isolatedSchema.staffSessions)
           .set({
-            checkOutTime: checkOutTime,
-            checkOutMethod: 'card'
+            checkOutTime,
+            checkOutMethod: method,
+            durationMinutes,
           })
           .where(eq(isolatedSchema.staffSessions.id, openSession[0].id));
       }

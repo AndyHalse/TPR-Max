@@ -202,6 +202,19 @@ export function registerHrDashboardRoutes(app: Express): void {
         }, [] as any[], 'birthdaysToday'),
       ]);
 
+      // On site right now (open session — checked in, no check-out yet)
+      const onSiteCount = await safe(async () => {
+        const r = await pool.query(
+          `SELECT COUNT(DISTINCT ss.staff_id)::int AS n
+           FROM ${s}.staff_sessions ss
+           JOIN ${s}.staff st ON st.id = ss.staff_id
+           WHERE ss.check_out_time IS NULL
+             AND st.is_active = TRUE
+             AND (st.employment_status IS NULL OR st.employment_status NOT IN ('leaver','archived'))`
+        );
+        return Number(r.rows[0]?.n || 0);
+      }, 0, 'onSiteCount');
+
       const todayRow = await safe(
         async () => (await pool.query(`SELECT CURRENT_DATE::text AS d`)).rows[0]?.d as string,
         new Date().toISOString().slice(0, 10),
@@ -219,6 +232,7 @@ export function registerHrDashboardRoutes(app: Express): void {
           trainingExpiring,
           appraisalsDue,
           pendingLeaveApprovals,
+          onSiteCount,
         },
         onLeaveToday: onLeaveToday.map((r: any) => ({
           staffId: r.staff_id,

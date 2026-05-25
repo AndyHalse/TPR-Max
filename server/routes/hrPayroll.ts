@@ -49,6 +49,17 @@ export function registerHrPayrollRoutes(app: Express): void {
         [period_start, period_end]
       );
 
+      // Actual hours worked from staff_sessions for the period
+      const hoursResult = await pool.query(
+        `SELECT staff_id,
+                ROUND(SUM(EXTRACT(EPOCH FROM (COALESCE(check_out_time, NOW()) - check_in_time)) / 3600)::numeric, 2) AS hours_worked
+         FROM "${schemaName}".staff_sessions
+         WHERE check_in_time <= $2::date + INTERVAL '1 day' - INTERVAL '1 second'
+           AND check_in_time >= $1::date
+         GROUP BY staff_id`,
+        [period_start, period_end]
+      );
+
       // Leave for period
       const leaveResult = await pool.query(
         `SELECT staff_id, leave_type, days_taken, status
@@ -75,6 +86,7 @@ export function registerHrPayrollRoutes(app: Express): void {
 
       const staffList = staffResult.rows;
       const rows = staffList.map((s: any) => {
+        const hoursRow = hoursResult.rows.find((h: any) => h.staff_id === s.id);
         const staffLeave = leaveResult.rows.filter((l: any) => l.staff_id === s.id);
         const annualDays = staffLeave.filter((l: any) => l.leave_type === 'annual' && l.status === 'approved')
           .reduce((sum: number, l: any) => sum + Number(l.days_taken), 0);
@@ -102,6 +114,7 @@ export function registerHrPayrollRoutes(app: Express): void {
           pay_grade: s.pay_grade || '',
           contract_start_date: s.contract_start_date || '',
           employment_status: s.employment_status || 'active',
+          hours_worked: hoursRow ? Number(hoursRow.hours_worked) : 0,
           annual_leave_days_taken: annualDays,
           sick_days_absent: sickDays,
           other_leave_days_taken: otherDays,

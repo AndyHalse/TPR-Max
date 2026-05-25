@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { format, formatDuration, intervalToDuration } from "date-fns";
 import {
   User, ArrowLeft, Shield, BookOpen, Calendar, Activity,
   FileText, CheckSquare, LogOut, Star, Briefcase, Phone,
@@ -898,6 +899,88 @@ function EmploymentTab({ staffId, staff }: { staffId: string; staff: any }) {
   );
 }
 
+function AttendanceTab({ staffId }: { staffId: string }) {
+  const [dateFrom, setDateFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().split('T')[0];
+  });
+  const [dateTo, setDateTo] = useState(() => new Date().toISOString().split('T')[0]);
+
+  const { data: sessions = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ["/api/staff", staffId, "sessions", dateFrom, dateTo],
+    queryFn: () =>
+      fetch(`/api/staff/${staffId}/sessions?dateFrom=${dateFrom}&dateTo=${dateTo}`, { credentials: "include" })
+        .then(r => r.json()),
+  });
+
+  const totalHours = sessions.reduce((sum: number, s: any) => sum + (s.hoursWorked || 0), 0);
+  const fmt = (d: string | Date | null) => d ? format(new Date(d), 'HH:mm') : '—';
+  const fmtDate = (d: string | Date) => format(new Date(d), 'dd/MM/yyyy');
+  const fmtHrs = (h: number) =>
+    formatDuration(intervalToDuration({ start: 0, end: h * 60 * 60 * 1000 }), { format: ['hours', 'minutes'] }) || '0 min';
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Label className="text-sm">From:</Label>
+          <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="w-36 h-8 text-sm" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Label className="text-sm">To:</Label>
+          <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="w-36 h-8 text-sm" />
+        </div>
+        <Button size="sm" variant="outline" onClick={() => refetch()}>Refresh</Button>
+        {sessions.length > 0 && (
+          <span className="ml-auto text-sm font-semibold text-blue-600">{fmtHrs(totalHours)} total</span>
+        )}
+      </div>
+
+      {isLoading ? (
+        <div className="text-center py-8 text-gray-400">Loading sessions…</div>
+      ) : sessions.length === 0 ? (
+        <div className="text-center py-8 text-gray-400">No check-in records for this period.</div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left py-2 px-3 font-medium text-gray-600">Date</th>
+                <th className="text-left py-2 px-3 font-medium text-gray-600">In</th>
+                <th className="text-left py-2 px-3 font-medium text-gray-600">Out</th>
+                <th className="text-left py-2 px-3 font-medium text-gray-600">Duration</th>
+                <th className="text-left py-2 px-3 font-medium text-gray-600">Method</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.map((s: any, i: number) => (
+                <tr key={s.id || i} className="border-t border-gray-100 hover:bg-gray-50">
+                  <td className="py-2 px-3 text-gray-700">{fmtDate(s.checkInTime)}</td>
+                  <td className="py-2 px-3 text-gray-700">{fmt(s.checkInTime)}</td>
+                  <td className="py-2 px-3">
+                    {s.checkOutTime ? (
+                      <span className="text-gray-700">{fmt(s.checkOutTime)}</span>
+                    ) : (
+                      <span className="text-green-600 font-medium text-xs">On site</span>
+                    )}
+                  </td>
+                  <td className="py-2 px-3 text-gray-700">{fmtHrs(s.hoursWorked)}</td>
+                  <td className="py-2 px-3">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${s.isManual ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+                      {s.checkInMethod || (s.isManual ? 'manual' : 'card')}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function StaffProfile() {
   const { id } = useParams<{ id: string }>();
   const [, navigate] = useLocation();
@@ -966,6 +1049,7 @@ export default function StaffProfile() {
           <TabsTrigger value="documents" className="text-xs"><FileText className="h-3 w-3 mr-1" />Documents</TabsTrigger>
           <TabsTrigger value="onboarding" className="text-xs"><CheckSquare className="h-3 w-3 mr-1" />Onboarding</TabsTrigger>
           <TabsTrigger value="appraisals" className="text-xs"><Star className="h-3 w-3 mr-1" />Appraisals</TabsTrigger>
+          <TabsTrigger value="attendance" className="text-xs"><Clock className="h-3 w-3 mr-1" />Attendance</TabsTrigger>
           {(staff.employment_status === "leaver") && (
             <TabsTrigger value="leaver" className="text-xs text-red-600"><LogOut className="h-3 w-3 mr-1" />Leaver</TabsTrigger>
           )}
@@ -981,6 +1065,7 @@ export default function StaffProfile() {
           <TabsContent value="documents"><DocumentsTab staffId={id!} /></TabsContent>
           <TabsContent value="onboarding"><OnboardingTab staffId={id!} /></TabsContent>
           <TabsContent value="appraisals"><AppraisalsTab staffId={id!} /></TabsContent>
+          <TabsContent value="attendance"><AttendanceTab staffId={id!} /></TabsContent>
           {staff.employment_status === "leaver" && (
             <TabsContent value="leaver">
               <LeaverDetail staffId={id!} />

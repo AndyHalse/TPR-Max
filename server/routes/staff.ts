@@ -14,7 +14,7 @@ import * as isolatedSchema from '../isolatedSchema';
 import { insertStaffSchema, evacuationAccountability } from '../isolatedSchema';
 import { evacuations } from '@shared/schema';
 import { db } from '../db';
-import { eq, and, desc, sql } from 'drizzle-orm';
+import { eq, and, desc, sql, gte, lte } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
@@ -806,8 +806,8 @@ export function registerStaffRoutes(app: Express): void {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
-      // Use customer-isolated database service for staff check-out
-      const staff = await databaseService.checkOutStaff(context, id);
+      // Use customer-isolated database service for staff check-out (admin = manual method)
+      const staff = await databaseService.checkOutStaff(context, id, 'manual');
       
       if (!staff) {
         return res.status(404).json({ error: "Staff member not found or not checked in" });
@@ -1503,6 +1503,53 @@ export function registerStaffRoutes(app: Express): void {
     } catch (error) {
       logger.error("Failed to fetch time and attendance data:", error);
       res.status(500).json({ error: "Failed to fetch time and attendance data" });
+    }
+  });
+
+  // Individual staff session history (used by StaffProfile attendance tab)
+  app.get("/api/staff/:id/sessions", requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { dateFrom, dateTo } = req.query;
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const db = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+
+      let fromDate = dateFrom ? new Date(dateFrom as string) : new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+      let toDate = dateTo ? new Date(dateTo as string) : new Date();
+      fromDate.setHours(0, 0, 0, 0);
+      toDate.setHours(23, 59, 59, 999);
+
+      const sessions = await db
+        .select()
+        .from(isolatedSchema.staffSessions)
+        .where(and(
+          eq(isolatedSchema.staffSessions.staffId, id),
+          gte(isolatedSchema.staffSessions.checkInTime, fromDate),
+          lte(isolatedSchema.staffSessions.checkInTime, toDate)
+        ))
+        .orderBy(desc(isolatedSchema.staffSessions.checkInTime));
+
+      const result = sessions.map(s => {
+        const hoursWorked = s.checkOutTime
+          ? (s.checkOutTime.getTime() - s.checkInTime.getTime()) / (1000 * 60 * 60)
+          : (Date.now() - s.checkInTime.getTime()) / (1000 * 60 * 60);
+        return {
+          id: s.id,
+          checkInTime: s.checkInTime,
+          checkOutTime: s.checkOutTime,
+          hoursWorked,
+          isManual: s.isManual,
+          checkInMethod: s.checkInMethod,
+          checkOutMethod: s.checkOutMethod,
+          durationMinutes: s.durationMinutes,
+        };
+      });
+
+      res.json(result);
+    } catch (error) {
+      logger.error("Failed to fetch staff sessions:", error);
+      res.status(500).json({ error: "Failed to fetch staff sessions" });
     }
   });
 

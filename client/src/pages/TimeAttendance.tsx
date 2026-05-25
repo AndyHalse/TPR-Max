@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
-import { Clock, Download, Calendar, Users, FileText, Eye, BarChart3, TrendingUp } from "lucide-react";
+import { Clock, Download, Calendar, Users, FileText, Eye, BarChart3, TrendingUp, ExternalLink } from "lucide-react";
 import { format, formatDuration, intervalToDuration } from "date-fns";
+import { Link } from "wouter";
 
 interface TimeAttendanceRecord {
   staffId: string;
@@ -342,9 +343,16 @@ export default function TimeAttendance() {
       <Dialog open={!!selectedStaff} onOpenChange={() => setSelectedStaff(null)}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               <TrendingUp className="text-blue-500" size={20} />
               Detailed Report: {selectedStaff?.staffName}
+              {selectedStaff && (
+                <Link href={`/hr/staff/${selectedStaff.staffId}`}>
+                  <Button size="sm" variant="outline" className="ml-auto text-xs h-7 gap-1">
+                    <ExternalLink size={12} /> HR Profile
+                  </Button>
+                </Link>
+              )}
             </DialogTitle>
             <DialogDescription>
               View detailed time attendance records and sessions for this staff member.
