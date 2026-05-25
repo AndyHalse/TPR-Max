@@ -219,7 +219,7 @@ export default function MarketingPage() {
                   TPR Max
                 </span>
                 <span className="text-xs text-slate-500 dark:text-slate-400 -mt-1">
-                  Total Personnel Register
+                  Workplace Compliance & Safety
                 </span>
               </div>
             </div>
@@ -354,30 +354,31 @@ export default function MarketingPage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div className="text-center lg:text-left">
               <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 mb-6">
-                <Badge variant="secondary" className="text-white bg-red-600">
-                  <Siren className="h-3 w-3 mr-1" />
-                  Emergency Mustering & Accountability
-                </Badge>
                 <Badge
                   variant="secondary"
                   className="text-white"
                   style={{ backgroundColor: "#2460A9" }}
                 >
                   <Shield className="h-3 w-3 mr-1" />
-                  Health & Safety First
+                  Workplace Safety & Compliance
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-emerald-600">
                   <Zap className="h-3 w-3 mr-1" />
-                  One Platform Solution
+                  22 Modules · One Platform
+                </Badge>
+                <Badge variant="secondary" className="text-white bg-violet-600">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  UK Regulations Built-In
                 </Badge>
               </div>
 
               <h1 className="text-4xl lg:text-6xl font-bold text-slate-900 dark:text-white mb-4">
-                Save Lives with Instant
+                The All-in-One
                 <span style={{ color: "#2460A9" }}>
                   {" "}
-                  Emergency Accountability
-                </span>
+                  Workplace Compliance & Safety
+                </span>{" "}
+                Platform
               </h1>
 
               <p className="text-lg font-semibold text-emerald-700 dark:text-emerald-400 mb-4 flex items-center gap-2">
@@ -388,28 +389,29 @@ export default function MarketingPage() {
               </p>
 
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
-                Know exactly who is on your site at all times. When an emergency strikes, TPR Max gives you instant accountability — every visitor, contractor, and staff member accounted for in seconds. One subscription. One login. Everything connected.
+                From visitor sign-in and contractor compliance to RIDDOR incidents, audit inspections, and payroll-ready time tracking — TPR Max is the single cloud platform covering every aspect of workplace safety and compliance. One subscription. One login. Everything connected.
               </p>
 
               <div className="grid grid-cols-2 gap-2 mb-8">
                 {[
                   "Emergency Mustering & Roll-Call",
-                  "Contractor & CDM 2015 Compliance",
-                  "AI Safety Inductions",
-                  "RAMS Document Management",
-                  "Planned Preventative Maintenance",
                   "Visitor & Reception Management",
+                  "Contractor & CDM 2015 Compliance",
+                  "AI Safety Inductions & RAMS",
+                  "Planned Preventative Maintenance",
+                  "Audit & Inspection Engine",
                   "Lone Worker Protection",
                   "Martyn's Law Compliance",
                   "ID Card & Pass Printing",
                   "CO2 Sustainability Reporting",
                   "Help Desk & Reactive Maintenance",
-                  "Muster Status Dropdown",
                   "RIDDOR 2013 Incident Reporting",
                   "Fire Risk Assessment (RRO 2005)",
                   "Compliance Certificate Register",
                   "Permit-to-Work System",
-                  "HR Module — Staff Lifecycle (Beta)",
+                  "Time & Attendance + Payroll Export",
+                  "HR Module — Full Staff Lifecycle",
+                  "Meeting Rooms & Booking",
                 ].map((f) => (
                   <div key={f} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -578,7 +580,7 @@ export default function MarketingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: "21", label: "Platform Modules", sub: "All included, no hidden extras" },
+              { value: "22", label: "Platform Modules", sub: "All included, no hidden extras" },
               { value: "99.9%", label: "Platform Uptime", sub: "Cloud-native reliability" },
               { value: "UK", label: "Built & Supported", sub: "UK regulations first" },
               { value: "GDPR", label: "Fully Compliant", sub: "Data stays in your tenant" },
@@ -678,7 +680,9 @@ export default function MarketingPage() {
                   "CDM 2015 & Martyn's Law Tools",
                   "Compliance Certificate Register",
                   "Permit-to-Work System",
-                  "Reports, Audit Logs & Time Tracking",
+                  "Audit & Inspection Engine",
+                  "HR Module — Full Staff Lifecycle",
+                  "Time & Attendance + Payroll Export",
                 ].map((feature) => (
                   <div key={feature} className="flex items-center gap-3 bg-white/70 dark:bg-slate-800/50 rounded-lg px-4 py-2.5 border border-emerald-200 dark:border-emerald-700">
                     <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
@@ -733,11 +737,11 @@ export default function MarketingPage() {
               Complete Platform
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              21 Powerful Modules.{" "}
+              22 Powerful Modules.{" "}
               <span style={{ color: "#2460A9" }}>One Platform.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              Every tool your organisation needs — from visitor sign-in to statutory compliance certificates and high-risk work permits — built in and ready to use from day one.
+              Every tool your organisation needs — from visitor sign-in and site audits to statutory compliance certificates, HR lifecycle management, and high-risk work permits — built in and ready to use from day one.
             </p>
           </div>
 
@@ -813,7 +817,7 @@ export default function MarketingPage() {
                 color: "text-teal-600",
                 bg: "bg-teal-50 dark:bg-teal-900/20",
                 border: "border-teal-200 dark:border-teal-800",
-                desc: "Automated check-in/out timestamps, shift management, overtime tracking, and payroll-ready export reports.",
+                desc: "Automated check-in/out timestamps, check-out method tracking, hours-worked calculation, and one-click payroll-ready CSV export. Staff T&A visible directly from the HR profile.",
               },
               {
                 icon: Leaf,
@@ -910,6 +914,22 @@ export default function MarketingPage() {
                 bg: "bg-orange-50 dark:bg-orange-900/20",
                 border: "border-orange-200 dark:border-orange-800",
                 desc: "Formal permit-to-work system for high-risk activities — hot works, confined space, electrical isolation, working at height. Full lifecycle with pre-seeded safety checklists.",
+              },
+              {
+                icon: ClipboardCheck,
+                name: "Audits & Inspections",
+                color: "text-teal-700",
+                bg: "bg-teal-50 dark:bg-teal-900/20",
+                border: "border-teal-200 dark:border-teal-800",
+                desc: "Configurable audit & inspection engine — build custom templates, schedule recurring inspections, capture findings with photos, score results, and track corrective actions to closure.",
+              },
+              {
+                icon: UserCheck,
+                name: "HR Module",
+                color: "text-indigo-600",
+                bg: "bg-indigo-50 dark:bg-indigo-900/20",
+                border: "border-indigo-200 dark:border-indigo-800",
+                desc: "Full staff lifecycle management — Right to Work checks, training & certifications, leave & absence, appraisals, onboarding flows, org chart, payroll-ready T&A export, and on-site presence tracking.",
               },
             ].map(({ icon: Icon, name, color, bg, border, desc }) => (
               <div
@@ -3682,7 +3702,7 @@ export default function MarketingPage() {
               <ul className="space-y-2 text-sm text-slate-300">
                 {[
                   ["Emergency Mustering", "features"],
-                  ["All 14 Modules", "modules"],
+                  ["All 22 Modules", "modules"],
                   ["CDM 2015 Compliance", "features"],
                   ["Industries We Serve", "industries"],
                   ["Book a Demo", "contact"],
@@ -3703,7 +3723,7 @@ export default function MarketingPage() {
             <div>
               <h3 className="text-base font-semibold mb-4 text-white">About TPR-Max</h3>
               <p className="text-slate-300 text-sm leading-relaxed">
-                A comprehensive personnel management system built for UK organisations. 14 modules covering emergency mustering, contractor compliance, CDM 2015, PPM, visitor management, and more.
+                A comprehensive workplace compliance & safety platform built for UK organisations. 22 modules covering visitor management, contractor compliance, emergency mustering, HR lifecycle, audits & inspections, CDM 2015, PPM, and more — all in one subscription.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {["GDPR Compliant", "UK-Built", "Multi-Tenant", "BioStar 2 Ready"].map(tag => (
