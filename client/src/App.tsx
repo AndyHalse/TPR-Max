@@ -57,6 +57,7 @@ import LoneWorkerConfirmation from "@/pages/LoneWorkerConfirmation";
 import HSIncidents from "@/pages/HSIncidents";
 import FireRiskAssessmentPage from "@/pages/FireRiskAssessment";
 import ComplianceCertificateRegister from "@/pages/ComplianceCertificateRegister";
+import ComplianceDashboard from "@/pages/ComplianceDashboard";
 import PermitToWorkPage from "@/pages/PermitToWork";
 import HrHub from "@/pages/hr/HrHub";
 import StaffProfile from "@/pages/hr/StaffProfile";
@@ -428,6 +429,7 @@ function Router() {
             <Route path="/hs-incidents" component={HSIncidents} />
             <Route path="/fire-risk-assessment" component={FireRiskAssessmentPage} />
             <Route path="/compliance-certificates" component={ComplianceCertificateRegister} />
+            <Route path="/compliance-dashboard" component={ComplianceDashboard} />
             <Route path="/permit-to-work" component={PermitToWorkPage} />
             <Route path="/hr" component={HrHub} />
             <Route path="/hr/staff/:id" component={StaffProfile} />

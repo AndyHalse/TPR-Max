@@ -501,6 +501,7 @@ export const companySettings = pgTable("company_settings", {
   featureHsIncidents: boolean("feature_hs_incidents").default(true),
   featureFireRiskAssessment: boolean("feature_fire_risk_assessment").default(true),
   featureComplianceCertificates: boolean("feature_compliance_certificates").default(false),
+  featureComplianceDashboard: boolean("feature_compliance_dashboard").default(true),
   complianceCertAlertHour: integer("compliance_cert_alert_hour").default(7),
   featurePermitToWork: boolean("feature_permit_to_work").default(false),
   ptwAlertHour: integer("ptw_alert_hour").default(7),

@@ -1,0 +1,306 @@
+Replit Prompt — Central Compliance Intelligence Dashboard
+What we're building
+A new page called the Compliance Intelligence Dashboard at route /compliance-dashboard.
+
+This is not an operational page (like the existing Dashboard which shows who's on site today). It's a compliance health view — it queries data from across every module in the platform, calculates a live compliance score, surfaces critical issues, and tells the user exactly what needs attention and why.
+
+It should be one of the most important pages in the product. Think of it as the "single pane of glass" for compliance — a manager who only has five minutes should be able to open this page and know immediately whether their site is in good shape or not.
+
+Codebase context
+This is a TypeScript full-stack application using:
+
+Server: Express.js, Drizzle ORM, PostgreSQL (isolated per-customer schema)
+Client: React, Wouter routing, TanStack Query, Tailwind CSS, shadcn/ui components, Lucide icons
+Auth pattern: requireAuth middleware on all protected routes, req.customerId available on authenticated requests, customer database accessed via customerDbService.getCustomerDatabase(context.customerId)
+Schema: All tables are in server/isolatedSchema.ts — use the named exports directly
+Customer context pattern: simpleDatabaseService.createCustomerContext(username, req.customerId)
+Follow the same patterns as server/routes/analytics.ts and server/routes/complianceCertificates.ts for the server route. Follow the same patterns as client/src/pages/ComplianceCertificateRegister.tsx for the client page structure, data fetching, and UI.
+
+Step 1 — Add a feature flag
+In server/isolatedSchema.ts, in the companySettings pgTable (around line 503 near the other feature flags), add:
+
+featureComplianceDashboard: boolean("feature_compliance_dashboard").default(true),
+Default to true so it's visible for all existing customers immediately.
+
+Step 2 — Create the server route
+Create a new file: server/routes/complianceDashboard.ts
+
+This route must export registerComplianceDashboardRoutes(app: Express) and register a single endpoint:
+
+GET /api/compliance-dashboard — requires auth, returns a JSON object with the full compliance intelligence payload.
+
+The endpoint queries the customer's isolated database and calculates scores from the following tables. Import them all from ../isolatedSchema.
+
+Data sources and what to query
+Contractor insurance (contractorCompanies)
+
+Fields: publicLiabilityExpiryDate, employersLiabilityExpiryDate, name, id
+Logic: For each active contractor company, check whether Public Liability and Employers Liability insurance is: current (>30 days to expiry), expiring soon (≤30 days), or expired
+Count: total companies, compliant, expiring, expired
+RAMS documents (ramsDocuments)
+
+Fields: expiryDate, status, companyId, ramsIdRef
+Logic: status is already stored as valid / expiring / expired / pending_review
+Count: total, valid, expiring, expired
+Contractor worker inductions (contractorWorkers)
+
+Fields: inductionCompleted, inductionCompletedAt, siteInductionExpiryDate, firstName, lastName, companyId
+Logic: workers who have inductionCompleted = false OR whose siteInductionExpiryDate is in the past are non-compliant
+Count: total active workers (those who have visited in the last 12 months via contractorVisits), inducted, overdue
+Staff Right to Work (staff)
+
+Fields: rightToWorkExpiryDate, firstName, lastName, department
+Logic: expired = past expiry. Expiring = within 30 days. No date set = ignore (not tracked)
+Count: tracked, compliant, expiring, expired
+Compliance certificates (complianceCertificates, joined with complianceCertificateTypes)
+
+Fields: expiryDate, status, certificateTypeId
+Logic: status = 'current' and expiry > 30 days = compliant. Expiry ≤ 30 days = expiring. status = 'expired' or expiry past = expired
+Count: total, compliant, expiring, expired
+PPM work orders (ppmWorkOrders)
+
+Fields: status, dueDate, title, assetId
+Logic: status = 'overdue' = non-compliant. status = 'scheduled' and dueDate within 7 days = due soon
+Count: total open, overdue, due this week
+Fire Risk Assessments (fireRiskAssessments)
+
+Fields: status, assessmentDate, reviewDate, title
+Logic: status = 'overdue' = critical. status = 'review_due' = warning. status = 'current' = compliant
+Return: list of assessments with their status
+Permit to Work (permitToWork)
+
+Fields: status, expiresAt, permitType, title
+Logic: permits where status = 'active' and expiresAt is within 24 hours need attention. Permits where status = 'expired' and were never closed properly are flagged
+Return: count of active permits, any expiring today
+H&S Incidents (hsIncidents)
+
+Fields: incidentDate, riddorRequired, riddorDeadline, incidentType
+Logic: if riddorRequired = true and riddorDeadline is in the past and no HSE reference recorded, flag as overdue RIDDOR
+Return: incidents in last 30 days count, overdue RIDDOR count
+Staff Training (via hrTraining records — look for the training records table; it will be in the schema near other HR tables. Check for trainingRecords or similar. If it's called something else, use the equivalent)
+
+Look for workerCompetencies or similar tables tracking staff training
+Logic: expired training = non-compliant
+Scoring algorithm
+Calculate an overall Compliance Score from 0–100 using weighted percentages. Each category gets a category score (0–100) first, then the weighted average is taken.
+
+Category	Weight
+Contractor Insurance	20%
+RAMS Documents	15%
+Contractor Inductions	15%
+Compliance Certificates	15%
+PPM / Maintenance	15%
+Fire Risk Assessment	10%
+Staff Right to Work	10%
+Category score formula:
+
+categoryScore = (compliant / total) * 100
+Where total includes all items in that category. If total = 0, treat the category as 100 (no items = not applicable, don't penalise).
+
+For PPM: compliant = total - overdue. Each overdue work order counts against the score.
+
+Overall score:
+
+overallScore = sum(categoryScore * weight) for each category
+Round to nearest integer.
+
+Risk band:
+
+Score 90–100: green ("Good Standing")
+Score 70–89: amber ("Attention Required")
+Score 50–69: orange ("At Risk")
+Score 0–49: red ("Critical")
+Critical issues list
+Build a flat array of critical issues. An issue is critical if any of the following are true:
+
+Any contractor's Public Liability or Employers Liability insurance is expired
+Any RAMS document has status = 'expired'
+Any contractor worker's site induction is expired (not just incomplete — past the expiry date)
+Any compliance certificate has status = 'expired'
+Any PPM work order has status = 'overdue'
+Any Fire Risk Assessment has status = 'overdue'
+Any RIDDOR-required incident has a missed deadline
+Any staff member's Right to Work has expired
+Each issue in the array should have:
+
+{
+  id: string,
+  category: string,        // e.g. "Contractor Insurance"
+  severity: "critical" | "warning",
+  title: string,           // Short human-readable description
+  detail: string,          // e.g. "Acme Building Ltd — Public Liability expired 3 Jan 2026"
+  daysOverdue?: number,    // If applicable
+  linkPath?: string        // e.g. "/contractors/abc-123" if we know the ID
+}
+Warnings (not critical, but in the list):
+
+Insurance expiring within 30 days
+RAMS expiring within 30 days
+Compliance cert expiring within 30 days
+PPM due within 7 days
+FRA review due
+Response shape
+The endpoint returns:
+
+{
+  overallScore: number,           // 0–100
+  riskBand: "green" | "amber" | "orange" | "red",
+  riskLabel: string,              // "Good Standing" etc
+  calculatedAt: string,           // ISO timestamp
+  
+  categories: {
+    contractorInsurance: { total: number, compliant: number, expiring: number, expired: number, score: number },
+    rams: { total: number, compliant: number, expiring: number, expired: number, score: number },
+    inductions: { total: number, compliant: number, overdue: number, score: number },
+    complianceCerts: { total: number, compliant: number, expiring: number, expired: number, score: number },
+    ppm: { total: number, compliant: number, overdue: number, dueSoon: number, score: number },
+    fireRiskAssessment: { total: number, current: number, reviewDue: number, overdue: number, score: number },
+    staffRightToWork: { tracked: number, compliant: number, expiring: number, expired: number, score: number }
+  },
+  
+  criticalIssues: CriticalIssue[],   // All critical items
+  warnings: CriticalIssue[],          // All warning items
+  
+  topContractorRisks: Array<{          // Top 5 riskiest contractor companies
+    id: string,
+    name: string,
+    issueCount: number,
+    issues: string[]                   // Short descriptions of their specific issues
+  }>,
+  
+  expiryTimeline: Array<{              // Items expiring in next 90 days, sorted by date
+    date: string,                      // ISO date
+    category: string,
+    item: string,
+    daysUntilExpiry: number
+  }>
+}
+Register the route in server/routes/index.ts using the same pattern as the other route registrations.
+
+Step 3 — Create the client page
+Create client/src/pages/ComplianceDashboard.tsx.
+
+Data fetching
+const { data, isLoading } = useQuery({
+  queryKey: ["/api/compliance-dashboard"],
+  refetchInterval: 5 * 60 * 1000  // refresh every 5 minutes
+});
+Page layout
+The page has four sections stacked vertically:
+
+Section 1 — Overall Score Hero
+
+A prominent card at the top of the page showing:
+
+The overall compliance score as a large number (e.g. "87")
+A circular or arc progress indicator coloured by risk band (green/amber/orange/red)
+The risk band label ("Attention Required")
+Last calculated timestamp ("Updated just now" / "Updated 3 mins ago")
+A subtitle: "Based on [N] compliance checks across your site"
+Use the ACS brand colour #2460A9 as the base colour when score is green. Use standard Tailwind amber/orange/red for other bands.
+
+Section 2 — Category Score Cards
+
+A responsive grid (3 columns on desktop, 2 on tablet, 1 on mobile) showing one card per compliance category.
+
+Each card shows:
+
+Category name
+Category score as a percentage with a thin horizontal progress bar
+Key stat line (e.g. "2 of 8 expired" or "All 12 compliant")
+Status dot (green/amber/red)
+A small link to the relevant module (e.g. "View Contractors →" linking to /contractors)
+Categories and their links:
+
+Contractor Insurance → /contractors
+RAMS Documents → /contractors
+Contractor Inductions → /contractors
+Compliance Certificates → /compliance-certificates
+PPM / Maintenance → /ppm
+Fire Risk Assessment → /fire-risk-assessment
+Staff Right to Work → /hr
+Section 3 — Critical Issues & Warnings
+
+Two collapsible panels side by side (or stacked on mobile):
+
+Critical Issues panel (red border, red header)
+
+Shows count badge: "3 Critical Issues"
+Lists each critical issue with: icon, title, detail line, days overdue if applicable
+If zero critical issues: show a green "No critical issues" state with a tick icon
+Warnings panel (amber border, amber header)
+
+Shows count badge: "5 Warnings"
+Lists each warning with: icon, title, detail line
+If zero warnings: show "No warnings" state
+Both panels are scrollable if there are many items. Cap visible items at 8 with a "Show all X" expand button.
+
+Section 4 — Expiry Timeline
+
+A timeline list showing everything expiring in the next 90 days, sorted ascending by date.
+
+Each row:
+
+Date chip (e.g. "12 Jun 2026")
+Category badge (colour coded)
+Item name
+Days until expiry (e.g. "18 days")
+Group by week: "This week", "Next week", "This month", "Next month", "In 60–90 days"
+
+If empty: show "Nothing expiring in the next 90 days" with a green tick.
+
+Section 5 — Top Contractor Risks (only show if there are any)
+
+A small table or list showing the top 5 riskiest contractor companies with their issue count and a summary of what's wrong with each one.
+
+Columns: Company name | Issues | Details
+
+Help panel
+Follow the pattern used in other pages (e.g. PPM.tsx, ComplianceCertificateRegister.tsx) — there's a HelpPanel / help button component. Add a help panel explaining what the Compliance Intelligence Dashboard does and how the score is calculated.
+
+Step 4 — Wire up routing
+In server/routes/index.ts:
+Import and register registerComplianceDashboardRoutes.
+
+In client/src/App.tsx:
+
+import ComplianceDashboard from "@/pages/ComplianceDashboard";
+// Inside the Router:
+<Route path="/compliance-dashboard" component={ComplianceDashboard} />
+In client/src/components/Layout.tsx:
+Add to the navItems array (near the top, right after the Dashboard entry):
+
+{ path: "/compliance-dashboard", icon: ShieldCheck, label: "Compliance Score", featureKey: "featureComplianceDashboard", defaultOn: true }
+ShieldCheck is already imported in lucide — use it. If there's a conflict with the existing Compliance Register item that also uses ShieldCheck, use BarChart3 for this new item instead.
+
+Step 5 — System settings toggle
+In client/src/pages/settings/SystemSettings.tsx, add a toggle for featureComplianceDashboard following the exact same pattern as the other feature toggles on that page (e.g. the featureComplianceCertificates toggle).
+
+Label: "Compliance Intelligence Dashboard"
+Description: "Overall compliance score, risk analysis, and expiry intelligence across all modules"
+
+Important implementation notes
+Do not crash if a module has no data. If a customer hasn't used PPM yet, ppmWorkOrders will return zero rows. Treat any category with zero records as score = 100 (N/A, not a penalty). The total = 0 check in the category score formula handles this.
+Performance. This endpoint queries multiple tables. Run the queries in parallel using Promise.all. Do not run them sequentially.
+Dates. All expiry dates stored in the database may be either timestamp (JavaScript Date) or text (ISO string). Handle both. Use new Date(expiryDate) and compare to new Date(). A date is "expiring soon" if it's within 30 days from today and still in the future.
+The score should feel honest. If a customer has 10 expired insurance certificates, the score should drop significantly. Don't over-weight the "no data = 100" default — only apply it when a category genuinely has zero records, not when records exist but are all expired.
+Error handling. If any individual category query fails (e.g. the table hasn't been provisioned for an older customer), catch the error, log it with logger.warn, and treat that category as score = 100 with { total: 0 } so the rest of the page still loads.
+The topContractorRisks calculation. For each contractor company, count how many issues they have across insurance, RAMS, and worker inductions. Sort descending by issue count. Return top 5.
+Styling. Follow the existing style patterns exactly. Use the GlassCard component where appropriate. Use cn() for conditional class names. Match the colour conventions used in ComplianceCertificateRegister.tsx for status badges.
+What this feature does NOT include (out of scope for this build)
+No AI / Claude integration (that's a separate feature)
+No historical trend charts (future phase)
+No per-site filtering (requires Multi-Site architecture, not yet built)
+No email scheduling or export (separate feature)
+No edit functionality — this is a read-only intelligence view
+Definition of done
+/compliance-dashboard loads without errors
+Overall score displays correctly with risk band colour
+All 7 category cards display with accurate data from the live database
+Critical issues list populates correctly (shows zero state if none)
+Expiry timeline shows items sorted by date
+Feature toggle in System Settings controls visibility
+Nav item appears and links correctly
+Page is responsive (works on mobile and desktop)
+No TypeScript errors
+No console errors

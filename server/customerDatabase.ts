@@ -361,6 +361,11 @@ export class CustomerDatabaseService {
     } catch (err: any) {
       logger.warn(`⚠️ feature_fire_risk_assessment column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_compliance_dashboard BOOLEAN DEFAULT true`);
+    } catch (err: any) {
+      logger.warn(`⚠️ feature_compliance_dashboard column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
 
     // Ensure PPM tables exist (PPM module migration)
     try {
