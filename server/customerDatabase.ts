@@ -1095,6 +1095,58 @@ export class CustomerDatabaseService {
     }
     // ─── END AUDIT ENGINE TABLES ──────────────────────────────────────────────
 
+    // ─── RA BUILDER TABLES ────────────────────────────────────────────────────
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".ra_builder_assessments (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          title TEXT NOT NULL,
+          ra_type TEXT NOT NULL DEFAULT 'general',
+          status TEXT NOT NULL DEFAULT 'draft',
+          task_description TEXT,
+          location TEXT,
+          department TEXT,
+          prepared_by TEXT,
+          reviewed_by TEXT,
+          approved_by TEXT,
+          assessment_date TEXT,
+          next_review_date TEXT,
+          type_metadata TEXT DEFAULT '{}',
+          notes TEXT,
+          linked_rams_document_id VARCHAR,
+          created_at TIMESTAMP DEFAULT NOW(),
+          updated_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".ra_builder_hazards (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          assessment_id VARCHAR NOT NULL REFERENCES "${schemaName}".ra_builder_assessments(id) ON DELETE CASCADE,
+          hazard_description TEXT NOT NULL,
+          affected_persons TEXT,
+          existing_controls TEXT,
+          likelihood INTEGER NOT NULL DEFAULT 3,
+          severity INTEGER NOT NULL DEFAULT 3,
+          risk_rating INTEGER NOT NULL DEFAULT 9,
+          additional_controls TEXT,
+          residual_likelihood INTEGER DEFAULT 2,
+          residual_severity INTEGER DEFAULT 2,
+          residual_risk_rating INTEGER DEFAULT 4,
+          action_by TEXT,
+          action_date TEXT,
+          action_status TEXT DEFAULT 'open',
+          sort_order INTEGER NOT NULL DEFAULT 0,
+          created_at TIMESTAMP DEFAULT NOW()
+        )
+      `);
+      // Feature flag column
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_ra_builder BOOLEAN DEFAULT false`);
+      logger.info(`✅ RA Builder tables ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ RA Builder table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+    // ─── END RA BUILDER TABLES ────────────────────────────────────────────────
+
     // Ensure site induction + AI/video + QR + CLUe columns on company_settings
     try {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS site_address TEXT`);

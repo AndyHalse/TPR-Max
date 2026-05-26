@@ -38,6 +38,7 @@ import { registerHrPayrollRoutes } from './hrPayroll';
 import { registerHrDashboardRoutes } from './hrDashboard';
 import { registerComplianceDashboardRoutes } from './complianceDashboard';
 import { registerAuditEngineRoutes } from './auditEngine';
+import { registerRaBuilderRoutes } from './raBuilder';
 import { registerHrDbsRoutes } from './hrDbs';
 import { registerSsoRoutes } from './sso';
 import { registerVisitReasonRoutes } from './visitReasons';
@@ -74,6 +75,7 @@ export async function registerSplitRoutes(
   registerComplianceDashboardRoutes(app);
   registerPermitToWorkRoutes(app);
   registerAuditEngineRoutes(app);
+  registerRaBuilderRoutes(app);
   registerHrStaffRoutes(app);
   registerHrRightToWorkRoutes(app);
   registerHrTrainingRoutes(app);

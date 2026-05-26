@@ -1,0 +1,464 @@
+Replit Prompt — Risk Assessment Builder
+What we're building
+A new module called the Risk Assessment Builder at route /ra-builder.
+
+This is an authoring tool — not a document upload system. The existing RAMS module already handles uploading, tracking, approving, and version-controlling PDF/Word RAMS documents that contractors submit. This is the complementary tool that lets users write risk assessments directly inside TPR Max, with structured hazard rows, risk scoring, and AI-suggested control measures.
+
+When a risk assessment is completed and approved in the builder, it automatically creates a record in the existing RAMS document register (ramsDocuments table), completing the full lifecycle: author → review → approve → RAMS library.
+
+Six assessment types are supported: General, COSHH, Manual Handling, Working at Height, Lone Working, DSE.
+
+Codebase context
+TypeScript full-stack application:
+
+Server: Express.js, Drizzle ORM, PostgreSQL (isolated per-customer schema)
+Client: React, Wouter routing, TanStack Query, Tailwind CSS, shadcn/ui, Lucide icons
+Auth: requireAuth middleware, req.customerId on authenticated requests
+Customer DB pattern: const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId) → const custDb = await customerDbService.getCustomerDatabase(context.customerId)
+Schema file: server/isolatedSchema.ts
+Routes index: server/routes/index.ts
+AI pattern: Claude API key is retrieved from customerApiKeys table where serviceType = 'claude' and status = 'active'. Decrypt with decryptData(row.encryptedKey, row.initializationVector, row.authTag || ''). See server/routes/induction.ts lines 1691–1716 for the exact pattern.
+Follow patterns from:
+
+Server: server/routes/ppm.ts (route structure, error handling, feature gate)
+Client page: client/src/pages/FireRiskAssessment.tsx (list + create/edit dialog pattern)
+Tooltips: client/src/pages/PermitToWork.tsx — uses Tooltip, TooltipContent, TooltipProvider, TooltipTrigger from @/components/ui/tooltip. Wrap the page in a single <TooltipProvider> at the top level.
+Print/export: client/src/components/PpmAnnualPlanner.tsx — window.print() with @media print CSS
+Step 1 — Database schema
+Add these tables to server/isolatedSchema.ts at the end, before the final insert schema block.
+
+raBuilderAssessments
+export const raBuilderAssessments = pgTable("ra_builder_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  raType: text("ra_type").notNull().default("general"),
+  // raType values: general | coshh | manual_handling | working_at_height | lone_working | dse
+  status: text("status").notNull().default("draft"),
+  // status values: draft | review | approved | archived
+  taskDescription: text("task_description"),
+  location: text("location"),
+  department: text("department"),
+  preparedBy: text("prepared_by"),
+  reviewedBy: text("reviewed_by"),
+  approvedBy: text("approved_by"),
+  assessmentDate: text("assessment_date"),       // ISO date YYYY-MM-DD
+  nextReviewDate: text("next_review_date"),       // ISO date YYYY-MM-DD
+  // Type-specific metadata — stored as JSON text
+  // General: {} (no extra fields)
+  // COSHH: { substanceName, casNumber, sdsRef, form, exposureRoutes[], welReference, quantity, frequency }
+  // Manual Handling: { loadDescription, approxWeightKg, dimensions, frequency, distanceCarried, postureIssues }
+  // Working at Height: { maxHeightMetres, accessEquipment, surfaceType, rescuePlan }
+  // Lone Working: { workLocation, workDuration, checkInIntervalMins, emergencyContactName, emergencyContactPhone, communicationMethod }
+  // DSE: { assesseeName, workstationLocation, displayType, seatingNotes, keyboardMouse, lighting, environment, eyeTestStatus }
+  typeMetadata: text("type_metadata").default("{}"),
+  notes: text("notes"),
+  // Link back to the RAMS document created on approval
+  linkedRamsDocumentId: varchar("linked_rams_document_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertRaBuilderAssessmentSchema = createInsertSchema(raBuilderAssessments).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertRaBuilderAssessment = z.infer<typeof insertRaBuilderAssessmentSchema>;
+export type RaBuilderAssessment = typeof raBuilderAssessments.$inferSelect;
+raBuilderHazards
+export const raBuilderHazards = pgTable("ra_builder_hazards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assessmentId: varchar("assessment_id").notNull().references(() => raBuilderAssessments.id, { onDelete: "cascade" }),
+  hazardDescription: text("hazard_description").notNull(),
+  affectedPersons: text("affected_persons"),
+  // e.g. "Employees, Contractors, Members of public"
+  existingControls: text("existing_controls"),
+  likelihood: integer("likelihood").notNull().default(3),        // 1–5
+  severity: integer("severity").notNull().default(3),             // 1–5
+  riskRating: integer("risk_rating").notNull().default(9),        // likelihood × severity
+  additionalControls: text("additional_controls"),
+  residualLikelihood: integer("residual_likelihood").default(2),  // 1–5
+  residualSeverity: integer("residual_severity").default(2),      // 1–5
+  residualRiskRating: integer("residual_risk_rating").default(4), // residual L × residual S
+  actionBy: text("action_by"),
+  actionDate: text("action_date"),                                // ISO date
+  actionStatus: text("action_status").default("open"),            // open | completed
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRaBuilderHazardSchema = createInsertSchema(raBuilderHazards).omit({ id: true, createdAt: true });
+export type InsertRaBuilderHazard = z.infer<typeof insertRaBuilderHazardSchema>;
+export type RaBuilderHazard = typeof raBuilderHazards.$inferSelect;
+Feature flag in companySettings
+Near line 503 alongside the other feature flags:
+
+featureRaBuilder: boolean("feature_ra_builder").default(false),
+Step 2 — Server routes
+Create server/routes/raBuilder.ts. Export registerRaBuilderRoutes(app: Express).
+
+Add a feature gate at the top (exactly like the requirePPMFeature pattern in ppm.ts):
+
+const requireRaBuilderFeature = async (req: any, res: any, next: any) => {
+  try {
+    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featureRaBuilder) {
+      return res.status(403).json({ error: 'Risk Assessment Builder is not enabled for your account.' });
+    }
+    next();
+  } catch (error) { next(error); }
+};
+Apply requireAuth, requireRaBuilderFeature to all /api/ra-builder/* routes.
+
+Assessments CRUD
+GET    /api/ra-builder/assessments              — list all, ordered by updatedAt desc
+POST   /api/ra-builder/assessments              — create new assessment
+GET    /api/ra-builder/assessments/:id          — get assessment with all hazards
+PUT    /api/ra-builder/assessments/:id          — update assessment metadata + typeMetadata
+DELETE /api/ra-builder/assessments/:id          — delete (cascades to hazards)
+POST   /api/ra-builder/assessments/:id/approve  — set status = approved, set approvedAt
+POST   /api/ra-builder/assessments/:id/archive  — set status = archived
+POST /api/ra-builder/assessments/:id/approve — this endpoint does three things:
+
+Sets status = 'approved', approvedBy = req.user.username
+Creates a new record in the ramsDocuments table (in isolatedSchema) automatically:
+documentName = assessment title + " (RA Builder)"
+ramsIdRef = "RA-" + first 8 chars of assessment id
+documentUrl = /ra-builder/assessments/${id}/print (a link to the print view)
+expiryDate = nextReviewDate from the assessment (or 12 months from now if not set)
+status = 'valid'
+workCategory = the raType value (map: general→general, working_at_height→working_at_height, etc.)
+jobDescription = taskDescription
+siteLocation = location
+Sets linkedRamsDocumentId on the assessment to the new RAMS document id
+Returns the updated assessment
+Hazards CRUD
+GET    /api/ra-builder/assessments/:id/hazards           — list hazards for this assessment (ordered by sortOrder)
+POST   /api/ra-builder/assessments/:id/hazards           — add a hazard row
+PUT    /api/ra-builder/assessments/:id/hazards/:hazardId — update hazard
+DELETE /api/ra-builder/assessments/:id/hazards/:hazardId — delete hazard
+POST   /api/ra-builder/assessments/:id/hazards/reorder   — update sortOrder for all hazards (body: array of { id, sortOrder })
+For POST and PUT hazard routes, automatically calculate riskRating = likelihood * severity and residualRiskRating = residualLikelihood * residualSeverity server-side before saving.
+
+AI suggest controls
+POST   /api/ra-builder/suggest-controls
+Body:
+
+{
+  raType: string,           // "general" | "coshh" | etc.
+  hazardDescription: string,
+  taskDescription?: string,
+  existingControls?: string
+}
+This endpoint:
+
+Checks the customer has a Claude API key in customerApiKeys where serviceType = 'claude' and status = 'active'
+If no key found, returns { error: 'no_api_key', message: 'No Claude API key configured in Settings > AI' }
+Decrypts the key with decryptData(row.encryptedKey, row.initializationVector, row.authTag || '')
+Calls Claude with claude-3-5-sonnet-20241022, max_tokens 512
+System prompt:
+
+You are a UK Health & Safety compliance expert. Given a hazard description and task context, suggest practical control measures based on the hierarchy of controls: Elimination, Substitution, Engineering Controls, Administrative Controls, PPE. Return ONLY a JSON array of control measure strings. No markdown, no explanation, no numbering. Return 4–6 specific, practical suggestions.
+User message:
+
+Assessment type: ${raType}
+Task: ${taskDescription || 'Not specified'}
+Hazard: ${hazardDescription}
+Existing controls already in place: ${existingControls || 'None stated'}
+Suggest additional control measures.
+Parse the JSON array from the response, stripping any markdown fences
+Return { suggestions: string[] }
+If the Claude call fails or the API key is invalid, return { error: 'ai_failed', message: string } — never throw a 500 for AI failures.
+
+Step 3 — Register routes
+In server/routes/index.ts:
+
+import { registerRaBuilderRoutes } from './raBuilder';
+// Inside registerSplitRoutes:
+registerRaBuilderRoutes(app);
+Step 4 — Client page
+Create client/src/pages/RaBuilder.tsx.
+
+Import at the top:
+
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+Wrap the entire page return in a single <TooltipProvider>.
+
+Page structure
+The page has two modes controlled by showEditor state:
+
+showEditor = false — List view
+showEditor = true — Editor view (replaces the list, full-page)
+List view
+Header row: "Risk Assessment Builder" title, "New Assessment" button.
+
+Filter bar: status filter (All / Draft / Review / Approved / Archived), RA type filter, search input.
+
+Each assessment renders as a GlassCard with:
+
+RA type badge (colour-coded — see below)
+Status badge (colour-coded)
+Title (bold)
+Prepared by and assessment date (smaller text)
+Task description truncated to 80 chars
+Hazard count (e.g. "4 hazards")
+Highest risk rating — show the highest riskRating across all hazards as a coloured pill. Fetch this from the hazard list.
+"Edit" button — opens editor mode with this assessment loaded
+"Print / Export" button — opens print view (see Step 5)
+"Delete" button — with confirmation
+RA type badge colours:
+
+General → blue
+COSHH → purple
+Manual Handling → orange
+Working at Height → red
+Lone Working → amber
+DSE → teal
+Editor view
+When showEditor = true, replace the list entirely with the editor. Show a "← Back to Assessments" link at the top that sets showEditor = false.
+
+The editor has four sections, displayed vertically on a single scrollable page with a sticky "Save Draft" button in the top-right corner.
+
+Auto-save: Debounce all field changes by 800ms. On each debounce fire, silently call PUT /api/ra-builder/assessments/:id. Show a small "Saving…" / "Saved" indicator next to the Save button. This means users never lose data.
+
+Section 1 — Assessment Details
+
+A GlassCard with a form grid (2 columns on desktop, 1 on mobile):
+
+Field	Type	Notes
+Assessment Title	text input	Required
+Assessment Type	select	See types below
+Status	select	Draft / Under Review / Approved / Archived
+Task / Activity Description	textarea	What work is being assessed
+Location / Area	text input	
+Department	text input	
+Assessment Date	date input	
+Next Review Date	date input	
+Prepared By	text input	
+Reviewed By	text input	
+Approved By	text input	Greyed out unless status = Approved
+Notes	textarea	Optional general notes
+When Assessment Type is changed, show Section 1b (type-specific fields) below. Add a <Tooltip> on the Assessment Type label:
+
+<TooltipContent>
+  Choose the type that best matches your activity. Each type has its own structured fields. 
+  Working at Height, COSHH and Manual Handling types are legally distinct assessment categories 
+  under UK H&S regulations.
+</TooltipContent>
+Section 1b — Type-Specific Fields
+
+Only visible when raType !== 'general'. Shows a GlassCard with fields specific to the selected type. These map to typeMetadata JSON.
+
+COSHH:
+
+Substance Name (text)
+CAS Number (text) — Tooltip: "Chemical Abstracts Service registry number. Found on the Safety Data Sheet (SDS). Used to identify the exact substance."
+Safety Data Sheet Ref (text)
+Physical Form (select: Solid / Liquid / Gas / Dust / Aerosol / Vapour / Mist)
+Routes of Exposure (multi-checkbox: Inhalation / Skin contact / Eye contact / Ingestion)
+WEL Reference (text) — Tooltip: "Workplace Exposure Limit — the legal maximum airborne concentration under EH40. Leave blank if no WEL applies."
+Quantity Used / Stored (text)
+Frequency of Use (select: Daily / Weekly / Monthly / Occasional / One-off)
+Manual Handling:
+
+Load Description (text)
+Approximate Weight (text + "kg" label)
+Dimensions (text, e.g. "1.2m × 0.6m")
+Frequency of Task (select: Constant / Frequent / Occasional / Rare)
+Distance Carried (text, e.g. "10m")
+Posture Issues (textarea, e.g. "Requires bending, no mechanical aid available") — Tooltip: "Awkward postures — bending, twisting, reaching — significantly increase manual handling risk. Note any here."
+Working at Height:
+
+Maximum Working Height (text + "metres" label) — Tooltip: "Any work where a person could fall and be injured is 'work at height' under the WAH Regulations 2005, including work at or below ground level."
+Access Equipment (select: Ladder / Step Ladder / Podium Steps / Scaffold / Mobile Scaffold Tower / MEWP / Roof Access / Other)
+Surface / Ground Type (text, e.g. "Flat concrete, outdoor")
+Emergency Rescue Plan (textarea) — Tooltip: "A rescue plan must be in place before work at height begins. Include how a fallen worker would be recovered."
+Lone Working:
+
+Work Location (text)
+Expected Work Duration (text, e.g. "2–4 hours")
+Check-in Interval (number input + "minutes" label) — Tooltip: "How often the lone worker must confirm they are safe. TPR Max Lone Worker module can automate this."
+Emergency Contact Name (text)
+Emergency Contact Phone (text)
+Communication Method (select: Mobile phone / Radio / Satellite phone / None — remote area)
+DSE (Display Screen Equipment):
+
+Assesseee Name (text)
+Workstation Location (text)
+Display Type (select: Desktop monitor / Laptop / Tablet / Dual screen)
+Seating Notes (textarea, e.g. "Height-adjustable chair, lumbar support adequate")
+Keyboard & Mouse (textarea)
+Lighting Conditions (textarea)
+Environmental Notes (textarea, e.g. "No significant noise, good ventilation")
+Eye Test Status (select: Up to date / Due / Not applicable)
+Section 2 — Hazard & Control Measures Table
+
+The core of the RA Builder. This is a GlassCard containing:
+
+Header: "Hazard Register" + "Add Hazard" button.
+
+Each hazard row renders as an expandable card (not a table row — tables don't work well on mobile). Collapsed state shows: hazard summary, risk rating pill, residual risk rating pill. Expanded state shows all fields.
+
+Collapsed hazard card:
+
+Row number (drag handle or up/down arrows for reordering)
+Hazard description (truncated)
+Risk rating pill: coloured by band (see below), shows "12 — High"
+Residual risk rating pill
+Expand / Edit / Delete buttons
+Expanded hazard card (edit mode):
+
+Fields — 2 columns on desktop, 1 on mobile:
+
+Field	Input	Tooltip
+Hazard Description	textarea	"Describe what could cause harm — not the harm itself. E.g. 'Trailing cables' not 'Trip hazard'."
+Who is Affected	text input	"List all groups at risk: employees, contractors, visitors, members of the public."
+Existing Controls	textarea	"Controls already in place before any additional action. Include procedures, training, equipment already used."
+Likelihood (before)	1–5 selector	"1 = Very Unlikely, 2 = Unlikely, 3 = Possible, 4 = Likely, 5 = Almost Certain"
+Severity (before)	1–5 selector	"1 = Negligible, 2 = Minor injury (first aid), 3 = Major injury (RIDDOR), 4 = Multiple serious injuries, 5 = Fatality"
+Risk Rating	auto-calculated pill	"Likelihood × Severity. Low: 1–4 (green), Medium: 5–9 (amber), High: 10–14 (orange), Very High: 15–25 (red)."
+Additional Controls Required	textarea (+ AI Suggest button)	"New controls that must be implemented. Follow the hierarchy: Eliminate → Substitute → Engineer → Admin → PPE."
+Residual Likelihood (after controls)	1–5 selector	"Expected likelihood once all additional controls are in place."
+Residual Severity (after controls)	1–5 selector	"Expected severity once all additional controls are in place."
+Residual Risk Rating	auto-calculated pill	"Target: bring Very High and High risks down to Medium or Low through your controls."
+Action By	text input	"Name of person responsible for implementing the additional controls."
+Action Due Date	date input	
+Risk rating colour bands (apply to both the pill and the auto-calculated display):
+
+1–4: Low → green (bg-green-100 text-green-800)
+5–9: Medium → amber (bg-amber-100 text-amber-800)
+10–14: High → orange (bg-orange-100 text-orange-800)
+15–25: Very High → red (bg-red-100 text-red-800)
+AI Suggest Controls button sits inline next to the "Additional Controls Required" textarea. Style it as a small secondary button with a Sparkles icon from lucide.
+
+Tooltip on the AI button:
+
+"Uses Claude AI to suggest control measures based on your hazard description. 
+Requires a Claude API key configured in Settings > AI."
+On click:
+
+Show loading spinner on the button
+POST to /api/ra-builder/suggest-controls with { raType, hazardDescription, taskDescription, existingControls }
+If error: 'no_api_key' → show a small inline message: "No Claude API key configured. Add one in Settings > AI to use AI suggestions."
+If success → show the suggestions in a small panel below the textarea with a list of chips/badges. Each chip has a "+" button. Clicking "+" appends that suggestion to the Additional Controls textarea (with a line break if there's already text).
+The suggestion panel stays visible until the user dismisses it or closes the hazard card.
+Add Hazard button appends a new blank hazard card in expanded/edit mode and auto-focuses the first field.
+
+Reordering: Up/down arrow buttons on each hazard card. On click, swap sortOrder values and PUT the updated hazards. No drag-and-drop required.
+
+Section 3 — Risk Summary
+
+A GlassCard showing a read-only summary calculated from all hazards in state:
+
+Total hazards: N
+Before controls: X Very High, Y High, Z Medium, W Low
+After controls: X Very High, Y High, Z Medium, W Low
+A simple bar showing the residual risk distribution
+A tooltip on the "Risk Summary" heading:
+
+"A well-controlled assessment should show all Very High and High risks reduced to 
+Medium or Low once additional controls are applied."
+Section 4 — Sign-Off
+
+A GlassCard with:
+
+Status selector (Draft / Under Review / Approved)
+"Approve & Publish to RAMS Library" button — only shown when status = Approved and linkedRamsDocumentId is null
+On click: POST to /api/ra-builder/assessments/:id/approve
+On success: show a toast "Assessment approved and added to RAMS library" and update the linkedRamsDocumentId in local state
+Show a link: "View in RAMS Register →" that opens the RAMS management tab (link to /contractors?tab=rams or similar)
+If already published: show a "Published to RAMS library" badge with the linked document name and a "View" link
+Tooltip on the "Approve & Publish" button:
+
+"Approving this assessment will automatically create a record in the RAMS 
+document library and link it to the relevant contractor company if applicable."
+Step 5 — Print / Export view
+Create a separate server-rendered or client-rendered print view. The simplest approach:
+
+Add a showPrintView state. When showPrintView = true, render a print-optimised layout over the full page:
+
+<div className="print-ra-document">
+  {/* Company name, logo */}
+  {/* Assessment title, type, date, location */}
+  {/* Type-specific metadata section */}
+  {/* Hazard table: one row per hazard with all fields */}
+  {/* Sign-off section */}
+</div>
+Use @media print CSS (inline <style> tag) to:
+
+Hide all navigation, buttons, and non-document content
+Display the print layout full-width
+Set appropriate font sizes (10pt body, 12pt headings)
+Show page breaks between sections if needed
+Add a "Print / Export PDF" button (with Printer icon) that:
+
+Sets showPrintView = true
+Calls window.print() immediately after a 100ms delay (to let React render)
+Sets showPrintView = false in the afterprint event handler (or a 3s fallback timeout)
+Follow the exact same pattern used in PpmAnnualPlanner.tsx for this.
+
+Step 6 — Wire up routing
+In client/src/App.tsx:
+
+import RaBuilder from "@/pages/RaBuilder";
+// Inside the protected routes:
+<Route path="/ra-builder" component={RaBuilder} />
+In client/src/components/Layout.tsx:
+
+Add to navItems, after the Contractors entry:
+
+{ path: "/ra-builder", icon: FileEdit, label: "RA Builder", tooltip: "Risk Assessment Builder — author, review and approve risk assessments", featureKey: "featureRaBuilder", defaultOn: false }
+FileEdit is available in lucide-react. Import it if not already.
+
+Step 7 — System Settings toggle
+In client/src/pages/settings/SystemSettings.tsx, add a toggle for featureRaBuilder following the exact same pattern as the other module toggles.
+
+Label: "Risk Assessment Builder"
+Description: "Author, review, and approve risk assessments directly in TPR Max — General, COSHH, Manual Handling, Working at Height, Lone Working, and DSE"
+
+Tooltip reference — full list
+Every tooltip in the module. Use side="top" unless there's a reason not to. Use className="max-w-xs text-xs" on all TooltipContent.
+
+Location	Trigger	Tooltip text
+Assessment Type label	Info icon	"Choose the type that best matches your activity. Working at Height, COSHH and Manual Handling are legally distinct categories under UK H&S regulations."
+CAS Number field (COSHH)	Info icon	"Chemical Abstracts Service number. Found on the Safety Data Sheet. Uniquely identifies the substance."
+WEL Reference field (COSHH)	Info icon	"Workplace Exposure Limit — the legal maximum airborne concentration per EH40. Leave blank if no WEL applies."
+Routes of Exposure (COSHH)	Info icon	"Identify every way the substance can enter the body. A substance safe via skin contact may still be dangerous by inhalation."
+Posture Issues (Manual Handling)	Info icon	"Awkward postures — bending, twisting, reaching above shoulder height — significantly increase injury risk."
+Max Height (Working at Height)	Info icon	"Under WAH Regulations 2005, any work where a person could fall and be injured is 'work at height', including work below ground level."
+Rescue Plan (Working at Height)	Info icon	"A rescue plan must exist before work begins. Detail how an injured or fallen worker would be recovered."
+Check-in Interval (Lone Working)	Info icon	"TPR Max Lone Worker module automates check-ins. Link this assessment to a lone worker session for automated safety monitoring."
+Hazard Description field	Info icon	"Describe the source of harm, not the harm itself. 'Trailing cables' not 'trip hazard'. Be specific."
+Who is Affected field	Info icon	"List all groups: employees, contractors, visitors, members of the public, neighbouring workers."
+Existing Controls field	Info icon	"Controls already in place. Include: procedures, training completed, equipment already in use, supervision arrangements."
+Likelihood (1–5) selector	Info icon	"1 = Very Unlikely · 2 = Unlikely · 3 = Possible · 4 = Likely · 5 = Almost Certain"
+Severity (1–5) selector	Info icon	"1 = Negligible · 2 = Minor (first aid) · 3 = Major (RIDDOR reportable) · 4 = Multiple serious injuries · 5 = Fatality"
+Risk Rating pill	Hover on pill	"Risk Rating = Likelihood × Severity. Low 1–4 · Medium 5–9 · High 10–14 · Very High 15–25."
+Additional Controls field	Info icon	"Follow the hierarchy of controls: Eliminate the hazard → Substitute → Engineering controls → Administrative controls → PPE (last resort)."
+AI Suggest button	Hover on button	"Uses Claude AI to suggest control measures. Requires a Claude API key in Settings > AI."
+Risk Summary heading	Info icon	"A sound assessment should show all Very High and High pre-control ratings reduced to Medium or Low after controls are applied."
+Approve & Publish button	Hover on button	"Approving this assessment publishes it to the RAMS document library and creates an audit trail."
+Important implementation notes
+Risk rating is always calculated server-side. On POST and PUT to hazard endpoints, calculate riskRating = likelihood * severity and residualRiskRating = residualLikelihood * residualSeverity. Never trust the client-supplied value.
+Auto-save debounce. On the editor page, every field change should trigger a debounced save (800ms). Use useRef to hold the debounce timer. Only auto-save if the assessment already has an id (i.e. it's been created). For a brand new assessment, create it on first explicit "Save Draft" click. After creation, auto-save takes over.
+Type metadata is JSON. Store and retrieve typeMetadata as a JSON string. Parse it on load (JSON.parse(assessment.typeMetadata || '{}')), merge field changes into the parsed object, stringify on save. Do not use separate columns for each type's fields.
+AI suggestions are additive. When a user clicks a suggestion chip, append it to the existing additionalControls text — don't replace it. Add a newline separator if text already exists.
+No AI key = graceful degradation. If no Claude API key is configured, the AI Suggest button should be disabled (not hidden), with the tooltip making it clear why. Show opacity-50 cursor-not-allowed on the button.
+RAMS link on approval. The ramsDocuments table uses customerId (see shared/schema.ts line 1569). When creating the RAMS record on approval, use the customer context customerId. The ramsDocuments in isolatedSchema.ts does not have a customerId column — use whichever schema the customer's RAMS data is stored in. If the isolated schema version is used (the simpler one at isolatedSchema.ts line 1053), use custDb to insert. Check which one RAMSManagement.tsx queries — it uses /api/rams which is in server/routes/rams.ts. Look at how that route stores data to confirm which table and schema to write to.
+No drag-and-drop required. Up/down arrow reordering is sufficient and much simpler to build correctly.
+Print view. The print layout does not need to be beautiful — it needs to be complete and professional. A clean two-column header (company logo + document reference), followed by type-specific metadata section if applicable, then a proper hazard table with all columns, then the sign-off block.
+TypeScript. All interfaces defined at top of the client file. Types exported from schema. No loose any except the custDb instance.
+Error handling. Catch all errors in every route handler. Log with logger.error(). Return clean JSON errors.
+Definition of done
+/ra-builder loads and shows the list view without errors
+All six RA types can be created with their type-specific fields
+Hazards can be added, edited, reordered (up/down), and deleted
+Risk ratings auto-calculate and display with correct colour bands
+All tooltips render correctly on hover
+AI Suggest controls works when a Claude key is configured, degrades gracefully when not
+Auto-save fires during editing
+"Approve & Publish" creates a record in the RAMS document table
+Print view renders and window.print() fires correctly
+Feature toggle in System Settings controls nav visibility
+No TypeScript errors, no console errors
+Fully responsive
+The key thing to flag to your developer, Andy: the auto-save is non-negotiable. A risk assessment can have 10–15 hazard rows and take 30 minutes to complete. Without auto-save, one accidental browser navigation destroys all that work. The debounce pattern is straightforward — useRef timer, clear and reset on every change, fire the PUT after 800ms of no changes.
+
+The AI suggest button is the other feature worth testing carefully — specifically the graceful degradation when there's no Claude key, since not every customer will have one configured yet.

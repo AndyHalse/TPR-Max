@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame, Briefcase, ShieldCheck, ClipboardList, Activity, ClipboardCheck } from "lucide-react";
+import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, CalendarPlus, Calendar, Clock, Menu, X, HardHat, Video, Building2, UserCheck, Mail, Shield, ScrollText, Wrench, Ticket, AlertTriangle, Flame, Briefcase, ShieldCheck, ClipboardList, Activity, ClipboardCheck, FileEdit } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
@@ -240,6 +240,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/audits", icon: ClipboardCheck, label: "Audits & Inspections", tooltip: "Audit & Inspection Engine — safety, fire, vehicle, behavioural & environmental audits", featureKey: "featureAuditEngine", defaultOn: false },
     { path: "/compliance-certificates", icon: ShieldCheck, label: "Compliance Register", tooltip: "Compliance Certificate Register — EICR, gas safety, fire alarms, LOLER & more", featureKey: "featureComplianceCertificates", defaultOn: false },
     { path: "/permit-to-work", icon: ClipboardList, label: "Permit to Work", tooltip: "Permit-to-Work System — hot works, electrical isolation, confined space & more", featureKey: "featurePermitToWork", defaultOn: false },
+    { path: "/ra-builder", icon: FileEdit, label: "RA Builder", tooltip: "Risk Assessment Builder — author, review and approve risk assessments", featureKey: "featureRaBuilder", defaultOn: false },
     { path: "/helpdesk", icon: Ticket, label: "Help Desk", featureKey: "featureHelpDesk", defaultOn: false },
     { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw" },
     { path: "/reports", icon: FileText, label: "Reports", featureKey: "featureReports", defaultOn: true },

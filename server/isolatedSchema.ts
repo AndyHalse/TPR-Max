@@ -507,6 +507,7 @@ export const companySettings = pgTable("company_settings", {
   ptwAlertHour: integer("ptw_alert_hour").default(7),
   featureHrModule: boolean("feature_hr_module").default(true),
   featureAuditEngine: boolean("feature_audit_engine").default(false),
+  featureRaBuilder: boolean("feature_ra_builder").default(false),
   // Core navigation feature toggles — default ON
   featureDashboard: boolean("feature_dashboard").default(true),
   featureVisitors: boolean("feature_visitors").default(true),
@@ -2697,4 +2698,56 @@ export const auditCorrectiveActions = pgTable("audit_corrective_actions", {
 
 export const insertAuditCorrectiveActionSchema = createInsertSchema(auditCorrectiveActions).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertAuditCorrectiveAction = z.infer<typeof insertAuditCorrectiveActionSchema>;
+
+// ────────────────────────────────────────────────────────────────────────────
+// Risk Assessment Builder
+// ────────────────────────────────────────────────────────────────────────────
+
+export const raBuilderAssessments = pgTable("ra_builder_assessments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull(),
+  raType: text("ra_type").notNull().default("general"),
+  status: text("status").notNull().default("draft"),
+  taskDescription: text("task_description"),
+  location: text("location"),
+  department: text("department"),
+  preparedBy: text("prepared_by"),
+  reviewedBy: text("reviewed_by"),
+  approvedBy: text("approved_by"),
+  assessmentDate: text("assessment_date"),
+  nextReviewDate: text("next_review_date"),
+  typeMetadata: text("type_metadata").default("{}"),
+  notes: text("notes"),
+  linkedRamsDocumentId: varchar("linked_rams_document_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertRaBuilderAssessmentSchema = createInsertSchema(raBuilderAssessments).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertRaBuilderAssessment = z.infer<typeof insertRaBuilderAssessmentSchema>;
+export type RaBuilderAssessment = typeof raBuilderAssessments.$inferSelect;
+
+export const raBuilderHazards = pgTable("ra_builder_hazards", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  assessmentId: varchar("assessment_id").notNull().references(() => raBuilderAssessments.id, { onDelete: "cascade" }),
+  hazardDescription: text("hazard_description").notNull(),
+  affectedPersons: text("affected_persons"),
+  existingControls: text("existing_controls"),
+  likelihood: integer("likelihood").notNull().default(3),
+  severity: integer("severity").notNull().default(3),
+  riskRating: integer("risk_rating").notNull().default(9),
+  additionalControls: text("additional_controls"),
+  residualLikelihood: integer("residual_likelihood").default(2),
+  residualSeverity: integer("residual_severity").default(2),
+  residualRiskRating: integer("residual_risk_rating").default(4),
+  actionBy: text("action_by"),
+  actionDate: text("action_date"),
+  actionStatus: text("action_status").default("open"),
+  sortOrder: integer("sort_order").default(0).notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertRaBuilderHazardSchema = createInsertSchema(raBuilderHazards).omit({ id: true, createdAt: true });
+export type InsertRaBuilderHazard = z.infer<typeof insertRaBuilderHazardSchema>;
+export type RaBuilderHazard = typeof raBuilderHazards.$inferSelect;
 export type AuditCorrectiveAction = typeof auditCorrectiveActions.$inferSelect;

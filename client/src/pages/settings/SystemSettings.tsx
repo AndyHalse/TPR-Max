@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, Flame, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, ClipboardCheck, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2 } from "lucide-react";
+import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, FileEdit, Flame, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, ClipboardCheck, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2 } from "lucide-react";
 
 export default function SystemSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -1122,6 +1122,23 @@ export default function SystemSettings() {
           checked={currentSettings?.featurePermitToWork === true}
           onCheckedChange={(checked) => handleInputChange("featurePermitToWork", checked)}
           data-testid="toggle-permit-to-work"
+        />
+      </div>
+      {/* Risk Assessment Builder */}
+      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-emerald-100 rounded-lg">
+            <FileEdit className="w-5 h-5 text-emerald-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-fixed">Risk Assessment Builder</h4>
+            <p className="text-xs text-variable">Author, review, and approve risk assessments directly in TPR Max — General, COSHH, Manual Handling, Working at Height, Lone Working, and DSE</p>
+          </div>
+        </div>
+        <Switch
+          checked={currentSettings?.featureRaBuilder === true}
+          onCheckedChange={(checked) => handleInputChange("featureRaBuilder", checked)}
+          data-testid="toggle-ra-builder"
         />
       </div>
       {/* Audit & Inspection Engine */}
