@@ -80,6 +80,7 @@ import {
   HardDriveUpload,
   Accessibility,
   Network,
+  FileSearch2,
 } from "lucide-react";
 
 // Import ACS logo, screenshots and pricing image
@@ -135,6 +136,7 @@ export default function MarketingPage() {
           "fire-risk",
           "compliance-register",
           "permit-to-work",
+          "ra-builder",
         ].includes(hash)
       ) {
         setActiveTab(hash);
@@ -364,7 +366,7 @@ export default function MarketingPage() {
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-emerald-600">
                   <Zap className="h-3 w-3 mr-1" />
-                  22 Modules · One Platform
+                  23 Modules · One Platform
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-violet-600">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -412,6 +414,7 @@ export default function MarketingPage() {
                   "Time & Attendance + Payroll Export",
                   "HR Module — Full Staff Lifecycle",
                   "Meeting Rooms & Booking",
+                  "Risk Assessment Builder",
                 ].map((f) => (
                   <div key={f} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -580,7 +583,7 @@ export default function MarketingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
             {[
-              { value: "22", label: "Platform Modules", sub: "All included, no hidden extras" },
+              { value: "23", label: "Platform Modules", sub: "All included, no hidden extras" },
               { value: "99.9%", label: "Platform Uptime", sub: "Cloud-native reliability" },
               { value: "UK", label: "Built & Supported", sub: "UK regulations first" },
               { value: "GDPR", label: "Fully Compliant", sub: "Data stays in your tenant" },
@@ -683,6 +686,7 @@ export default function MarketingPage() {
                   "Audit & Inspection Engine",
                   "HR Module — Full Staff Lifecycle",
                   "Time & Attendance + Payroll Export",
+                  "Risk Assessment Builder (6 Types)",
                 ].map((feature) => (
                   <div key={feature} className="flex items-center gap-3 bg-white/70 dark:bg-slate-800/50 rounded-lg px-4 py-2.5 border border-emerald-200 dark:border-emerald-700">
                     <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
@@ -737,11 +741,11 @@ export default function MarketingPage() {
               Complete Platform
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              22 Powerful Modules.{" "}
+              23 Powerful Modules.{" "}
               <span style={{ color: "#2460A9" }}>One Platform.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              Every tool your organisation needs — from visitor sign-in and site audits to statutory compliance certificates, HR lifecycle management, and high-risk work permits — built in and ready to use from day one.
+              Every tool your organisation needs — from visitor sign-in and site audits to statutory compliance certificates, HR lifecycle management, risk assessments, and high-risk work permits — built in and ready to use from day one.
             </p>
           </div>
 
@@ -930,6 +934,14 @@ export default function MarketingPage() {
                 bg: "bg-indigo-50 dark:bg-indigo-900/20",
                 border: "border-indigo-200 dark:border-indigo-800",
                 desc: "Full staff lifecycle management — Right to Work checks, training & certifications, leave & absence, appraisals, onboarding flows, org chart, payroll-ready T&A export, and on-site presence tracking.",
+              },
+              {
+                icon: FileSearch2,
+                name: "RA Builder",
+                color: "text-sky-700",
+                bg: "bg-sky-50 dark:bg-sky-900/20",
+                border: "border-sky-200 dark:border-sky-800",
+                desc: "Digital risk assessment builder covering 6 RA types: General, COSHH, Manual Handling, Working at Height, Lone Working, and DSE. Full risk matrix, residual risk scoring, action tracking, and AI-suggested controls.",
               },
             ].map(({ icon: Icon, name, color, bg, border, desc }) => (
               <div
@@ -1140,6 +1152,14 @@ export default function MarketingPage() {
               >
                 <UserCheck className="h-4 w-4 mb-1" />
                 HR
+              </TabsTrigger>
+              <TabsTrigger
+                value="ra-builder"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-sky-700 transition-all duration-200"
+                data-testid="tab-ra-builder"
+              >
+                <FileSearch2 className="h-4 w-4 mb-1" />
+                RA Builder
               </TabsTrigger>
             </TabsList>
 
@@ -2999,6 +3019,148 @@ export default function MarketingPage() {
               </div>
             </TabsContent>
 
+            {/* Risk Assessment Builder Tab */}
+            <TabsContent value="ra-builder" className="space-y-6" data-testid="content-ra-builder">
+              <div className="grid lg:grid-cols-2 gap-8 items-start">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-sky-700 text-white">
+                      <FileSearch2 className="h-3 w-3 mr-1" />
+                      Risk Assessment Builder
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Digital Risk Assessments — Built, Not Filed
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Replace paper-based risk assessment folders with a structured digital builder. Create, review, approve, and track assessments across six statutory UK RA types — from general workplace hazards to COSHH, manual handling, and lone working — all from one interface.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>6 RA Types Built In:</strong> General, COSHH, Manual Handling, Working at Height, Lone Working, and DSE — each with type-specific metadata fields (e.g. CAS numbers and WEL references for COSHH; max height and rescue plan for WAH).
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>5×5 Risk Matrix:</strong> Likelihood × Severity scoring for both pre-control and residual risk — colour-coded Low / Medium / High / Very High ratings update automatically as you adjust scores.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Hazard Action Tracking:</strong> Each hazard has an action owner, target date, and status (Open / In Progress / Closed) — so nothing is left outstanding without accountability.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>AI-Suggested Controls:</strong> Describe a hazard and let the AI suggest practical control measures based on UK H&amp;S best practice — edit, refine, and accept with one click.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Approval Workflow:</strong> Assessments move through Draft → Under Review → Approved with named preparer, reviewer, and approver — giving you the audit trail UK regulators expect.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Review Date Alerts:</strong> Set annual or custom review dates and receive automated reminders before assessments expire — keeping your RA register current without manual chasing.
+                      </span>
+                    </div>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    onClick={() => scrollToSection("contact")}
+                    className="text-white bg-sky-700 hover:bg-sky-800"
+                    data-testid="button-ra-builder-demo"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    See the RA Builder in Action
+                  </Button>
+                </div>
+
+                {/* Right panel: visual mock of the RA Builder */}
+                <div className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-6 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-lg bg-sky-100 dark:bg-sky-900/40">
+                        <FileSearch2 className="h-5 w-5 text-sky-700" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-900 dark:text-white text-sm">Risk Assessment Builder</h4>
+                        <p className="text-xs text-slate-500">6 RA types · Live dashboard</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs">4 Active RAs</Badge>
+                  </div>
+
+                  {/* RA type summary tiles */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "General", count: 3, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/30" },
+                      { label: "COSHH", count: 2, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-900/30" },
+                      { label: "Manual Handling", count: 2, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/30" },
+                      { label: "Wk at Height", count: 1, color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/30" },
+                      { label: "Lone Working", count: 1, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-900/30" },
+                      { label: "DSE", count: 2, color: "text-teal-600", bg: "bg-teal-50 dark:bg-teal-900/30" },
+                    ].map((t) => (
+                      <div key={t.label} className={`p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 ${t.bg} text-center`}>
+                        <div className={`text-lg font-bold ${t.color}`}>{t.count}</div>
+                        <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5 leading-tight">{t.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Sample RA row */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Recent Assessments</p>
+                    {[
+                      { title: "Warehouse Operations — General", type: "General", status: "Approved", statusColor: "bg-emerald-100 text-emerald-800", hazards: 4, risk: "Medium" },
+                      { title: "COSHH — Industrial Cleaning Chemicals", type: "COSHH", status: "Approved", statusColor: "bg-emerald-100 text-emerald-800", hazards: 3, risk: "High" },
+                      { title: "Working at Height — Roof Inspection", type: "Wk at Height", status: "Under Review", statusColor: "bg-amber-100 text-amber-800", hazards: 3, risk: "Very High" },
+                      { title: "DSE — Office Workstation Assessment", type: "DSE", status: "Approved", statusColor: "bg-emerald-100 text-emerald-800", hazards: 3, risk: "Low" },
+                    ].map((ra) => (
+                      <div key={ra.title} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-slate-900 dark:text-white truncate">{ra.title}</p>
+                          <p className="text-[10px] text-slate-500">{ra.type} · {ra.hazards} hazards</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${ra.statusColor}`}>{ra.status}</span>
+                          <span className="text-[10px] text-slate-400">Residual: {ra.risk}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Risk matrix legend */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700">
+                    <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">5×5 Risk Matrix</p>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { label: "Low (1–4)", color: "bg-emerald-500" },
+                        { label: "Medium (5–9)", color: "bg-amber-400" },
+                        { label: "High (10–14)", color: "bg-orange-500" },
+                        { label: "Very High (15–25)", color: "bg-red-600" },
+                      ].map((r) => (
+                        <div key={r.label} className="flex items-center gap-1">
+                          <div className={`h-2.5 w-2.5 rounded-sm ${r.color}`}></div>
+                          <span className="text-[10px] text-slate-600 dark:text-slate-400">{r.label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
           </Tabs>
 
         </div>
@@ -3723,7 +3885,7 @@ export default function MarketingPage() {
             <div>
               <h3 className="text-base font-semibold mb-4 text-white">About TPR-Max</h3>
               <p className="text-slate-300 text-sm leading-relaxed">
-                A comprehensive workplace compliance & safety platform built for UK organisations. 22 modules covering visitor management, contractor compliance, emergency mustering, HR lifecycle, audits & inspections, CDM 2015, PPM, and more — all in one subscription.
+                A comprehensive workplace compliance & safety platform built for UK organisations. 23 modules covering visitor management, contractor compliance, emergency mustering, risk assessments, HR lifecycle, audits & inspections, CDM 2015, PPM, and more — all in one subscription.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {["GDPR Compliant", "UK-Built", "Multi-Tenant", "BioStar 2 Ready"].map(tag => (
