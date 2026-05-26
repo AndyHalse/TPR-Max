@@ -1205,10 +1205,171 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       } catch (e) { logger.warn('Sample pre_bookings failed', (e as any).message); }
     }
 
+    // ── RA Builder sample assessments + hazards ──────────────────────────────
+    let raAssessmentsAdded = 0;
+    try {
+      const raAssessments = [
+        {
+          id: `ra-demo-${batchId}-001`,
+          title: 'Warehouse Operations — General Workplace',
+          raType: 'general', status: 'approved',
+          taskDescription: 'Day-to-day operations within the main warehouse including goods receipt, storage, picking and dispatch of stock items.',
+          location: 'Main Warehouse — Building A', department: 'Operations',
+          preparedBy: 'Neil Baxter', reviewedBy: 'Marcus Webb', approvedBy: 'Richard Blackwood',
+          assessmentDate: '2026-01-15', nextReviewDate: '2027-01-15',
+          typeMetadata: '{}',
+          notes: 'All staff must complete manual handling induction before commencing warehouse duties.',
+        },
+        {
+          id: `ra-demo-${batchId}-002`,
+          title: 'COSHH — Industrial Cleaning Chemicals',
+          raType: 'coshh', status: 'approved',
+          taskDescription: 'Use of industrial cleaning agents including degreasers and disinfectants in production areas and toilet facilities.',
+          location: 'All Internal Areas', department: 'Facilities',
+          preparedBy: 'Louise Grant', reviewedBy: 'Neil Baxter', approvedBy: 'Marcus Webb',
+          assessmentDate: '2026-02-10', nextReviewDate: '2027-02-10',
+          typeMetadata: JSON.stringify({
+            substanceName: 'Multi-Surface Degreaser (Industrial Grade)', casNumber: '64-17-5',
+            sdsRef: 'SDS-CLEAN-2026-001', form: 'Liquid',
+            exposureRoutes: ['Inhalation', 'Skin contact', 'Eye contact'],
+            welReference: 'EH40 WEL: 1000 ppm (TWA)', quantity: '25L containers', frequency: 'Daily',
+          }),
+          notes: 'SDS sheets must be accessible in all areas where chemicals are used.',
+        },
+        {
+          id: `ra-demo-${batchId}-003`,
+          title: 'Manual Handling — Stock Box Lifting & Carrying',
+          raType: 'manual_handling', status: 'approved',
+          taskDescription: 'Lifting, carrying and stacking of stock boxes from delivery vehicles to racking system. Boxes vary from 5kg to 30kg.',
+          location: 'Goods-In Bay & Warehouse Racking', department: 'Operations',
+          preparedBy: 'James Fletcher', reviewedBy: 'Neil Baxter', approvedBy: 'Marcus Webb',
+          assessmentDate: '2026-01-20', nextReviewDate: '2027-01-20',
+          typeMetadata: JSON.stringify({
+            loadDescription: 'Cardboard stock boxes, various sizes and weights', approxWeightKg: '5–30',
+            dimensions: 'Various — up to 0.8m × 0.6m × 0.6m', frequency: 'Constant',
+            distanceCarried: 'Up to 30m',
+            postureIssues: 'Some loads require bending to ground level. Stack heights above shoulder level not permitted.',
+          }),
+          notes: null,
+        },
+        {
+          id: `ra-demo-${batchId}-004`,
+          title: 'Working at Height — Roof Inspection & Minor Repairs',
+          raType: 'working_at_height', status: 'review',
+          taskDescription: 'Periodic inspection of flat roof sections including gutters, skylights and fixings. Minor repairs to roofing membrane carried out by in-house facilities team.',
+          location: 'Main Building Flat Roof — Level 3', department: 'Facilities',
+          preparedBy: 'Becky Crane', reviewedBy: 'Neil Baxter', approvedBy: null,
+          assessmentDate: '2026-03-05', nextReviewDate: '2027-03-05',
+          typeMetadata: JSON.stringify({
+            maxHeightMetres: '9.5', accessEquipment: 'Roof Access',
+            surfaceType: 'Flat bituminous membrane — may be slippery when wet',
+            rescuePlan: 'Two-person rule in operation at all times. First aid trained colleague to remain at roof access hatch. Emergency: 999. Internal first aid: reception x2020.',
+          }),
+          notes: 'Roof access permitted to competent persons only. No solo roof working. Works suspended in winds above 15mph or during precipitation.',
+        },
+        {
+          id: `ra-demo-${batchId}-005`,
+          title: 'Lone Working — Out-of-Hours Security & Facilities Checks',
+          raType: 'lone_working', status: 'approved',
+          taskDescription: 'Out-of-hours security patrols and facilities checks conducted by a single member of staff between 22:00 and 06:00.',
+          location: 'Entire Site — Internal and External Areas', department: 'Security',
+          preparedBy: 'Neil Baxter', reviewedBy: 'Marcus Webb', approvedBy: 'Richard Blackwood',
+          assessmentDate: '2026-01-08', nextReviewDate: '2027-01-08',
+          typeMetadata: JSON.stringify({
+            workLocation: 'Full site — Building A, B and external car parks', workDuration: '8 hours',
+            checkInIntervalMins: '60', emergencyContactName: 'Duty Manager On-Call',
+            emergencyContactPhone: '07700 900 911', communicationMethod: 'Mobile phone',
+          }),
+          notes: 'Lone worker must use the TPR Max Lone Worker module to log check-ins every 60 minutes. Missed check-in triggers automated escalation to duty manager.',
+        },
+        {
+          id: `ra-demo-${batchId}-006`,
+          title: 'DSE — Office Workstation Assessment',
+          raType: 'dse', status: 'approved',
+          taskDescription: 'Individual workstation assessment for office-based staff using display screen equipment for more than 1 hour per day under the Health and Safety (Display Screen Equipment) Regulations 1992.',
+          location: 'Open Plan Office — Floor 2', department: 'Administration',
+          preparedBy: 'Diane Eastwood', reviewedBy: 'Neil Baxter', approvedBy: 'Marcus Webb',
+          assessmentDate: '2026-02-14', nextReviewDate: '2027-02-14',
+          typeMetadata: JSON.stringify({
+            assesseeName: 'Multiple — see individual DSE records', workstationLocation: 'Open Plan Office, Floor 2',
+            displayType: 'Desktop monitor', eyeTestStatus: 'Up to date',
+            seatingNotes: 'Height-adjustable chairs provided. Staff briefed on correct lumbar support adjustment.',
+            keyboardMouse: 'Standard wired keyboard and mouse. Wrist rests available on request.',
+            lighting: 'LED panels with individual task lighting. Blinds fitted to manage glare from south-facing windows.',
+            environment: 'Air conditioning operational. Background noise levels acceptable.',
+          }),
+          notes: null,
+        },
+      ];
+
+      for (const ra of raAssessments) {
+        await pool.query(`
+          INSERT INTO "${schemaName}".ra_builder_assessments
+            (id, title, ra_type, status, task_description, location, department, prepared_by, reviewed_by,
+             approved_by, assessment_date, next_review_date, type_metadata, notes)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+          ON CONFLICT (id) DO NOTHING`,
+          [ra.id, ra.title, ra.raType, ra.status, ra.taskDescription ?? null, ra.location ?? null,
+           ra.department ?? null, ra.preparedBy ?? null, ra.reviewedBy ?? null, ra.approvedBy ?? null,
+           ra.assessmentDate ?? null, ra.nextReviewDate ?? null, ra.typeMetadata ?? '{}', ra.notes ?? null]
+        );
+        raAssessmentsAdded++;
+      }
+
+      const raHazards: Array<{
+        raId: string; hazardDescription: string; affectedPersons: string; existingControls: string;
+        likelihood: number; severity: number; riskRating: number; additionalControls: string;
+        residualLikelihood: number; residualSeverity: number; residualRiskRating: number;
+        actionBy: string; actionDate: string; actionStatus: string; sortOrder: number;
+      }> = [
+        // Warehouse General (4 hazards)
+        { raId: `ra-demo-${batchId}-001`, hazardDescription: 'Slips, trips and falls on warehouse floor', affectedPersons: 'All warehouse staff, visitors', existingControls: 'Non-slip floor surfaces maintained. Pedestrian walkways marked with yellow line markings. Good housekeeping standards enforced.', likelihood: 3, severity: 3, riskRating: 9, additionalControls: 'Weekly walkway inspection checklist completed and signed by supervisor. Immediate reporting system for spillages — spill kit stations at 5 locations. Anti-slip footwear (S1P minimum) mandatory for all warehouse personnel.', residualLikelihood: 1, residualSeverity: 3, residualRiskRating: 3, actionBy: 'James Fletcher', actionDate: '2026-02-01', actionStatus: 'closed', sortOrder: 0 },
+        { raId: `ra-demo-${batchId}-001`, hazardDescription: 'Collision between pedestrians and forklift trucks (FLTs)', affectedPersons: 'Warehouse staff, goods-in operatives', existingControls: 'Segregated pedestrian and FLT routes marked on floor. High-visibility vest mandatory in warehouse. FLT speed limit 5mph.', likelihood: 2, severity: 5, riskRating: 10, additionalControls: 'Install proximity warning system on all FLTs (audible and visual alert when pedestrian within 3m). Blue spot lights on FLTs to give advance warning. Annual FLT driver competency refresher training schedule in place.', residualLikelihood: 1, residualSeverity: 5, residualRiskRating: 5, actionBy: 'James Fletcher', actionDate: '2026-03-01', actionStatus: 'open', sortOrder: 1 },
+        { raId: `ra-demo-${batchId}-001`, hazardDescription: 'Racking collapse — overloaded or damaged racking bays', affectedPersons: 'All warehouse staff', existingControls: 'Racking load notices posted at each bay. Monthly racking inspection by supervisor. Damage reporting procedure in place.', likelihood: 1, severity: 5, riskRating: 5, additionalControls: 'Annual racking inspection by SARI-qualified inspector contracted. Damaged bay tagged with red card and taken out of service immediately pending repair.', residualLikelihood: 1, residualSeverity: 5, residualRiskRating: 5, actionBy: 'Louise Grant', actionDate: '2026-04-01', actionStatus: 'open', sortOrder: 2 },
+        { raId: `ra-demo-${batchId}-001`, hazardDescription: 'Fire — accumulation of combustible packaging materials', affectedPersons: 'All staff, contractors, visitors on site', existingControls: 'Fire risk assessment in place. Sprinkler system fitted. Fire extinguishers sited throughout. Fire exits kept clear.', likelihood: 1, severity: 5, riskRating: 5, additionalControls: 'Monthly fire extinguisher inspection. Cardboard baling machine installed to reduce loose cardboard accumulation. No smoking enforced on entire site. Fire alarm test every Friday at 09:30.', residualLikelihood: 1, residualSeverity: 5, residualRiskRating: 5, actionBy: 'Neil Baxter', actionDate: '2026-02-01', actionStatus: 'closed', sortOrder: 3 },
+        // COSHH (3 hazards)
+        { raId: `ra-demo-${batchId}-002`, hazardDescription: 'Inhalation of chemical vapours during application in enclosed areas', affectedPersons: 'Cleaning operatives, nearby workers', existingControls: 'Chemical used in diluted form (1:20 ratio). Areas ventilated before and during use.', likelihood: 3, severity: 3, riskRating: 9, additionalControls: 'Respiratory protective equipment (FFP2 masks) to be worn when applying to concentrated areas. Ensure mechanical ventilation is operational before commencing. Display COSHH warning signs whilst in use.', residualLikelihood: 1, residualSeverity: 3, residualRiskRating: 3, actionBy: 'Louise Grant', actionDate: '2026-03-01', actionStatus: 'closed', sortOrder: 0 },
+        { raId: `ra-demo-${batchId}-002`, hazardDescription: 'Skin contact causing dermatitis or chemical burns', affectedPersons: 'Cleaning operatives', existingControls: 'Nitrile gloves (minimum 0.3mm) provided. Chemical resistant apron available.', likelihood: 3, severity: 3, riskRating: 9, additionalControls: 'Mandatory use of chemical-resistant nitrile gloves EN 374 certified. Safety goggles required when decanting. Eyewash station sited in cleaning store — monthly integrity check.', residualLikelihood: 1, residualSeverity: 3, residualRiskRating: 3, actionBy: 'Louise Grant', actionDate: '2026-03-01', actionStatus: 'closed', sortOrder: 1 },
+        { raId: `ra-demo-${batchId}-002`, hazardDescription: 'Incorrect storage or mixing of incompatible chemicals creating toxic gas', affectedPersons: 'All staff', existingControls: 'Separate locked COSHH store. SDS sheets held in store. Staff verbally briefed.', likelihood: 2, severity: 4, riskRating: 8, additionalControls: 'Chemical segregation labelling system installed. Acids and alkalis stored in separate bunded sections. COSHH inventory updated quarterly. All cleaning staff to complete COSHH awareness e-learning module annually.', residualLikelihood: 1, residualSeverity: 4, residualRiskRating: 4, actionBy: 'Neil Baxter', actionDate: '2026-04-01', actionStatus: 'open', sortOrder: 2 },
+        // Manual Handling (2 hazards)
+        { raId: `ra-demo-${batchId}-003`, hazardDescription: 'Musculoskeletal injury from lifting heavy or awkwardly shaped boxes', affectedPersons: 'Goods-in operatives, warehouse staff', existingControls: 'Manual handling training completed by all staff on induction. Team lifts for boxes over 20kg.', likelihood: 3, severity: 3, riskRating: 9, additionalControls: 'Procurement requested to ensure supplier packs in maximum 20kg boxes. Mechanical aids (pump trucks, trolleys) mandatory for loads over 25kg. Stretch and warm-up guidance posted at start-of-shift location.', residualLikelihood: 2, residualSeverity: 2, residualRiskRating: 4, actionBy: 'James Fletcher', actionDate: '2026-02-15', actionStatus: 'closed', sortOrder: 0 },
+        { raId: `ra-demo-${batchId}-003`, hazardDescription: 'Musculoskeletal strain from awkward postures when stacking to high-level racking', affectedPersons: 'Warehouse pickers and storers', existingControls: 'Staff instructed not to stack above shoulder height manually. Step ladders available.', likelihood: 3, severity: 3, riskRating: 9, additionalControls: 'High-level picking now completed by FLT with safety cage attachment only. Manual stacking restricted to waist-to-shoulder height racking bays (Level 1 and 2 only).', residualLikelihood: 1, residualSeverity: 3, residualRiskRating: 3, actionBy: 'James Fletcher', actionDate: '2026-03-01', actionStatus: 'closed', sortOrder: 1 },
+        // Working at Height (3 hazards)
+        { raId: `ra-demo-${batchId}-004`, hazardDescription: 'Fall from roof edge — unguarded perimeter section on north face', affectedPersons: 'Facilities maintenance staff', existingControls: 'Permanent safety parapet on 3 sides (750mm height). Roof access restricted via coded lock.', likelihood: 3, severity: 5, riskRating: 15, additionalControls: 'Install temporary edge protection system (double guardrail + toe board) on north unguarded section before any roof works commence. All operatives to wear full harness attached to EN 795 Class A certified roof anchor points. Roof access permit system to be implemented.', residualLikelihood: 1, residualSeverity: 5, residualRiskRating: 5, actionBy: 'Becky Crane', actionDate: '2026-04-01', actionStatus: 'open', sortOrder: 0 },
+        { raId: `ra-demo-${batchId}-004`, hazardDescription: 'Slipping on wet or frost-covered roof membrane', affectedPersons: 'Facilities maintenance staff', existingControls: 'Works avoided in wet weather where possible. No formal weather check procedure.', likelihood: 3, severity: 4, riskRating: 12, additionalControls: 'Weather check mandatory before commencing — works suspended if rainfall or temperature below 3°C. Anti-slip roof walkway boards placed over membrane. Non-slip safety footwear (S3 rating) mandatory for all roof access personnel.', residualLikelihood: 1, residualSeverity: 4, residualRiskRating: 4, actionBy: 'Becky Crane', actionDate: '2026-04-01', actionStatus: 'open', sortOrder: 1 },
+        { raId: `ra-demo-${batchId}-004`, hazardDescription: 'Objects or tools falling from roof onto persons below', affectedPersons: 'Staff and visitors on ground floor and adjacent external areas', existingControls: 'Roof access sign posted at stairwell. No formal exclusion zone established.', likelihood: 2, severity: 4, riskRating: 8, additionalControls: 'Exclusion zone established and cordoned with barriers and safety signage before roof access. Debris netting erected on south-facing parapet. All tools and materials to be secured with lanyards or stored in belt pouches during roof works.', residualLikelihood: 1, residualSeverity: 4, residualRiskRating: 4, actionBy: 'Becky Crane', actionDate: '2026-04-01', actionStatus: 'open', sortOrder: 2 },
+        // Lone Working (2 hazards)
+        { raId: `ra-demo-${batchId}-005`, hazardDescription: 'Violence or assault from intruder during out-of-hours patrol', affectedPersons: 'Security / facilities operative working alone', existingControls: 'CCTV coverage of internal areas. Incident reporting system in place. Radio contact with off-site security monitoring centre.', likelihood: 2, severity: 4, riskRating: 8, additionalControls: 'Personal attack alarm issued to all lone workers. TPR Max Lone Worker check-in every 60 minutes — missed check-in triggers immediate call to duty manager. If no response within 10 minutes, emergency services contacted. Avoid challenging intruders directly — call 999 immediately.', residualLikelihood: 1, residualSeverity: 4, residualRiskRating: 4, actionBy: 'Neil Baxter', actionDate: '2026-01-20', actionStatus: 'closed', sortOrder: 0 },
+        { raId: `ra-demo-${batchId}-005`, hazardDescription: 'Medical emergency with no immediate assistance available', affectedPersons: 'Lone worker', existingControls: 'First aid kit on site. Mobile phone carried at all times.', likelihood: 1, severity: 5, riskRating: 5, additionalControls: 'TPR Max Lone Worker session active throughout shift with GPS location logged. Pre-shift health declaration to be completed. Any lone worker with a known medical condition to be individually risk assessed. Emergency services number displayed on all internal phones.', residualLikelihood: 1, residualSeverity: 5, residualRiskRating: 5, actionBy: 'Neil Baxter', actionDate: '2026-01-20', actionStatus: 'closed', sortOrder: 1 },
+        // DSE (3 hazards)
+        { raId: `ra-demo-${batchId}-006`, hazardDescription: 'Upper limb disorders (RSI) from prolonged keyboard and mouse use', affectedPersons: 'Office-based DSE users', existingControls: 'Staff briefed on importance of regular breaks. Ergonomic chairs provided.', likelihood: 3, severity: 3, riskRating: 9, additionalControls: 'Minimum 5-minute break from screen every hour enforced via Outlook calendar reminder policy. Ergonomic mouse and keyboard available on request from IT. Upper limb disorder self-assessment checklist available via HR portal.', residualLikelihood: 2, residualSeverity: 2, residualRiskRating: 4, actionBy: 'Diane Eastwood', actionDate: '2026-03-01', actionStatus: 'closed', sortOrder: 0 },
+        { raId: `ra-demo-${batchId}-006`, hazardDescription: 'Eye strain and headaches from screen glare and blue light exposure', affectedPersons: 'Office-based DSE users', existingControls: 'Adjustable blinds fitted. Monitor brightness set to default medium.', likelihood: 3, severity: 2, riskRating: 6, additionalControls: 'Monitor anti-glare screens available on request. All staff entitled to employer-funded eye test — reminder issued annually. Dark mode and display zoom options available and promoted on all company devices.', residualLikelihood: 2, residualSeverity: 2, residualRiskRating: 4, actionBy: 'Diane Eastwood', actionDate: '2026-03-01', actionStatus: 'closed', sortOrder: 1 },
+        { raId: `ra-demo-${batchId}-006`, hazardDescription: 'Back and neck pain from sustained poor workstation posture', affectedPersons: 'Office-based DSE users', existingControls: 'Height-adjustable chairs provided. DSE induction completed on joining.', likelihood: 3, severity: 2, riskRating: 6, additionalControls: 'Individual DSE workstation assessment completed for each user by trained assessor (Diane Eastwood, DSE Assessor Certificate 2025). Monitor arms fitted for independent height/tilt adjustment. Footrests available on request. Sit-stand desks available on medical referral.', residualLikelihood: 1, residualSeverity: 2, residualRiskRating: 2, actionBy: 'Diane Eastwood', actionDate: '2026-03-01', actionStatus: 'closed', sortOrder: 2 },
+      ];
+
+      for (const hz of raHazards) {
+        await pool.query(`
+          INSERT INTO "${schemaName}".ra_builder_hazards
+            (assessment_id, hazard_description, affected_persons, existing_controls,
+             likelihood, severity, risk_rating, additional_controls,
+             residual_likelihood, residual_severity, residual_risk_rating,
+             action_by, action_date, action_status, sort_order)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+          [hz.raId, hz.hazardDescription, hz.affectedPersons, hz.existingControls,
+           hz.likelihood, hz.severity, hz.riskRating, hz.additionalControls,
+           hz.residualLikelihood, hz.residualSeverity, hz.residualRiskRating,
+           hz.actionBy, hz.actionDate, hz.actionStatus, hz.sortOrder]
+        );
+      }
+      logger.info(`✅ RA Builder sample data: ${raAssessments.length} assessments, ${raHazards.length} hazards`);
+    } catch (e: any) {
+      logger.warn(`Sample RA Builder data failed: ${e.message}`);
+    }
+
     res.json({
       success: true,
-      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members — plus HR, certifications, visits, pre-bookings, permits, and attendance records`,
-      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0 },
+      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members, ${raAssessmentsAdded} risk assessments — plus HR, certifications, visits, pre-bookings, permits, and attendance records`,
+      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0, raAssessmentsAdded },
     });
   } catch (error) {
     logger.error('Error loading sample data:', error);
@@ -1441,6 +1602,18 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
           deleted['old_style_contractors'] = oldCoIds.length;
         }
       } catch (e) { logger.warn(`Clear sample (old): contractors — ${(e as any).message}`); }
+
+      // ── RA Builder sample data cleanup ────────────────────────────────────
+      try {
+        const raRes = await pool.query(`SELECT id FROM "${schemaName}".ra_builder_assessments WHERE id LIKE 'ra-demo-%'`);
+        const raIds: string[] = raRes.rows.map((r: any) => r.id);
+        if (raIds.length > 0) {
+          const rP = inP(raIds);
+          await pool.query(`DELETE FROM "${schemaName}".ra_builder_hazards WHERE assessment_id IN (${rP})`, raIds);
+          await pool.query(`DELETE FROM "${schemaName}".ra_builder_assessments WHERE id IN (${rP})`, raIds);
+          deleted['ra_builder_assessments'] = raIds.length;
+        }
+      } catch (e) { logger.warn(`Clear sample: ra_builder — ${(e as any).message}`); }
 
       res.json({ success: true, message: 'Sample data cleared successfully', deleted });
     } catch (error) {
