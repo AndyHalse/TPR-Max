@@ -4232,6 +4232,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       const contractorHsAccepted = hsRulesAccepted === true || worker.hsRulesAccepted || false;
       const contractorHsAcceptedAt = hsRulesAccepted === true ? new Date() : worker.hsRulesAcceptedAt;
 
+      // NDA enforcement for contractors
+      const cNdaEnabled = !!(contractorSettings as any)?.ndaEnabled;
+      const cNdaAppliesTo = (contractorSettings as any)?.ndaAppliesTo || 'visitors';
+      const cNdaAppliesToContractors = cNdaAppliesTo === 'contractors' || cNdaAppliesTo === 'both';
+      const cNdaRequireSig = !!(contractorSettings as any)?.ndaRequireSignature;
+      const cNdaHasContent = !!((contractorSettings as any)?.ndaContent?.trim());
+      const cNdaBodyAccepted = req.body.ndaAccepted === true;
+      if (cNdaEnabled && cNdaAppliesToContractors && cNdaRequireSig && cNdaHasContent && !cNdaBodyAccepted) {
+        return res.status(400).json({
+          error: "NDA acceptance required",
+          message: "You must accept the Non-Disclosure Agreement before checking in.",
+          requireNdaAcceptance: true
+        });
+      }
+
       logger.info(`Starting contractor check-in for: ID ${worker.id} from ${company.name}`);
       
       // Worker's permanent QR code (their identity/pass) — generate once if missing
@@ -4253,6 +4268,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             checkedInAt: checkInTime,
             hsRulesAccepted: contractorHsAccepted,
             hsRulesAcceptedAt: contractorHsAcceptedAt,
+            ...(cNdaBodyAccepted ? { ndaAccepted: true, ndaAcceptedAt: new Date() } : {}),
             updatedAt: new Date(),
           })
           .where(eq(isolatedSchema.contractorWorkers.id, workerId));

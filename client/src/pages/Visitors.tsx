@@ -46,6 +46,7 @@ import { format, addDays } from "date-fns";
 import type { Staff, PreBooking, InsertPreBooking, Visitor, InsertVisitor, CompanySettings } from "@shared/schema";
 import { cn } from "@/lib/utils";
 import HSAcceptanceModal from "@/components/HSAcceptanceModal";
+import NdaModal from "@/components/NdaModal";
 import QRScannerModal from "@/components/QRScannerModal";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
@@ -336,6 +337,7 @@ export default function Visitors() {
 
   // H&S modal state
   const [showHSModal, setShowHSModal] = useState(false);
+  const [showNdaModal, setShowNdaModal] = useState(false);
   const [pendingCheckinData, setPendingCheckinData] = useState<Omit<InsertVisitor, 'customerId'> | null>(null);
   const [pendingCheckinType, setPendingCheckinType] = useState<'walkin' | 'previous' | null>(null);
 
@@ -819,23 +821,64 @@ export default function Visitors() {
       setPendingCheckinData(visitorData);
       setPendingCheckinType('walkin');
       setShowHSModal(true);
+    } else if (ndaForVisitorsShouldShow(settingsAny)) {
+      setPendingCheckinData(visitorData);
+      setPendingCheckinType('walkin');
+      setShowNdaModal(true);
     } else {
       checkInWalkInMutation.mutate(visitorData);
     }
+  };
+
+  const ndaForVisitorsShouldShow = (settingsAny: any) => {
+    const ndaAppliesTo = settingsAny?.ndaAppliesTo || 'visitors';
+    return !!(settingsAny?.ndaEnabled && (ndaAppliesTo === 'visitors' || ndaAppliesTo === 'both') && settingsAny?.ndaContent?.trim());
   };
 
   const handleHSAccepted = () => {
     setShowHSModal(false);
     if (pendingCheckinData && pendingCheckinType) {
       const dataWithHS = { ...pendingCheckinData, hsRulesAccepted: true } as any;
+      const settingsAny = settings as any;
+      if (ndaForVisitorsShouldShow(settingsAny)) {
+        // H&S accepted — chain to NDA modal next
+        setPendingCheckinData(dataWithHS);
+        setTimeout(() => setShowNdaModal(true), 50);
+        return;
+      }
       if (pendingCheckinType === 'walkin') {
         checkInWalkInMutation.mutate(dataWithHS);
       } else if (pendingCheckinType === 'previous') {
         checkInPreviousVisitorMutation.mutate(dataWithHS);
       }
+      setPendingCheckinData(null);
+      setPendingCheckinType(null);
+    }
+  };
+
+  const handleNdaAccepted = () => {
+    setShowNdaModal(false);
+    if (pendingCheckinData && pendingCheckinType) {
+      const dataWithNda = { ...pendingCheckinData, ndaAccepted: true } as any;
+      if (pendingCheckinType === 'walkin') {
+        checkInWalkInMutation.mutate(dataWithNda);
+      } else if (pendingCheckinType === 'previous') {
+        checkInPreviousVisitorMutation.mutate(dataWithNda);
+      }
     }
     setPendingCheckinData(null);
     setPendingCheckinType(null);
+  };
+
+  const handleNdaDeclined = () => {
+    setShowNdaModal(false);
+    setPendingCheckinData(null);
+    setPendingCheckinType(null);
+    toast({
+      title: "Check-in Cancelled",
+      description: "NDA acceptance is required to check in.",
+      variant: "destructive",
+    });
   };
 
   const handleHSDeclined = () => {
@@ -927,6 +970,11 @@ export default function Visitors() {
         // We must let Radix clean up those body locks before mounting the H&S modal.
         setShowHostSelection(false);
         setTimeout(() => setShowHSModal(true), 150);
+      } else if (ndaForVisitorsShouldShow(settingsAny)) {
+        setPendingCheckinData(previousVisitorData);
+        setPendingCheckinType('previous');
+        setShowHostSelection(false);
+        setTimeout(() => setShowNdaModal(true), 150);
       } else {
         setShowHostSelection(false);
         checkInPreviousVisitorMutation.mutate(previousVisitorData);
@@ -2093,6 +2141,18 @@ export default function Visitors() {
         onDecline={handleHSDeclined}
         hsRulesContent={(settings as any)?.hsRulesContent || ""}
         companyName={(settings as any)?.companyName || ""}
+      />
+
+      {/* NDA Modal */}
+      <NdaModal
+        isOpen={showNdaModal}
+        onClose={handleNdaDeclined}
+        onAccept={handleNdaAccepted}
+        personName={pendingCheckinData ? `${(pendingCheckinData as any).firstName} ${(pendingCheckinData as any).lastName}` : ""}
+        personSubtitle={(pendingCheckinData as any)?.company || ""}
+        ndaContent={(settings as any)?.ndaContent || ""}
+        requireSignature={!!(settings as any)?.ndaRequireSignature}
+        isProcessing={checkInWalkInMutation.isPending || checkInPreviousVisitorMutation.isPending}
       />
 
       {/* Pass Preview Modal */}

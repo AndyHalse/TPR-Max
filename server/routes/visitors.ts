@@ -184,6 +184,21 @@ export function registerVisitorRoutes(app: Express): void {
         });
       }
 
+      // NDA enforcement
+      const ndaEnabled = !!(settings as any)?.ndaEnabled;
+      const ndaAppliesTo = (settings as any)?.ndaAppliesTo || 'visitors';
+      const ndaAppliesToVisitors = ndaAppliesTo === 'visitors' || ndaAppliesTo === 'both';
+      const ndaRequireSig = !!(settings as any)?.ndaRequireSignature;
+      const ndaHasContent = !!((settings as any)?.ndaContent?.trim());
+      const ndaBodyAccepted = req.body.ndaAccepted === true;
+      if (ndaEnabled && ndaAppliesToVisitors && ndaRequireSig && ndaHasContent && !ndaBodyAccepted) {
+        return res.status(400).json({
+          error: "NDA acceptance required",
+          message: "You must accept the Non-Disclosure Agreement before checking in.",
+          requireNdaAcceptance: true
+        });
+      }
+
       const hsAccepted = req.body.hsRulesAccepted === true;
       const hsAcceptedAt = hsAccepted ? new Date() : undefined;
       
@@ -226,6 +241,7 @@ export function registerVisitorRoutes(app: Express): void {
                 carRegistration: visitorData.carRegistration || undefined,
                 hsRulesAcceptanceToken: hsToken,
                 ...(hsAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: hsAcceptedAt } : {}),
+                ...(ndaBodyAccepted ? { ndaAccepted: true, ndaAcceptedAt: new Date() } : {}),
                 ePassSent: false,
                 ePassSentAt: null,
                 updatedAt: new Date(),
@@ -269,7 +285,8 @@ export function registerVisitorRoutes(app: Express): void {
         visitor = await databaseService.createVisitor(context, {
           ...visitorData,
           hsRulesAcceptanceToken: hsToken,
-          ...(hsAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: hsAcceptedAt } : {})
+          ...(hsAccepted ? { hsRulesAccepted: true, hsRulesAcceptedAt: hsAcceptedAt } : {}),
+          ...(ndaBodyAccepted ? { ndaAccepted: true, ndaAcceptedAt: new Date() } : {})
         });
         logger.info(`Created new visitor: ID ${visitorData.id}`);
       }
@@ -449,7 +466,45 @@ export function registerVisitorRoutes(app: Express): void {
         personType: 'visitor',
         action: 'checkin'
       });
-      
+
+      // Background: generate NDA token and send email if visitor has email and hasn't accepted yet
+      if (ndaEnabled && ndaAppliesToVisitors && ndaHasContent && visitor?.email && !ndaBodyAccepted) {
+        void (async () => {
+          try {
+            const rawNdaToken = randomBytes(32).toString('hex');
+            const encodedNdaToken = Buffer.from(`${context.customerId}:${rawNdaToken}`).toString('base64url');
+            const ndaTokenExpiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48 hours
+            const ndaEmailDb = await customerDbService.getCustomerDatabase(context.customerId);
+            await ndaEmailDb.update(isolatedSchema.visitors)
+              .set({ ndaToken: rawNdaToken, ndaTokenExpiresAt })
+              .where(eq(isolatedSchema.visitors.id, visitor.id));
+            const baseUrl = process.env.APP_URL ||
+              `${req.get('x-forwarded-proto') || req.protocol}://${req.get('x-forwarded-host') || req.get('host')}`;
+            const ndaUrl = `${baseUrl}/nda/${encodedNdaToken}`;
+            const companyDisplayName = (settings as any)?.companyName || 'Your Host';
+            const emailSvc = new EmailService(req.customerId);
+            await emailSvc.sendEmail({
+              to: visitor.email!,
+              subject: `Non-Disclosure Agreement — ${companyDisplayName}`,
+              html: `<div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:24px">
+                <h2 style="color:#4f46e5;margin-bottom:8px">Non-Disclosure Agreement</h2>
+                <p>Dear ${visitor.firstName},</p>
+                <p>Thank you for visiting ${companyDisplayName}. Please click the button below to read and sign our Non-Disclosure Agreement.</p>
+                <p style="text-align:center;margin:32px 0">
+                  <a href="${ndaUrl}" style="background:#4f46e5;color:#ffffff;padding:14px 28px;text-decoration:none;border-radius:8px;font-weight:bold;font-size:16px;display:inline-block">Read &amp; Sign NDA</a>
+                </p>
+                <p style="color:#6b7280;font-size:13px">This link will expire in 48 hours.</p>
+              </div>`,
+              text: `Dear ${visitor.firstName}, please sign our NDA at: ${ndaUrl} (valid 48 hours)`,
+              companyName: companyDisplayName,
+            });
+            logger.info(`NDA email sent to visitor ${visitor.id}`);
+          } catch (emailErr) {
+            logger.error('Failed to send NDA email to visitor:', emailErr);
+          }
+        })();
+      }
+
       res.json(visitor);
     } catch (error) {
       logger.error("Error during visitor check-in:", error);

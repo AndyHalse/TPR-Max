@@ -170,6 +170,11 @@ export const visitors = pgTable("visitors", {
   hsRulesAccepted: boolean("hs_rules_accepted").default(false).notNull(),
   hsRulesAcceptedAt: timestamp("hs_rules_accepted_at"),
   hsRulesAcceptanceToken: text("hs_rules_acceptance_token"), // Token for verification
+  // NDA acceptance tracking
+  ndaAccepted: boolean("nda_accepted").default(false),
+  ndaAcceptedAt: timestamp("nda_accepted_at"),
+  ndaToken: text("nda_token"), // Token for mobile email-link signing
+  ndaTokenExpiresAt: timestamp("nda_token_expires_at"),
   // Notes field for additional visitor information
   notes: text("notes"),
   photoUrl: text("photo_url"),
@@ -849,6 +854,9 @@ export const contractorWorkers = pgTable("contractor_workers", {
   hsRulesAccepted: boolean("hs_rules_accepted").default(false),
   hsRulesAcceptedAt: timestamp("hs_rules_accepted_at"),
   hsRulesAcceptanceToken: text("hs_rules_acceptance_token"),
+  // NDA acceptance tracking
+  ndaAccepted: boolean("nda_accepted").default(false),
+  ndaAcceptedAt: timestamp("nda_accepted_at"),
   // Card status (calculated field for UI)
   currentCardStatus: text("current_card_status").default("pending"), // clear, yellow, red, banned, pending
   isActive: boolean("is_active").default(true).notNull(),

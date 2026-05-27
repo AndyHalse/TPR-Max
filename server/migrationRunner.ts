@@ -491,6 +491,26 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         logger.info('✅ [050] permit_to_work tables and columns ensured');
       }
     },
+    {
+      version: '20260527_055_add_nda_columns',
+      description: 'Add NDA acceptance columns to visitors and contractor_workers tables',
+      async up(db: any) {
+        const stmts = [
+          `ALTER TABLE visitors ADD COLUMN IF NOT EXISTS nda_accepted BOOLEAN DEFAULT false`,
+          `ALTER TABLE visitors ADD COLUMN IF NOT EXISTS nda_accepted_at TIMESTAMP`,
+          `ALTER TABLE visitors ADD COLUMN IF NOT EXISTS nda_token TEXT`,
+          `ALTER TABLE visitors ADD COLUMN IF NOT EXISTS nda_token_expires_at TIMESTAMP`,
+          `ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS nda_accepted BOOLEAN DEFAULT false`,
+          `ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS nda_accepted_at TIMESTAMP`,
+        ];
+        for (const sql of stmts) {
+          try { await db.execute(sql); } catch (err: any) {
+            logger.info(`⚠️ [055] NDA columns: ${err.message?.substring(0, 80)}`);
+          }
+        }
+        logger.info('✅ [055] NDA columns added to visitors and contractor_workers');
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

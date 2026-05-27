@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import NdaModal from "@/components/NdaModal";
+import type { CompanySettings } from "@shared/schema";
 import { useLocation } from "wouter";
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
@@ -309,6 +311,8 @@ export default function Contractors() {
   // Host selection state (like visitors)
   const [selectedWorkerForCheckIn, setSelectedWorkerForCheckIn] = useState<any>(null);
   const [showHostSelection, setShowHostSelection] = useState(false);
+  const [showNdaModal, setShowNdaModal] = useState(false);
+  const [pendingNdaCheckin, setPendingNdaCheckin] = useState<{ worker: any; hostId: string } | null>(null);
   const [selectedHostForWorker, setSelectedHostForWorker] = useState("");
   const [editWorkerForm, setEditWorkerForm] = useState({
     firstName: "",
@@ -815,9 +819,54 @@ export default function Contractors() {
     setShowHostSelection(true);
   };
   
+  // NDA check helper for contractors
+  const contractorNdaShouldShow = () => {
+    const s = companySettings as any;
+    const ndaAppliesTo = s?.ndaAppliesTo || 'visitors';
+    return !!(s?.ndaEnabled && (ndaAppliesTo === 'contractors' || ndaAppliesTo === 'both') && s?.ndaContent?.trim());
+  };
+
+  const handleNdaAcceptedForContractor = async () => {
+    setShowNdaModal(false);
+    if (!pendingNdaCheckin) return;
+    const { worker, hostId } = pendingNdaCheckin;
+    setPendingNdaCheckin(null);
+    try {
+      const response = await apiRequest("POST", `/api/contractors/workers/${worker.id}/checkin`, {
+        hostId,
+        ndaAccepted: true,
+      });
+      const data = await response.json();
+      if (data.ePassSent) {
+        toast({ title: "Digital Pass Sent", description: `E-Pass sent to ${worker.email || 'contractor'}.`, duration: 5000 });
+      } else {
+        toast({ title: "Success", description: `${worker.firstName} ${worker.lastName} checked in successfully` });
+        setWorkerForCard(worker);
+        setShowIssueCardModal(true);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/contractors/workers"] });
+    } catch (err: any) {
+      toast({ title: "Check-in Failed", description: err.message || "Failed to check in contractor", variant: "destructive" });
+    }
+  };
+
+  const handleNdaDeclinedForContractor = () => {
+    setShowNdaModal(false);
+    setPendingNdaCheckin(null);
+    toast({ title: "Check-in Cancelled", description: "NDA acceptance is required to check in.", variant: "destructive" });
+  };
+
   // Handle host selection confirmation
   const handleHostSelectionConfirm = async () => {
     if (!selectedWorkerForCheckIn || !selectedHostForWorker) return;
+
+    // NDA gate — if NDA is enabled for contractors, show modal before calling the API
+    if (contractorNdaShouldShow()) {
+      setPendingNdaCheckin({ worker: selectedWorkerForCheckIn, hostId: selectedHostForWorker });
+      setShowHostSelection(false);
+      setTimeout(() => setShowNdaModal(true), 150);
+      return;
+    }
     
     try {
       const response = await apiRequest("POST", `/api/contractors/workers/${selectedWorkerForCheckIn.id}/checkin`, {
@@ -3401,6 +3450,17 @@ export default function Contractors() {
       </Tabs>
 
       {/* H&S Compliance View Dialog */}
+      {/* NDA Modal for contractor check-in */}
+      <NdaModal
+        isOpen={showNdaModal}
+        onClose={handleNdaDeclinedForContractor}
+        onAccept={handleNdaAcceptedForContractor}
+        personName={pendingNdaCheckin ? `${pendingNdaCheckin.worker.firstName} ${pendingNdaCheckin.worker.lastName}` : ""}
+        personSubtitle={(pendingNdaCheckin?.worker as any)?.companyName || ""}
+        ndaContent={(companySettings as any)?.ndaContent || ""}
+        requireSignature={!!(companySettings as any)?.ndaRequireSignature}
+      />
+
       <Dialog open={showComplianceView} onOpenChange={setShowComplianceView}>
         <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>

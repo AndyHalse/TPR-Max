@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import NotFound from "@/pages/not-found";
+import NdaSign from "@/pages/NdaSign";
 import SiteInduction from "@/pages/SiteInduction";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
@@ -189,6 +190,11 @@ function Router() {
         </div>
       </div>
     );
+  }
+
+  // NDA signing - public mobile page, no auth required
+  if (window.location.pathname.startsWith('/nda/')) {
+    return <NdaSign />;
   }
 
   // Invitation acceptance - public route with token (no authentication required)
