@@ -391,7 +391,7 @@ export default function MarketingPage() {
               </p>
 
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
-                From visitor sign-in and contractor compliance to RIDDOR incidents, audit inspections, and payroll-ready time tracking — TPR Max is the single cloud platform covering every aspect of workplace safety and compliance. One subscription. One login. Everything connected.
+                TPR Max is the UK's <strong>Connected Workforce &amp; Site Safety Platform</strong> — bringing contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, and more into one cloud subscription. One login. Everything connected.
               </p>
 
               <div className="grid grid-cols-2 gap-2 mb-8">
@@ -611,7 +611,7 @@ export default function MarketingPage() {
               <span className="text-emerald-600"> Consolidate Everything.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              Most organisations manage health & safety, visitor management, and compliance across 6–10 separate tools. TPR Max replaces them all — one login, one database, one subscription.
+              Most organisations manage health & safety, contractor compliance, and site safety across 6–10 separate tools. TPR Max replaces them all — one login, one database, one subscription.
             </p>
           </div>
 
@@ -3417,7 +3417,7 @@ export default function MarketingPage() {
                 </div>
                 <div className="space-y-3">
                   {[
-                    { icon: UserCheck, colour: "text-indigo-500", title: "Professional visitor management", desc: "Pre-registered arrivals, branded sign-in, instant photo ID badges — no more paper visitor books" },
+                    { icon: UserCheck, colour: "text-indigo-500", title: "Visitor & Reception Management", desc: "Pre-registered arrivals, branded sign-in, instant photo ID badges — no more paper visitor books" },
                     { icon: Calendar, colour: "text-blue-500", title: "Meeting room bookings", desc: "Self-service room and desk booking with real-time availability across all floors and buildings" },
                     { icon: HardHat, colour: "text-orange-500", title: "Contractor access control", desc: "Manage maintenance contractors with digital inductions, permit-to-work, and RAMS sign-off" },
                     { icon: Siren, colour: "text-red-600", title: "Fire evacuation compliance", desc: "Real-time fire register — know exactly who is in the building and who has evacuated" },
@@ -3511,7 +3511,7 @@ export default function MarketingPage() {
                   <span className="text-5xl font-extrabold text-slate-900 dark:text-white">£49</span>
                   <span className="text-slate-500 dark:text-slate-400 mb-2">/site/mo</span>
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">Perfect for offices and smaller sites needing visitor management and fire evacuation compliance.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">For offices and smaller sites that need personnel tracking, emergency mustering, and essential site safety tools.</p>
               </div>
               <ul className="space-y-3 flex-1 mb-8">
                 {[
@@ -3544,7 +3544,7 @@ export default function MarketingPage() {
                   <span className="text-5xl font-extrabold" style={{ color: "#2460A9" }}>£89</span>
                   <span className="text-slate-500 dark:text-slate-400 mb-2">/site/mo</span>
                 </div>
-                <p className="text-sm text-slate-500 dark:text-slate-400">For organisations managing contractors, safety inductions, and compliance reporting.</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">For organisations actively managing contractors, safety compliance, incidents, and high-risk work activities.</p>
               </div>
               <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">All Basic features, plus:</div>
               <ul className="space-y-3 flex-1 mb-8">
@@ -3552,6 +3552,7 @@ export default function MarketingPage() {
                   "Contractor sign-in, passes & compliance",
                   "RAMS management",
                   "AI Safety inductions",
+                  "Permit to Work system",
                   "Incident Reports & PDF export",
                   "Time & Attendance tracking",
                   "Members module",
@@ -3576,17 +3577,21 @@ export default function MarketingPage() {
                   <span className="text-5xl font-extrabold text-white">£195</span>
                   <span className="text-slate-400 mb-2">/site/mo</span>
                 </div>
-                <p className="text-sm text-slate-400">The complete enterprise platform for complex sites requiring CDM, PPM, Martyn's Law, and multi-site management.</p>
+                <p className="text-sm text-slate-400">The full connected workforce &amp; site safety platform for complex, high-compliance sites and multi-site portfolios.</p>
               </div>
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">All Pro features, plus:</div>
               <ul className="space-y-3 flex-1 mb-8">
                 {[
+                  "Audits & Inspections engine (UK templates)",
+                  "Risk Assessment Builder (6 RA types)",
+                  "Compliance Certificate Register",
+                  "HR Lifecycle management & Right to Work",
                   "PPM Annual Planner & asset registry",
                   "Martyn's Law / Protect Duty module",
                   "CDM 2015 project management",
                   "Help Desk & reactive maintenance",
-                  "Suprema/BioStar 2 hardware integration",
                   "Lone Worker Protection system",
+                  "Suprema/BioStar 2 hardware integration",
                   "Portfolio dashboard (multi-site)",
                 ].map(f => (
                   <li key={f} className="flex items-start gap-3 text-sm text-slate-300">
@@ -3885,7 +3890,7 @@ export default function MarketingPage() {
             <div>
               <h3 className="text-base font-semibold mb-4 text-white">About TPR-Max</h3>
               <p className="text-slate-300 text-sm leading-relaxed">
-                A comprehensive workplace compliance & safety platform built for UK organisations. 23 modules covering visitor management, contractor compliance, emergency mustering, risk assessments, HR lifecycle, audits & inspections, CDM 2015, PPM, and more — all in one subscription.
+                The UK's Connected Workforce &amp; Site Safety Platform. 23 modules covering contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, and more — all in one subscription.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {["GDPR Compliant", "UK-Built", "Multi-Tenant", "BioStar 2 Ready"].map(tag => (

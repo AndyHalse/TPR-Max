@@ -1,6 +1,6 @@
 # TPR Max
 
-TPR Max is a cloud-based visitor management system that helps businesses efficiently manage visitors, contractors, and staff with secure tracking and administrative oversight.
+TPR Max is a cloud-based Connected Workforce & Site Safety Platform that helps businesses manage visitors, contractors, and staff with 23 modules covering contractor compliance, emergency mustering, audits & inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, and more.
 
 ## Run & Operate
 - `npm run dev`: Starts the development server.
