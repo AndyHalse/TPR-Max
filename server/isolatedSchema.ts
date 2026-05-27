@@ -472,6 +472,12 @@ export const companySettings = pgTable("company_settings", {
   hsRulesContent: text("hs_rules_content").default(""),
   hsRulesUrl: text("hs_rules_url").default(""), // External URL for H&S rules if not using internal content
   hsRulesRequireAcceptance: boolean("hs_rules_require_acceptance").default(false),
+
+  // NDA (Non-Disclosure Agreement)
+  ndaEnabled: boolean("nda_enabled").default(false),
+  ndaContent: text("nda_content").default(""),
+  ndaRequireSignature: boolean("nda_require_signature").default(false),
+  ndaAppliesTo: text("nda_applies_to").default("visitors"), // visitors, contractors, both
   
   // Phone System & Voice Notifications Configuration
   phoneProvider: text("phone_provider").default("8x8"), // 8x8, twilio, ringcentral, vonage

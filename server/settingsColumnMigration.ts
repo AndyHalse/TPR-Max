@@ -223,6 +223,37 @@ export const addCoreNavFeatureToggleColumnsFixedMigration: Migration = {
 };
 
 /**
+ * Migration to add NDA (Non-Disclosure Agreement) columns
+ */
+export const addNdaColumnsMigration: Migration = {
+  version: '20260527_001_add_nda_columns',
+  description: 'Add NDA configuration columns to company_settings table',
+  async up(db: any) {
+    const columns = [
+      { name: 'nda_enabled', def: 'BOOLEAN DEFAULT false' },
+      { name: 'nda_content', def: "TEXT DEFAULT ''" },
+      { name: 'nda_require_signature', def: 'BOOLEAN DEFAULT false' },
+      { name: 'nda_applies_to', def: "TEXT DEFAULT 'visitors'" },
+    ];
+    for (const col of columns) {
+      const result = await db.execute(`
+        SELECT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_schema = current_schema()
+          AND table_name = 'company_settings'
+          AND column_name = '${col.name}'
+        )
+      `);
+      if (!result.rows[0]?.exists) {
+        logger.info(`🔄 Adding ${col.name} to company_settings`);
+        await db.execute(`ALTER TABLE company_settings ADD COLUMN ${col.name} ${col.def}`);
+        logger.info(`✅ Added ${col.name}`);
+      }
+    }
+  }
+};
+
+/**
  * All settings column migrations exported as array
  */
 export const settingsColumnMigrations: Migration[] = [
@@ -231,4 +262,5 @@ export const settingsColumnMigrations: Migration[] = [
   addMissingThermalPrinterColumnsMigration,
   addCoreNavFeatureToggleColumnsMigration,
   addCoreNavFeatureToggleColumnsFixedMigration,
+  addNdaColumnsMigration,
 ];

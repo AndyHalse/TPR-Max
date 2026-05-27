@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Bot, Building2, Palette, Users, Building, Globe, Mail, Phone, FileText, Printer, HardHat, AlertTriangle, Brain, Wrench, Settings2, Bell, ScrollText, MapPin, Shield, ClipboardList, Briefcase } from "lucide-react";
+import { Bot, Building2, Palette, Users, Building, Globe, Mail, Phone, FileText, Printer, HardHat, AlertTriangle, Brain, Wrench, Settings2, Bell, ScrollText, MapPin, Shield, ClipboardList, Briefcase, PenLine } from "lucide-react";
 
 import GeneralSettings from "./settings/GeneralSettings";
 import BrandingSettings from "./settings/BrandingSettings";
@@ -14,6 +14,7 @@ import EmailSettings from "./settings/EmailSettings";
 import NotificationSettings from "./settings/NotificationSettings";
 import PassSettings from "./settings/PassSettings";
 import InductionSettings from "./settings/InductionSettings";
+import NdaSettings from "./settings/NdaSettings";
 import HsDocumentsSettings from "./settings/HsDocumentsSettings";
 import ContractorSettings from "./settings/ContractorSettings";
 import AiSettings from "./settings/AiSettings";
@@ -74,6 +75,7 @@ export default function Settings() {
               <SelectItem value="printing">Printing &amp; ID</SelectItem>
               <SelectItem value="hs-documents">H&amp;S Documents</SelectItem>
               <SelectItem value="hsrules">H&amp;S Rules</SelectItem>
+              <SelectItem value="nda">NDA</SelectItem>
               <SelectItem value="contractors">Card Offences</SelectItem>
               <SelectItem value="ai">AI Settings</SelectItem>
               <SelectItem value="integrations">Integrations</SelectItem>
@@ -121,6 +123,9 @@ export default function Settings() {
           <TabsTrigger value="hsrules" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
             <HardHat size={14} />H&amp;S Rules
           </TabsTrigger>
+          <TabsTrigger value="nda" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <PenLine size={14} />NDA
+          </TabsTrigger>
           <TabsTrigger value="contractors" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
             <AlertTriangle size={14} />Card Offences
           </TabsTrigger>
@@ -158,6 +163,7 @@ export default function Settings() {
         <TabsContent value="printing" className="space-y-6 mt-6"><PassSettings /></TabsContent>
         <TabsContent value="hs-documents" className="space-y-6 mt-6"><HsDocumentsSettings /></TabsContent>
         <TabsContent value="hsrules" className="space-y-6 mt-6"><InductionSettings /></TabsContent>
+        <TabsContent value="nda" className="space-y-6 mt-6"><NdaSettings /></TabsContent>
         <TabsContent value="contractors" className="space-y-6 mt-6"><ContractorSettings /></TabsContent>
         <TabsContent value="ai" className="space-y-6 mt-6"><AiSettings /></TabsContent>
         <TabsContent value="integrations" className="space-y-6 mt-6"><IntegrationSettings /></TabsContent>
