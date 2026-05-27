@@ -74,7 +74,7 @@ export function registerHrDocumentRoutes(app: Express): void {
       const doc = result.rows[0];
       if (!doc) return res.status(404).json({ error: 'Document not found' });
       if (doc.is_confidential && !['admin', 'hr_admin'].includes(req.user?.role || '')) {
-        return res.status(403).json({ error: 'Access denied: this document is confidential' });
+        return res.status(403).json({ error: 'You do not have permission to download this document.' });
       }
       res.json({ fileUrl: doc.file_url, fileName: doc.file_name });
     } catch (err: any) {
