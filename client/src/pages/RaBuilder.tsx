@@ -162,7 +162,6 @@ export default function RaBuilder() {
 
   // View state
   const [showEditor, setShowEditor] = useState(false);
-  const [showPrintView, setShowPrintView] = useState(false);
   const [currentAssessmentId, setCurrentAssessmentId] = useState<string | null>(null);
 
   // New assessment dialog
@@ -398,16 +397,130 @@ export default function RaBuilder() {
     updateHazardField(hazardId, "additionalControls", updated);
   };
 
-  // ── Print ────────────────────────────────────────────────────────────────
+  // ── Export PDF (opens new print window) ──────────────────────────────────
 
-  const handlePrint = () => {
-    setShowPrintView(true);
-    setTimeout(() => {
-      window.print();
-      const handler = () => { setShowPrintView(false); window.removeEventListener("afterprint", handler); };
-      window.addEventListener("afterprint", handler);
-      setTimeout(() => setShowPrintView(false), 3000);
-    }, 100);
+  const handleExportPdf = () => {
+    const meta = typeMetadata;
+    const raTypeLabel = RA_TYPE_CONFIG[assessment.raType as RAType]?.label || assessment.raType || "General";
+    const statusLabel = STATUS_CONFIG[assessment.status || "draft"]?.label || assessment.status || "Draft";
+
+    const riskClass = (r: number) => r >= 15 ? "risk-vhigh" : r >= 10 ? "risk-high" : r >= 5 ? "risk-medium" : "risk-low";
+    const riskLabel = (r: number) => r >= 15 ? "Very High" : r >= 10 ? "High" : r >= 5 ? "Medium" : "Low";
+    const esc = (s: string | null | undefined) => String(s || "—").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const metaRows = Object.entries(meta)
+      .filter(([, v]) => v !== "" && v !== null && v !== undefined)
+      .map(([k, v]) => `<tr><td style="width:160px;font-weight:bold">${k.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase())}</td><td>${Array.isArray(v) ? v.join(", ") : esc(String(v))}</td></tr>`)
+      .join("");
+
+    const hazardRows = hazards.map((h, i) => `
+      <tr>
+        <td style="text-align:center">${i + 1}</td>
+        <td>${esc(h.hazardDescription)}</td>
+        <td>${esc(h.affectedPersons)}</td>
+        <td>${esc(h.existingControls)}</td>
+        <td style="text-align:center">${h.likelihood}</td>
+        <td style="text-align:center">${h.severity}</td>
+        <td class="${riskClass(h.riskRating)}" style="text-align:center">${h.riskRating}<br><small>${riskLabel(h.riskRating)}</small></td>
+        <td>${esc(h.additionalControls)}</td>
+        <td style="text-align:center">${h.residualLikelihood}</td>
+        <td style="text-align:center">${h.residualSeverity}</td>
+        <td class="${riskClass(h.residualRiskRating)}" style="text-align:center">${h.residualRiskRating}<br><small>${riskLabel(h.residualRiskRating)}</small></td>
+        <td>${esc(h.actionBy)}</td>
+        <td>${esc(h.actionDate)}</td>
+      </tr>`).join("");
+
+    const html = `<!DOCTYPE html>
+<html><head>
+  <meta charset="UTF-8">
+  <title>Risk Assessment — ${esc(assessment.title)}</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:Arial,sans-serif;font-size:10pt;color:#111;padding:20px}
+    h1{font-size:15pt;margin-bottom:4px}
+    h2{font-size:11pt;margin:14px 0 5px;border-bottom:1px solid #ccc;padding-bottom:3px;color:#1a3a6b}
+    .header{display:flex;justify-content:space-between;border-bottom:2px solid #1a3a6b;margin-bottom:12px;padding-bottom:8px}
+    .header-right{text-align:right;font-size:9pt;color:#555}
+    .meta-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;font-size:9pt;background:#f5f7fa;padding:10px;border-radius:4px}
+    .meta-label{font-weight:bold;color:#333;font-size:8pt;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+    table{width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:12px}
+    th,td{border:1px solid #ccc;padding:3px 5px;vertical-align:top}
+    th{background:#e8eef5;font-weight:bold;text-align:left;white-space:nowrap}
+    .risk-low{background:#d1fae5;color:#065f46;font-weight:bold}
+    .risk-medium{background:#fef3c7;color:#92400e;font-weight:bold}
+    .risk-high{background:#ffedd5;color:#9a3412;font-weight:bold}
+    .risk-vhigh{background:#fee2e2;color:#991b1b;font-weight:bold}
+    .signoff{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;border-top:1px solid #ccc;padding-top:12px}
+    .signoff-box{border:1px solid #ddd;padding:8px;border-radius:4px;font-size:9pt}
+    .signoff-role{font-weight:bold;color:#1a3a6b;margin-bottom:4px}
+    .sig-line{margin-top:20px;border-top:1px solid #999;padding-top:2px;font-size:8pt;color:#777}
+    .notes{margin-top:12px;padding:8px;background:#f9f9f9;border:1px solid #ddd;font-size:9pt;border-radius:4px}
+    .footer{margin-top:20px;border-top:1px solid #eee;padding-top:8px;font-size:8pt;color:#999;display:flex;justify-content:space-between}
+    @media print{@page{size:A4 landscape;margin:1.2cm}}
+  </style>
+</head><body>
+  <div class="header">
+    <div>
+      <h1>${esc(assessment.title)}</h1>
+      <div style="font-size:9pt;color:#555;margin-top:2px">
+        Type: <strong>${raTypeLabel}</strong> &nbsp;|&nbsp;
+        Status: <strong>${statusLabel}</strong> &nbsp;|&nbsp;
+        Ref: <strong>RA-${(currentAssessmentId || "").substring(0, 8).toUpperCase()}</strong>
+      </div>
+    </div>
+    <div class="header-right">
+      <div>Assessment Date: <strong>${esc(assessment.assessmentDate)}</strong></div>
+      <div>Next Review: <strong>${esc(assessment.nextReviewDate)}</strong></div>
+      <div>Location: <strong>${esc(assessment.location)}</strong></div>
+      <div>Printed: <strong>${new Date().toLocaleDateString("en-GB")}</strong></div>
+    </div>
+  </div>
+  <div class="meta-grid">
+    <div><div class="meta-label">Task / Activity</div>${esc(assessment.taskDescription)}</div>
+    <div><div class="meta-label">Department</div>${esc(assessment.department)}</div>
+    <div><div class="meta-label">Prepared By</div>${esc(assessment.preparedBy)}</div>
+  </div>
+  ${assessment.raType !== "general" && metaRows ? `<h2>${raTypeLabel} — Specific Details</h2><table style="max-width:600px"><tbody>${metaRows}</tbody></table>` : ""}
+  <h2>Hazard Register (${hazards.length} hazard${hazards.length !== 1 ? "s" : ""})</h2>
+  ${hazards.length === 0 ? `<p style="color:#999;font-size:9pt">No hazards recorded.</p>` : `
+  <table>
+    <thead><tr>
+      <th style="width:25px">#</th>
+      <th style="width:130px">Hazard Description</th>
+      <th style="width:85px">Who Affected</th>
+      <th style="width:115px">Existing Controls</th>
+      <th style="width:22px;text-align:center">L</th>
+      <th style="width:22px;text-align:center">S</th>
+      <th style="width:52px;text-align:center">Risk</th>
+      <th style="width:125px">Additional Controls</th>
+      <th style="width:28px;text-align:center">R.L</th>
+      <th style="width:28px;text-align:center">R.S</th>
+      <th style="width:60px;text-align:center">Residual</th>
+      <th style="width:80px">Action By</th>
+      <th style="width:60px">Due Date</th>
+    </tr></thead>
+    <tbody>${hazardRows}</tbody>
+  </table>`}
+  <div class="signoff">
+    <div class="signoff-box"><div class="signoff-role">Prepared By</div><div>${esc(assessment.preparedBy)}</div><div class="sig-line">Signature</div></div>
+    <div class="signoff-box"><div class="signoff-role">Reviewed By</div><div>${esc(assessment.reviewedBy)}</div><div class="sig-line">Signature</div></div>
+    <div class="signoff-box"><div class="signoff-role">Approved By</div><div>${esc(assessment.approvedBy)}</div><div class="sig-line">Signature</div></div>
+  </div>
+  ${assessment.notes ? `<div class="notes"><strong>Notes:</strong> ${esc(assessment.notes)}</div>` : ""}
+  <div class="footer">
+    <span>TPR Max — Connected Workforce &amp; Site Safety Platform</span>
+    <span>Generated: ${new Date().toLocaleString("en-GB")}</span>
+  </div>
+</body></html>`;
+
+    const win = window.open("", "_blank");
+    if (!win) {
+      toast({ title: "Allow pop-ups to print / export PDF", variant: "destructive" });
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    setTimeout(() => win.print(), 600);
   };
 
   // ── Navigation ───────────────────────────────────────────────────────────
@@ -452,104 +565,6 @@ export default function RaBuilder() {
     (riskSummary.after as any)[band(h.residualRiskRating)]++;
   });
 
-  // ── Print view ───────────────────────────────────────────────────────────
-
-  if (showPrintView) {
-    const meta = typeMetadata;
-    const raTypeLabel = RA_TYPE_CONFIG[assessment.raType as RAType]?.label || assessment.raType;
-    return (
-      <>
-        <style>{`
-          @media print {
-            body > *:not(.print-ra-document) { display: none !important; }
-            .print-ra-document { display: block !important; }
-            .no-print { display: none !important; }
-          }
-          .print-ra-document { font-family: Arial, sans-serif; font-size: 10pt; color: #111; }
-          .print-ra-document h1 { font-size: 14pt; }
-          .print-ra-document h2 { font-size: 12pt; }
-          .print-ra-document table { width: 100%; border-collapse: collapse; font-size: 9pt; }
-          .print-ra-document th, .print-ra-document td { border: 1px solid #ccc; padding: 4px 6px; vertical-align: top; }
-          .print-ra-document th { background: #f0f0f0; font-weight: bold; }
-        `}</style>
-        <div className="print-ra-document p-8 max-w-5xl mx-auto">
-          <div className="flex justify-between items-start mb-6 pb-4 border-b-2 border-slate-800">
-            <div>
-              <h1 className="text-2xl font-bold">{assessment.title}</h1>
-              <div className="text-sm text-slate-600 mt-1">
-                Type: {raTypeLabel} &nbsp;|&nbsp; Status: {assessment.status} &nbsp;|&nbsp;
-                Date: {assessment.assessmentDate || "—"} &nbsp;|&nbsp;
-                Ref: RA-{currentAssessmentId?.substring(0, 8).toUpperCase()}
-              </div>
-            </div>
-            <div className="text-right text-sm text-slate-600">
-              <div>Next Review: {assessment.nextReviewDate || "—"}</div>
-              <div>Location: {assessment.location || "—"}</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4 mb-6 text-sm">
-            <div><strong>Task / Activity:</strong><br />{assessment.taskDescription || "—"}</div>
-            <div><strong>Department:</strong><br />{assessment.department || "—"}</div>
-            <div><strong>Prepared by:</strong><br />{assessment.preparedBy || "—"}</div>
-          </div>
-
-          {assessment.raType !== "general" && Object.keys(meta).length > 0 && (
-            <div className="mb-6">
-              <h2 className="font-bold mb-2">{raTypeLabel} — Specific Details</h2>
-              <table><tbody>
-                {Object.entries(meta).map(([k, v]) => (
-                  <tr key={k}>
-                    <td className="w-48 font-medium">{k.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase())}</td>
-                    <td>{Array.isArray(v) ? v.join(", ") : String(v || "—")}</td>
-                  </tr>
-                ))}
-              </tbody></table>
-            </div>
-          )}
-
-          <h2 className="font-bold mb-2">Hazard Register</h2>
-          <table className="mb-6">
-            <thead>
-              <tr>
-                <th>#</th><th>Hazard</th><th>Who Affected</th>
-                <th>Existing Controls</th><th>L</th><th>S</th><th>RR</th>
-                <th>Additional Controls</th><th>Res.L</th><th>Res.S</th><th>Res.RR</th>
-                <th>Action By</th><th>Due Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {hazards.map((h, i) => (
-                <tr key={h.id}>
-                  <td>{i + 1}</td>
-                  <td>{h.hazardDescription}</td>
-                  <td>{h.affectedPersons || "—"}</td>
-                  <td>{h.existingControls || "—"}</td>
-                  <td>{h.likelihood}</td><td>{h.severity}</td><td><strong>{h.riskRating}</strong></td>
-                  <td>{h.additionalControls || "—"}</td>
-                  <td>{h.residualLikelihood}</td><td>{h.residualSeverity}</td><td><strong>{h.residualRiskRating}</strong></td>
-                  <td>{h.actionBy || "—"}</td>
-                  <td>{h.actionDate || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          <div className="grid grid-cols-3 gap-4 text-sm border-t pt-4">
-            <div><strong>Prepared by:</strong> {assessment.preparedBy || "—"} <br /><em>Signature:</em> ___________________</div>
-            <div><strong>Reviewed by:</strong> {assessment.reviewedBy || "—"} <br /><em>Signature:</em> ___________________</div>
-            <div><strong>Approved by:</strong> {assessment.approvedBy || "—"} <br /><em>Signature:</em> ___________________</div>
-          </div>
-          {assessment.notes && <div className="mt-4 text-sm"><strong>Notes:</strong> {assessment.notes}</div>}
-
-          <button className="no-print mt-6 px-4 py-2 bg-slate-200 rounded text-sm" onClick={() => setShowPrintView(false)}>
-            Close Print View
-          </button>
-        </div>
-      </>
-    );
-  }
-
   // ── Editor view ───────────────────────────────────────────────────────────
 
   if (showEditor) {
@@ -569,7 +584,7 @@ export default function RaBuilder() {
                 {saveStatus === "saving" && <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" />Saving…</span>}
                 {saveStatus === "saved" && <span className="flex items-center gap-1 text-green-600"><CheckCircle className="h-3 w-3" />Saved</span>}
               </span>
-              <Button variant="outline" size="sm" onClick={handlePrint}>
+              <Button variant="outline" size="sm" onClick={handleExportPdf}>
                 <Printer className="h-4 w-4 mr-1" /> Print / Export PDF
               </Button>
               <Button size="sm" style={{ backgroundColor: "#2460A9" }}
@@ -650,15 +665,28 @@ export default function RaBuilder() {
                   </div>
                   <div>
                     <Label>Prepared By</Label>
-                    <Input className="mt-1" value={assessment.preparedBy || ""} onChange={(e) => updateAssessmentField("preparedBy", e.target.value)} />
+                    <StaffNamePicker
+                      value={assessment.preparedBy || ""}
+                      onChange={(v) => updateAssessmentField("preparedBy", v)}
+                      placeholder="Select or enter preparer…"
+                    />
                   </div>
                   <div>
                     <Label>Reviewed By</Label>
-                    <Input className="mt-1" value={assessment.reviewedBy || ""} onChange={(e) => updateAssessmentField("reviewedBy", e.target.value)} />
+                    <StaffNamePicker
+                      value={assessment.reviewedBy || ""}
+                      onChange={(v) => updateAssessmentField("reviewedBy", v)}
+                      placeholder="Select or enter reviewer…"
+                    />
                   </div>
                   <div>
                     <Label className={assessment.status !== "approved" ? "text-slate-400" : ""}>Approved By</Label>
-                    <Input className="mt-1" disabled={assessment.status !== "approved"} value={assessment.approvedBy || ""} onChange={(e) => updateAssessmentField("approvedBy", e.target.value)} />
+                    <StaffNamePicker
+                      value={assessment.approvedBy || ""}
+                      onChange={(v) => updateAssessmentField("approvedBy", v)}
+                      placeholder="Select or enter approver…"
+                      disabled={assessment.status !== "approved"}
+                    />
                   </div>
                   <div className="md:col-span-2">
                     <Label>Notes</Label>
@@ -1044,9 +1072,12 @@ function HazardCard({
             <div>
               <Label className="flex items-center">
                 Who is Affected
-                <InfoTooltip text="List all groups: employees, contractors, visitors, members of the public, neighbouring workers." />
+                <InfoTooltip text="Select all groups at risk. Employees, contractors and visitors have different legal protections — identifying them separately satisfies MHSWR reg 3." />
               </Label>
-              <Input className="mt-1" value={hazard.affectedPersons || ""} onChange={(e) => onChange("affectedPersons", e.target.value)} placeholder="e.g. Employees, Contractors, Visitors" />
+              <AffectedPersonsPicker
+                value={hazard.affectedPersons || ""}
+                onChange={(v) => onChange("affectedPersons", v)}
+              />
             </div>
 
             {/* Existing Controls */}
@@ -1172,7 +1203,11 @@ function HazardCard({
             {/* Action By */}
             <div>
               <Label>Action By</Label>
-              <Input className="mt-1" value={hazard.actionBy || ""} onChange={(e) => onChange("actionBy", e.target.value)} placeholder="Name of responsible person" />
+              <StaffNamePicker
+                value={hazard.actionBy || ""}
+                onChange={(v) => onChange("actionBy", v)}
+                placeholder="Select or enter responsible person…"
+              />
             </div>
 
             {/* Action Date */}
@@ -1405,4 +1440,121 @@ function TypeSpecificFields({ raType, meta, onChange }: {
   }
 
   return <p className="text-slate-400 text-sm">No additional fields for General assessments.</p>;
+}
+
+// ── Staff Name Picker ────────────────────────────────────────────────────────
+
+function StaffNamePicker({
+  value,
+  onChange,
+  placeholder,
+  disabled,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  disabled?: boolean;
+}) {
+  const { data: staffList = [] } = useQuery<{ id: string; firstName: string; lastName: string }[]>({
+    queryKey: ["/api/staff"],
+    staleTime: 60000,
+  });
+
+  const [isManual, setIsManual] = useState(false);
+
+  const staffNames = staffList.map((s) => `${s.firstName} ${s.lastName}`);
+
+  useEffect(() => {
+    if (value && !staffNames.includes(value) && staffList.length > 0) {
+      setIsManual(true);
+    }
+  }, [value, staffList.length]);
+
+  const selectValue = isManual ? "__manual__" : (value || "");
+
+  return (
+    <div className="space-y-1 mt-1">
+      <Select
+        value={selectValue}
+        onValueChange={(v) => {
+          if (v === "__manual__") {
+            setIsManual(true);
+            onChange("");
+          } else {
+            setIsManual(false);
+            onChange(v);
+          }
+        }}
+        disabled={disabled}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder={placeholder || "Select staff member…"} />
+        </SelectTrigger>
+        <SelectContent>
+          {staffList.map((s) => {
+            const name = `${s.firstName} ${s.lastName}`;
+            return <SelectItem key={s.id} value={name}>{name}</SelectItem>;
+          })}
+          <SelectItem value="__manual__">✏️ Enter name manually…</SelectItem>
+        </SelectContent>
+      </Select>
+      {isManual && (
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder || "Enter name…"}
+          disabled={disabled}
+        />
+      )}
+    </div>
+  );
+}
+
+// ── Affected Persons Picker ──────────────────────────────────────────────────
+
+const AFFECTED_GROUPS = [
+  "Employees",
+  "Contractors",
+  "Visitors",
+  "Members of Public",
+  "Agency Staff",
+  "Young Persons",
+];
+
+function AffectedPersonsPicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const selected = value
+    ? value.split(",").map((s) => s.trim()).filter(Boolean)
+    : [];
+
+  const toggle = (group: string) => {
+    const next = selected.includes(group)
+      ? selected.filter((s) => s !== group)
+      : [...selected, group];
+    onChange(next.join(", "));
+  };
+
+  return (
+    <div className="mt-1 flex flex-wrap gap-2">
+      {AFFECTED_GROUPS.map((group) => (
+        <button
+          key={group}
+          type="button"
+          onClick={() => toggle(group)}
+          className={`text-xs px-3 py-1 rounded-full border transition-colors ${
+            selected.includes(group)
+              ? "bg-[#2460A9] text-white border-[#2460A9]"
+              : "bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-300 hover:border-[#2460A9] hover:text-[#2460A9]"
+          }`}
+        >
+          {selected.includes(group) ? "✓ " : ""}{group}
+        </button>
+      ))}
+    </div>
+  );
 }
