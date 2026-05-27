@@ -949,6 +949,19 @@ export const addCustomerIdToInvitationsAndImagesMigration: Migration = {
   }
 };
 
+// Migration 017: Add custom_video_url to induction_settings for customer-uploaded video
+export const addInductionCustomVideoUrlMigration: Migration = {
+  version: '20260527_017_add_induction_custom_video_url',
+  description: 'Add custom_video_url column to induction_settings for customer-uploaded video storage path',
+  async up(db: any) {
+    await db.execute(`
+      ALTER TABLE induction_settings
+        ADD COLUMN IF NOT EXISTS custom_video_url TEXT
+    `);
+    logger.info('✅ Added custom_video_url to induction_settings');
+  }
+};
+
 // Export all migrations
 export const contractorMigrations: Migration[] = [
   createCoreContractorTablesMigration,
@@ -965,4 +978,5 @@ export const contractorMigrations: Migration[] = [
   fixInductionTokensUniversalMigration,
   addRamsCustomerIdMigration,
   addCustomerIdToInvitationsAndImagesMigration,
+  addInductionCustomVideoUrlMigration,
 ];

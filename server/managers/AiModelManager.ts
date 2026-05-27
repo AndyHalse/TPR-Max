@@ -9,15 +9,11 @@ import { ResultUtils } from '../utils/result';
 import { OpenAIErrorHandler } from '../utils/openaiErrorHandler';
 import { logger } from '../utils/logger';
 
-// Support organization and project IDs to ensure correct billing context
+// Using Replit's AI Integrations service — same key/base-URL as videoGenerationService.ts
 const openaiConfig: any = {
-  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
 };
-
-// For project-scoped API keys, only set project ID (organization is implicit)
-if (process.env.OPENAI_PROJECT_ID) {
-  openaiConfig.project = process.env.OPENAI_PROJECT_ID;
-}
 
 const openai = new OpenAI(openaiConfig);
 

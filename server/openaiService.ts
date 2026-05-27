@@ -2,9 +2,12 @@ import OpenAI from "openai";
 import { OpenAIErrorHandler } from "./utils/openaiErrorHandler";
 import { logger } from './utils/logger';
 
-// Using javascript_openai blueprint
+// Using Replit's AI Integrations service — same key/base-URL as videoGenerationService.ts
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+const openai = new OpenAI({
+  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+  apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+});
 
 export async function generateCompanyDescription(website: string, companyName: string, industry?: string): Promise<{ 
   description: string; 
