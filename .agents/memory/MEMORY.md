@@ -1,2 +1,3 @@
 - [line_manager_id raw SQL only](line-manager-id-raw-sql.md) — staff.line_manager_id exists in DB via raw ALTER TABLE but NOT in Drizzle schema; Zod strips it silently; must use raw SQL to write it.
 - [Drag-drop line manager fix](line-manager-id-raw-sql.md) — topic file updated; use PATCH /api/staff/:id/line-manager for org chart drag; never PUT with lineManagerId through Zod.
+- [apiRequest returns Response not JSON](apirequest-response-pattern.md) — apiRequest() returns a raw Response object; always call .json() explicitly to get parsed data.

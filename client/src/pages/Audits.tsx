@@ -17,6 +17,7 @@ import {
   Clock, RefreshCw, ChevronUp, ChevronDown, X, LayoutDashboard,
   FileText, ListChecks, Target, TrendingUp, CalendarDays, User,
   MapPin, Flag, Filter, Camera, Upload, Link as LinkIcon, Shield, Download,
+  Mail, Send, Copy,
 } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 
@@ -588,7 +589,10 @@ function ConductAuditDialog({
   const [started, setStarted] = useState(false);
 
   const startMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/audits/records/${record.id}/start`, {}),
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/audits/records/${record.id}/start`, {});
+      return res.json();
+    },
     onSuccess: (data: any) => {
       setItems(data.items ?? []);
       setStarted(true);
@@ -602,14 +606,16 @@ function ConductAuditDialog({
       setLocalItems({});
       setSummary("");
       if (record.status === 'in_progress') {
-        apiRequest("GET", `/api/audits/records/${record.id}`).then((d: any) => {
+        apiRequest("GET", `/api/audits/records/${record.id}`).then(async (res: any) => {
+          const d = await res.json();
           setItems(d.items ?? []);
           setStarted(true);
         }).catch(() => {});
       } else if (record.status === 'scheduled' || record.status === 'overdue') {
         startMutation.mutate();
       } else {
-        apiRequest("GET", `/api/audits/records/${record.id}`).then((d: any) => {
+        apiRequest("GET", `/api/audits/records/${record.id}`).then(async (res: any) => {
+          const d = await res.json();
           setItems(d.items ?? []);
           setStarted(true);
         }).catch(() => {});
@@ -637,11 +643,18 @@ function ConductAuditDialog({
   }
 
   const submitMutation = useMutation({
-    mutationFn: () => apiRequest("POST", `/api/audits/records/${record.id}/submit`, { summary }),
+    mutationFn: async () => {
+      const res = await apiRequest("POST", `/api/audits/records/${record.id}/submit`, { summary });
+      return res.json();
+    },
     onSuccess: (data: any) => {
       setSubmitResult(data);
       queryClient.invalidateQueries({ queryKey: ["/api/audits/records"] });
       queryClient.invalidateQueries({ queryKey: ["/api/audits/summary"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/audits/actions"] });
+      if (data.autoActionsCreated > 0) {
+        toast({ title: `${data.autoActionsCreated} corrective action${data.autoActionsCreated > 1 ? 's' : ''} created automatically`, description: "View them in the Actions tab." });
+      }
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -855,6 +868,137 @@ function ConductAuditDialog({
   );
 }
 
+// ─── Send Audit Link Dialog ───────────────────────────────────────────────────
+
+function SendAuditLinkDialog({ open, onClose, record, onCopied }: {
+  open: boolean; onClose: () => void; record: AuditRecord; onCopied?: () => void;
+}) {
+  const { toast } = useToast();
+  const [staffId, setStaffId] = useState("");
+  const [staffName, setStaffName] = useState("");
+  const [staffEmail, setStaffEmail] = useState("");
+  const [emailManual, setEmailManual] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [copying, setCopying] = useState(false);
+
+  const { data: staffList = [] } = useQuery<StaffMember[]>({
+    queryKey: ["/api/staff"],
+    staleTime: 60000,
+  });
+
+  useEffect(() => {
+    if (open) { setStaffId(""); setStaffName(""); setStaffEmail(""); setEmailManual(false); }
+  }, [open]);
+
+  function onStaffSelect(val: string) {
+    if (val === "__manual__") {
+      setEmailManual(true);
+      setStaffId(""); setStaffName(""); setStaffEmail("");
+    } else {
+      setEmailManual(false);
+      setStaffId(val);
+      const s = staffList.find(s => s.id === val);
+      if (s) { setStaffName(`${s.firstName} ${s.lastName}`); setStaffEmail(s.email ?? ""); }
+    }
+  }
+
+  async function handleCopyLink() {
+    setCopying(true);
+    try {
+      const res = await apiRequest("GET", `/api/audits/records/${record.id}/token`);
+      const data = await res.json();
+      const link = `${window.location.origin}/audit/complete/${data.token}`;
+      await navigator.clipboard.writeText(link);
+      toast({ title: "Mobile link copied!", description: "Share this link with the inspector. Expires in 7 days." });
+      onClose();
+    } catch {
+      toast({ title: "Error generating link", variant: "destructive" });
+    } finally {
+      setCopying(false);
+    }
+  }
+
+  async function handleSendEmail() {
+    if (!staffEmail) { toast({ title: "Email address required", variant: "destructive" }); return; }
+    setSending(true);
+    try {
+      const res = await apiRequest("POST", `/api/audits/records/${record.id}/send-link`, { staffEmail, staffName });
+      const data = await res.json();
+      if (data.emailSent) {
+        toast({ title: "Inspection link sent!", description: `Email sent to ${staffEmail}.` });
+      } else {
+        toast({ title: "Link generated (email may not have sent)", description: `Check email configuration. Link: ${data.link}`, variant: "destructive" });
+      }
+      onClose();
+    } catch (err: any) {
+      toast({ title: "Error sending link", description: err.message, variant: "destructive" });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  const selectedValue = emailManual ? "__manual__" : (staffId || "");
+
+  return (
+    <Dialog open={open} onOpenChange={v => !v && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5 text-blue-600" />
+            Send Mobile Inspection Link
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4 py-2">
+          <div>
+            <p className="text-sm text-slate-600 mb-3">
+              <span className="font-semibold">{record.title}</span> — send this link so the inspector can complete the audit on their mobile device.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label>Assign to Staff Member</Label>
+            <Select value={selectedValue} onValueChange={onStaffSelect}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select staff member…" />
+              </SelectTrigger>
+              <SelectContent>
+                {staffList.map(s => (
+                  <SelectItem key={s.id} value={s.id}>{s.firstName} {s.lastName}{s.email ? ` — ${s.email}` : ""}</SelectItem>
+                ))}
+                <SelectItem value="__manual__">Enter email manually…</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {emailManual && (
+            <div className="space-y-2">
+              <Label>Name (optional)</Label>
+              <Input value={staffName} onChange={e => setStaffName(e.target.value)} placeholder="Inspector's name" />
+              <Label>Email Address</Label>
+              <Input type="email" value={staffEmail} onChange={e => setStaffEmail(e.target.value)} placeholder="inspector@company.com" />
+            </div>
+          )}
+          {staffId && !emailManual && !staffEmail && (
+            <p className="text-xs text-amber-600">This staff member has no email address on record. Use the copy link option instead.</p>
+          )}
+        </div>
+        <DialogFooter className="flex-col gap-2 sm:flex-row">
+          <Button variant="outline" className="flex-1" onClick={handleCopyLink} disabled={copying || sending}>
+            {copying ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Copy className="h-4 w-4 mr-2" />}
+            Copy Link Only
+          </Button>
+          <Button
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+            onClick={handleSendEmail}
+            disabled={sending || copying || !staffEmail}
+          >
+            {sending ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+            Send by Email
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 // ─── CAPA Dialog ──────────────────────────────────────────────────────────────
 
 function CapaDialog({ open, onClose, auditId, auditItemId, prefillTitle }: {
@@ -1045,6 +1189,7 @@ export default function Audits() {
   const [editingTemplate, setEditingTemplate] = useState<(AuditTemplate & { items?: AuditTemplateItem[] }) | null>(null);
   const [showRecordDialog, setShowRecordDialog] = useState(false);
   const [conductingRecord, setConductingRecord] = useState<AuditRecord | null>(null);
+  const [sendLinkRecord, setSendLinkRecord] = useState<AuditRecord | null>(null);
   const [showCapaDialog, setShowCapaDialog] = useState(false);
   const [capaContext, setCapaContext] = useState<{ auditId: string; auditItemId?: string; title?: string } | null>(null);
   const [closingAction, setClosingAction] = useState<AuditCorrectiveAction | null>(null);
@@ -1104,7 +1249,8 @@ export default function Audits() {
 
   async function generateToken(record: AuditRecord) {
     try {
-      const data: any = await apiRequest("GET", `/api/audits/records/${record.id}/token`);
+      const res = await apiRequest("GET", `/api/audits/records/${record.id}/token`);
+      const data = await res.json();
       const link = `${window.location.origin}/audit/complete/${data.token}`;
       await navigator.clipboard.writeText(link);
       toast({ title: "Mobile link copied to clipboard", description: "Expires in 7 days." });
@@ -1372,8 +1518,8 @@ export default function Audits() {
                           <Eye className="h-3.5 w-3.5 mr-1" />View
                         </Button>
                       )}
-                      <Button size="sm" variant="outline" title="Copy mobile link" onClick={() => generateToken(r)}>
-                        <LinkIcon className="h-3.5 w-3.5" />
+                      <Button size="sm" variant="outline" title="Send mobile link" onClick={() => setSendLinkRecord(r)}>
+                        <Mail className="h-3.5 w-3.5" />
                       </Button>
                       <Button size="sm" variant="outline" className="text-red-600 hover:bg-red-50" onClick={() => { if (confirm("Delete this audit record?")) deleteRecordMutation.mutate(r.id); }}>
                         <Trash2 className="h-3.5 w-3.5" />
@@ -1488,6 +1634,14 @@ export default function Audits() {
             queryClient.invalidateQueries({ queryKey: ["/api/audits/records"] });
             queryClient.invalidateQueries({ queryKey: ["/api/audits/summary"] });
           }}
+        />
+      )}
+
+      {sendLinkRecord && (
+        <SendAuditLinkDialog
+          open={!!sendLinkRecord}
+          onClose={() => setSendLinkRecord(null)}
+          record={sendLinkRecord}
         />
       )}
 

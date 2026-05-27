@@ -5,6 +5,7 @@ import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { ObjectStorageService } from '../objectStorage';
+import { EmailService } from '../emailService';
 import { logger } from '../utils/logger';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, sql, desc, or, lt, isNull, inArray, count } from 'drizzle-orm';
@@ -726,7 +727,31 @@ export function registerAuditEngineRoutes(app: Express): void {
         .set({ status: 'completed', overallScore: score, passed, conductedAt: new Date(), summary, updatedAt: new Date() })
         .where(eq(isolatedSchema.auditRecords.id, req.params.id))
         .returning();
-      res.json({ record: updated, overallScore: score, passed, passCount, failCount, naCount, items });
+
+      // Auto-create corrective actions for all failed items (skip any already raised)
+      let autoActionsCreated = 0;
+      const failedItems = items.filter(i => i.response === 'fail');
+      if (failedItems.length > 0) {
+        const existingActions = await custDb.select().from(isolatedSchema.auditCorrectiveActions)
+          .where(eq(isolatedSchema.auditCorrectiveActions.auditId, req.params.id));
+        const existingItemIds = new Set(existingActions.map(a => a.auditItemId).filter(Boolean));
+        const newActions = failedItems
+          .filter(item => !existingItemIds.has(item.id))
+          .map(item => ({
+            auditId: req.params.id,
+            auditItemId: item.id,
+            title: `Failed: ${item.question}`,
+            description: item.note || null,
+            priority: (item.isCritical ? 'high' : 'medium') as 'high' | 'medium',
+            status: 'open' as const,
+          }));
+        if (newActions.length > 0) {
+          await custDb.insert(isolatedSchema.auditCorrectiveActions).values(newActions);
+          autoActionsCreated = newActions.length;
+        }
+      }
+
+      res.json({ record: updated, overallScore: score, passed, passCount, failCount, naCount, items, autoActionsCreated });
     } catch (error: unknown) {
       logger.error('POST /api/audits/records/:id/submit', error);
       res.status(500).json({ error: 'Failed to submit audit' });
@@ -748,6 +773,68 @@ export function registerAuditEngineRoutes(app: Express): void {
     } catch (error: unknown) {
       logger.error('GET /api/audits/records/:id/token', error);
       res.status(500).json({ error: 'Failed to generate access token' });
+    }
+  });
+
+  // Send audit mobile link by email to a staff member
+  app.post('/api/audits/records/:id/send-link', requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const { staffEmail, staffName } = req.body;
+      if (!staffEmail) return res.status(400).json({ error: 'Staff email is required' });
+
+      const token = randomBytes(24).toString('hex');
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      const [record] = await custDb.update(isolatedSchema.auditRecords)
+        .set({ accessToken: token, accessTokenExpiresAt: expiresAt, updatedAt: new Date() })
+        .where(eq(isolatedSchema.auditRecords.id, req.params.id))
+        .returning();
+      if (!record) return res.status(404).json({ error: 'Audit record not found' });
+
+      const link = `${req.protocol}://${req.get('host')}/audit/complete/${token}`;
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+      const companyName = settings?.companyName || 'TPR Max';
+      const assignee = staffName || staffEmail;
+      const dueDateStr = record.scheduledDate ? new Date(record.scheduledDate).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : 'As soon as possible';
+
+      const html = `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #f8fafc; padding: 24px;">
+          <div style="background: #1e3a5f; border-radius: 12px 12px 0 0; padding: 24px; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 22px;">${companyName}</h1>
+            <p style="color: #93c5fd; margin: 6px 0 0; font-size: 14px;">Audit &amp; Inspection</p>
+          </div>
+          <div style="background: white; border-radius: 0 0 12px 12px; padding: 32px;">
+            <p style="color: #334155; font-size: 16px; margin: 0 0 8px;">Hi ${assignee},</p>
+            <p style="color: #64748b; font-size: 15px; margin: 0 0 24px;">You have been assigned an audit inspection to complete. Please use the link below on your mobile device to carry out the inspection, record your findings, and submit the results.</p>
+            <div style="background: #f1f5f9; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr><td style="color: #94a3b8; font-size: 12px; padding: 4px 0; width: 130px;">Audit Title</td><td style="color: #1e293b; font-size: 14px; font-weight: 600; padding: 4px 0;">${record.title}</td></tr>
+                <tr><td style="color: #94a3b8; font-size: 12px; padding: 4px 0;">Category</td><td style="color: #1e293b; font-size: 14px; padding: 4px 0; text-transform: capitalize;">${record.category}</td></tr>
+                ${record.location ? `<tr><td style="color: #94a3b8; font-size: 12px; padding: 4px 0;">Location</td><td style="color: #1e293b; font-size: 14px; padding: 4px 0;">${record.location}</td></tr>` : ''}
+                <tr><td style="color: #94a3b8; font-size: 12px; padding: 4px 0;">Due Date</td><td style="color: #1e293b; font-size: 14px; padding: 4px 0;">${dueDateStr}</td></tr>
+              </table>
+            </div>
+            <div style="text-align: center; margin-bottom: 24px;">
+              <a href="${link}" style="display: inline-block; background: #2563eb; color: white; text-decoration: none; padding: 14px 32px; border-radius: 8px; font-size: 16px; font-weight: 600;">Open Inspection on Mobile →</a>
+            </div>
+            <p style="color: #94a3b8; font-size: 12px; text-align: center; margin: 0;">This link expires on ${expiresAt.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}. Do not share it with others.</p>
+          </div>
+          <p style="color: #cbd5e1; font-size: 11px; text-align: center; margin-top: 16px;">${companyName} · Powered by TPR Max</p>
+        </div>`;
+
+      const emailSvc = new EmailService(context.customerId);
+      const emailSent = await emailSvc.sendEmail({
+        to: staffEmail,
+        subject: `[${companyName}] Inspection Assigned: ${record.title}`,
+        html,
+        companyName,
+      });
+
+      res.json({ ok: true, link, token, emailSent });
+    } catch (error: unknown) {
+      logger.error('POST /api/audits/records/:id/send-link', error);
+      res.status(500).json({ error: 'Failed to send audit link' });
     }
   });
 
