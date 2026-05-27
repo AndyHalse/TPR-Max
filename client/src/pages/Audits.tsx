@@ -102,6 +102,13 @@ interface AuditSummary {
   upcomingAudits: AuditRecord[];
 }
 
+interface StaffMember {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string | null;
+}
+
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const CATEGORIES = ["safety","fire","environmental","vehicle","housekeeping","behavioural","custom"] as const;
@@ -442,13 +449,20 @@ function RecordDialog({
   const [title, setTitle] = useState("");
   const [templateId, setTemplateId] = useState("");
   const [conductedBy, setConductedBy] = useState(currentUser ?? "");
+  const [conductedByManual, setConductedByManual] = useState(false);
   const [scheduledDate, setScheduledDate] = useState("");
   const [location, setLocation] = useState("");
+
+  const { data: staffList = [] } = useQuery<StaffMember[]>({
+    queryKey: ["/api/staff"],
+    staleTime: 60000,
+  });
 
   useEffect(() => {
     if (open) {
       setTitle(""); setTemplateId(""); setScheduledDate(""); setLocation("");
       setConductedBy(currentUser ?? "");
+      setConductedByManual(false);
     }
   }, [open, currentUser]);
 
@@ -456,6 +470,16 @@ function RecordDialog({
     setTemplateId(id);
     const t = templates.find(t => t.id === id);
     if (t && !title) setTitle(t.name);
+  }
+
+  function onConductedBySelect(val: string) {
+    if (val === "__manual__") {
+      setConductedByManual(true);
+      setConductedBy("");
+    } else {
+      setConductedByManual(false);
+      setConductedBy(val);
+    }
   }
 
   const saveMutation = useMutation({
@@ -480,6 +504,9 @@ function RecordDialog({
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const selectedStaffValue = conductedByManual ? "__manual__"
+    : staffList.find(s => `${s.firstName} ${s.lastName}` === conductedBy) ? conductedBy : (conductedBy ? "__manual__" : "");
+
   return (
     <Dialog open={open} onOpenChange={v => !v && onClose()}>
       <DialogContent className="max-w-md">
@@ -500,7 +527,26 @@ function RecordDialog({
           </div>
           <div>
             <Label>Conducted By</Label>
-            <Input value={conductedBy} onChange={e => setConductedBy(e.target.value)} />
+            {staffList.length > 0 ? (
+              <>
+                <Select value={selectedStaffValue} onValueChange={onConductedBySelect}>
+                  <SelectTrigger><SelectValue placeholder="Select staff member…" /></SelectTrigger>
+                  <SelectContent>
+                    {staffList.map(s => (
+                      <SelectItem key={s.id} value={`${s.firstName} ${s.lastName}`}>
+                        {s.firstName} {s.lastName}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__manual__">Type manually…</SelectItem>
+                  </SelectContent>
+                </Select>
+                {conductedByManual && (
+                  <Input className="mt-2" value={conductedBy} onChange={e => setConductedBy(e.target.value)} placeholder="Enter name…" />
+                )}
+              </>
+            ) : (
+              <Input value={conductedBy} onChange={e => setConductedBy(e.target.value)} placeholder="Name of person conducting audit" />
+            )}
           </div>
           <div>
             <Label>Scheduled Date</Label>
@@ -820,11 +866,38 @@ function CapaDialog({ open, onClose, auditId, auditItemId, prefillTitle }: {
   const [priority, setPriority] = useState("medium");
   const [assignedTo, setAssignedTo] = useState("");
   const [assignedEmail, setAssignedEmail] = useState("");
+  const [assignedToManual, setAssignedToManual] = useState(false);
   const [dueDate, setDueDate] = useState("");
 
+  const { data: staffList = [] } = useQuery<StaffMember[]>({
+    queryKey: ["/api/staff"],
+    staleTime: 60000,
+  });
+
   useEffect(() => {
-    if (open) { setTitle(prefillTitle ?? ""); setDescription(""); setPriority("medium"); setAssignedTo(""); setAssignedEmail(""); setDueDate(""); }
+    if (open) {
+      setTitle(prefillTitle ?? ""); setDescription(""); setPriority("medium");
+      setAssignedTo(""); setAssignedEmail(""); setAssignedToManual(false); setDueDate("");
+    }
   }, [open, prefillTitle]);
+
+  function onAssignedToSelect(val: string) {
+    if (val === "__manual__") {
+      setAssignedToManual(true);
+      setAssignedTo("");
+      setAssignedEmail("");
+    } else {
+      setAssignedToManual(false);
+      const staff = staffList.find(s => s.id === val);
+      if (staff) {
+        setAssignedTo(`${staff.firstName} ${staff.lastName}`);
+        setAssignedEmail(staff.email ?? "");
+      }
+    }
+  }
+
+  const selectedAssigneeId = assignedToManual ? "__manual__"
+    : staffList.find(s => `${s.firstName} ${s.lastName}` === assignedTo)?.id ?? (assignedTo ? "__manual__" : "");
 
   const saveMutation = useMutation({
     mutationFn: () => apiRequest("POST", `/api/audits/records/${auditId}/actions`, {
@@ -871,7 +944,26 @@ function CapaDialog({ open, onClose, auditId, auditItemId, prefillTitle }: {
           </div>
           <div>
             <Label>Assigned To</Label>
-            <Input value={assignedTo} onChange={e => setAssignedTo(e.target.value)} placeholder="Name…" />
+            {staffList.length > 0 ? (
+              <>
+                <Select value={selectedAssigneeId} onValueChange={onAssignedToSelect}>
+                  <SelectTrigger><SelectValue placeholder="Select staff member…" /></SelectTrigger>
+                  <SelectContent>
+                    {staffList.map(s => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {s.firstName} {s.lastName}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__manual__">Type manually…</SelectItem>
+                  </SelectContent>
+                </Select>
+                {assignedToManual && (
+                  <Input className="mt-2" value={assignedTo} onChange={e => setAssignedTo(e.target.value)} placeholder="Enter name…" />
+                )}
+              </>
+            ) : (
+              <Input value={assignedTo} onChange={e => setAssignedTo(e.target.value)} placeholder="Name…" />
+            )}
           </div>
           <div>
             <Label>Assigned Email</Label>
