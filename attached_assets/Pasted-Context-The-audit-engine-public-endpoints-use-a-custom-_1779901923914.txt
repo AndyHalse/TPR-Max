@@ -1,0 +1,78 @@
+Context
+-------
+The audit engine public endpoints use a custom in-memory rate limiter built from a
+plain JavaScript Map. This is inconsistent with the rest of the application, which uses
+the express-rate-limit library for all other rate limiting (see server/index.ts and
+server/routeState.ts). The custom Map implementation is also not self-cleaning
+(stale entries accumulate) and does not send standard rate-limit HTTP headers.
+
+The fix is to replace the custom implementation with express-rate-limit — the same
+library already used everywhere else. Do not add Redis or any external dependency.
+Do not change anything else in auditEngine.ts.
+
+─────────────────────────────────────────────────────────────────────────
+STEP 1 — Add the import at the top of server/routes/auditEngine.ts
+─────────────────────────────────────────────────────────────────────────
+Add this import alongside the existing imports:
+  import rateLimit from 'express-rate-limit';
+
+─────────────────────────────────────────────────────────────────────────
+STEP 2 — Replace the custom rate limiter block
+─────────────────────────────────────────────────────────────────────────
+Find and remove this entire block (around lines 27–42):
+
+  // ── Public rate limiter (simple in-memory) ───────────────────────────────────
+  const publicRateLimitMap = new Map<string, { count: number; resetAt: number }>();
+  function auditPublicRateLimit(req: any, res: any, next: any) {
+    const ip = req.ip ?? 'unknown';
+    const now = Date.now();
+    const entry = publicRateLimitMap.get(ip);
+    if (!entry || entry.resetAt < now) {
+      publicRateLimitMap.set(ip, { count: 1, resetAt: now + 60000 });
+      return next();
+    }
+    entry.count++;
+    if (entry.count > 60) {
+      return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+    }
+    next();
+  }
+
+Replace it with:
+
+  // ── Public rate limiter for mobile audit endpoints ───────────────────────────
+  // Uses express-rate-limit (same library as auth and general API limits).
+  // 60 requests per minute per IP. For multi-process deployments, swap the
+  // default MemoryStore for a shared Redis store here without changing routes.
+  const auditPublicRateLimit = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many requests. Please try again later.' },
+  });
+
+─────────────────────────────────────────────────────────────────────────
+STEP 3 — Verify nothing else changed
+─────────────────────────────────────────────────────────────────────────
+The four routes that use auditPublicRateLimit as middleware remain unchanged:
+  app.get('/api/audits/public/:token', auditPublicRateLimit, ...)
+  app.put('/api/audits/public/:token', auditPublicRateLimit, ...)
+  app.post('/api/audits/public/:token/submit', auditPublicRateLimit, ...)
+  app.post('/api/audits/public/:token/upload', auditPublicRateLimit, ...)
+
+All four pass auditPublicRateLimit in exactly the same position. No changes
+are needed to the route handlers themselves.
+
+─────────────────────────────────────────────────────────────────────────
+Verification
+─────────────────────────────────────────────────────────────────────────
+- The string "publicRateLimitMap" must not appear anywhere in auditEngine.ts
+- The string "auditPublicRateLimit" must still appear exactly four times
+  as middleware in route definitions
+- express-rate-limit is already in package.json — do not npm install anything
+- Run the application and confirm the audit mobile URL still works and returns
+  the expected audit data without errors
+- Confirm that hitting the endpoint more than 60 times in a minute from one
+  IP returns 429 (you can test this manually or just verify the middleware
+  is wired correctly)

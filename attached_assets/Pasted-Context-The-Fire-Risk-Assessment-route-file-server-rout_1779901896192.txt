@@ -1,0 +1,119 @@
+Context
+-------
+The Fire Risk Assessment route file (server/routes/fireRiskAssessment.ts) builds SQL
+queries using manual string concatenation and quote-escaping instead of parameterised
+queries. This is inconsistent with the rest of the codebase and creates unnecessary risk.
+There are four locations to fix — listed below in order. Do not change anything else in
+the file: no logic, no feature behaviour, no error handling.
+
+The pattern used by HR routes for raw SQL (which you should follow) is:
+  const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+  await pool.query(`SELECT ... WHERE id = $1`, [someId]);
+
+─────────────────────────────────────────────────────────────────────────
+FIX 1 — getActionSummary() function (around line 64)
+─────────────────────────────────────────────────────────────────────────
+Current code:
+  async function getActionSummary(custDb: any, schemaName: string, fraId?: string) {
+    const whereClause = fraId
+      ? `WHERE fra_id = '${fraId.replace(/'/g, "''")}'`
+      : '';
+    const rows = await custDb.execute(sql.raw(`
+      SELECT
+        COUNT(*) FILTER (WHERE priority = 'critical') AS critical,
+        ...
+      FROM ${schemaName}.fra_action_items
+      ${whereClause}
+    `));
+
+Replace with: get the pool from custDb and use a parameterised query.
+  async function getActionSummary(custDb: any, schemaName: string, fraId?: string) {
+    const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+    const params: any[] = [];
+    const whereClause = fraId ? (params.push(fraId), `WHERE fra_id = $1`) : '';
+    const rows = await pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE priority = 'critical') AS critical,
+        COUNT(*) FILTER (WHERE priority = 'high') AS high,
+        COUNT(*) FILTER (WHERE priority = 'medium') AS medium,
+        COUNT(*) FILTER (WHERE priority = 'low') AS low,
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE completed_at IS NULL) AS outstanding,
+        COUNT(*) FILTER (WHERE completed_at IS NOT NULL) AS completed,
+        COUNT(*) FILTER (WHERE completed_at IS NULL AND priority = 'critical') AS critical_outstanding,
+        COUNT(*) FILTER (WHERE completed_at IS NULL AND due_date IS NOT NULL AND due_date < CURRENT_DATE) AS overdue_actions
+      FROM "${schemaName}".fra_action_items
+      ${whereClause}
+    `, params);
+    const r = rows.rows[0] as any;
+    return { ... }  // keep the existing return shape unchanged
+  }
+
+─────────────────────────────────────────────────────────────────────────
+FIX 2 — GET /api/fire-risk-assessments/:fraId/actions (around line 304)
+─────────────────────────────────────────────────────────────────────────
+Current code uses:
+  const fraId = req.params.fraId.replace(/'/g, "''");
+  const rows = await custDb.execute(sql.raw(`
+    SELECT * FROM ${schemaName}.fra_action_items
+    WHERE fra_id = '${fraId}'
+    ORDER BY ...
+  `));
+
+Replace with parameterised query using pool:
+  const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+  const rows = await pool.query(`
+    SELECT * FROM "${schemaName}".fra_action_items
+    WHERE fra_id = $1
+    ORDER BY
+      CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
+      due_date ASC NULLS LAST,
+      created_at ASC
+  `, [req.params.fraId]);
+
+─────────────────────────────────────────────────────────────────────────
+FIX 3 — POST /api/fire-risk-assessments/:fraId/actions (around line 330)
+─────────────────────────────────────────────────────────────────────────
+Current code escapes fraId, description, location, assignedTo manually and
+interpolates them into a template string INSERT.
+
+Replace with parameterised query. The INSERT should become:
+  const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+  const result = await pool.query(`
+    INSERT INTO "${schemaName}".fra_action_items
+      (fra_id, description, priority, location, assigned_to, due_date)
+    VALUES ($1, $2, $3, $4, $5, $6)
+    RETURNING *
+  `, [
+    req.params.fraId,
+    body.description,
+    body.priority,
+    body.location || null,
+    body.assignedTo || null,
+    body.dueDate || null,
+  ]);
+  // preserve the existing critical-action email logic below — do not touch it
+
+─────────────────────────────────────────────────────────────────────────
+FIX 4 — Check for any remaining string-interpolated fraId values in the
+         file (PUT/PATCH/DELETE action endpoints if they exist further down)
+─────────────────────────────────────────────────────────────────────────
+Search the rest of the file for any remaining uses of:
+  fraId.replace(/'/g, "''")
+  `WHERE fra_id = '${
+  `... = '${body.
+
+Apply the same parameterised pattern to any found. If none exist, do nothing.
+
+─────────────────────────────────────────────────────────────────────────
+Verification
+─────────────────────────────────────────────────────────────────────────
+After all changes:
+- The string "replace(/'/g" must not appear anywhere in fireRiskAssessment.ts
+- All queries involving user-supplied values (fraId from URL params, description,
+  location, assignedTo from request body) must use $1/$2/$3 placeholders
+- The schemaName interpolation in sql.raw() for table names is acceptable and
+  does NOT need changing (schemaName comes from internal trusted config, not user input)
+- Do not change any route logic, email sending, status calculations, or cron jobs
+- Run the application and confirm the FRA page still loads and action items
+  can be created and viewed without errors

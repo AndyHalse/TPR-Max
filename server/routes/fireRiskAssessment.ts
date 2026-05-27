@@ -62,10 +62,10 @@ function priorityOrder(p: string): number {
 }
 
 async function getActionSummary(custDb: any, schemaName: string, fraId?: string) {
-  const whereClause = fraId
-    ? `WHERE fra_id = '${fraId.replace(/'/g, "''")}'`
-    : '';
-  const rows = await custDb.execute(sql.raw(`
+  const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+  const params: any[] = [];
+  const whereClause = fraId ? (params.push(fraId), `WHERE fra_id = $1`) : '';
+  const rows = await pool.query(`
     SELECT
       COUNT(*) FILTER (WHERE priority = 'critical') AS critical,
       COUNT(*) FILTER (WHERE priority = 'high') AS high,
@@ -76,9 +76,9 @@ async function getActionSummary(custDb: any, schemaName: string, fraId?: string)
       COUNT(*) FILTER (WHERE completed_at IS NOT NULL) AS completed,
       COUNT(*) FILTER (WHERE completed_at IS NULL AND priority = 'critical') AS critical_outstanding,
       COUNT(*) FILTER (WHERE completed_at IS NULL AND due_date IS NOT NULL AND due_date < CURRENT_DATE) AS overdue_actions
-    FROM ${schemaName}.fra_action_items
+    FROM "${schemaName}".fra_action_items
     ${whereClause}
-  `));
+  `, params);
   const r = rows.rows[0] as any;
   return {
     critical: parseInt(r.critical) || 0,
@@ -306,16 +306,15 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const schemaName = customerDbService.generateSchemaName(req.customerId!);
       await ensureFraActionsTable(custDb, schemaName);
-      const fraId = req.params.fraId.replace(/'/g, "''");
-
-      const rows = await custDb.execute(sql.raw(`
-        SELECT * FROM ${schemaName}.fra_action_items
-        WHERE fra_id = '${fraId}'
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const rows = await pool.query(`
+        SELECT * FROM "${schemaName}".fra_action_items
+        WHERE fra_id = $1
         ORDER BY
           CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END,
           due_date ASC NULLS LAST,
           created_at ASC
-      `));
+      `, [req.params.fraId]);
 
       const summary = await getActionSummary(custDb, schemaName, req.params.fraId);
 
@@ -341,23 +340,20 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
         return res.status(400).json({ error: 'Priority must be critical, high, medium, or low' });
       }
 
-      const fraId = req.params.fraId.replace(/'/g, "''");
-      const description = (body.description as string).replace(/'/g, "''");
-      const priority = body.priority as string;
-      const location = body.location ? (body.location as string).replace(/'/g, "''") : null;
-      const assignedTo = body.assignedTo ? (body.assignedTo as string).replace(/'/g, "''") : null;
-      const dueDate = body.dueDate || null;
-
-      const rows = await custDb.execute(sql.raw(`
-        INSERT INTO ${schemaName}.fra_action_items
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const rows = await pool.query(`
+        INSERT INTO "${schemaName}".fra_action_items
           (fra_id, description, priority, location, assigned_to, due_date)
-        VALUES
-          ('${fraId}', '${description}', '${priority}',
-           ${location ? `'${location}'` : 'NULL'},
-           ${assignedTo ? `'${assignedTo}'` : 'NULL'},
-           ${dueDate ? `'${dueDate}'` : 'NULL'})
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING *
-      `));
+      `, [
+        req.params.fraId,
+        body.description,
+        body.priority,
+        body.location || null,
+        body.assignedTo || null,
+        body.dueDate || null,
+      ]);
 
       const created = rows.rows[0];
 
@@ -416,19 +412,25 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       const body = req.body as any;
       const actionId = parseInt(req.params.actionId, 10);
 
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const params: any[] = [];
       const setParts: string[] = ["updated_at = NOW()"];
-      if (body.description !== undefined) setParts.push(`description = '${(body.description as string).replace(/'/g, "''")}'`);
-      if (body.priority !== undefined) setParts.push(`priority = '${body.priority}'`);
-      if (body.location !== undefined) setParts.push(`location = ${body.location ? `'${(body.location as string).replace(/'/g, "''")}'` : 'NULL'}`);
-      if (body.assignedTo !== undefined) setParts.push(`assigned_to = ${body.assignedTo ? `'${(body.assignedTo as string).replace(/'/g, "''")}'` : 'NULL'}`);
-      if (body.dueDate !== undefined) setParts.push(`due_date = ${body.dueDate ? `'${body.dueDate}'` : 'NULL'}`);
+      if (body.description !== undefined) { params.push(body.description); setParts.push(`description = $${params.length}`); }
+      if (body.priority !== undefined) { params.push(body.priority); setParts.push(`priority = $${params.length}`); }
+      if (body.location !== undefined) { params.push(body.location || null); setParts.push(`location = $${params.length}`); }
+      if (body.assignedTo !== undefined) { params.push(body.assignedTo || null); setParts.push(`assigned_to = $${params.length}`); }
+      if (body.dueDate !== undefined) { params.push(body.dueDate || null); setParts.push(`due_date = $${params.length}`); }
+      params.push(actionId);
+      const actionIdParam = `$${params.length}`;
+      params.push(req.params.fraId);
+      const fraIdParam = `$${params.length}`;
 
-      const rows = await custDb.execute(sql.raw(`
-        UPDATE ${schemaName}.fra_action_items
+      const rows = await pool.query(`
+        UPDATE "${schemaName}".fra_action_items
         SET ${setParts.join(', ')}
-        WHERE id = ${actionId} AND fra_id = '${req.params.fraId.replace(/'/g, "''")}'
+        WHERE id = ${actionIdParam} AND fra_id = ${fraIdParam}
         RETURNING *
-      `));
+      `, params);
 
       if (!rows.rows[0]) return res.status(404).json({ error: 'Action item not found' });
       res.json(rows.rows[0]);
@@ -446,20 +448,21 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       const body = req.body as any;
       const actionId = parseInt(req.params.actionId, 10);
 
-      const completedBy = body.completedBy ? (body.completedBy as string).replace(/'/g, "''") : 'Unknown';
-      const notes = body.completionNotes ? (body.completionNotes as string).replace(/'/g, "''") : null;
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const completedBy = body.completedBy || 'Unknown';
+      const notes = body.completionNotes || null;
 
-      const rows = await custDb.execute(sql.raw(`
-        UPDATE ${schemaName}.fra_action_items
+      const rows = await pool.query(`
+        UPDATE "${schemaName}".fra_action_items
         SET
           completed_at = NOW(),
-          completed_by = '${completedBy}',
-          completion_notes = ${notes ? `'${notes}'` : 'NULL'},
+          completed_by = $1,
+          completion_notes = $2,
           updated_at = NOW()
-        WHERE id = ${actionId} AND fra_id = '${req.params.fraId.replace(/'/g, "''")}'
+        WHERE id = $3 AND fra_id = $4
           AND completed_at IS NULL
         RETURNING *
-      `));
+      `, [completedBy, notes, actionId, req.params.fraId]);
 
       if (!rows.rows[0]) return res.status(404).json({ error: 'Action item not found or already completed' });
       res.json(rows.rows[0]);

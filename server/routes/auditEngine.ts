@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import { randomBytes } from 'crypto';
 import cron from 'node-cron';
+import rateLimit from 'express-rate-limit';
 import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
@@ -24,22 +25,17 @@ const requireAuditFeature = async (req: any, res: any, next: any) => {
   }
 };
 
-// ── Public rate limiter (simple in-memory) ───────────────────────────────────
-const publicRateLimitMap = new Map<string, { count: number; resetAt: number }>();
-function auditPublicRateLimit(req: any, res: any, next: any) {
-  const ip = req.ip ?? 'unknown';
-  const now = Date.now();
-  const entry = publicRateLimitMap.get(ip);
-  if (!entry || entry.resetAt < now) {
-    publicRateLimitMap.set(ip, { count: 1, resetAt: now + 60000 });
-    return next();
-  }
-  entry.count++;
-  if (entry.count > 60) {
-    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
-  }
-  next();
-}
+// ── Public rate limiter for mobile audit endpoints ───────────────────────────
+// Uses express-rate-limit (same library as auth and general API limits).
+// 60 requests per minute per IP. For multi-process deployments, swap the
+// default MemoryStore for a shared Redis store here without changing routes.
+const auditPublicRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please try again later.' },
+});
 
 export function registerAuditEngineRoutes(app: Express): void {
 
