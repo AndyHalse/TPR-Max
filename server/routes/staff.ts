@@ -1001,8 +1001,9 @@ export function registerStaffRoutes(app: Express): void {
             const rtw = rtwResult.rows[0];
             if (rtw && rtw.expiry_date && new Date(rtw.expiry_date) < new Date()) {
               return res.status(403).json({
-                error: 'Check-in denied: Right to Work document has expired. Please contact HR.',
-                reason: 'rtw_expired',
+                success: false,
+                reason: 'BLOCKED',
+                message: 'Entry denied: Right to Work documentation has expired. Contact HR.',
               });
             }
           }
