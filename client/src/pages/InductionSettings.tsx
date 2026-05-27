@@ -896,25 +896,33 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
           )}
 
           {/* Send Link button */}
-          {hasVideo && (
-            <Dialog open={showSendLink} onOpenChange={handleCloseSendDialog}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2" data-testid={`button-send-link-${roleType}`}>
-                  <Send className="h-4 w-4" />
-                  Send Link
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2">
-                    <Mail className="h-5 w-5 text-blue-600" />
-                    Send {getRoleDisplayName(roleType)} Induction Link
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 pt-2">
-                  <p className="text-sm text-muted-foreground">
-                    Select a {roleType === 'contractor' ? 'worker' : roleType === 'staff' ? 'staff member' : 'visitor'} to send a secure induction link. The recipient completes the video and quiz remotely.
-                  </p>
+          <Dialog open={showSendLink} onOpenChange={handleCloseSendDialog}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2" data-testid={`button-send-link-${roleType}`}>
+                <Send className="h-4 w-4" />
+                Send Link
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5 text-blue-600" />
+                  Send {getRoleDisplayName(roleType)} Induction Link
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2">
+                {!hasVideo && videoSource === 'ai_generated' && (
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-medium">No induction video generated yet</p>
+                      <p className="text-xs mt-0.5 text-amber-700">The recipient will see a generic safety briefing placeholder instead of your customised video. Generate a video first for the best experience.</p>
+                    </div>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground">
+                  Select a {roleType === 'contractor' ? 'worker' : roleType === 'staff' ? 'staff member' : 'visitor'} to send a secure induction link. The recipient completes the video and quiz remotely.
+                </p>
 
                   {!manualMode ? (
                     <div className="space-y-2">
@@ -1011,7 +1019,6 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                 </div>
               </DialogContent>
             </Dialog>
-          )}
         </div>
 
         {/* Kiosk Check-in Toggle */}

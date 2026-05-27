@@ -339,23 +339,6 @@ export function registerInductionRoutes(app: Express): void {
 
       const roleType = tokenData.personType || 'contractor';
 
-      // ── Helper: stream from object storage path ──────────────────────────
-      const tryStreamFromObjectStorage = (objPath: string): boolean => {
-        if (!objPath || objPath === 'generated' || objPath.startsWith('http')) return false;
-        try {
-          const { bucketName, objectName } = parseObjectStoragePath(objPath);
-          const file = objectStorageClient.bucket(bucketName).file(objectName);
-          res.setHeader('Content-Type', 'text/html; charset=utf-8');
-          res.setHeader('Cache-Control', 'public, max-age=3600');
-          const stream = file.createReadStream();
-          stream.on('error', () => { /* stream errors handled by Express */ });
-          stream.pipe(res);
-          return true;
-        } catch (_e) {
-          return false;
-        }
-      };
-
       // Try customer-isolated DB first using customerId stored on the token
       if (tokenData.customerId) {
         try {
@@ -366,8 +349,29 @@ export function registerInductionRoutes(app: Express): void {
             .from(isolatedSchema.inductionSettings)
             .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
           if (custRow) {
-            // Prefer object storage path (fast CDN stream) over raw DB blob
-            if (custRow.videoUrl && tryStreamFromObjectStorage(custRow.videoUrl)) return;
+            // Prefer object storage path (fast CDN stream) — fall back to DB blob on error
+            const objPath = custRow.videoUrl;
+            const isObjPath = !!(objPath && objPath !== 'generated' && !objPath.startsWith('http') && !objPath.startsWith('data:'));
+            if (isObjPath) {
+              try {
+                const { bucketName, objectName } = parseObjectStoragePath(objPath!);
+                const file = objectStorageClient.bucket(bucketName).file(objectName);
+                const chunks: Buffer[] = [];
+                await new Promise<void>((resolve, reject) => {
+                  file.createReadStream()
+                    .on('data', (chunk: Buffer) => chunks.push(chunk))
+                    .on('end', resolve)
+                    .on('error', reject);
+                });
+                const html = Buffer.concat(chunks).toString('utf-8');
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.setHeader('Cache-Control', 'public, max-age=3600');
+                return res.send(patchInductionHtml(html));
+              } catch (gcsErr) {
+                logger.warn('⚠️ GCS stream failed for by-token — falling back to DB generatedHtml:', (gcsErr as any)?.message);
+                // fall through to generatedHtml
+              }
+            }
             if (custRow.generatedHtml) {
               res.setHeader('Content-Type', 'text/html; charset=utf-8');
               res.setHeader('Cache-Control', 'no-cache');
@@ -4371,8 +4375,11 @@ export function registerInductionRoutes(app: Express): void {
               videoUrl: objStoragePath || 'generated',
               videoDescription: `AI-generated UK HSE-compliant safety induction for ${roleType}s. Duration: ${Math.round(totalDuration / 60)} minutes.`,
               videoDurationMinutes: Math.round(totalDuration / 60),
-              // Keep generatedHtml as fallback only if object storage upload failed
-              generatedHtml: objStoragePath ? null : htmlContent,
+              // Always store generatedHtml in DB as a reliable fallback,
+              // even when object storage upload succeeds. GCS is preferred
+              // for delivery speed but DB blob ensures the video is always
+              // accessible if object storage is unavailable.
+              generatedHtml: htmlContent,
               scenesData: JSON.stringify(scenes),
               generatedAt: new Date(),
               questionsGenerated: questionsStored > 0,

@@ -77,6 +77,7 @@ export default function SiteInduction() {
   const [videoHtml, setVideoHtml] = useState<string | null>(null);
   const [videoBlobUrl, setVideoBlobUrl] = useState<string | null>(null);
   const [videoHtmlLoading, setVideoHtmlLoading] = useState(false);
+  const [videoHtmlError, setVideoHtmlError] = useState(false);
   const [videoContent, setVideoContent] = useState<VideoContent | null>(null);
 
   // Convert video HTML to blob URL so iOS Safari renders it (srcDoc is unreliable on mobile)
@@ -187,11 +188,14 @@ export default function SiteInduction() {
       // Fetch video HTML in the background (it can be large — don't block page render)
       if (tokenResponse.videoContent?.hasGeneratedContent) {
         setVideoHtmlLoading(true);
-        fetch(`/api/induction/video/by-token/${token}`)
-          .then(r => r.ok ? r.text() : null)
-          .then(html => { if (html) setVideoHtml(html); })
-          .catch(() => {})
-          .finally(() => setVideoHtmlLoading(false));
+        setVideoHtmlError(false);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 60000); // 60-second timeout
+        fetch(`/api/induction/video/by-token/${token}`, { signal: controller.signal })
+          .then(r => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
+          .then(html => { if (html && html.length > 100) { setVideoHtml(html); } else { setVideoHtmlError(true); } })
+          .catch(() => { setVideoHtmlError(true); })
+          .finally(() => { clearTimeout(timeout); setVideoHtmlLoading(false); });
       }
 
     } catch (error) {
@@ -461,6 +465,25 @@ export default function SiteInduction() {
                     <div className="text-center">
                       <div className="animate-spin w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-3"></div>
                       <p className="text-sm text-gray-600">Loading induction video...</p>
+                      <p className="text-xs text-gray-400 mt-1">This may take a moment</p>
+                    </div>
+                  </div>
+                ) : videoHtmlError ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-5 mb-6">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                      <div>
+                        <h3 className="font-semibold text-amber-900 mb-1">Video Temporarily Unavailable</h3>
+                        <p className="text-sm text-amber-800 mb-2">The induction video could not be loaded right now. Please try refreshing the page. If the problem persists, contact your site administrator.</p>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-amber-300 text-amber-800 hover:bg-amber-100 gap-1"
+                          onClick={() => window.location.reload()}
+                        >
+                          <RefreshCw className="w-3 h-3" /> Refresh Page
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ) : videoBlobUrl ? (
@@ -489,9 +512,11 @@ export default function SiteInduction() {
                     />
                   </div>
                 ) : null}
-                <p className="text-sm text-variable mb-4 text-center">
-                  Please navigate through all slides to complete the induction video.
-                </p>
+                {!videoHtmlError && (
+                  <p className="text-sm text-variable mb-4 text-center">
+                    Please navigate through all slides to complete the induction video.
+                  </p>
+                )}
               </>
             ) : hasExternalVideo ? (
               <div className="aspect-video bg-gray-900 rounded-lg overflow-hidden mb-6">
