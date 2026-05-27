@@ -1,10 +1,10 @@
 # TPR Max — Total Personnel Register
 
-**A comprehensive site management and compliance platform for the safety and security sector.**
+### The All-in-One Workplace Compliance & Safety Platform
 
-TPR Max gives organisations complete visibility and control over everyone on site — visitors, contractors, and staff — with a powerful emergency mustering module, full UK contractor compliance management, and a suite of integrations with leading access control hardware.
+TPR Max gives organisations complete visibility and control over every person on site — visitors, contractors, and staff — with 23 integrated modules covering the full employee and site lifecycle. From contractor onboarding and emergency mustering to HR document management and lone worker protection, TPR Max replaces disconnected spreadsheets and legacy sign-in books with a single, audit-ready platform.
 
-Built for facilities managers, safety officers, and security teams who need more than a basic sign-in book.
+Built for facilities managers, safety officers, HR teams, and security professionals who need more than a basic sign-in book.
 
 ---
 
@@ -12,9 +12,10 @@ Built for facilities managers, safety officers, and security teams who need more
 
 ### Visitor Management
 - Walk-in and pre-booked visitor check-in with photo capture and digital signature
-- QR-code visitor badges with optional thermal printing
+- QR-code visitor badges with optional thermal printing (Toshiba TEC / Zebra)
 - Host notification emails on arrival
-- Health & safety rules acceptance at sign-in
+- Health & Safety rules acceptance at sign-in
+- NDA / confidentiality agreement acceptance at check-in
 - Automatic end-of-day checkout
 - Full visitor history and reporting
 
@@ -30,11 +31,27 @@ Built for facilities managers, safety officers, and security teams who need more
 - CO₂ sustainability reporting per contractor visit
 
 ### Staff Management
-- Staff directory with departments and role management
-- QR-code access cards and digital wallet passes
-- Time and attendance tracking (check-in/out)
-- Integration with Biostar 2 and Paxton Net2 access control systems
-- Voice announcements on arrival via 8x8 integration
+- Staff directory with departments, roles, and employment details
+- QR-code access cards and digital wallet passes (Apple / Google Wallet)
+- Time and attendance tracking (check-in / check-out)
+- Integration with Suprema BioStar 2 and Paxton Net2 access control systems
+- Voice announcements on arrival via 8×8 integration
+- Org chart with drag-and-drop line manager assignment
+
+### HR Module *(TPR Max tier)*
+A full employee lifecycle suite built directly into the platform:
+
+- **HR Dashboard** — real-time workforce overview with compliance indicators
+- **Onboarding** — customisable task-based onboarding checklists per new starter
+- **Absence Management** — absence recording, return-to-work workflow, Bradford Factor calculation
+- **Leave Management** — annual leave requests, approvals, and balance tracking
+- **Right to Work** — RTW document upload, expiry tracking, and kiosk-level access blocking on expiry
+- **DBS Checks** — DBS certificate recording with renewal reminders
+- **Appraisals** — scheduled performance reviews with outcome recording
+- **Training Records** — training matrix and per-employee training log
+- **Payroll Export** — CSV / JSON payroll summary including hours worked, sick days, leave taken, starters, and leavers
+- **HR Documents** — per-employee confidential document storage with role-gated download
+- **Leaver Process** — structured offboarding checklist with last-day and leaving reason tracking
 
 ### Emergency Mustering & Evacuation
 - One-click evacuation activation from any device
@@ -44,7 +61,7 @@ Built for facilities managers, safety officers, and security teams who need more
 - Zone-based sweep management
 - Drill mode with separate drill records
 - PDF muster reports and post-evacuation incident reports
-- Martyn's Law compliance module
+- Martyn's Law (UK Protect Duty) compliance module
 
 ### Lone Worker Protection
 - Automated welfare check-in system with configurable intervals
@@ -54,12 +71,12 @@ Built for facilities managers, safety officers, and security teams who need more
 ### Site Inductions
 - Customisable multi-step induction builder
 - AI-generated safety videos using OpenAI
-- Public acceptance links (no login required for inductees)
+- Public acceptance links — no login required for inductees
 - Completion certificates
 - Separate induction tracks for visitors, contractors, and staff
 
 ### Planned Preventative Maintenance (PPM)
-- Asset register with maintenance templates
+- Asset register with maintenance schedule templates
 - Scheduled work orders with automatic due-date calculation
 - Contractor assignment with public work order access links
 - Certificate and document upload on job completion
@@ -67,7 +84,8 @@ Built for facilities managers, safety officers, and security teams who need more
 
 ### Meeting Room Booking
 - Calendar-based room management with conflict detection
-- Recurring bookings and check-in confirmation
+- Recurring bookings and check-in confirmation via QR scan
+- Attendee management for staff and external guests
 
 ### ID Badge Printing
 - Network thermal printing (Toshiba TEC and Zebra)
@@ -79,7 +97,8 @@ Built for facilities managers, safety officers, and security teams who need more
 - Time and attendance reports
 - Contractor compliance summaries
 - CO₂ and sustainability reports
-- PDF export for all report types
+- Bradford Factor and absence trend reports
+- PDF and CSV export for all report types
 
 ---
 
@@ -92,18 +111,22 @@ TPR Max is a multi-tenant SaaS platform built with **complete database isolation
 - Each customer's database scales independently
 
 ```
-┌─────────────────────────────────────────┐
-│              TPR Max Platform           │
-│                                         │
-│  ┌─────────────┐   ┌─────────────────┐  │
-│  │  Management │   │  Customer DBs   │  │
-│  │  Database   │   │  (one per       │  │
-│  │  (shared)   │   │   customer)     │  │
-│  └─────────────┘   └─────────────────┘  │
-└─────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│                  TPR Max Platform                    │
+│                                                      │
+│  ┌─────────────────┐   ┌──────────────────────────┐  │
+│  │  Shared DB      │   │  Per-Customer Databases  │  │
+│  │  (accounts,     │   │  ┌────────┐  ┌────────┐  │  │
+│  │   billing,      │   │  │Cust A  │  │Cust B  │  │  │
+│  │   platform      │   │  │  DB    │  │  DB    │  │  │
+│  │   admin)        │   │  └────────┘  └────────┘  │  │
+│  └─────────────────┘   └──────────────────────────┘  │
+└──────────────────────────────────────────────────────┘
 ```
 
-### Tech Stack
+---
+
+## Tech Stack
 
 | Layer | Technology |
 |---|---|
@@ -111,14 +134,14 @@ TPR Max is a multi-tenant SaaS platform built with **complete database isolation
 | Backend | Node.js, Express, TypeScript |
 | Database | PostgreSQL (Neon serverless), Drizzle ORM |
 | Auth | Session-based with bcrypt, CSRF protection |
-| Payments | Stripe (subscriptions, free trials, webhooks) |
-| Email | SendGrid / Nodemailer (SMTP) |
+| Real-time | WebSockets (on-site presence, evacuation board) |
 | File Storage | Google Cloud Storage / object storage |
-| PDF Generation | Puppeteer, pdf-lib |
+| PDF Generation | Puppeteer (headless Chromium), pdf-lib |
 | AI | OpenAI (induction videos), Google Gemini (CO₂ reporting) |
 | Printing | Toshiba TEC, Zebra (TCP/IP thermal printing) |
-| Access Control | Suprema Biostar 2, Paxton Net2, Suprema CLUe |
-| Voice | 8x8 |
+| Access Control | Suprema BioStar 2, Paxton Net2, Suprema CLUe |
+| Communications | SendGrid (email), 8×8 (voice) |
+| Payments | Stripe (subscriptions, free trials, webhooks) |
 | Build | Vite, esbuild |
 
 ---
@@ -127,16 +150,34 @@ TPR Max is a multi-tenant SaaS platform built with **complete database isolation
 
 | Integration | Purpose |
 |---|---|
-| **Suprema Biostar 2** | Access control sync, live entry events, staff attendance |
+| **Suprema BioStar 2** | Access control sync, live entry events, staff attendance |
 | **Paxton Net2** | Access control sync, door management |
 | **Suprema CLUe** | QR-code dynamic visitor access passes |
 | **Stripe** | Subscription billing, 14-day free trials |
 | **SendGrid** | Transactional email delivery |
 | **OpenAI** | AI-generated site induction videos |
 | **Google Gemini** | CO₂ and sustainability calculations |
-| **8x8** | Voice announcements on staff/visitor arrival |
+| **8×8** | Voice announcements on staff / visitor arrival |
 | **Toshiba TEC / Zebra** | Network thermal badge and pass printing |
-| **Google Cloud Storage** | Document and photo storage |
+| **Google Cloud Storage** | Document, photo, and certificate storage |
+
+---
+
+## Subscription Tiers
+
+| Feature | TPR Basic | TPR Pro | TPR Max |
+|---|---|---|---|
+| Visitor Management | ✅ | ✅ | ✅ |
+| Contractor Management | ✅ | ✅ | ✅ |
+| Staff Management | ✅ | ✅ | ✅ |
+| Emergency Mustering | ✅ | ✅ | ✅ |
+| Lone Worker Protection | — | ✅ | ✅ |
+| Site Inductions | — | ✅ | ✅ |
+| PPM | — | ✅ | ✅ |
+| Meeting Room Booking | — | ✅ | ✅ |
+| Full HR Module | — | — | ✅ |
+| Martyn's Law Module | — | — | ✅ |
+| AI Features | — | — | ✅ |
 
 ---
 
@@ -168,11 +209,12 @@ cp .env.example .env
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
 | `SESSION_SECRET` | Long random string for session signing |
-| `STRIPE_SECRET_KEY` | Stripe secret key (use `sk_test_...` for development) |
+| `STRIPE_SECRET_KEY` | Stripe secret key (`sk_test_...` for development) |
 | `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret |
 | `SENDGRID_API_KEY` | SendGrid API key for email delivery |
 | `OPENAI_API_KEY` | OpenAI key for AI induction video generation |
 | `GEMINI_API_KEY` | Google Gemini key for CO₂ reporting |
+| `EIGHT_X_EIGHT_API_KEY` | 8×8 key for voice announcements |
 | `NODE_ENV` | Set to `production` for live deployments |
 
 ### Running in Development
@@ -203,33 +245,39 @@ npm run db:push
 
 ```
 TPR-Max/
-├── client/               # React frontend
-│   └── src/
-│       ├── pages/        # Application pages
-│       ├── components/   # Shared UI components
-│       └── hooks/        # Custom React hooks
+├── src/                  # React frontend
+│   ├── pages/            # Route-level page components
+│   ├── components/       # Shared UI components
+│   └── lib/              # Frontend utilities and API client
 ├── server/               # Express backend
-│   ├── routes/           # Feature-based route modules
-│   │   ├── auth.ts
+│   ├── routes/           # Feature-based API route modules
 │   │   ├── visitors.ts
 │   │   ├── contractors.ts
 │   │   ├── staff.ts
 │   │   ├── emergency.ts
+│   │   ├── hrStaff.ts
+│   │   ├── hrAbsence.ts
+│   │   ├── hrLeave.ts
+│   │   ├── hrLeaver.ts
+│   │   ├── hrPayroll.ts
+│   │   ├── hrRightToWork.ts
+│   │   ├── hrDocuments.ts
+│   │   ├── hrDbs.ts
+│   │   ├── hrAppraisals.ts
+│   │   ├── hrTraining.ts
+│   │   ├── hrOnboarding.ts
+│   │   ├── hrDashboard.ts
 │   │   ├── induction.ts
 │   │   ├── loneWorker.ts
 │   │   ├── ppm.ts
 │   │   ├── rams.ts
 │   │   ├── meetingRooms.ts
 │   │   ├── reports.ts
-│   │   ├── settings.ts
-│   │   ├── billing.ts
-│   │   ├── platformAdmin.ts
-│   │   └── index.ts
+│   │   └── billing.ts
 │   ├── services/         # Business logic services
-│   ├── utils/            # Shared utilities
-│   └── index.ts          # Server entry point
+│   └── utils/            # Shared utilities
 ├── shared/               # Types and schema shared between client and server
-├── migrations/           # Database migrations
+├── drizzle/              # Database migrations
 └── docs/                 # Deployment and architecture documentation
 ```
 
@@ -237,9 +285,8 @@ TPR-Max/
 
 ## Deployment
 
-Documentation for production deployment is available in the `docs/` directory:
+Documentation for production deployment is in the `docs/` directory:
 
-- `docs/AWS_DEPLOYMENT.md` — Full AWS deployment guide
 - `ARCHITECTURE.md` — Multi-tenant architecture detail
 - `PRODUCTION_READINESS.md` — Pre-launch checklist
 
@@ -247,7 +294,7 @@ Documentation for production deployment is available in the `docs/` directory:
 
 ## Platform Administration
 
-TPR Max includes a platform administration portal at `/platform-admin` for ACS staff to manage all customer accounts, provision new customers, monitor usage, and manage feature access.
+TPR Max includes a platform administration portal at `/platform-admin` for managing all customer accounts, provisioning new customers, monitoring usage, and controlling feature access per subscription tier.
 
 ---
 
