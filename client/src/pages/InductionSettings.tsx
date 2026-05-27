@@ -270,6 +270,8 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     });
     xhr.open('POST', '/api/induction/upload-video');
     xhr.withCredentials = true;
+    const csrfCookie = document.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('csrf-token='));
+    if (csrfCookie) xhr.setRequestHeader('x-csrf-token', csrfCookie.split('=')[1]);
     xhr.send(formData);
   };
 
