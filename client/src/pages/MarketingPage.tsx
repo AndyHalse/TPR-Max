@@ -81,6 +81,8 @@ import {
   Accessibility,
   Network,
   FileSearch2,
+  ShieldAlert,
+  BadgeCheck,
 } from "lucide-react";
 
 // Import ACS logo, screenshots and pricing image
@@ -2895,13 +2897,13 @@ export default function MarketingPage() {
                   <div>
                     <Badge className="mb-4 bg-indigo-600 text-white">
                       <UserCheck className="h-3 w-3 mr-1" />
-                      People Operations — Beta
+                      People Operations
                     </Badge>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
                       A Complete HR Module, Built In
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Manage your whole staff lifecycle from one place — onboarding, leave, training, appraisals, absence, leavers and payroll export — alongside the people data you already keep in TPR Max. No second HRIS to pay for, no exports to reconcile.
+                      Manage your whole staff lifecycle from one place — onboarding, Right to Work, DBS, leave, training, appraisals, absence, leavers and payroll export — alongside the compliance data you already keep in TPR Max. No second HRIS to pay for, no exports to reconcile.
                     </p>
                   </div>
 
@@ -2933,16 +2935,27 @@ export default function MarketingPage() {
                     <div className="flex items-start space-x-3">
                       <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
                       <span className="text-slate-700 dark:text-slate-300">
-                        <strong>Appraisals & Payroll Export:</strong> Schedule performance reviews and export payroll-ready files directly to Sage, Xero or BrightPay.
+                        <strong>Appraisals & Payroll Export:</strong> Schedule performance reviews and export payroll-ready files (sick days auto-filtered) directly to Sage, Xero or BrightPay.
                       </span>
                     </div>
-                  </div>
-
-                  <div className="p-4 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800 flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-amber-800 dark:text-amber-300">
-                      <strong>Beta module:</strong> Live for early customers and improving fast. For payroll processing and right-to-work records, please verify all data independently until full release.
-                    </p>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Right to Work Enforcement:</strong> RTW document status is checked at every kiosk sign-in — expired documents automatically block access and alert HR in real time.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>DBS Certificate Management:</strong> Record DBS check dates, certificate numbers, and expiry dates per staff member — with automated alerts before renewals fall due.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Confidential Document Vault:</strong> Store contracts, disciplinary records, NDAs and sensitive HR documents with GDPR-gated access — only the named manager or HR admin can download.
+                      </span>
+                    </div>
                   </div>
 
                   <Button
@@ -2966,25 +2979,27 @@ export default function MarketingPage() {
                         </div>
                         <div>
                           <h4 className="font-semibold text-slate-900 dark:text-white text-sm">HR Module</h4>
-                          <p className="text-xs text-slate-500">Live dashboard</p>
+                          <p className="text-xs text-slate-500">Live dashboard — 12 sub-modules</p>
                         </div>
                       </div>
-                      <Badge className="bg-amber-100 text-amber-800 border border-amber-300 text-xs">BETA</Badge>
+                      <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs">Live</Badge>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="grid grid-cols-3 gap-2 mb-4">
                       {[
                         { label: "Active staff", value: "128", icon: UserCheck, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/30" },
                         { label: "On leave today", value: "6", icon: Calendar, color: "text-green-600", bg: "bg-green-50 dark:bg-green-900/30" },
-                        { label: "Starting this month", value: "3", icon: UserPlus, color: "text-teal-600", bg: "bg-teal-50 dark:bg-teal-900/30" },
-                        { label: "Training expiring (30d)", value: "9", icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-900/30" },
+                        { label: "Training expiring", value: "9", icon: GraduationCap, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-900/30" },
+                        { label: "RTW expiring (30d)", value: "2", icon: ShieldAlert, color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/30" },
+                        { label: "DBS due for renewal", value: "4", icon: BadgeCheck, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/30" },
+                        { label: "Appraisals due", value: "7", icon: Star, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/30" },
                       ].map((c) => {
                         const Icon = c.icon;
                         return (
                           <div key={c.label} className={`p-3 rounded-lg border border-slate-200 dark:border-slate-700 ${c.bg}`}>
                             <Icon className={`h-4 w-4 ${c.color} mb-1.5`} />
                             <div className="text-xl font-bold text-slate-900 dark:text-white leading-tight">{c.value}</div>
-                            <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5">{c.label}</div>
+                            <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5 leading-tight">{c.label}</div>
                           </div>
                         );
                       })}
@@ -3000,19 +3015,23 @@ export default function MarketingPage() {
                         { icon: UserX, label: "Leavers", color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/30" },
                         { icon: Star, label: "Appraisals", color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/30" },
                         { icon: Download, label: "Payroll", color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-900/30" },
+                        { icon: ShieldAlert, label: "Right to Work", color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/30" },
+                        { icon: BadgeCheck, label: "DBS", color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/30" },
+                        { icon: Lock, label: "Documents", color: "text-slate-600", bg: "bg-slate-100 dark:bg-slate-700/50" },
+                        { icon: FileText, label: "NDA / NDC", color: "text-violet-600", bg: "bg-violet-50 dark:bg-violet-900/30" },
                       ].map((m) => {
                         const Icon = m.icon;
                         return (
                           <div key={m.label} className={`p-2 rounded-lg border border-slate-200 dark:border-slate-700 ${m.bg} flex flex-col items-center text-center`}>
                             <Icon className={`h-4 w-4 ${m.color} mb-1`} />
-                            <div className="text-[10px] font-medium text-slate-700 dark:text-slate-300">{m.label}</div>
+                            <div className="text-[10px] font-medium text-slate-700 dark:text-slate-300 leading-tight">{m.label}</div>
                           </div>
                         );
                       })}
                     </div>
 
                     <div className="mt-4 p-3 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800 text-xs text-indigo-800 dark:text-indigo-300">
-                      <strong>Hover any tile in the live app</strong> to see a plain-English explanation of what it covers.
+                      <strong>Kiosk RTW enforcement is live:</strong> expired Right to Work documents automatically block check-in and alert HR.
                     </div>
                   </div>
                 </div>
