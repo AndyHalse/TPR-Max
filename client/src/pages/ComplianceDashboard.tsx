@@ -5,6 +5,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   ShieldCheck, AlertTriangle, XCircle, CheckCircle2, Clock, ChevronDown, ChevronUp,
   ArrowRight, RefreshCw, Building2, HardHat, FileText, Wrench, Flame, Users, ScrollText,
+  Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -207,14 +208,228 @@ function groupTimelineItems(items: TimelineItem[]) {
 
 const MAX_VISIBLE = 8;
 
+async function generateCompliancePDF(data: DashboardData) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = 210;
+  const margin = 14;
+  const colW = pageW - margin * 2;
+  const generatedAt = format(new Date(), "dd MMMM yyyy 'at' HH:mm");
+
+  const BRAND = "#2460A9";
+  const BAND_TEXT: Record<string, string> = { green: "#059669", amber: "#d97706", orange: "#ea580c", red: "#dc2626" };
+  const bandColour = BAND_TEXT[data.riskBand] ?? "#374151";
+
+  let y = 0;
+
+  function checkPage(needed = 12) {
+    if (y + needed > 275) {
+      doc.addPage();
+      y = margin;
+    }
+  }
+
+  function sectionTitle(title: string) {
+    checkPage(14);
+    doc.setFillColor(245, 247, 250);
+    doc.rect(margin, y, colW, 8, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(55, 65, 81);
+    doc.text(title.toUpperCase(), margin + 3, y + 5.5);
+    y += 11;
+  }
+
+  function row(label: string, value: string, valueColour?: string) {
+    checkPage(8);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(107, 114, 128);
+    doc.text(label, margin + 2, y + 4.5);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    const [r, g, b] = valueColour
+      ? [parseInt(valueColour.slice(1, 3), 16), parseInt(valueColour.slice(3, 5), 16), parseInt(valueColour.slice(5, 7), 16)]
+      : [31, 41, 55];
+    doc.setTextColor(r, g, b);
+    doc.text(value, pageW - margin - 2, y + 4.5, { align: "right" });
+    doc.setDrawColor(229, 231, 235);
+    doc.line(margin, y + 7, pageW - margin, y + 7);
+    y += 8;
+  }
+
+  function issueBlock(issue: CriticalIssue) {
+    const isCrit = issue.severity === "critical";
+    const lines = doc.splitTextToSize(`${issue.title}: ${issue.detail}${issue.daysOverdue ? ` (${issue.daysOverdue} days overdue)` : ""}`, colW - 12);
+    checkPage(lines.length * 5 + 6);
+    doc.setFillColor(isCrit ? 254 : 255, isCrit ? 242 : 251, isCrit ? 242 : 235);
+    doc.roundedRect(margin, y, colW, lines.length * 5 + 4, 1.5, 1.5, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(isCrit ? 185 : 146, isCrit ? 28 : 64, isCrit ? 28 : 14);
+    doc.text(lines, margin + 4, y + 5);
+    y += lines.length * 5 + 7;
+  }
+
+  /* ── Cover header ── */
+  doc.setFillColor(36, 96, 169);
+  doc.rect(0, 0, 210, 38, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(18);
+  doc.setTextColor(255, 255, 255);
+  doc.text("Compliance Intelligence Dashboard", margin, 16);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(200, 220, 255);
+  doc.text("TPR Max · Connected Workforce & Site Safety Platform", margin, 23);
+  doc.text(`Generated: ${generatedAt}`, margin, 29);
+  doc.text(`Data snapshot: ${format(new Date(data.calculatedAt), "dd MMM yyyy HH:mm")}`, margin, 34);
+  y = 46;
+
+  /* ── Overall Score ── */
+  sectionTitle("Overall Compliance Score");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(36);
+  doc.setTextColor(...(bandColour.match(/[\da-f]{2}/gi)!.map(h => parseInt(h, 16))) as [number, number, number]);
+  doc.text(`${data.overallScore}`, margin + 2, y + 14);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(11);
+  doc.setTextColor(55, 65, 81);
+  doc.text(`/ 100 — ${data.riskLabel}`, margin + 22, y + 14);
+  doc.setFontSize(8.5);
+  doc.setTextColor(107, 114, 128);
+  doc.text(`Based on ${data.totalChecks} compliance checks across your site`, margin + 2, y + 21);
+  doc.text(`Critical issues: ${data.criticalIssues.length}   Warnings: ${data.warnings.length}`, margin + 2, y + 27);
+  y += 34;
+
+  /* ── Category Breakdown ── */
+  sectionTitle("Category Breakdown");
+  const catKeys = ["contractorInsurance", "rams", "inductions", "complianceCerts", "ppm", "fireRiskAssessment", "staffRightToWork"] as const;
+  for (const key of catKeys) {
+    const meta = CATEGORY_META[key];
+    const cat = (data.categories as any)[key] as CategoryStat;
+    const score = cat.score;
+    const colour = score >= 90 ? "#059669" : score >= 70 ? "#d97706" : score >= 50 ? "#ea580c" : "#dc2626";
+    row(meta.label, `${score}% — ${meta.stat(cat)}`, colour);
+  }
+  y += 4;
+
+  /* ── Critical Issues ── */
+  if (data.criticalIssues.length > 0) {
+    sectionTitle(`Critical Issues (${data.criticalIssues.length})`);
+    for (const issue of data.criticalIssues) issueBlock(issue);
+    y += 3;
+  }
+
+  /* ── Warnings ── */
+  if (data.warnings.length > 0) {
+    sectionTitle(`Warnings (${data.warnings.length})`);
+    for (const issue of data.warnings) issueBlock(issue);
+    y += 3;
+  }
+
+  /* ── Expiry Timeline ── */
+  const timelineGroups = groupTimelineItems(data.expiryTimeline);
+  if (timelineGroups.length > 0) {
+    sectionTitle("Expiry Timeline — Next 90 Days");
+    for (const group of timelineGroups) {
+      checkPage(10);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(107, 114, 128);
+      doc.text(group.label.toUpperCase(), margin + 2, y + 4);
+      y += 7;
+      for (const item of group.items) {
+        const urgentColour = item.daysUntilExpiry <= 7 ? "#dc2626" : item.daysUntilExpiry <= 14 ? "#d97706" : "#374151";
+        const daysLabel = item.daysUntilExpiry === 0 ? "Today" : `${item.daysUntilExpiry}d`;
+        checkPage(7);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(8.5);
+        doc.setTextColor(107, 114, 128);
+        doc.text(format(new Date(item.date), "dd MMM yyyy"), margin + 2, y + 4.5);
+        doc.setTextColor(55, 65, 81);
+        doc.text(item.item, margin + 32, y + 4.5);
+        const [ur, ug, ub] = urgentColour.match(/[\da-f]{2}/gi)!.map(h => parseInt(h, 16)) as [number, number, number];
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(ur, ug, ub);
+        doc.text(daysLabel, pageW - margin - 2, y + 4.5, { align: "right" });
+        doc.setDrawColor(229, 231, 235);
+        doc.line(margin, y + 6.5, pageW - margin, y + 6.5);
+        y += 7.5;
+      }
+      y += 3;
+    }
+  }
+
+  /* ── Top Contractor Risks ── */
+  if (data.topContractorRisks.length > 0) {
+    sectionTitle("Top Contractor Risks");
+    for (const contractor of data.topContractorRisks) {
+      const lines = doc.splitTextToSize(`${contractor.name} — ${contractor.issues.join(", ")}`, colW - 10);
+      checkPage(lines.length * 5 + 6);
+      doc.setFillColor(254, 242, 242);
+      doc.roundedRect(margin, y, colW, lines.length * 5 + 4, 1.5, 1.5, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.setTextColor(185, 28, 28);
+      doc.text(`${contractor.issueCount} issue${contractor.issueCount !== 1 ? "s" : ""}`, pageW - margin - 4, y + 5, { align: "right" });
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(55, 65, 81);
+      doc.text(lines, margin + 4, y + 5);
+      y += lines.length * 5 + 7;
+    }
+    y += 3;
+  }
+
+  /* ── Footer note ── */
+  checkPage(22);
+  doc.setFillColor(248, 250, 252);
+  doc.rect(margin, y, colW, 20, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7.5);
+  doc.setTextColor(55, 65, 81);
+  doc.text("How the score is calculated", margin + 3, y + 5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(107, 114, 128);
+  const noteLines = doc.splitTextToSize(
+    "The overall score is a weighted average of 7 compliance categories: Contractor Insurance (20%), RAMS Documents (15%), Contractor Inductions (15%), Compliance Certificates (15%), PPM / Maintenance (15%), Fire Risk Assessment (10%), and Staff Right to Work (10%). Categories with no tracked items score 100 (not applicable).",
+    colW - 6
+  );
+  doc.text(noteLines, margin + 3, y + 10);
+
+  /* ── Page numbers ── */
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+    doc.setTextColor(156, 163, 175);
+    doc.text(`TPR Max Compliance Report · ${generatedAt} · Page ${p} of ${pageCount}`, pageW / 2, 292, { align: "center" });
+  }
+
+  const fileName = `compliance-report-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`;
+  doc.save(fileName);
+}
+
 export default function ComplianceDashboard() {
   const [showAllCritical, setShowAllCritical] = useState(false);
   const [showAllWarnings, setShowAllWarnings] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
 
   const { data, isLoading, dataUpdatedAt, refetch, isFetching } = useQuery<DashboardData>({
     queryKey: ["/api/compliance-dashboard"],
     refetchInterval: 5 * 60 * 1000,
   });
+
+  async function handleDownloadPDF() {
+    if (!data) return;
+    setIsGeneratingPDF(true);
+    try {
+      await generateCompliancePDF(data);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  }
 
   if (isLoading) {
     return (
@@ -254,10 +469,22 @@ export default function ComplianceDashboard() {
             Live compliance health across all modules · Updated {updatedText}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
-          <RefreshCw className={`h-4 w-4 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
+            <RefreshCw className={`h-4 w-4 mr-1.5 ${isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleDownloadPDF}
+            disabled={isGeneratingPDF || !data}
+            className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
+          >
+            <Download className={`h-4 w-4 mr-1.5 ${isGeneratingPDF ? "animate-bounce" : ""}`} />
+            {isGeneratingPDF ? "Generating…" : "Download PDF"}
+          </Button>
+        </div>
       </div>
 
       {/* Section 1 — Score Hero */}
