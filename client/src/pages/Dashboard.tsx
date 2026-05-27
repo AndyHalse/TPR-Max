@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn, Trash2, Flame } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn, Trash2, Flame, Siren } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -804,10 +804,22 @@ export default function Dashboard() {
     <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
       {/* People On-Site Section */}
       <div className="space-y-4">
-        <h2 className="text-xl font-semibold text-fixed flex items-center gap-2">
-          <Users className="text-blue-600" size={20} />
-          People On-Site
-        </h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-fixed flex items-center gap-2">
+            <Users className="text-blue-600" size={20} />
+            People On-Site
+          </h2>
+          <Button
+            onClick={handleEmergencyMuster}
+            className="bg-red-600 hover:bg-red-700 text-white gap-2 shadow-sm"
+            size="sm"
+            data-testid="button-activate-emergency-dashboard"
+          >
+            <Siren size={15} />
+            <span className="hidden sm:inline">Activate Emergency</span>
+            <span className="sm:hidden">Emergency</span>
+          </Button>
+        </div>
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 flex-1">
             <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>

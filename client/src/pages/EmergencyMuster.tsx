@@ -604,8 +604,10 @@ export default function EmergencyMuster() {
       if (zones.length > 0) {
         setShowZoneSelector(true);
       }
+      // Fire immediately — type is already chosen via the Drill toggle on the idle screen
+      activateFireMarshalMutation.mutate({ isDrill: isDrillMode });
     } else if (emergencyPhase === 'send_alert') {
-      // No-op: activation is now triggered directly from the Real Emergency / Fire Drill buttons
+      // No-op
     } else if (emergencyPhase === 'active') {
       setEmergencyActive(false);
       setEmergencyPhase('idle');
@@ -1088,59 +1090,19 @@ export default function EmergencyMuster() {
           </div>
 
           <div className="space-y-5">
-            {/* Step 1 — Emergency Type */}
-            <div className="flex gap-3">
-              <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>1</div>
-              <div className="flex-1">
-                <h4 className="text-sm font-semibold text-fixed mb-1">Select type to activate immediately</h4>
-                <p className="text-xs text-muted-foreground mb-2">Emails are sent to all personnel and Fire Marshals as soon as you tap.</p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setIsDrillMode(false);
-                      activateFireMarshalMutation.mutate({ isDrill: false });
-                    }}
-                    disabled={activateFireMarshalMutation.isPending}
-                    className={`flex-1 px-3 py-3 rounded-lg text-sm font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
-                      activateFireMarshalMutation.isPending && activateFireMarshalMutation.variables?.isDrill === false
-                        ? 'bg-red-700 border-red-700 text-white animate-pulse'
-                        : !isDrillMode
-                          ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-200 dark:shadow-red-900/30'
-                          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-red-400 hover:text-red-600'
-                    } disabled:opacity-60 disabled:cursor-not-allowed`}
-                  >
-                    {activateFireMarshalMutation.isPending && activateFireMarshalMutation.variables?.isDrill === false
-                      ? <><Loader2 size={14} className="animate-spin" />Starting Emergency…</>
-                      : <><Siren size={14} />Real Emergency</>
-                    }
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsDrillMode(true);
-                      activateFireMarshalMutation.mutate({ isDrill: true });
-                    }}
-                    disabled={activateFireMarshalMutation.isPending}
-                    className={`flex-1 px-3 py-3 rounded-lg text-sm font-bold border-2 transition-all flex items-center justify-center gap-1.5 ${
-                      activateFireMarshalMutation.isPending && activateFireMarshalMutation.variables?.isDrill === true
-                        ? 'bg-amber-600 border-amber-600 text-white animate-pulse'
-                        : isDrillMode
-                          ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-200 dark:shadow-amber-900/30'
-                          : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-amber-400 hover:text-amber-600'
-                    } disabled:opacity-60 disabled:cursor-not-allowed`}
-                  >
-                    {activateFireMarshalMutation.isPending && activateFireMarshalMutation.variables?.isDrill === true
-                      ? <><Loader2 size={14} className="animate-spin" />Starting Drill…</>
-                      : <><ShieldAlert size={14} />Fire Drill</>
-                    }
-                  </button>
-                </div>
-              </div>
+            {/* Activation status */}
+            <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+              {activateFireMarshalMutation.isPending ? (
+                <><Loader2 size={15} className="animate-spin text-orange-600" /><span className="text-sm font-medium text-orange-800 dark:text-orange-300">{isDrillMode ? 'Starting drill…' : 'Sending emergency alerts…'}</span></>
+              ) : (
+                <><CheckCircle size={15} className="text-green-600" /><span className="text-sm font-medium text-green-800 dark:text-green-300">{isDrillMode ? 'Drill alert sent to all Fire Marshals' : 'Emergency alert sent to all personnel'}</span></>
+              )}
             </div>
 
-            {/* Step 2 — Zone Selection (only when zones are configured) */}
+            {/* Step 1 — Zone Selection (only when zones are configured) */}
             {activeZones.length > 0 && (
               <div className="flex gap-3">
-                <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>2</div>
+                <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>1</div>
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="text-sm font-semibold text-fixed">Select Zones to Evacuate</h4>
@@ -1164,10 +1126,10 @@ export default function EmergencyMuster() {
               </div>
             )}
 
-            {/* Step 3 (or 2 if no zones) — Share Fire Marshal Links */}
+            {/* Step 2 (or 1 if no zones) — Share Fire Marshal Links */}
             {fireMarshals.length > 0 && (
               <div className="flex gap-3">
-                <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>{activeZones.length > 0 ? 3 : 2}</div>
+                <div className={`flex-shrink-0 w-7 h-7 rounded-full text-white font-bold text-sm flex items-center justify-center border-2 ${isDrillMode ? 'bg-amber-500 border-amber-600' : 'bg-orange-500 border-orange-600'}`}>{activeZones.length > 0 ? 2 : 1}</div>
                 <div className="flex-1">
                   <h4 className="text-sm font-semibold text-fixed mb-1">Share Fire Marshal Links</h4>
                   <p className="text-xs text-muted-foreground mb-2">Send these to your Fire Marshals — they open a live muster view on their phone, no login required.</p>
