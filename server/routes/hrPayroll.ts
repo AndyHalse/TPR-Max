@@ -68,11 +68,13 @@ export function registerHrPayrollRoutes(app: Express): void {
         [period_start, period_end]
       );
 
-      // Absence records (sickness) for period — separate from leave_requests
+      // Absence records (sickness only) for period — separate from leave_requests
       const absenceResult = await pool.query(
         `SELECT staff_id, days_lost, start_date
          FROM "${schemaName}".absence_records
-         WHERE start_date <= $2 AND (return_date IS NULL OR return_date >= $1)`,
+         WHERE (absence_type = 'sickness' OR absence_type IS NULL)
+           AND start_date <= $2
+           AND (return_date IS NULL OR return_date >= $1)`,
         [period_start, period_end]
       );
 
