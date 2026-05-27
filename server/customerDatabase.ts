@@ -567,7 +567,8 @@ export class CustomerDatabaseService {
       // Add duty-holder columns to existing cdm_projects tables (idempotent)
       await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS principal_contractor_id VARCHAR REFERENCES "${schemaName}".contractor_companies(id)`);
       await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS principal_designer_name TEXT`);
-      // Add F10 alert deduplication column (Task #12)
+      // Add F10 columns (idempotent backfill for existing tables)
+      await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS f10_status TEXT NOT NULL DEFAULT 'not_required'`);
       await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS f10_alert_sent_at TIMESTAMP`);
       logger.info(`✅ CDM 2015 tables/columns ensured for ${schemaName}`);
     } catch (err: any) {
