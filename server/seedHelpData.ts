@@ -31,7 +31,7 @@ const NEW_CATEGORIES = [
   },
   {
     name: "Human Resources",
-    description: "Staff records, leave, training matrix, absence, onboarding, leavers, appraisals and payroll export",
+    description: "Staff records, org chart, leave, training matrix, absence, onboarding, leavers, appraisals, payroll export, Right to Work, DBS, and confidential document management",
     icon: "users",
     color: "#6366f1",
     sortOrder: 15,
@@ -970,6 +970,283 @@ The HR module is currently in Beta. Always reconcile a payroll export against yo
       viewCount: 0
     },
 
+    // ─── HR ORG CHART ─────────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "Org Chart & Reporting Lines",
+      slug: createSlug("HR Org Chart Reporting Lines"),
+      summary: "Viewing and managing the company reporting structure, assigning line managers and drag-and-drop rearrangement",
+      content: `# Org Chart & Reporting Lines
+
+The Org Chart gives a live visual tree of your organisation's reporting structure, built automatically from the line manager assignments held against each staff profile.
+
+## Viewing the Org Chart
+Navigate to **HR** > **Org Chart**. The chart renders as a tree with:
+- The most senior person (no line manager assigned) at the top
+- Direct reports branching below each manager
+- Staff name, job title and department visible on each node
+- Profile photos where uploaded
+
+Use the **zoom controls** (+ / − / fit-to-screen) to navigate large organisations.
+
+## Assigning a Line Manager
+### Via the staff profile
+1. Open a staff member's profile
+2. Click **Edit**
+3. Find the **Line Manager** field
+4. Search and select the manager from the dropdown
+5. Save — the chart updates immediately
+
+### Via drag-and-drop on the Org Chart
+1. Navigate to **HR** > **Org Chart**
+2. Drag a staff node and drop it onto the intended manager's node
+3. Confirm the reassignment in the dialog that appears
+4. The reporting line is saved and the chart re-renders
+
+## Departments
+Staff are colour-coded by department. The legend appears at the bottom of the chart. Use **Settings** > **Departments** to add, rename or recolour departments.
+
+## Exporting the Org Chart
+Click **"Export PNG"** to download a snapshot of the chart — useful for board packs, HR audits and job descriptions.
+
+## Multiple Reporting Lines
+Each staff member has one formal line manager. For matrix-management structures, use the **Notes** field on the staff profile to record secondary reporting relationships.`,
+      targetPages: ["hr-org-chart", "/hr/org-chart", "hr", "/hr"],
+      searchKeywords: ["org chart", "organisation chart", "reporting lines", "line manager", "hierarchy", "structure", "drag and drop"],
+      estimatedReadTime: 4,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 9,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR RIGHT TO WORK ─────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "Right to Work (RTW) — Recording & Kiosk Enforcement",
+      slug: createSlug("HR Right to Work RTW Recording Kiosk Enforcement"),
+      summary: "Recording Right to Work documents, tracking expiry dates and understanding automatic kiosk sign-in blocking for expired RTW",
+      content: `# Right to Work (RTW) — Recording & Kiosk Enforcement
+
+UK employers have a legal duty under the Immigration, Asylum and Nationality Act 2006 to check that every employee has the right to work in the UK before employment begins, and to repeat checks when time-limited leave expires.
+
+## Recording an RTW Check
+1. Open the staff member's profile
+2. Go to the **Right to Work** tab
+3. Click **"Add RTW Record"**
+4. Enter:
+   - **Document type** (e.g., British/Irish passport, BRP, share code verification)
+   - **Document reference** number
+   - **Check date** — when you verified the document
+   - **Expiry date** — leave blank for indefinite RTW (e.g., British citizens)
+   - Upload a scanned copy of the document (stored securely)
+5. Save — the record is timestamped and attributed to the user who recorded it
+
+## RTW Status Flags
+Each staff member shows one of four statuses:
+- **✅ Valid** — document on file, not expiring within 90 days
+- **⚠️ Expiring soon** — expires within 90 days, repeat check should be scheduled
+- **🚨 Expired** — expiry date has passed; access is automatically blocked at kiosk sign-in
+- **❓ Not recorded** — no RTW check on file; staff cannot use kiosk self-service until a record is added
+
+## Kiosk Sign-In Enforcement
+When a staff member scans their QR code at the TPR-Max kiosk:
+- The system checks their RTW status in real time
+- If their RTW document has **expired**, the kiosk displays a block screen:
+  *"Entry denied: Right to Work documentation has expired. Contact HR."*
+- The check-in is rejected — they are **not** added to the on-site register
+- HR receives an automatic email alert
+
+This enforcement is automatic and cannot be bypassed at the kiosk.
+
+## Expiry Alerts
+The HR dashboard card **"RTW expiring (30 days)"** lists every staff member whose RTW expires in the next 30 days. Click through to schedule repeat checks before access is lost.
+
+## Audit Trail
+All RTW records — including who recorded them, when, and any document uploads — are retained with timestamps. This constitutes your statutory excuse under the Act if a record is audited by the Home Office.
+
+## GDPR Considerations
+RTW document scans are stored as confidential HR documents. Access is restricted to HR admins and the nominated line manager. Staff cannot view their own document images through the self-service portal.`,
+      targetPages: ["hr-right-to-work", "/hr/right-to-work", "staff", "/staff"],
+      searchKeywords: ["right to work", "RTW", "immigration", "BRP", "share code", "visa", "passport", "kiosk block", "expiry", "Home Office"],
+      estimatedReadTime: 5,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 10,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR DBS ───────────────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "DBS Certificate Management",
+      slug: createSlug("HR DBS Certificate Management"),
+      summary: "Recording DBS check levels, certificate numbers, issue dates and tracking renewals with automated alerts",
+      content: `# DBS Certificate Management
+
+A Disclosure and Barring Service (DBS) check reveals relevant criminal history and, at Enhanced level, information held by local police. Many UK roles — particularly in education, healthcare and social care — require a DBS check before employment begins.
+
+## DBS Check Levels
+- **Basic** — unspent convictions only; suitable for most roles
+- **Standard** — spent and unspent convictions, cautions, reprimands and warnings
+- **Enhanced** — Standard + relevant information held by police; required for regulated activity with children or vulnerable adults
+- **Enhanced + barred list check** — includes check against the Children's Barred List and/or Adults' Barred List
+
+## Recording a DBS Check
+1. Open the staff member's profile
+2. Go to the **DBS** tab
+3. Click **"Add DBS Record"**
+4. Enter:
+   - **DBS level** (Basic / Standard / Enhanced / Enhanced + barred list)
+   - **Certificate number** (12-digit reference from the certificate)
+   - **Issue date** — date printed on the DBS certificate
+   - **Renewal due date** — your organisation's renewal policy (commonly every 3 years for regulated activity)
+   - **Workforce type** — Adult, Child, or Both (for Enhanced checks)
+5. Upload a scan of the certificate (stored securely)
+6. Save — the record is timestamped and attributed
+
+## DBS Status Flags
+- **✅ Valid** — on file and not expiring within 90 days
+- **⚠️ Renewal due** — expires within 90 days; schedule re-check
+- **🚨 Overdue** — past renewal date; review whether the role can continue
+- **❓ Not recorded** — no DBS on file for a role that requires one
+
+## Renewal Alerts
+The HR dashboard card **"DBS due for renewal"** lists every staff member whose DBS renewal date falls within the next 30 days. Click through to **/hr/dbs** to manage the queue.
+
+## Update Service
+Staff with an Enhanced DBS may subscribe to the **DBS Update Service** — their certificate is kept current automatically. Record this in the notes field and set the renewal date far ahead (e.g., 10 years) to prevent unnecessary alerts.
+
+## Audit & Safeguarding
+Every DBS record, upload and access event is logged. For Ofsted, CQC and other regulated inspections, DBS records can be exported as a compliance report from **/hr/dbs**.`,
+      targetPages: ["hr-dbs", "/hr/dbs", "staff", "/staff"],
+      searchKeywords: ["DBS", "Disclosure and Barring Service", "CRB", "enhanced DBS", "barred list", "safeguarding", "certificate", "renewal", "Ofsted", "CQC"],
+      estimatedReadTime: 5,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 11,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR CONFIDENTIAL DOCUMENTS ────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "Confidential HR Document Vault",
+      slug: createSlug("HR Confidential Document Vault"),
+      summary: "Storing, accessing and managing confidential staff documents — contracts, disciplinaries and sensitive records — with GDPR-gated access control",
+      content: `# Confidential HR Document Vault
+
+The Confidential Document Vault stores sensitive staff documents — employment contracts, disciplinary records, grievance outcomes, NDAs, fit notes, and other documents that must not be visible to the general user base.
+
+## What Belongs in the Vault
+- Employment contracts and contract amendments
+- Disciplinary hearing records and outcome letters
+- Grievance investigation reports
+- NDA / non-disclosure agreements
+- Medical fit notes and occupational health reports
+- Right to Work document scans
+- DBS certificate scans
+- Any document classified as "Confidential" at upload
+
+## Uploading a Confidential Document
+1. Open the staff member's profile
+2. Go to the **Documents** tab
+3. Click **"Upload Document"**
+4. Select the file (PDF, Word, or image — max 10 MB)
+5. Set the **Document type** from the dropdown
+6. Tick **"Confidential"** — this restricts who can download it
+7. Add an optional expiry date (e.g., for time-limited NDAs)
+8. Click **Upload**
+
+## Access Control — Who Can Download
+Confidential documents are protected at the server level. Only the following roles can download a confidential document:
+- **HR Admin** — full access to all confidential documents
+- **The named line manager** of the staff member
+- **Platform Admin**
+
+Standard users — even if they have admin access to other modules — receive a **"You do not have permission to download this document"** error if they attempt to access a confidential file.
+
+**Staff cannot access their own confidential documents** through the self-service portal. Documents that staff need to see (e.g., their own employment contract) should be shared via email and uploaded separately as a non-confidential copy.
+
+## GDPR Compliance
+- All confidential documents are encrypted at rest
+- Access attempts are logged with username, timestamp and IP address
+- Retention periods should be set at upload: payroll-related documents 6 years; general HR 1–3 years (per your data retention policy)
+- Use the **"Delete"** action (HR Admin only) to remove documents once the retention period has elapsed
+
+## Document List & Audit Log
+HR Admins can view the full document list and download log for any staff member in **/hr/documents**. The audit log shows who downloaded what and when — useful for data subject access requests (DSARs) under GDPR Article 15.`,
+      targetPages: ["hr-documents", "/hr/documents", "staff", "/staff"],
+      searchKeywords: ["confidential", "documents", "contracts", "disciplinary", "GDPR", "NDA", "vault", "access control", "download", "DSAR", "data retention"],
+      estimatedReadTime: 5,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 12,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── HR NDA TRACKING ──────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Human Resources"] ?? categoryMap["Staff Management"],
+      title: "NDA & Policy Acceptance Tracking",
+      slug: createSlug("HR NDA Policy Acceptance Tracking"),
+      summary: "Issuing NDAs and company policies for digital acceptance, tracking who has signed and when",
+      content: `# NDA & Policy Acceptance Tracking
+
+TPR-Max allows you to issue Non-Disclosure Agreements, company policies, and compliance declarations to staff for digital acknowledgement — creating a timestamped audit trail of who accepted each document and when.
+
+## How It Works
+1. A confidential document (NDA, acceptable use policy, data handling declaration) is uploaded to the staff member's **Documents** tab
+2. HR marks it as **"Requires acceptance"**
+3. The staff member is notified by email to log in and review the document
+4. They read the document in the viewer and click **"I accept"**
+5. Their acceptance is recorded with timestamp, IP address and user ID
+6. The document status updates to **"Accepted — [date]"**
+
+## Tracking Acceptance Status
+In **HR** > **Documents** > **Acceptance Log**, you can see:
+- Every document marked as requiring acceptance
+- Which staff members have accepted and when
+- Which staff members have **not yet accepted** (shown in red)
+- Days since the document was issued
+
+## Chasing Outstanding Acceptances
+Click **"Send Reminder"** next to any unaccepted document to send an email nudge to the staff member. Bulk reminders can be sent for any document with outstanding acceptances.
+
+## Audit Use
+The acceptance log is admissible evidence that a staff member was made aware of a policy and agreed to its terms. Download the log as a PDF for legal or HR audit purposes.
+
+## Expiring NDAs
+Set an **expiry date** on any NDA. HR will be alerted 30 days before expiry to reissue and obtain a fresh signature. Expired NDAs are flagged in the HR dashboard.`,
+      targetPages: ["hr-documents", "/hr/documents", "staff", "/staff", "hr", "/hr"],
+      searchKeywords: ["NDA", "non-disclosure", "policy acceptance", "digital signature", "acknowledgement", "compliance declaration", "signed", "acceptance log"],
+      estimatedReadTime: 4,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: false,
+      sortOrder: 13,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
     // ─── MARTYN'S LAW ─────────────────────────────────────────────────────────
     {
       categoryId: categoryMap["Safety & Compliance"],
@@ -1599,6 +1876,51 @@ export async function seedHelpData() {
         await db.update(helpArticles)
           .set({ title: article.title.replace(/VisiGate Pro/g, 'TPR-Max') })
           .where(eq(helpArticles.id, article.id));
+      }
+    }
+
+    // ── Migrate HR Module Overview: remove Beta, add RTW/DBS/Documents/Org Chart sub-modules ──
+    const hrOverviewArticles = await db.select().from(helpArticles)
+      .where(like(helpArticles.slug, 'hr-module-overview'));
+    for (const article of hrOverviewArticles) {
+      if (article.content.includes('currently in Beta') || !article.content.includes('Right to Work')) {
+        await db.update(helpArticles)
+          .set({
+            summary: "Tour of the HR landing dashboard and the 12 sub-modules: org chart, leave, training, absence, onboarding, leavers, appraisals, payroll export, Right to Work, DBS, confidential documents and NDA tracking",
+            content: article.content
+              .replace(
+                'It sits at **/hr** and is currently in Beta — verify critical data (right-to-work, payroll, appraisals) independently until full release.',
+                'It sits at **/hr** and covers the full staff lifecycle, including compliance-critical areas such as Right to Work enforcement, DBS management, and GDPR-gated confidential document storage.'
+              )
+              .replace(
+                '- **Appraisals due (30 days)** — performance reviews scheduled in the next 30 days\n- **Pending leave approvals** — leave requests awaiting line manager decision',
+                '- **Appraisals due (30 days)** — performance reviews scheduled in the next 30 days\n- **Pending leave approvals** — leave requests awaiting line manager decision\n- **RTW expiring (30 days)** — staff whose Right to Work document expires within 30 days\n- **DBS due for renewal** — staff whose DBS certificate renewal date falls within 30 days'
+              )
+              .replace(
+                '- **Payroll Export** — month-end export to your payroll provider\n\n## Feature Toggles',
+                '- **Payroll Export** — month-end export to your payroll provider\n- **Right to Work** — document recording, expiry tracking and kiosk enforcement\n- **DBS** — Disclosure and Barring Service certificate management\n- **Documents** — GDPR-gated confidential document vault\n- **NDA / Policy Acceptance** — digital acknowledgement tracking\n\n## Feature Toggles'
+              ),
+          })
+          .where(eq(helpArticles.id, article.id));
+        logger.info('🔄 Migrated HR Module Overview article (removed Beta, added sub-modules)');
+      }
+    }
+
+    // ── Migrate Payroll Export: remove Beta warning, add sick-days filter note ──
+    const payrollArticles = await db.select().from(helpArticles)
+      .where(like(helpArticles.slug, 'hr-payroll-export'));
+    for (const article of payrollArticles) {
+      if (article.content.includes('Beta Module')) {
+        await db.update(helpArticles)
+          .set({
+            content: article.content
+              .replace(
+                '## Important — Beta Module\nThe HR module is currently in Beta. Always reconcile a payroll export against your previous run before importing to your payroll provider until full release.',
+                '## Sick Day Filtering\nThe payroll export automatically filters absence records to **sickness-type absences only** when calculating SSP and sick day totals. Non-sickness leave (annual leave, TOIL, compassionate) is never included in the sick day count, preventing over-reporting to your payroll provider.\n\n## Reconciliation\nAlways reconcile a payroll export against your previous run before importing to your payroll provider. The Payroll Export History table lets you re-download any past export for comparison.'
+              ),
+          })
+          .where(eq(helpArticles.id, article.id));
+        logger.info('🔄 Migrated Payroll Export article (removed Beta warning, added sick-day filter note)');
       }
     }
 
