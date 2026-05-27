@@ -16,7 +16,7 @@ import {
   ClipboardCheck, Plus, Edit, Trash2, Eye, CheckCircle2, AlertTriangle,
   Clock, RefreshCw, ChevronUp, ChevronDown, X, LayoutDashboard,
   FileText, ListChecks, Target, TrendingUp, CalendarDays, User,
-  MapPin, Flag, Filter, Camera, Upload, Link as LinkIcon, Shield,
+  MapPin, Flag, Filter, Camera, Upload, Link as LinkIcon, Shield, Download,
 } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
 
@@ -987,6 +987,15 @@ export default function Audits() {
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const seedUkTemplatesMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/audits/templates/seed", {}),
+    onSuccess: (data: any) => {
+      toast({ title: "UK Templates Loaded", description: data?.message ?? "Templates added successfully." });
+      queryClient.invalidateQueries({ queryKey: ["/api/audits/templates"] });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
   const deleteRecordMutation = useMutation({
     mutationFn: (id: string) => apiRequest("DELETE", `/api/audits/records/${id}`),
     onSuccess: () => { toast({ title: "Audit deleted" }); queryClient.invalidateQueries({ queryKey: ["/api/audits/records"] }); queryClient.invalidateQueries({ queryKey: ["/api/audits/summary"] }); },
@@ -1136,20 +1145,32 @@ export default function Audits() {
 
         {/* ── Tab 2: Templates ── */}
         <TabsContent value="templates" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <p className="text-sm text-variable">{templates.length} template{templates.length !== 1 ? "s" : ""}</p>
-            <Button onClick={() => { setEditingTemplate(null); setShowTemplateDialog(true); }}>
-              <Plus className="h-4 w-4 mr-2" />New Template
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => seedUkTemplatesMutation.mutate()} disabled={seedUkTemplatesMutation.isPending}>
+                <Download className="h-4 w-4 mr-2" />
+                {seedUkTemplatesMutation.isPending ? "Loading…" : "Load UK Templates"}
+              </Button>
+              <Button onClick={() => { setEditingTemplate(null); setShowTemplateDialog(true); }}>
+                <Plus className="h-4 w-4 mr-2" />New Template
+              </Button>
+            </div>
           </div>
           {templates.length === 0 ? (
             <GlassCard className="p-12 text-center">
               <ListChecks className="h-10 w-10 text-slate-300 mx-auto mb-3" />
               <p className="text-slate-500 font-medium">No templates yet</p>
-              <p className="text-xs text-slate-400 mb-4">Create your first inspection template to get started.</p>
-              <Button onClick={() => { setEditingTemplate(null); setShowTemplateDialog(true); }}>
-                <Plus className="h-4 w-4 mr-2" />Create Template
-              </Button>
+              <p className="text-xs text-slate-400 mb-4">Load 10 ready-made UK inspection templates, or build your own from scratch.</p>
+              <div className="flex gap-3 justify-center flex-wrap">
+                <Button onClick={() => seedUkTemplatesMutation.mutate()} disabled={seedUkTemplatesMutation.isPending}>
+                  <Download className="h-4 w-4 mr-2" />
+                  {seedUkTemplatesMutation.isPending ? "Loading…" : "Load UK Templates"}
+                </Button>
+                <Button variant="outline" onClick={() => { setEditingTemplate(null); setShowTemplateDialog(true); }}>
+                  <Plus className="h-4 w-4 mr-2" />Create Template
+                </Button>
+              </div>
             </GlassCard>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

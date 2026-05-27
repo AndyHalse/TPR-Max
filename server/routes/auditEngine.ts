@@ -230,6 +230,225 @@ export function registerAuditEngineRoutes(app: Express): void {
     }
   });
 
+  // ── SEED UK AUDIT TEMPLATES ───────────────────────────────────────────────
+  app.post('/api/audits/templates/seed', requireAuth, async (req, res) => {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const custDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const UK_AUDIT_TEMPLATES: Array<{
+        name: string; description: string; category: string;
+        frequency: string; passScore: number; estimatedMinutes: number;
+        items: Array<{ question: string; isCritical?: boolean; requiresPhoto?: boolean; requiresNote?: boolean }>;
+      }> = [
+        {
+          name: 'Fire Safety Inspection',
+          description: 'Monthly fire safety walkthrough in line with the Regulatory Reform (Fire Safety) Order 2005 and BS 5839-1.',
+          category: 'fire', frequency: 'monthly', passScore: 85, estimatedMinutes: 30,
+          items: [
+            { question: 'Are all fire exits clear, unobstructed, and correctly signed?', isCritical: true },
+            { question: 'Are fire extinguishers present, in date, and at the correct locations?', isCritical: true },
+            { question: 'Are fire alarm call points visible, accessible, and undamaged?' },
+            { question: 'Are fire doors self-closing and not wedged open?', isCritical: true },
+            { question: 'Is the fire evacuation plan displayed in prominent locations?' },
+            { question: 'Is the fire log book present and up to date?', requiresNote: true },
+            { question: 'Are escape route floor markings and signage clearly visible?' },
+            { question: 'Are emergency lighting units functional (monthly flash test completed)?' },
+            { question: 'Is fire detection equipment free from obstruction (detectors, sounders)?' },
+            { question: 'Are flammable/combustible materials stored correctly and away from ignition sources?' },
+            { question: 'Have any changes to the building layout been assessed for fire risk impact?', requiresNote: true },
+          ],
+        },
+        {
+          name: 'General H&S Workplace Inspection',
+          description: 'Routine health and safety walkthrough in line with the Health and Safety at Work etc. Act 1974 and Workplace (Health, Safety and Welfare) Regulations 1992.',
+          category: 'safety', frequency: 'monthly', passScore: 80, estimatedMinutes: 60,
+          items: [
+            { question: 'Are all walkways and corridors free from obstruction and slip/trip hazards?' },
+            { question: 'Is adequate lighting provided in all work areas?' },
+            { question: 'Is PPE available, in good condition, and being used correctly?', isCritical: true },
+            { question: 'Are all machinery guards in place and functional?', isCritical: true },
+            { question: 'Are hazardous substances stored correctly with COSHH data sheets accessible?' },
+            { question: 'Is the first aid kit fully stocked, accessible, and within its check date?', requiresPhoto: true },
+            { question: 'Are all electrical sockets, leads, and equipment in safe condition (no visible damage)?' },
+            { question: 'Is welfare provision adequate (toilets, washing facilities, rest area, drinking water)?' },
+            { question: 'Are H&S notices and employer liability insurance certificate displayed?' },
+            { question: 'Are all incidents, near-misses, and accidents recorded in the accident book?', requiresNote: true },
+            { question: 'Is the workplace temperature reasonable (min 16°C for sedentary, 13°C for physical work)?' },
+            { question: 'Are manual handling aids available and in use where required?' },
+          ],
+        },
+        {
+          name: 'COSHH Substances Inspection',
+          description: 'Inspection of chemical and hazardous substance controls under the Control of Substances Hazardous to Health Regulations 2002.',
+          category: 'safety', frequency: 'quarterly', passScore: 90, estimatedMinutes: 45,
+          items: [
+            { question: 'Are all hazardous substances correctly labelled with GHS/CLP hazard symbols?', isCritical: true },
+            { question: 'Are Safety Data Sheets (SDS) available for all chemicals used on-site?', isCritical: true },
+            { question: 'Are COSHH risk assessments in place and reviewed within the last 12 months?', requiresNote: true },
+            { question: 'Are hazardous substances stored in appropriate, ventilated storage?' },
+            { question: 'Is PPE specified in COSHH assessments available and worn correctly?' },
+            { question: 'Are LEV (Local Exhaust Ventilation) systems maintained and within test date?' },
+            { question: 'Are spill kits present near chemical storage areas?', requiresPhoto: true },
+            { question: 'Are waste chemicals disposed of in line with the Environment Agency requirements?' },
+            { question: 'Have workers using hazardous substances received COSHH training?', requiresNote: true },
+            { question: 'Is emergency eyewash/shower accessible where corrosive substances are used?', isCritical: true },
+          ],
+        },
+        {
+          name: 'Manual Handling Assessment Check',
+          description: 'Review of manual handling controls under the Manual Handling Operations Regulations 1992.',
+          category: 'safety', frequency: 'quarterly', passScore: 80, estimatedMinutes: 30,
+          items: [
+            { question: 'Have manual handling risk assessments been conducted for key tasks?', requiresNote: true },
+            { question: 'Are mechanical handling aids (trolleys, pallet trucks, hoists) available and in use?' },
+            { question: 'Are mechanical aids in good working order and within their inspection dates?' },
+            { question: 'Are workers following safe lifting techniques observed during the inspection?', requiresNote: true },
+            { question: 'Have all workers received manual handling training?' },
+            { question: 'Are loads clearly labelled with weight where practicable?' },
+            { question: 'Are storage areas arranged to minimise awkward reaches and bending?' },
+            { question: 'Are manual handling incidents/near-misses being reported and investigated?', requiresNote: true },
+          ],
+        },
+        {
+          name: 'Working at Height Pre-Task Check',
+          description: 'Pre-task safety check under the Work at Height Regulations 2005 before any working at height activity commences.',
+          category: 'safety', frequency: 'one-off', passScore: 100, estimatedMinutes: 20,
+          items: [
+            { question: 'Has a working at height risk assessment been completed for this task?', isCritical: true, requiresNote: true },
+            { question: 'Is the selected access equipment (ladder, scaffold, MEWP) appropriate for the task?', isCritical: true },
+            { question: 'Has the access equipment been inspected prior to use (pre-use check completed)?', requiresPhoto: true },
+            { question: 'Is the ground surface stable and level for the equipment being used?', isCritical: true },
+            { question: 'Is collective fall protection (guardrails, barriers) in place where possible?' },
+            { question: 'If PPE fall arrest is required, has it been inspected and correctly fitted?', isCritical: true },
+            { question: 'Has the exclusion zone below the work area been established and signed?' },
+            { question: 'Are workers competent and trained for the equipment being used?', isCritical: true },
+            { question: 'Has the weather/environmental conditions been assessed as safe to proceed?' },
+            { question: 'Is a rescue plan in place in case of fall or emergency?', isCritical: true, requiresNote: true },
+          ],
+        },
+        {
+          name: 'Electrical Safety Inspection',
+          description: 'Annual inspection of electrical safety compliance under the Electricity at Work Regulations 1989.',
+          category: 'safety', frequency: 'annual', passScore: 90, estimatedMinutes: 60,
+          items: [
+            { question: 'Is the Electrical Installation Condition Report (EICR) in date?', isCritical: true, requiresNote: true },
+            { question: 'Has PAT testing been completed on all portable appliances within the required interval?', requiresNote: true },
+            { question: 'Are electrical panels and distribution boards locked and accessible only to authorised persons?', isCritical: true },
+            { question: 'Are there any signs of overloading (excessive extension leads, adapters)?', requiresPhoto: true },
+            { question: 'Are all sockets, switches, and faceplates in good condition with no cracks/damage?' },
+            { question: 'Are power cables routed safely without creating trip hazards?' },
+            { question: 'Are RCDs (Residual Current Devices) installed and tested on circuits protecting portable equipment?' },
+            { question: 'Is there a documented procedure for reporting electrical faults?' },
+            { question: 'Are electrical isolation procedures (Lockout/Tagout) in place and understood?', requiresNote: true },
+            { question: 'Is all electrical work carried out only by competent, qualified persons?', isCritical: true },
+          ],
+        },
+        {
+          name: 'First Aid Readiness Check',
+          description: 'Monthly check of first aid provision under the Health and Safety (First Aid) Regulations 1981.',
+          category: 'safety', frequency: 'monthly', passScore: 90, estimatedMinutes: 20,
+          items: [
+            { question: 'Is the first aid kit present, accessible, and clearly signed?', isCritical: true },
+            { question: 'Are all first aid kit contents within their expiry dates?', isCritical: true, requiresPhoto: true },
+            { question: 'Is the number of trained first aiders adequate for the current workforce on site?', isCritical: true, requiresNote: true },
+            { question: 'Are first aider contact details displayed prominently in the workplace?' },
+            { question: 'Is the nearest hospital with A&E posted on the first aid notice?' },
+            { question: 'Is an AED (defibrillator) present, charged, and within service date?', requiresPhoto: true },
+            { question: 'Is the accident/incident book/system accessible and being used correctly?', requiresNote: true },
+            { question: 'Have first aiders\' certificates been checked and are they within 3-year renewal date?' },
+          ],
+        },
+        {
+          name: 'PPE Compliance Inspection',
+          description: 'Inspection of PPE availability, condition, and usage under the Personal Protective Equipment at Work Regulations 1992.',
+          category: 'safety', frequency: 'monthly', passScore: 85, estimatedMinutes: 25,
+          items: [
+            { question: 'Is the correct PPE specified for each role/task in the risk assessments?', isCritical: true },
+            { question: 'Is PPE available at the point of use in sufficient quantities?' },
+            { question: 'Is all PPE CE/UKCA marked and appropriate for the hazards identified?', isCritical: true },
+            { question: 'Is PPE in good condition — no damage, defects, or deterioration?', requiresPhoto: true },
+            { question: 'Are workers wearing the correct PPE as observed during the inspection?', isCritical: true, requiresNote: true },
+            { question: 'Is PPE stored correctly when not in use (lockers, hooks, clean storage)?' },
+            { question: 'Is a PPE inspection/replacement record maintained?', requiresNote: true },
+            { question: 'Have workers received training on the correct use, fitting, and limitations of their PPE?' },
+            { question: 'Is face-fit testing in place where tight-fitting respiratory protection is required?' },
+          ],
+        },
+        {
+          name: 'Contractor Site Safety Induction Check',
+          description: 'Pre-work safety check for contractors arriving on site, supporting Contractor Management and CDM Regulations 2015.',
+          category: 'safety', frequency: 'one-off', passScore: 100, estimatedMinutes: 30,
+          items: [
+            { question: 'Has the contractor signed in and provided valid ID?', isCritical: true },
+            { question: 'Has the contractor received a site induction (emergency procedures, hazards, rules)?', isCritical: true, requiresNote: true },
+            { question: 'Is a valid method statement and risk assessment (RAMS) in place for the work?', isCritical: true, requiresPhoto: true },
+            { question: 'Has the contractor\'s insurance (public liability, employer\'s liability) been verified?', isCritical: true },
+            { question: 'Does the contractor hold relevant accreditations (e.g. CSCS, CHAS, SafeContractor)?' },
+            { question: 'Has the permit to work (if required) been issued and signed?', isCritical: true },
+            { question: 'Is the contractor\'s PPE appropriate for the work being carried out?' },
+            { question: 'Has the site supervisor/responsible person been allocated for the contractor?', requiresNote: true },
+            { question: 'Has the contractor been briefed on asbestos register/known site hazards?', isCritical: true },
+            { question: 'Has out-of-hours or lone working been assessed and controlled if applicable?', requiresNote: true },
+          ],
+        },
+        {
+          name: 'Vehicle & Fleet Safety Check',
+          description: 'Monthly vehicle inspection under the Road Traffic Act 1988 and fleet management best practice.',
+          category: 'vehicle', frequency: 'monthly', passScore: 80, estimatedMinutes: 30,
+          items: [
+            { question: 'Are tyres at correct pressure and within legal minimum tread depth (1.6mm)?', isCritical: true },
+            { question: 'Are all lights operational (headlights, tail lights, indicators, brake lights)?', isCritical: true },
+            { question: 'Is the windscreen free from significant damage and screen wash topped up?' },
+            { question: 'Are all mirrors clean, undamaged, and properly adjusted?' },
+            { question: 'Is the vehicle road tax (VED) and MOT certificate in date?', isCritical: true, requiresNote: true },
+            { question: 'Is the vehicle insurance certificate present and in date?', isCritical: true },
+            { question: 'Is the first aid kit present and fully stocked?' },
+            { question: 'Are warning triangle and high-visibility vest present in the vehicle?' },
+            { question: 'Is the driver\'s licence valid and checked within the last 12 months?', isCritical: true, requiresNote: true },
+            { question: 'Are seatbelts present and in working order for all seats?', isCritical: true },
+            { question: 'Is oil level, coolant, and brake fluid within correct operating range?' },
+          ],
+        },
+      ];
+
+      // Get existing template names to skip duplicates
+      const existing = await custDb.select({ name: isolatedSchema.auditTemplates.name })
+        .from(isolatedSchema.auditTemplates);
+      const existingNames = new Set(existing.map(t => t.name));
+
+      const toInsert = UK_AUDIT_TEMPLATES.filter(t => !existingNames.has(t.name));
+      if (toInsert.length === 0) {
+        return res.json({ inserted: 0, skipped: UK_AUDIT_TEMPLATES.length, message: 'All UK templates are already loaded.' });
+      }
+
+      let inserted = 0;
+      for (const tplData of toInsert) {
+        const { items, ...tplFields } = tplData;
+        const [template] = await custDb.insert(isolatedSchema.auditTemplates)
+          .values({ ...tplFields, isActive: true })
+          .returning();
+        if (items.length > 0) {
+          const itemRows = items.map((item, idx) => ({
+            templateId: template.id,
+            question: item.question,
+            isCritical: !!item.isCritical,
+            requiresPhoto: !!item.requiresPhoto,
+            requiresNote: !!item.requiresNote,
+            sortOrder: idx,
+          }));
+          await custDb.insert(isolatedSchema.auditTemplateItems).values(itemRows);
+        }
+        inserted++;
+      }
+
+      res.json({ inserted, skipped: UK_AUDIT_TEMPLATES.length - inserted, message: `Loaded ${inserted} UK audit template${inserted !== 1 ? 's' : ''}.` });
+    } catch (error: unknown) {
+      logger.error('POST /api/audits/templates/seed', error);
+      res.status(500).json({ error: 'Failed to seed UK audit templates' });
+    }
+  });
+
   app.get('/api/audits/templates/:id', requireAuth, async (req, res) => {
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
