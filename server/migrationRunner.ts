@@ -310,6 +310,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addInductionSettingsColumnsMigration,
     addHrModuleFeatureToggleMigration,
     patchLoneWorkerColumnsMigration,
+    martynLawAuditColumnsMigration,
     addSsoCredentialsMigration,
     {
       version: '20260513_047_add_sso_fields',
@@ -2473,5 +2474,27 @@ const patchLoneWorkerColumnsMigration: Migration = {
       }
     }
     logger.info('✅ [053] Lone worker column remediation complete');
+  }
+};
+
+// Migration 054 — Add audit_log, supervisor_staff_id, last_reviewer_staff_id to martyn_law_config
+const martynLawAuditColumnsMigration: Migration = {
+  version: '20260527_054_martyn_law_audit_columns',
+  description: 'Add audit_log, supervisor_staff_id, last_reviewer_staff_id columns to martyn_law_config',
+  async up(db: any) {
+    const cols = [
+      { name: 'audit_log',             def: 'TEXT' },
+      { name: 'supervisor_staff_id',   def: 'TEXT' },
+      { name: 'last_reviewer_staff_id', def: 'TEXT' },
+    ];
+    for (const col of cols) {
+      try {
+        await db.execute(`ALTER TABLE martyn_law_config ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+        logger.info(`✅ [054] martyn_law_config.${col.name} ensured`);
+      } catch (err: any) {
+        logger.info(`⚠️ [054] martyn_law_config.${col.name}: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    logger.info('✅ [054] Martyn Law audit columns migration complete');
   }
 };

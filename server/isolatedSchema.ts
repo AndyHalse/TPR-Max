@@ -2106,8 +2106,13 @@ export const martynLawConfig = pgTable("martyn_law_config", {
   communicationPlan: text("communication_plan"),
   // Checklist (JSON array of {id, label, completed, completedAt, notes})
   checklistItems: text("checklist_items"),
-  // Evidence log (JSON array of {id, type, description, date, conductedBy})
+  // Evidence log (JSON array of {id, type, description, date, conductedBy, documentUrl?, documentName?})
   evidenceLog: text("evidence_log"),
+  // Audit trail (JSON array of {timestamp, action, userName})
+  auditLog: text("audit_log"),
+  // Staff IDs for supervisor & last reviewer
+  supervisorStaffId: text("supervisor_staff_id"),
+  lastReviewerStaffId: text("last_reviewer_staff_id"),
   // Metadata
   lastReviewedAt: timestamp("last_reviewed_at"),
   lastReviewedBy: text("last_reviewed_by"),

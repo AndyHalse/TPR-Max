@@ -5,6 +5,9 @@ import { customerDbService } from '../customerDatabase';
 import { db } from '../db';
 import { eq, and, desc } from 'drizzle-orm';
 import * as isolatedSchema from '../isolatedSchema';
+import multer from 'multer';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   evacuations,
   ramsDocuments,
@@ -13,6 +16,18 @@ import {
   insertRamsDocumentSchema,
   insertRamsAcknowledgementSchema,
 } from '@shared/schema';
+
+const EVIDENCE_UPLOAD_DIR = path.resolve('./uploads/martyn-law');
+if (!fs.existsSync(EVIDENCE_UPLOAD_DIR)) fs.mkdirSync(EVIDENCE_UPLOAD_DIR, { recursive: true });
+
+const evidenceStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, EVIDENCE_UPLOAD_DIR),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    cb(null, `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`);
+  },
+});
+const evidenceUpload = multer({ storage: evidenceStorage, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // ─── One-time startup: ensure customer_id column exists in shared RAMS tables ─
 // The RAMS tables live in the public (shared) schema.  This migration is safe
@@ -202,11 +217,12 @@ export function registerRamsRoutes(app: Express): void {
       if (!rows.length) {
         return res.json(null);
       }
-      const row = rows[0];
+      const row = rows[0] as any;
       res.json({
         ...row,
         checklistItems: row.checklistItems ? JSON.parse(row.checklistItems) : null,
         evidenceLog: row.evidenceLog ? JSON.parse(row.evidenceLog) : null,
+        auditLog: row.auditLog ? JSON.parse(row.auditLog) : [],
       });
     } catch (error: any) {
       logger.error("GET /api/martyn-law error:", error);
@@ -221,11 +237,11 @@ export function registerRamsRoutes(app: Express): void {
 
       const {
         venueType, venueCapacity, isInScope, scopeNotes,
-        supervisorName, supervisorRole, supervisorPhone, supervisorEmail,
+        supervisorName, supervisorRole, supervisorPhone, supervisorEmail, supervisorStaffId,
         siaProviderName, siaLicenseNumber, siaExpiryDate,
         actionPlan, evacuationProcedure, lockdownProcedure, communicationPlan,
         checklistItems, evidenceLog,
-        lastReviewedBy,
+        lastReviewedBy, lastReviewerStaffId,
       } = req.body;
 
       const updateData: any = {
@@ -251,6 +267,14 @@ export function registerRamsRoutes(app: Express): void {
         updatedAt: new Date(),
       };
 
+      // Build new audit entry
+      const userName = (req.user as any)?.username || (req.user as any)?.name || 'Unknown user';
+      const newAuditEntry = {
+        timestamp: new Date().toISOString(),
+        action: "Record saved",
+        userName,
+      };
+
       const existing = await custDb.select({ id: isolatedSchema.martynLawConfig.id }).from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
       let result: any;
       if (existing.length) {
@@ -261,15 +285,62 @@ export function registerRamsRoutes(app: Express): void {
         result = inserted[0];
       }
 
+      // Append to audit log via raw SQL (column added by migration 054)
+      try {
+        const currentAuditRaw = await custDb.execute(
+          `SELECT audit_log FROM martyn_law_config WHERE customer_id = '${customerId}'` as any
+        );
+        const existingLog = currentAuditRaw.rows?.[0]?.audit_log
+          ? JSON.parse(currentAuditRaw.rows[0].audit_log as string)
+          : [];
+        existingLog.push(newAuditEntry);
+        // Keep last 200 entries
+        const trimmed = existingLog.slice(-200);
+        await custDb.execute(
+          `UPDATE martyn_law_config SET audit_log = $1 WHERE customer_id = $2` as any,
+          [JSON.stringify(trimmed), customerId] as any
+        );
+        result.auditLog = trimmed;
+      } catch (auditErr: any) {
+        logger.warn('audit_log update skipped (column may not exist yet):', auditErr.message?.substring(0, 80));
+        result.auditLog = [];
+      }
+
+      // Store supervisorStaffId and lastReviewerStaffId via raw SQL (extra fields not in Drizzle schema)
+      try {
+        await custDb.execute(
+          `UPDATE martyn_law_config SET supervisor_staff_id = $1, last_reviewer_staff_id = $2 WHERE customer_id = $3` as any,
+          [supervisorStaffId || null, lastReviewerStaffId || null, customerId] as any
+        );
+      } catch { /* columns added by migration */ }
+
       res.json({
         ...result,
         checklistItems: result.checklistItems ? JSON.parse(result.checklistItems) : null,
         evidenceLog: result.evidenceLog ? JSON.parse(result.evidenceLog) : null,
+        auditLog: result.auditLog || [],
       });
     } catch (error: any) {
       logger.error("PUT /api/martyn-law error:", error);
       res.status(500).json({ error: "Failed to save Martyn's Law config" });
     }
+  });
+
+  // ============================================================
+  // MARTYN'S LAW EVIDENCE DOCUMENT UPLOAD
+  // ============================================================
+
+  app.post("/api/martyn-law/evidence/upload", requireAuth, evidenceUpload.single("file"), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No file provided" });
+    const url = `/api/martyn-law/evidence/file/${req.file.filename}`;
+    res.json({ url, name: req.file.originalname });
+  });
+
+  app.get("/api/martyn-law/evidence/file/:filename", requireAuth, (req, res) => {
+    const filename = path.basename(req.params.filename); // prevent path traversal
+    const filepath = path.join(EVIDENCE_UPLOAD_DIR, filename);
+    if (!fs.existsSync(filepath)) return res.status(404).json({ error: "File not found" });
+    res.sendFile(filepath);
   });
 
   // ============================================================
