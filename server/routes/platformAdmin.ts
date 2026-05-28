@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import multer from 'multer';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
 import { eq, sql, desc } from 'drizzle-orm';
 import { z } from 'zod';
@@ -14,6 +15,28 @@ import { logger } from '../utils/logger';
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+// ─── In-memory OTP store ───────────────────────────────────────────────────
+interface PendingOtp {
+  adminId: string;
+  adminEmail: string;
+  adminFirstName: string;
+  otp: string;
+  expiresAt: number;
+}
+const pendingOtps = new Map<string, PendingOtp>();
+
+function generateOtp(): string {
+  return String(crypto.randomInt(100000, 999999));
+}
+
+// Prune expired OTPs periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of pendingOtps.entries()) {
+    if (now > entry.expiresAt) pendingOtps.delete(token);
+  }
+}, 5 * 60 * 1000);
+
 export function registerPlatformAdminRoutes(app: Express): void {
   
   // ============================================
@@ -21,8 +44,8 @@ export function registerPlatformAdminRoutes(app: Express): void {
   // ============================================
   
   /**
-   * Platform Admin Login
-   * Separate from customer authentication
+   * Platform Admin Login — Step 1: validate credentials, send OTP email
+   * Does NOT create a session. Returns requiresOtp + pendingToken.
    */
   const platformAdminLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -40,7 +63,6 @@ export function registerPlatformAdminRoutes(app: Express): void {
       
       logger.info(`Platform admin login attempt: ${username}`);
       
-      // Authenticate platform admin
       const { PlatformAdminAuthService } = await import("../auth");
       const admin = await PlatformAdminAuthService.authenticatePlatformAdmin(username, password);
       
@@ -48,26 +70,109 @@ export function registerPlatformAdminRoutes(app: Express): void {
         logger.info(`Platform admin authentication failed: ${username}`);
         return res.status(401).json({ error: "Invalid username or password" });
       }
-      
-      // Regenerate session for security
+
+      // Generate OTP and store pending verification
+      const pendingToken = crypto.randomUUID();
+      const otp = generateOtp();
+      pendingOtps.set(pendingToken, {
+        adminId: admin.id,
+        adminEmail: admin.email,
+        adminFirstName: admin.firstName,
+        otp,
+        expiresAt: Date.now() + 10 * 60 * 1000,
+      });
+
+      // Send OTP via email
+      try {
+        const { emailService } = await import('../emailService');
+        await emailService.sendEmail({
+          to: admin.email,
+          subject: 'TPR Max Admin — Verification Code',
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:420px;margin:0 auto;padding:24px;">
+              <h2 style="margin-bottom:4px;">Platform Admin — 2-Step Verification</h2>
+              <p>Hi ${admin.firstName},</p>
+              <p>Someone is signing in to the TPR Max Platform Admin portal. Your verification code is:</p>
+              <div style="font-size:36px;font-weight:700;letter-spacing:10px;text-align:center;padding:20px;background:#f3f4f6;border-radius:10px;margin:20px 0;">${otp}</div>
+              <p>This code expires in <strong>10 minutes</strong>.</p>
+              <p style="color:#6b7280;font-size:13px;">If you didn't attempt to sign in, change your password immediately.</p>
+            </div>`,
+          text: `Your TPR Max Platform Admin verification code is: ${otp}. It expires in 10 minutes.`,
+        });
+        logger.info(`Platform admin OTP sent to ${admin.email}`);
+      } catch (emailErr) {
+        logger.error('Failed to send platform admin OTP email:', emailErr);
+        pendingOtps.delete(pendingToken);
+        return res.status(500).json({ error: "Failed to send verification email. Please try again." });
+      }
+
+      return res.json({
+        requiresOtp: true,
+        pendingToken,
+        maskedEmail: admin.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
+      });
+    } catch (error) {
+      logger.error("Platform admin login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  /**
+   * Platform Admin Login — Step 2: verify OTP, create session
+   */
+  app.post("/platform-admin/auth/verify-otp", platformAdminLimiter, async (req, res) => {
+    try {
+      const { pendingToken, otp } = req.body;
+
+      if (!pendingToken || !otp) {
+        return res.status(400).json({ error: "Verification code is required" });
+      }
+
+      const pending = pendingOtps.get(pendingToken);
+
+      if (!pending) {
+        return res.status(400).json({ error: "Verification session not found. Please log in again." });
+      }
+
+      if (Date.now() > pending.expiresAt) {
+        pendingOtps.delete(pendingToken);
+        return res.status(400).json({ error: "Verification code expired. Please log in again." });
+      }
+
+      if (otp.trim() !== pending.otp) {
+        return res.status(400).json({ error: "Invalid verification code. Please try again." });
+      }
+
+      pendingOtps.delete(pendingToken);
+
+      const adminRows = await db
+        .select()
+        .from(sharedSchema.platformAdmins)
+        .where(eq(sharedSchema.platformAdmins.id, pending.adminId))
+        .limit(1);
+
+      const admin = adminRows[0];
+      if (!admin) {
+        return res.status(401).json({ error: "Admin account not found" });
+      }
+
       req.session.regenerate((regenerateErr) => {
         if (regenerateErr) {
           logger.error("Platform admin session regeneration error:", regenerateErr);
           return res.status(500).json({ error: "Failed to create secure session" });
         }
-        
-        // Set platform admin session
+
         req.session.platformAdminId = admin.id;
         req.session.platformAdminUsername = admin.username;
-        
+
         req.session.save((saveErr) => {
           if (saveErr) {
             logger.error("Platform admin session save error:", saveErr);
             return res.status(500).json({ error: "Failed to establish session" });
           }
-          
-          logger.info(`Platform admin logged in successfully: ${username} (ID: ${admin.id})`);
-          
+
+          logger.info(`Platform admin OTP verified and session created: ${admin.username} (ID: ${admin.id})`);
+
           res.json({
             success: true,
             admin: {
@@ -76,14 +181,14 @@ export function registerPlatformAdminRoutes(app: Express): void {
               email: admin.email,
               firstName: admin.firstName,
               lastName: admin.lastName,
-              role: admin.role
-            }
+              role: admin.role,
+            },
           });
         });
       });
     } catch (error) {
-      logger.error("Platform admin login error:", error);
-      res.status(500).json({ error: "Login failed" });
+      logger.error("Platform admin OTP verification error:", error);
+      res.status(500).json({ error: "Verification failed" });
     }
   });
 

@@ -1187,8 +1187,8 @@ export default function PlatformAdminDashboard() {
       </Dialog>
 
       {/* Edit Customer Dialog */}
-      <Dialog open={!!editingCustomer} onOpenChange={(open) => { if (!open) { setEditingCustomer(null); setFeaturePPMOverride(null); } }}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={!!editingCustomer} onOpenChange={(open) => { if (!open) { setEditingCustomer(null); setLocalDisabledFeatures(null); } }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Customer</DialogTitle>
             <DialogDescription>
