@@ -791,12 +791,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Dashboard</h4>
             <p className="text-xs text-variable">Main overview & live activity feed</p>
+            {isPlatformLocked("featureDashboard") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureDashboard !== false}
           onCheckedChange={(checked) => handleInputChange("featureDashboard", checked)}
           data-testid="toggle-dashboard"
+          disabled={isPlatformLocked("featureDashboard")}
         />
       </div>
       {/* Visitors */}
@@ -808,12 +810,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Visitors</h4>
             <p className="text-xs text-variable">Visitor sign-in, passes & pre-booking</p>
+            {isPlatformLocked("featureVisitors") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureVisitors !== false}
           onCheckedChange={(checked) => handleInputChange("featureVisitors", checked)}
           data-testid="toggle-visitors"
+          disabled={isPlatformLocked("featureVisitors")}
         />
       </div>
       {/* Contractors */}
@@ -825,12 +829,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Contractors</h4>
             <p className="text-xs text-variable">Contractor sign-in, passes & compliance</p>
+            {isPlatformLocked("featureContractors") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureContractors !== false}
           onCheckedChange={(checked) => handleInputChange("featureContractors", checked)}
           data-testid="toggle-contractors"
+          disabled={isPlatformLocked("featureContractors")}
         />
       </div>
       {/* Staff */}
@@ -842,12 +848,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Staff</h4>
             <p className="text-xs text-variable">Staff directory, check-in & management</p>
+            {isPlatformLocked("featureStaff") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureStaff !== false}
           onCheckedChange={(checked) => handleInputChange("featureStaff", checked)}
           data-testid="toggle-staff"
+          disabled={isPlatformLocked("featureStaff")}
         />
       </div>
       {/* Muster List */}
@@ -859,12 +867,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Muster List</h4>
             <p className="text-xs text-variable">Emergency evacuation & roll-call</p>
+            {isPlatformLocked("featureMusterList") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureMusterList !== false}
           onCheckedChange={(checked) => handleInputChange("featureMusterList", checked)}
           data-testid="toggle-muster-list"
+          disabled={isPlatformLocked("featureMusterList")}
         />
       </div>
       {/* Reports */}
@@ -876,12 +886,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Reports</h4>
             <p className="text-xs text-variable">Analytics, exports & audit logs</p>
+            {isPlatformLocked("featureReports") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureReports !== false}
           onCheckedChange={(checked) => handleInputChange("featureReports", checked)}
           data-testid="toggle-reports"
+          disabled={isPlatformLocked("featureReports")}
         />
       </div>
       {/* Settings */}
@@ -893,12 +905,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Settings</h4>
             <p className="text-xs text-variable">System configuration & preferences</p>
+            {isPlatformLocked("featureSettingsPage") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureSettingsPage !== false}
           onCheckedChange={(checked) => handleInputChange("featureSettingsPage", checked)}
           data-testid="toggle-settings-page"
+          disabled={isPlatformLocked("featureSettingsPage")}
         />
       </div>
       {/* ── Extended Modules ──────────────────────────────── */}
@@ -911,12 +925,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Members</h4>
             <p className="text-xs text-variable">Member management, check-in/out & muster tracking</p>
+            {isPlatformLocked("featureMembers") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureMembers !== false}
           onCheckedChange={(checked) => handleInputChange("featureMembers", checked)}
           data-testid="toggle-members"
+          disabled={isPlatformLocked("featureMembers")}
         />
       </div>
       {/* Contractor Page */}
@@ -928,12 +944,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Contractor Page</h4>
             <p className="text-xs text-variable">Contractor management & H&S compliance</p>
+            {isPlatformLocked("featureContractorPage") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureContractorPage !== false}
           onCheckedChange={(checked) => handleInputChange("featureContractorPage", checked)}
           data-testid="toggle-contractor-page"
+          disabled={isPlatformLocked("featureContractorPage")}
         />
       </div>
       {/* Meeting Rooms */}
@@ -945,12 +963,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Meeting Rooms</h4>
             <p className="text-xs text-variable">Room booking & management</p>
+            {isPlatformLocked("featureMeetingRooms") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureMeetingRooms !== false}
           onCheckedChange={(checked) => handleInputChange("featureMeetingRooms", checked)}
           data-testid="toggle-meeting-rooms"
+          disabled={isPlatformLocked("featureMeetingRooms")}
         />
       </div>
       {/* Time & Attendance */}
@@ -962,12 +982,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Time Attendance</h4>
             <p className="text-xs text-variable">Staff time tracking & reports</p>
+            {isPlatformLocked("featureTimeAttendance") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureTimeAttendance !== false}
           onCheckedChange={(checked) => handleInputChange("featureTimeAttendance", checked)}
           data-testid="toggle-time-attendance"
+          disabled={isPlatformLocked("featureTimeAttendance")}
         />
       </div>
       {/* ── Safety & Compliance ───────────────────────────── */}
@@ -980,12 +1002,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Incident Reports</h4>
             <p className="text-xs text-variable">Post-evacuation drill & emergency reports with PDF export</p>
+            {isPlatformLocked("featureIncidentReports") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureIncidentReports !== false}
           onCheckedChange={(checked) => handleInputChange("featureIncidentReports", checked)}
           data-testid="toggle-incident-reports"
+          disabled={isPlatformLocked("featureIncidentReports")}
         />
       </div>
       {/* Martyn's Law */}
@@ -997,12 +1021,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Martyn's Law</h4>
             <p className="text-xs text-variable">UK Protect Duty compliance checklist & security plan</p>
+            {isPlatformLocked("featureMartynLaw") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureMartynLaw !== false}
           onCheckedChange={(checked) => handleInputChange("featureMartynLaw", checked)}
           data-testid="toggle-martyn-law"
+          disabled={isPlatformLocked("featureMartynLaw")}
         />
       </div>
       {/* Induction Settings */}
@@ -1014,12 +1040,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Induction Settings</h4>
             <p className="text-xs text-variable">Safety induction configuration</p>
+            {isPlatformLocked("featureInductionSettings") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureInductionSettings !== false}
           onCheckedChange={(checked) => handleInputChange("featureInductionSettings", checked)}
           data-testid="toggle-induction-settings"
+          disabled={isPlatformLocked("featureInductionSettings")}
         />
       </div>
       {/* ── Optional & Specialist ─────────────────────────── */}

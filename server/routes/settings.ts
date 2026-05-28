@@ -14,7 +14,7 @@ import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from '
 import { randomUUID } from 'crypto';
 import crypto from 'crypto';
 import { z } from 'zod';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
 // ─── Logo token helpers ───────────────────────────────────────────────────────
@@ -213,12 +213,15 @@ export function registerSettingsRoutes(
 
         // Include platform-level feature locks from the management DB
         try {
-          const [customerRow] = await db
-            .select({ platformDisabledFeatures: sharedSchema.customers.platformDisabledFeatures })
-            .from(sharedSchema.customers)
-            .where(eq(sharedSchema.customers.id, context.customerId));
-          responsePayload.platformDisabledFeatures = customerRow?.platformDisabledFeatures ?? [];
-        } catch {
+          const result = await db.execute(
+            sql`SELECT platform_disabled_features FROM customers WHERE id = ${context.customerId} LIMIT 1`
+          );
+          const row = result.rows[0] as any;
+          const raw = row?.platform_disabled_features;
+          responsePayload.platformDisabledFeatures = Array.isArray(raw) ? raw : [];
+          logger.info(`[SETTINGS-API] platformDisabledFeatures for ${context.customerId}: ${JSON.stringify(responsePayload.platformDisabledFeatures)}`);
+        } catch (err) {
+          logger.warn(`[SETTINGS-API] Could not fetch platformDisabledFeatures for customer ${context.customerId}: ${err}`);
           responsePayload.platformDisabledFeatures = [];
         }
         
