@@ -303,9 +303,10 @@ function createCSRFMiddleware() {
       return next();
     }
     
-    // Skip CSRF for login/logout and platform-admin auth only
+    // Skip CSRF for login/logout/2fa-verify and platform-admin auth only
     if (req.originalUrl === '/api/auth/login' || 
         req.originalUrl === '/api/auth/logout' ||
+        req.originalUrl === '/api/auth/verify-2fa' ||
         req.originalUrl.startsWith('/platform-admin/auth') ||
         (process.env.NODE_ENV !== 'production' && req.originalUrl.startsWith('/api/super-admin/'))) {
       return next();
