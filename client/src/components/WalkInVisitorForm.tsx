@@ -416,71 +416,77 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
 
         {/* HOST SEARCH STEP */}
         {currentStep === "hostSearch" && (
-          <div className="flex flex-col flex-1 px-6 pt-8 pb-2 gap-4">
-            <div>
+          <>
+            {/* Question + subtitle — always visible */}
+            <div className="flex-shrink-0 px-6 pt-6 pb-3">
               <h2 className="text-3xl font-bold text-fixed leading-tight">{getStepQuestion()}</h2>
               <p className="text-variable text-base mt-1">Type at least 3 letters of their surname to search</p>
             </div>
 
-            {selectedHost ? (
-              <div className="flex items-center gap-4 min-h-[80px] px-6 rounded-2xl border-2 border-green-400 bg-green-50">
-                <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center flex-shrink-0">
-                  <UserCheck size={24} className="text-green-700" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-2xl font-bold text-slate-800">{selectedHost.firstName} {selectedHost.lastName}</p>
-                  {selectedHost.department && <p className="text-variable text-base">{selectedHost.department}</p>}
-                </div>
-                <button
-                  onClick={() => { setSelectedHost(null); setFormData(prev => ({ ...prev, hostStaffId: "" })); setHostSearch(""); }}
-                  className="p-2 hover:bg-red-100 rounded-full"
-                >
-                  <X size={20} className="text-red-500" />
-                </button>
-              </div>
-            ) : (
-              <div className={`min-h-[80px] px-6 flex items-center gap-3 rounded-2xl border-2 transition-all ${
-                hostSearch ? "border-blue-400 bg-white/80 ring-2 ring-blue-100" : "border-white/40 bg-white/60"
-              }`}>
-                <Search size={24} className="text-slate-400 flex-shrink-0" />
-                <span className={`text-2xl font-medium ${hostSearch ? "text-slate-800" : "text-slate-400"}`}>
-                  {hostSearch || "Type a surname below…"}
-                </span>
-              </div>
-            )}
-
-            {/* Search results */}
-            {!selectedHost && hostSearch.trim().length >= 3 && filteredStaff.length > 0 && (
-              <div className="bg-white rounded-2xl border-2 border-blue-300 overflow-hidden shadow-lg">
-                {filteredStaff.slice(0, 6).map((member) => (
+            {/* Search display / selected host — always visible */}
+            <div className="flex-shrink-0 px-6 pb-3">
+              {selectedHost ? (
+                <div className="flex items-center gap-4 min-h-[72px] px-6 rounded-2xl border-2 border-green-400 bg-green-50">
+                  <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center flex-shrink-0">
+                    <UserCheck size={24} className="text-green-700" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-2xl font-bold text-slate-800">{selectedHost.firstName} {selectedHost.lastName}</p>
+                    {selectedHost.department && <p className="text-variable text-base">{selectedHost.department}</p>}
+                  </div>
                   <button
-                    key={member.id}
-                    onClick={() => handleSelectHost(member)}
-                    className="w-full px-5 flex items-center gap-4 hover:bg-blue-50 active:bg-blue-100 transition-colors text-left border-b border-gray-100 last:border-b-0 min-h-[64px]"
+                    onClick={() => { setSelectedHost(null); setFormData(prev => ({ ...prev, hostStaffId: "" })); setHostSearch(""); }}
+                    className="p-2 hover:bg-red-100 rounded-full"
                   >
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <UserCheck size={20} className="text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <span className="text-xl font-semibold text-slate-800">{member.firstName} {member.lastName}</span>
-                      {member.department && <span className="text-base text-slate-500 ml-2">{member.department}</span>}
-                    </div>
-                    <span className="text-blue-600 font-semibold text-base">Select</span>
+                    <X size={20} className="text-red-500" />
                   </button>
-                ))}
-              </div>
-            )}
-            {!selectedHost && hostSearch.trim().length >= 3 && filteredStaff.length === 0 && (
-              <div className="bg-white rounded-2xl border-2 border-orange-200 p-4 text-center text-slate-500 shadow">
-                No staff found matching "{hostSearch}"
-              </div>
-            )}
-            {!selectedHost && hostSearch.trim().length > 0 && hostSearch.trim().length < 3 && (
-              <div className="bg-blue-50 rounded-2xl border border-blue-200 p-3 text-center text-blue-600 text-base">
-                Type {3 - hostSearch.trim().length} more letter{3 - hostSearch.trim().length > 1 ? "s" : ""} to search…
-              </div>
-            )}
-          </div>
+                </div>
+              ) : (
+                <div className={`min-h-[72px] px-6 flex items-center gap-3 rounded-2xl border-2 transition-all ${
+                  hostSearch ? "border-blue-400 bg-white/80 ring-2 ring-blue-100" : "border-white/40 bg-white/60"
+                }`}>
+                  <Search size={24} className="text-slate-400 flex-shrink-0" />
+                  <span className={`text-2xl font-medium ${hostSearch ? "text-slate-800" : "text-slate-400"}`}>
+                    {hostSearch || "Type a surname below…"}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Search results — always visible above keyboard, max 4 rows */}
+            <div className="flex-shrink-0 px-6 pb-2">
+              {!selectedHost && hostSearch.trim().length >= 3 && filteredStaff.length > 0 && (
+                <div className="bg-white rounded-2xl border-2 border-blue-300 overflow-hidden shadow-lg">
+                  {filteredStaff.slice(0, 4).map((member) => (
+                    <button
+                      key={member.id}
+                      onClick={() => handleSelectHost(member)}
+                      className="w-full px-5 flex items-center gap-4 hover:bg-blue-50 active:bg-blue-100 transition-colors text-left border-b border-gray-100 last:border-b-0 min-h-[60px]"
+                    >
+                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <UserCheck size={20} className="text-blue-600" />
+                      </div>
+                      <div className="flex-1">
+                        <span className="text-xl font-semibold text-slate-800">{member.firstName} {member.lastName}</span>
+                        {member.department && <span className="text-base text-slate-500 ml-2">{member.department}</span>}
+                      </div>
+                      <span className="text-blue-600 font-semibold text-base">Select</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!selectedHost && hostSearch.trim().length >= 3 && filteredStaff.length === 0 && (
+                <div className="bg-white rounded-2xl border-2 border-orange-200 p-4 text-center text-slate-500 shadow">
+                  No staff found matching "{hostSearch}"
+                </div>
+              )}
+              {!selectedHost && hostSearch.trim().length > 0 && hostSearch.trim().length < 3 && (
+                <div className="bg-blue-50 rounded-2xl border border-blue-200 p-3 text-center text-blue-600 text-base">
+                  Type {3 - hostSearch.trim().length} more letter{3 - hostSearch.trim().length > 1 ? "s" : ""} to search…
+                </div>
+              )}
+            </div>
+          </>
         )}
 
         {/* CONFIRMATION STEP */}
