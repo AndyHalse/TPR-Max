@@ -944,15 +944,15 @@ export default function MartynLaw() {
           <GlassCard>
             <div className="flex items-center justify-between gap-4 flex-wrap mb-4">
               <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-                <ShieldCheck size={16} />TPR Max System Requirements
-                <MLTip text="Shows how your current TPR Max module configuration maps to each Martyn's Law requirement. Statuses are read live from your system settings and active modules." />
+                <ShieldCheck size={16} />TPR System Requirements
+                <MLTip text="Shows how your current TPR module configuration maps to each Martyn's Law requirement. Statuses are read live from your system settings and active modules." />
               </h2>
               <Button variant="outline" size="sm" onClick={() => window.open("/api/compliance/report", "_blank")}>
                 <Download size={13} className="mr-1.5" />Download PDF Report
               </Button>
             </div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              Shows how your current TPR Max configuration maps to each legal requirement. Updated automatically from live system data.
+              Shows how your current TPR configuration maps to each legal requirement. Updated automatically from live system data.
             </p>
             {systemCheck ? (
               <>
@@ -1005,7 +1005,7 @@ export default function MartynLaw() {
                             {req.active
                               ? <Badge className="bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 text-xs px-2">Enabled</Badge>
                               : <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 text-xs px-2">Action needed</Badge>}
-                            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">TPR Max: {req.tprFeature}</span>
+                            <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">TPR: {req.tprFeature}</span>
                           </div>
                           <p className="text-xs text-gray-600 dark:text-gray-400">{req.legalObligation}</p>
                           {!req.active && (

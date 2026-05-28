@@ -42,8 +42,8 @@ export default function BlogPostPage({ slug }: BlogPostPageProps) {
             <a href="/marketing" className="flex items-center space-x-2">
               <img src={acsLogo} alt="ACS logo" className="h-8 w-8 object-contain" />
               <div className="flex flex-col">
-                <span className="text-xl font-bold" style={{ color: "#2460A9" }}>TPR Max</span>
-                <span className="text-xs text-slate-500 -mt-1">Total Personnel Register</span>
+                <span className="text-xl font-bold" style={{ color: "#2460A9" }}>TPR</span>
+                <span className="text-xs text-slate-500 -mt-1">Total Protection & Response</span>
               </div>
             </a>
             <div className="flex items-center space-x-4">
@@ -134,7 +134,7 @@ export default function BlogPostPage({ slug }: BlogPostPageProps) {
             {/* CTA */}
             <div className="mt-12 p-8 bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl text-center border border-blue-200">
               <h3 className="text-xl font-bold text-slate-900 mb-2">Ready to transform your site's safety?</h3>
-              <p className="text-slate-600 mb-4">See TPR Max in action with a free personalised demo.</p>
+              <p className="text-slate-600 mb-4">See TPR in action with a free personalised demo.</p>
               <Button
                 size="lg"
                 style={{ backgroundColor: "#2460A9" }}

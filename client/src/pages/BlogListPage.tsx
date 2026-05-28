@@ -39,8 +39,8 @@ export default function BlogListPage() {
             <a href="/marketing" className="flex items-center space-x-2">
               <img src={acsLogo} alt="ACS logo" className="h-8 w-8 object-contain" />
               <div className="flex flex-col">
-                <span className="text-xl font-bold" style={{ color: "#2460A9" }}>TPR Max</span>
-                <span className="text-xs text-slate-500 -mt-1">Total Personnel Register</span>
+                <span className="text-xl font-bold" style={{ color: "#2460A9" }}>TPR</span>
+                <span className="text-xs text-slate-500 -mt-1">Total Protection & Response</span>
               </div>
             </a>
             <div className="flex items-center space-x-4">
@@ -58,7 +58,7 @@ export default function BlogListPage() {
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex items-center justify-center mb-4">
             <BookOpen className="h-8 w-8 mr-3" style={{ color: "#2460A9" }} />
-            <h1 className="text-4xl lg:text-5xl font-bold text-slate-900">TPR Max Blog</h1>
+            <h1 className="text-4xl lg:text-5xl font-bold text-slate-900">TPR Blog</h1>
           </div>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
             Insights on visitor management, workplace safety, contractor compliance, and security best practices.
@@ -137,7 +137,7 @@ export default function BlogListPage() {
         <div className="max-w-7xl mx-auto px-4 text-center text-sm text-slate-500">
           <p>© {new Date().getFullYear()} ACS Safety &amp; Security Ltd. All rights reserved.</p>
           <a href="/marketing" className="text-[#2460A9] hover:underline mt-2 inline-block">
-            ← Back to TPR Max Home
+            ← Back to TPR Home
           </a>
         </div>
       </footer>

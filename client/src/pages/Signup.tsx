@@ -654,7 +654,7 @@ export default function Signup() {
               Start Your Free Trial
             </CardTitle>
             <CardDescription className="text-slate-600 dark:text-slate-400">
-              Join TPR Max - 14 days free, then just £49.95/month
+              Join TPR - 14 days free, then just £49.95/month
             </CardDescription>
           </div>
 

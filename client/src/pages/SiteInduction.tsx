@@ -933,7 +933,7 @@ export default function SiteInduction() {
         <div className="mt-12 text-center text-xs text-gray-400 space-y-1">
           <p>This induction link expires on {new Date(tokenData.expiresAt).toLocaleDateString('en-GB')}</p>
           {brandName && <p>{brandName} — Site Induction System</p>}
-          <p>Powered by TPR Max Visitor Management</p>
+          <p>Powered by TPR Visitor Management</p>
         </div>
       </div>
     </div>

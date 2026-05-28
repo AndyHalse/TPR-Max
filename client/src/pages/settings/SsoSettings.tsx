@@ -188,7 +188,7 @@ export default function SsoSettings() {
         {/* Login Mode */}
         <div className="space-y-2">
           <Label className="text-sm font-medium text-fixed">Login Mode</Label>
-          <p className="text-xs text-muted-foreground mb-2">Choose how users sign in to TPR Max for your organisation</p>
+          <p className="text-xs text-muted-foreground mb-2">Choose how users sign in to TPR for your organisation</p>
           <Select
             value={ssoLoginMode}
             onValueChange={(value) => handleInputChange('ssoLoginMode', value)}
@@ -219,7 +219,7 @@ export default function SsoSettings() {
           <div className="flex-1">
             <Label className="text-sm font-medium text-fixed">Auto-provision users</Label>
             <p className="text-xs text-muted-foreground mt-1">
-              Automatically create a TPR Max account on first Microsoft login.
+              Automatically create a TPR account on first Microsoft login.
             </p>
             {!ssoAutoProvision && (
               <p className="text-xs text-amber-600 dark:text-amber-400 mt-1.5">

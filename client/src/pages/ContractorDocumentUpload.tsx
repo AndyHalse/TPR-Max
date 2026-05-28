@@ -260,7 +260,7 @@ export default function ContractorDocumentUpload({ token }: Props) {
         {/* Footer */}
         <div className="text-center text-xs text-slate-400 pb-8 space-y-1">
           <p>Documents are stored securely and reviewed by the {settings?.companyName || 'client'} compliance team.</p>
-          <p>Powered by TPR Max Visitor Management</p>
+          <p>Powered by TPR Visitor Management</p>
         </div>
       </div>
     </div>

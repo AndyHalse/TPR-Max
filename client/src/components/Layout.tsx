@@ -307,7 +307,7 @@ export default function Layout({ children }: LayoutProps) {
               </div>
               <div className="hidden sm:block min-w-0 max-w-[220px] lg:max-w-xs">
                 <h1 className="text-base sm:text-lg lg:text-xl font-bold truncate" style={navInvert ? bannerTextStyle : {}}>{settings?.companyName || ''}</h1>
-                <p className="text-xs" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}}>TPR Max</p>
+                <p className="text-xs" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}}>TPR</p>
               </div>
             </div>
           </Link>

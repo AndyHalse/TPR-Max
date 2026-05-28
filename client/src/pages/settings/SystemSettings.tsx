@@ -200,7 +200,7 @@ export default function SystemSettings() {
         const text = e.target?.result as string;
         const parsed = JSON.parse(text);
         restoreMutation.mutate(parsed);
-      } catch { toast({ title: "Invalid File", description: "The selected file is not a valid TPR Max backup file", variant: "destructive" }); }
+      } catch { toast({ title: "Invalid File", description: "The selected file is not a valid TPR backup file", variant: "destructive" }); }
     };
     reader.readAsText(selectedBackupFile);
   };
@@ -380,7 +380,7 @@ export default function SystemSettings() {
               const data = await res.json();
               const lines = [
                 "========================================",
-                "  TPR MAX — DIAGNOSTIC REPORT",
+                "  TPR — DIAGNOSTIC REPORT",
                 "========================================",
                 "",
                 `Generated:      ${new Date(data.generatedAt).toLocaleString()}`,
@@ -1173,7 +1173,7 @@ export default function SystemSettings() {
           </div>
           <div>
             <h4 className="font-medium text-fixed">Risk Assessment Builder</h4>
-            <p className="text-xs text-variable">Author, review, and approve risk assessments directly in TPR Max — General, COSHH, Manual Handling, Working at Height, Lone Working, and DSE</p>
+            <p className="text-xs text-variable">Author, review, and approve risk assessments directly in TPR — General, COSHH, Manual Handling, Working at Height, Lone Working, and DSE</p>
             {isPlatformLocked("featureRaBuilder") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>

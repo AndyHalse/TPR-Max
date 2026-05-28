@@ -51,7 +51,7 @@ export default function PassSettings() {
           <div>
             <h3 className="text-base font-semibold text-blue-900 dark:text-blue-100 mb-1">Direct Thermal Printing — Kiosk Ready</h3>
             <p className="text-sm text-blue-700 dark:text-blue-300 mb-3">
-              When a visitor or contractor checks in, TPR Max automatically sends their pass to the printer
+              When a visitor or contractor checks in, TPR automatically sends their pass to the printer
               using a hidden background process — <strong>no popup windows, no new tabs</strong>.
               The pass prints directly to whichever printer the browser has set as default.
               Compatible with any direct thermal printer including <strong>Toshiba B-EV4, Zebra ZD220</strong> and similar 95 &times; 65 mm roll printers.

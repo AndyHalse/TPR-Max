@@ -175,7 +175,7 @@ export default function EmailSettings() {
                 <Info size={14} className="text-variable cursor-help" />
               </TooltipTrigger>
               <TooltipContent className="max-w-xs">
-                The sender name recipients will see in their inbox. Use something recognisable for your company, e.g. "Acme Ltd Visitor System" or "TPR Max Notifications".
+                The sender name recipients will see in their inbox. Use something recognisable for your company, e.g. "Acme Ltd Visitor System" or "TPR Notifications".
               </TooltipContent>
             </Tooltip>
           </div>

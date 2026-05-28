@@ -148,7 +148,7 @@ export default function Login() {
     const params = new URLSearchParams(window.location.search);
     const urlError = params.get('error');
     if (urlError === 'sso_no_account') {
-      setError('No TPR Max account found for your Microsoft identity. Contact your site administrator.');
+      setError('No TPR account found for your Microsoft identity. Contact your site administrator.');
     } else if (urlError === 'sso_failed') {
       setError('Microsoft sign-in failed. Please try again or use your username and password.');
     }

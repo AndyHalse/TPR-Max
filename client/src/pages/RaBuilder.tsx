@@ -508,7 +508,7 @@ export default function RaBuilder() {
   </div>
   ${assessment.notes ? `<div class="notes"><strong>Notes:</strong> ${esc(assessment.notes)}</div>` : ""}
   <div class="footer">
-    <span>TPR Max — Connected Workforce &amp; Site Safety Platform</span>
+    <span>TPR — Connected Workforce &amp; Site Safety Platform</span>
     <span>Generated: ${new Date().toLocaleString("en-GB")}</span>
   </div>
 </body></html>`;
@@ -1366,7 +1366,7 @@ function TypeSpecificFields({ raType, meta, onChange }: {
           <Input className="mt-1" value={meta.workDuration || ""} onChange={(e) => onChange("workDuration", e.target.value)} placeholder="e.g. 2–4 hours" />
         </div>
         <div>
-          <Label className="flex items-center">Check-in Interval (minutes) <InfoTooltip text="TPR Max Lone Worker module automates check-ins. Link this assessment to a lone worker session for automated safety monitoring." /></Label>
+          <Label className="flex items-center">Check-in Interval (minutes) <InfoTooltip text="TPR Lone Worker module automates check-ins. Link this assessment to a lone worker session for automated safety monitoring." /></Label>
           <Input type="number" className="mt-1" value={meta.checkInIntervalMins || ""} onChange={(e) => onChange("checkInIntervalMins", e.target.value)} placeholder="e.g. 60" />
         </div>
         <div>

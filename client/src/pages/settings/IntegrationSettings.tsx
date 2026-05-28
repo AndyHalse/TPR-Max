@@ -130,7 +130,7 @@ export default function IntegrationSettings() {
               <Label htmlFor="biostarServerUrl" className="text-sm font-medium text-fixed">Local Server Address</Label>
               <Tooltip>
                 <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
-                <TooltipContent className="max-w-xs">The local network URL of your BioStar 2 server, e.g. https://192.168.1.50. This must be accessible from the server running TPR Max — not from outside your network.</TooltipContent>
+                <TooltipContent className="max-w-xs">The local network URL of your BioStar 2 server, e.g. https://192.168.1.50. This must be accessible from the server running TPR — not from outside your network.</TooltipContent>
               </Tooltip>
             </div>
             <Input
@@ -558,7 +558,7 @@ export default function IntegrationSettings() {
               </div>
             ) : (
               <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg text-sm text-amber-700 dark:text-amber-300">
-                No events returned from BioStar for today. Check that the server URL is reachable from the TPR Max server and that BioStar 2 is recording access events.
+                No events returned from BioStar for today. Check that the server URL is reachable from the TPR server and that BioStar 2 is recording access events.
               </div>
             )}
             {biostarDiag.onSiteUsers?.length > 0 && (
@@ -1023,7 +1023,7 @@ export default function IntegrationSettings() {
             <Label className="text-sm font-medium text-fixed">Enable API & Webhooks</Label>
             <Tooltip>
               <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
-              <TooltipContent className="max-w-xs">Allows third-party systems to connect to TPR Max via REST API and receive real-time event notifications (check-ins, check-outs, emergencies). Required for custom integrations, mobile apps, or connecting to your own systems.</TooltipContent>
+              <TooltipContent className="max-w-xs">Allows third-party systems to connect to TPR via REST API and receive real-time event notifications (check-ins, check-outs, emergencies). Required for custom integrations, mobile apps, or connecting to your own systems.</TooltipContent>
             </Tooltip>
           </div>
           <p className="text-xs text-variable">Enable API key access and outbound webhook notifications</p>
@@ -1098,7 +1098,7 @@ export default function IntegrationSettings() {
               <Label htmlFor="webhookUrl" className="text-sm font-medium text-fixed">Webhook URL</Label>
               <Tooltip>
                 <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
-                <TooltipContent className="max-w-xs">The HTTPS endpoint on your server where TPR Max will POST event data (visitor check-in, emergency activation, etc.). Must be publicly accessible and use HTTPS. Test with the "Test Webhook" button before going live.</TooltipContent>
+                <TooltipContent className="max-w-xs">The HTTPS endpoint on your server where TPR will POST event data (visitor check-in, emergency activation, etc.). Must be publicly accessible and use HTTPS. Test with the "Test Webhook" button before going live.</TooltipContent>
               </Tooltip>
             </div>
             <Input

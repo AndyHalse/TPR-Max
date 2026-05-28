@@ -220,7 +220,7 @@ export default function MarketingPage() {
                   className="text-xl font-bold"
                   style={{ color: "#2460A9" }}
                 >
-                  TPR Max
+                  TPR
                 </span>
                 <span className="text-xs text-slate-500 dark:text-slate-400 -mt-1">
                   Workplace Compliance & Safety
@@ -393,7 +393,7 @@ export default function MarketingPage() {
               </p>
 
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
-                TPR Max is the UK's <strong>Connected Workforce &amp; Site Safety Platform</strong> — bringing contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, and more into one cloud subscription. One login. Everything connected.
+                TPR is the UK's <strong>Connected Workforce &amp; Site Safety Platform</strong> — bringing contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, and more into one cloud subscription. One login. Everything connected.
               </p>
 
               <div className="grid grid-cols-2 gap-2 mb-8">
@@ -452,7 +452,7 @@ export default function MarketingPage() {
               <div className="relative z-10">
                 <img
                   src={fireMarshalMobileImg}
-                  alt="Fire Marshal using TPR Max on mobile phone during live evacuation"
+                  alt="Fire Marshal using TPR on mobile phone during live evacuation"
                   className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full object-cover"
                   style={{ maxHeight: "520px", objectPosition: "center top" }}
                 />
@@ -492,7 +492,7 @@ export default function MarketingPage() {
               <span className="text-red-600">Before & During</span> an Emergency
             </h2>
             <p className="text-lg text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              TPR Max keeps your Fire Marshals informed at all times. Pre-loaded with permanent
+              TPR keeps your Fire Marshals informed at all times. Pre-loaded with permanent
               bookmarked links that work instantly — no login, no delay, no app download needed.
             </p>
           </div>
@@ -507,7 +507,7 @@ export default function MarketingPage() {
               <div className="relative">
                 <img
                   src={musterReadinessImg}
-                  alt="TPR Max Emergency Muster - Readiness view showing Fire Marshal links, zones and on-site counts"
+                  alt="TPR Emergency Muster - Readiness view showing Fire Marshal links, zones and on-site counts"
                   className="rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 w-full"
                 />
                 <div className="absolute top-3 right-3 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
@@ -540,7 +540,7 @@ export default function MarketingPage() {
               <div className="relative">
                 <img
                   src={musterActiveImg}
-                  alt="TPR Max Emergency Muster - Active emergency showing zone selection, fire marshal links, and send alert button"
+                  alt="TPR Emergency Muster - Active emergency showing zone selection, fire marshal links, and send alert button"
                   className="rounded-xl shadow-xl border-2 border-red-400 dark:border-red-600 w-full"
                 />
                 <div className="absolute top-3 right-3 bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
@@ -613,7 +613,7 @@ export default function MarketingPage() {
               <span className="text-emerald-600"> Consolidate Everything.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              Most organisations manage health & safety, contractor compliance, and site safety across 6–10 separate tools. TPR Max replaces them all — one login, one database, one subscription.
+              Most organisations manage health & safety, contractor compliance, and site safety across 6–10 separate tools. TPR replaces them all — one login, one database, one subscription.
             </p>
           </div>
 
@@ -625,7 +625,7 @@ export default function MarketingPage() {
                   <X className="h-6 w-6 text-red-600" />
                 </div>
                 <div>
-                  <div className="font-bold text-slate-900 dark:text-white text-lg">Without TPR Max</div>
+                  <div className="font-bold text-slate-900 dark:text-white text-lg">Without TPR</div>
                   <div className="text-sm text-red-600 font-medium">Fragmented. Expensive. Risky.</div>
                 </div>
               </div>
@@ -656,7 +656,7 @@ export default function MarketingPage() {
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">Plus separate logins, siloed data, integration headaches, and staff training on each system.</p>
             </div>
 
-            {/* After — TPR Max */}
+            {/* After — TPR */}
             <div className="rounded-2xl border-2 border-emerald-400 dark:border-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 p-8 relative">
               <div className="absolute -top-4 left-1/2 -translate-x-1/2">
                 <Badge className="text-white bg-emerald-600 shadow-lg px-4 py-1 text-sm font-bold">
@@ -668,7 +668,7 @@ export default function MarketingPage() {
                   <CheckCircle className="h-6 w-6 text-emerald-600" />
                 </div>
                 <div>
-                  <div className="font-bold text-slate-900 dark:text-white text-lg">With TPR Max</div>
+                  <div className="font-bold text-slate-900 dark:text-white text-lg">With TPR</div>
                   <div className="text-sm text-emerald-600 font-medium">Unified. Affordable. Compliant.</div>
                 </div>
               </div>
@@ -1233,7 +1233,7 @@ export default function MarketingPage() {
                 <div className="relative">
                   <img
                     src={dashboardImg}
-                    alt="TPR Max Real-Time Dashboard"
+                    alt="TPR Real-Time Dashboard"
                     className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
                     data-testid="img-dashboard"
                   />
@@ -1259,7 +1259,7 @@ export default function MarketingPage() {
                       Visitor Excellence
                     </Badge>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-                      Professional TPR Max
+                      Professional TPR
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
                       Create exceptional first impressions with our
@@ -1745,7 +1745,7 @@ export default function MarketingPage() {
                       Life-Saving Emergency Response System
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      When every second counts, TPR Max delivers instant
+                      When every second counts, TPR delivers instant
                       accountability across your entire site. Zone-based
                       evacuations with interactive floor plan mapping, Fire
                       Marshal static URLs, targeted email alerts, and digital
@@ -1825,7 +1825,7 @@ export default function MarketingPage() {
                     </div>
                     <img
                       src={musterReadinessImg}
-                      alt="TPR Max Emergency Muster readiness view — Fire Marshal links, zones, on-site counts"
+                      alt="TPR Emergency Muster readiness view — Fire Marshal links, zones, on-site counts"
                       className="rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 w-full"
                       data-testid="img-emergency-readiness"
                     />
@@ -1838,7 +1838,7 @@ export default function MarketingPage() {
                     </div>
                     <img
                       src={musterActiveImg}
-                      alt="TPR Max Emergency Muster active state — zone selection, alert sending, Fire Marshal view"
+                      alt="TPR Emergency Muster active state — zone selection, alert sending, Fire Marshal view"
                       className="rounded-xl shadow-xl border-2 border-red-400 dark:border-red-600 w-full"
                       data-testid="img-emergency-active"
                     />
@@ -2619,7 +2619,7 @@ export default function MarketingPage() {
                       Fire Risk Assessment Register
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Every non-domestic premises is legally required to maintain a current Fire Risk Assessment under the Regulatory Reform (Fire Safety) Order 2005. TPR Max keeps your FRA register current — tracking assessors, review dates, risk ratings, and sending automated reminders before assessments fall overdue.
+                      Every non-domestic premises is legally required to maintain a current Fire Risk Assessment under the Regulatory Reform (Fire Safety) Order 2005. TPR keeps your FRA register current — tracking assessors, review dates, risk ratings, and sending automated reminders before assessments fall overdue.
                     </p>
                   </div>
                   <div className="space-y-3">
@@ -2717,7 +2717,7 @@ export default function MarketingPage() {
                       Compliance Certificate Register
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Every UK workplace has a legal duty to keep statutory inspection certificates current — from EICR electrical safety to gas safety, fire alarms, LOLER lifting equipment, and legionella assessments. TPR Max gives you a centralised register with colour-coded status, document storage, and automated expiry alerts so you never miss a renewal.
+                      Every UK workplace has a legal duty to keep statutory inspection certificates current — from EICR electrical safety to gas safety, fire alarms, LOLER lifting equipment, and legionella assessments. TPR gives you a centralised register with colour-coded status, document storage, and automated expiry alerts so you never miss a renewal.
                     </p>
                   </div>
                   <div className="space-y-3">
@@ -2807,7 +2807,7 @@ export default function MarketingPage() {
                       Permit-to-Work System
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      A formal permit-to-work system is required by law for activities including hot works, electrical isolation, confined space entry, and working at height. TPR Max provides a complete digital PTW workflow — from creation and checklist sign-off through to authorisation, activation, suspension, and final closure — with a full audit trail.
+                      A formal permit-to-work system is required by law for activities including hot works, electrical isolation, confined space entry, and working at height. TPR provides a complete digital PTW workflow — from creation and checklist sign-off through to authorisation, activation, suspension, and final closure — with a full audit trail.
                     </p>
                   </div>
                   <div className="space-y-3">
@@ -2903,7 +2903,7 @@ export default function MarketingPage() {
                       A Complete HR Module, Built In
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Manage your whole staff lifecycle from one place — onboarding, Right to Work, DBS, leave, training, appraisals, absence, leavers and payroll export — alongside the compliance data you already keep in TPR Max. No second HRIS to pay for, no exports to reconcile.
+                      Manage your whole staff lifecycle from one place — onboarding, Right to Work, DBS, leave, training, appraisals, absence, leavers and payroll export — alongside the compliance data you already keep in TPR. No second HRIS to pay for, no exports to reconcile.
                     </p>
                   </div>
 
@@ -3588,10 +3588,10 @@ export default function MarketingPage() {
               </Button>
             </div>
 
-            {/* TPR Max */}
+            {/* TPR */}
             <div className="rounded-2xl border-2 border-slate-800 bg-slate-900 p-8 flex flex-col">
               <div className="mb-6">
-                <h3 className="text-xl font-bold text-white mb-1">TPR Max</h3>
+                <h3 className="text-xl font-bold text-white mb-1">TPR</h3>
                 <div className="flex items-end gap-1 mb-3">
                   <span className="text-5xl font-extrabold text-white">£195</span>
                   <span className="text-slate-400 mb-2">/site/mo</span>

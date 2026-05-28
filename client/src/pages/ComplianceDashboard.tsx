@@ -281,7 +281,7 @@ async function generateCompliancePDF(data: DashboardData) {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(200, 220, 255);
-  doc.text("TPR Max · Connected Workforce & Site Safety Platform", margin, 23);
+  doc.text("TPR · Connected Workforce & Site Safety Platform", margin, 23);
   doc.text(`Generated: ${generatedAt}`, margin, 29);
   doc.text(`Data snapshot: ${format(new Date(data.calculatedAt), "dd MMM yyyy HH:mm")}`, margin, 34);
   y = 46;
@@ -404,7 +404,7 @@ async function generateCompliancePDF(data: DashboardData) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7);
     doc.setTextColor(156, 163, 175);
-    doc.text(`TPR Max Compliance Report · ${generatedAt} · Page ${p} of ${pageCount}`, pageW / 2, 292, { align: "center" });
+    doc.text(`TPR Compliance Report · ${generatedAt} · Page ${p} of ${pageCount}`, pageW / 2, 292, { align: "center" });
   }
 
   const fileName = `compliance-report-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`;

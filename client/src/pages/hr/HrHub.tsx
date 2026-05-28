@@ -302,13 +302,13 @@ export default function HrHub() {
         <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full mb-4">
           <Lock className="w-8 h-8 text-slate-400" />
         </div>
-        <h2 className="text-xl font-bold text-fixed mb-2">HR Module — TPR Max</h2>
+        <h2 className="text-xl font-bold text-fixed mb-2">HR Module — TPR</h2>
         <p className="text-sm text-variable max-w-sm mb-4">
-          The HR module is available on the TPR Max plan. Upgrade to access staff records,
+          The HR module is available on the TPR plan. Upgrade to access staff records,
           leave management, training matrix, appraisals, and more.
         </p>
         <a
-          href="mailto:support@tprmax.com?subject=Upgrade to TPR Max"
+          href="mailto:support@tprmax.com?subject=Upgrade to TPR"
           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 transition-colors"
         >
           Contact us to upgrade
