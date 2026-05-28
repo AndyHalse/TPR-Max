@@ -499,6 +499,16 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
     });
 
+    // Ensure management DB has platform_disabled_features column before route registration
+    try {
+      const { db: mgmtDb } = await import('./db');
+      const { sql: sqlTag } = await import('drizzle-orm');
+      await mgmtDb.execute(sqlTag`ALTER TABLE customers ADD COLUMN IF NOT EXISTS platform_disabled_features TEXT[] NOT NULL DEFAULT '{}'`);
+      logger.info('✅ Management DB: platform_disabled_features column ensured');
+    } catch (e: any) {
+      logger.info(`⚠️ Management DB column check: ${e.message?.substring(0, 80)}`);
+    }
+
     // Register all routes AFTER server is already listening
     logger.info('Registering routes');
     await registerRoutes(app, server);

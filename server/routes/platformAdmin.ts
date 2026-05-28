@@ -705,34 +705,51 @@ export function registerPlatformAdminRoutes(app: Express): void {
     }
   });
 
-  // Platform admin: read per-customer feature flags
+  const KNOWN_FEATURE_KEYS = new Set([
+    'featureDashboard', 'featureVisitors', 'featureContractors', 'featureContractorPage',
+    'featureStaff', 'featureMembers', 'featureMeetingRooms', 'featureTimeAttendance',
+    'featureMusterList', 'featureIncidentReports', 'featureHsIncidents',
+    'featureFireRiskAssessment', 'featureMartynLaw', 'featureReports',
+    'featureInductionSettings', 'featureKiosk', 'featureEmailOutbox',
+    'featureHrModule', 'featureComplianceDashboard', 'featureSettingsPage',
+    'featurePPM', 'featureAuditEngine', 'featureComplianceCertificates',
+    'featurePermitToWork', 'featureRaBuilder', 'featureHelpDesk',
+  ]);
+
+  // Platform admin: read per-customer platform-level feature locks
   app.get("/platform-admin/customers/:customerId/features", requirePlatformAdmin, async (req, res) => {
     try {
       const { customerId } = req.params;
-      const settings = await simpleDatabaseService.getCompanySettings({ customerId, customerName: '' });
-      res.json({ featurePPM: settings?.featurePPM ?? false });
+      const [row] = await db.select({ platformDisabledFeatures: sharedSchema.customers.platformDisabledFeatures })
+        .from(sharedSchema.customers)
+        .where(eq(sharedSchema.customers.id, customerId));
+      res.json({ platformDisabledFeatures: row?.platformDisabledFeatures ?? [] });
     } catch (error) {
       res.status(500).json({ success: false, error: 'Failed to fetch customer features' });
     }
   });
 
-  // Platform admin: update per-customer feature flags
+  // Platform admin: update per-customer platform-level feature locks
   app.patch("/platform-admin/customers/:customerId/features", requirePlatformAdmin, async (req, res) => {
     try {
       const { customerId } = req.params;
-      const { featurePPM } = z.object({ featurePPM: z.boolean() }).parse(req.body);
+      const { platformDisabledFeatures } = z.object({
+        platformDisabledFeatures: z.array(z.string()),
+      }).parse(req.body);
 
-      const custDb = await customerDbService.getCustomerDatabase(customerId);
-      const schemaName = customerDbService.generateSchemaName(customerId);
-      if (!/^[a-z0-9_]{3,63}$/.test(schemaName)) {
-        throw new Error('Invalid schema name');
+      const invalid = platformDisabledFeatures.filter(k => !KNOWN_FEATURE_KEYS.has(k));
+      if (invalid.length > 0) {
+        return res.status(400).json({ success: false, error: `Unknown feature keys: ${invalid.join(', ')}` });
       }
-      await custDb.execute(sql.raw(`UPDATE "${schemaName}".company_settings SET feature_ppm = ${featurePPM}`));
 
-      res.json({ success: true, featurePPM });
+      await db.update(sharedSchema.customers)
+        .set({ platformDisabledFeatures })
+        .where(eq(sharedSchema.customers.id, customerId));
+
+      res.json({ success: true, platformDisabledFeatures });
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ success: false, error: 'featurePPM must be a boolean' });
+        return res.status(400).json({ success: false, error: 'platformDisabledFeatures must be an array of strings' });
       }
       res.status(500).json({ success: false, error: 'Failed to update customer features' });
     }

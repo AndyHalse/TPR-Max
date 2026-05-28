@@ -4,7 +4,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { CompanySettings, InsertCompanySettings } from "@shared/schema";
 
-export type CompanySettingsWithFlags = CompanySettings & { smtpPasswordSet?: boolean };
+export type CompanySettingsWithFlags = CompanySettings & { smtpPasswordSet?: boolean; platformDisabledFeatures?: string[] };
 
 const CREDENTIAL_FIELDS = new Set([
   'biostarPassword', 'biostarUsername', 'biostarServerUrl',

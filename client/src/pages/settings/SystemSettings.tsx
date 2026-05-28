@@ -14,10 +14,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, FileEdit, Flame, FlaskConical, HardHat, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, ClipboardCheck, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2 } from "lucide-react";
+import { Server, HardDrive, Database, RotateCcw, Download, FolderOpen, CheckCircle, XCircle, RefreshCw, Upload, Activity, BarChart3, Clock, Globe, TestTube, Zap, Info, AlertTriangle, Bell, Calendar, Users, BadgeCheck, Building, CalendarPlus, Dock, File, FileEdit, Flame, FlaskConical, HardHat, Lock, Mail, Monitor, ScrollText, Settings2, SettingsIcon, Shield, ShieldCheck, ClipboardList, ClipboardCheck, Ticket, UserCheck, UserPlus, Video, Wrench, Trash2 } from "lucide-react";
 
 export default function SystemSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
+  const isPlatformLocked = (key: string) => (currentSettings?.platformDisabledFeatures ?? []).includes(key);
   const { toast } = useToast();
   const [selectedBackupFile, setSelectedBackupFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1031,12 +1032,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Planned Preventative Maintenance (PPM)</h4>
             <p className="text-xs text-variable">Asset registry, maintenance templates & scheduling for facilities management</p>
+            {isPlatformLocked("featurePPM") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featurePPM === true}
           onCheckedChange={(checked) => handleInputChange("featurePPM", checked)}
           data-testid="toggle-ppm"
+          disabled={isPlatformLocked("featurePPM")}
         />
       </div>
       {/* Help Desk */}
@@ -1048,12 +1051,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Help Desk</h4>
             <p className="text-xs text-variable">Fault reporting and reactive maintenance ticket management</p>
+            {isPlatformLocked("featureHelpDesk") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureHelpDesk === true}
           onCheckedChange={(checked) => handleInputChange("featureHelpDesk", checked)}
           data-testid="toggle-helpdesk"
+          disabled={isPlatformLocked("featureHelpDesk")}
         />
       </div>
       {/* H&S Incidents */}
@@ -1065,12 +1070,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">H&S Incidents</h4>
             <p className="text-xs text-variable">RIDDOR 2013 reportable incident tracking & near miss reporting</p>
+            {isPlatformLocked("featureHsIncidents") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureHsIncidents !== false}
           onCheckedChange={(checked) => handleInputChange("featureHsIncidents", checked)}
           data-testid="toggle-hs-incidents"
+          disabled={isPlatformLocked("featureHsIncidents")}
         />
       </div>
       {/* Fire Risk Assessment */}
@@ -1082,12 +1089,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Fire Risk Assessment</h4>
             <p className="text-xs text-variable">RRO 2005 compliance — FRA tracking, review reminders & audit history</p>
+            {isPlatformLocked("featureFireRiskAssessment") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureFireRiskAssessment !== false}
           onCheckedChange={(checked) => handleInputChange("featureFireRiskAssessment", checked)}
           data-testid="toggle-fire-risk-assessment"
+          disabled={isPlatformLocked("featureFireRiskAssessment")}
         />
       </div>
       {/* Compliance Certificate Register */}
@@ -1099,12 +1108,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Compliance Certificate Register</h4>
             <p className="text-xs text-variable">Track 14 statutory UK compliance certificates — EICR, gas safety, fire alarms, LOLER, legionella & more</p>
+            {isPlatformLocked("featureComplianceCertificates") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureComplianceCertificates === true}
           onCheckedChange={(checked) => handleInputChange("featureComplianceCertificates", checked)}
           data-testid="toggle-compliance-certificates"
+          disabled={isPlatformLocked("featureComplianceCertificates")}
         />
       </div>
       {/* Permit-to-Work */}
@@ -1116,12 +1127,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Permit-to-Work System</h4>
             <p className="text-xs text-variable">Authorise & track high-risk work — hot works, electrical isolation, confined space, working at height & more</p>
+            {isPlatformLocked("featurePermitToWork") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featurePermitToWork === true}
           onCheckedChange={(checked) => handleInputChange("featurePermitToWork", checked)}
           data-testid="toggle-permit-to-work"
+          disabled={isPlatformLocked("featurePermitToWork")}
         />
       </div>
       {/* Risk Assessment Builder */}
@@ -1133,12 +1146,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Risk Assessment Builder</h4>
             <p className="text-xs text-variable">Author, review, and approve risk assessments directly in TPR Max — General, COSHH, Manual Handling, Working at Height, Lone Working, and DSE</p>
+            {isPlatformLocked("featureRaBuilder") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureRaBuilder === true}
           onCheckedChange={(checked) => handleInputChange("featureRaBuilder", checked)}
           data-testid="toggle-ra-builder"
+          disabled={isPlatformLocked("featureRaBuilder")}
         />
       </div>
       {/* Audit & Inspection Engine */}
@@ -1150,12 +1165,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Audit & Inspection Engine</h4>
             <p className="text-xs text-variable">Conduct site audits, safety inspections, vehicle checks, and behavioural observations with CAPA management</p>
+            {isPlatformLocked("featureAuditEngine") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureAuditEngine === true}
           onCheckedChange={(checked) => handleInputChange("featureAuditEngine", checked)}
           data-testid="toggle-audit-engine"
+          disabled={isPlatformLocked("featureAuditEngine")}
         />
       </div>
       {/* Kiosk Mode */}
@@ -1167,12 +1184,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Kiosk Mode</h4>
             <p className="text-xs text-variable">Self-service check-in kiosks</p>
+            {isPlatformLocked("featureKiosk") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureKiosk !== false}
           onCheckedChange={(checked) => handleInputChange("featureKiosk", checked)}
           data-testid="toggle-kiosk"
+          disabled={isPlatformLocked("featureKiosk")}
         />
       </div>
       {/* Email Outbox */}
@@ -1184,12 +1203,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Email Outbox</h4>
             <p className="text-xs text-variable">Log all system emails — preview exactly what recipients receive</p>
+            {isPlatformLocked("featureEmailOutbox") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureEmailOutbox === true}
           onCheckedChange={(checked) => handleInputChange("featureEmailOutbox", checked)}
           data-testid="toggle-email-outbox"
+          disabled={isPlatformLocked("featureEmailOutbox")}
         />
       </div>
       {/* HR Module */}
@@ -1201,12 +1222,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">HR Module</h4>
             <p className="text-xs text-variable">Staff profiles, leave, training, appraisals & payroll export</p>
+            {isPlatformLocked("featureHrModule") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureHrModule !== false}
           onCheckedChange={(checked) => handleInputChange("featureHrModule", checked)}
           data-testid="toggle-hr-module"
+          disabled={isPlatformLocked("featureHrModule")}
         />
       </div>
       {/* Compliance Intelligence Dashboard */}
@@ -1218,12 +1241,14 @@ export default function SystemSettings() {
           <div>
             <h4 className="font-medium text-fixed">Compliance Intelligence Dashboard</h4>
             <p className="text-xs text-variable">Weighted compliance health score across all modules — insurance, RAMS, inductions, certificates, PPM, FRA & RTW</p>
+            {isPlatformLocked("featureComplianceDashboard") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
           </div>
         </div>
         <Switch
           checked={currentSettings?.featureComplianceDashboard !== false}
           onCheckedChange={(checked) => handleInputChange("featureComplianceDashboard", checked)}
           data-testid="toggle-compliance-dashboard"
+          disabled={isPlatformLocked("featureComplianceDashboard")}
         />
       </div>
     </div>

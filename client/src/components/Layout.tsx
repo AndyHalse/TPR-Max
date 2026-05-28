@@ -263,6 +263,9 @@ export default function Layout({ children }: LayoutProps) {
     }
     if (!settings) return item.alwaysVisible; // hide feature-gated items until settings have loaded
     if (item.featureKey) {
+      // Platform admin can hard-lock any feature off — check first
+      const platformDisabled = (settings as any).platformDisabledFeatures;
+      if (Array.isArray(platformDisabled) && platformDisabled.includes(item.featureKey)) return false;
       const val = settings[item.featureKey as keyof CompanySettings];
       // defaultOn items (opt-out) are visible unless explicitly set to false
       if (item.defaultOn) return val !== false;

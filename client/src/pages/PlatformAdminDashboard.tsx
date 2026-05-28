@@ -395,8 +395,39 @@ export default function PlatformAdminDashboard() {
     },
   });
 
-  // Fetch the selected customer's feature flags when the edit dialog opens
-  const { data: customerFeatures } = useQuery<{ featurePPM: boolean }>({
+  const CORE_MODULES = [
+    { key: 'featureDashboard', label: 'Dashboard' },
+    { key: 'featureComplianceDashboard', label: 'Compliance Score' },
+    { key: 'featureVisitors', label: 'Visitors' },
+    { key: 'featureContractors', label: 'Contractors' },
+    { key: 'featureContractorPage', label: 'Contractor In/Out' },
+    { key: 'featureStaff', label: 'Staff' },
+    { key: 'featureMembers', label: 'Members' },
+    { key: 'featureMeetingRooms', label: 'Meeting Rooms' },
+    { key: 'featureTimeAttendance', label: 'T&A Report' },
+    { key: 'featureMusterList', label: 'Muster List' },
+    { key: 'featureIncidentReports', label: 'Incident Reports' },
+    { key: 'featureHsIncidents', label: 'H&S Incidents' },
+    { key: 'featureFireRiskAssessment', label: 'Fire Risk Assessment' },
+    { key: 'featureMartynLaw', label: "Martyn's Law" },
+    { key: 'featureReports', label: 'Reports' },
+    { key: 'featureInductionSettings', label: 'Induction Settings' },
+    { key: 'featureKiosk', label: 'Kiosk Mode' },
+    { key: 'featureEmailOutbox', label: 'Email Outbox' },
+    { key: 'featureHrModule', label: 'HR' },
+    { key: 'featureSettingsPage', label: 'Settings' },
+  ];
+  const ADDON_MODULES = [
+    { key: 'featurePPM', label: 'PPM (Planned Preventative Maintenance)' },
+    { key: 'featureAuditEngine', label: 'Audits & Inspections' },
+    { key: 'featureComplianceCertificates', label: 'Compliance Register' },
+    { key: 'featurePermitToWork', label: 'Permit to Work' },
+    { key: 'featureRaBuilder', label: 'RA Builder' },
+    { key: 'featureHelpDesk', label: 'Help Desk' },
+  ];
+
+  // Fetch the selected customer's platform feature locks when the edit dialog opens
+  const { data: customerFeatures } = useQuery<{ platformDisabledFeatures: string[] }>({
     queryKey: ["/platform-admin/customers", editingCustomer?.id, "features"],
     queryFn: async () => {
       const response = await fetch(`/platform-admin/customers/${editingCustomer!.id}/features`, { credentials: "include" });
@@ -406,22 +437,33 @@ export default function PlatformAdminDashboard() {
     enabled: !!editingCustomer,
   });
 
-  const [featurePPMOverride, setFeaturePPMOverride] = useState<boolean | null>(null);
-  const featurePPM = featurePPMOverride ?? customerFeatures?.featurePPM ?? false;
+  const [localDisabledFeatures, setLocalDisabledFeatures] = useState<string[] | null>(null);
+  const disabledFeatures = localDisabledFeatures ?? customerFeatures?.platformDisabledFeatures ?? [];
+
+  useEffect(() => {
+    setLocalDisabledFeatures(null);
+  }, [editingCustomer?.id]);
 
   const updateFeaturesMutation = useMutation({
-    mutationFn: async ({ customerId, featurePPM }: { customerId: string; featurePPM: boolean }) => {
-      const response = await apiRequest("PATCH", `/platform-admin/customers/${customerId}/features`, { featurePPM });
+    mutationFn: async ({ customerId, platformDisabledFeatures }: { customerId: string; platformDisabledFeatures: string[] }) => {
+      const response = await apiRequest("PATCH", `/platform-admin/customers/${customerId}/features`, { platformDisabledFeatures });
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers"] });
-      setFeaturePPMOverride(null);
+      queryClient.invalidateQueries({ queryKey: ["/platform-admin/customers", editingCustomer?.id, "features"] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to update module features", variant: "destructive" });
     },
   });
+
+  const toggleFeature = (key: string, enabled: boolean) => {
+    const next = enabled
+      ? disabledFeatures.filter(k => k !== key)
+      : [...disabledFeatures.filter(k => k !== key), key];
+    setLocalDisabledFeatures(next);
+    updateFeaturesMutation.mutate({ customerId: editingCustomer!.id, platformDisabledFeatures: next });
+  };
 
   const deleteCustomerMutation = useMutation({
     mutationFn: async (customerId: string) => {
@@ -1176,22 +1218,44 @@ export default function PlatformAdminDashboard() {
             </div>
 
             <div className="border-t pt-4 mt-4">
-              <h3 className="text-sm font-semibold mb-3">Module Features</h3>
-              <div className="flex items-center justify-between py-2">
-                <div>
-                  <Label htmlFor="feature-ppm" className="text-sm font-medium">PPM (Planned Preventative Maintenance)</Label>
-                  <p className="text-xs text-muted-foreground mt-0.5">Enable or disable the PPM module for this customer</p>
+              <h3 className="text-sm font-semibold mb-1">Module Features</h3>
+              <p className="text-xs text-muted-foreground mb-4">ON (green) = available to the customer. OFF = hidden and inaccessible. The customer can further hide ON modules from their own Settings page.</p>
+              {!customerFeatures ? (
+                <p className="text-xs text-muted-foreground">Loading feature data…</p>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Core Modules</p>
+                    <div className="space-y-1">
+                      {CORE_MODULES.map(({ key, label }) => (
+                        <div key={key} className="flex items-center justify-between py-1">
+                          <Label className="text-sm cursor-pointer select-none">{label}</Label>
+                          <Switch
+                            checked={!disabledFeatures.includes(key)}
+                            disabled={updateFeaturesMutation.isPending}
+                            onCheckedChange={(checked) => toggleFeature(key, checked)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Add-on Modules</p>
+                    <div className="space-y-1">
+                      {ADDON_MODULES.map(({ key, label }) => (
+                        <div key={key} className="flex items-center justify-between py-1">
+                          <Label className="text-sm cursor-pointer select-none">{label}</Label>
+                          <Switch
+                            checked={!disabledFeatures.includes(key)}
+                            disabled={updateFeaturesMutation.isPending}
+                            onCheckedChange={(checked) => toggleFeature(key, checked)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
-                <Switch
-                  id="feature-ppm"
-                  checked={featurePPM}
-                  disabled={updateFeaturesMutation.isPending || !customerFeatures}
-                  onCheckedChange={(checked) => {
-                    setFeaturePPMOverride(checked);
-                    updateFeaturesMutation.mutate({ customerId: editingCustomer!.id, featurePPM: checked });
-                  }}
-                />
-              </div>
+              )}
             </div>
 
             <div className="border-t pt-4 mt-4">

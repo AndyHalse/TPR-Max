@@ -24,6 +24,8 @@ export const customers = pgTable("customers", {
   apiKey: text("api_key"), // For customer integrations
   // Stripe Integration
   stripeCustomerId: text("stripe_customer_id").unique(), // Stripe customer ID for billing
+  // Platform admin feature locks — platform admin sets these; customer cannot override them
+  platformDisabledFeatures: text("platform_disabled_features").array().notNull().default([]),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 }, (table) => ({

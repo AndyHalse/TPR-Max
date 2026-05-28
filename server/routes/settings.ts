@@ -8,6 +8,8 @@ import { emailService } from '../emailService';
 import { insertCompanySettingsSchema } from '../isolatedSchema';
 import * as isolatedSchema from '../isolatedSchema';
 import { insertUserInvitationSchema } from '@shared/schema';
+import * as sharedSchema from '@shared/schema';
+import { db } from '../db';
 import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from '../objectStorage';
 import { randomUUID } from 'crypto';
 import crypto from 'crypto';
@@ -204,10 +206,21 @@ export function registerSettingsRoutes(
         } = settings;
         
         // Return a flag so the UI can show "password saved" without exposing the value
-        const responsePayload = {
+        const responsePayload: Record<string, any> = {
           ...sanitizedSettings,
           smtpPasswordSet: !!(smtpPassword && smtpPassword.length > 0),
         };
+
+        // Include platform-level feature locks from the management DB
+        try {
+          const [customerRow] = await db
+            .select({ platformDisabledFeatures: sharedSchema.customers.platformDisabledFeatures })
+            .from(sharedSchema.customers)
+            .where(eq(sharedSchema.customers.id, context.customerId));
+          responsePayload.platformDisabledFeatures = customerRow?.platformDisabledFeatures ?? [];
+        } catch {
+          responsePayload.platformDisabledFeatures = [];
+        }
         
         logger.info(`[SETTINGS-API] Sending ${Object.keys(responsePayload).length} fields to client, logoUrl=${responsePayload.logoUrl || 'EMPTY'}`);
         res.json(responsePayload || {});

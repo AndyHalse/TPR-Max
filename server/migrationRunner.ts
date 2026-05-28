@@ -312,6 +312,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     patchLoneWorkerColumnsMigration,
     martynLawAuditColumnsMigration,
     backfillLoneWorkerSessionsColumnsMigration,
+    setAllFeaturesOnMigration,
     addSsoCredentialsMigration,
     {
       version: '20260513_047_add_sso_fields',
@@ -2495,6 +2496,53 @@ const patchLoneWorkerColumnsMigration: Migration = {
       }
     }
     logger.info('✅ [053] Lone worker column remediation complete');
+  }
+};
+
+// Migration 056 — Set all customer feature flags to true (default-on for all modules)
+const setAllFeaturesOnMigration: Migration = {
+  version: '20260528_056_set_all_features_on',
+  description: 'Ensure all add-on feature flag columns exist and set them to true for all customers',
+  async up(db: any) {
+    const ensureCols = [
+      { name: 'feature_meeting_rooms',          def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_time_attendance',         def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_induction_settings',      def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_kiosk',                   def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_contractor_page',         def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_members',                 def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_ppm',                     def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_help_desk',               def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_compliance_certificates', def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_permit_to_work',          def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_audit_engine',            def: 'BOOLEAN DEFAULT true' },
+      { name: 'feature_ra_builder',              def: 'BOOLEAN DEFAULT true' },
+    ];
+    for (const col of ensureCols) {
+      try {
+        await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+      } catch (err: any) {
+        logger.info(`⚠️ [056] company_settings.${col.name}: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    try {
+      await db.execute(`UPDATE company_settings SET
+        feature_meeting_rooms = true,
+        feature_time_attendance = true,
+        feature_induction_settings = true,
+        feature_kiosk = true,
+        feature_contractor_page = true,
+        feature_members = true,
+        feature_ppm = true,
+        feature_help_desk = true,
+        feature_compliance_certificates = true,
+        feature_permit_to_work = true,
+        feature_audit_engine = true,
+        feature_ra_builder = true`);
+      logger.info('✅ [056] All feature flags set to true');
+    } catch (err: any) {
+      logger.error(`❌ [056] Failed to update feature flags: ${err.message}`);
+    }
   }
 };
 

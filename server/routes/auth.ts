@@ -13,6 +13,8 @@ import {
 import { CustomerDatabaseService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq } from 'drizzle-orm';
+import { db } from '../db';
+import * as sharedSchema from '@shared/schema';
 
 // ---------------------------------------------------------------------------
 // generateLogoToken — scoped short-lived HMAC token for the public logo endpoint.
