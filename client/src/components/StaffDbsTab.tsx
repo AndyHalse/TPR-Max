@@ -114,7 +114,10 @@ export default function StaffDbsTab({ staffId }: { staffId: string }) {
 
   const { data: records = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/staff", staffId, "dbs"],
-    queryFn: () => fetch(`/api/staff/${staffId}/dbs`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(`/api/staff/${staffId}/dbs`, { credentials: "include" }).then(r => {
+      if (!r.ok) throw new Error(`${r.status}`);
+      return r.json();
+    }),
   });
 
   const add = useMutation({

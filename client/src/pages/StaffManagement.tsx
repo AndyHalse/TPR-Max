@@ -49,7 +49,10 @@ function StaffProfilePanel({
 }) {
   const { data: docs = [], isLoading: docsLoading } = useQuery<any[]>({
     queryKey: ["/api/staff", vs.id, "documents"],
-    queryFn: () => fetch(`/api/staff/${vs.id}/documents`, { credentials: "include" }).then(r => r.json()),
+    queryFn: () => fetch(`/api/staff/${vs.id}/documents`, { credentials: "include" }).then(r => {
+      if (!r.ok) throw new Error(`${r.status}`);
+      return r.json();
+    }),
   });
 
   const docTypeLabels: Record<string, string> = {

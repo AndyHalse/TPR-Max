@@ -311,6 +311,7 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
     addHrModuleFeatureToggleMigration,
     patchLoneWorkerColumnsMigration,
     martynLawAuditColumnsMigration,
+    backfillLoneWorkerSessionsColumnsMigration,
     addSsoCredentialsMigration,
     {
       version: '20260513_047_add_sso_fields',
@@ -2494,6 +2495,28 @@ const patchLoneWorkerColumnsMigration: Migration = {
       }
     }
     logger.info('✅ [053] Lone worker column remediation complete');
+  }
+};
+
+// Migration 055 — Backfill missing columns on lone_worker_sessions (added after initial table creation)
+const backfillLoneWorkerSessionsColumnsMigration: Migration = {
+  version: '20260528_055_backfill_lone_worker_sessions_columns',
+  description: 'Idempotent backfill of interval_mins, grace_period_mins, ended_by on lone_worker_sessions for deployments created before these columns were added',
+  async up(db: any) {
+    const cols = [
+      { name: 'interval_mins',      def: 'INTEGER NOT NULL DEFAULT 30' },
+      { name: 'grace_period_mins',  def: 'INTEGER NOT NULL DEFAULT 10' },
+      { name: 'ended_by',           def: 'TEXT' },
+    ];
+    for (const col of cols) {
+      try {
+        await db.execute(`ALTER TABLE lone_worker_sessions ADD COLUMN IF NOT EXISTS ${col.name} ${col.def}`);
+        logger.info(`✅ [055] lone_worker_sessions.${col.name} ensured`);
+      } catch (err: any) {
+        logger.info(`⚠️ [055] lone_worker_sessions.${col.name}: ${err.message?.substring(0, 80)}`);
+      }
+    }
+    logger.info('✅ [055] lone_worker_sessions column backfill complete');
   }
 };
 
