@@ -303,7 +303,7 @@ export default function Login() {
           </div>
           <div>
             <CardTitle className="text-2xl font-bold text-slate-800 dark:text-slate-200">
-              TPR Max
+              TPR
             </CardTitle>
             <CardDescription className="text-slate-600 dark:text-slate-400">
               Total Protection & Response
@@ -509,7 +509,7 @@ export default function Login() {
 
           <div className="text-center">
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Secure access • TPR Max
+              Secure access • TPR
             </p>
             <a href="https://www.acsltd.eu" target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300">
               www.acsltd.eu
