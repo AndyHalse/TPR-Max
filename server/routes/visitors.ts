@@ -516,6 +516,26 @@ export function registerVisitorRoutes(app: Express): void {
     }
   });
 
+  // Add visitor profile without checking them in (admin "Add Visitor" action)
+  app.post("/api/visitors/add-profile", requireAuth, async (req, res) => {
+    try {
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      const visitorData = insertVisitorSchema.parse({ ...req.body, customerId: context.customerId });
+
+      const visitor = await databaseService.createVisitor(context, {
+        ...visitorData,
+        isCheckedIn: false,
+      });
+
+      res.status(201).json(visitor);
+    } catch (error) {
+      logger.error("Error creating visitor profile:", error);
+      res.status(500).json({ error: "Failed to create visitor profile" });
+    }
+  });
+
   app.put("/api/visitors/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
