@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -231,21 +232,15 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(credentials),
-        credentials: 'include',
-      });
-
+      const response = await apiRequest('POST', '/api/auth/login', credentials);
       const data = await response.json();
 
-      if (response.ok && data.requires2fa) {
+      if (data.requires2fa) {
         // 2FA required — switch to OTP step
         setPendingToken(data.pendingToken);
         setMaskedEmail(data.maskedEmail);
         setStep('otp');
-      } else if (response.ok && data.success) {
+      } else if (data.success) {
         // No 2FA (dev bypass or no email) — log in directly
         toast({
           title: 'Login Successful',
@@ -260,11 +255,12 @@ export default function Login() {
           variant: 'destructive',
         });
       }
-    } catch {
-      setError('Network error occurred');
+    } catch (err: any) {
+      const msg = err?.message || 'Login failed';
+      setError(msg);
       toast({
         title: 'Login Failed',
-        description: 'Network error occurred',
+        description: msg,
         variant: 'destructive',
       });
     } finally {
@@ -278,27 +274,20 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/verify-2fa', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pendingToken, otp: otpValue }),
-        credentials: 'include',
+      const response = await apiRequest('POST', '/api/auth/verify-2fa', {
+        pendingToken,
+        otp: otpValue,
       });
-
       const data = await response.json();
 
-      if (response.ok && data.success) {
-        toast({
-          title: 'Login Successful',
-          description: `Welcome back, ${data.user.username}!`,
-        });
-        await finishLogin(data);
-      } else {
-        setOtpError(data.error || 'Invalid verification code');
-        setOtpValue('');
-      }
-    } catch {
-      setOtpError('Network error. Please try again.');
+      toast({
+        title: 'Login Successful',
+        description: `Welcome back, ${data.user?.username}!`,
+      });
+      await finishLogin(data);
+    } catch (err: any) {
+      setOtpError(err?.message || 'Invalid verification code');
+      setOtpValue('');
     } finally {
       setIsLoading(false);
     }
