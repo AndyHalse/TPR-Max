@@ -277,11 +277,13 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       .slice(0, 8);
   }, [currentStep, companies, formData.company]);
 
+  const isTextStep = currentStep === "firstName" || currentStep === "lastName" || currentStep === "company" || currentStep === "email";
+
   return (
     <div className="h-screen bg-[var(--background)] overflow-hidden flex flex-col">
 
       {/* ── Header ── */}
-      <div className="flex-shrink-0 flex items-center gap-4 px-4 h-16 border-b border-black/10 bg-[var(--background)]">
+      <div className="flex-shrink-0 flex items-center gap-4 px-4 h-14 border-b border-black/10 bg-[var(--background)]">
         <button
           onClick={goBack}
           className="flex items-center gap-2 text-fixed font-semibold text-lg hover:opacity-70 active:scale-95 transition-all min-w-[64px] min-h-[44px]"
@@ -300,194 +302,158 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
         <div className="min-w-[64px]" />
       </div>
 
-      {/* ── Content ── */}
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      {/* ── TEXT ENTRY: question + value box ── */}
+      {isTextStep && (
+        <div className="flex-shrink-0 px-6 pt-4 pb-2 flex flex-col gap-3">
+          <div>
+            <h2 className="text-3xl font-bold text-fixed leading-tight">{getStepQuestion()}</h2>
+            {currentStep === "company" && <p className="text-variable text-sm mt-0.5">Optional — tap Skip if not applicable</p>}
+            {currentStep === "email"   && <p className="text-variable text-sm mt-0.5">Optional — needed to send a digital e-pass</p>}
+          </div>
+          <div className={`min-h-[68px] px-5 flex items-center rounded-2xl border-2 transition-all ${
+            getDisplayValue() ? "border-green-400 bg-green-50" : "border-blue-400 bg-white/80 ring-2 ring-blue-100"
+          }`}>
+            <span className={`text-2xl font-medium ${getDisplayValue() ? "text-slate-800" : "text-slate-400"}`}>
+              {getDisplayValue() || "Tap a key below…"}
+            </span>
+            {getDisplayValue() && <CheckCircle2 size={26} className="ml-auto text-green-500 flex-shrink-0" />}
+          </div>
+        </div>
+      )}
 
-        {/* TEXT ENTRY STEPS: firstName, lastName, company, email */}
-        {(currentStep === "firstName" || currentStep === "lastName" || currentStep === "company" || currentStep === "email") && (
-          <>
-            {/* Question + value box — always visible, no scrolling needed */}
-            <div className="flex-shrink-0 px-6 pt-6 pb-3 flex flex-col gap-4">
-              <div>
-                <h2 className="text-3xl font-bold text-fixed leading-tight">
-                  {getStepQuestion()}
-                </h2>
-                {(currentStep === "company") && (
-                  <p className="text-variable text-base mt-1">Optional — tap Skip if not applicable</p>
-                )}
-                {(currentStep === "email") && (
-                  <p className="text-variable text-base mt-1">Optional — needed to send a digital e-pass</p>
-                )}
-              </div>
-
-              <div className={`min-h-[72px] px-6 flex items-center rounded-2xl border-2 transition-all ${
-                getDisplayValue()
-                  ? "border-green-400 bg-green-50"
-                  : "border-blue-400 bg-white/80 ring-2 ring-blue-100"
-              }`}>
-                <span className={`text-2xl font-medium ${getDisplayValue() ? "text-slate-800" : "text-slate-400"}`}>
-                  {getDisplayValue() || `Tap a key below…`}
-                </span>
-                {getDisplayValue() && (
-                  <CheckCircle2 size={28} className="ml-auto text-green-500 flex-shrink-0" />
-                )}
-              </div>
-            </div>
-
-            {/* Company autocomplete chips — above Next button, always visible */}
-            {currentStep === "company" && companySuggestions.length > 0 && (
-              <div className="flex-shrink-0 px-6 pb-2">
-                <p className="text-xs font-semibold text-variable uppercase tracking-wide mb-2">Known companies</p>
-                <div className="flex flex-wrap gap-2">
-                  {companySuggestions.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => { setFormData(prev => ({ ...prev, company: c })); goNext(); }}
-                      className={`px-4 py-2 rounded-full border-2 text-sm font-medium min-h-[44px] transition-all active:scale-95 ${
-                        formData.company === c
-                          ? "border-green-500 bg-green-100 text-green-800"
-                          : "border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100"
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Next / Skip button — always above the keyboard */}
-            <div className="flex-shrink-0 px-6 pb-3">
-              <Button
-                onClick={handleStepNext}
-                className={`w-full h-16 text-xl font-bold rounded-2xl transition-all active:scale-[0.98] ${
-                  (currentStep === "firstName" || currentStep === "lastName") && !getDisplayValue()
-                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                    : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
-                }`}
-                disabled={(currentStep === "firstName" || currentStep === "lastName") && !getDisplayValue()}
-              >
-                {(currentStep === "company" || currentStep === "email") && !getDisplayValue() ? "Skip →" : "Next →"}
-                <ChevronRight size={22} className="ml-1" />
-              </Button>
-            </div>
-          </>
-        )}
-
-        {/* REASON STEP */}
-        {currentStep === "reason" && (
-          <div className="flex flex-col flex-1">
-            <div className="px-6 pt-8 pb-4">
-              <h2 className="text-3xl font-bold text-fixed leading-tight">{getStepQuestion()}</h2>
-              <p className="text-variable text-base mt-1">Select the option that best describes your visit</p>
-            </div>
-            <div className="flex-1 overflow-y-auto px-6 pb-4">
-              <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
-                {visitorReasons.map((reason: any) => (
-                  <button
-                    key={reason.id}
-                    onClick={() => handleReasonSelect(reason)}
-                    className="flex flex-col items-center justify-center gap-4 p-8 bg-white rounded-2xl border-2 border-white/80 hover:border-variable hover:bg-white active:scale-95 transition-all shadow-md text-center"
-                    style={{ minHeight: "140px" }}
-                  >
-                    <div className="w-14 h-14 bg-variable/10 rounded-full flex items-center justify-center">
-                      <MapPin size={36} className="text-variable" />
-                    </div>
-                    <span className="font-bold text-slate-800 text-xl leading-tight">{reason.label}</span>
-                    {reason.requireHsAcceptance && (
-                      <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-                        H&amp;S acceptance required
-                      </span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex-shrink-0 border-t border-black/10 px-6 py-4">
+      {/* ── COMPANY CHIPS ── shown directly above keyboard, never clipped */}
+      {currentStep === "company" && companySuggestions.length > 0 && (
+        <div className="flex-shrink-0 px-6 pb-2">
+          <p className="text-xs font-semibold text-variable uppercase tracking-wide mb-1.5">Known companies</p>
+          <div className="flex flex-wrap gap-2">
+            {companySuggestions.map(c => (
               <button
-                onClick={() => setCurrentStep("hostSearch")}
-                className="w-full min-h-[56px] text-variable hover:text-fixed text-base font-medium transition-colors"
+                key={c}
+                onClick={() => { setFormData(prev => ({ ...prev, company: c })); goNext(); }}
+                className={`px-4 py-2 rounded-full border-2 text-sm font-semibold min-h-[44px] transition-all active:scale-95 ${
+                  formData.company === c
+                    ? "border-green-500 bg-green-100 text-green-800"
+                    : "border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100"
+                }`}
               >
-                Skip — continue without selecting a reason
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── HOST SEARCH: question + value box ── */}
+      {currentStep === "hostSearch" && (
+        <div className="flex-shrink-0 px-6 pt-4 pb-2 flex flex-col gap-3">
+          <div>
+            <h2 className="text-3xl font-bold text-fixed leading-tight">{getStepQuestion()}</h2>
+            <p className="text-variable text-sm mt-0.5">Type at least 3 letters of their surname to search</p>
+          </div>
+          {selectedHost ? (
+            <div className="flex items-center gap-4 min-h-[68px] px-5 rounded-2xl border-2 border-green-400 bg-green-50">
+              <div className="w-11 h-11 bg-green-200 rounded-full flex items-center justify-center flex-shrink-0">
+                <UserCheck size={22} className="text-green-700" />
+              </div>
+              <div className="flex-1">
+                <p className="text-2xl font-bold text-slate-800">{selectedHost.firstName} {selectedHost.lastName}</p>
+                {selectedHost.department && <p className="text-variable text-sm">{selectedHost.department}</p>}
+              </div>
+              <button onClick={() => { setSelectedHost(null); setFormData(prev => ({ ...prev, hostStaffId: "" })); setHostSearch(""); }} className="p-2 hover:bg-red-100 rounded-full">
+                <X size={20} className="text-red-500" />
               </button>
             </div>
-          </div>
-        )}
-
-        {/* HOST SEARCH STEP */}
-        {currentStep === "hostSearch" && (
-          <>
-            {/* Question + subtitle — always visible */}
-            <div className="flex-shrink-0 px-6 pt-6 pb-3">
-              <h2 className="text-3xl font-bold text-fixed leading-tight">{getStepQuestion()}</h2>
-              <p className="text-variable text-base mt-1">Type at least 3 letters of their surname to search</p>
+          ) : (
+            <div className={`min-h-[68px] px-5 flex items-center gap-3 rounded-2xl border-2 transition-all ${
+              hostSearch ? "border-blue-400 bg-white/80 ring-2 ring-blue-100" : "border-white/40 bg-white/60"
+            }`}>
+              <Search size={22} className="text-slate-400 flex-shrink-0" />
+              <span className={`text-2xl font-medium ${hostSearch ? "text-slate-800" : "text-slate-400"}`}>
+                {hostSearch || "Type a surname below…"}
+              </span>
             </div>
+          )}
+        </div>
+      )}
 
-            {/* Search display / selected host — always visible */}
-            <div className="flex-shrink-0 px-6 pb-3">
-              {selectedHost ? (
-                <div className="flex items-center gap-4 min-h-[72px] px-6 rounded-2xl border-2 border-green-400 bg-green-50">
-                  <div className="w-12 h-12 bg-green-200 rounded-full flex items-center justify-center flex-shrink-0">
-                    <UserCheck size={24} className="text-green-700" />
+      {/* ── HOST SEARCH RESULTS ── directly above keyboard, never clipped */}
+      {currentStep === "hostSearch" && !selectedHost && (
+        <div className="flex-shrink-0 px-6 pb-2">
+          {hostSearch.trim().length >= 3 && filteredStaff.length > 0 && (
+            <div className="bg-white rounded-2xl border-2 border-blue-300 overflow-hidden shadow-lg">
+              {filteredStaff.slice(0, 4).map((member) => (
+                <button
+                  key={member.id}
+                  onClick={() => handleSelectHost(member)}
+                  className="w-full px-5 flex items-center gap-3 hover:bg-blue-50 active:bg-blue-100 transition-colors text-left border-b border-gray-100 last:border-b-0 min-h-[58px]"
+                >
+                  <div className="w-9 h-9 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                    <UserCheck size={18} className="text-blue-600" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-2xl font-bold text-slate-800">{selectedHost.firstName} {selectedHost.lastName}</p>
-                    {selectedHost.department && <p className="text-variable text-base">{selectedHost.department}</p>}
+                    <span className="text-lg font-semibold text-slate-800">{member.firstName} {member.lastName}</span>
+                    {member.department && <span className="text-sm text-slate-500 ml-2">{member.department}</span>}
                   </div>
-                  <button
-                    onClick={() => { setSelectedHost(null); setFormData(prev => ({ ...prev, hostStaffId: "" })); setHostSearch(""); }}
-                    className="p-2 hover:bg-red-100 rounded-full"
-                  >
-                    <X size={20} className="text-red-500" />
-                  </button>
-                </div>
-              ) : (
-                <div className={`min-h-[72px] px-6 flex items-center gap-3 rounded-2xl border-2 transition-all ${
-                  hostSearch ? "border-blue-400 bg-white/80 ring-2 ring-blue-100" : "border-white/40 bg-white/60"
-                }`}>
-                  <Search size={24} className="text-slate-400 flex-shrink-0" />
-                  <span className={`text-2xl font-medium ${hostSearch ? "text-slate-800" : "text-slate-400"}`}>
-                    {hostSearch || "Type a surname below…"}
-                  </span>
-                </div>
-              )}
+                  <span className="text-blue-600 font-semibold text-sm">Select</span>
+                </button>
+              ))}
             </div>
+          )}
+          {hostSearch.trim().length >= 3 && filteredStaff.length === 0 && (
+            <div className="bg-white rounded-2xl border-2 border-orange-200 p-3 text-center text-slate-500 text-sm shadow">
+              No staff found matching "{hostSearch}"
+            </div>
+          )}
+          {hostSearch.trim().length > 0 && hostSearch.trim().length < 3 && (
+            <div className="bg-blue-50 rounded-xl border border-blue-200 p-2.5 text-center text-blue-600 text-sm">
+              Type {3 - hostSearch.trim().length} more letter{3 - hostSearch.trim().length > 1 ? "s" : ""} to search…
+            </div>
+          )}
+        </div>
+      )}
 
-            {/* Search results — always visible above keyboard, max 4 rows */}
-            <div className="flex-shrink-0 px-6 pb-2">
-              {!selectedHost && hostSearch.trim().length >= 3 && filteredStaff.length > 0 && (
-                <div className="bg-white rounded-2xl border-2 border-blue-300 overflow-hidden shadow-lg">
-                  {filteredStaff.slice(0, 4).map((member) => (
-                    <button
-                      key={member.id}
-                      onClick={() => handleSelectHost(member)}
-                      className="w-full px-5 flex items-center gap-4 hover:bg-blue-50 active:bg-blue-100 transition-colors text-left border-b border-gray-100 last:border-b-0 min-h-[60px]"
-                    >
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                        <UserCheck size={20} className="text-blue-600" />
-                      </div>
-                      <div className="flex-1">
-                        <span className="text-xl font-semibold text-slate-800">{member.firstName} {member.lastName}</span>
-                        {member.department && <span className="text-base text-slate-500 ml-2">{member.department}</span>}
-                      </div>
-                      <span className="text-blue-600 font-semibold text-base">Select</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {!selectedHost && hostSearch.trim().length >= 3 && filteredStaff.length === 0 && (
-                <div className="bg-white rounded-2xl border-2 border-orange-200 p-4 text-center text-slate-500 shadow">
-                  No staff found matching "{hostSearch}"
-                </div>
-              )}
-              {!selectedHost && hostSearch.trim().length > 0 && hostSearch.trim().length < 3 && (
-                <div className="bg-blue-50 rounded-2xl border border-blue-200 p-3 text-center text-blue-600 text-base">
-                  Type {3 - hostSearch.trim().length} more letter{3 - hostSearch.trim().length > 1 ? "s" : ""} to search…
-                </div>
-              )}
+      {/* ── REASON STEP ── */}
+      {currentStep === "reason" && (
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex-shrink-0 px-6 pt-5 pb-3">
+            <h2 className="text-3xl font-bold text-fixed leading-tight">{getStepQuestion()}</h2>
+            <p className="text-variable text-sm mt-0.5">Select the option that best describes your visit</p>
+          </div>
+          <div className="flex-1 overflow-y-auto px-6 pb-4">
+            <div className="grid grid-cols-2 gap-4 max-w-2xl mx-auto">
+              {visitorReasons.map((reason: any) => (
+                <button
+                  key={reason.id}
+                  onClick={() => handleReasonSelect(reason)}
+                  className="flex flex-col items-center justify-center gap-4 p-8 bg-white rounded-2xl border-2 border-white/80 hover:border-variable hover:bg-white active:scale-95 transition-all shadow-md text-center"
+                  style={{ minHeight: "140px" }}
+                >
+                  <div className="w-14 h-14 bg-variable/10 rounded-full flex items-center justify-center">
+                    <MapPin size={36} className="text-variable" />
+                  </div>
+                  <span className="font-bold text-slate-800 text-xl leading-tight">{reason.label}</span>
+                  {reason.requireHsAcceptance && (
+                    <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                      H&amp;S acceptance required
+                    </span>
+                  )}
+                </button>
+              ))}
             </div>
-          </>
-        )}
+          </div>
+          <div className="flex-shrink-0 border-t border-black/10 px-6 py-4">
+            <button
+              onClick={() => setCurrentStep("hostSearch")}
+              className="w-full min-h-[52px] text-variable hover:text-fixed text-base font-medium transition-colors"
+            >
+              Skip — continue without selecting a reason
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Spacer — pushes keyboard to bottom on short-content steps ── */}
+      {(isTextStep || currentStep === "hostSearch") && <div className="flex-1" />}
 
         {/* CONFIRMATION STEP */}
         {currentStep === "confirm" && (
@@ -543,7 +509,6 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
             </button>
           </div>
         )}
-      </div>
 
       {/* ── Keyboard (pinned to bottom) ── */}
       {showKeyboard && (
