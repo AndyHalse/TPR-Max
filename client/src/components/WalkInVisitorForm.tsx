@@ -301,39 +301,42 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       </div>
 
       {/* ── Content ── */}
-      <div className={`flex-1 flex flex-col min-h-0 ${showKeyboard ? "overflow-y-auto" : "overflow-y-auto"}`}>
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
 
         {/* TEXT ENTRY STEPS: firstName, lastName, company, email */}
         {(currentStep === "firstName" || currentStep === "lastName" || currentStep === "company" || currentStep === "email") && (
-          <div className="flex flex-col flex-1 px-6 pt-8 pb-4 gap-6">
-            <div>
-              <h2 className="text-3xl font-bold text-fixed leading-tight">
-                {getStepQuestion()}
-              </h2>
-              {(currentStep === "company") && (
-                <p className="text-variable text-base mt-1">Optional — tap Skip if not applicable</p>
-              )}
-              {(currentStep === "email") && (
-                <p className="text-variable text-base mt-1">Optional — needed to send a digital e-pass</p>
-              )}
-            </div>
-
-            <div className={`min-h-[80px] px-6 flex items-center rounded-2xl border-2 transition-all ${
-              getDisplayValue()
-                ? "border-green-400 bg-green-50"
-                : "border-blue-400 bg-white/80 ring-2 ring-blue-100"
-            }`}>
-              <span className={`text-2xl font-medium ${getDisplayValue() ? "text-slate-800" : "text-slate-400"}`}>
-                {getDisplayValue() || `Tap a key below…`}
-              </span>
-              {getDisplayValue() && (
-                <CheckCircle2 size={28} className="ml-auto text-green-500 flex-shrink-0" />
-              )}
-            </div>
-
-            {/* Company autocomplete chips */}
-            {currentStep === "company" && companySuggestions.length > 0 && (
+          <>
+            {/* Question + value box — always visible, no scrolling needed */}
+            <div className="flex-shrink-0 px-6 pt-6 pb-3 flex flex-col gap-4">
               <div>
+                <h2 className="text-3xl font-bold text-fixed leading-tight">
+                  {getStepQuestion()}
+                </h2>
+                {(currentStep === "company") && (
+                  <p className="text-variable text-base mt-1">Optional — tap Skip if not applicable</p>
+                )}
+                {(currentStep === "email") && (
+                  <p className="text-variable text-base mt-1">Optional — needed to send a digital e-pass</p>
+                )}
+              </div>
+
+              <div className={`min-h-[72px] px-6 flex items-center rounded-2xl border-2 transition-all ${
+                getDisplayValue()
+                  ? "border-green-400 bg-green-50"
+                  : "border-blue-400 bg-white/80 ring-2 ring-blue-100"
+              }`}>
+                <span className={`text-2xl font-medium ${getDisplayValue() ? "text-slate-800" : "text-slate-400"}`}>
+                  {getDisplayValue() || `Tap a key below…`}
+                </span>
+                {getDisplayValue() && (
+                  <CheckCircle2 size={28} className="ml-auto text-green-500 flex-shrink-0" />
+                )}
+              </div>
+            </div>
+
+            {/* Company autocomplete chips — above Next button, always visible */}
+            {currentStep === "company" && companySuggestions.length > 0 && (
+              <div className="flex-shrink-0 px-6 pb-2">
                 <p className="text-xs font-semibold text-variable uppercase tracking-wide mb-2">Known companies</p>
                 <div className="flex flex-wrap gap-2">
                   {companySuggestions.map(c => (
@@ -353,19 +356,22 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
               </div>
             )}
 
-            <Button
-              onClick={handleStepNext}
-              className={`w-full h-16 text-xl font-bold rounded-2xl transition-all active:scale-[0.98] ${
-                (currentStep === "firstName" || currentStep === "lastName") && !getDisplayValue()
-                  ? "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
-              }`}
-              disabled={(currentStep === "firstName" || currentStep === "lastName") && !getDisplayValue()}
-            >
-              {(currentStep === "company" || currentStep === "email") && !getDisplayValue() ? "Skip →" : "Next →"}
-              <ChevronRight size={22} className="ml-1" />
-            </Button>
-          </div>
+            {/* Next / Skip button — always above the keyboard */}
+            <div className="flex-shrink-0 px-6 pb-3">
+              <Button
+                onClick={handleStepNext}
+                className={`w-full h-16 text-xl font-bold rounded-2xl transition-all active:scale-[0.98] ${
+                  (currentStep === "firstName" || currentStep === "lastName") && !getDisplayValue()
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+                    : "bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg"
+                }`}
+                disabled={(currentStep === "firstName" || currentStep === "lastName") && !getDisplayValue()}
+              >
+                {(currentStep === "company" || currentStep === "email") && !getDisplayValue() ? "Skip →" : "Next →"}
+                <ChevronRight size={22} className="ml-1" />
+              </Button>
+            </div>
+          </>
         )}
 
         {/* REASON STEP */}
