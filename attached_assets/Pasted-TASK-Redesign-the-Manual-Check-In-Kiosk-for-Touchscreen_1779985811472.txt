@@ -1,0 +1,81 @@
+TASK — Redesign the Manual Check-In Kiosk for Touchscreen / iPad Use
+## The Problem
+The current WalkInVisitorForm (client/src/components/WalkInVisitorForm.tsx) shows all 5 form fields, a keyboard, and search results on screen at the same time. On an iPad or touchscreen PC, everything gets squished together and feels overwhelming for a first-time user.
+The fix is to convert it to a simple step-by-step wizard: one thing per screen at a time, with the keyboard filling the bottom half and one large clear prompt filling the top half.
+---
+## What to Change — WalkInVisitorForm.tsx
+Redesign the layout into a step-by-step flow. The overall page structure should be:
+┌──────────────────────────────────┐
+│ ← Back Step 2 of 5 │ (header bar, fixed height)
+├──────────────────────────────────┤
+│ │
+│ What's your last name? │ (large question, ~28–32px font)
+│ │
+│ ┌────────────────────────────┐ │
+│ │ Stuart | │ │ (current value, large display box)
+│ └────────────────────────────┘ │
+│ │
+│ [large Next → button] │
+│ │
+├──────────────────────────────────┤
+│ [ TouchKeyboard ] │ (keyboard always at bottom)
+└──────────────────────────────────┘
+
+The steps in order:
+1. First Name — "What's your first name?"
+2. Last Name — "And your last name?"
+3. Company — "Which company are you from?" (optional, "Skip" instead of Next)
+4. Visit Reason — opens the existing reason picker portal (no keyboard on this step)
+5. Who are you here to see? — host search with keyboard
+Each step should:
+- Show only the current step — no other fields visible
+- Have a large question heading (~28px, font-bold)
+- Show the current value in a large display box (min-height 80px, text-2xl)
+- Have a big "Next →" or "Done →" button (h-16 minimum, text-xl, green gradient, full width or wide)
+- Show a step counter in the header: "Step 2 of 5" — do NOT use a progress bar, just text
+- The TouchKeyboard should sit at the bottom of the screen (position it as a fixed bottom panel OR as the lower half of a flex layout — whichever gives a stable, non-jumping layout on iPad)
+- Back arrow in the top-left returns to the previous step (not to the main kiosk screen, except on step 1)
+### Visit Reason step (step 4)
+This step opens the reason picker portal that already exists in the file. No keyboard on this step. The reason cards should be much larger — make each card at least 120px tall, with the label at 22px font. If there are no visit reasons configured, skip this step automatically.
+### Host Search step (step 5)
+- Show "Who are you here to see?" as the heading
+- The search input / display box shows current host search text or the selected host name
+- TouchKeyboard beneath it, same as other steps
+- When a match is selected, show the selected host in a green confirmed box and auto-advance to a summary/confirmation view
+### Final confirmation screen
+After host is selected, show a summary card:
+- Visitor name (large)
+- Company (if entered)
+- Visit reason (if selected)
+- Host name
+- Big green "Check In" button (full width, h-20, text-2xl font)
+- A smaller "← Change something" link
+---
+## What NOT to change
+- Do not touch the API calls, mutations, or any business logic
+- Do not change the H&S acceptance modal (HSAcceptanceModal)
+- Do not change the pass preview modal (PassPreviewModal)
+- Do not change the VisitInstructionsModal
+- Do not change the TouchKeyboard component itself — just how it's positioned
+- Keep all existing CSS class patterns: GlassCard, text-fixed, text-variable, gradient-blue, bg-[var(--background)]
+---
+## Also fix — Visit Reason cards (in both WalkInVisitorForm.tsx and KioskMode.tsx)
+The reason picker cards are rendered in two places. In both, make the cards larger:
+- Minimum height: 140px
+- Icon size: 36px
+- Label font: text-xl font-bold
+- Cards should use a 2-column grid on iPad, 1-column on narrow screens (< 480px)
+- Add more padding: p-8
+---
+## Touchscreen sizing rules to apply throughout
+- All tappable elements minimum 64px height
+- Font size for field labels: text-xl minimum
+- Font size for values being entered: text-2xl minimum
+- Keyboard keys stay at h-16 (already set in TouchKeyboard)
+- Generous spacing: gap-4 minimum between elements
+- No two interactive areas should be within 16px of each other
+---
+## Files to edit
+- client/src/components/WalkInVisitorForm.tsx — main redesign
+- The reason picker in client/src/pages/KioskMode.tsx (showVisitorQrReasonPicker portal) — enlarge cards only, no logic changes
+Do not edit any other files.

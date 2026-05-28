@@ -1198,12 +1198,13 @@ export default function KioskMode() {
                       }
                     }
                   }}
-                  className="flex flex-col items-center justify-center gap-3 p-6 bg-white rounded-2xl border-2 border-white/80 hover:border-variable hover:bg-white active:scale-95 transition-all shadow-md text-center"
+                  className="flex flex-col items-center justify-center gap-4 p-8 bg-white rounded-2xl border-2 border-white/80 hover:border-variable hover:bg-white active:scale-95 transition-all shadow-md text-center"
+                  style={{ minHeight: "140px" }}
                 >
-                  <div className="w-12 h-12 bg-variable/10 rounded-full flex items-center justify-center">
-                    <MapPin size={24} className="text-variable" />
+                  <div className="w-14 h-14 bg-variable/10 rounded-full flex items-center justify-center">
+                    <MapPin size={36} className="text-variable" />
                   </div>
-                  <span className="font-semibold text-slate-800 text-lg leading-tight">{reason.label}</span>
+                  <span className="font-bold text-slate-800 text-xl leading-tight">{reason.label}</span>
                   {reason.requireHsAcceptance && (
                     <span className="text-xs text-amber-600 font-medium bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
                       H&amp;S acceptance required
