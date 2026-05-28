@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, User, LogIn, Building, ShieldCheck } from "lucide-react";
+import { Lock, User, LogIn, Building, ShieldCheck, Mail, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "wouter";
@@ -97,7 +97,7 @@ function applyBrandingFromSettings(settings: any) {
 export default function Login() {
   const [, setLocation] = useLocation();
 
-  // Initialise rememberMe from localStorage — true if the user previously saved credentials
+  // Initialise rememberMe from localStorage
   const [rememberMe, setRememberMe] = useState<boolean>(() => {
     try {
       return localStorage.getItem('tprmax-remember-me') === 'true';
@@ -108,7 +108,6 @@ export default function Login() {
 
   const [credentials, setCredentials] = useState(() => {
     try {
-      // Only pre-fill if rememberMe was previously enabled
       if (localStorage.getItem('tprmax-remember-me') === 'true') {
         const stored = localStorage.getItem('tprmax-last-login');
         if (stored) {
@@ -131,9 +130,16 @@ export default function Login() {
   const queryClient = useQueryClient();
   const [isLoading, setIsLoading] = useState(false);
 
-  // SSO mode detected for this company ('standard' | 'both' | 'sso_only')
+  // SSO mode detected for this company
   const [ssoMode, setSsoMode] = useState<'standard' | 'both' | 'sso_only'>('standard');
   const [ssoCheckLoading, setSsoCheckLoading] = useState(false);
+
+  // 2FA step state
+  const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
+  const [pendingToken, setPendingToken] = useState('');
+  const [maskedEmail, setMaskedEmail] = useState('');
+  const [otpValue, setOtpValue] = useState('');
+  const [otpError, setOtpError] = useState('');
 
   // Handle URL error params from SSO callback redirect
   useEffect(() => {
@@ -174,109 +180,125 @@ export default function Login() {
     window.location.href = `/api/auth/sso/start?company=${encodeURIComponent(name)}`;
   };
 
+  // Shared post-login handler — called after session is established
+  const finishLogin = async (data: any) => {
+    try {
+      if (rememberMe) {
+        localStorage.setItem('tprmax-remember-me', 'true');
+        localStorage.setItem('tprmax-last-login', JSON.stringify({
+          companyName: credentials.companyName,
+          username: credentials.username,
+          password: credentials.password
+        }));
+      } else {
+        localStorage.removeItem('tprmax-remember-me');
+        localStorage.removeItem('tprmax-last-login');
+      }
+    } catch (err) {
+      console.warn('Failed to save login preferences:', err);
+    }
+
+    if (data.logoToken) {
+      localStorage.setItem('tprmax-logo-token', data.logoToken);
+    }
+
+    queryClient.setQueryData(['/api/auth/me'], data.user);
+
+    if (data.settings) {
+      queryClient.setQueryData(['/api/settings'], data.settings);
+      applyBrandingFromSettings(data.settings);
+    }
+
+    await queryClient.invalidateQueries({
+      predicate: (query) => {
+        const key = query.queryKey[0] as string;
+        return key !== '/api/settings' && key !== '/api/auth/me';
+      }
+    });
+
+    setLocation(data.user.defaultLandingPage || '/');
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError("");
-    
-    // Starting authentication process...
-    
+    setError('');
+
     if (!credentials.companyName || !credentials.username || !credentials.password) {
-      // Missing required fields
-      setError("Please enter company name, username, and password");
+      setError('Please enter company name, username, and password');
       return;
     }
-    
-    // Authenticating user...
+
     setIsLoading(true);
-    
-    // Direct fetch approach to bypass any mutation issues
+
     try {
-      // Making authentication request...
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(credentials),
-        credentials: "include",
+        credentials: 'include',
       });
-      
+
       const data = await response.json();
-      
-      if (response.ok && data.success) {
-        // Authentication successful
-        try {
-          if (rememberMe) {
-            localStorage.setItem('tprmax-remember-me', 'true');
-            localStorage.setItem('tprmax-last-login', JSON.stringify({
-              companyName: credentials.companyName,
-              username: credentials.username,
-              password: credentials.password
-            }));
-          } else {
-            localStorage.removeItem('tprmax-remember-me');
-            localStorage.removeItem('tprmax-last-login');
-          }
-        } catch (err) {
-          console.warn('Failed to save login preferences:', err);
-        }
-        
+
+      if (response.ok && data.requires2fa) {
+        // 2FA required — switch to OTP step
+        setPendingToken(data.pendingToken);
+        setMaskedEmail(data.maskedEmail);
+        setStep('otp');
+      } else if (response.ok && data.success) {
+        // No 2FA (dev bypass or no email) — log in directly
         toast({
-          title: "Login Successful",
+          title: 'Login Successful',
           description: `Welcome back, ${data.user.username} at ${data.customer?.companyName || credentials.companyName}!`,
         });
-        
-        // Store logo token for public logo endpoint (scoped, signed, no auth needed)
-        if (data.logoToken) {
-          localStorage.setItem('tprmax-logo-token', data.logoToken);
-        }
-        
-        // Set the auth data in cache first
-        queryClient.setQueryData(["/api/auth/me"], data.user);
-        
-        // Pre-seed the settings cache from login response for immediate branding
-        // Mark this data as fresh so refetchOnMount won't override it
-        if (data.settings) {
-          queryClient.setQueryData(["/api/settings"], data.settings);
-        }
-        
-        // Apply branding CSS custom properties IMMEDIATELY from login response
-        // This ensures branding is visible the instant the dashboard renders,
-        // regardless of any subsequent query refetch behavior
-        if (data.settings) {
-          applyBrandingFromSettings(data.settings);
-        }
-        
-        // Invalidate data queries to ensure fresh data, but NOT settings or auth
-        // Settings are already seeded from the login response and shouldn't be refetched
-        // immediately (avoids race condition where session isn't persisted yet)
-        await queryClient.invalidateQueries({
-          predicate: (query) => {
-            const key = query.queryKey[0] as string;
-            return key !== "/api/settings" && key !== "/api/auth/me";
-          }
-        });
-        
-        // Redirecting to dashboard or default landing page...
-        setLocation(data.user.defaultLandingPage || "/");
+        await finishLogin(data);
       } else {
-        // Authentication failed
-        setError(data.error || "Login failed");
+        setError(data.error || 'Login failed');
         toast({
-          title: "Login Failed",
-          description: data.error || "Invalid credentials",
-          variant: "destructive",
+          title: 'Login Failed',
+          description: data.error || 'Invalid credentials',
+          variant: 'destructive',
         });
       }
-    } catch (error) {
-      // Network error occurred
-      setError("Network error occurred");
+    } catch {
+      setError('Network error occurred');
       toast({
-        title: "Login Failed",
-        description: "Network error occurred",
-        variant: "destructive",
+        title: 'Login Failed',
+        description: 'Network error occurred',
+        variant: 'destructive',
       });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleOtpSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOtpError('');
+    setIsLoading(true);
+
+    try {
+      const response = await fetch('/api/auth/verify-2fa', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pendingToken, otp: otpValue }),
+        credentials: 'include',
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: 'Login Successful',
+          description: `Welcome back, ${data.user.username}!`,
+        });
+        await finishLogin(data);
+      } else {
+        setOtpError(data.error || 'Invalid verification code');
+        setOtpValue('');
+      }
+    } catch {
+      setOtpError('Network error. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -298,130 +320,200 @@ export default function Login() {
             </CardDescription>
           </div>
         </CardHeader>
-        
+
         <CardContent className="space-y-6">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="companyName" className="text-slate-700 dark:text-slate-300">
-                Company Name
-              </Label>
-              <div className="relative">
-                <Building className="absolute left-3 top-3 text-slate-400" size={18} />
-                <Input
-                  id="companyName"
-                  type="text"
-                  placeholder="Enter your company name"
-                  className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
-                  value={credentials.companyName}
-                  onChange={(e) => setCredentials(prev => ({ ...prev, companyName: e.target.value }))}
-                  onBlur={handleCompanyBlur}
-                  data-testid="input-company-name"
-                  disabled={isLoading}
-                  autoFocus
-                  autoComplete="organization"
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-slate-700 dark:text-slate-300">
-                Username
-              </Label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 text-slate-400" size={18} />
-                <Input
-                  id="username"
-                  type="text"
-                  placeholder="Enter your username"
-                  className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
-                  value={credentials.username}
-                  onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
-                  data-testid="input-username"
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">
-                Password
-              </Label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
-                <Input
-                  id="password"
-                  type="password"
-                  placeholder="Enter your password"
-                  className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
-                  value={credentials.password}
-                  onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
-                  data-testid="input-password"
-                  disabled={isLoading}
-                />
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2 pt-1">
-              <Checkbox
-                id="remember-me"
-                checked={rememberMe}
-                onCheckedChange={(checked) => setRememberMe(checked === true)}
-                disabled={isLoading}
-                data-testid="checkbox-remember-me"
-              />
-              <Label
-                htmlFor="remember-me"
-                className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none font-normal"
-              >
-                Remember login details
-              </Label>
-            </div>
 
-            {ssoMode !== 'sso_only' && (
-              <Button
-                type="submit"
-                className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
-                disabled={isLoading}
-                data-testid="button-login"
-              >
-                {isLoading ? (
-                  "Signing in..."
-                ) : (
-                  <>
-                    <LogIn className="mr-2" size={18} />
-                    Sign In
-                  </>
+          {/* ── Credentials step ── */}
+          {step === 'credentials' && (
+            <>
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="companyName" className="text-slate-700 dark:text-slate-300">
+                    Company Name
+                  </Label>
+                  <div className="relative">
+                    <Building className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <Input
+                      id="companyName"
+                      type="text"
+                      placeholder="Enter your company name"
+                      className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
+                      value={credentials.companyName}
+                      onChange={(e) => setCredentials(prev => ({ ...prev, companyName: e.target.value }))}
+                      onBlur={handleCompanyBlur}
+                      data-testid="input-company-name"
+                      disabled={isLoading}
+                      autoFocus
+                      autoComplete="organization"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="username" className="text-slate-700 dark:text-slate-300">
+                    Username
+                  </Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <Input
+                      id="username"
+                      type="text"
+                      placeholder="Enter your username"
+                      className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
+                      value={credentials.username}
+                      onChange={(e) => setCredentials(prev => ({ ...prev, username: e.target.value }))}
+                      data-testid="input-username"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="password" className="text-slate-700 dark:text-slate-300">
+                    Password
+                  </Label>
+                  <div className="relative">
+                    <Lock className="absolute left-3 top-3 text-slate-400" size={18} />
+                    <Input
+                      id="password"
+                      type="password"
+                      placeholder="Enter your password"
+                      className="pl-10 bg-white/70 dark:bg-slate-700/70 border-slate-300 dark:border-slate-600"
+                      value={credentials.password}
+                      onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
+                      data-testid="input-password"
+                      disabled={isLoading}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-2 pt-1">
+                  <Checkbox
+                    id="remember-me"
+                    checked={rememberMe}
+                    onCheckedChange={(checked) => setRememberMe(checked === true)}
+                    disabled={isLoading}
+                    data-testid="checkbox-remember-me"
+                  />
+                  <Label
+                    htmlFor="remember-me"
+                    className="text-sm text-slate-600 dark:text-slate-400 cursor-pointer select-none font-normal"
+                  >
+                    Remember login details
+                  </Label>
+                </div>
+
+                {ssoMode !== 'sso_only' && (
+                  <Button
+                    type="submit"
+                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
+                    disabled={isLoading}
+                    data-testid="button-login"
+                  >
+                    {isLoading ? (
+                      'Signing in...'
+                    ) : (
+                      <>
+                        <LogIn className="mr-2" size={18} />
+                        Sign In
+                      </>
+                    )}
+                  </Button>
                 )}
-              </Button>
-            )}
-          </form>
+              </form>
 
-          {(ssoMode === 'both' || ssoMode === 'sso_only') && (
-            <div className="space-y-3">
-              {ssoMode === 'both' && (
-                <div className="flex items-center gap-3">
-                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
-                  <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">or continue with</span>
-                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+              {(ssoMode === 'both' || ssoMode === 'sso_only') && (
+                <div className="space-y-3">
+                  {ssoMode === 'both' && (
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                      <span className="text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">or continue with</span>
+                      <div className="flex-1 h-px bg-slate-200 dark:bg-slate-700" />
+                    </div>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-medium py-3 gap-3"
+                    onClick={handleSsoSignIn}
+                    disabled={ssoCheckLoading}
+                    data-testid="button-sso-microsoft"
+                  >
+                    <MicrosoftLogoIcon size={20} />
+                    {ssoCheckLoading ? 'Checking…' : 'Sign in with Microsoft'}
+                  </Button>
                 </div>
               )}
-              <Button
+            </>
+          )}
+
+          {/* ── OTP step ── */}
+          {step === 'otp' && (
+            <div className="space-y-4">
+              <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-800 dark:text-blue-200">
+                <Mail className="w-4 h-4 mt-0.5 shrink-0" />
+                <span>
+                  A 6-digit code was sent to <strong>{maskedEmail}</strong>.
+                  Enter it below to complete sign-in.
+                </span>
+              </div>
+
+              {otpError && (
+                <Alert variant="destructive">
+                  <AlertDescription>{otpError}</AlertDescription>
+                </Alert>
+              )}
+
+              <form onSubmit={handleOtpSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="otp">Verification Code</Label>
+                  <Input
+                    id="otp"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    placeholder="000000"
+                    value={otpValue}
+                    onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    className="text-center text-2xl tracking-widest font-mono bg-white/70 dark:bg-slate-700/70"
+                    autoFocus
+                    disabled={isLoading}
+                    data-testid="input-otp"
+                  />
+                  <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+                    Code expires in 10 minutes
+                  </p>
+                </div>
+
+                <Button
+                  type="submit"
+                  className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
+                  disabled={isLoading || otpValue.length < 6}
+                  data-testid="button-verify-otp"
+                >
+                  {isLoading ? 'Verifying…' : 'Verify & Sign In'}
+                </Button>
+              </form>
+
+              <button
                 type="button"
-                variant="outline"
-                className="w-full border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-medium py-3 gap-3"
-                onClick={handleSsoSignIn}
-                disabled={ssoCheckLoading}
-                data-testid="button-sso-microsoft"
+                className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 mx-auto"
+                onClick={() => {
+                  setStep('credentials');
+                  setOtpValue('');
+                  setPendingToken('');
+                  setOtpError('');
+                }}
               >
-                <MicrosoftLogoIcon size={20} />
-                {ssoCheckLoading ? 'Checking…' : 'Sign in with Microsoft'}
-              </Button>
+                <ArrowLeft className="w-3 h-3" /> Back to login
+              </button>
             </div>
           )}
 
@@ -433,6 +525,7 @@ export default function Login() {
               www.acsltd.eu
             </a>
           </div>
+
         </CardContent>
       </Card>
     </div>

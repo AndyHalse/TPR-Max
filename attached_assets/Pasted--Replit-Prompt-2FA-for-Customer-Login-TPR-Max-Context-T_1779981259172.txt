@@ -1,0 +1,344 @@
+
+Replit Prompt — 2FA for Customer Login (TPR Max)
+## Context
+The platform admin login at `/platform-admin/login` already has a working two-step OTP 
+(one-time password) flow. We need to implement the same pattern for the standard customer 
+login at `client/src/pages/Login.tsx`.
+---
+## How the platform admin OTP works (copy this pattern)
+In `server/routes/platformAdmin.ts` (lines 18–195):
+- An in-memory Map `pendingOtps` stores `{ adminId, email, otp, expiresAt }` keyed by 
+  a `pendingToken` (UUID).
+- Step 1 — `POST /platform-admin/auth/login`: validates credentials, generates a 6-digit 
+  OTP, stores it in `pendingOtps`, sends it via email, returns 
+  `{ requiresOtp: true, pendingToken, maskedEmail }`. Does NOT create a session.
+- Step 2 — `POST /platform-admin/auth/verify-otp`: accepts `{ pendingToken, otp }`, 
+  validates it, then creates the session and returns the admin data.
+In `client/src/pages/PlatformAdminLogin.tsx`:
+- Uses `step` state (`"credentials"` | `"otp"`) to switch between two forms in the same Card.
+- Step 1 form: username + password → calls login mutation.
+- Step 2 form: 6-digit OTP input (numeric, tracking-widest font-mono style) → calls 
+  verify-otp mutation.
+- `maskedEmail` is shown as context: "A 6-digit code was sent to a****@domain.com"
+- "Back to login" link resets to credentials step.
+---
+## What to build
+### 1. Server — new in-memory pending store (`server/routes/auth.ts`)
+At the top of `registerAuthRoutes`, add a pending OTP store for customer logins:
+```typescript
+interface PendingCustomerOtp {
+  userId: string;
+  customerId: string;
+  companyName: string;
+  username: string;
+  email: string;
+  otp: string;
+  expiresAt: Date;
+}
+const pendingCustomerOtps = new Map<string, PendingCustomerOtp>();
+// Prune expired entries every 5 minutes
+setInterval(() => {
+  const now = new Date();
+  for (const [key, val] of pendingCustomerOtps.entries()) {
+    if (val.expiresAt < now) pendingCustomerOtps.delete(key);
+  }
+}, 5 * 60 * 1000);
+function generateCustomerOtp(): string {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!domain) return email;
+  const masked = local[0] + '*'.repeat(Math.max(local.length - 1, 3));
+  return `${masked}@${domain}`;
+}
+2. Server — modify POST /api/auth/login (server/routes/auth.ts, line 40)
+Find the point after a successful AuthService.authenticateUser() call (around line 157 in
+auth.ts) where it currently calls req.session.regenerate(...) to create the session.
+
+Do NOT change the dev auth bypass block (isDevAuthBypass() check) — leave that
+creating the session immediately as it does now.
+
+Do NOT change the SSO-only block that returns 403 — leave that as-is.
+
+After those two early-exit checks, instead of immediately regenerating the session, do
+this:
+
+// Check if user has an email address — if not, skip 2FA and login directly
+const userEmail = (user as any).email;
+if (!userEmail) {
+  logger.warn(`⚠️ 2FA skipped for ${username} — no email address on account`);
+  // Fall through to existing session creation code (keep existing block here)
+}
+
+// 2FA: generate OTP and send email
+const crypto = await import('crypto');
+const pendingToken = crypto.randomUUID();
+const otp = generateCustomerOtp();
+const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+pendingCustomerOtps.set(pendingToken, {
+  userId: user.id,
+  customerId: customer.id,
+  companyName: customer.companyName,
+  username: user.username,
+  email: userEmail,
+  otp,
+  expiresAt,
+});
+
+// Send OTP email using the existing emailService
+try {
+  const { emailService } = await import('../emailService');
+  await emailService.sendEmail({
+    to: userEmail,
+    subject: 'Your TPR Max verification code',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;">
+        <h2 style="color:#2460A9;">TPR Max — Verification Code</h2>
+        <p>Hello ${user.username},</p>
+        <p>Your login verification code is:</p>
+        <div style="font-size:36px;font-weight:700;letter-spacing:10px;text-align:center;
+                    padding:20px;background:#f3f4f6;border-radius:10px;margin:20px 0;">
+          ${otp}
+        </div>
+        <p>This code expires in <strong>10 minutes</strong>.</p>
+        <p>If you did not attempt to log in to TPR Max, please contact your administrator 
+           immediately.</p>
+      </div>
+    `,
+    text: `Your TPR Max verification code is: ${otp}. It expires in 10 minutes. If you did not request this, contact your administrator.`,
+    companyName: customer.companyName,
+  });
+  logger.info(`2FA OTP sent to ${maskEmail(userEmail)} for user ${username}`);
+} catch (emailErr) {
+  logger.error('Failed to send 2FA OTP email:', emailErr);
+  pendingCustomerOtps.delete(pendingToken);
+  return res.status(500).json({ error: 'Failed to send verification code. Please try again.' });
+}
+
+return res.json({
+  requires2fa: true,
+  pendingToken,
+  maskedEmail: maskEmail(userEmail),
+});
+The existing session creation code (the req.session.regenerate(...) block and everything
+below it including the settings fetch and final res.json(...)) is refactored into a
+reusable async function (see step 3).
+
+3. Server — extract session creation into a helper function
+To avoid duplicating the large session creation + settings fetch block, extract it into a
+local async function within registerAuthRoutes:
+
+async function createCustomerSession(
+  req: any, 
+  res: any, 
+  user: any, 
+  customer: any, 
+  username: string
+): Promise<void> {
+  // Move the entire req.session.regenerate(...) block here
+  // This is the code that currently runs after a successful password check
+  // (lines ~183–292 in auth.ts)
+}
+Call createCustomerSession(req, res, user, customer, username) from:
+
+The no-email fallback path in step 2
+The new POST /api/auth/verify-2fa route in step 4
+4. Server — new route POST /api/auth/verify-2fa (server/routes/auth.ts)
+Add this after the login route:
+
+// Rate limit: 5 attempts per 15 minutes per IP
+const twoFaLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: { error: 'Too many verification attempts. Try again in 15 minutes.' }
+});
+
+app.post('/api/auth/verify-2fa', twoFaLimiter, async (req, res) => {
+  try {
+    const { pendingToken, otp } = req.body;
+    
+    if (!pendingToken || !otp) {
+      return res.status(400).json({ error: 'Verification code and token are required' });
+    }
+    
+    const pending = pendingCustomerOtps.get(pendingToken);
+    
+    if (!pending) {
+      return res.status(401).json({ error: 'Invalid or expired verification session. Please log in again.' });
+    }
+    
+    if (new Date() > pending.expiresAt) {
+      pendingCustomerOtps.delete(pendingToken);
+      return res.status(401).json({ error: 'Verification code has expired. Please log in again.' });
+    }
+    
+    if (otp.trim() !== pending.otp) {
+      return res.status(401).json({ error: 'Incorrect verification code. Please check your email and try again.' });
+    }
+    
+    // Valid — consume the token
+    pendingCustomerOtps.delete(pendingToken);
+    
+    // Reconstruct user and customer objects for session creation
+    const user = { id: pending.userId, username: pending.username, email: pending.email };
+    const customer = { id: pending.customerId, companyName: pending.companyName };
+    
+    await createCustomerSession(req, res, user, customer, pending.username);
+  } catch (error) {
+    logger.error('2FA verification error:', error);
+    res.status(500).json({ error: 'Verification failed' });
+  }
+});
+Note: import rateLimit from express-rate-limit — it's already a dependency.
+
+5. Frontend — update client/src/pages/Login.tsx
+The existing component is a single-step form. Add a second step following the same
+pattern as PlatformAdminLogin.tsx.
+
+Add to state:
+
+const [step, setStep] = useState<'credentials' | 'otp'>('credentials');
+const [pendingToken, setPendingToken] = useState('');
+const [maskedEmail, setMaskedEmail] = useState('');
+const [otpValue, setOtpValue] = useState('');
+const [otpError, setOtpError] = useState('');
+Modify handleSubmit: After a successful fetch to /api/auth/login, check for
+data.requires2fa === true. If so:
+
+Store setPendingToken(data.pendingToken)
+Store setMaskedEmail(data.maskedEmail)
+Set setStep('otp')
+Do NOT navigate or set auth cache yet
+If data.success === true (no 2FA, e.g. dev bypass or no email on account), keep the
+existing behaviour exactly as-is (set auth cache, navigate to dashboard).
+
+Add OTP submit handler:
+
+const handleOtpSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setOtpError('');
+  setIsLoading(true);
+  try {
+    const response = await fetch('/api/auth/verify-2fa', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pendingToken, otp: otpValue }),
+      credentials: 'include',
+    });
+    const data = await response.json();
+    if (response.ok && data.success) {
+      // Same post-login handling as existing successful login
+      // (store rememberMe, set auth cache, apply branding, navigate)
+      if (rememberMe) {
+        localStorage.setItem('tprmax-remember-me', 'true');
+        localStorage.setItem('tprmax-last-login', JSON.stringify(credentials));
+      } else {
+        localStorage.removeItem('tprmax-remember-me');
+        localStorage.removeItem('tprmax-last-login');
+      }
+      if (data.logoToken) localStorage.setItem('tprmax-logo-token', data.logoToken);
+      queryClient.setQueryData(['/api/auth/me'], data.user);
+      if (data.settings) {
+        queryClient.setQueryData(['/api/settings'], data.settings);
+        applyBrandingFromSettings(data.settings);
+      }
+      setLocation(data.user.defaultLandingPage || '/');
+    } else {
+      setOtpError(data.error || 'Invalid verification code');
+      setOtpValue('');
+    }
+  } catch {
+    setOtpError('Network error. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
+In the JSX: Conditionally render either the credentials form (existing) or the OTP
+form based on step. Keep the existing Card, CardHeader, and footer unchanged — only
+swap the CardContent inner form.
+
+OTP step UI (match the style of the existing card):
+
+{step === 'otp' && (
+  <div className="space-y-4">
+    <div className="flex items-start gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-800 dark:text-blue-200">
+      <Mail className="w-4 h-4 mt-0.5 shrink-0" />
+      <span>
+        A 6-digit code was sent to <strong>{maskedEmail}</strong>.
+        Enter it below to complete sign-in.
+      </span>
+    </div>
+    {otpError && (
+      <Alert variant="destructive">
+        <AlertDescription>{otpError}</AlertDescription>
+      </Alert>
+    )}
+    <form onSubmit={handleOtpSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <Label htmlFor="otp">Verification Code</Label>
+        <Input
+          id="otp"
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]{6}"
+          maxLength={6}
+          placeholder="000000"
+          value={otpValue}
+          onChange={(e) => setOtpValue(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          className="text-center text-2xl tracking-widest font-mono bg-white/70 dark:bg-slate-700/70"
+          autoFocus
+          disabled={isLoading}
+          data-testid="input-otp"
+        />
+        <p className="text-xs text-slate-500 dark:text-slate-400 text-center">
+          Code expires in 10 minutes
+        </p>
+      </div>
+      <Button
+        type="submit"
+        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-3"
+        disabled={isLoading || otpValue.length < 6}
+        data-testid="button-verify-otp"
+      >
+        {isLoading ? 'Verifying…' : 'Verify & Sign In'}
+      </Button>
+    </form>
+    <button
+      type="button"
+      className="flex items-center gap-1 text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 mx-auto"
+      onClick={() => { setStep('credentials'); setOtpValue(''); setPendingToken(''); setOtpError(''); }}
+    >
+      <ArrowLeft className="w-3 h-3" /> Back to login
+    </button>
+  </div>
+)}
+Add Mail and ArrowLeft to the imports from lucide-react.
+
+What NOT to change
+Do not modify server/routes/platformAdmin.ts — the platform admin OTP flow is already
+complete and working.
+Do not change the dev auth bypass (isDevAuthBypass()) block — it must still log in
+directly without 2FA.
+Do not change the SSO login flow (/api/auth/sso/start, /api/auth/sso/callback).
+Do not change the session structure — only add to it.
+The "Remember login details" checkbox behaviour should not change.
+The handleCompanyBlur SSO check function should remain untouched.
+All existing API response shapes must stay the same — the verify-2fa route returns the
+same { success, user, customer, settings, logoToken } shape as the current login route.
+Testing checklist
+After implementing:
+
+Log in with correct credentials — should receive an OTP email and see the code
+entry screen.
+Enter correct code — should be redirected to dashboard with branding applied.
+Enter wrong code — should see error, code field clears, can retry.
+Wait 10+ minutes then enter code — should see "expired" error.
+Click "Back to login" — returns to credentials form, can start again.
+Dev auth bypass still logs in without 2FA.
+SSO login still works without 2FA.
+Platform admin login at /platform-admin/login is completely unaffected.
+---
+## One thing to flag before running this
+The **"Remember login details"** checkbox currently stores the password in `localStorage`. That's a pre-existing issue, but it's worth noting — once 2FA is in place it becomes less of a concern since knowing the password alone isn't enough to log in. Don't change it in this prompt — but worth a conversation for a future tidy-up.
