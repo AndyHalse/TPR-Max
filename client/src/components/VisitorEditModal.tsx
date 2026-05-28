@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { Visitor, VisitorHistory } from '@shared/schema';
+import { CompanyCombobox } from '@/components/CompanyCombobox';
 import { Save, X, Clock, CheckCircle, XCircle, History, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -94,6 +94,10 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  const { data: companies = [] } = useQuery<string[]>({
+    queryKey: ['/api/companies'],
+  });
 
   // Fetch visitor history
   const { data: visitorHistory = [], refetch: refetchHistory } = useQuery<VisitorHistory[]>({
@@ -213,11 +217,11 @@ export function VisitorEditModal({ visitor, open, onOpenChange }: VisitorEditMod
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="company">Company</Label>
-                <Input
-                  id="company"
+                <CompanyCombobox
                   value={formData.company}
-                  onChange={(e) => handleInputChange('company', e.target.value)}
-                  data-testid="input-edit-company"
+                  onChange={(val) => handleInputChange('company', val)}
+                  companies={companies}
+                  testId="input-edit-company"
                 />
               </div>
               <div>

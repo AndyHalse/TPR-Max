@@ -52,6 +52,10 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
     queryKey: ["/api/staff"],
   });
 
+  const { data: companies = [] } = useQuery<string[]>({
+    queryKey: ["/api/companies"],
+  });
+
   const { data: settings } = useQuery<CompanySettings>({
     queryKey: ["/api/settings"],
   });
@@ -497,6 +501,44 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
           <div className="px-6 py-2">
             {activeField && activeField !== "hostSearch" ? (
               <div className="max-w-4xl mx-auto">
+                {activeField === "company" && companies.length > 0 && (() => {
+                  const typed = formData.company.trim().toLowerCase();
+                  const suggestions = companies
+                    .filter(c => typed.length === 0 || c.toLowerCase().includes(typed))
+                    .sort((a, b) => {
+                      if (!typed) return a.localeCompare(b);
+                      const aStarts = a.toLowerCase().startsWith(typed);
+                      const bStarts = b.toLowerCase().startsWith(typed);
+                      if (aStarts && !bStarts) return -1;
+                      if (bStarts && !aStarts) return 1;
+                      return a.localeCompare(b);
+                    })
+                    .slice(0, 6);
+                  if (suggestions.length === 0) return null;
+                  return (
+                    <div className="mb-2">
+                      <div className="text-xs font-medium text-variable uppercase tracking-wide mb-1 px-1">Existing Companies</div>
+                      <div className="flex flex-wrap gap-2">
+                        {suggestions.map((company) => (
+                          <button
+                            key={company}
+                            onClick={() => {
+                              handleFieldChange("company", company);
+                              handleNextField();
+                            }}
+                            className={`px-4 py-2 rounded-full border-2 text-sm font-medium transition-all ${
+                              formData.company === company
+                                ? "border-green-500 bg-green-100 text-green-800"
+                                : "border-blue-300 bg-blue-50 text-blue-800 hover:bg-blue-100 active:scale-95"
+                            }`}
+                          >
+                            {company}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
                 <TouchKeyboard
                   value={formData[activeField]}
                   onChange={(value) => handleFieldChange(activeField, value)}
