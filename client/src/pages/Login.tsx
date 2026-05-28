@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Lock, User, LogIn, Building, ShieldCheck, Mail, ArrowLeft } from "lucide-react";
+import { Lock, User, LogIn, Building, Mail, ArrowLeft } from "lucide-react";
+import acsLogo from "@/assets/acs-logo.png";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Link } from "wouter";
@@ -297,8 +298,8 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4">
       <Card className="w-full max-w-md bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-2 border-blue-200 dark:border-blue-800 shadow-2xl">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center shadow-lg">
-            <ShieldCheck className="w-9 h-9 text-white" />
+          <div className="mx-auto w-24 h-16 flex items-center justify-center">
+            <img src={acsLogo} alt="ACS Logo" className="h-full w-auto object-contain" />
           </div>
           <div>
             <CardTitle className="text-2xl font-bold text-slate-800 dark:text-slate-200">
