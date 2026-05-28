@@ -321,8 +321,8 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
         </div>
       )}
 
-      {/* ── COMPANY CHIPS ── shown directly above keyboard, never clipped */}
-      {currentStep === "company" && companySuggestions.length > 0 && (
+      {/* ── COMPANY CHIPS ── shown after 3 letters typed, directly above keyboard */}
+      {currentStep === "company" && formData.company.trim().length >= 3 && companySuggestions.length > 0 && (
         <div className="flex-shrink-0 px-6 pb-2">
           <p className="text-xs font-semibold text-variable uppercase tracking-wide mb-1.5">Known companies</p>
           <div className="flex flex-wrap gap-2">
