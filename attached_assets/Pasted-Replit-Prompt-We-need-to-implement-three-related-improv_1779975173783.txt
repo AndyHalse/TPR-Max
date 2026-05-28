@@ -1,0 +1,133 @@
+Replit Prompt
+We need to implement three related improvements to TPR Max. Read this carefully before touching any file.
+---
+## BACKGROUND: How feature flags currently work
+Each customer gets their own isolated PostgreSQL schema. Their `company_settings` table contains boolean feature flags for every module (featureDashboard, featureVisitors, featureContractors, featureStaff, featureMusterList, featureReports, featureSettingsPage, featureHrModule, featureComplianceDashboard, featureIncidentReports, featureHsIncidents, featureFireRiskAssessment, featureMartynLaw, featureEmailOutbox, featurePPM, featureHelpDesk, featureAuditEngine, featureComplianceCertificates, featurePermitToWork, featureRaBuilder, featureMeetingRooms, featureTimeAttendance, featureContractorPage, featureMembers, featureInductionSettings, featureKiosk).
+The platform admin currently controls ONE of these (featurePPM) via:
+- GET/PATCH `/platform-admin/customers/:id/features` in `server/routes/platformAdmin.ts` (lines 708–738)
+- A single toggle in the Edit Customer modal in `client/src/pages/PlatformAdminDashboard.tsx` (lines 1178–1194)
+The customer's `client/src/components/Layout.tsx` (lines 226–268) uses these flags to show/hide nav items. The customer can also toggle many of these themselves in `client/src/pages/settings/SystemSettings.tsx` (around line 1037).
+---
+## CHANGE 1: Expand platform admin feature control to ALL modules
+### What to build
+**In the management database** (`shared/schema.ts`), add a new TEXT array column to the `customers` table:
+```sql
+platform_disabled_features TEXT[] NOT NULL DEFAULT '{}'
+This is the ONLY source of truth for what the platform admin has locked. Do NOT write locks into each customer's isolated company_settings — that table is customer-editable.
+
+Add a Drizzle column in shared/schema.ts to the customers table:
+
+platformDisabledFeatures: text("platform_disabled_features").array().notNull().default([]),
+Run a migration to add this column to the management DB.
+
+Server routes — update server/routes/platformAdmin.ts:
+
+Replace the existing GET/PATCH /platform-admin/customers/:id/features endpoints (lines 708–738) with these:
+
+GET /platform-admin/customers/:id/features — returns { platformDisabledFeatures: string[] } from the management DB customers table. No need to touch customer schemas.
+PATCH /platform-admin/customers/:id/features — accepts { platformDisabledFeatures: string[] }, validates each entry is a known feature key (see list above), saves to the management DB customers table. No need to touch customer schemas.
+Remove the old raw SQL that wrote feature_ppm into customer schemas from the platform admin route. The existing featurePPM in company_settings is now purely for the customer's own preference — the platform lock lives separately.
+
+Customer settings API — In the route(s) that return company settings (search for /api/settings or /api/company-settings), also fetch platformDisabledFeatures from the management DB for the current customer and include it in the response. The frontend should receive something like:
+
+{
+  "settings": { ...existing fields... },
+  "platformDisabledFeatures": ["featurePPM", "featureHelpDesk"]
+}
+Platform admin UI — in client/src/pages/PlatformAdminDashboard.tsx, update the Edit Customer modal (starting around line 1148):
+
+Replace the single PPM toggle with a full feature management section. Show all 26 feature keys as checkboxes or switches, grouped into two sections:
+
+Core Modules (enabled by default):
+
+Dashboard, Compliance Score, Visitors, Contractors, Contractor In/Out, Staff, Members, Meeting Rooms, T&A Report, Muster List, Incident Reports, H&S Incidents, Fire Risk Assessment, Martyn's Law, Reports, Induction Settings, Kiosk Mode, Email Outbox, HR, Settings
+Add-on Modules (disabled by default):
+
+PPM (Planned Preventive Maintenance), Audits & Inspections, Compliance Register, Permit to Work, RA Builder, Help Desk
+For each feature, if it is in platformDisabledFeatures, the switch shows as OFF. Toggling it adds/removes it from platformDisabledFeatures via PATCH. Label these clearly: "Disabled by platform admin — customer cannot enable".
+
+Update the query key for features:
+
+queryKey: ["/platform-admin/customers", editingCustomer?.id, "features"]
+Update the query/mutation to use the new endpoint shape.
+
+Customer settings UI — in client/src/pages/settings/SystemSettings.tsx, wherever feature toggles are rendered (around line 1037 and nearby), update the toggle to:
+
+Fetch platformDisabledFeatures from the company settings API response
+If a feature key is in platformDisabledFeatures, render the Switch with disabled={true} and add a small note beneath it: "This module has been disabled by your platform administrator."
+The toggle should still visually show the current value (so the customer can see it's off) but cannot be changed
+CHANGE 2: Default all features ON for new customers
+When a new customer is provisioned via server/customerOnboardingService.ts or the bootstrap migration (server/bootstrapSchemaMigration.ts), currently many feature flags in company_settings default to false (meeting rooms, contractor page, members, etc.).
+
+Change the bootstrap: In server/bootstrapSchemaMigration.ts (search for feature_ in the INSERT statement that seeds company_settings), ensure ALL feature flags are set to true when creating a new customer's schema. The platform admin can then disable specific ones after creation via the new interface.
+
+Migration for existing customers: Add a new migration in server/migrationRunner.ts after the last entry (currently 20260527_054_martyn_law_audit_columns). Version it 20260528_055_set_all_features_on. This migration runs UPDATE company_settings SET feature_meeting_rooms = true, feature_time_attendance = true, feature_induction_settings = true, feature_kiosk = true, feature_contractor_page = true, feature_members = true, feature_help_desk = false, feature_ppm = false, feature_audit_engine = false, feature_compliance_certificates = false, feature_permit_to_work = false, feature_ra_builder = false — keeping the add-on modules OFF by default (the platform admin can enable those per customer when they've paid for them) but turning all core modules ON.
+
+CHANGE 3: Two-factor authentication via email for customer login
+What to build
+Add email-based 2FA to the customer login flow at server/routes/auth.ts. The existing login is at line 40: app.post("/api/auth/login", ...).
+
+Database: Add a migration (20260528_056_add_2fa_columns) to the isolated customer schema adding these columns to the users table:
+
+two_fa_code VARCHAR(6),
+two_fa_expires_at TIMESTAMP,
+two_fa_verified BOOLEAN DEFAULT false
+Add corresponding Drizzle columns to server/isolatedSchema.ts in the users table definition:
+
+twoFaCode: varchar("two_fa_code", { length: 6 }),
+twoFaExpiresAt: timestamp("two_fa_expires_at"),
+Modified login flow (server/routes/auth.ts):
+
+Currently, a successful password check immediately creates the session. Change this to a two-step flow:
+
+Step 1 — Credentials check (POST /api/auth/login):
+
+Validate company name, username, password as now
+If credentials are valid:
+Generate a 6-digit random code
+Store it on the user record (twoFaCode, twoFaExpiresAt = now + 10 minutes)
+Send an email to the user's email address using emailService.sendEmail() with subject "Your TPR Max login code" and body "Your verification code is: XXXXXX. This code expires in 10 minutes. If you did not request this, please contact your administrator."
+Return HTTP 200 with { requires2fa: true, userId: user.id } — do NOT create a session yet
+Do not expose whether the company/username doesn't exist differently to the existing error (keep same generic error for invalid credentials)
+Step 2 — Code verification (new route POST /api/auth/verify-2fa):
+
+Accepts { userId: string, code: string }
+Find the user by ID in their customer's schema (need to also receive companyName or customerId to find the right schema — consider accepting { companyName: string, userId: string, code: string })
+Check code matches AND twoFaExpiresAt is in the future
+If valid:
+Clear twoFaCode and twoFaExpiresAt
+Create the session (same session setup code as the existing login flow)
+Return the same response shape as the current successful login
+If invalid or expired: return 401 with { error: "Invalid or expired verification code" }
+Implement rate limiting: max 5 attempts per userId in 15 minutes (reuse the existing rateLimit pattern from platformAdmin.ts)
+Frontend login page (client/src/pages/LoginPage.tsx or wherever the login form lives — search for the component that POSTs to /api/auth/login):
+
+After a successful step 1 response (requires2fa: true), show a second screen in the same component:
+
+A simple input field labelled "Verification Code"
+Explanatory text: "A 6-digit code has been sent to your email address. Enter it below to continue."
+A "Verify" button that POSTs to /api/auth/verify-2fa
+A "Resend code" button that re-submits the original credentials to POST /api/auth/login again
+Handle expired code errors with a clear message
+Email fallback: If the user has no email address on their account, skip 2FA and log in directly (with a warning in server logs). This prevents lockouts for accounts without email set.
+
+Do NOT change the platform admin login flow at server/routes/platformAdmin.ts (POST /platform-admin/auth/login) — that's separate.
+
+Do NOT change the dev auth bypass (isDevAuthBypass() check in auth.ts) — keep that working as-is.
+
+IMPORTANT: Do not break anything
+Do not modify the customer isolation logic in server/customerDatabase.ts
+Do not change session structure — only ADD to it
+Do not change any existing API response shapes — only ADD new fields
+Run existing migrations before adding new ones (respect the migration runner's ordering)
+Test that existing login, logout, and settings save still work after changes
+The company settings API must still return all the same fields it currently does — platformDisabledFeatures should be an additional field, not a replacement
+Keep the featurePPM column in company_settings working as the customer's own preference — the new platformDisabledFeatures is a separate platform-level lock that overrides it in the UI
+---
+## What you might be missing
+A few things worth confirming before this goes into Replit:
+1. **2FA scope**: The prompt applies 2FA to ALL customer users who log in. If you only want it for admin-role users (not regular staff), that's a small tweak — just add a `role === 'admin'` check before triggering the code. Worth deciding now.
+2. **Add-on modules default OFF**: I've kept PPM, Audit Engine, Compliance Certs, Permit to Work, RA Builder, and Help Desk as default OFF for new and existing customers — these seem to be paid add-ons. Platform admin can then enable them per customer. Is that right, or should everything be ON by default?
+3. **The existing PPM toggle behaviour changes**: Currently, toggling PPM in the platform admin edit modal writes directly into the customer's `company_settings`. After this change, the platform admin sets a "lock" and the customer's own toggle is separate. Existing customers with PPM enabled in `company_settings` will still have it enabled — you just now also have a lock mechanism. This is backward-compatible.
+4. **Email address required for 2FA**: If any of your existing customer admin accounts don't have an email address stored, they'll skip 2FA. Worth checking your existing customers have emails set.
+5. **No 2FA for the platform admin login**: The prompt deliberately leaves your own `/platform-admin/login` without 2FA. If you want 2FA on your own admin login too, that's a separate, simpler addition (it's a single known login with one admin account).
