@@ -306,7 +306,7 @@ export default function Login() {
               TPR Max
             </CardTitle>
             <CardDescription className="text-slate-600 dark:text-slate-400">
-              Total Personnel Register
+              Total Protection & Response
             </CardDescription>
           </div>
         </CardHeader>
