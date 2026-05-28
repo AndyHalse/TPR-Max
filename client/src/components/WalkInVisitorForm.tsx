@@ -6,6 +6,7 @@ import GlassCard from "@/components/GlassCard";
 import TouchKeyboard from "@/components/TouchKeyboard";
 import PassPreviewModal from "@/components/PassPreviewModal";
 import HSAcceptanceModal from "@/components/HSAcceptanceModal";
+import NDAAcceptanceModal from "@/components/NDAAcceptanceModal";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
@@ -19,21 +20,23 @@ interface WalkInVisitorFormProps {
   onBack: () => void;
 }
 
-const FIELD_ORDER: Array<"firstName" | "lastName" | "company" | "purpose"> = ["firstName", "lastName", "company", "purpose"];
+const FIELD_ORDER: Array<"firstName" | "lastName" | "email" | "company" | "purpose"> = ["firstName", "lastName", "email", "company", "purpose"];
 
 const FIELD_LABELS: Record<string, string> = {
   firstName: "Last Name",
-  lastName: "Company",
-  company: "Purpose of Visit",
+  lastName: "Email",
+  email: "Company",
+  company: "Visit Reason",
   purpose: "Host Selection",
 };
 
 export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const { toast } = useToast();
-  const [activeField, setActiveField] = useState<"firstName" | "lastName" | "company" | "purpose" | "hostSearch" | null>("firstName");
+  const [activeField, setActiveField] = useState<"firstName" | "lastName" | "email" | "company" | "purpose" | "hostSearch" | null>("firstName");
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
+    email: "",
     company: "",
     purpose: "",
     hostStaffId: "",
@@ -43,6 +46,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const [createdVisitor, setCreatedVisitor] = useState<Visitor | null>(null);
   const [showPassPreview, setShowPassPreview] = useState(false);
   const [showHSModal, setShowHSModal] = useState(false);
+  const [showNdaModal, setShowNdaModal] = useState(false);
   const [pendingVisitorData, setPendingVisitorData] = useState<InsertVisitor | null>(null);
   const [selectedReason, setSelectedReason] = useState<any | null>(null);
   const [showReasonPicker, setShowReasonPicker] = useState(false);
@@ -168,10 +172,10 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
         });
       }
     },
-    onError: () => {
+    onError: (error: any) => {
       toast({
-        title: "Error",
-        description: "Failed to check in visitor",
+        title: "Check-in failed",
+        description: error?.message || "Failed to check in visitor. Please try again.",
         variant: "destructive",
       });
     },
@@ -199,10 +203,10 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       return;
     }
     const currentIndex = FIELD_ORDER.indexOf(activeField as any);
-    // If moving to "purpose" and visitor reasons are configured, open the picker instead
     if (currentIndex < FIELD_ORDER.length - 1) {
       const nextField = FIELD_ORDER[currentIndex + 1];
-      if (nextField === "purpose" && visitorReasons.length > 0) {
+      // Only open the reason picker if no reason has been selected yet
+      if (nextField === "purpose" && visitorReasons.length > 0 && !selectedReason) {
         setShowReasonPicker(true);
         return;
       }
@@ -224,6 +228,21 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
     setHostSearch("");
   };
 
+  const checkAndSubmitWithNda = (data: any) => {
+    const settingsAny = settings as any;
+    const ndaEnabled = !!settingsAny?.ndaEnabled;
+    const ndaAppliesTo = settingsAny?.ndaAppliesTo || 'visitors';
+    const ndaAppliesToVisitors = ndaAppliesTo === 'visitors' || ndaAppliesTo === 'both';
+    const ndaRequireSig = !!settingsAny?.ndaRequireSignature;
+    const ndaHasContent = !!(settingsAny?.ndaContent?.trim());
+    if (ndaEnabled && ndaAppliesToVisitors && ndaRequireSig && ndaHasContent) {
+      setPendingVisitorData(data);
+      setShowNdaModal(true);
+      return;
+    }
+    checkinMutation.mutate(data);
+  };
+
   const handleSubmit = () => {
     if (!formData.firstName.trim()) {
       toast({ title: "Error", description: "First name is required", variant: "destructive" });
@@ -241,9 +260,10 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       return;
     }
 
-    const visitorData: InsertVisitor = {
+    const visitorData: any = {
       firstName: formData.firstName.trim(),
       lastName: formData.lastName.trim(),
+      email: formData.email.trim() || null,
       company: formData.company || null,
       purpose: formData.purpose || null,
       hostStaffId: formData.hostStaffId,
@@ -251,7 +271,6 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
     };
 
     const settingsAny = settings as any;
-    // Per-reason H&S takes priority; fallback to company-level H&S if no per-reason trigger
     const reasonHsRequired = selectedReason?.requireHsAcceptance;
     const companyHsRequired = !reasonHsRequired &&
       settingsAny?.hsRulesEnabled !== false &&
@@ -263,22 +282,33 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       return;
     }
 
-    checkinMutation.mutate(visitorData);
+    checkAndSubmitWithNda(visitorData);
   };
 
   const handleHSAccepted = () => {
     setShowHSModal(false);
     if (pendingVisitorData) {
-      checkinMutation.mutate({
-        ...pendingVisitorData,
-        hsRulesAccepted: true,
-      } as any);
+      const dataWithHs = { ...pendingVisitorData, hsRulesAccepted: true };
       setPendingVisitorData(null);
+      checkAndSubmitWithNda(dataWithHs);
     }
   };
 
   const handleHSDeclined = () => {
     setShowHSModal(false);
+    setPendingVisitorData(null);
+  };
+
+  const handleNDAAccepted = () => {
+    setShowNdaModal(false);
+    if (pendingVisitorData) {
+      checkinMutation.mutate({ ...pendingVisitorData, ndaAccepted: true } as any);
+      setPendingVisitorData(null);
+    }
+  };
+
+  const handleNDADeclined = () => {
+    setShowNdaModal(false);
     setPendingVisitorData(null);
   };
 
@@ -392,46 +422,68 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                       </span>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <Label className="text-base font-semibold text-fixed flex items-center gap-2">
                       <span className="w-5 h-5 bg-gray-500 text-white rounded-full text-xs flex items-center justify-center">4</span>
-                      {visitorReasons.length > 0 ? "Visit Reason" : "Purpose"} <span className="text-xs text-variable font-normal">(Optional)</span>
+                      Email <span className="text-xs text-variable font-normal">(Optional — for e-pass)</span>
                     </Label>
                     <div
-                      onClick={() => {
-                        if (visitorReasons.length > 0) {
-                          setShowReasonPicker(true);
-                        } else {
-                          setActiveField("purpose");
-                        }
-                      }}
-                      className={`w-full px-6 py-5 rounded-xl border-2 cursor-pointer transition-all text-lg font-medium flex items-center gap-2 ${
-                        selectedReason
-                          ? "border-green-400 bg-green-50 shadow-md"
-                          : formData.purpose
+                      onClick={() => setActiveField("email")}
+                      className={`w-full px-6 py-5 rounded-xl border-2 cursor-pointer transition-all text-lg font-medium ${
+                        activeField === "email"
+                          ? "border-blue-500 bg-blue-50 ring-2 ring-blue-200 shadow-lg"
+                          : formData.email
                             ? "border-green-400 bg-green-50 shadow-md"
                             : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
                       }`}
-                      data-testid="input-purpose"
+                      data-testid="input-email"
                     >
-                      {selectedReason && <MapPin size={18} className="text-green-600 flex-shrink-0" />}
-                      <span className={selectedReason || formData.purpose ? "text-slate-800" : "text-slate-400"}>
-                        {selectedReason
-                          ? selectedReason.label
-                          : formData.purpose
-                            ? formData.purpose
-                            : visitorReasons.length > 0
-                              ? "Touch to select reason"
-                              : "Touch to enter purpose"}
+                      <span className={formData.email ? "text-slate-800" : "text-slate-400"}>
+                        {formData.email || "Touch to enter email"}
                       </span>
                     </div>
                   </div>
                 </div>
 
+                <div className="space-y-1">
+                  <Label className="text-base font-semibold text-fixed flex items-center gap-2">
+                    <span className="w-5 h-5 bg-gray-500 text-white rounded-full text-xs flex items-center justify-center">5</span>
+                    {visitorReasons.length > 0 ? "Visit Reason" : "Purpose"} <span className="text-xs text-variable font-normal">(Optional)</span>
+                  </Label>
+                  <div
+                    onClick={() => {
+                      if (visitorReasons.length > 0) {
+                        setShowReasonPicker(true);
+                      } else {
+                        setActiveField("purpose");
+                      }
+                    }}
+                    className={`w-full px-6 py-5 rounded-xl border-2 cursor-pointer transition-all text-lg font-medium flex items-center gap-2 ${
+                      selectedReason
+                        ? "border-green-400 bg-green-50 shadow-md"
+                        : formData.purpose
+                          ? "border-green-400 bg-green-50 shadow-md"
+                          : "border-white/40 bg-white/60 hover:bg-white/80 hover:border-blue-300 shadow-md"
+                    }`}
+                    data-testid="input-purpose"
+                  >
+                    {selectedReason && <MapPin size={18} className="text-green-600 flex-shrink-0" />}
+                    <span className={selectedReason || formData.purpose ? "text-slate-800" : "text-slate-400"}>
+                      {selectedReason
+                        ? selectedReason.label
+                        : formData.purpose
+                          ? formData.purpose
+                          : visitorReasons.length > 0
+                            ? "Touch to select reason"
+                            : "Touch to enter purpose"}
+                    </span>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <Label className="text-base font-semibold text-fixed flex items-center gap-2">
-                    <span className="w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">5</span>
+                    <span className="w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">6</span>
                     Who are you here to see? *
                   </Label>
                   
@@ -543,7 +595,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
                   value={formData[activeField]}
                   onChange={(value) => handleFieldChange(activeField, value)}
                   placeholder={`Enter ${activeField.replace(/([A-Z])/g, ' $1').toLowerCase()}`}
-                  type="text"
+                  type={activeField === "email" ? "email" : "text"}
                   fieldType={activeField === "firstName" || activeField === "lastName" ? "name" : "general"}
                   onNext={handleNextField}
                   nextLabel={getNextLabel()}
@@ -628,6 +680,14 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
           }
           onAccept={handleHSAccepted}
           onDecline={handleHSDeclined}
+        />
+
+        <NDAAcceptanceModal
+          isOpen={showNdaModal}
+          companyName={(settings as any)?.companyName}
+          ndaContent={(settings as any)?.ndaContent || ""}
+          onAccept={handleNDAAccepted}
+          onDecline={handleNDADeclined}
         />
 
         <VisitInstructionsModal
