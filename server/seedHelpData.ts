@@ -60,7 +60,7 @@ function buildNewArticles(categoryMap: Record<string, string>) {
       summary: "Managing CDM 2015 obligations, project registers, contractor notifiability, and F10 notifications",
       content: `# CDM 2015 Compliance
 
-TPR-Max provides a dedicated CDM 2015 (Construction Design and Management) compliance module to help Principal Contractors, Principal Designers, and Clients meet their legal obligations.
+TPR provides a dedicated CDM 2015 (Construction Design and Management) compliance module to help Principal Contractors, Principal Designers, and Clients meet their legal obligations.
 
 ## What Is CDM 2015?
 The Construction (Design and Management) Regulations 2015 place duties on Clients, Principal Designers, and Principal Contractors for notifiable construction projects. Key obligations include:
@@ -78,13 +78,13 @@ Manage all your notifiable projects in one place:
 3. Fill in the project wizard:
    - **Project details**: Name, description, address, expected start and end dates
    - **Duty holders**: Client, Principal Designer, and Principal Contractor names/companies
-   - **Notifiability check**: Answer the two questions (>30 working days with >20 simultaneous workers, or >500 person-days) — TPR-Max automatically determines if F10 notification is required
+   - **Notifiability check**: Answer the two questions (>30 working days with >20 simultaneous workers, or >500 person-days) — TPR automatically determines if F10 notification is required
 4. The project is added to your CDM compliance register
 
 ## F10 Notification
 For notifiable projects, the HSE must be informed before the construction phase begins:
 
-- TPR-Max flags projects as **"F10 Required"** based on your answers to the notifiability questions
+- TPR flags projects as **"F10 Required"** based on your answers to the notifiability questions
 - A status banner on each project shows whether F10 has been submitted
 - Mark a project as F10 submitted using the project detail controls
 - Future versions will support automated F10 email alerts when submission is due
@@ -128,7 +128,7 @@ The CDM project register can be exported as a PDF for client reporting or HSE au
       summary: "Setting up PPM assets, maintenance templates, schedules, and recording completed tasks",
       content: `# Planned Preventative Maintenance (PPM)
 
-TPR-Max includes a full PPM module to schedule, track, and record maintenance activities across your assets and facilities.
+TPR includes a full PPM module to schedule, track, and record maintenance activities across your assets and facilities.
 
 ## What Is PPM?
 Planned Preventative Maintenance is the regular, scheduled maintenance of equipment and facilities to prevent breakdowns and ensure compliance. In UK workplaces, PPM supports obligations under:
@@ -167,7 +167,7 @@ Link an asset to a maintenance template to create a schedule:
 2. Click **"Add Schedule"**
 3. Select the asset and template
 4. Set the first due date
-5. TPR-Max automatically calculates the next due date based on the template frequency
+5. TPR automatically calculates the next due date based on the template frequency
 6. Overdue tasks are highlighted in red
 
 ## Recording Completed Maintenance
@@ -215,7 +215,7 @@ The PPM overview shows:
       summary: "How to start lone worker sessions, configure check-in alerts, and manage escalations",
       content: `# Lone Worker Monitoring
 
-TPR-Max includes lone worker monitoring to protect staff and contractors who work alone or in isolated areas, in line with the HSE's guidance on lone working.
+TPR includes lone worker monitoring to protect staff and contractors who work alone or in isolated areas, in line with the HSE's guidance on lone working.
 
 ## What Is Lone Working?
 The HSE defines a lone worker as someone who works by themselves without close or direct supervision. UK employers have a legal duty of care to assess and manage the risks to lone workers.
@@ -243,7 +243,7 @@ The lone worker receives a unique URL or SMS/email link:
 ## Missed Check-in Alerts
 If a worker misses their check-in window:
 - The system flags the session as overdue
-- An alert is raised in the TPR-Max admin interface
+- An alert is raised in the TPR admin interface
 - Depending on configuration, escalation notifications can be sent
 
 ## Monitoring Active Sessions
@@ -294,7 +294,7 @@ All lone worker session data is retained for:
       summary: "Managing members, memberships types, check-in, and including members in emergency mustering",
       content: `# Members & Community Management
 
-TPR-Max supports a Members module for organisations such as clubs, associations, leisure centres, or any venue where people have ongoing membership relationships rather than one-off visits.
+TPR supports a Members module for organisations such as clubs, associations, leisure centres, or any venue where people have ongoing membership relationships rather than one-off visits.
 
 ## What Are Members?
 Members are distinct from visitors and staff — they are people with a recurring relationship with your organisation, such as:
@@ -363,13 +363,13 @@ Members support the same ID card printing features as visitors and contractors:
       categoryId: categoryMap["Settings & Configuration"],
       title: "BioStar 2 Access Control Integration",
       slug: createSlug("BioStar 2 Access Control Integration"),
-      summary: "Connecting TPR-Max to Suprema BioStar 2 for access control synchronisation and live event monitoring",
+      summary: "Connecting TPR to Suprema BioStar 2 for access control synchronisation and live event monitoring",
       content: `# BioStar 2 Access Control Integration
 
-TPR-Max integrates natively with Suprema BioStar 2, the leading access control and time-attendance platform, to synchronise personnel data and bring door reader events into your site management dashboard.
+TPR integrates natively with Suprema BioStar 2, the leading access control and time-attendance platform, to synchronise personnel data and bring door reader events into your site management dashboard.
 
 ## What Is BioStar 2?
-BioStar 2 is an access control and time-attendance management platform by Suprema. It manages door readers, turnstiles, biometric devices, and access permissions. The TPR-Max integration bridges your physical access control system with your personnel management and emergency mustering capabilities.
+BioStar 2 is an access control and time-attendance management platform by Suprema. It manages door readers, turnstiles, biometric devices, and access permissions. The TPR integration bridges your physical access control system with your personnel management and emergency mustering capabilities.
 
 ## Setting Up the Integration
 Configuration is done in **Settings** > **BioStar 2 Integration**:
@@ -383,7 +383,7 @@ Configuration is done in **Settings** > **BioStar 2 Integration**:
 4. The integration begins receiving live door events
 
 ## Live Door Event Log
-Once connected, TPR-Max receives real-time door access events:
+Once connected, TPR receives real-time door access events:
 - Door open / close events
 - Access granted / denied events
 - Device status updates
@@ -392,21 +392,21 @@ Once connected, TPR-Max receives real-time door access events:
 View the live log in **Settings** > **BioStar 2** > **Live Event Log**.
 
 ## Personnel Synchronisation
-The integration can synchronise personnel between BioStar 2 and TPR-Max:
-- Enrolled BioStar 2 users can be matched to TPR-Max staff records
-- Access grant events can trigger automatic check-in in TPR-Max
+The integration can synchronise personnel between BioStar 2 and TPR:
+- Enrolled BioStar 2 users can be matched to TPR staff records
+- Access grant events can trigger automatic check-in in TPR
 - This eliminates manual check-in for staff using door readers
 
 ## Security Considerations
 - Communication with BioStar 2 uses HTTPS with TLS
 - Credentials are stored securely and never exposed in client-side code
 - The connection runs server-side — BioStar 2 is not accessible directly from browsers
-- Each TPR-Max customer has their own isolated BioStar 2 connection
+- Each TPR customer has their own isolated BioStar 2 connection
 
 ## Troubleshooting the BioStar 2 Connection
 **Connection refused**:
 1. Verify the server URL includes the port (default: 8443)
-2. Check the BioStar 2 server is running and accessible from TPR-Max's server
+2. Check the BioStar 2 server is running and accessible from TPR's server
 3. Ensure the BioStar 2 account has API access permissions
 4. Check that SSL certificate issues are not blocking the connection
 
@@ -502,7 +502,7 @@ Five cards at the top of the planner show counts for the selected year:
 
 ## Loading Demo Data
 
-If you are setting up TPR-Max for the first time, or want to see example data, click **"Load Demo Data"** in the PPM section (available to Administrators only).
+If you are setting up TPR for the first time, or want to see example data, click **"Load Demo Data"** in the PPM section (available to Administrators only).
 
 **Important: Loading demo data wipes all existing PPM assets, schedules, templates, and work orders before inserting fresh examples.** Do not use this on a live account with real data.
 
@@ -831,7 +831,7 @@ A standard exit checklist is auto-created:
 - Return of company laptop, phone, keys, pass
 - Final timesheet submitted
 - Outstanding annual leave taken or paid out
-- Access removed from systems (TPR-Max, email, BioStar 2, Paxton, payroll)
+- Access removed from systems (TPR, email, BioStar 2, Paxton, payroll)
 - Exit interview booked and completed
 
 Track progress on the leaver record. The HR dashboard card "Leavers this month" surfaces anyone with a last working day in the current month.
@@ -1054,7 +1054,7 @@ Each staff member shows one of four statuses:
 - **❓ Not recorded** — no RTW check on file; staff cannot use kiosk self-service until a record is added
 
 ## Kiosk Sign-In Enforcement
-When a staff member scans their QR code at the TPR-Max kiosk:
+When a staff member scans their QR code at the TPR kiosk:
 - The system checks their RTW status in real time
 - If their RTW document has **expired**, the kiosk displays a block screen:
   *"Entry denied: Right to Work documentation has expired. Contact HR."*
@@ -1209,7 +1209,7 @@ HR Admins can view the full document list and download log for any staff member 
       summary: "Issuing NDAs and company policies for digital acceptance, tracking who has signed and when",
       content: `# NDA & Policy Acceptance Tracking
 
-TPR-Max allows you to issue Non-Disclosure Agreements, company policies, and compliance declarations to staff for digital acknowledgement — creating a timestamped audit trail of who accepted each document and when.
+TPR allows you to issue Non-Disclosure Agreements, company policies, and compliance declarations to staff for digital acknowledgement — creating a timestamped audit trail of who accepted each document and when.
 
 ## How It Works
 1. A confidential document (NDA, acceptable use policy, data handling declaration) is uploaded to the staff member's **Documents** tab
@@ -1252,7 +1252,7 @@ Set an **expiry date** on any NDA. HR will be alerted 30 days before expiry to r
       categoryId: categoryMap["Safety & Compliance"],
       title: "Martyn's Law (Protect Duty) Compliance",
       slug: createSlug("Martyns Law Protect Duty Compliance"),
-      summary: "Meeting the Terrorism (Protection of Premises) Act / Protect Duty using TPR-Max occupancy, plans and drills",
+      summary: "Meeting the Terrorism (Protection of Premises) Act / Protect Duty using TPR occupancy, plans and drills",
       content: `# Martyn's Law (Protect Duty) Compliance
 
 Martyn's Law — the Terrorism (Protection of Premises) Act 2025 — places duties on operators of public-facing premises to reduce the risk of and harm from terrorist attacks.
@@ -1262,8 +1262,8 @@ Premises and events where **200 or more people** could reasonably be expected to
 - **Standard tier** (200–799 capacity) — public protection procedures
 - **Enhanced tier** (800+ capacity) — additional documented public protection measures, monitoring, security plan
 
-## How TPR-Max Helps
-TPR-Max provides the evidence and tools the new law requires:
+## How TPR Helps
+TPR provides the evidence and tools the new law requires:
 
 ### Real-time Occupancy Awareness
 The dashboard shows total people on site (visitors + staff + contractors + members) live. Zone-based counts are available in the muster module.
@@ -1334,7 +1334,7 @@ The Reporting of Injuries, Diseases and Dangerous Occurrences Regulations 2013 r
 5. Save — the system flags whether RIDDOR is likely required
 
 ## RIDDOR Flag
-TPR-Max auto-flags incidents as **"RIDDOR-reportable likely"** based on the severity and type fields. The flag is advisory — you must always make the final judgement and submit through the HSE F2508 online form within the legal timescale (10 days for over-7-day injuries, "without delay" for fatalities and specified injuries).
+TPR auto-flags incidents as **"RIDDOR-reportable likely"** based on the severity and type fields. The flag is advisory — you must always make the final judgement and submit through the HSE F2508 online form within the legal timescale (10 days for over-7-day injuries, "without delay" for fatalities and specified injuries).
 
 ## Investigations
 Each incident has an investigation record:
@@ -1376,7 +1376,7 @@ Encourage a near-miss culture: any worker can log a near-miss through the kiosk 
 The Regulatory Reform (Fire Safety) Order 2005 requires the Responsible Person of every workplace (and most non-domestic premises) to carry out a written Fire Risk Assessment and keep it up to date.
 
 ## The Five Steps
-TPR-Max follows the Government's five-step FRA structure:
+TPR follows the Government's five-step FRA structure:
 1. **Identify fire hazards** — sources of ignition, fuel, oxygen
 2. **Identify people at risk** — staff, visitors, vulnerable people
 3. **Evaluate, remove or reduce risks** — controls in place / required
@@ -1612,51 +1612,51 @@ RAMS approved as "annual" auto-expire on the renewal date. The contractor and th
       categoryId: categoryMap["Settings & Configuration"],
       title: "Paxton Net2 Access Control Integration",
       slug: createSlug("Paxton Net2 Access Control Integration"),
-      summary: "Connecting TPR-Max to Paxton Net2 for personnel sync, door event logging and access control",
+      summary: "Connecting TPR to Paxton Net2 for personnel sync, door event logging and access control",
       content: `# Paxton Net2 Access Control Integration
 
-TPR-Max integrates with Paxton Net2, one of the UK's most widely deployed access control systems, to synchronise people records and bring door events into the personnel dashboard.
+TPR integrates with Paxton Net2, one of the UK's most widely deployed access control systems, to synchronise people records and bring door events into the personnel dashboard.
 
 ## What Is Paxton Net2?
 Net2 is a PC-based access control system from Paxton Access. It manages door readers, intercoms, tokens, fobs and biometric devices for everything from a single-door office to a large multi-site estate.
 
-## Connecting TPR-Max to Net2
+## Connecting TPR to Net2
 The integration uses Net2's local API. You will need:
 - A Net2 server (Net2 software v6 or later) on your network
 - An Operator account with API access
-- Network connectivity from the TPR-Max server to the Net2 server (typically a VPN or a dedicated IP allow-list)
+- Network connectivity from the TPR server to the Net2 server (typically a VPN or a dedicated IP allow-list)
 
 Configure in **Settings** > **Paxton Net2 Integration**:
 1. **Net2 server URL** — including port (default: 8080)
 2. **Operator username** and **password**
-3. **Department mapping** — match Net2 departments to TPR-Max staff departments
+3. **Department mapping** — match Net2 departments to TPR staff departments
 4. Click **"Test Connection"**
 5. Click **"Save"** to enable the integration
 
 ## What the Integration Does
-**Personnel sync** — TPR-Max staff records can be pushed to Net2 as Net2 users, with their access token reference linked. When you add or terminate a staff member in TPR-Max, the change is reflected in Net2 automatically.
+**Personnel sync** — TPR staff records can be pushed to Net2 as Net2 users, with their access token reference linked. When you add or terminate a staff member in TPR, the change is reflected in Net2 automatically.
 
-**Live door events** — Door grant / deny events flow into TPR-Max in real time. View them in **Settings** > **Paxton** > **Event Log**.
+**Live door events** — Door grant / deny events flow into TPR in real time. View them in **Settings** > **Paxton** > **Event Log**.
 
-**Auto check-in** — Optionally, an access-grant event at the main entrance triggers check-in for the staff member in TPR-Max — removing the need for them to also use the kiosk.
+**Auto check-in** — Optionally, an access-grant event at the main entrance triggers check-in for the staff member in TPR — removing the need for them to also use the kiosk.
 
 **Leaver de-provisioning** — When a staff member is moved to **Leaver** status in HR, their Net2 token is automatically blocked on their last working day.
 
 ## Security
 - Net2 credentials are stored encrypted; never exposed to the browser
 - Communication runs server-side over your private network
-- Each TPR-Max customer has their own isolated Net2 connection
+- Each TPR customer has their own isolated Net2 connection
 
 ## Troubleshooting
 **Connection refused / timeout**:
-- Confirm the Net2 server is reachable from the TPR-Max server (ping / curl)
+- Confirm the Net2 server is reachable from the TPR server (ping / curl)
 - Check Windows Firewall rules on the Net2 PC
 - Verify the API user has been granted access in Net2 itself
 
 **Events not arriving**:
 - Confirm the integration is **Connected** (green status)
 - Trigger a door event and refresh — events appear within ~5 seconds
-- Check the Net2 server time matches your TPR-Max time zone`,
+- Check the Net2 server time matches your TPR time zone`,
       targetPages: ["settings", "/settings", "paxton"],
       searchKeywords: ["Paxton", "Net2", "access control", "door reader", "token", "fob", "integration", "RFID"],
       estimatedReadTime: 5,
@@ -1692,7 +1692,7 @@ Pre-booking lets hosts register expected visitors before they arrive — speedin
 4. Save
 
 ## Email Invitation
-On save, TPR-Max can email the visitor an invitation containing:
+On save, TPR can email the visitor an invitation containing:
 - Site address with map link
 - Date and arrival time
 - Host's name and contact
@@ -1750,13 +1750,13 @@ Open the pre-booking and click **"Cancel"** or **"Reschedule"** — the visitor 
       categoryId: categoryMap["Planned Preventative Maintenance"] ?? categoryMap["Contractor Management"],
       title: "PPM Contractor Compliance Gate",
       slug: createSlug("PPM Contractor Compliance Gate"),
-      summary: "How TPR-Max blocks non-compliant contractors and workers from being assigned to PPM work orders",
+      summary: "How TPR blocks non-compliant contractors and workers from being assigned to PPM work orders",
       content: `# PPM Contractor Compliance Gate
 
-When the Contractor Compliance Gate is enabled, TPR-Max prevents non-compliant contractors and workers from being assigned to PPM work orders. This protects you from liability and ensures every job is done by someone properly vetted.
+When the Contractor Compliance Gate is enabled, TPR prevents non-compliant contractors and workers from being assigned to PPM work orders. This protects you from liability and ensures every job is done by someone properly vetted.
 
 ## What Gets Checked
-For each contractor company and each worker being assigned, TPR-Max checks:
+For each contractor company and each worker being assigned, TPR checks:
 
 ### Company-level checks
 - **Public liability insurance** present, not expired
@@ -1854,16 +1854,16 @@ export async function seedHelpData() {
     const existingCategories = await db.select().from(helpCategories);
     const existingArticles = await db.select().from(helpArticles);
     
-    // Migrate any existing records that still reference "VisiGate Pro" -> "TPR-Max"
+    // Migrate any existing records that still reference "VisiGate Pro" -> "TPR"
     const staleArticles = await db.select().from(helpArticles).where(like(helpArticles.content, '%VisiGate Pro%'));
     if (staleArticles.length > 0) {
-      logger.info(`🔄 Migrating ${staleArticles.length} help article(s) from VisiGate Pro → TPR-Max...`);
+      logger.info(`🔄 Migrating ${staleArticles.length} help article(s) from VisiGate Pro → TPR...`);
       for (const article of staleArticles) {
         await db.update(helpArticles)
           .set({
-            title: article.title.replace(/VisiGate Pro/g, 'TPR-Max'),
-            summary: article.summary ? article.summary.replace(/VisiGate Pro/g, 'TPR-Max') : article.summary,
-            content: article.content.replace(/VisiGate Pro/g, 'TPR-Max'),
+            title: article.title.replace(/VisiGate Pro/g, 'TPR'),
+            summary: article.summary ? article.summary.replace(/VisiGate Pro/g, 'TPR') : article.summary,
+            content: article.content.replace(/VisiGate Pro/g, 'TPR'),
           })
           .where(eq(helpArticles.id, article.id));
       }
@@ -1874,7 +1874,7 @@ export async function seedHelpData() {
     if (staleTitleArticles.length > 0) {
       for (const article of staleTitleArticles) {
         await db.update(helpArticles)
-          .set({ title: article.title.replace(/VisiGate Pro/g, 'TPR-Max') })
+          .set({ title: article.title.replace(/VisiGate Pro/g, 'TPR') })
           .where(eq(helpArticles.id, article.id));
       }
     }
@@ -1935,7 +1935,7 @@ export async function seedHelpData() {
     const categoriesData = [
       {
         name: "Getting Started",
-        description: "Essential guides to help you get started with TPR Max",
+        description: "Essential guides to help you get started with TPR",
         icon: "rocket",
         color: "#3b82f6",
         sortOrder: 1,
@@ -2055,12 +2055,12 @@ export async function seedHelpData() {
       // ===== GETTING STARTED =====
       {
         categoryId: gettingStartedCategory?.id,
-        title: "Welcome to TPR Max",
-        slug: createSlug("Welcome to TPR Max"),
-        summary: "Learn the basics of TPR Max and how to navigate the system",
-        content: `# Welcome to TPR Max
+        title: "Welcome to TPR",
+        slug: createSlug("Welcome to TPR"),
+        summary: "Learn the basics of TPR and how to navigate the system",
+        content: `# Welcome to TPR
 
-TPR Max (Total Personnel Register) is a comprehensive personnel management and emergency mustering system designed for any type of organisation. It manages visitors, staff, and contractors while providing life-safety emergency evacuation capabilities.
+TPR (Total Protection & Response) is a comprehensive personnel management and emergency mustering system designed for any type of organisation. It manages visitors, staff, and contractors while providing life-safety emergency evacuation capabilities.
 
 ## Key Features
 - **Visitor Management**: Pre-booking, walk-in check-in, host notifications, QR code badges
@@ -2094,7 +2094,7 @@ The main navigation is in the sidebar. Key sections include:
 
 Need help? Use this help panel anytime by clicking the help button.`,
         targetPages: ["dashboard", "home", "/"],
-        searchKeywords: ["welcome", "getting started", "basics", "navigation", "overview", "TPR Max"],
+        searchKeywords: ["welcome", "getting started", "basics", "navigation", "overview", "TPR"],
         estimatedReadTime: 4,
         difficulty: "beginner",
         isPublished: true,
@@ -2109,10 +2109,10 @@ Need help? Use this help panel anytime by clicking the help button.`,
         categoryId: gettingStartedCategory?.id,
         title: "First Time Setup Guide",
         slug: createSlug("First Time Setup Guide"),
-        summary: "Complete setup guide for new TPR Max installations",
+        summary: "Complete setup guide for new TPR installations",
         content: `# First Time Setup Guide
 
-Follow these steps to get TPR Max configured for your organisation.
+Follow these steps to get TPR configured for your organisation.
 
 ## Step 1: Company Information
 1. Navigate to **Settings**
@@ -2162,7 +2162,7 @@ Follow these steps to get TPR Max configured for your organisation.
 3. Test the check-out process
 4. Run a test evacuation to verify muster functionality
 
-You're now ready to start using TPR Max!`,
+You're now ready to start using TPR!`,
         targetPages: ["settings", "/settings"],
         searchKeywords: ["setup", "configuration", "first time", "installation", "getting started"],
         estimatedReadTime: 5,
@@ -2184,7 +2184,7 @@ You're now ready to start using TPR Max!`,
         summary: "Step-by-step guide to checking in visitors including walk-ins and pre-booked",
         content: `# Checking In Visitors
 
-TPR Max supports multiple ways to check in visitors quickly and efficiently.
+TPR supports multiple ways to check in visitors quickly and efficiently.
 
 ## Walk-in Visitors
 For visitors arriving without a booking:
@@ -2409,7 +2409,7 @@ For self-service check-in:
         summary: "How to activate evacuations, use the muster system, and manage Fire Marshal access",
         content: `# Emergency Evacuations & Mustering
 
-TPR Max provides life-safety critical emergency mustering capabilities for real-time personnel accountability.
+TPR provides life-safety critical emergency mustering capabilities for real-time personnel accountability.
 
 ## Activating an Evacuation
 1. Navigate to **Emergency Muster**
@@ -2651,7 +2651,7 @@ Include essential safety information:
 - Site-specific rules and restrictions
 
 ## AI-Generated Safety Videos
-TPR Max can generate professional safety training videos using AI:
+TPR can generate professional safety training videos using AI:
 - **Script Generation**: AI creates context-aware safety scripts tailored to your company
 - **Image Generation**: Photorealistic, scene-specific workplace safety images are generated for each section
 - **Voice Narration**: Professional AI voice narration with different voice options
@@ -2760,7 +2760,7 @@ The system automatically:
         summary: "Generating reports, viewing analytics dashboards, and CO2 sustainability tracking",
         content: `# Reports, Analytics & CO2 Sustainability
 
-TPR Max provides comprehensive reporting and analytics for management, compliance, and environmental tracking.
+TPR provides comprehensive reporting and analytics for management, compliance, and environmental tracking.
 
 ## Dashboard Analytics
 The main dashboard shows real-time metrics:
@@ -2827,7 +2827,7 @@ Track the carbon footprint of contractor commutes:
         summary: "Setting up thermal printers, designing pass templates, and printing visitor/contractor badges",
         content: `# ID Card & Pass Printing
 
-TPR Max supports network thermal printing for professional visitor and contractor ID passes.
+TPR supports network thermal printing for professional visitor and contractor ID passes.
 
 ## Supported Printers
 - **Toshiba Tec**: TCPL command language
@@ -2894,10 +2894,10 @@ Standard pass content includes:
         categoryId: settingsCategory?.id,
         title: "System Settings & Company Branding",
         slug: createSlug("System Settings and Company Branding"),
-        summary: "How to configure TPR Max settings, company branding, and system preferences",
+        summary: "How to configure TPR settings, company branding, and system preferences",
         content: `# System Settings & Company Branding
 
-Customise TPR Max to match your organisation's branding and requirements.
+Customise TPR to match your organisation's branding and requirements.
 
 ## Company Branding
 1. Navigate to **Settings**
@@ -2951,7 +2951,7 @@ Settings changes are saved automatically as you make them - no need to click a s
         summary: "How to invite new users, manage accounts, and handle user permissions",
         content: `# Managing User Accounts and Invitations
 
-Control who has access to your TPR Max system with user management features.
+Control who has access to your TPR system with user management features.
 
 ## Inviting New Users
 1. Navigate to **Settings** > **User Management**
@@ -3073,7 +3073,7 @@ During evacuations, the muster page shows:
         categoryId: troubleshootingCategory?.id,
         title: "Common Issues and Solutions",
         slug: createSlug("Common Issues and Solutions"),
-        summary: "Quick fixes for the most common TPR Max issues",
+        summary: "Quick fixes for the most common TPR issues",
         content: `# Common Issues and Solutions
 
 Quick solutions to frequently encountered problems.
