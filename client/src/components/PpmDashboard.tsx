@@ -1,15 +1,18 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { format } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Building2, CalendarClock, AlertTriangle, CheckCircle2, TrendingUp,
+  Building2, CalendarClock, AlertTriangle, CheckCircle2, TrendingUp, Download,
 } from "lucide-react";
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from "recharts";
+import type { CompanySettings } from "@shared/schema";
 
 // ─── Types (matching PPM.tsx shapes) ────────────────────────────────────────
 
@@ -63,6 +66,15 @@ function fmt(dateStr: string | null | undefined): string {
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
+function hexToRgb(hex: string): [number, number, number] {
+  const clean = hex.replace("#", "");
+  return [
+    parseInt(clean.slice(0, 2), 16),
+    parseInt(clean.slice(2, 4), 16),
+    parseInt(clean.slice(4, 6), 16),
+  ];
+}
+
 // ─── KPI Card ────────────────────────────────────────────────────────────────
 
 interface KpiCardProps {
@@ -109,16 +121,526 @@ function DonutLabel({ total }: { total: number }) {
   );
 }
 
+// ─── PDF Generator ────────────────────────────────────────────────────────────
+
+async function generatePpmPDF(
+  assets: PpmAsset[],
+  workOrders: PpmWorkOrder[],
+  companySettings: CompanySettings | undefined,
+) {
+  const { jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageW = 210;
+  const margin = 12;
+  const colW = pageW - margin * 2;
+  const generatedAt = format(new Date(), "dd MMMM yyyy 'at' HH:mm");
+
+  const companyName = companySettings?.companyName ?? "TPR";
+  const accentHex = companySettings?.accentColor ?? "#2460A9";
+  const BR = hexToRgb(accentHex);
+
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth();
+
+  // ── Compute KPIs ────────────────────────────────────────────────────────────
+  const activeAssets = assets.filter(a => a.status === "active").length;
+  const nonCancelled = workOrders.filter(wo => wo.status !== "cancelled");
+  const completed = workOrders.filter(wo => wo.status === "completed");
+  const dueThisMonth = workOrders.filter(
+    wo => wo.status !== "completed" && wo.status !== "cancelled" && withinMonth(wo.dueDate, curYear, curMonth)
+  ).length;
+  const overdueList = workOrders.filter(wo => isOverdue(wo, now));
+  const completedThisMonth = completed.filter(wo => withinMonth(wo.completedDate, curYear, curMonth)).length;
+  const complianceRate = nonCancelled.length > 0 ? Math.round((completed.length / nonCancelled.length) * 100) : 0;
+  const complianceColour: [number,number,number] = complianceRate >= 80 ? [22, 163, 74] : complianceRate >= 50 ? [217, 119, 6] : [239, 68, 68];
+
+  // ── Compute donut data ───────────────────────────────────────────────────────
+  const statusCounts: Record<string, number> = { Completed: 0, "In Progress": 0, Overdue: 0, Scheduled: 0, Cancelled: 0 };
+  for (const wo of workOrders) {
+    if (wo.status === "completed") statusCounts["Completed"]++;
+    else if (wo.status === "in_progress") statusCounts["In Progress"]++;
+    else if (isOverdue(wo, now)) statusCounts["Overdue"]++;
+    else if (wo.status === "cancelled") statusCounts["Cancelled"]++;
+    else statusCounts["Scheduled"]++;
+  }
+  const statusColours: Record<string, [number,number,number]> = {
+    Completed:    [13, 148, 136],
+    "In Progress":[59, 130, 246],
+    Overdue:      [239, 68, 68],
+    Scheduled:    [148, 163, 184],
+    Cancelled:    [226, 232, 240],
+  };
+
+  // ── Monthly trend (last 6 months) ───────────────────────────────────────────
+  const monthlyTrend = Array.from({ length: 6 }, (_, i) => {
+    const offset = 5 - i;
+    const d = new Date(curYear, curMonth - offset, 1);
+    const y = d.getFullYear();
+    const m = d.getMonth();
+    const comp = workOrders.filter(wo => wo.status === "completed" && withinMonth(wo.completedDate, y, m)).length;
+    const over = workOrders.filter(wo => isOverdue(wo, now) && withinMonth(wo.dueDate, y, m)).length;
+    return { month: MONTH_SHORT[m], completed: comp, overdue: over };
+  });
+
+  // ── Assets by category ───────────────────────────────────────────────────────
+  const catCounts: Record<string, number> = {};
+  for (const a of assets.filter(a => a.status === "active")) {
+    const cat = a.category || "Other";
+    catCounts[cat] = (catCounts[cat] ?? 0) + 1;
+  }
+  const categoryData = Object.entries(catCounts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count);
+
+  // ── Statutory stats ──────────────────────────────────────────────────────────
+  function statGroup(list: PpmWorkOrder[]) {
+    const total = list.filter(wo => wo.status !== "cancelled").length;
+    const done = list.filter(wo => wo.status === "completed").length;
+    return { total, done, pct: total > 0 ? Math.round((done / total) * 100) : 0 };
+  }
+  const statutory = statGroup(workOrders.filter(wo => wo.templateType === "statutory"));
+  const nonStatutory = statGroup(workOrders.filter(wo => wo.templateType === "non_statutory" || wo.templateType === "non-statutory"));
+
+  // ── Overdue rows (top 10) ───────────────────────────────────────────────────
+  const assetMap = Object.fromEntries(assets.map(a => [a.id, a]));
+  const overdueRows = [...overdueList]
+    .sort((a, b) => (a.dueDate ? new Date(a.dueDate).getTime() : 0) - (b.dueDate ? new Date(b.dueDate).getTime() : 0))
+    .slice(0, 10)
+    .map(wo => ({ ...wo, assetName: wo.assetId ? (assetMap[wo.assetId]?.name ?? "—") : "—" }));
+
+  // ── Expiring certs ──────────────────────────────────────────────────────────
+  const expiringCerts = workOrders
+    .filter(wo => (wo.expiringSoonDocCount ?? 0) > 0 || (wo.expiredDocCount ?? 0) > 0)
+    .sort((a, b) => (b.expiredDocCount ?? 0) - (a.expiredDocCount ?? 0))
+    .map(wo => ({ ...wo, assetName: wo.assetId ? (assetMap[wo.assetId]?.name ?? "—") : "—" }));
+
+  let y = 0;
+
+  function checkPage(needed = 12) {
+    if (y + needed > 278) { doc.addPage(); y = margin; }
+  }
+
+  function sectionHeader(title: string) {
+    checkPage(12);
+    doc.setFillColor(...BR);
+    doc.roundedRect(margin, y, colW, 7, 1.5, 1.5, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(title.toUpperCase(), margin + 3.5, y + 4.8);
+    y += 10;
+  }
+
+  function progressBar(x: number, barY: number, w: number, h: number, pct: number, col: [number,number,number]) {
+    doc.setFillColor(229, 231, 235);
+    doc.roundedRect(x, barY, w, h, h / 2, h / 2, "F");
+    const fw = Math.max(w * pct / 100, h);
+    doc.setFillColor(...col);
+    doc.roundedRect(x, barY, fw, h, h / 2, h / 2, "F");
+  }
+
+  // ── COVER HEADER ────────────────────────────────────────────────────────────
+  doc.setFillColor(...BR);
+  doc.rect(0, 0, 210, 32, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  doc.setTextColor(255, 255, 255);
+  doc.text("Planned Preventative Maintenance", margin, 12);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(200, 220, 255);
+  doc.text(`${companyName}  ·  PPM Dashboard Report`, margin, 19);
+  doc.text(`Generated: ${generatedAt}`, margin, 25);
+  y = 38;
+
+  // ── COMPLIANCE HERO CARD ─────────────────────────────────────────────────────
+  const heroH = 36;
+  // Lighten brand colour for hero background
+  const heroR = Math.min(255, BR[0] + 180);
+  const heroG = Math.min(255, BR[1] + 180);
+  const heroB = Math.min(255, BR[2] + 180);
+  doc.setFillColor(heroR, heroG, heroB);
+  doc.roundedRect(margin, y, colW, heroH, 3, 3, "F");
+  doc.setFillColor(...BR);
+  doc.roundedRect(margin, y, colW, heroH, 3, 3, "D");
+
+  // Big score
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(28);
+  doc.setTextColor(...complianceColour);
+  doc.text(`${complianceRate}%`, margin + 10, y + 22);
+
+  // Labels
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  doc.setTextColor(...BR);
+  doc.text("Overall Completion Rate", margin + 40, y + 11);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(55, 65, 81);
+  doc.text(`${completed.length} of ${nonCancelled.length} work orders completed`, margin + 40, y + 18);
+  doc.text(`${workOrders.length} total work orders  ·  ${activeAssets} active assets`, margin + 40, y + 25);
+  doc.text(`${overdueList.length} overdue  ·  ${dueThisMonth} due this month  ·  ${completedThisMonth} completed this month`, margin + 40, y + 31);
+
+  y += heroH + 7;
+
+  // ── KPI CARDS (5 across in 2 cols of 2+3 layout, simplified to 2 rows) ──────
+  sectionHeader("Key Performance Indicators");
+
+  const kpis = [
+    { label: "Active Assets",         value: `${activeAssets}`,       col: [13,148,136]   as [number,number,number] },
+    { label: "Due This Month",         value: `${dueThisMonth}`,       col: (dueThisMonth > 0 ? [217,119,6] : [148,163,184]) as [number,number,number] },
+    { label: "Overdue Work Orders",    value: `${overdueList.length}`,  col: (overdueList.length > 0 ? [239,68,68] : [148,163,184]) as [number,number,number] },
+    { label: "Completed This Month",   value: `${completedThisMonth}`, col: [22,163,74]    as [number,number,number] },
+    { label: "Overall Completion Rate",value: `${complianceRate}%`,    col: complianceColour },
+  ];
+
+  const kpiCardW = (colW - 8) / 3;
+  const kpiCardH = 18;
+  for (let i = 0; i < kpis.length; i++) {
+    const kpi = kpis[i];
+    const col = i % 3;
+    const row = Math.floor(i / 3);
+    if (i % 3 === 0) checkPage(kpiCardH + 3);
+    const cx = margin + col * (kpiCardW + 4);
+    const cy = y + row * (kpiCardH + 3);
+
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(cx, cy, kpiCardW, kpiCardH, 2, 2, "FD");
+
+    // Coloured top stripe
+    doc.setFillColor(...kpi.col);
+    doc.roundedRect(cx, cy, kpiCardW, 2.5, 2, 2, "F");
+    doc.rect(cx, cy + 1.2, kpiCardW, 1.3, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(...kpi.col);
+    doc.text(kpi.value, cx + 4, cy + 10.5);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text(kpi.label, cx + 4, cy + 15.5);
+  }
+  y += Math.ceil(kpis.length / 3) * (kpiCardH + 3) + 4;
+
+  // ── WORK ORDER STATUS BREAKDOWN ──────────────────────────────────────────────
+  sectionHeader("Work Order Status Breakdown");
+  const statusEntries = Object.entries(statusCounts).filter(([, v]) => v > 0);
+  const totalWO = workOrders.length;
+  if (statusEntries.length === 0) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.text("No work orders recorded.", margin + 2, y + 5);
+    y += 10;
+  } else {
+    const barMaxW = colW - 60;
+    for (const [name, count] of statusEntries) {
+      checkPage(9);
+      const pct = totalWO > 0 ? Math.round((count / totalWO) * 100) : 0;
+      const col = statusColours[name] ?? [107, 114, 128];
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(55, 65, 81);
+      doc.text(name, margin + 2, y + 5.5);
+
+      progressBar(margin + 40, y + 2.5, barMaxW, 4, pct, col);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...col);
+      doc.text(`${count}  (${pct}%)`, margin + 40 + barMaxW + 3, y + 5.5);
+
+      doc.setDrawColor(243, 244, 246);
+      doc.setLineWidth(0.2);
+      doc.line(margin, y + 8.5, pageW - margin, y + 8.5);
+      y += 8.5;
+    }
+    y += 4;
+  }
+
+  // ── MONTHLY COMPLETION TREND ─────────────────────────────────────────────────
+  sectionHeader("Monthly Completion Trend (Last 6 Months)");
+  const maxMonthVal = Math.max(...monthlyTrend.map(m => Math.max(m.completed, m.overdue)), 1);
+  const barAreaH = 30;
+  const barAreaW = colW - 20;
+  const monthColW = barAreaW / 6;
+
+  // Y-axis label
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6);
+  doc.setTextColor(156, 163, 175);
+  doc.text(`Max: ${maxMonthVal}`, margin, y + 3);
+
+  for (let i = 0; i < monthlyTrend.length; i++) {
+    const m = monthlyTrend[i];
+    const bx = margin + 16 + i * monthColW;
+
+    // Completed bar
+    const compH = maxMonthVal > 0 ? (m.completed / maxMonthVal) * barAreaH : 0;
+    if (compH > 0) {
+      doc.setFillColor(13, 148, 136);
+      doc.roundedRect(bx, y + barAreaH - compH, monthColW * 0.35, compH, 1, 1, "F");
+    }
+
+    // Overdue bar
+    const overdueH = maxMonthVal > 0 ? (m.overdue / maxMonthVal) * barAreaH : 0;
+    if (overdueH > 0) {
+      doc.setFillColor(239, 68, 68);
+      doc.roundedRect(bx + monthColW * 0.38, y + barAreaH - overdueH, monthColW * 0.35, overdueH, 1, 1, "F");
+    }
+
+    // Month label
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text(m.month, bx + monthColW * 0.1, y + barAreaH + 5);
+
+    // Values
+    doc.setFontSize(6);
+    if (m.completed > 0) {
+      doc.setTextColor(13, 148, 136);
+      doc.text(`${m.completed}`, bx, y + barAreaH - compH - 1);
+    }
+    if (m.overdue > 0) {
+      doc.setTextColor(239, 68, 68);
+      doc.text(`${m.overdue}`, bx + monthColW * 0.38, y + barAreaH - overdueH - 1);
+    }
+  }
+
+  // Baseline
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.line(margin + 16, y + barAreaH, margin + 16 + barAreaW, y + barAreaH);
+
+  // Legend
+  doc.setFillColor(13, 148, 136);
+  doc.circle(margin + 16, y + barAreaH + 10, 1.5, "F");
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(6.5);
+  doc.setTextColor(55, 65, 81);
+  doc.text("Completed", margin + 19, y + barAreaH + 11);
+  doc.setFillColor(239, 68, 68);
+  doc.circle(margin + 43, y + barAreaH + 10, 1.5, "F");
+  doc.text("Overdue", margin + 46, y + barAreaH + 11);
+
+  y += barAreaH + 16;
+
+  // ── ACTIVE ASSETS BY CATEGORY ───────────────────────────────────────────────
+  sectionHeader("Active Assets by Category");
+  if (categoryData.length === 0) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(107, 114, 128);
+    doc.text("No active assets.", margin + 2, y + 5);
+    y += 10;
+  } else {
+    const maxCat = Math.max(...categoryData.map(c => c.count), 1);
+    const catBarMaxW = colW - 50;
+    for (const cat of categoryData) {
+      checkPage(9);
+      const catPct = (cat.count / maxCat) * 100;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7.5);
+      doc.setTextColor(55, 65, 81);
+      const catLabel = cat.name.length > 16 ? cat.name.slice(0, 15) + "…" : cat.name;
+      doc.text(catLabel, margin + 2, y + 5.5);
+      progressBar(margin + 36, y + 2.5, catBarMaxW, 4, catPct, BR);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...BR);
+      doc.text(`${cat.count}`, margin + 36 + catBarMaxW + 3, y + 5.5);
+      doc.setDrawColor(243, 244, 246);
+      doc.setLineWidth(0.2);
+      doc.line(margin, y + 8.5, pageW - margin, y + 8.5);
+      y += 8.5;
+    }
+    y += 4;
+  }
+
+  // ── STATUTORY VS NON-STATUTORY COMPLIANCE ────────────────────────────────────
+  sectionHeader("Statutory vs Non-Statutory Compliance");
+  for (const { label, stats, colour } of [
+    { label: "Statutory",     stats: statutory,    colour: [13,148,136] as [number,number,number] },
+    { label: "Non-Statutory", stats: nonStatutory, colour: BR },
+  ]) {
+    checkPage(14);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(55, 65, 81);
+    doc.text(label, margin + 2, y + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(107, 114, 128);
+    doc.text(`${stats.done} / ${stats.total} — ${stats.pct}%`, pageW - margin - 2, y + 5, { align: "right" });
+    progressBar(margin + 2, y + 7, colW - 4, 4, stats.pct, colour);
+    if (stats.total === 0) {
+      doc.setFontSize(6.5);
+      doc.setTextColor(156, 163, 175);
+      doc.text(`No ${label.toLowerCase()} work orders recorded`, margin + 2, y + 14.5);
+      y += 6;
+    }
+    y += 14;
+  }
+  y += 3;
+
+  // ── OVERDUE WORK ORDERS (top 10) ─────────────────────────────────────────────
+  if (overdueRows.length > 0) {
+    sectionHeader(`Requires Attention — Overdue Work Orders (${overdueList.length})`);
+
+    // Table header
+    doc.setFillColor(254, 242, 242);
+    doc.rect(margin, y, colW, 7, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(185, 28, 28);
+    doc.text("Work Order", margin + 2, y + 4.8);
+    doc.text("Asset", margin + 75, y + 4.8);
+    doc.text("Due Date", margin + 120, y + 4.8);
+    doc.text("Assigned To", margin + 148, y + 4.8);
+    y += 7;
+
+    for (let i = 0; i < overdueRows.length; i++) {
+      const wo = overdueRows[i];
+      checkPage(8);
+      doc.setFillColor(i % 2 === 0 ? 255 : 249, i % 2 === 0 ? 255 : 250, i % 2 === 0 ? 255 : 251);
+      doc.rect(margin, y, colW, 7.5, "F");
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(31, 41, 55);
+      const woTitle = doc.splitTextToSize(wo.title, 68)[0];
+      doc.text(woTitle, margin + 2, y + 4.8);
+      const assetShort = (wo.assetName ?? "—").length > 18 ? (wo.assetName ?? "—").slice(0, 17) + "…" : (wo.assetName ?? "—");
+      doc.setTextColor(107, 114, 128);
+      doc.text(assetShort, margin + 75, y + 4.8);
+      doc.setTextColor(220, 38, 38);
+      doc.text(fmt(wo.dueDate), margin + 120, y + 4.8);
+      doc.setTextColor(107, 114, 128);
+      const assignedShort = (wo.contractorCompanyName ?? "Unassigned").length > 16
+        ? (wo.contractorCompanyName ?? "Unassigned").slice(0, 15) + "…"
+        : (wo.contractorCompanyName ?? "Unassigned");
+      doc.text(assignedShort, margin + 148, y + 4.8);
+
+      y += 7.5;
+    }
+    if (overdueList.length > 10) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(107, 114, 128);
+      doc.text(`… and ${overdueList.length - 10} more overdue work orders`, margin + 2, y + 4);
+      y += 7;
+    }
+    y += 5;
+  }
+
+  // ── CERTIFICATES EXPIRING ────────────────────────────────────────────────────
+  sectionHeader("Certificates Expiring Within 30 Days");
+  if (expiringCerts.length === 0) {
+    checkPage(12);
+    doc.setFillColor(240, 253, 244);
+    doc.setDrawColor(187, 247, 208);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, colW, 10, 2, 2, "FD");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(22, 163, 74);
+    doc.text("All certificates are current — no expiry alerts", margin + 5, y + 6.5);
+    y += 14;
+  } else {
+    for (const wo of expiringCerts) {
+      checkPage(12);
+      const bh = 13;
+      doc.setFillColor(255, 255, 255);
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, colW, bh, 2, 2, "FD");
+
+      // Left accent
+      const hasExpired = (wo.expiredDocCount ?? 0) > 0;
+      doc.setFillColor(hasExpired ? 220 : 217, hasExpired ? 38 : 119, hasExpired ? 38 : 6);
+      doc.roundedRect(margin, y, 3, bh, 1.5, 1.5, "F");
+      doc.rect(margin + 1.5, y, 1.5, bh, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(31, 41, 55);
+      doc.text(doc.splitTextToSize(wo.title, colW - 45)[0], margin + 6, y + 5.5);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(107, 114, 128);
+      doc.text(wo.assetName ?? "—", margin + 6, y + 10);
+
+      // Badges right side
+      let bx = pageW - margin - 2;
+      if ((wo.expiringSoonDocCount ?? 0) > 0) {
+        const bl = `${wo.expiringSoonDocCount} expiring soon`;
+        const bw = doc.getTextWidth(bl) + 5;
+        bx -= bw;
+        doc.setFillColor(254, 243, 199);
+        doc.roundedRect(bx, y + 2.5, bw, 5, 2.5, 2.5, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.setTextColor(146, 64, 14);
+        doc.text(bl, bx + 2.5, y + 6.3);
+        bx -= 3;
+      }
+      if ((wo.expiredDocCount ?? 0) > 0) {
+        const bl = `${wo.expiredDocCount} expired`;
+        const bw = doc.getTextWidth(bl) + 5;
+        bx -= bw;
+        doc.setFillColor(254, 226, 226);
+        doc.roundedRect(bx, y + 2.5, bw, 5, 2.5, 2.5, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.setTextColor(153, 27, 27);
+        doc.text(bl, bx + 2.5, y + 6.3);
+      }
+
+      y += bh + 2.5;
+    }
+    y += 3;
+  }
+
+  // ── PAGE NUMBERS ──────────────────────────────────────────────────────────────
+  const pageCount = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= pageCount; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(margin, 284, pageW - margin, 284);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(156, 163, 175);
+    doc.text(
+      `${companyName}  ·  PPM Report  ·  ${generatedAt}  ·  Page ${p} of ${pageCount}`,
+      pageW / 2, 289.5, { align: "center" }
+    );
+    doc.setFillColor(...BR);
+    doc.circle(pageW - margin + 1, 289, 1.5, "F");
+  }
+
+  const fileName = `ppm-report-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`;
+  doc.save(fileName);
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function PpmDashboard() {
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
   const { data: assets = [], isLoading: loadingAssets } = useQuery<PpmAsset[]>({
     queryKey: ["/api/ppm/assets"],
   });
   const { data: workOrders = [], isLoading: loadingWO, dataUpdatedAt } = useQuery<PpmWorkOrder[]>({
     queryKey: ["/api/ppm/work-orders"],
   });
-  // schedules fetched for completeness / future use; dashboard derives from assets+WOs
+  const { data: companySettings } = useQuery<CompanySettings>({
+    queryKey: ["/api/settings"],
+  });
   useQuery({ queryKey: ["/api/ppm/schedules"] });
 
   const isLoading = loadingAssets || loadingWO;
@@ -126,6 +648,15 @@ export default function PpmDashboard() {
   const now = useMemo(() => new Date(), []);
   const curYear = now.getFullYear();
   const curMonth = now.getMonth();
+
+  async function handleDownloadPDF() {
+    setIsGeneratingPDF(true);
+    try {
+      await generatePpmPDF(assets, workOrders, companySettings);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  }
 
   // ── KPIs ─────────────────────────────────────────────────────────────────
 
@@ -252,6 +783,8 @@ export default function PpmDashboard() {
 
   const complianceColour = kpi.complianceRate >= 80 ? "#16a34a" : kpi.complianceRate >= 50 ? "#d97706" : RED;
 
+  const accentColor = companySettings?.accentColor ?? TEAL;
+
   // ─────────────────────────────────────────────────────────────────────────
   // Render
   // ─────────────────────────────────────────────────────────────────────────
@@ -277,13 +810,28 @@ export default function PpmDashboard() {
   return (
     <div className="space-y-6 pb-8">
 
+      {/* ── Download button row ── */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleDownloadPDF}
+          disabled={isGeneratingPDF}
+          className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-900/20"
+          style={{ borderColor: `${accentColor}60`, color: accentColor }}
+        >
+          <Download className={`h-4 w-4 mr-1.5 ${isGeneratingPDF ? "animate-bounce" : ""}`} />
+          {isGeneratingPDF ? "Generating…" : "Download PDF"}
+        </Button>
+      </div>
+
       {/* ── Section 1: KPI Strip ── */}
       <div className="flex flex-col md:flex-row gap-3">
         <KpiCard
           label="Active Assets"
           value={kpi.activeAssets}
           icon={<Building2 className="h-5 w-5" />}
-          accent={TEAL}
+          accent={accentColor}
         />
         <KpiCard
           label="Due This Month"
