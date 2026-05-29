@@ -16,6 +16,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Palette, Monitor, Sun, Moon, Upload, RotateCcw, SunMoon, Info, Wand2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 
 const PRESET_THEMES = [
@@ -505,6 +506,24 @@ export default function BrandingSettings() {
             </ObjectUploader>
             
             <p className="text-xs text-variable">Recommended: JPG or PNG, max 5MB, wide format (3:1 or 4:1 ratio)</p>
+
+            <div className="space-y-2 mt-6 pt-6 border-t border-white/20">
+              <Label className="text-sm font-medium text-fixed">Kiosk Notice Message</Label>
+              <p className="text-xs text-variable mb-3">
+                Displayed on the kiosk home screen as a notice for all visitors. Leave blank to hide the notice panel entirely.
+              </p>
+              <Textarea
+                value={formData?.kioskNoticeMessage ?? ""}
+                onChange={(e) => handleInputChange("kioskNoticeMessage", e.target.value)}
+                placeholder="e.g. All visitors must sign in before entering the building..."
+                className="min-h-[100px] text-sm resize-y"
+                maxLength={300}
+                data-testid="input-kiosk-notice-message"
+              />
+              <p className="text-xs text-variable text-right">
+                {(formData?.kioskNoticeMessage ?? "").length}/300 characters
+              </p>
+            </div>
           </div>
         </div>
       </GlassCard>

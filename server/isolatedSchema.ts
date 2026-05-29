@@ -376,6 +376,11 @@ export const companySettings = pgTable("company_settings", {
   navBannerColor: text("nav_banner_color"),
   navBannerInvert: boolean("nav_banner_invert").default(false),
   bannerUrl: text("banner_url"),
+  kioskNoticeMessage: text("kiosk_notice_message").default(
+    "All visitors must sign in before entering the building. " +
+    "Please have your host's name ready. Do not proceed beyond " +
+    "reception until your host arrives."
+  ),
   theme: text("theme").default("light"), // light or dark
   // Printer settings
   selectedPrinter: text("selected_printer").default("PDF Printer"),

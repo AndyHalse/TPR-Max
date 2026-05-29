@@ -1,0 +1,117 @@
+TASK — Add Configurable Kiosk Notice Message
+## Background
+The kiosk home screen (client/src/pages/KioskMode.tsx) has an "Instructions" 
+section at the bottom that currently shows tiny icons with text that is invisible 
+(white on a light background). Replace this entire dead section with a dynamic 
+notice board — a message the company admin sets in Settings that displays 
+prominently on the kiosk for every visitor to read.
+---
+## Step 1 — Add the field to the database schema
+File: server/isolatedSchema.ts
+In the companySettings table, find the "Branding settings" block (near 
+backgroundColor, bannerUrl etc.) and add this new field immediately after 
+bannerUrl:
+  kioskNoticeMessage: text("kiosk_notice_message").default(
+    "All visitors must sign in before entering the building. " +
+    "Please have your host's name ready. Do not proceed beyond " +
+    "reception until your host arrives."
+  ),
+That default is the sample message every new customer will see until they 
+customise it.
+---
+## Step 2 — Add the setting to the admin UI
+File: client/src/pages/settings/BrandingSettings.tsx
+Find the "Kiosk Banner" GlassCard section (around line 470 — it has a Monitor 
+icon and an ObjectUploader for the banner image). Inside that GlassCard, after 
+the banner upload block (after the </div> that closes the banner space-y-4), 
+add a new settings block:
+  <div className="space-y-2 mt-6 pt-6 border-t border-white/20">
+    <Label className="text-sm font-medium text-fixed">
+      Kiosk Notice Message
+    </Label>
+    <p className="text-xs text-variable mb-3">
+      Displayed on the kiosk home screen as a notice for all visitors. 
+      Leave blank to hide the notice panel entirely.
+    </p>
+    <Textarea
+      value={formData?.kioskNoticeMessage ?? ""}
+      onChange={(e) => handleInputChange("kioskNoticeMessage", e.target.value)}
+      placeholder="e.g. All visitors must sign in before entering the building..."
+      className="min-h-[100px] text-sm resize-y"
+      maxLength={300}
+      data-testid="input-kiosk-notice-message"
+    />
+    <p className="text-xs text-variable text-right">
+      {(formData?.kioskNoticeMessage ?? "").length}/300 characters
+    </p>
+  </div>
+Import Textarea from "@/components/ui/textarea" at the top of the file if it 
+is not already imported. The handleInputChange and formData are already 
+available via useSettingsAutoSave() — no new state or API calls are needed; 
+the existing auto-save handles it.
+---
+## Step 3 — Display it on the kiosk
+File: client/src/pages/KioskMode.tsx
+Find the desktop layout Instructions GlassCard. It is a hidden sm:block GlassCard 
+near the bottom of the main return, containing a grid of three columns with 
+QrCode, UserPlus, and LogOut icons labelled "Pre-booked visitors", "New visitors", 
+"Leaving". It looks like this:
+  <GlassCard className="p-4 sm:p-5 flex-shrink-0 hidden sm:block">
+    <h3 ...>Instructions</h3>
+    <div className="grid grid-cols-3 ...">
+      ...
+    </div>
+  </GlassCard>
+Replace the entire GlassCard (and its content) with this:
+  {(settings as any)?.kioskNoticeMessage?.trim() && (
+    <GlassCard className="p-5 sm:p-6 flex-shrink-0">
+      <div className="flex items-start gap-4">
+        <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 
+          border-2 border-amber-300 flex items-center justify-center mt-0.5">
+          <span className="text-amber-600 text-xl font-bold leading-none">!</span>
+        </div>
+        <p className="text-base sm:text-lg font-medium text-fixed leading-relaxed">
+          {(settings as any).kioskNoticeMessage}
+        </p>
+      </div>
+    </GlassCard>
+  )}
+Also find the mobile equivalent Instructions strip (the GlassCard with 
+className="p-3 flex-shrink-0 sm:hidden" containing three icons). Replace that 
+entire GlassCard with:
+  {(settings as any)?.kioskNoticeMessage?.trim() && (
+    <GlassCard className="p-4 flex-shrink-0 sm:hidden">
+      <div className="flex items-start gap-3">
+        <span className="text-amber-500 text-lg font-bold flex-shrink-0 mt-0.5">!</span>
+        <p className="text-sm font-medium text-fixed leading-relaxed">
+          {(settings as any).kioskNoticeMessage}
+        </p>
+      </div>
+    </GlassCard>
+  )}
+If kioskNoticeMessage is blank or not set, neither panel renders — the space 
+disappears cleanly.
+---
+## Step 4 — Database migration
+The isolatedSchema.ts change adds a new column. Run the migration so the column 
+exists in the database. Use whatever migration/push command this project uses 
+(typically `npm run db:push` or `drizzle-kit push`). If there is no migration 
+file pattern, apply the schema change and restart — Drizzle will handle it.
+---
+## What NOT to change
+- Do not alter the QR scanner, camera logic, or any visitor/contractor flows
+- Do not change any other settings pages
+- Do not change the ContractorKiosk.tsx file
+- Keep all existing CSS class patterns: GlassCard, text-fixed, text-variable, 
+  gradient-blue, bg-[var(--background)]
+---
+## Testing checklist
+[ ] Settings page → Branding tab → Kiosk Banner section shows new 
+    "Kiosk Notice Message" textarea with the default message pre-filled
+[ ] Changing the text auto-saves (same behaviour as all other branding fields)
+[ ] Kiosk home screen shows the notice panel with the amber ! icon and message
+[ ] Clearing the message in settings and saving causes the panel to disappear 
+    from the kiosk entirely (no blank card, no empty space)
+[ ] The notice displays correctly on both mobile (sm:hidden) and 
+    tablet/desktop (hidden sm:block) layouts
+That's a clean, self-contained change — one new database field, one textarea in Settings, and one panel on the kiosk replacing the broken instructions section. The amber ! icon makes it feel like a proper notice board rather than just a text box, and the blank-check means customers who don't want a message just clear the field and it disappears.

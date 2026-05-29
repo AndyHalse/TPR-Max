@@ -1040,28 +1040,17 @@ export default function KioskMode() {
           </button>
         </div>
 
-        {/* Mobile instructions — compact horizontal strip */}
-        <GlassCard className="p-3 flex-shrink-0 sm:hidden">
-          <div className="flex justify-around text-variable">
-            <div className="text-center px-2">
-              <QrCode className="mx-auto mb-1 text-purple-500" size={18} />
-              <p className="text-xs font-medium text-[#ab94e0]">Pre-booked</p>
-              <p className="text-xs" style={{color: 'white'}}>Scan email QR</p>
+        {/* Mobile notice — shown when kioskNoticeMessage is set */}
+        {(settings as any)?.kioskNoticeMessage?.trim() && (
+          <GlassCard className="p-4 flex-shrink-0 sm:hidden">
+            <div className="flex items-start gap-3">
+              <span className="text-amber-500 text-lg font-bold flex-shrink-0 mt-0.5">!</span>
+              <p className="text-sm font-medium text-fixed leading-relaxed">
+                {(settings as any).kioskNoticeMessage}
+              </p>
             </div>
-            <div className="w-px bg-white/20 self-stretch" />
-            <div className="text-center px-2">
-              <UserPlus className="mx-auto mb-1 text-blue-500" size={18} />
-              <p className="text-xs font-medium text-[#9b81d6]">New visitor</p>
-              <p className="text-xs" style={{color: 'white'}}>Manual entry</p>
-            </div>
-            <div className="w-px bg-white/20 self-stretch" />
-            <div className="text-center px-2">
-              <LogOut className="mx-auto mb-1 text-green-500" size={18} />
-              <p className="text-xs font-medium text-[#a587e5]">Leaving</p>
-              <p className="text-xs" style={{color: 'white'}}>Scan pass QR</p>
-            </div>
-          </div>
-        </GlassCard>
+          </GlassCard>
+        )}
 
         {/* ── Tablet / desktop layout: 3-column grid cards ── */}
         <div className="hidden sm:grid grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-4 sm:mb-6">
@@ -1114,26 +1103,19 @@ export default function KioskMode() {
           </div>
         </div>
 
-        <GlassCard className="p-4 sm:p-5 flex-shrink-0 hidden sm:block">
-          <h3 className="text-base sm:text-lg font-semibold text-fixed mb-3 text-center">Instructions</h3>
-          <div className="grid grid-cols-3 gap-4 sm:gap-6 text-variable">
-            <div className="text-center">
-              <QrCode className="mx-auto mb-1.5 text-purple-600" size={22} />
-              <p className="font-medium mb-0.5 text-sm text-[#ab94e0]">Pre-booked visitors</p>
-              <p className="text-xs" style={{color: 'white'}}>Use QR Scanner with your email QR code</p>
+        {/* Desktop notice — shown when kioskNoticeMessage is set */}
+        {(settings as any)?.kioskNoticeMessage?.trim() && (
+          <GlassCard className="p-5 sm:p-6 flex-shrink-0">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center mt-0.5">
+                <span className="text-amber-600 text-xl font-bold leading-none">!</span>
+              </div>
+              <p className="text-base sm:text-lg font-medium text-fixed leading-relaxed">
+                {(settings as any).kioskNoticeMessage}
+              </p>
             </div>
-            <div className="text-center">
-              <UserPlus className="mx-auto mb-1.5 text-blue-600" size={22} />
-              <p className="font-medium mb-0.5 text-sm text-[#9b81d6]">New visitors</p>
-              <p className="text-xs" style={{color: 'white'}}>Use Manual Check-In to register</p>
-            </div>
-            <div className="text-center">
-              <LogOut className="mx-auto mb-1.5 text-green-600" size={22} />
-              <p className="font-medium mb-0.5 text-sm text-[#a587e5]">Leaving</p>
-              <p className="text-xs" style={{color: 'white'}}>Use QR Scanner with your pass QR code</p>
-            </div>
-          </div>
-        </GlassCard>
+          </GlassCard>
+        )}
       </div>
 
       {showPreview && currentVisitor && (
