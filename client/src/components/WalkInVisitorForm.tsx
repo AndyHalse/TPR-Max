@@ -8,7 +8,7 @@ import HSAcceptanceModal from "@/components/HSAcceptanceModal";
 import NDAAcceptanceModal from "@/components/NDAAcceptanceModal";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Check, Search, X, UserCheck, MapPin, CheckCircle2, ChevronRight, User } from "lucide-react";
+import { ArrowLeft, Check, Search, X, UserCheck, MapPin, CheckCircle2, ChevronRight, User, History, Building2 } from "lucide-react";
 import type { Staff, InsertVisitor, Visitor, CompanySettings } from "@shared/schema";
 import { printPassViaIframe } from "@/lib/printUtils";
 import VisitInstructionsModal from "@/components/VisitInstructionsModal";
@@ -39,6 +39,21 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
   const { data: settings } = useQuery<CompanySettings>({ queryKey: ["/api/settings"] });
   const { data: allReasons = [] } = useQuery<any[]>({ queryKey: ["/api/visit-reasons"] });
   const visitorReasons = allReasons.filter((r: any) => r.appliesTo === "visitors" || r.appliesTo === "both");
+
+  const lastNameQuery = currentStep === "lastName" && formData.lastName.trim().length >= 3
+    ? formData.lastName.trim()
+    : null;
+  const { data: returningVisitors = [] } = useQuery<Visitor[]>({
+    queryKey: ["/api/visitors/search", lastNameQuery],
+    queryFn: async () => {
+      if (!lastNameQuery) return [];
+      const res = await fetch(`/api/visitors/search?q=${encodeURIComponent(lastNameQuery)}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!lastNameQuery,
+    staleTime: 10_000,
+  });
 
   const wizardSteps: WizardStep[] = useMemo(() => {
     const base: WizardStep[] = ["firstName", "lastName", "company", "email"];
@@ -117,6 +132,22 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       toast({ title: "Check-in failed", description: error?.message || "Failed to check in visitor. Please try again.", variant: "destructive" });
     },
   });
+
+  const handleSelectReturningVisitor = (v: Visitor) => {
+    setFormData(prev => ({
+      ...prev,
+      firstName: v.firstName || "",
+      lastName: v.lastName || "",
+      company: v.company || "",
+      email: v.email || "",
+    }));
+    // Skip straight to reason (if any) or host search — all personal details pre-filled
+    if (visitorReasons.length > 0) {
+      setCurrentStep("reason");
+    } else {
+      setCurrentStep("hostSearch");
+    }
+  };
 
   const goBack = () => {
     if (currentStep === "confirm") { setCurrentStep("hostSearch"); return; }
@@ -321,6 +352,40 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
         </div>
       )}
 
+      {/* ── RETURNING VISITOR SUGGESTIONS ── shown on lastName step after 3 chars */}
+      {currentStep === "lastName" && formData.lastName.trim().length >= 3 && returningVisitors.length > 0 && (
+        <div className="flex-shrink-0 px-6 pb-2">
+          <p className="text-xs font-semibold text-variable uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+            <History size={13} />Returning visitors — tap to auto-fill
+          </p>
+          <div className="bg-white rounded-2xl border-2 border-purple-200 overflow-hidden shadow-md">
+            {returningVisitors.map((v, i) => {
+              const lastVisit = v.checkedInAt ? new Date(v.checkedInAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
+              return (
+                <button
+                  key={v.id}
+                  onClick={() => handleSelectReturningVisitor(v)}
+                  className="w-full px-5 flex items-center gap-3 hover:bg-purple-50 active:bg-purple-100 transition-colors text-left border-b border-gray-100 last:border-b-0 min-h-[60px]"
+                >
+                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0 text-purple-700 font-bold text-base">
+                    {(v.firstName?.[0] || "").toUpperCase()}{(v.lastName?.[0] || "").toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-lg font-semibold text-slate-800 leading-tight">{v.firstName} {v.lastName}</p>
+                    {v.company && <p className="text-sm text-slate-500 truncate">{v.company}</p>}
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    {lastVisit && <p className="text-xs text-slate-400">Last visit</p>}
+                    {lastVisit && <p className="text-xs text-slate-500 font-medium">{lastVisit}</p>}
+                    <span className="text-purple-600 font-semibold text-sm">Select →</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── COMPANY CHIPS ── shown after 3 letters typed, directly above keyboard */}
       {currentStep === "company" && formData.company.trim().length >= 3 && companySuggestions.length > 0 && (
         <div className="flex-shrink-0 px-6 pb-2">
@@ -340,6 +405,19 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ── NOT REPRESENTING A COMPANY chip ── always visible on company step */}
+      {currentStep === "company" && (
+        <div className="flex-shrink-0 px-6 pb-2">
+          <button
+            onClick={() => { setFormData(prev => ({ ...prev, company: "" })); goNext(); }}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full border-2 border-slate-300 bg-slate-50 text-slate-600 text-sm font-semibold min-h-[44px] hover:bg-slate-100 active:scale-95 transition-all"
+          >
+            <Building2 size={16} className="text-slate-400" />
+            Not representing a company
+          </button>
         </div>
       )}
 

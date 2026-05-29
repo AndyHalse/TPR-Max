@@ -18,7 +18,7 @@ import { db } from '../db';
 import { websocketService } from '../websocketService';
 import { VoiceNotificationService } from '../voiceNotificationService';
 import { paxtonService } from '../paxtonService';
-import { eq, and, desc, gte, ne, or, isNull } from 'drizzle-orm';
+import { eq, and, desc, gte, ne, or, isNull, ilike } from 'drizzle-orm';
 import { randomUUID, randomBytes } from 'crypto';
 import { z } from 'zod';
 import { logger } from '../utils/logger';
@@ -1104,16 +1104,29 @@ export function registerVisitorRoutes(app: Express): void {
   app.get("/api/visitors/search", requireAuth, async (req, res) => {
     try {
       const { q } = req.query;
-      if (!q || typeof q !== 'string') {
-        return res.status(400).json({ message: "Search query required" });
+      if (!q || typeof q !== 'string' || q.trim().length < 2) {
+        return res.json([]);
       }
-      
-      // Get customer context for isolation based on logged-in user
+
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // For now return empty until we implement customer-isolated search
-      res.json([]);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      const results = await customerDb
+        .select()
+        .from(isolatedSchema.visitors)
+        .where(ilike(isolatedSchema.visitors.lastName, `%${q.trim()}%`))
+        .orderBy(desc(isolatedSchema.visitors.checkedInAt))
+        .limit(50);
+
+      // Deduplicate: keep most-recent record per unique person (firstName+lastName)
+      const seen = new Map<string, typeof results[0]>();
+      for (const v of results) {
+        const key = `${(v.firstName || '').toLowerCase().trim()}|${(v.lastName || '').toLowerCase().trim()}`;
+        if (!seen.has(key)) seen.set(key, v);
+      }
+
+      res.json(Array.from(seen.values()).slice(0, 6));
     } catch (error) {
       logger.error("Error searching visitors:", error);
       res.status(500).json({ message: "Failed to search visitors" });
