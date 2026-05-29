@@ -17,9 +17,10 @@ import {
   Clock, RefreshCw, ChevronUp, ChevronDown, X, LayoutDashboard,
   FileText, ListChecks, Target, TrendingUp, CalendarDays, User,
   MapPin, Flag, Filter, Camera, Upload, Link as LinkIcon, Shield, Download,
-  Mail, Send, Copy,
+  Mail, Send, Copy, HelpCircle,
 } from "lucide-react";
 import { ObjectUploader } from "@/components/ObjectUploader";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1276,6 +1277,16 @@ export default function Audits() {
           <h1 className="text-2xl font-bold text-fixed flex items-center gap-2">
             <ClipboardCheck className="h-7 w-7 text-blue-600" />
             Audit & Inspection Engine
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                  <HelpCircle size={18} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                Create audit templates with custom checklists, schedule inspections against those templates, record findings with photos and evidence, assign corrective actions, and track resolution — all in one place. Use the Overview tab to monitor completion rates and open actions at a glance.
+              </TooltipContent>
+            </Tooltip>
           </h1>
           <p className="text-sm text-variable mt-0.5">Schedule inspections, record findings, manage corrective actions</p>
         </div>
