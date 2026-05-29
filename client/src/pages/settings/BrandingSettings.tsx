@@ -513,7 +513,7 @@ export default function BrandingSettings() {
                 Displayed on the kiosk home screen as a notice for all visitors. Leave blank to hide the notice panel entirely.
               </p>
               <Textarea
-                value={formData?.kioskNoticeMessage ?? ""}
+                value={currentSettings?.kioskNoticeMessage ?? ""}
                 onChange={(e) => handleInputChange("kioskNoticeMessage", e.target.value)}
                 placeholder="e.g. All visitors must sign in before entering the building..."
                 className="min-h-[100px] text-sm resize-y"
@@ -521,7 +521,7 @@ export default function BrandingSettings() {
                 data-testid="input-kiosk-notice-message"
               />
               <p className="text-xs text-variable text-right">
-                {(formData?.kioskNoticeMessage ?? "").length}/300 characters
+                {(currentSettings?.kioskNoticeMessage ?? "").length}/300 characters
               </p>
             </div>
           </div>
