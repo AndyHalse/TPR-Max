@@ -5,11 +5,12 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   ShieldCheck, AlertTriangle, XCircle, CheckCircle2, Clock, ChevronDown, ChevronUp,
   ArrowRight, RefreshCw, Building2, HardHat, FileText, Wrench, Flame, Users, ScrollText,
-  Download,
+  Download, HelpCircle,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface CategoryStat {
   total?: number; tracked?: number; compliant: number;
@@ -464,7 +465,19 @@ export default function ComplianceDashboard() {
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Compliance Intelligence Dashboard</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Compliance Intelligence Dashboard</h1>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+                  <HelpCircle size={18} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-xs text-xs leading-relaxed">
+                Aggregates compliance data across all modules — contractor insurance, RAMS, inductions, certificates, PPM, fire risk assessments, and staff right-to-work — into a single scored health rating. The score is weighted by severity: expired items count more than expiring ones. Use this page to spot issues before they become enforcement risks.
+              </TooltipContent>
+            </Tooltip>
+          </div>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             Live compliance health across all modules · Updated {updatedText}
           </p>
