@@ -213,199 +213,444 @@ async function generateCompliancePDF(data: DashboardData) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const pageW = 210;
-  const margin = 14;
+  const margin = 12;
   const colW = pageW - margin * 2;
   const generatedAt = format(new Date(), "dd MMMM yyyy 'at' HH:mm");
 
-  const BRAND = "#2460A9";
-  const BAND_TEXT: Record<string, string> = { green: "#059669", amber: "#d97706", orange: "#ea580c", red: "#dc2626" };
-  const bandColour = BAND_TEXT[data.riskBand] ?? "#374151";
+  // Brand blue
+  const BR: [number,number,number] = [36, 96, 169];
+
+  // Band solid fill & light track colours
+  const BAND_FILL: Record<string,[number,number,number]> = {
+    green:  [5, 150, 105],
+    amber:  [180, 83, 9],
+    orange: [194, 65, 12],
+    red:    [185, 28, 28],
+  };
+  const BAND_TRACK: Record<string,[number,number,number]> = {
+    green:  [110, 231, 183],
+    amber:  [252, 211, 77],
+    orange: [253, 186, 116],
+    red:    [252, 165, 165],
+  };
+  const BAND_LABEL: Record<string,[number,number,number]> = {
+    green:  [209, 250, 229],
+    amber:  [254, 243, 199],
+    orange: [255, 237, 213],
+    red:    [254, 226, 226],
+  };
+
+  const bFill  = BAND_FILL[data.riskBand]  ?? BAND_FILL.green;
+  const bTrack = BAND_TRACK[data.riskBand] ?? BAND_TRACK.green;
+  const bLabel = BAND_LABEL[data.riskBand] ?? BAND_LABEL.green;
 
   let y = 0;
 
+  // ── helpers ────────────────────────────────────────────────────────────────
+
   function checkPage(needed = 12) {
-    if (y + needed > 275) {
-      doc.addPage();
-      y = margin;
+    if (y + needed > 278) { doc.addPage(); y = margin; }
+  }
+
+  function scoreColor(score: number): [number,number,number] {
+    return score >= 90 ? [5, 150, 105] : score >= 70 ? [180, 83, 9] : score >= 50 ? [194, 65, 12] : [185, 28, 28];
+  }
+
+  function sectionHeader(title: string) {
+    checkPage(12);
+    doc.setFillColor(...BR);
+    doc.roundedRect(margin, y, colW, 7, 1.5, 1.5, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(255, 255, 255);
+    doc.text(title.toUpperCase(), margin + 3.5, y + 4.8);
+    y += 10;
+  }
+
+  // Draw the score arc ring (segments approximation)
+  function drawArc(cx: number, cy: number, r: number, score: number,
+                   trackCol: [number,number,number], arcCol: [number,number,number]) {
+    const segs = 90;
+    const start = -Math.PI / 2;
+    // track
+    doc.setDrawColor(...trackCol);
+    doc.setLineWidth(2.8);
+    for (let i = 0; i < segs; i++) {
+      const t1 = start + (2 * Math.PI * i) / segs;
+      const t2 = start + (2 * Math.PI * (i + 1)) / segs;
+      doc.line(cx + r * Math.cos(t1), cy + r * Math.sin(t1),
+               cx + r * Math.cos(t2), cy + r * Math.sin(t2));
+    }
+    // score fill
+    doc.setDrawColor(...arcCol);
+    const filled = Math.round(segs * score / 100);
+    for (let i = 0; i < filled; i++) {
+      const t1 = start + (2 * Math.PI * i) / segs;
+      const t2 = start + (2 * Math.PI * (i + 1)) / segs;
+      doc.line(cx + r * Math.cos(t1), cy + r * Math.sin(t1),
+               cx + r * Math.cos(t2), cy + r * Math.sin(t2));
     }
   }
 
-  function sectionTitle(title: string) {
-    checkPage(14);
-    doc.setFillColor(245, 247, 250);
-    doc.rect(margin, y, colW, 8, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(55, 65, 81);
-    doc.text(title.toUpperCase(), margin + 3, y + 5.5);
-    y += 11;
+  function progressBar(x: number, barY: number, w: number, h: number,
+                       pct: number, col: [number,number,number]) {
+    doc.setFillColor(229, 231, 235);
+    doc.roundedRect(x, barY, w, h, h / 2, h / 2, "F");
+    const fw = Math.max(w * pct / 100, h);
+    doc.setFillColor(...col);
+    doc.roundedRect(x, barY, fw, h, h / 2, h / 2, "F");
   }
 
-  function row(label: string, value: string, valueColour?: string) {
-    checkPage(8);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(107, 114, 128);
-    doc.text(label, margin + 2, y + 4.5);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    const [r, g, b] = valueColour
-      ? [parseInt(valueColour.slice(1, 3), 16), parseInt(valueColour.slice(3, 5), 16), parseInt(valueColour.slice(5, 7), 16)]
-      : [31, 41, 55];
-    doc.setTextColor(r, g, b);
-    doc.text(value, pageW - margin - 2, y + 4.5, { align: "right" });
-    doc.setDrawColor(229, 231, 235);
-    doc.line(margin, y + 7, pageW - margin, y + 7);
-    y += 8;
-  }
-
-  function issueBlock(issue: CriticalIssue) {
-    const isCrit = issue.severity === "critical";
-    const lines = doc.splitTextToSize(`${issue.title}: ${issue.detail}${issue.daysOverdue ? ` (${issue.daysOverdue} days overdue)` : ""}`, colW - 12);
-    checkPage(lines.length * 5 + 6);
-    doc.setFillColor(isCrit ? 254 : 255, isCrit ? 242 : 251, isCrit ? 242 : 235);
-    doc.roundedRect(margin, y, colW, lines.length * 5 + 4, 1.5, 1.5, "F");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(isCrit ? 185 : 146, isCrit ? 28 : 64, isCrit ? 28 : 14);
-    doc.text(lines, margin + 4, y + 5);
-    y += lines.length * 5 + 7;
-  }
-
-  /* ── Cover header ── */
-  doc.setFillColor(36, 96, 169);
-  doc.rect(0, 0, 210, 38, "F");
+  // ── COVER HEADER ──────────────────────────────────────────────────────────
+  doc.setFillColor(...BR);
+  doc.rect(0, 0, 210, 32, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(18);
+  doc.setFontSize(15);
   doc.setTextColor(255, 255, 255);
-  doc.text("Compliance Intelligence Dashboard", margin, 16);
+  doc.text("Compliance Intelligence Dashboard", margin, 12);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  doc.setTextColor(200, 220, 255);
-  doc.text("TPR · Connected Workforce & Site Safety Platform", margin, 23);
-  doc.text(`Generated: ${generatedAt}`, margin, 29);
-  doc.text(`Data snapshot: ${format(new Date(data.calculatedAt), "dd MMM yyyy HH:mm")}`, margin, 34);
-  y = 46;
+  doc.setFontSize(8);
+  doc.setTextColor(180, 210, 255);
+  doc.text("TPR · Total Protection & Response", margin, 19);
+  doc.text(`Generated: ${generatedAt}`, margin, 24.5);
+  doc.text(`Data snapshot: ${format(new Date(data.calculatedAt), "dd MMM yyyy HH:mm")}`, margin, 29.5);
+  y = 38;
 
-  /* ── Overall Score ── */
-  sectionTitle("Overall Compliance Score");
+  // ── SCORE HERO ────────────────────────────────────────────────────────────
+  const heroH = 48;
+  doc.setFillColor(...bFill);
+  doc.roundedRect(margin, y, colW, heroH, 3, 3, "F");
+
+  // Arc gauge
+  const arcCx = margin + 28;
+  const arcCy = y + heroH / 2 + 1;
+  const arcR  = 17;
+  drawArc(arcCx, arcCy, arcR, data.overallScore, bTrack, [255, 255, 255]);
+
+  // Score in centre
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(36);
-  doc.setTextColor(...(bandColour.match(/[\da-f]{2}/gi)!.map(h => parseInt(h, 16))) as [number, number, number]);
-  doc.text(`${data.overallScore}`, margin + 2, y + 14);
+  doc.setFontSize(17);
+  doc.setTextColor(255, 255, 255);
+  doc.text(`${data.overallScore}`, arcCx, arcCy + 3.5, { align: "center" });
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(11);
-  doc.setTextColor(55, 65, 81);
-  doc.text(`/ 100 — ${data.riskLabel}`, margin + 22, y + 14);
-  doc.setFontSize(8.5);
-  doc.setTextColor(107, 114, 128);
-  doc.text(`Based on ${data.totalChecks} compliance checks across your site`, margin + 2, y + 21);
-  doc.text(`Critical issues: ${data.criticalIssues.length}   Warnings: ${data.warnings.length}`, margin + 2, y + 27);
-  y += 34;
+  doc.setFontSize(6.5);
+  doc.setTextColor(...bLabel);
+  doc.text("/ 100", arcCx, arcCy + 8.5, { align: "center" });
 
-  /* ── Category Breakdown ── */
-  sectionTitle("Category Breakdown");
+  // Right-side text
+  const tx = margin + 60;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7.5);
+  doc.setTextColor(...bLabel);
+  doc.text("Overall Compliance Score", tx, y + 11);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(255, 255, 255);
+  doc.text(data.riskLabel, tx, y + 20);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
+  doc.setTextColor(...bLabel);
+  doc.text(`Based on ${data.totalChecks} compliance checks across your site`, tx, y + 27);
+
+  // Pills row
+  let pillX = tx;
+  const pillY = y + 33;
+  const pills: { label: string }[] = [];
+  if (data.criticalIssues.length > 0)
+    pills.push({ label: `  ${data.criticalIssues.length} Critical` });
+  if (data.warnings.length > 0)
+    pills.push({ label: `  ${data.warnings.length} Warning${data.warnings.length !== 1 ? "s" : ""}` });
+  if (pills.length === 0)
+    pills.push({ label: `  No issues found` });
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  for (const pill of pills) {
+    const pw = doc.getTextWidth(pill.label) + 5;
+    doc.setFillColor(...bTrack);
+    doc.roundedRect(pillX, pillY, pw, 6, 3, 3, "F");
+    doc.setTextColor(...bFill);
+    doc.text(pill.label, pillX + 2.5, pillY + 4.2);
+    pillX += pw + 4;
+  }
+
+  y += heroH + 7;
+
+  // ── CATEGORY BREAKDOWN (2-column cards) ───────────────────────────────────
+  sectionHeader("Category Breakdown");
+
   const catKeys = ["contractorInsurance", "rams", "inductions", "complianceCerts", "ppm", "fireRiskAssessment", "staffRightToWork"] as const;
-  for (const key of catKeys) {
+  const cardW = (colW - 4) / 2;
+  const cardH = 23;
+  let col = 0;
+  let rowStartY = y;
+
+  for (let i = 0; i < catKeys.length; i++) {
+    const key  = catKeys[i];
     const meta = CATEGORY_META[key];
-    const cat = (data.categories as any)[key] as CategoryStat;
-    const score = cat.score;
-    const colour = score >= 90 ? "#059669" : score >= 70 ? "#d97706" : score >= 50 ? "#ea580c" : "#dc2626";
-    row(meta.label, `${score}% — ${meta.stat(cat)}`, colour);
-  }
-  y += 4;
+    const cat  = (data.categories as any)[key] as CategoryStat;
+    const sc   = cat.score;
+    const sc3  = scoreColor(sc);
 
-  /* ── Critical Issues ── */
+    if (col === 0) { checkPage(cardH + 3); rowStartY = y; }
+
+    const cx = margin + col * (cardW + 4);
+    const cy = rowStartY;
+
+    // Card
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(229, 231, 235);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(cx, cy, cardW, cardH, 2, 2, "FD");
+
+    // Coloured top stripe
+    doc.setFillColor(...sc3);
+    doc.roundedRect(cx, cy, cardW, 3, 2, 2, "F");
+    doc.rect(cx, cy + 1.5, cardW, 1.5, "F"); // square off bottom of stripe
+
+    // Label
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
+    doc.setTextColor(31, 41, 55);
+    doc.text(meta.label, cx + 4, cy + 8.5);
+
+    // Stat description
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(107, 114, 128);
+    doc.text(meta.stat(cat), cx + 4, cy + 13.5);
+
+    // Score % right-aligned
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(...sc3);
+    doc.text(`${sc}%`, cx + cardW - 4, cy + 13.5, { align: "right" });
+
+    // Progress bar
+    progressBar(cx + 4, cy + 17, cardW - 8, 2.5, sc, sc3);
+
+    col++;
+    if (col === 2) { col = 0; y += cardH + 3; }
+  }
+  if (col !== 0) y += cardH + 3;
+  y += 5;
+
+  // ── CRITICAL ISSUES ───────────────────────────────────────────────────────
   if (data.criticalIssues.length > 0) {
-    sectionTitle(`Critical Issues (${data.criticalIssues.length})`);
-    for (const issue of data.criticalIssues) issueBlock(issue);
+    sectionHeader(`Critical Issues (${data.criticalIssues.length})`);
+    for (const issue of data.criticalIssues) {
+      const detailStr = issue.detail + (issue.daysOverdue ? ` — ${issue.daysOverdue} days overdue` : "");
+      const detailLines = doc.splitTextToSize(detailStr, colW - 16);
+      const bh = detailLines.length * 4.5 + 12;
+      checkPage(bh + 3);
+
+      // Card
+      doc.setFillColor(254, 242, 242);
+      doc.setDrawColor(254, 202, 202);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, colW, bh, 2, 2, "FD");
+      // Left accent
+      doc.setFillColor(220, 38, 38);
+      doc.roundedRect(margin, y, 3, bh, 1.5, 1.5, "F");
+      doc.rect(margin + 1.5, y, 1.5, bh, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(185, 28, 28);
+      doc.text(issue.title, margin + 6, y + 6);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(107, 114, 128);
+      doc.text(detailLines, margin + 6, y + 11);
+
+      y += bh + 2.5;
+    }
     y += 3;
   }
 
-  /* ── Warnings ── */
+  // ── WARNINGS ──────────────────────────────────────────────────────────────
   if (data.warnings.length > 0) {
-    sectionTitle(`Warnings (${data.warnings.length})`);
-    for (const issue of data.warnings) issueBlock(issue);
+    sectionHeader(`Warnings (${data.warnings.length})`);
+    for (const issue of data.warnings) {
+      const detailStr = issue.detail + (issue.daysOverdue ? ` — ${issue.daysOverdue} days overdue` : "");
+      const detailLines = doc.splitTextToSize(detailStr, colW - 16);
+      const bh = detailLines.length * 4.5 + 12;
+      checkPage(bh + 3);
+
+      doc.setFillColor(255, 251, 235);
+      doc.setDrawColor(253, 230, 138);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, colW, bh, 2, 2, "FD");
+      doc.setFillColor(217, 119, 6);
+      doc.roundedRect(margin, y, 3, bh, 1.5, 1.5, "F");
+      doc.rect(margin + 1.5, y, 1.5, bh, "F");
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(146, 64, 14);
+      doc.text(issue.title, margin + 6, y + 6);
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(107, 114, 128);
+      doc.text(detailLines, margin + 6, y + 11);
+
+      y += bh + 2.5;
+    }
     y += 3;
   }
 
-  /* ── Expiry Timeline ── */
+  // ── EXPIRY TIMELINE ───────────────────────────────────────────────────────
+  const CAT_PILL: Record<string,{ bg:[number,number,number]; fg:[number,number,number] }> = {
+    "Contractor Insurance":   { bg: [219,234,254], fg: [29,78,216]   },
+    "RAMS":                   { bg: [237,233,254], fg: [109,40,217]  },
+    "Contractor Inductions":  { bg: [207,250,254], fg: [14,116,144]  },
+    "Compliance Certificates":{ bg: [209,250,229], fg: [5,122,85]    },
+    "PPM":                    { bg: [255,237,213], fg: [154,52,18]   },
+    "Fire Risk Assessment":   { bg: [254,226,226], fg: [153,27,27]   },
+    "Staff Right to Work":    { bg: [224,231,255], fg: [67,56,202]   },
+  };
+
   const timelineGroups = groupTimelineItems(data.expiryTimeline);
   if (timelineGroups.length > 0) {
-    sectionTitle("Expiry Timeline — Next 90 Days");
+    sectionHeader("Expiry Timeline — Next 90 Days");
     for (const group of timelineGroups) {
-      checkPage(10);
+      checkPage(14);
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
+      doc.setFontSize(7);
       doc.setTextColor(107, 114, 128);
-      doc.text(group.label.toUpperCase(), margin + 2, y + 4);
+      doc.text(group.label.toUpperCase(), margin, y + 4);
       y += 7;
+
       for (const item of group.items) {
-        const urgentColour = item.daysUntilExpiry <= 7 ? "#dc2626" : item.daysUntilExpiry <= 14 ? "#d97706" : "#374151";
+        checkPage(8);
+        const urgentCol: [number,number,number] = item.daysUntilExpiry <= 7
+          ? [220, 38, 38] : item.daysUntilExpiry <= 14 ? [180, 83, 9] : [55, 65, 81];
         const daysLabel = item.daysUntilExpiry === 0 ? "Today" : `${item.daysUntilExpiry}d`;
-        checkPage(7);
+
+        // Row stripe
+        doc.setFillColor(249, 250, 251);
+        doc.rect(margin, y, colW, 7.5, "F");
+
+        // Date
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(8.5);
+        doc.setFontSize(7);
         doc.setTextColor(107, 114, 128);
-        doc.text(format(new Date(item.date), "dd MMM yyyy"), margin + 2, y + 4.5);
-        doc.setTextColor(55, 65, 81);
-        doc.text(item.item, margin + 32, y + 4.5);
-        const [ur, ug, ub] = urgentColour.match(/[\da-f]{2}/gi)!.map(h => parseInt(h, 16)) as [number, number, number];
+        doc.text(format(new Date(item.date), "dd MMM yyyy"), margin + 2, y + 5);
+
+        // Category pill
+        const pillMeta = CAT_PILL[item.category] ?? { bg: [243,244,246], fg: [55,65,81] };
+        const catShort = item.category.length > 14 ? item.category.slice(0, 13) + "…" : item.category;
+        doc.setFontSize(6);
+        const pw = doc.getTextWidth(catShort) + 5;
+        doc.setFillColor(...pillMeta.bg);
+        doc.roundedRect(margin + 29, y + 1.8, pw, 4, 2, 2, "F");
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(ur, ug, ub);
-        doc.text(daysLabel, pageW - margin - 2, y + 4.5, { align: "right" });
+        doc.setTextColor(...pillMeta.fg);
+        doc.text(catShort, margin + 29 + pw / 2, y + 5, { align: "center" });
+
+        // Item name (truncated to fit)
+        const itemX = margin + 30 + pw + 2;
+        const itemMaxW = pageW - margin - 14 - itemX;
+        const itemLabel = doc.splitTextToSize(item.item, itemMaxW)[0] ?? item.item;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(31, 41, 55);
+        doc.text(itemLabel, itemX, y + 5);
+
+        // Days badge
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...urgentCol);
+        doc.text(daysLabel, pageW - margin - 2, y + 5, { align: "right" });
+
         doc.setDrawColor(229, 231, 235);
-        doc.line(margin, y + 6.5, pageW - margin, y + 6.5);
+        doc.setLineWidth(0.2);
+        doc.line(margin, y + 7.5, pageW - margin, y + 7.5);
         y += 7.5;
       }
-      y += 3;
+      y += 4;
     }
   }
 
-  /* ── Top Contractor Risks ── */
+  // ── TOP CONTRACTOR RISKS ──────────────────────────────────────────────────
   if (data.topContractorRisks.length > 0) {
-    sectionTitle("Top Contractor Risks");
+    sectionHeader("Top Contractor Risks");
     for (const contractor of data.topContractorRisks) {
-      const lines = doc.splitTextToSize(`${contractor.name} — ${contractor.issues.join(", ")}`, colW - 10);
-      checkPage(lines.length * 5 + 6);
+      const issuesText = contractor.issues.join("  ·  ");
+      const issueLines = doc.splitTextToSize(issuesText, colW - 40);
+      const bh = Math.max(issueLines.length * 4.5 + 13, 17);
+      checkPage(bh + 3);
+
       doc.setFillColor(254, 242, 242);
-      doc.roundedRect(margin, y, colW, lines.length * 5 + 4, 1.5, 1.5, "F");
+      doc.setDrawColor(254, 202, 202);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(margin, y, colW, bh, 2, 2, "FD");
+
+      // Contractor name
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
-      doc.setTextColor(185, 28, 28);
-      doc.text(`${contractor.issueCount} issue${contractor.issueCount !== 1 ? "s" : ""}`, pageW - margin - 4, y + 5, { align: "right" });
+      doc.setTextColor(31, 41, 55);
+      doc.text(contractor.name, margin + 4, y + 7);
+
+      // Issue count badge
+      const badgeStr = `${contractor.issueCount} issue${contractor.issueCount !== 1 ? "s" : ""}`;
+      doc.setFontSize(6.5);
+      const bw = doc.getTextWidth(badgeStr) + 6;
+      doc.setFillColor(254, 202, 202);
+      doc.roundedRect(pageW - margin - bw - 4, y + 3, bw, 5, 2.5, 2.5, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(153, 27, 27);
+      doc.text(badgeStr, pageW - margin - bw / 2 - 4, y + 6.8, { align: "center" });
+
+      // Issue tags text
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(55, 65, 81);
-      doc.text(lines, margin + 4, y + 5);
-      y += lines.length * 5 + 7;
+      doc.setFontSize(7);
+      doc.setTextColor(185, 28, 28);
+      doc.text(issueLines, margin + 4, y + 12.5);
+
+      y += bh + 3;
     }
-    y += 3;
+    y += 2;
   }
 
-  /* ── Footer note ── */
-  checkPage(22);
+  // ── SCORE METHODOLOGY NOTE ────────────────────────────────────────────────
+  checkPage(26);
   doc.setFillColor(248, 250, 252);
-  doc.rect(margin, y, colW, 20, "F");
+  doc.setDrawColor(226, 232, 240);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(margin, y, colW, 24, 2, 2, "FD");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
   doc.setTextColor(55, 65, 81);
-  doc.text("How the score is calculated", margin + 3, y + 5);
+  doc.text("How the score is calculated", margin + 4, y + 6.5);
   doc.setFont("helvetica", "normal");
+  doc.setFontSize(7);
   doc.setTextColor(107, 114, 128);
   const noteLines = doc.splitTextToSize(
     "The overall score is a weighted average of 7 compliance categories: Contractor Insurance (20%), RAMS Documents (15%), Contractor Inductions (15%), Compliance Certificates (15%), PPM / Maintenance (15%), Fire Risk Assessment (10%), and Staff Right to Work (10%). Categories with no tracked items score 100 (not applicable).",
-    colW - 6
+    colW - 8
   );
-  doc.text(noteLines, margin + 3, y + 10);
+  doc.text(noteLines, margin + 4, y + 12);
 
-  /* ── Page numbers ── */
+  // ── PAGE NUMBERS ──────────────────────────────────────────────────────────
   const pageCount = (doc as any).internal.getNumberOfPages();
   for (let p = 1; p <= pageCount; p++) {
     doc.setPage(p);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.line(margin, 284, pageW - margin, 284);
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     doc.setTextColor(156, 163, 175);
-    doc.text(`TPR Compliance Report · ${generatedAt} · Page ${p} of ${pageCount}`, pageW / 2, 292, { align: "center" });
+    doc.text(
+      `TPR Compliance Report  ·  ${generatedAt}  ·  Page ${p} of ${pageCount}`,
+      pageW / 2, 289.5, { align: "center" }
+    );
+    // Brand dot
+    doc.setFillColor(...BR);
+    doc.circle(pageW - margin + 1, 289, 1.5, "F");
   }
 
   const fileName = `compliance-report-${format(new Date(), "yyyy-MM-dd-HHmm")}.pdf`;
