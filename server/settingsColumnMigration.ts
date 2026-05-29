@@ -254,6 +254,34 @@ export const addNdaColumnsMigration: Migration = {
 };
 
 /**
+ * Migration to add kiosk_notice_message column
+ */
+export const addKioskNoticeMessageMigration: Migration = {
+  version: '20260529_001_add_kiosk_notice_message',
+  description: 'Add kiosk_notice_message column to company_settings table',
+  async up(db: any) {
+    const result = await db.execute(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = current_schema()
+        AND table_name = 'company_settings'
+        AND column_name = 'kiosk_notice_message'
+      )
+    `);
+    if (!result.rows[0]?.exists) {
+      logger.info('🔄 Adding kiosk_notice_message to company_settings');
+      await db.execute(`
+        ALTER TABLE company_settings
+        ADD COLUMN kiosk_notice_message TEXT DEFAULT 'All visitors must sign in before entering the building. Please have your host''s name ready. Do not proceed beyond reception until your host arrives.'
+      `);
+      logger.info('✅ Added kiosk_notice_message');
+    } else {
+      logger.info('ℹ️ kiosk_notice_message already exists, skipping');
+    }
+  }
+};
+
+/**
  * All settings column migrations exported as array
  */
 export const settingsColumnMigrations: Migration[] = [
@@ -263,4 +291,5 @@ export const settingsColumnMigrations: Migration[] = [
   addCoreNavFeatureToggleColumnsMigration,
   addCoreNavFeatureToggleColumnsFixedMigration,
   addNdaColumnsMigration,
+  addKioskNoticeMessageMigration,
 ];
