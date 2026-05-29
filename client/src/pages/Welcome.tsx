@@ -613,7 +613,7 @@ export default function Welcome() {
         <Alert className="border-green-200 bg-green-50 dark:bg-green-900/30">
           <Sparkles className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800 dark:text-green-200">
-            <strong>Your 14-day free trial is now active!</strong> You have full access to all features. 
+            <strong>Your 30-day free trial is now active!</strong> You have full access to all features. 
             Need help getting started? Our support team is here to assist you at support@visigatepro.com
           </AlertDescription>
         </Alert>

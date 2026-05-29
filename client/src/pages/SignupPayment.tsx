@@ -229,7 +229,7 @@ export default function SignupPayment() {
             Complete Your Setup
           </h1>
           <p className="text-xl text-slate-600 dark:text-slate-400">
-            Start your 14-day free trial of TPR
+            Start your 30-day free trial of TPR
           </p>
         </div>
 
@@ -272,7 +272,7 @@ export default function SignupPayment() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600 dark:text-slate-400">Trial Period</span>
-                    <Badge variant="secondary">14 days free</Badge>
+                    <Badge variant="secondary">30 days free</Badge>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-slate-600 dark:text-slate-400">After trial</span>
@@ -337,7 +337,7 @@ export default function SignupPayment() {
                     <div className="text-slate-600 dark:text-slate-400 mb-4">per month, billed monthly</div>
                     <div className="inline-flex items-center gap-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-4 py-2 rounded-full">
                       <Clock size={16} />
-                      <span className="font-semibold">14-day free trial • No setup fees</span>
+                      <span className="font-semibold">30-day free trial • No setup fees</span>
                     </div>
                   </div>
                 </div>
@@ -349,7 +349,7 @@ export default function SignupPayment() {
                 <Alert className="border-blue-200 bg-blue-50 dark:bg-blue-900/30">
                   <Zap className="h-4 w-4 text-blue-600" />
                   <AlertDescription className="text-blue-800 dark:text-blue-200">
-                    <strong>Free 14-day trial includes:</strong> Full access to all features, unlimited visitors, 
+                    <strong>Free 30-day trial includes:</strong> Full access to all features, unlimited visitors, 
                     dedicated support, and complete setup assistance. Cancel anytime during trial with no charges.
                   </AlertDescription>
                 </Alert>
@@ -409,7 +409,7 @@ export default function SignupPayment() {
                     ) : (
                       <>
                         <CreditCard className="mr-3" size={20} />
-                        Start Free 14-Day Trial
+                        Start Free 30-Day Trial
                       </>
                     )}
                   </Button>

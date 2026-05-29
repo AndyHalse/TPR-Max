@@ -146,7 +146,7 @@ export default function Signup() {
         phone: data.phone || undefined,
         website: data.website || undefined,
         planType: "trial" as const,
-        trialDays: 14,
+        trialDays: 30,
         timezone: "Europe/London",
         currency: "GBP",
         billingCycle: "monthly" as const,
@@ -654,7 +654,7 @@ export default function Signup() {
               Start Your Free Trial
             </CardTitle>
             <CardDescription className="text-slate-600 dark:text-slate-400">
-              Join TPR - 14 days free, then just £49.95/month
+              Join TPR - 30 days free, then just £49.95/month
             </CardDescription>
           </div>
 

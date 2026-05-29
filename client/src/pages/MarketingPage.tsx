@@ -3201,7 +3201,7 @@ export default function MarketingPage() {
               <span style={{ color: "#2460A9" }}> Your Industry</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
-              TPR-Max is built around UK Health &amp; Safety legislation and the compliance challenges real British organisations face every day.
+              TPR is built around UK Health &amp; Safety legislation and the compliance challenges real British organisations face every day.
             </p>
           </div>
 
@@ -3473,7 +3473,7 @@ export default function MarketingPage() {
               Don't See Your Sector?
             </h3>
             <p className="text-lg text-slate-600 dark:text-slate-300 mb-6 max-w-2xl mx-auto">
-              TPR-Max serves organisations across all UK sectors — from local authorities and logistics to retail and leisure. Our flexible platform adapts to your specific compliance requirements, security protocols, and operational workflows.
+              TPR serves organisations across all UK sectors — from local authorities and logistics to retail and leisure. Our flexible platform adapts to your specific compliance requirements, security protocols, and operational workflows.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Button
@@ -3646,7 +3646,7 @@ export default function MarketingPage() {
       >
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl lg:text-4xl font-bold text-white mb-4">
-            Ready to see TPR-Max in action?
+            Ready to see TPR in action?
           </h2>
           <p className="text-xl text-white/85 mb-8 max-w-2xl mx-auto">
             Book a free, no-obligation demo and we'll walk you through every module relevant to your organisation — live, on your own data.
@@ -3675,7 +3675,7 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* Why TPR-Max Section */}
+      {/* Why TPR Section */}
       <section className="py-20 bg-white/50 dark:bg-slate-800/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
@@ -3684,7 +3684,7 @@ export default function MarketingPage() {
               Built for UK Organisations
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              Why Organisations Choose TPR-Max
+              Why Organisations Choose TPR
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
               Built specifically for UK Health & Safety, compliance, and construction regulations — not a generic product adapted to fit.
@@ -3884,7 +3884,7 @@ export default function MarketingPage() {
 
             {/* Quick Links */}
             <div>
-              <h3 className="text-base font-semibold mb-4 text-white">TPR-Max Platform</h3>
+              <h3 className="text-base font-semibold mb-4 text-white">TPR Platform</h3>
               <ul className="space-y-2 text-sm text-slate-300">
                 {[
                   ["Emergency Mustering", "features"],
@@ -3907,7 +3907,7 @@ export default function MarketingPage() {
 
             {/* Product */}
             <div>
-              <h3 className="text-base font-semibold mb-4 text-white">About TPR-Max</h3>
+              <h3 className="text-base font-semibold mb-4 text-white">About TPR</h3>
               <p className="text-slate-300 text-sm leading-relaxed">
                 The UK's Connected Workforce &amp; Site Safety Platform. 23 modules covering contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, and more — all in one subscription.
               </p>
@@ -3925,7 +3925,7 @@ export default function MarketingPage() {
               © 2026 ACS Safety & Security Ltd. All rights reserved.
             </p>
             <p className="text-slate-500 text-xs">
-              TPR-Max is a product of ACS Safety & Security Ltd, registered in England & Wales.
+              TPR is a product of ACS Safety & Security Ltd, registered in England & Wales.
             </p>
           </div>
         </div>
