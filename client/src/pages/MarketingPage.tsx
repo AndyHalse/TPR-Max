@@ -83,6 +83,7 @@ import {
   FileSearch2,
   ShieldAlert,
   BadgeCheck,
+  Tablet,
 } from "lucide-react";
 
 // Import ACS logo, screenshots and pricing image
@@ -368,7 +369,7 @@ export default function MarketingPage() {
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-emerald-600">
                   <Zap className="h-3 w-3 mr-1" />
-                  23 Modules · One Platform
+                  26 Modules · One Platform
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-violet-600">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -393,7 +394,7 @@ export default function MarketingPage() {
               </p>
 
               <p className="text-xl text-slate-600 dark:text-slate-300 mb-6 leading-relaxed">
-                TPR is the UK's <strong>Connected Workforce &amp; Site Safety Platform</strong> — bringing contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, and more into one cloud subscription. One login. Everything connected.
+                Managing health &amp; safety, contractor compliance, site security, and workforce wellbeing shouldn't mean juggling 8 different systems — each with its own login, data silo, and invoice. <strong>TPR removes those pain points</strong> for any business or organisation with one unified platform: 26 modules, one login, one database, one subscription.
               </p>
 
               <div className="grid grid-cols-2 gap-2 mb-8">
@@ -743,7 +744,7 @@ export default function MarketingPage() {
               Complete Platform
             </Badge>
             <h2 className="text-3xl lg:text-4xl font-bold text-slate-900 dark:text-white mb-4">
-              23 Powerful Modules.{" "}
+              26 Powerful Modules.{" "}
               <span style={{ color: "#2460A9" }}>One Platform.</span>
             </h2>
             <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto">
@@ -944,6 +945,30 @@ export default function MarketingPage() {
                 bg: "bg-sky-50 dark:bg-sky-900/20",
                 border: "border-sky-200 dark:border-sky-800",
                 desc: "Digital risk assessment builder covering 6 RA types: General, COSHH, Manual Handling, Working at Height, Lone Working, and DSE. Full risk matrix, residual risk scoring, action tracking, and AI-suggested controls.",
+              },
+              {
+                icon: Users,
+                name: "Members",
+                color: "text-violet-600",
+                bg: "bg-violet-50 dark:bg-violet-900/20",
+                border: "border-violet-200 dark:border-violet-800",
+                desc: "Manage members for clubs, associations, leisure centres, and venues — check-in/out, membership status, muster integration, and QR code passes.",
+              },
+              {
+                icon: Tablet,
+                name: "Kiosk Mode",
+                color: "text-slate-600",
+                bg: "bg-slate-50 dark:bg-slate-900/20",
+                border: "border-slate-200 dark:border-slate-800",
+                desc: "Touchscreen self-service check-in for visitors and contractors — walk-in wizard, NDA acceptance, H&S sign-off, QR code scanning, and digital pass issuance without reception involvement.",
+              },
+              {
+                icon: BarChart3,
+                name: "Compliance Intelligence",
+                color: "text-emerald-700",
+                bg: "bg-emerald-50 dark:bg-emerald-900/20",
+                border: "border-emerald-200 dark:border-emerald-800",
+                desc: "Weighted compliance health score aggregated across all modules — insurance, RAMS, inductions, certificates, PPM, fire risk, and right-to-work. Spot risks before they become enforcement issues.",
               },
             ].map(({ icon: Icon, name, color, bg, border, desc }) => (
               <div
