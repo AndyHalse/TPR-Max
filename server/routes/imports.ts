@@ -1570,30 +1570,30 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
             const owP = inP(oldWorkerIds);
             // Clear every FK that references workers (same list as new-style cleanup)
             for (const t of ['worker_certifications','worker_competencies','worker_document_assignments','induction_tokens','co2_records','local_labour_records','worker_notes']) {
-              try { await pool.query(`DELETE FROM "${schemaName}".${t} WHERE worker_id IN (${owP})`, oldWorkerIds); } catch {}
+              try { await pool.query(`DELETE FROM "${schemaName}".${t} WHERE worker_id IN (${owP})`, oldWorkerIds); } catch (e) { logger.warn(`Clear old-style: ${t} — ${(e as any).message}`); }
             }
             try {
               await pool.query(
                 `DELETE FROM "${schemaName}".worker_document_acceptances WHERE worker_id IN (${owP}) OR submitted_by IN (${owP})`,
                 oldWorkerIds
               );
-            } catch {}
+            } catch (e) { logger.warn(`Clear old-style: worker_document_acceptances — ${(e as any).message}`); }
             // Permit to work referencing these workers
-            try { await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE contractor_worker_id IN (${owP})`, oldWorkerIds); } catch {}
+            try { await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE contractor_worker_id IN (${owP})`, oldWorkerIds); } catch (e) { logger.warn(`Clear old-style: permit_to_work (worker) — ${(e as any).message}`); }
           }
           // Permit to work referencing these companies
-          try { await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE contractor_company_id IN (${oP})`, oldCoIds); } catch {}
+          try { await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE contractor_company_id IN (${oP})`, oldCoIds); } catch (e) { logger.warn(`Clear old-style: permit_to_work (company) — ${(e as any).message}`); }
           // Contractor visits for these companies (covers worker_id fk too via cascade logic)
-          try { await pool.query(`DELETE FROM "${schemaName}".contractor_visits WHERE company_id IN (${oP})`, oldCoIds); } catch {}
+          try { await pool.query(`DELETE FROM "${schemaName}".contractor_visits WHERE company_id IN (${oP})`, oldCoIds); } catch (e) { logger.warn(`Clear old-style: contractor_visits — ${(e as any).message}`); }
           // Pre-bookings
-          try { await pool.query(`DELETE FROM "${schemaName}".contractor_prebookings WHERE company_name = ANY($1)`, [sampleCompanyNames]); } catch {}
+          try { await pool.query(`DELETE FROM "${schemaName}".contractor_prebookings WHERE company_name = ANY($1)`, [sampleCompanyNames]); } catch (e) { logger.warn(`Clear old-style: contractor_prebookings — ${(e as any).message}`); }
           // Company-level dependents
           for (const t of ['co2_records','company_notes','enhanced_company_details','local_labour_records','rams_documents']) {
-            try { await pool.query(`DELETE FROM "${schemaName}".${t} WHERE company_id IN (${oP})`, oldCoIds); } catch {}
+            try { await pool.query(`DELETE FROM "${schemaName}".${t} WHERE company_id IN (${oP})`, oldCoIds); } catch (e) { logger.warn(`Clear old-style: ${t} — ${(e as any).message}`); }
           }
           try {
             await pool.query(`DELETE FROM "${schemaName}".cdm_projects WHERE company_id IN (${oP}) OR principal_contractor_id IN (${oP})`, oldCoIds);
-          } catch {}
+          } catch (e) { logger.warn(`Clear old-style: cdm_projects — ${(e as any).message}`); }
           // Now safe to delete workers and companies
           if (oldWorkerIds.length > 0) {
             try { await pool.query(`DELETE FROM "${schemaName}".contractor_workers WHERE company_id IN (${oP})`, oldCoIds); } catch (e) { logger.warn(`Clear old-style: contractor_workers — ${(e as any).message}`); }
