@@ -601,7 +601,7 @@ export default function KioskMode() {
             <p className="text-variable text-base sm:text-lg">Find your name below</p>
           </div>
 
-          <GlassCard className="flex-1 flex flex-col overflow-hidden">
+          <GlassCard solid className="flex-1 flex flex-col overflow-hidden">
             {checkinSuccess ? (
               <div className="flex-1 flex items-center justify-center p-6">
                 <div className="mx-4 p-6 rounded-xl border-2 bg-green-50 border-green-400 text-center w-full max-w-xs">
@@ -643,7 +643,7 @@ export default function KioskMode() {
                 </div>
 
                 {/* On-screen keyboard (touch-friendly) */}
-                <div className="p-3 sm:p-4 border-b border-white/20 flex-shrink-0 bg-white/30">
+                <div className="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-700 flex-shrink-0 bg-slate-100 dark:bg-slate-800">
                   {([
                     ["Q","W","E","R","T","Y","U","I","O","P"],
                     ["A","S","D","F","G","H","J","K","L"],
@@ -704,7 +704,7 @@ export default function KioskMode() {
                           disabled={staffToggleMutation.isPending}
                           onClick={() => staffToggleMutation.mutate(s.id)}
                           data-testid={`button-staff-toggle-${s.id}`}
-                          className="w-full flex items-center gap-3 px-4 py-4 rounded-xl bg-white/70 hover:bg-white active:scale-[0.99] border border-white/80 transition-all text-left shadow-sm disabled:opacity-60"
+                          className="w-full flex items-center gap-3 px-4 py-4 rounded-xl bg-white hover:bg-slate-50 active:scale-[0.99] border border-slate-200 transition-all text-left shadow-sm disabled:opacity-60"
                         >
                           <div className="flex-1 min-w-0">
                             <div className="text-lg font-semibold text-fixed truncate">
@@ -789,7 +789,7 @@ export default function KioskMode() {
             <p className="text-variable text-base sm:text-lg lg:text-xl">Scan any QR pass — visitor, contractor, or staff</p>
           </div>
 
-          <GlassCard className="overflow-hidden flex-1 flex flex-col justify-center">
+          <GlassCard solid className="overflow-hidden flex-1 flex flex-col justify-center">
             {/* Camera viewfinder */}
             <div className="relative bg-black w-full" style={{ aspectRatio: '4/3', maxHeight: '55vh' }}>
               <video
@@ -985,7 +985,7 @@ export default function KioskMode() {
             onClick={() => setActiveSection("scan")}
             data-testid="button-qr-scanner"
           >
-            <GlassCard hover className="flex items-center gap-4 px-5 py-4 group">
+            <GlassCard solid hover className="flex items-center gap-4 px-5 py-4 group">
               <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl flex items-center justify-center group-active:scale-95 transition-transform">
                 <QrCode className="text-white w-7 h-7" />
               </div>
@@ -1002,7 +1002,7 @@ export default function KioskMode() {
             onClick={() => setActiveSection("walkin")}
             data-testid="button-manual-checkin"
           >
-            <GlassCard hover className="flex items-center gap-4 px-5 py-4 group">
+            <GlassCard solid hover className="flex items-center gap-4 px-5 py-4 group">
               <div className="w-14 h-14 flex-shrink-0 gradient-blue rounded-2xl flex items-center justify-center group-active:scale-95 transition-transform">
                 <UserPlus className="text-white w-7 h-7" />
               </div>
@@ -1019,7 +1019,7 @@ export default function KioskMode() {
             onClick={() => setActiveSection("scan")}
             data-testid="button-staff-checkin"
           >
-            <GlassCard hover className="flex items-center gap-4 px-5 py-4 group">
+            <GlassCard solid hover className="flex items-center gap-4 px-5 py-4 group">
               <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-r from-green-500 to-teal-500 rounded-2xl flex items-center justify-center group-active:scale-95 transition-transform">
                 <BadgeInfo className="text-white w-7 h-7" />
               </div>
@@ -1042,7 +1042,7 @@ export default function KioskMode() {
 
         {/* Mobile notice — shown when kioskNoticeMessage is set */}
         {(settings as any)?.kioskNoticeMessage?.trim() && (
-          <GlassCard className="p-4 flex-shrink-0 sm:hidden">
+          <GlassCard solid className="p-4 flex-shrink-0 sm:hidden">
             <div className="flex items-start gap-3">
               <span className="text-amber-500 text-lg font-bold flex-shrink-0 mt-0.5">!</span>
               <p className="text-sm font-medium text-fixed leading-relaxed">
@@ -1059,7 +1059,7 @@ export default function KioskMode() {
             onClick={() => setActiveSection("scan")}
             data-testid="button-qr-scanner-tablet"
           >
-            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
+            <GlassCard solid hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
               <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                 <QrCode className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
@@ -1073,7 +1073,7 @@ export default function KioskMode() {
             onClick={() => setActiveSection("walkin")}
             data-testid="button-manual-checkin-tablet"
           >
-            <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
+            <GlassCard solid hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
               <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 gradient-blue rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                 <UserPlus className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
               </div>
@@ -1084,7 +1084,7 @@ export default function KioskMode() {
 
           <div className="flex flex-col">
             <div className="cursor-pointer" onClick={() => setActiveSection("scan")} data-testid="button-staff-checkin-tablet">
-              <GlassCard hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
+              <GlassCard solid hover className="text-center py-6 sm:py-8 lg:py-10 px-3 group flex flex-col justify-center items-center h-full">
                 <div className="w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4 group-hover:scale-110 transition-transform">
                   <BadgeInfo className="text-white w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10" />
                 </div>
@@ -1105,7 +1105,7 @@ export default function KioskMode() {
 
         {/* Desktop notice — shown when kioskNoticeMessage is set */}
         {(settings as any)?.kioskNoticeMessage?.trim() && (
-          <GlassCard className="p-5 sm:p-6 flex-shrink-0">
+          <GlassCard solid className="p-5 sm:p-6 flex-shrink-0">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center mt-0.5">
                 <span className="text-amber-600 text-xl font-bold leading-none">!</span>

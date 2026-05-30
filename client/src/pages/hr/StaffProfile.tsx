@@ -132,7 +132,7 @@ function RtwTab({ staffId }: { staffId: string }) {
       ) : (
         <div className="space-y-3">
           {records.map((r: any) => (
-            <Card key={r.id} className={r.is_current ? "border-blue-200" : "opacity-60"}>
+            <Card variant="glass" key={r.id} className={r.is_current ? "border-blue-200" : "opacity-60"}>
               <CardContent className="pt-4">
                 <div className="flex justify-between items-start">
                   <div>
@@ -219,7 +219,7 @@ function TrainingTab({ staffId }: { staffId: string }) {
       ) : (
         <div className="space-y-2">
           {records.map((r: any) => (
-            <Card key={r.id}>
+            <Card variant="glass" key={r.id}>
               <CardContent className="pt-3 pb-3">
                 <div className="flex justify-between items-center">
                   <div>
@@ -301,7 +301,7 @@ function LeaveTab({ staffId }: { staffId: string }) {
       {balance && (
         <div className="grid grid-cols-4 gap-3">
           {[["Entitlement", balance.entitlement], ["Taken", balance.taken], ["Pending", balance.pending], ["Remaining", balance.remaining]].map(([label, val]) => (
-            <Card key={String(label)}><CardContent className="pt-3 pb-3 text-center"><div className="text-2xl font-bold text-blue-700">{val}</div><div className="text-xs text-gray-500">{label}</div></CardContent></Card>
+            <Card variant="glass" key={String(label)}><CardContent className="pt-3 pb-3 text-center"><div className="text-2xl font-bold text-blue-700">{val}</div><div className="text-xs text-gray-500">{label}</div></CardContent></Card>
           ))}
         </div>
       )}
@@ -314,7 +314,7 @@ function LeaveTab({ staffId }: { staffId: string }) {
       {requests.length === 0 ? <div className="text-center py-8 text-gray-400">No leave requests.</div> : (
         <div className="space-y-2">
           {requests.map((r: any) => (
-            <Card key={r.id}>
+            <Card variant="glass" key={r.id}>
               <CardContent className="pt-3 pb-3">
                 <div className="flex justify-between items-center">
                   <div>
@@ -392,7 +392,7 @@ function AbsenceTab({ staffId }: { staffId: string }) {
   return (
     <div className="space-y-4">
       {bradfordFactor && (
-        <Card>
+        <Card variant="glass">
           <CardContent className="pt-4">
             <div className="flex items-center justify-between">
               <div>
@@ -414,7 +414,7 @@ function AbsenceTab({ staffId }: { staffId: string }) {
       {absences.length === 0 ? <div className="text-center py-8 text-gray-400">No absence records.</div> : (
         <div className="space-y-2">
           {absences.map((a: any) => (
-            <Card key={a.id} className={!a.return_date ? "border-yellow-300" : ""}>
+            <Card variant="glass" key={a.id} className={!a.return_date ? "border-yellow-300" : ""}>
               <CardContent className="pt-3 pb-3">
                 <div className="flex justify-between items-center">
                   <div>
@@ -516,7 +516,7 @@ function DocumentsTab({ staffId }: { staffId: string }) {
       ) : (
         <div className="space-y-2">
           {docs.map((d: any) => (
-            <Card key={d.id}>
+            <Card variant="glass" key={d.id}>
               <CardContent className="pt-3 pb-3">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
@@ -662,7 +662,7 @@ function AppraisalsTab({ staffId }: { staffId: string }) {
       ) : (
         <div className="space-y-3">
           {appraisals.map((a: any) => (
-            <Card key={a.id}>
+            <Card variant="glass" key={a.id}>
               <CardContent className="pt-4">
                 <div className="flex justify-between items-start mb-2">
                   <div>
@@ -1016,7 +1016,7 @@ export default function StaffProfile() {
         <Button variant="ghost" size="sm" onClick={() => navigate("/staff")}><ArrowLeft className="h-4 w-4 mr-1" /> Back</Button>
       </div>
 
-      <Card>
+      <Card variant="glass">
         <CardContent className="pt-6">
           <div className="flex items-start gap-4">
             <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-2xl font-bold text-blue-700 overflow-hidden">

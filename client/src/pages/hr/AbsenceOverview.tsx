@@ -50,7 +50,7 @@ export default function AbsenceOverview() {
             ["Avg Bradford Score", summary.avgBradford, "text-orange-700"],
             ["Total Days YTD", summary.totalDaysYTD, "text-blue-700"],
           ].map(([label, val, cls]) => (
-            <Card key={String(label)}><CardContent className="pt-4 pb-4 text-center"><div className={`text-3xl font-bold ${cls}`}>{val}</div><div className="text-sm text-gray-500">{label}</div></CardContent></Card>
+            <Card variant="glass" key={String(label)}><CardContent className="pt-4 pb-4 text-center"><div className={`text-3xl font-bold ${cls}`}>{val}</div><div className="text-sm text-gray-500">{label}</div></CardContent></Card>
           ))}
         </div>
       )}
@@ -65,7 +65,7 @@ export default function AbsenceOverview() {
             <div className="text-center py-12 text-gray-400">No absence data found.</div>
           ) : filtered.map((o: any) => (
             <Link key={o.staff.id} href={`/hr/staff/${o.staff.id}`}>
-              <Card className={`cursor-pointer hover:shadow-md transition-shadow ${o.currentlyAbsent ? "border-red-200" : ""}`}>
+              <Card variant="glass" className={`cursor-pointer hover:shadow-md transition-shadow ${o.currentlyAbsent ? "border-red-200" : ""}`}>
                 <CardContent className="pt-3 pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">

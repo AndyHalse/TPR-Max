@@ -306,7 +306,7 @@ export default function PermitToWork() {
               <RefreshCw className="h-5 w-5 animate-spin mr-2" /> Loading permits…
             </div>
           ) : filteredPermits.length === 0 ? (
-            <Card className="border-dashed">
+            <Card variant="glass" className="border-dashed">
               <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                 <ClipboardList className="h-10 w-10 text-gray-300 mb-3" />
                 <h3 className="text-base font-semibold text-gray-600 dark:text-gray-300">No permits in this category</h3>
@@ -320,7 +320,7 @@ export default function PermitToWork() {
                 const sc = STATUS_CONFIG[permit.status] || STATUS_CONFIG.draft;
                 const PtIcon = pt.icon;
                 return (
-                  <Card key={permit.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setViewPermitId(permit.id)}>
+                  <Card variant="glass" key={permit.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setViewPermitId(permit.id)}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 min-w-0">
@@ -632,7 +632,7 @@ function ComplianceLibrary({ companyDocs, isManager, onRefresh }: {
             const typeInfo = COMP_DOC_TYPES[type];
             if (!uploaded) {
               return (
-                <Card key={type} className="border-dashed border-amber-200 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-900/10">
+                <Card variant="glass" key={type} className="border-dashed border-amber-200 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-900/10">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -774,7 +774,7 @@ function ComplianceDocCard({ doc, isManager, onReplace, onDelete }: {
 }) {
   const typeInfo = COMP_DOC_TYPES[doc.document_type];
   return (
-    <Card className={doc.status === 'expired' ? 'border-red-200 dark:border-red-800/40' : doc.status === 'expiring_soon' ? 'border-amber-200 dark:border-amber-800/40' : ''}>
+    <Card variant="glass" className={doc.status === 'expired' ? 'border-red-200 dark:border-red-800/40' : doc.status === 'expiring_soon' ? 'border-amber-200 dark:border-amber-800/40' : ''}>
       <CardContent className="p-4">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3 min-w-0">

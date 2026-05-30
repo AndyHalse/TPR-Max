@@ -25,7 +25,7 @@ export default function AppraisalsDue() {
       </div>
 
       {isLoading ? <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div> : due.length === 0 ? (
-        <Card><CardContent className="text-center py-12"><Star className="h-12 w-12 mx-auto text-green-400 mb-3" /><p className="text-gray-500 font-medium">No appraisals due in the next 30 days.</p></CardContent></Card>
+        <Card variant="glass"><CardContent className="text-center py-12"><Star className="h-12 w-12 mx-auto text-green-400 mb-3" /><p className="text-gray-500 font-medium">No appraisals due in the next 30 days.</p></CardContent></Card>
       ) : (
         <>
           {overdue.length > 0 && (
@@ -33,7 +33,7 @@ export default function AppraisalsDue() {
               <h2 className="font-semibold text-red-700 flex items-center gap-2"><AlertTriangle className="h-4 w-4" /> Overdue ({overdue.length})</h2>
               {overdue.map((d: any) => (
                 <Link key={d.id} href={`/hr/staff/${d.id}`}>
-                  <Card className="cursor-pointer hover:shadow-md transition-shadow border-red-200 bg-red-50">
+                  <Card variant="glass" className="cursor-pointer hover:shadow-md transition-shadow border-red-200 bg-red-50">
                     <CardContent className="pt-3 pb-3">
                       <div className="flex items-center justify-between">
                         <div>
@@ -61,7 +61,7 @@ export default function AppraisalsDue() {
               <h2 className="font-semibold text-yellow-700 flex items-center gap-2"><Star className="h-4 w-4" /> Upcoming (next 30 days) ({upcoming.length})</h2>
               {upcoming.map((d: any) => (
                 <Link key={d.id} href={`/hr/staff/${d.id}`}>
-                  <Card className="cursor-pointer hover:shadow-md transition-shadow border-yellow-200 bg-yellow-50">
+                  <Card variant="glass" className="cursor-pointer hover:shadow-md transition-shadow border-yellow-200 bg-yellow-50">
                     <CardContent className="pt-3 pb-3">
                       <div className="flex items-center justify-between">
                         <div>

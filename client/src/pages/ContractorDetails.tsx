@@ -1065,7 +1065,7 @@ export default function ContractorDetails() {
 
       {/* Company Overview Cards */}
       <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card data-testid="card-workers-count">
+        <Card variant="glass" data-testid="card-workers-count">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Workers</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -1077,7 +1077,7 @@ export default function ContractorDetails() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-documents-count">
+        <Card variant="glass" data-testid="card-documents-count">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Documents</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
@@ -1089,7 +1089,7 @@ export default function ContractorDetails() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-compliance-status">
+        <Card variant="glass" data-testid="card-compliance-status">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Compliance</CardTitle>
             <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
@@ -1101,7 +1101,7 @@ export default function ContractorDetails() {
           </CardContent>
         </Card>
 
-        <Card data-testid="card-safety-rating">
+        <Card variant="glass" data-testid="card-safety-rating">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Safety Rating</CardTitle>
             <Shield className="h-4 w-4 text-muted-foreground" />
@@ -1152,7 +1152,7 @@ export default function ContractorDetails() {
                 />
               ))
             ) : (
-              <Card className="p-8 text-center col-span-full" data-testid="no-workers-message">
+              <Card variant="glass" className="p-8 text-center col-span-full" data-testid="no-workers-message">
                 <CardContent>
                   <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Workers Found</h3>

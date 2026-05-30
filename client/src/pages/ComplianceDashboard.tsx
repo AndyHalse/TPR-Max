@@ -120,7 +120,7 @@ function CategoryCard({ catKey, data }: { catKey: string; data: CategoryStat }) 
   const barColor = score >= 90 ? "bg-emerald-500" : score >= 70 ? "bg-amber-500" : score >= 50 ? "bg-orange-500" : "bg-red-500";
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card variant="glass" className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -746,7 +746,7 @@ export default function ComplianceDashboard() {
       </div>
 
       {/* Section 1 — Score Hero */}
-      <Card className={`ring-2 ${bc.ring} overflow-hidden`}>
+      <Card variant="glass" className={`ring-2 ${bc.ring} overflow-hidden`}>
         <div className={`bg-gradient-to-r ${bc.bg} p-6 text-white`}>
           <div className="flex items-center gap-8 flex-wrap">
             <div className="relative flex items-center justify-center">
@@ -797,7 +797,7 @@ export default function ComplianceDashboard() {
       {/* Section 3 — Issues & Warnings */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Critical Issues */}
-        <Card className="border-red-200 dark:border-red-800">
+        <Card variant="glass" className="border-red-200 dark:border-red-800">
           <CardHeader className="pb-3 border-b border-red-100 dark:border-red-800/50">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2 text-red-700 dark:text-red-400">
@@ -828,7 +828,7 @@ export default function ComplianceDashboard() {
         </Card>
 
         {/* Warnings */}
-        <Card className="border-amber-200 dark:border-amber-800">
+        <Card variant="glass" className="border-amber-200 dark:border-amber-800">
           <CardHeader className="pb-3 border-b border-amber-100 dark:border-amber-800/50">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base flex items-center gap-2 text-amber-700 dark:text-amber-400">
@@ -860,7 +860,7 @@ export default function ComplianceDashboard() {
       </div>
 
       {/* Section 4 — Expiry Timeline */}
-      <Card>
+      <Card variant="glass">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
             <Clock className="h-4 w-4 text-gray-500" />
@@ -908,7 +908,7 @@ export default function ComplianceDashboard() {
 
       {/* Section 5 — Top Contractor Risks */}
       {data.topContractorRisks.length > 0 && (
-        <Card>
+        <Card variant="glass">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
               <HardHat className="h-4 w-4 text-gray-500" />

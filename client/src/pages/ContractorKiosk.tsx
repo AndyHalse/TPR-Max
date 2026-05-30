@@ -523,7 +523,7 @@ export default function ContractorKiosk() {
             </p>
           </div>
 
-          <GlassCard className="overflow-hidden flex-1 flex flex-col justify-center">
+          <GlassCard solid className="overflow-hidden flex-1 flex flex-col justify-center">
             {/* Camera viewfinder */}
             <div className="relative bg-black w-full" style={{ aspectRatio: '4/3', maxHeight: '55vh' }}>
               <video
@@ -708,7 +708,7 @@ export default function ContractorKiosk() {
           </div>
 
           {/* Booking list */}
-          <GlassCard className="flex-1 p-4 sm:p-6">
+          <GlassCard solid className="flex-1 p-4 sm:p-6">
             {prebookingsLoading ? (
               <div className="text-center py-12 text-variable">
                 <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
@@ -802,7 +802,7 @@ export default function ContractorKiosk() {
     return (
       <div className="min-h-screen bg-background p-4 md:p-6">
         <div className="max-w-6xl mx-auto space-y-6">
-          <GlassCard className="text-center">
+          <GlassCard solid className="text-center">
             <div className="flex items-center justify-center gap-3 mb-4">
               <HardHat className="h-10 w-10 text-orange-600" />
               <h1 className="text-3xl font-bold text-fixed">Contractor Worker Check-In/Out</h1>
@@ -810,7 +810,7 @@ export default function ContractorKiosk() {
             <p className="text-variable">Select registered contractor workers for check-in/out</p>
           </GlassCard>
 
-          <GlassCard>
+          <GlassCard solid>
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-lg font-semibold text-slate-700">
@@ -851,7 +851,7 @@ export default function ContractorKiosk() {
           </GlassCard>
 
           {selectedCompany && (
-            <GlassCard>
+            <GlassCard solid>
               <div className="space-y-4">
                 <Label className="text-lg font-semibold text-slate-700">Search Workers</Label>
                 <div className="relative">
@@ -870,7 +870,7 @@ export default function ContractorKiosk() {
           {selectedCompany && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {filteredWorkers.map((worker) => (
-                <GlassCard key={worker.id} className="hover:shadow-lg transition-shadow">
+                <GlassCard solid key={worker.id} className="hover:shadow-lg transition-shadow">
                   <div className="flex items-center justify-between mb-4">
                     <div>
                       <h3 className="text-lg font-semibold text-fixed">{worker.firstName} {worker.lastName}</h3>
@@ -955,7 +955,7 @@ export default function ContractorKiosk() {
 
           {/* Scan QR Code */}
           <div className="cursor-pointer group" onClick={() => setActiveSection("scan")}>
-            <GlassCard hover className="flex flex-row sm:flex-col items-center gap-4 sm:gap-3 py-4 sm:py-8 px-4 sm:px-4 h-full sm:justify-center sm:text-center">
+            <GlassCard solid hover className="flex flex-row sm:flex-col items-center gap-4 sm:gap-3 py-4 sm:py-8 px-4 sm:px-4 h-full sm:justify-center sm:text-center">
               <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-r from-purple-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                 <QrCode className="text-white w-7 h-7 sm:w-9 sm:h-9" />
               </div>
@@ -968,7 +968,7 @@ export default function ContractorKiosk() {
 
           {/* Walk-in Registration */}
           <div className="cursor-pointer group" onClick={() => setActiveSection("walkin")}>
-            <GlassCard hover className="flex flex-row sm:flex-col items-center gap-4 sm:gap-3 py-4 sm:py-8 px-4 sm:px-4 h-full sm:justify-center sm:text-center">
+            <GlassCard solid hover className="flex flex-row sm:flex-col items-center gap-4 sm:gap-3 py-4 sm:py-8 px-4 sm:px-4 h-full sm:justify-center sm:text-center">
               <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                 <UserPlus className="text-white w-7 h-7 sm:w-9 sm:h-9" />
               </div>
@@ -981,7 +981,7 @@ export default function ContractorKiosk() {
 
           {/* Pre-Booked Contractor */}
           <div className="cursor-pointer group" onClick={() => setActiveSection("prebook")}>
-            <GlassCard hover className="flex flex-row sm:flex-col items-center gap-4 sm:gap-3 py-4 sm:py-8 px-4 sm:px-4 h-full sm:justify-center sm:text-center">
+            <GlassCard solid hover className="flex flex-row sm:flex-col items-center gap-4 sm:gap-3 py-4 sm:py-8 px-4 sm:px-4 h-full sm:justify-center sm:text-center">
               <div className="w-14 h-14 sm:w-20 sm:h-20 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                 <CalendarPlus className="text-white w-7 h-7 sm:w-9 sm:h-9" />
               </div>
@@ -994,7 +994,7 @@ export default function ContractorKiosk() {
         </div>
 
         {/* Instructions bar */}
-        <GlassCard className="flex-shrink-0 p-3 sm:p-5">
+        <GlassCard solid className="flex-shrink-0 p-3 sm:p-5">
           <h3 className="text-sm sm:text-base font-semibold text-fixed mb-2 sm:mb-3 text-center">Instructions</h3>
           <div className="grid grid-cols-3 gap-2 sm:gap-6">
             <div className="text-center">

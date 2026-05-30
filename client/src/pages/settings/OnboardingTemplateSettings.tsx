@@ -116,7 +116,7 @@ export default function OnboardingTemplateSettings() {
         </div>
       </div>
 
-      <Card>
+      <Card variant="glass">
         <CardContent className="pt-4 flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[240px]">
             <label className="text-xs text-gray-500">Editing template</label>
@@ -147,7 +147,7 @@ export default function OnboardingTemplateSettings() {
       {isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
       ) : (
-        <Card>
+        <Card variant="glass">
           <CardHeader className="py-3">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex-1 min-w-[240px]">

@@ -71,7 +71,7 @@ export default function PayrollExport() {
         </p>
       </div>
 
-      <Card>
+      <Card variant="glass">
         <CardHeader><CardTitle className="text-base">Export Period</CardTitle></CardHeader>
         <CardContent>
           <div className="flex flex-wrap items-end gap-4">
@@ -102,7 +102,7 @@ export default function PayrollExport() {
             ["Leavers", stats.leavers, UserMinus, "text-red-700"],
             ["Period", `${new Date(stats.periodStart).toLocaleDateString("en-GB")} — ${new Date(stats.periodEnd).toLocaleDateString("en-GB")}`, Calendar, "text-gray-700"],
           ].map(([label, val, Icon, cls]: any) => (
-            <Card key={String(label)}>
+            <Card variant="glass" key={String(label)}>
               <CardContent className="pt-4 pb-4">
                 <div className="flex items-center gap-3">
                   <Icon className={`h-8 w-8 ${cls} opacity-80`} />
@@ -115,7 +115,7 @@ export default function PayrollExport() {
       )}
 
       {rows.length > 0 && (
-        <Card>
+        <Card variant="glass">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="text-base">Preview ({rows.length} rows)</CardTitle>
@@ -158,7 +158,7 @@ export default function PayrollExport() {
         </Card>
       )}
 
-      <Card className="bg-blue-50 border-blue-200">
+      <Card variant="glass" className="bg-blue-50 border-blue-200">
         <CardContent className="pt-4">
           <h3 className="font-medium text-blue-900 mb-2">What's included in the export</h3>
           <ul className="text-sm text-blue-800 space-y-1">

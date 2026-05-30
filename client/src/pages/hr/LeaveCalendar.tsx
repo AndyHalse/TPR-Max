@@ -133,7 +133,7 @@ export default function LeaveCalendar() {
       )}
 
       {pendingData.length > 0 && (
-        <Card ref={pendingRef} className={`border-yellow-200 bg-yellow-50 ${initialTab === "pending" ? "ring-2 ring-yellow-400" : ""}`}>
+        <Card variant="glass" ref={pendingRef} className={`border-yellow-200 bg-yellow-50 ${initialTab === "pending" ? "ring-2 ring-yellow-400" : ""}`}>
           <CardHeader className="pb-2"><CardTitle className="text-base text-yellow-800 flex items-center gap-2"><Clock className="h-4 w-4" /> {pendingData.length} Pending Approval{pendingData.length !== 1 ? "s" : ""}</CardTitle></CardHeader>
           <CardContent>
             <div className="space-y-2">
@@ -159,7 +159,7 @@ export default function LeaveCalendar() {
         </Card>
       )}
 
-      <Card>
+      <Card variant="glass">
         <CardHeader>
           <div className="flex items-center justify-between">
             <Button variant="ghost" size="sm" onClick={prev}><ChevronLeft className="h-4 w-4" /></Button>

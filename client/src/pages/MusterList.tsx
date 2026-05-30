@@ -252,7 +252,7 @@ export default function MusterList() {
 
       {/* Muster Settings Panel */}
       {showSettings && (
-        <GlassCard className="p-5 border border-blue-200 dark:border-blue-800">
+        <GlassCard solid className="p-5 border border-blue-200 dark:border-blue-800">
           <div className="flex items-center gap-2 mb-4">
             <Settings size={18} className="text-blue-600" />
             <h3 className="text-base font-semibold text-fixed">Muster Status Options</h3>
@@ -267,7 +267,7 @@ export default function MusterList() {
             The person will appear as <span className="text-amber-600 font-semibold">amber</span> in the muster list and incident report.
           </p>
 
-          <div className="flex items-center gap-3 mb-5 p-3 bg-white/50 dark:bg-white/10 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-5 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <Switch
               checked={effectiveEnabled}
               onCheckedChange={(v) => setLocalEnabled(v)}
@@ -362,7 +362,7 @@ export default function MusterList() {
       )}
 
       {/* Filter Tabs */}
-      <GlassCard className="p-1 inline-flex">
+      <GlassCard solid className="p-1 inline-flex">
         <Button
           variant="ghost"
           onClick={() => setActiveFilter("all")}
@@ -430,7 +430,7 @@ export default function MusterList() {
       </GlassCard>
 
       {/* Muster List Table */}
-      <GlassCard className="overflow-hidden">
+      <GlassCard solid className="overflow-hidden">
         {filteredList.length === 0 ? (
           <div className="text-center py-12">
             <Users className="mx-auto h-12 w-12 text-variable mb-4" />
@@ -445,7 +445,7 @@ export default function MusterList() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-white/50">
+              <thead className="bg-slate-50 dark:bg-slate-800/60">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Name</th>
                   <th className="px-6 py-4 text-left text-xs font-medium text-variable uppercase tracking-wider">Type</th>
@@ -457,7 +457,7 @@ export default function MusterList() {
               </thead>
               <tbody className="divide-y divide-white/20">
                 {filteredList.map((entry, index) => (
-                  <tr key={entry.id} className="hover:bg-white/20" data-testid={`muster-entry-${entry.id}`}>
+                  <tr key={entry.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/50" data-testid={`muster-entry-${entry.id}`}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <div className={`w-8 h-8 ${getAvatarColor(entry.type, index)} rounded-full flex items-center justify-center mr-3`}>

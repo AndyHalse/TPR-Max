@@ -605,7 +605,7 @@ export default function RaBuilder() {
           <div className="max-w-5xl mx-auto space-y-6">
 
             {/* Section 1: Assessment Details */}
-            <Card className="border-slate-200 dark:border-slate-700">
+            <Card variant="glass" className="border-slate-200 dark:border-slate-700">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   <FileEdit className="h-5 w-5 text-[#2460A9]" /> Assessment Details
@@ -698,7 +698,7 @@ export default function RaBuilder() {
 
             {/* Section 1b: Type-specific fields */}
             {raType !== "general" && (
-              <Card className="border-slate-200 dark:border-slate-700">
+              <Card variant="glass" className="border-slate-200 dark:border-slate-700">
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg">{RA_TYPE_CONFIG[raType].label} — Specific Details</CardTitle>
                 </CardHeader>
@@ -709,7 +709,7 @@ export default function RaBuilder() {
             )}
 
             {/* Section 2: Hazard Register */}
-            <Card className="border-slate-200 dark:border-slate-700">
+            <Card variant="glass" className="border-slate-200 dark:border-slate-700">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -754,7 +754,7 @@ export default function RaBuilder() {
             </Card>
 
             {/* Section 3: Risk Summary */}
-            <Card className="border-slate-200 dark:border-slate-700">
+            <Card variant="glass" className="border-slate-200 dark:border-slate-700">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg flex items-center gap-2">
                   Risk Summary
@@ -801,7 +801,7 @@ export default function RaBuilder() {
             </Card>
 
             {/* Section 4: Sign-Off */}
-            <Card className="border-slate-200 dark:border-slate-700">
+            <Card variant="glass" className="border-slate-200 dark:border-slate-700">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg">Sign-Off & Publication</CardTitle>
               </CardHeader>
@@ -917,7 +917,7 @@ export default function RaBuilder() {
               const statusConf = STATUS_CONFIG[a.status] || STATUS_CONFIG.draft;
               const maxRating = (a.hazards || []).reduce((m, h) => Math.max(m, h.riskRating), 0);
               return (
-                <Card key={a.id} className="border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+                <Card variant="glass" key={a.id} className="border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
                   <CardContent className="p-5">
                     <div className="flex flex-wrap gap-2 mb-3">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${typeConf.color}`}>{typeConf.label}</span>

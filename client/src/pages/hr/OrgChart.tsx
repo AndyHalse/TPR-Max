@@ -370,7 +370,7 @@ export default function OrgChart() {
 
       {/* Validation warnings */}
       {validation && totalIssues > 0 && (
-        <Card className="border-amber-200 bg-amber-50">
+        <Card variant="glass" className="border-amber-200 bg-amber-50">
           <CardHeader className="pb-2">
             <CardTitle className="text-base text-amber-900 flex items-center gap-2">
               <AlertTriangle className="h-4 w-4" /> {totalIssues} reporting structure issue{totalIssues === 1 ? "" : "s"} to review
@@ -424,7 +424,7 @@ export default function OrgChart() {
       {/* Dept summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {Object.entries(byDept).map(([dept, count]) => (
-          <Card key={dept}>
+          <Card variant="glass" key={dept}>
             <CardContent className="pt-3 pb-3 text-center">
               <div className="text-2xl font-bold text-blue-700">{count}</div>
               <div className="text-xs text-gray-500">{dept}</div>
@@ -434,7 +434,7 @@ export default function OrgChart() {
       </div>
 
       {search ? (
-        <Card>
+        <Card variant="glass">
           <CardHeader><CardTitle className="text-base">Search Results</CardTitle></CardHeader>
           <CardContent>
             {filtered.length === 0 ? <p className="text-gray-400 text-center py-4">No staff found matching "{search}"</p> : (
@@ -454,7 +454,7 @@ export default function OrgChart() {
       ) : (
         <>
           {/* ── Landscape Org Chart ── */}
-          <Card>
+          <Card variant="glass">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <Users className="h-4 w-4" /> Reporting Structure
@@ -491,7 +491,7 @@ export default function OrgChart() {
 
           {/* ── Unassigned Pool ── */}
           {unassigned.length > 0 && (
-            <Card className="border-dashed">
+            <Card variant="glass" className="border-dashed">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center gap-2 text-gray-700">
                   <UserX className="h-4 w-4" /> Unassigned ({unassigned.length})

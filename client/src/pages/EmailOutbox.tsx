@@ -125,7 +125,7 @@ export default function EmailOutbox() {
   if (settings && !settings.featureEmailOutbox) {
     return (
       <div className="max-w-2xl mx-auto mt-20 px-4">
-        <Card className="border-dashed">
+        <Card variant="glass" className="border-dashed">
           <CardContent className="pt-10 pb-10 text-center space-y-4">
             <div className="flex justify-center">
               <div className="p-4 bg-slate-100 dark:bg-slate-800 rounded-full">
@@ -244,7 +244,7 @@ export default function EmailOutbox() {
           </p>
         </div>
       ) : (
-        <Card>
+        <Card variant="glass">
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-slate-500">
               {filtered.length} {filtered.length === 1 ? "email" : "emails"}

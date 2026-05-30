@@ -88,7 +88,7 @@ export default function Profile() {
         </div>
       </div>
 
-      <Card>
+      <Card variant="glass">
         <CardHeader>
           <CardTitle>Display Name</CardTitle>
           <CardDescription>

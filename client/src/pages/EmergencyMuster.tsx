@@ -878,7 +878,7 @@ export default function EmergencyMuster() {
 
       {/* Muster Settings Panel */}
       {showSettings && emergencyPhase === 'idle' && (
-        <GlassCard className="p-5 border border-blue-200 dark:border-blue-800">
+        <GlassCard solid className="p-5 border border-blue-200 dark:border-blue-800">
           <div className="flex items-center gap-2 mb-4">
             <Settings size={18} className="text-blue-600" />
             <h3 className="text-base font-semibold text-fixed">Muster Status Options</h3>
@@ -891,7 +891,7 @@ export default function EmergencyMuster() {
             They can use it to mark someone as accounted for with a status reason (e.g. "Working remotely / offsite").
             The person will appear with an <span className="text-amber-600 font-semibold">amber badge</span> in the muster list and incident report.
           </p>
-          <div className="flex items-center gap-3 mb-5 p-3 bg-white/50 dark:bg-white/10 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="flex items-center gap-3 mb-5 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg border border-gray-200 dark:border-gray-700">
             <Switch
               checked={effectiveEnabled}
               onCheckedChange={(v) => {
@@ -998,7 +998,7 @@ export default function EmergencyMuster() {
 
       {/* ── IDLE READINESS PANEL ─────────────────────────────────────────────── */}
       {emergencyPhase === 'idle' && (
-        <GlassCard className="dark:glass-dark border-2 border-blue-200 dark:border-blue-800">
+        <GlassCard solid className="dark:glass-dark border-2 border-blue-200 dark:border-blue-800">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center flex-shrink-0">
@@ -1073,7 +1073,7 @@ export default function EmergencyMuster() {
 
       {/* ── PROCESS PANEL: Activation Wizard (send_alert phase) ─────────────── */}
       {emergencyPhase === 'send_alert' && (
-        <GlassCard className={`dark:glass-dark border-2 ${isDrillMode ? 'border-amber-500 dark:border-amber-600' : 'border-orange-500 dark:border-orange-600'}`}>
+        <GlassCard solid className={`dark:glass-dark border-2 ${isDrillMode ? 'border-amber-500 dark:border-amber-600' : 'border-orange-500 dark:border-orange-600'}`}>
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-2">
               <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isDrillMode ? 'bg-amber-500' : 'bg-orange-500'}`}>
@@ -1171,7 +1171,7 @@ export default function EmergencyMuster() {
 
       {/* ── PROCESS PANEL: Active Emergency Checklist ─────────────────────────── */}
       {emergencyPhase === 'active' && (
-        <GlassCard className={`dark:glass-dark border-2 ${isDrillMode ? 'border-amber-500 dark:border-amber-600' : 'border-red-500 dark:border-red-600'}`}>
+        <GlassCard solid className={`dark:glass-dark border-2 ${isDrillMode ? 'border-amber-500 dark:border-amber-600' : 'border-red-500 dark:border-red-600'}`}>
           <div className="flex items-center gap-2 mb-4">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${isDrillMode ? 'bg-amber-500' : 'bg-red-600'}`}>
               <ClipboardList size={16} className="text-white" />
@@ -1287,7 +1287,7 @@ export default function EmergencyMuster() {
 
       {/* ── Legacy zone selector card (hide during activation — wizard handles it) ── */}
       {showZoneSelector && zones.length > 0 && emergencyPhase !== 'send_alert' && (
-        <GlassCard className="dark:glass-dark">
+        <GlassCard solid className="dark:glass-dark">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <MapPin className="text-blue-600" size={18} />
@@ -1414,7 +1414,7 @@ export default function EmergencyMuster() {
       <div className="space-y-2 sm:space-y-3">
         {/* Row 1: Total + Accounted + Unaccounted — the three most critical numbers */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3">
-          <GlassCard hover className={`dark:glass-dark bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 cursor-pointer transition-all !p-3 sm:!p-5 ${typeFilter === 'all' ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-300 dark:ring-emerald-600' : 'border-emerald-200 dark:border-emerald-800'}`} onClick={() => setTypeFilter('all')}>
+          <GlassCard solid hover className={`dark:glass-dark bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 cursor-pointer transition-all !p-3 sm:!p-5 ${typeFilter === 'all' ? 'border-emerald-500 dark:border-emerald-400 ring-2 ring-emerald-300 dark:ring-emerald-600' : 'border-emerald-200 dark:border-emerald-800'}`} onClick={() => setTypeFilter('all')}>
             <div className="flex items-start justify-between gap-1">
               <div className="min-w-0">
                 <p className="text-emerald-700 dark:text-emerald-300 text-[10px] sm:text-sm font-semibold leading-tight">Total</p>
@@ -1429,7 +1429,7 @@ export default function EmergencyMuster() {
             </div>
           </GlassCard>
 
-          <GlassCard hover className="dark:glass-dark border-2 border-transparent !p-3 sm:!p-5">
+          <GlassCard solid hover className="dark:glass-dark border-2 border-transparent !p-3 sm:!p-5">
             <div className="flex items-start justify-between gap-1">
               <div className="min-w-0 flex-1">
                 <p className="text-variable text-[10px] sm:text-sm font-semibold leading-tight">Accounted</p>
@@ -1449,7 +1449,7 @@ export default function EmergencyMuster() {
             </div>
           </GlassCard>
 
-          <GlassCard hover className={`dark:glass-dark border-2 !p-3 sm:!p-5 transition-all ${(totalPeople - accountedFor) > 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'border-transparent'}`}>
+          <GlassCard solid hover className={`dark:glass-dark border-2 !p-3 sm:!p-5 transition-all ${(totalPeople - accountedFor) > 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'border-transparent'}`}>
             <div className="flex items-start justify-between gap-1">
               <div className="min-w-0">
                 <p className={`text-[10px] sm:text-sm font-semibold leading-tight ${(totalPeople - accountedFor) > 0 ? 'text-red-700 dark:text-red-300' : 'text-variable'}`}>Missing</p>
@@ -1491,21 +1491,21 @@ export default function EmergencyMuster() {
 
         {/* Row 2: Category breakdown — tap to filter */}
         <div className={`grid gap-2 sm:gap-3 ${memberCount > 0 ? 'grid-cols-4' : 'grid-cols-3'}`}>
-          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'staff' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'staff' ? 'all' : 'staff')}>
+          <GlassCard solid hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'staff' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'staff' ? 'all' : 'staff')}>
             <div className="text-center">
               <p className="text-xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 leading-none" data-testid="stat-staff-count">{staffCount}</p>
               <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Staff</p>
             </div>
           </GlassCard>
 
-          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'visitor' ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-300 dark:ring-blue-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'visitor' ? 'all' : 'visitor')}>
+          <GlassCard solid hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'visitor' ? 'border-blue-500 dark:border-blue-400 ring-2 ring-blue-300 dark:ring-blue-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'visitor' ? 'all' : 'visitor')}>
             <div className="text-center">
               <p className="text-xl sm:text-3xl font-black text-blue-600 dark:text-blue-400 leading-none" data-testid="stat-visitor-count">{visitorCount}</p>
               <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Visitors</p>
             </div>
           </GlassCard>
 
-          <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'contractor' ? 'border-orange-500 dark:border-orange-400 ring-2 ring-orange-300 dark:ring-orange-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'contractor' ? 'all' : 'contractor')}>
+          <GlassCard solid hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'contractor' ? 'border-orange-500 dark:border-orange-400 ring-2 ring-orange-300 dark:ring-orange-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'contractor' ? 'all' : 'contractor')}>
             <div className="text-center">
               <p className="text-xl sm:text-3xl font-black text-orange-600 dark:text-orange-400 leading-none" data-testid="stat-contractor-count">{contractorCount}</p>
               <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Contractors</p>
@@ -1513,7 +1513,7 @@ export default function EmergencyMuster() {
           </GlassCard>
 
           {memberCount > 0 && (
-            <GlassCard hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'member' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'member' ? 'all' : 'member')}>
+            <GlassCard solid hover className={`dark:glass-dark cursor-pointer transition-all border-2 !p-2.5 sm:!p-4 ${typeFilter === 'member' ? 'border-purple-500 dark:border-purple-400 ring-2 ring-purple-300 dark:ring-purple-600' : 'border-transparent'}`} onClick={() => setTypeFilter(typeFilter === 'member' ? 'all' : 'member')}>
               <div className="text-center">
                 <p className="text-xl sm:text-3xl font-black text-purple-600 dark:text-purple-400 leading-none" data-testid="stat-member-count">{memberCount}</p>
                 <p className="text-[10px] sm:text-xs text-variable font-semibold mt-1 leading-tight">Members</p>
@@ -1525,7 +1525,7 @@ export default function EmergencyMuster() {
 
       {/* Zone Sweep Status — shown during active evacuation when zones are configured */}
       {hasActiveEvacuation && activeZones.length > 0 && (
-        <GlassCard className="dark:glass-dark">
+        <GlassCard solid className="dark:glass-dark">
           <div className="flex items-center gap-2 mb-1">
             <Footprints className="text-green-600 dark:text-green-400" size={18} />
             <h3 className="text-sm font-semibold text-fixed">Zone Sweep Status</h3>
@@ -1594,7 +1594,7 @@ export default function EmergencyMuster() {
       {/* Personnel Accountability — full width */}
       <div>
         <div>
-          <GlassCard className="dark:glass-dark">
+          <GlassCard solid className="dark:glass-dark">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
               <h3 className="text-sm sm:text-base font-semibold text-fixed flex items-center gap-1.5 flex-wrap">
                 Personnel Accountability
@@ -1653,7 +1653,7 @@ export default function EmergencyMuster() {
                   placeholder="Search by name, department, or company..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-9 py-2 rounded-lg border border-white/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed text-sm"
+                  className="pl-9 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed text-sm"
                   data-testid="input-search-personnel"
                 />
               </div>
@@ -1699,7 +1699,7 @@ export default function EmergencyMuster() {
                     : 'bg-amber-50 dark:bg-amber-900/30 border-amber-500 dark:border-amber-500'
                   : person.accounted
                   ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'
-                  : 'bg-white/50 dark:bg-slate-800/50 border-gray-200 dark:border-gray-600';
+                  : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-gray-600';
 
                 return (
                   <div

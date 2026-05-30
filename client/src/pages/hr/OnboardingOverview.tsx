@@ -96,7 +96,7 @@ export default function OnboardingOverview() {
       {isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>
       ) : items.length === 0 ? (
-        <Card><CardContent className="text-center py-12">
+        <Card variant="glass"><CardContent className="text-center py-12">
           <CheckSquare className="h-12 w-12 mx-auto text-green-400 mb-3" />
           <p className="text-gray-500 font-medium">
             {filter === "overdue" ? "Nothing overdue — good work." : filter === "starting_this_month" ? "No new starters this month." : "All onboarding checklists complete."}
@@ -120,7 +120,7 @@ function SummaryCard({ label, value, icon, active, onClick, color }: any) {
     red: active ? "border-red-500 bg-red-50" : "hover:border-red-300",
   };
   return (
-    <Card className={`cursor-pointer transition-all border-2 ${colorMap[color]}`} onClick={onClick}>
+    <Card variant="glass" className={`cursor-pointer transition-all border-2 ${colorMap[color]}`} onClick={onClick}>
       <CardContent className="pt-4 pb-4">
         <div className="flex items-center justify-between">
           <div>
@@ -141,7 +141,7 @@ function OnboardingRow({ item }: any) {
 
   return (
     <Link href={`/hr/staff/${item.staff_id}`}>
-      <Card className="cursor-pointer hover:shadow-md transition-shadow">
+      <Card variant="glass" className="cursor-pointer hover:shadow-md transition-shadow">
         <CardContent className="pt-4 pb-4">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex-1 min-w-[180px]">

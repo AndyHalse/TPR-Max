@@ -102,7 +102,7 @@ export default function LeaverTemplateSettings() {
       </div>
 
       {Object.keys(CAT_LABELS).filter(k => k !== "equipment").map(catKey => (
-        <Card key={catKey}>
+        <Card variant="glass" key={catKey}>
           <CardHeader className="py-3"><CardTitle className="text-base">{CAT_LABELS[catKey]}</CardTitle></CardHeader>
           <CardContent className="space-y-2">
             {(checklistByCat[catKey] || []).map(it => (
@@ -134,7 +134,7 @@ export default function LeaverTemplateSettings() {
         </Card>
       ))}
 
-      <Card>
+      <Card variant="glass">
         <CardHeader className="py-3"><CardTitle className="text-base">Equipment list (default per leaver)</CardTitle></CardHeader>
         <CardContent className="space-y-2">
           <p className="text-xs text-gray-500 mb-2">

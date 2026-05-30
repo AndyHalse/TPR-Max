@@ -66,7 +66,7 @@ export default function TrainingMatrix() {
       </div>
 
       {expiring.length > 0 && (
-        <Card className="border-yellow-200 bg-yellow-50">
+        <Card variant="glass" className="border-yellow-200 bg-yellow-50">
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 mb-3"><AlertTriangle className="h-4 w-4 text-yellow-700" /><span className="font-medium text-yellow-800">{expiring.length} mandatory training records expiring or expired</span></div>
             <div className="space-y-1">
@@ -82,7 +82,7 @@ export default function TrainingMatrix() {
       )}
 
       {requirements.length === 0 ? (
-        <Card>
+        <Card variant="glass">
           <CardContent className="text-center py-12">
             <BookOpen className="h-12 w-12 mx-auto text-gray-300 mb-3" />
             <p className="text-gray-500 mb-4">No mandatory training requirements defined.</p>

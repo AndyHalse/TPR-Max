@@ -1,0 +1,38 @@
+Fix glassmorphism coverage + protect safety screens (TPR Max)
+Context: Glassmorphism is ~54% rolled out. Two problems to fix: (1) four safety-critical screens wrongly use glass and must be reverted to solid/high-contrast; (2) ~22 pages still need glass applied. Stack: React + TS + Vite, Tailwind + shadcn/ui. The glass system already exists: a GlassCard component (client/src/components/GlassCard.tsx) that applies .glass-effect, plus a Card variant="glass" option and .glass/.glass-strong utilities in client/src/index.css.
+
+Part 1 — REMOVE glass from safety-critical screens (highest priority)
+These screens are used under stress, outdoors, on cheap tablets/phones. They must be solid, opaque, and high-contrast — no backdrop-blur, no translucency.
+
+In client/src/components/GlassCard.tsx, add an optional solid?: boolean prop. When solid is true, render an opaque card instead of glass: use "bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm" and do not apply glass-effect or glass-hover.
+In each of these four files, make every <GlassCard ...> use the solid version (add the solid prop to each instance):
+client/src/pages/EmergencyMuster.tsx
+client/src/pages/KioskMode.tsx
+client/src/pages/ContractorKiosk.tsx
+client/src/pages/MusterList.tsx
+In those same four files, also replace any direct glass-effect, backdrop-blur*, or bg-white/NN translucent class with a solid opaque background. Keep the existing coloured status borders (red/amber/orange) — those are meaningful on the muster screen and should stay.
+Do not touch the Fire Marshal screens or LoneWorkerConfirmation — they're already correct.
+Part 2 — APPLY glass to the pages still missing it
+Apply the existing glass treatment (use the GlassCard component, or Card variant="glass", matching whatever each page already uses for its cards) to these pages. Match the visual style already used on Dashboard and Audits so it's consistent:
+
+client/src/pages/ComplianceDashboard.tsx (priority — flagship demo screen)
+client/src/pages/Settings.tsx
+client/src/pages/PermitToWork.tsx
+client/src/pages/RaBuilder.tsx
+client/src/pages/ComplianceCertificateRegister.tsx
+client/src/pages/ContractorDetails.tsx
+client/src/pages/EmailOutbox.tsx
+client/src/pages/Profile.tsx
+All 10 HR pages in client/src/pages/hr/: AbsenceOverview, AppraisalsDue, LeaveCalendar, LeaverDetail, Leavers, OnboardingOverview, OrgChart, PayrollExport, StaffProfile, TrainingMatrix
+These 4 settings subpages in client/src/pages/settings/: HsDocumentsSettings, LeaverTemplateSettings, OnboardingTemplateSettings, VisitReasonsSettings
+Part 3 — Consolidate the two glass systems
+There are currently two definitions doing the same job: .glass-effect (variable-driven, used by GlassCard and the nav) and .glass/.glass-strong (used by Card variant="glass"). Standardise on one so future work is unambiguous:
+
+Make .glass and .glass-strong in client/src/index.css use the same visual definition as .glass-effect (same background, blur, border, shadow), so all three look identical.
+Add a one-line code comment in index.css and at the top of GlassCard.tsx stating that GlassCard (or Card variant="glass") is the standard way to make a glass panel going forward.
+Test:
+
+Open EmergencyMuster, KioskMode, ContractorKiosk, MusterList on a phone-sized viewport — confirm every card is solid and opaque with sharp, high-contrast text and no blur. Confirm status colours (red/amber) still show.
+Open ComplianceDashboard, Settings, the HR pages, and the 4 settings subpages — confirm cards now match the frosted-glass style on Dashboard.
+Confirm light and dark mode both look right on a sample of each.
+Scope: styling only — no business logic, data, or routing changes.

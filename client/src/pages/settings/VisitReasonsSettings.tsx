@@ -213,7 +213,7 @@ export default function VisitReasonsSettings() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card variant="glass">
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between gap-4">
             <div>

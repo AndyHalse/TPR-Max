@@ -86,7 +86,7 @@ export default function Leavers() {
       {isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-blue-600" /></div>
       ) : leavers.length === 0 ? (
-        <Card>
+        <Card variant="glass">
           <CardContent className="text-center py-12">
             <LogOut className="h-12 w-12 mx-auto text-gray-300 mb-3" />
             <p className="text-gray-500">No active leaver processes.</p>
@@ -98,7 +98,7 @@ export default function Leavers() {
             const urgent = l.daysUntilLastDay !== null && l.daysUntilLastDay <= 3;
             const complete = l.percent === 100;
             return (
-              <Card key={l.id} className={urgent && !complete ? "border-red-200" : complete ? "border-green-200" : ""}>
+              <Card variant="glass" key={l.id} className={urgent && !complete ? "border-red-200" : complete ? "border-green-200" : ""}>
                 <CardContent className="pt-4 pb-4">
                   <div className="flex items-start justify-between flex-wrap gap-3">
                     <div>

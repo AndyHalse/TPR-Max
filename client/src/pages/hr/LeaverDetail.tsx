@@ -127,7 +127,7 @@ export default function LeaverDetail({ staffId }: { staffId: string }) {
   return (
     <div className="space-y-5">
       {/* Summary card */}
-      <Card>
+      <Card variant="glass">
         <CardContent className="pt-4 pb-4">
           <div className="flex items-start justify-between flex-wrap gap-3">
             <div>
@@ -194,7 +194,7 @@ export default function LeaverDetail({ staffId }: { staffId: string }) {
         const items = itemsByCat[cat.key] || [];
         const done = items.filter(i => i.completed).length;
         return (
-          <Card key={cat.key}>
+          <Card variant="glass" key={cat.key}>
             <Collapsible open={openCat[cat.key]} onOpenChange={v => setOpenCat(s => ({ ...s, [cat.key]: v }))}>
               <CollapsibleTrigger className="w-full">
                 <CardHeader className="py-3 cursor-pointer hover:bg-gray-50 transition">
@@ -282,7 +282,7 @@ export default function LeaverDetail({ staffId }: { staffId: string }) {
       })}
 
       {/* Exit Interview */}
-      <Card>
+      <Card variant="glass">
         <CardHeader className="py-3">
           <CardTitle className="text-base flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-green-600" /> Exit Interview

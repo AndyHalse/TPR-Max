@@ -31,11 +31,11 @@
   --radius: 0.75rem;
 
   /* Glassmorphism colors */
-  --glass-bg: rgba(255, 255, 255, 1);
+  --glass-bg: rgba(255, 255, 255, 0.75);
   --glass-dark: rgba(59, 130, 246, 0.1);
-  --glass-border: rgba(226, 232, 240, 0.8);
+  --glass-border: rgba(255, 255, 255, 0.35);
   --glass-dark-border: rgba(59, 130, 246, 0.2);
-  --glass-hover: rgba(255, 255, 255, 1);
+  --glass-hover: rgba(255, 255, 255, 0.90);
   
   /* Gradient backgrounds */
   --gradient-bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -280,6 +280,7 @@
 }
 
 @layer components {
+  /* Standard: use GlassCard component or <Card variant="glass"> for glass panels. */
   .glass-effect {
     background: var(--glass-bg);
     backdrop-filter: blur(10px);
@@ -639,42 +640,25 @@
   color: hsl(210, 40%, 96%);
 }
 
-/* ── Glass utilities ────────────────────────────────────────────────────────
-   Use .glass for content cards and .glass-strong for foreground panels
-   (modals, login card) that need higher legibility.
-   NEVER apply to emergency / kiosk screens — those stay flat and opaque.
+/* ── Glass utilities — aliased to the same CSS-variable system as .glass-effect ─
+   Standard: use GlassCard component or <Card variant="glass"> for glass panels.
+   NEVER apply to emergency / kiosk / muster screens — those must be flat and opaque.
    ─────────────────────────────────────────────────────────────────────────── */
 @layer utilities {
   .glass {
-    background: hsl(0 0% 100% / 0.70);
+    background: var(--glass-bg);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-    border: 1px solid hsl(0 0% 100% / 0.30);
-    box-shadow: 0 8px 32px hsl(213 65% 40% / 0.08);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   }
 
   .glass-strong {
-    background: hsl(0 0% 100% / 0.85);
+    background: var(--glass-bg);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border: 1px solid hsl(0 0% 100% / 0.30);
-    box-shadow: 0 8px 32px hsl(213 65% 40% / 0.10);
-  }
-
-  .dark .glass {
-    background: hsl(222 47% 11% / 0.65);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid hsl(0 0% 100% / 0.08);
-    box-shadow: 0 8px 32px hsl(213 65% 40% / 0.12);
-  }
-
-  .dark .glass-strong {
-    background: hsl(222 47% 11% / 0.80);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid hsl(0 0% 100% / 0.10);
-    box-shadow: 0 8px 32px hsl(213 65% 40% / 0.15);
+    border: 1px solid var(--glass-border);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   }
 }
 
