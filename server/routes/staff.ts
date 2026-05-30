@@ -1008,7 +1008,12 @@ export function registerStaffRoutes(app: Express): void {
             }
           }
         } catch (rtwErr) {
-          logger.warn('RTW check failed (non-blocking):', rtwErr);
+          logger.error('RTW check failed — denying entry as precaution:', rtwErr);
+          return res.status(503).json({
+            success: false,
+            reason: 'RTW_CHECK_FAILED',
+            message: 'Entry temporarily unavailable: compliance check could not be completed. Please contact the site administrator.',
+          });
         }
       }
 
