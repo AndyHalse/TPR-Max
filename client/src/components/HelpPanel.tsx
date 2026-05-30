@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import DOMPurify from 'dompurify';
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { X, Search, ChevronRight, Clock, ThumbsUp, ThumbsDown, BookOpen, Star, ArrowLeft } from "lucide-react";
@@ -407,7 +408,7 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
         <Separator />
         
         <div className="text-sm leading-relaxed space-y-1">
-          <div dangerouslySetInnerHTML={{ __html: renderMarkdown(selectedArticle.content) }} />
+          <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(renderMarkdown(selectedArticle.content)) }} />
         </div>
         
         <Separator />
