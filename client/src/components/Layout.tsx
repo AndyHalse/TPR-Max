@@ -285,7 +285,7 @@ export default function Layout({ children }: LayoutProps) {
   const bannerActiveIconStyle: CSSProperties = navInvert ? { color: '#ffffff' } : { color: 'var(--primary)' };
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       {/* Navigation */}
       <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-3 sm:px-6 py-2 sm:py-3" style={navBannerStyle}>
         <div className="max-w-7xl mx-auto flex items-center justify-between">

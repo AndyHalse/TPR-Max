@@ -1,0 +1,37 @@
+Goal: Modernise the look and feel with a consistent glassmorphism (frosted-glass) style and the ACS brand blue. The app already uses backdrop-blur in ~27 places but with inconsistent, hand-typed values. Replace that ad-hoc usage with one reusable system. Critically: glassmorphism must NOT be applied to the emergency or kiosk screens (see exclusion list below) — those stay flat and high-contrast for legibility and performance.
+
+Stack: React + TypeScript + Vite, Tailwind + shadcn/ui. Theme is driven by CSS variables in client/src/index.css. No new dependencies needed.
+
+1. Set ACS blue as the primary brand colour
+In client/src/index.css, the --primary token is currently a generic blue (hsl(221.2, 83.2%, 53.3%)). Change --primary to hsl(213, 65%, 40%) (ACS blue #2460A9) in the light theme :root block. Keep --primary-foreground white. Pick a sensible slightly-lighter variant for the dark theme block (around hsl(213, 70%, 55%)) so it stays legible on dark. Do not change any --destructive (red) token — emergency red must stay red.
+
+2. Add reusable glass utilities
+In client/src/index.css, add an @layer utilities block with two classes:
+
+.glass — background: hsl(0 0% 100% / 0.70); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid hsl(0 0% 100% / 0.30); box-shadow: 0 8px 32px hsl(213 65% 40% / 0.08);
+.glass-strong — same idea at 0.85 opacity and blur(16px) for foreground panels (modals, login card) that need more legibility.
+Add dark-theme overrides under the .dark selector using a dark translucent base (e.g. hsl(222 47% 11% / 0.65)) and a subtle light border.
+Add @media (prefers-reduced-motion: reduce) / a fallback: if backdrop-filter is unsupported, fall back to a solid --card background (use @supports not (backdrop-filter: blur(10px))). This protects older devices.
+3. Give the app shell a background worth frosting
+Glass over flat white looks like nothing. In client/src/components/Layout.tsx, add a subtle fixed background to the main shell: a soft gradient tinted with ACS blue, e.g. bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-100 (dark mode: a deep slate gradient). Keep it subtle — it should read as "clean and premium", not loud.
+
+4. Add an optional glass variant to Card
+In client/src/components/ui/card.tsx, add an optional variant?: 'default' | 'glass' prop. When variant="glass", apply the .glass class instead of the solid bg-card. Leave default exactly as it is so nothing breaks. Then apply variant="glass" to the main dashboard cards, settings panels, reports, login and signup cards.
+
+5. Replace the existing ad-hoc glass classes
+Find the existing hand-typed combinations (bg-white/90 backdrop-blur-sm, bg-white/80 backdrop-blur-lg, bg-white/10 backdrop-blur, etc.) across client/src and replace them with .glass or .glass-strong so everything is consistent — except in the excluded files below.
+
+6. EXCLUSION LIST — do NOT apply glass to these (keep flat, opaque, high-contrast):
+client/src/pages/KioskMode.tsx
+client/src/pages/ContractorKiosk.tsx
+client/src/pages/FireMarshalMobile.tsx
+client/src/pages/FireMarshalMuster.tsx
+client/src/pages/FireMarshalPanel.tsx
+client/src/pages/MusterList.tsx
+client/src/pages/EmergencyMuster.tsx
+client/src/pages/LoneWorkerConfirmation.tsx
+These screens are used under stress, often outdoors on cheap tablets/phones. They must stay solid-background, maximum-contrast, large-text. If any of them currently use a translucent/blur class, replace it with a solid opaque background, not glass.
+
+Test: check the dashboard, login, settings and reports now show the frosted-glass style over the tinted background, with ACS blue as the primary colour. Confirm every screen in the exclusion list still has solid, high-contrast backgrounds. Test the kiosk and fire-marshal-mobile views on a phone-sized viewport and confirm text is sharp and there's no lag. Confirm the @supports fallback gives a solid background when backdrop-filter is unavailable.
+
+Scope: styling only. Do not change any business logic, data fetching, or routing.

@@ -10,7 +10,7 @@
   --card-foreground: hsl(222.2, 84%, 4.9%);
   --popover: hsl(0, 0%, 100%);
   --popover-foreground: hsl(222.2, 84%, 4.9%);
-  --primary: hsl(221.2, 83.2%, 53.3%);
+  --primary: hsl(213, 65%, 40%);
   --primary-foreground: hsl(210, 40%, 98%);
   --secondary: hsl(210, 40%, 96%);
   --secondary-foreground: hsl(222.2, 84%, 4.9%);
@@ -22,7 +22,7 @@
   --destructive-foreground: hsl(210, 40%, 98%);
   --border: hsl(214.3, 31.8%, 81.4%);
   --input: hsl(214.3, 31.8%, 75%);
-  --ring: hsl(221.2, 83.2%, 53.3%);
+  --ring: hsl(213, 65%, 40%);
   --chart-1: hsl(12, 76%, 61%);
   --chart-2: hsl(173, 58%, 39%);
   --chart-3: hsl(197, 37%, 24%);
@@ -53,7 +53,7 @@
   --card-foreground: hsl(210, 40%, 98%);
   --popover: hsl(222.2, 84%, 4.9%);
   --popover-foreground: hsl(210, 40%, 98%);
-  --primary: hsl(217.2, 91.2%, 59.8%);
+  --primary: hsl(213, 70%, 55%);
   --primary-foreground: hsl(222.2, 84%, 4.9%);
   --secondary: hsl(217.2, 32.6%, 17.5%);
   --secondary-foreground: hsl(210, 40%, 98%);
@@ -637,4 +637,61 @@
 .dark .prose h3,
 .dark .prose h4 {
   color: hsl(210, 40%, 96%);
+}
+
+/* ── Glass utilities ────────────────────────────────────────────────────────
+   Use .glass for content cards and .glass-strong for foreground panels
+   (modals, login card) that need higher legibility.
+   NEVER apply to emergency / kiosk screens — those stay flat and opaque.
+   ─────────────────────────────────────────────────────────────────────────── */
+@layer utilities {
+  .glass {
+    background: hsl(0 0% 100% / 0.70);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid hsl(0 0% 100% / 0.30);
+    box-shadow: 0 8px 32px hsl(213 65% 40% / 0.08);
+  }
+
+  .glass-strong {
+    background: hsl(0 0% 100% / 0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(0 0% 100% / 0.30);
+    box-shadow: 0 8px 32px hsl(213 65% 40% / 0.10);
+  }
+
+  .dark .glass {
+    background: hsl(222 47% 11% / 0.65);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid hsl(0 0% 100% / 0.08);
+    box-shadow: 0 8px 32px hsl(213 65% 40% / 0.12);
+  }
+
+  .dark .glass-strong {
+    background: hsl(222 47% 11% / 0.80);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid hsl(0 0% 100% / 0.10);
+    box-shadow: 0 8px 32px hsl(213 65% 40% / 0.15);
+  }
+}
+
+/* ── Glass @supports fallback ───────────────────────────────────────────────
+   If backdrop-filter is unsupported (older devices), fall back to a solid
+   card background so content is never illegible.
+   ─────────────────────────────────────────────────────────────────────────── */
+@supports not (backdrop-filter: blur(10px)) {
+  .glass,
+  .glass-strong {
+    background: var(--card);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .dark .glass,
+  .dark .glass-strong {
+    background: var(--card);
+  }
 }

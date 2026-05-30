@@ -522,13 +522,13 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
 
       {/* Stats cards */}
       <div className="p-4 grid grid-cols-2 gap-4">
-        <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
+        <div className="bg-red-900 rounded-xl p-4 text-center">
           <Users className="mx-auto mb-2 text-white" size={24} />
           <p className="text-2xl font-bold">{totalPeople}</p>
           <p className="text-red-200 text-sm">Total On-Site</p>
         </div>
         
-        <div className="bg-white/10 backdrop-blur rounded-xl p-4 text-center">
+        <div className="bg-red-900 rounded-xl p-4 text-center">
           <CheckCircle className="mx-auto mb-2 text-green-400" size={24} />
           <p className="text-2xl font-bold text-green-400">{accountedFor}</p>
           <p className="text-red-200 text-sm">Accounted For</p>
@@ -991,7 +991,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
       </div>
 
       {/* Real-time indicator */}
-      <div className="fixed bottom-4 right-4 bg-white/20 backdrop-blur rounded-full p-3">
+      <div className="fixed bottom-4 right-4 bg-red-900 rounded-full p-3">
         <div className="flex items-center space-x-2">
           <div className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-green-400 animate-pulse' : 'bg-yellow-400'}`}></div>
           <span className="text-white text-xs font-medium">{wsConnected ? 'LIVE' : 'SYNC'}</span>

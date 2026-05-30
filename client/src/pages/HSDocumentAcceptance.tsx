@@ -229,7 +229,7 @@ export default function HSDocumentAcceptance({ token }: HSDocumentAcceptanceProp
         </div>
 
         {/* Document Info Card */}
-        <Card className="mb-8 p-6 bg-white/90 backdrop-blur-sm border-slate-200 shadow-lg">
+        <Card className="mb-8 p-6 glass-strong border-slate-200 shadow-lg">
           <div className="grid md:grid-cols-2 gap-6 mb-6">
             <div>
               <div className="flex items-center gap-2 mb-3">
@@ -281,7 +281,7 @@ export default function HSDocumentAcceptance({ token }: HSDocumentAcceptanceProp
         </Card>
 
         {/* Document Content */}
-        <Card className="mb-8 p-6 bg-white/90 backdrop-blur-sm border-slate-200 shadow-lg">
+        <Card className="mb-8 p-6 glass-strong border-slate-200 shadow-lg">
           <h3 className="text-xl font-semibold text-slate-800 mb-4">Document Content</h3>
           <div className="prose prose-slate max-w-none">
             <div dangerouslySetInnerHTML={{ 
