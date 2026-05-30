@@ -1,0 +1,22 @@
+Replit prompt — Typography + border cleanup for a premium feel (TPR Max)
+Context: Two look-and-feel problems hurting the "expensive" impression. (1) The app loads ~30 Google Font families but defines no --font-sans token, so base text falls back to the system default. (2) ~151 decorative coloured border-2 borders make the UI look busy. Stack: React + TS + Vite, Tailwind. tailwind.config.ts already references var(--font-sans), var(--font-serif), var(--font-mono). Do not change the emergency/muster status colours (see guard below).
+
+Part 1 — Fix and slim down typography
+In client/index.html, replace the giant fonts.googleapis.com/css2?family=... link (the one listing ~30 families) with a single trimmed request loading only Inter (weights 300,400,500,600,700) and one mono font, JetBrains Mono (weights 400,500,700). Keep the preconnect links. Remove all other families.
+In client/src/index.css, delete the duplicate @import url('...Inter...') on line 1 (it double-loads Inter; the HTML link now handles it).
+In client/src/index.css, inside the light :root block, define the missing font tokens:
+--font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+--font-serif: 'Inter', system-ui, sans-serif; (no serif in use — alias to sans)
+--font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+Add a base body rule so text actually uses the font and reads cleanly: set font-family: var(--font-sans), font-feature-settings: 'cv11', 'ss01' (Inter's nicer letterforms), -webkit-font-smoothing: antialiased, -moz-osx-font-smoothing: grayscale, and a base line-height of 1.5.
+Add a restrained type scale via base styles for headings so they look deliberate: h1 ~1.875rem/600 weight, h2 ~1.5rem/600, h3 ~1.25rem/600, each with letter-spacing: -0.01em and tighter line-height (1.2–1.3). Don't override places that already set explicit sizes — only set sensible defaults.
+Part 2 — Calm the borders
+The goal: cards and panels use one restrained neutral border, and colour is reserved for genuine status meaning. Across client/src (pages and components), replace decorative coloured 2px borders — border-2 border-blue-200/300, border-2 border-purple-*, border-2 border-pink-*, border-2 border-green-200, border-2 border-emerald-200, border-2 border-slate-300, border-2 border-gray-300 — with the neutral border border-slate-200 dark:border-slate-800 (1px).
+GUARD — keep these, do NOT neutralise them (they carry meaning):
+Any red / amber / orange border used for alerts, warnings, overdue items, or emergency status (e.g. border-red-*, border-amber-*, border-orange-*).
+All borders inside the four safety screens: EmergencyMuster.tsx, KioskMode.tsx, ContractorKiosk.tsx, MusterList.tsx — leave their colour-coding exactly as-is.
+Active/selected states (e.g. a ring-2 or coloured border showing the currently selected filter) — those should still stand out.
+Where a card currently relies on a bright border to separate it from the background, lean on the existing shadow and the neutral border instead — that reads as more premium than a coloured outline.
+Test: confirm base text now renders in Inter across the app (check a page renders in Inter, not Times/system serif). Confirm page load drops the ~30-font download to just two families (check the network tab). Confirm dashboards and forms now look calmer with neutral borders, while alerts, overdue badges, and the emergency/muster screens keep their colour. Check light and dark mode.
+
+Scope: typography tokens, font loading, and border styling only. No business logic, data, or routing changes.
