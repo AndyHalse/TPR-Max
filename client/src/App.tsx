@@ -1,6 +1,7 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
+import { ErrorBoundary, EmergencyFallback } from "@/components/ErrorBoundary";
 import { lazy, Suspense, useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -89,7 +90,11 @@ function Router() {
   
   // Special case: Fire Marshal emergency access with token
   if (window.location.pathname === '/fire-marshal' && emergencyToken) {
-    return <FireMarshalMuster token={emergencyToken} />;
+    return (
+      <ErrorBoundary key={window.location.pathname} fallback={<EmergencyFallback />}>
+        <FireMarshalMuster token={emergencyToken} />
+      </ErrorBoundary>
+    );
   }
   
   // Fire Marshal Mobile - NEW STATIC URL SYSTEM (no token needed)
@@ -111,7 +116,11 @@ function Router() {
         </div>
       );
     }
-    return <FireMarshalMobile urlId={urlId} />;
+    return (
+      <ErrorBoundary key={window.location.pathname} fallback={<EmergencyFallback />}>
+        <FireMarshalMobile urlId={urlId} />
+      </ErrorBoundary>
+    );
   }
   
   // LEGACY: Fire Marshal Mobile with token (backwards compatibility)
@@ -133,7 +142,11 @@ function Router() {
         </div>
       );
     }
-    return <FireMarshalMobile token={emergencyToken} />;
+    return (
+      <ErrorBoundary key={window.location.pathname} fallback={<EmergencyFallback />}>
+        <FireMarshalMobile token={emergencyToken} />
+      </ErrorBoundary>
+    );
   }
   
   // Fire Marshal Panel - Emergency access (requires valid token)
@@ -154,7 +167,11 @@ function Router() {
         </div>
       );
     }
-    return <FireMarshalPanel token={emergencyToken} />;
+    return (
+      <ErrorBoundary key={window.location.pathname} fallback={<EmergencyFallback />}>
+        <FireMarshalPanel token={emergencyToken} />
+      </ErrorBoundary>
+    );
   }
   
   // Incident Manager Monitor - permanent per-customer read-only URL for senior managers
@@ -420,7 +437,11 @@ function Router() {
             <Route path="/contractors/legacy" component={Contractors} />
             <Route path="/contractors/:id" component={ContractorDetails} />
             <Route path="/checkin" component={VisitorCheckIn} />
-            <Route path="/muster" component={EmergencyMuster} />
+            <Route path="/muster">
+              <ErrorBoundary fallback={<EmergencyFallback />}>
+                <EmergencyMuster />
+              </ErrorBoundary>
+            </Route>
             <Route path="/incident-reports" component={IncidentReports} />
             <Route path="/ppm" component={PPM} />
             <Route path="/audits" component={Audits} />
@@ -481,7 +502,9 @@ function App() {
       <ThemeProvider>
         <TooltipProvider>
           <Toaster />
-          <Router />
+          <ErrorBoundary>
+            <Router />
+          </ErrorBoundary>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

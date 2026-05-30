@@ -1,0 +1,20 @@
+Replit prompt — Add a fail-safe error boundary (TPR Max)
+Goal: Stop a single render error white-screening the whole app. Most important: the Fire Marshal and Muster screens must never go blank during an evacuation — if something breaks, show a clear fallback with a refresh option and a manual instruction.
+
+Context: React + TypeScript + Vite client, routing via wouter. There is currently no error boundary anywhere in client/src. The Fire Marshal public routes (/fire-marshal/...) render FireMarshalMobile, FireMarshalMuster, and FireMarshalPanel directly from client/src/App.tsx. The internal muster screen is client/src/pages/MusterList.tsx.
+
+Build this:
+
+Create client/src/components/ErrorBoundary.tsx — a class component with componentDidCatch(error, info) that logs the error to the console (and to the existing logger if one exists client-side). It takes an optional fallback prop so different screens can show different fallback UI. Default fallback: a centred card saying "Something went wrong on this screen" with a "Reload page" button (window.location.reload()).
+Create a dedicated EmergencyFallback component used as the fallback for the Fire Marshal and Muster screens. It must be high-contrast, large-text, mobile-first, and show:
+A bold heading: "Display error — muster data may not be visible"
+A large "Reload now" button
+A clear manual instruction line: "If this screen will not load, account for people manually and call site reception." Leave the phone number as a RECEPTION_NUMBER placeholder constant at the top of the file so it can be configured later.
+Do not show a raw stack trace to the user.
+In client/src/App.tsx:
+Wrap the whole <Router /> / <Switch> tree in the default ErrorBoundary so no route can white-screen the entire app.
+Wrap each Fire Marshal render (FireMarshalMobile, FireMarshalMuster, FireMarshalPanel) and the MusterList route individually in an ErrorBoundary with fallback={<EmergencyFallback />}. These are the screens that cannot fail silently.
+Make sure the boundary resets correctly when the route changes (use a key tied to the current path, or a resetKeys prop) so a user isn't stuck on the fallback after navigating away.
+Test before finishing: temporarily throw an error inside MusterList.tsx and inside FireMarshalMobile.tsx, confirm each shows the EmergencyFallback (not a blank screen), confirm the rest of the app still works, and confirm "Reload now" recovers. Remove the test throws before committing.
+
+Do not change any muster logic, data fetching, or styling elsewhere. This is purely a safety net.
