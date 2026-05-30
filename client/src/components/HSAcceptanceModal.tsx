@@ -186,7 +186,7 @@ export default function HSAcceptanceModal({
             <Button
               variant="outline"
               onClick={() => onDecline && onDecline()}
-              className="flex-1 h-11 sm:h-14 text-sm sm:text-lg border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
+              className="flex-1 h-11 sm:h-14 text-sm sm:text-lg border border-slate-200 text-gray-700 hover:bg-gray-50 font-semibold"
             >
               Cancel
             </Button>

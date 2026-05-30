@@ -66,7 +66,7 @@ export default function AIBusinessInsights() {
   return (
     <div className="space-y-6">
       {/* Visitor Experience Intelligence */}
-      <GlassCard className="bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 border-2 border-pink-200 dark:border-pink-800">
+      <GlassCard className="bg-gradient-to-br from-pink-50 to-rose-50 dark:from-pink-900/20 dark:to-rose-900/20 border border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
             <Heart className="text-pink-600 dark:text-pink-400" size={28} />
@@ -130,7 +130,7 @@ export default function AIBusinessInsights() {
       </GlassCard>
 
       {/* Compliance & Security Intelligence */}
-      <GlassCard className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-200 dark:border-emerald-800">
+      <GlassCard className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
             <Shield className="text-emerald-600 dark:text-emerald-400" size={28} />
@@ -201,7 +201,7 @@ export default function AIBusinessInsights() {
       </GlassCard>
 
       {/* AI Value Proposition Summary */}
-      <GlassCard className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-800">
+      <GlassCard className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border border-slate-200 dark:border-slate-800">
         <div className="flex items-center space-x-3 mb-4">
           <Users className="text-blue-600 dark:text-blue-400" size={28} />
           <h3 className="text-xl font-bold text-blue-800 dark:text-blue-200">Complete AI Business Solution</h3>

@@ -296,7 +296,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-4">
-      <Card className="w-full max-w-md glass-strong border-2 border-blue-200 dark:border-blue-800 shadow-2xl">
+      <Card className="w-full max-w-md glass-strong border border-slate-200 dark:border-slate-800 shadow-2xl">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto w-24 h-16 flex items-center justify-center">
             <img src={acsLogo} alt="ACS Logo" className="h-full w-auto object-contain" />

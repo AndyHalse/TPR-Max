@@ -358,7 +358,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
           <p className="text-xs font-semibold text-variable uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
             <History size={13} />Returning visitors — tap to auto-fill
           </p>
-          <div className="bg-white rounded-2xl border-2 border-purple-200 overflow-hidden shadow-md">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-md">
             {returningVisitors.map((v, i) => {
               const lastVisit = v.checkedInAt ? new Date(v.checkedInAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
               return (
@@ -413,7 +413,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
         <div className="flex-shrink-0 px-6 pb-2">
           <button
             onClick={() => { setFormData(prev => ({ ...prev, company: "" })); goNext(); }}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-full border-2 border-slate-300 bg-slate-50 text-slate-600 text-sm font-semibold min-h-[44px] hover:bg-slate-100 active:scale-95 transition-all"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-full border border-slate-200 bg-slate-50 text-slate-600 text-sm font-semibold min-h-[44px] hover:bg-slate-100 active:scale-95 transition-all"
           >
             <Building2 size={16} className="text-slate-400" />
             Not representing a company
@@ -458,7 +458,7 @@ export default function WalkInVisitorForm({ onBack }: WalkInVisitorFormProps) {
       {currentStep === "hostSearch" && !selectedHost && (
         <div className="flex-shrink-0 px-6 pb-2">
           {hostSearch.trim().length >= 3 && filteredStaff.length > 0 && (
-            <div className="bg-white rounded-2xl border-2 border-blue-300 overflow-hidden shadow-lg">
+            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-lg">
               {filteredStaff.slice(0, 4).map((member) => (
                 <button
                   key={member.id}

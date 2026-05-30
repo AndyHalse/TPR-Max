@@ -235,7 +235,7 @@ export default function NdaModal({
               variant="outline"
               onClick={onClose}
               disabled={isProcessing}
-              className="flex-1 h-12 sm:h-14 text-sm sm:text-lg border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-semibold"
+              className="flex-1 h-12 sm:h-14 text-sm sm:text-lg border border-slate-200 text-gray-700 hover:bg-gray-50 font-semibold"
             >
               Cancel
             </Button>

@@ -61,7 +61,7 @@ export default function AIROICalculator() {
   };
 
   return (
-    <GlassCard className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-800">
+    <GlassCard className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-slate-200 dark:border-slate-800">
       <div className="flex items-center space-x-3 mb-6">
         <Calculator className="text-green-600 dark:text-green-400" size={32} />
         <h2 className="text-xl font-bold text-green-800 dark:text-green-200">AI-Powered ROI Calculator</h2>

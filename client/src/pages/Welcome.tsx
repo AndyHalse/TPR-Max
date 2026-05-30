@@ -269,7 +269,7 @@ export default function Welcome() {
   }
 
   const renderStep1 = () => (
-    <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-2 border-blue-200 dark:border-blue-800 shadow-xl">
+    <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-800 shadow-xl">
       <CardHeader className="text-center">
         <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full flex items-center justify-center mb-4">
           <Upload className="text-white" size={32} />
@@ -306,7 +306,7 @@ export default function Welcome() {
   );
 
   const renderStep2 = () => (
-    <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-2 border-blue-200 dark:border-blue-800 shadow-xl">
+    <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-800 shadow-xl">
       <CardHeader>
         <div className="mx-auto w-16 h-16 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center mb-4">
           <Settings className="text-white" size={32} />
@@ -432,7 +432,7 @@ export default function Welcome() {
   );
 
   const renderStep3 = () => (
-    <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-2 border-blue-200 dark:border-blue-800 shadow-xl">
+    <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-800 shadow-xl">
       <CardHeader>
         <div className="mx-auto w-16 h-16 bg-gradient-to-br from-purple-600 to-violet-600 rounded-full flex items-center justify-center mb-4">
           <Users className="text-white" size={32} />
@@ -488,7 +488,7 @@ export default function Welcome() {
   );
 
   const renderStep4 = () => (
-    <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border-2 border-green-200 dark:border-green-800 shadow-xl">
+    <Card className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-sm border border-slate-200 dark:border-slate-800 shadow-xl">
       <CardHeader className="text-center">
         <div className="mx-auto w-20 h-20 bg-gradient-to-br from-green-600 to-emerald-600 rounded-full flex items-center justify-center mb-4">
           <Crown className="text-white" size={40} />

@@ -62,7 +62,7 @@ export default function AICompetitiveAnalysis() {
   };
 
   return (
-    <GlassCard className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border-2 border-blue-200 dark:border-blue-800">
+    <GlassCard className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 border border-slate-200 dark:border-slate-800">
       <div className="flex items-center space-x-3 mb-6">
         <Target className="text-blue-600 dark:text-blue-400" size={32} />
         <h2 className="text-xl font-bold text-blue-800 dark:text-blue-200">AI Competitive Analysis</h2>
@@ -180,7 +180,7 @@ export default function AICompetitiveAnalysis() {
                 </ul>
               </div>
 
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 rounded-lg border-2 border-blue-300 dark:border-blue-700">
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
                 <div className="flex items-center space-x-2 mb-2">
                   <Crown className="text-blue-600" size={18} />
                   <h3 className="font-semibold text-blue-800 dark:text-blue-200">Market Position</h3>

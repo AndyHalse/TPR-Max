@@ -152,7 +152,7 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
             {row.map((key) => (
               <Button
                 key={key}
-                className="h-16 flex-1 max-w-[70px] text-xl font-semibold bg-white text-slate-800 hover:bg-blue-50 border-2 border-slate-300 hover:border-blue-400 transition-all transform active:scale-95 hover:shadow-md rounded-xl"
+                className="h-16 flex-1 max-w-[70px] text-xl font-semibold bg-white text-slate-800 hover:bg-blue-50 border border-slate-200 hover:border-blue-400 transition-all transform active:scale-95 hover:shadow-md rounded-xl"
                 onClick={() => handleKeyPress(key)}
               >
                 {layout === "text" && !isUppercase ? key.toLowerCase() : key}
@@ -177,7 +177,7 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
           )}
           
           <Button
-            className="h-16 flex-1 max-w-[140px] text-lg font-semibold bg-white text-slate-600 hover:bg-slate-50 border-2 border-slate-300 hover:border-slate-400 rounded-xl transition-all transform active:scale-95"
+            className="h-16 flex-1 max-w-[140px] text-lg font-semibold bg-white text-slate-600 hover:bg-slate-50 border border-slate-200 hover:border-slate-400 rounded-xl transition-all transform active:scale-95"
             onClick={() => handleKeyPress("SPACE")}
           >
             <Space className="mr-2" size={20} />
@@ -185,14 +185,14 @@ export default function TouchKeyboard({ value, onChange, placeholder, type = "te
           </Button>
           
           <Button
-            className="h-16 px-8 text-lg font-semibold bg-white hover:bg-red-50 border-2 border-slate-300 hover:border-red-400 text-red-600 rounded-xl transition-all transform active:scale-95"
+            className="h-16 px-8 text-lg font-semibold bg-white hover:bg-red-50 border border-slate-200 hover:border-red-400 text-red-600 rounded-xl transition-all transform active:scale-95"
             onClick={() => handleKeyPress("BACKSPACE")}
           >
             <Delete size={20} />
           </Button>
           
           <Button
-            className="h-16 px-8 text-lg font-semibold bg-white hover:bg-orange-50 border-2 border-slate-300 hover:border-orange-400 text-orange-600 rounded-xl transition-all transform active:scale-95"
+            className="h-16 px-8 text-lg font-semibold bg-white hover:bg-orange-50 border border-slate-200 hover:border-orange-400 text-orange-600 rounded-xl transition-all transform active:scale-95"
             onClick={() => handleKeyPress("CLEAR")}
           >
             Clear

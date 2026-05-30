@@ -237,7 +237,7 @@ export default function SignupPayment() {
           
           {/* Signup Summary */}
           <div className="lg:col-span-1">
-            <Card className="glass border-2 border-blue-200 dark:border-blue-800 shadow-xl">
+            <Card className="glass border border-slate-200 dark:border-slate-800 shadow-xl">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="text-blue-600" size={20} />
@@ -293,7 +293,7 @@ export default function SignupPayment() {
             </Card>
 
             {/* Security Features */}
-            <Card className="glass border-2 border-green-200 dark:border-green-800 shadow-xl mt-6">
+            <Card className="glass border border-slate-200 dark:border-slate-800 shadow-xl mt-6">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="text-green-600" size={20} />
@@ -315,7 +315,7 @@ export default function SignupPayment() {
 
           {/* Main Content */}
           <div className="lg:col-span-2">
-            <Card className="glass-strong border-2 border-blue-200 dark:border-blue-800 shadow-2xl">
+            <Card className="glass-strong border border-slate-200 dark:border-slate-800 shadow-2xl">
               <CardHeader className="text-center">
                 <div className="flex items-center justify-center gap-2 mb-4">
                   <Star className="text-yellow-500" size={24} />

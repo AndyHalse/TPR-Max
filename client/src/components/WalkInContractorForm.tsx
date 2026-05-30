@@ -315,7 +315,7 @@ export default function WalkInContractorForm({ onBack }: WalkInContractorFormPro
                       setReasonPickerDone(true);
                     }
                   }}
-                  className="flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-xl border-2 border-slate-200 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all text-left"
+                  className="flex items-start gap-3 p-4 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 transition-all text-left"
                 >
                   <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <MapPin size={20} className="text-blue-600" />

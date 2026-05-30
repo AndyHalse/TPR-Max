@@ -447,7 +447,7 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
               <div className="flex justify-center p-6 bg-slate-50 rounded-xl">
                 <div 
                   id="id-card-preview"
-                  className="relative bg-white border-2 border-slate-300 shadow-lg rounded-lg overflow-hidden cursor-grab active:cursor-grabbing"
+                  className="relative bg-white border border-slate-200 shadow-lg rounded-lg overflow-hidden cursor-grab active:cursor-grabbing"
                   style={{ 
                     width: '340px',  // CR80 scaled: 85.60mm * 4 = 342.4px ≈ 340px
                     height: '216px', // CR80 scaled: 53.98mm * 4 = 215.92px ≈ 216px

@@ -253,7 +253,7 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
             </h3>
             <div className="flex justify-center">
               <div 
-                className="relative bg-white border-2 border-slate-300 shadow-lg"
+                className="relative bg-white border border-slate-200 shadow-lg"
                 style={{ 
                   width: '320px', 
                   height: '188px', // Scaled version of 95mm x 66mm

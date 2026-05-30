@@ -881,7 +881,7 @@ export default function Dashboard() {
             )}
           </div>
 
-          <GlassCard hover className="cursor-pointer bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-200 dark:border-emerald-800 lg:w-56 shrink-0" onClick={() => setOpenModal('total-people')}>
+          <GlassCard hover className="cursor-pointer bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-slate-200 dark:border-slate-800 lg:w-56 shrink-0" onClick={() => setOpenModal('total-people')}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-emerald-700 dark:text-emerald-300 text-sm font-semibold">Total People</p>

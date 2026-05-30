@@ -69,7 +69,7 @@ export default function AIFlowOptimization() {
   };
 
   return (
-    <GlassCard className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-2 border-purple-200 dark:border-purple-800">
+    <GlassCard className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border border-slate-200 dark:border-slate-800">
       <div className="flex items-center space-x-3 mb-6">
         <Workflow className="text-purple-600 dark:text-purple-400" size={32} />
         <h2 className="text-xl font-bold text-purple-800 dark:text-purple-200">AI Flow Optimization</h2>
@@ -207,7 +207,7 @@ export default function AIFlowOptimization() {
                 </ul>
               </div>
 
-              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-4 rounded-lg border-2 border-purple-300 dark:border-purple-700">
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 p-4 rounded-lg border border-slate-200 dark:border-slate-800">
                 <div className="flex items-center space-x-2 mb-2">
                   <ArrowRight className="text-purple-600" size={18} />
                   <h3 className="font-semibold text-purple-800 dark:text-purple-200">Predicted Improvement</h3>
