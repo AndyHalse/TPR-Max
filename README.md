@@ -1,14 +1,14 @@
-# TPR Max — Total Personnel Register
+# TPR — Total Protection & Response
 
-### The All-in-One Workplace Compliance & Safety Platform
+### The All-in-One Connected Workforce & Site Safety Platform
 
-TPR Max gives organisations complete visibility and control over every person on site — visitors, contractors, and staff — with 23 integrated modules covering the full employee and site lifecycle. From contractor onboarding and emergency mustering to HR document management and lone worker protection, TPR Max replaces disconnected spreadsheets and legacy sign-in books with a single, audit-ready platform.
+TPR gives organisations complete visibility and control over every person on site — visitors, contractors, and staff — with 23 integrated modules covering the full employee and site lifecycle. From contractor onboarding and emergency mustering to HR document management and lone worker protection, TPR replaces disconnected spreadsheets and legacy sign-in books with a single, audit-ready platform.
 
 Built for facilities managers, safety officers, HR teams, and security professionals who need more than a basic sign-in book.
 
 ---
 
-## What TPR Max Does
+## What TPR Does
 
 ### Visitor Management
 - Walk-in and pre-booked visitor check-in with photo capture and digital signature
@@ -52,6 +52,13 @@ A full employee lifecycle suite built directly into the platform:
 - **Payroll Export** — CSV / JSON payroll summary including hours worked, sick days, leave taken, starters, and leavers
 - **HR Documents** — per-employee confidential document storage with role-gated download
 - **Leaver Process** — structured offboarding checklist with last-day and leaving reason tracking
+
+### Risk Assessment Builder *(TPR Pro / Max)*
+- Drag-and-drop RA builder supporting General, COSHH, Fire, Manual Handling, and DSE assessments
+- Hierarchy-of-controls hazard management with severity / likelihood risk matrix
+- AI-powered control measure suggestions (Claude) based on hazard description and task context
+- PDF export with company branding
+- Full audit trail and version history
 
 ### Emergency Mustering & Evacuation
 - One-click evacuation activation from any device
@@ -104,7 +111,7 @@ A full employee lifecycle suite built directly into the platform:
 
 ## Architecture
 
-TPR Max is a multi-tenant SaaS platform built with **complete database isolation** — each customer receives their own dedicated PostgreSQL database provisioned automatically on signup. This means:
+TPR is a multi-tenant SaaS platform built with **complete database isolation** — each customer receives their own dedicated PostgreSQL database provisioned automatically on signup. This means:
 
 - No cross-customer data leakage is architecturally possible
 - GDPR compliance is straightforward — customer data can be fully exported or deleted in isolation
@@ -112,7 +119,7 @@ TPR Max is a multi-tenant SaaS platform built with **complete database isolation
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│                  TPR Max Platform                    │
+│                    TPR Platform                      │
 │                                                      │
 │  ┌─────────────────┐   ┌──────────────────────────┐  │
 │  │  Shared DB      │   │  Per-Customer Databases  │  │
@@ -137,7 +144,7 @@ TPR Max is a multi-tenant SaaS platform built with **complete database isolation
 | Real-time | WebSockets (on-site presence, evacuation board) |
 | File Storage | Google Cloud Storage / object storage |
 | PDF Generation | Puppeteer (headless Chromium), pdf-lib |
-| AI | OpenAI (induction videos), Google Gemini (CO₂ reporting) |
+| AI | OpenAI (induction videos), Google Gemini (CO₂ reporting), Anthropic Claude (RA Builder) |
 | Printing | Toshiba TEC, Zebra (TCP/IP thermal printing) |
 | Access Control | Suprema BioStar 2, Paxton Net2, Suprema CLUe |
 | Communications | SendGrid (email), 8×8 (voice) |
@@ -156,6 +163,7 @@ TPR Max is a multi-tenant SaaS platform built with **complete database isolation
 | **Stripe** | Subscription billing, 14-day free trials |
 | **SendGrid** | Transactional email delivery |
 | **OpenAI** | AI-generated site induction videos |
+| **Anthropic Claude** | AI control measure suggestions in RA Builder |
 | **Google Gemini** | CO₂ and sustainability calculations |
 | **8×8** | Voice announcements on staff / visitor arrival |
 | **Toshiba TEC / Zebra** | Network thermal badge and pass printing |
@@ -175,6 +183,7 @@ TPR Max is a multi-tenant SaaS platform built with **complete database isolation
 | Site Inductions | — | ✅ | ✅ |
 | PPM | — | ✅ | ✅ |
 | Meeting Room Booking | — | ✅ | ✅ |
+| Risk Assessment Builder | — | ✅ | ✅ |
 | Full HR Module | — | — | ✅ |
 | Martyn's Law Module | — | — | ✅ |
 | AI Features | — | — | ✅ |
@@ -193,8 +202,8 @@ TPR Max is a multi-tenant SaaS platform built with **complete database isolation
 
 ```bash
 # Clone the repository
-git clone https://github.com/AndyHalse/TPR-Max.git
-cd TPR-Max
+git clone https://github.com/AndyHalse/TPR.git
+cd TPR
 
 # Install dependencies
 npm install
@@ -244,7 +253,7 @@ npm run db:push
 ## Project Structure
 
 ```
-TPR-Max/
+TPR/
 ├── src/                  # React frontend
 │   ├── pages/            # Route-level page components
 │   ├── components/       # Shared UI components
@@ -255,6 +264,7 @@ TPR-Max/
 │   │   ├── contractors.ts
 │   │   ├── staff.ts
 │   │   ├── emergency.ts
+│   │   ├── raBuilder.ts
 │   │   ├── hrStaff.ts
 │   │   ├── hrAbsence.ts
 │   │   ├── hrLeave.ts
@@ -274,6 +284,7 @@ TPR-Max/
 │   │   ├── meetingRooms.ts
 │   │   ├── reports.ts
 │   │   └── billing.ts
+│   ├── managers/         # AI and service managers
 │   ├── services/         # Business logic services
 │   └── utils/            # Shared utilities
 ├── shared/               # Types and schema shared between client and server
@@ -294,7 +305,7 @@ Documentation for production deployment is in the `docs/` directory:
 
 ## Platform Administration
 
-TPR Max includes a platform administration portal at `/platform-admin` for managing all customer accounts, provisioning new customers, monitoring usage, and controlling feature access per subscription tier.
+TPR includes a platform administration portal at `/platform-admin` for managing all customer accounts, provisioning new customers, monitoring usage, and controlling feature access per subscription tier.
 
 ---
 
@@ -306,4 +317,4 @@ MIT
 
 ## About ACS Safety & Security Ltd
 
-TPR Max is developed and maintained by **ACS Safety & Security Ltd**, specialists in access control, CCTV, and site safety compliance systems.
+TPR is developed and maintained by **ACS Safety & Security Ltd**, specialists in access control, CCTV, and site safety compliance systems.
