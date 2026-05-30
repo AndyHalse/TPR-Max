@@ -6,6 +6,8 @@ import { databaseService } from '../databaseService';
 import { logger } from '../utils/logger';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, desc, asc } from 'drizzle-orm';
+import { AiModelManager } from '../managers/AiModelManager';
+import { ResultUtils } from '../utils/result';
 
 const requireRaBuilderFeature = async (req: any, res: any, next: any) => {
   try {
@@ -329,38 +331,28 @@ export function registerRaBuilderRoutes(app: Express): void {
         claudeKeyRow.authTag || ''
       );
 
-      const systemPrompt = `You are a UK Health & Safety compliance expert. Given a hazard description and task context, suggest practical control measures based on the hierarchy of controls: Elimination, Substitution, Engineering Controls, Administrative Controls, PPE. Return ONLY a JSON array of control measure strings. No markdown, no explanation, no numbering. Return 4–6 specific, practical suggestions.`;
+      const combinedPrompt = `You are a UK Health & Safety compliance expert. Given a hazard description and task context, suggest practical control measures based on the hierarchy of controls: Elimination, Substitution, Engineering Controls, Administrative Controls, PPE. Return ONLY a JSON array of control measure strings. No markdown, no explanation, no numbering. Return 4–6 specific, practical suggestions.
 
-      const userMessage = `Assessment type: ${raType || 'general'}
+Assessment type: ${raType || 'general'}
 Task: ${taskDescription || 'Not specified'}
 Hazard: ${hazardDescription}
 Existing controls already in place: ${existingControls || 'None stated'}
 Suggest additional control measures.`;
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': claudeApiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-3-5-sonnet-20241022',
-          max_tokens: 512,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userMessage }],
-        }),
+      const aiManager = new AiModelManager();
+      const result = await aiManager.callClaude(combinedPrompt, 'claude-3-5-sonnet', {
+        claudeApiKey,
+        maxTokens: 512,
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        logger.error('Claude API error:', errText);
-        return res.status(200).json({ error: 'ai_failed', message: 'Claude API returned an error' });
+      if (!ResultUtils.isSuccess(result)) {
+        const errMsg = result.error?.message || 'AI suggestion failed';
+        logger.error('Claude suggest-controls failed:', errMsg);
+        return res.status(200).json({ error: 'ai_failed', message: errMsg });
       }
 
-      const data = await response.json() as any;
-      const rawContent = data?.content?.[0]?.text || '[]';
       // Strip markdown fences if present
+      const rawContent = result.data || '[]';
       const cleaned = rawContent.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
       let suggestions: string[] = [];
       try {
