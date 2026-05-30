@@ -1,0 +1,51 @@
+Add a cron health-check system to TPR Max.
+
+CONTEXT
+The application has 8+ daily background cron jobs (DBS expiry reminders, RTW reminders, 
+FRA review cron, audit overdue cron, CDM F10 alerts, Bradford Factor cron, training 
+reminders, etc). None of these log their last-run time anywhere. If one fails silently, 
+compliance alerts stop going out and no-one knows. This is a liability for a product 
+sold on legal compliance.
+
+WHAT TO BUILD
+
+1. New database table in the public schema (shared across all tenants, platform-level):
+   CREATE TABLE IF NOT EXISTS cron_health_log (
+     job_name TEXT PRIMARY KEY,
+     last_run_at TIMESTAMPTZ,
+     last_status TEXT CHECK (last_status IN ('success', 'error')),
+     last_error TEXT,
+     updated_at TIMESTAMPTZ DEFAULT NOW()
+   );
+
+2. Create a utility function server/utils/cronHealth.ts:
+   export async function recordCronRun(jobName: string, status: 'success' | 'error', error?: string)
+   This function upserts a row in cron_health_log with the current timestamp, status, 
+   and optional error message. Wrap it in a try/catch so it never throws.
+
+3. Update EVERY existing cron job to call recordCronRun() at the end of its execution:
+   - FRA daily cron (server/routes/fireRiskAssessment.ts)
+   - Audit overdue cron (server/routes/auditEngine.ts)
+   - CDM F10 alerts cron (server/routes/cdm.ts)
+   - DBS expiry reminders (server/routes/hrDbs.ts - sendDbsExpiryReminders)
+   - RTW expiry reminders (server/routes/hrRightToWork.ts - sendRtwExpiryReminders)
+   - Training matrix reminders (server/routes/hrTraining.ts)
+   - Leave/Bradford Factor cron if present
+   Call with status 'success' on completion, status 'error' with error.message in catch blocks.
+
+4. New Platform Admin API endpoint: GET /api/platform-admin/cron-health
+   Protected by platform admin auth (same as other /api/platform-admin routes).
+   Returns all rows from cron_health_log ordered by job_name.
+   Also returns a derived field: isHealthy = last_run_at > NOW() - INTERVAL '25 hours'
+   If any job has isHealthy = false OR last_status = 'error', the overall response 
+   includes { anyUnhealthy: true }.
+
+5. Add a "Cron Health" section to the Platform Admin Dashboard (PlatformAdminDashboard.tsx):
+   - Table showing each job name, last run time, status (green tick / red cross), 
+     and error message if any.
+   - If anyUnhealthy is true, show a red alert banner at the top: 
+     "One or more background jobs have not run in the last 25 hours."
+   - Auto-refreshes every 60 seconds.
+
+Do not change any existing cron logic — only add the recordCronRun() calls.
+Do not add cron_health_log to any customer schema — it lives in the public schema only.

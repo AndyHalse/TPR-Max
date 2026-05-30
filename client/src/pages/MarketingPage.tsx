@@ -140,6 +140,7 @@ export default function MarketingPage() {
           "compliance-register",
           "permit-to-work",
           "ra-builder",
+          "nda",
         ].includes(hash)
       ) {
         setActiveTab(hash);
@@ -1187,6 +1188,14 @@ export default function MarketingPage() {
               >
                 <FileSearch2 className="h-4 w-4 mb-1" />
                 RA Builder
+              </TabsTrigger>
+              <TabsTrigger
+                value="nda"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-violet-700 transition-all duration-200"
+                data-testid="tab-nda"
+              >
+                <FileText className="h-4 w-4 mb-1" />
+                NDA
               </TabsTrigger>
             </TabsList>
 

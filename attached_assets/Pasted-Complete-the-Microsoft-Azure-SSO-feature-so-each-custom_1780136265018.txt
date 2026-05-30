@@ -1,0 +1,60 @@
+Complete the Microsoft Azure SSO feature so each customer uses their own Azure 
+credentials, not server-level environment variables.
+
+CONTEXT
+The SSO infrastructure (OIDC + PKCE, Azure Entra) is ~80% built in server/ssoService.ts 
+and server/routes/sso.ts. The critical gap: it currently reads AZURE_TENANT_ID, 
+AZURE_CLIENT_ID, and AZURE_CLIENT_SECRET from server env vars. This means only one 
+Azure tenant can ever be configured — useless for a multi-tenant SaaS where every 
+enterprise customer has their own Azure tenant.
+
+The company settings table already has an SSO settings section 
+(client/src/pages/settings/SsoSettings.tsx exists). The goal is to store Azure 
+credentials per customer, encrypted at rest.
+
+WHAT TO BUILD
+
+1. Add columns to the company_settings table in isolatedSchema.ts (customer schema):
+   - ssoAzureTenantId TEXT
+   - ssoAzureClientId TEXT  
+   - ssoAzureClientSecret TEXT (store encrypted using server/utils/encryption.ts 
+     encryptData / decryptData)
+   - ssoAzureClientSecretIv TEXT (IV for the encrypted secret)
+   - ssoAzureClientSecretTag TEXT (auth tag for the encrypted secret)
+
+2. Update server/ssoService.ts:
+   Remove all references to process.env.AZURE_TENANT_ID, AZURE_CLIENT_ID, 
+   AZURE_CLIENT_SECRET.
+   The service must accept tenantId, clientId, clientSecret as parameters.
+   Add a new function: getCustomerSsoConfig(customerId: string) that reads the 
+   company_settings row for that customer, decrypts the client secret, and returns 
+   { tenantId, clientId, clientSecret } or null if not configured.
+
+3. Update server/routes/sso.ts:
+   All SSO routes must call getCustomerSsoConfig(req.customerId) to get credentials.
+   If the customer has no SSO config, return a clear error: 
+   "SSO is not configured for your account. Set up Azure credentials in Settings > SSO."
+
+4. Update SsoSettings.tsx (client/src/pages/settings/SsoSettings.tsx):
+   Add a form section: "Azure Application Credentials"
+   Fields: Tenant ID, Client ID, Client Secret (password input, never echoed back).
+   Save button calls a new API endpoint PUT /api/settings/sso-credentials.
+   When credentials are already saved, show "Azure credentials are configured" 
+   with a "Update Credentials" button — never return the actual secret to the client.
+   Show a test button: "Test Connection" — calls GET /api/settings/sso-test which 
+   attempts to fetch the Azure OIDC discovery document for that tenant and returns 
+   success/fail.
+
+5. Add the two API endpoints to server/routes/settings.ts (or sso.ts):
+   PUT /api/settings/sso-credentials — saves tenantId, clientId, encrypts and saves 
+   clientSecret. requireAuth protected.
+   GET /api/settings/sso-test — fetches 
+   https://login.microsoftonline.com/{tenantId}/v2.0/.well-known/openid-configuration
+   and returns { success: true } or { success: false, error: string }.
+
+6. Write a migration to add the new columns to existing customer schemas via 
+   server/bootstrapSchemaMigration.ts or equivalent migration runner.
+
+Do not break the existing SSO login flow — only change where credentials come from.
+The AZURE_TENANT_ID etc. env vars can remain as a fallback for the dev/test environment 
+only if needed, but must not be used in production customer flows.

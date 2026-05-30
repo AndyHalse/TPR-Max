@@ -1,0 +1,44 @@
+Fix the plan gating on the RA Builder module so it requires TPR Pro or above.
+
+CONTEXT
+The RA Builder (server/routes/raBuilder.ts) has a feature check middleware called 
+requireRaBuilderFeature that checks whether settings.featureRaBuilder is true. 
+This is a feature flag check, not a plan tier check. Any customer on any plan 
+(including TPR Basic at £49/month) could have this flag enabled, giving them access 
+to a premium module.
+
+The correct approach is to use the existing requirePlan middleware that enforces 
+plan hierarchy (tpr_basic = 1, tpr_pro = 2, tpr_max = 3).
+
+WHAT TO CHANGE
+
+1. In server/routes/raBuilder.ts, replace the requireRaBuilderFeature middleware:
+
+CURRENT:
+  const requireRaBuilderFeature = async (req, res, next) => {
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featureRaBuilder) {
+      return res.status(403).json({ error: 'Risk Assessment Builder is not enabled...' });
+    }
+    next();
+  };
+
+REPLACE WITH: import requirePlan from the existing plan middleware (check how other 
+routes like permitToWork.ts or complianceCertificates.ts implement it) and require 
+tpr_pro as the minimum plan.
+
+2. The app.use('/api/ra-builder', requireAuth, requireRaBuilderFeature) line should 
+   become app.use('/api/ra-builder', requireAuth, requirePlan('tpr_pro')).
+
+3. Verify the plan gate response matches the standard format used across the rest of 
+   the application (check one existing route that uses requirePlan for the exact 
+   response shape).
+
+4. In the frontend (client/src/pages/RaBuilder.tsx), ensure that when the API returns 
+   a 403 with a planRequired field, the page shows the standard "upgrade required" 
+   UI that other gated modules display. Check how PermitToWork.tsx or 
+   ComplianceCertificateRegister.tsx handle this.
+
+Do not remove the featureRaBuilder settings flag entirely — it may be useful for 
+temporarily disabling the module for a specific customer. But the plan check should 
+be the primary gate, checked first, before the feature flag.

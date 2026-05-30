@@ -1,0 +1,47 @@
+Change the Right to Work check during QR check-in from non-blocking to blocking 
+on database errors.
+
+CONTEXT
+In server/routes/staff.ts, the RTW check during QR code check-in (around line 994) 
+is wrapped in a try/catch that logs a warning and lets the person through if the 
+database query fails:
+
+  } catch (rtwErr) {
+    logger.warn('RTW check failed (non-blocking):', rtwErr);
+  }
+
+For a product sold on compliance and legal protection, silently allowing access when 
+a safety check fails is not the right default. The correct behaviour is: if the RTW 
+check cannot be completed due to a database error, deny entry with a clear message 
+and log an error (not just a warning).
+
+WHAT TO CHANGE
+
+1. In server/routes/staff.ts, find the RTW check block (the try/catch around the 
+   right_to_work query during check-in).
+
+2. Change the catch block from:
+     logger.warn('RTW check failed (non-blocking):', rtwErr);
+   To:
+     logger.error('RTW check failed — denying entry as precaution:', rtwErr);
+     return res.status(503).json({
+       success: false,
+       reason: 'RTW_CHECK_FAILED',
+       message: 'Entry temporarily unavailable: compliance check could not be completed. Please contact the site administrator.',
+     });
+
+3. This change means: if RTW check DB query fails, entry is denied with a 503. 
+   The person is told to contact the site admin. The error is logged at ERROR level 
+   (not warn) so it appears in monitoring.
+
+4. Do not change the happy path (RTW check passes or expired RTW blocks) — only 
+   the error handling branch.
+
+5. Update the cron health log (if Prompt 1 has been implemented) to also record 
+   when RTW check errors occur. If Prompt 1 has not been implemented yet, just 
+   ensure the error is logged clearly enough to be visible in the application logs.
+
+Note: this is a deliberate security/compliance decision — fail-closed is safer than 
+fail-open for an access control product. The 503 response is correct because the 
+service is temporarily unable to complete the check, not because the person is 
+definitively blocked.
