@@ -3622,10 +3622,10 @@ export default function MarketingPage() {
               </Button>
             </div>
 
-            {/* TPR */}
+            {/* TPR Max */}
             <div className="rounded-2xl border-2 border-slate-800 bg-slate-900 p-8 flex flex-col">
               <div className="mb-6">
-                <h3 className="text-xl font-bold text-white mb-1">TPR</h3>
+                <h3 className="text-xl font-bold text-white mb-1">TPR Max</h3>
                 <div className="flex items-end gap-1 mb-3">
                   <span className="text-5xl font-extrabold text-white">£195</span>
                   <span className="text-slate-400 mb-2">/site/mo</span>

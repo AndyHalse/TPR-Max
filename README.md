@@ -1,4 +1,4 @@
-# TPR — Total Protection & Response
+# TPR Max — Total Protection & Response
 
 ### The All-in-One Connected Workforce & Site Safety Platform
 
