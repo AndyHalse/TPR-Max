@@ -513,6 +513,18 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         logger.info('✅ [055] NDA columns added to visitors and contractor_workers');
       }
     },
+    {
+      version: '20260602_056_add_user_nav_style',
+      description: 'Add nav_style preference column to users table for sidebar/classic toggle',
+      async up(db: any) {
+        try {
+          await db.execute(`ALTER TABLE users ADD COLUMN IF NOT EXISTS nav_style TEXT DEFAULT 'classic'`);
+          logger.info('✅ [056] Added nav_style to users table');
+        } catch (err: any) {
+          logger.info(`⚠️ [056] users.nav_style: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

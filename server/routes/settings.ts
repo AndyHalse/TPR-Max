@@ -996,6 +996,27 @@ export function registerSettingsRoutes(
     }
   });
 
+  app.patch("/api/users/me/nav-style", requireAuth, async (req, res) => {
+    try {
+      if (!req.session?.customerId || !req.session?.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const { navStyle } = req.body;
+      if (navStyle !== 'classic' && navStyle !== 'sidebar') {
+        return res.status(400).json({ error: "navStyle must be 'classic' or 'sidebar'" });
+      }
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.session.customerId);
+      await customerDb
+        .update(isolatedSchema.users)
+        .set({ navStyle } as any)
+        .where(eq(isolatedSchema.users.id, req.session.userId));
+      res.json({ success: true, navStyle });
+    } catch (error) {
+      logger.error("Failed to update nav style:", error);
+      res.status(500).json({ error: "Failed to update navigation preference" });
+    }
+  });
+
   app.put("/api/users/:id", requireAuth, async (req, res) => {
     try {
       if (!req.session?.customerId) {

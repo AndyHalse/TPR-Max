@@ -1,0 +1,277 @@
+Replit Prompt — Grouped Sidebar Navigation for TPR Max
+
+Paste this prompt into Replit AI (or your developer) as a single instruction block.
+
+
+
+Prompt
+
+I need to add a grouped sidebar navigation to the TPR Max application, along with a user setting to toggle between the existing top icon menu and the new sidebar. Please implement the following:
+
+
+
+1. New sidebar navigation component
+
+Create a collapsible left sidebar that replaces the current top icon menu when enabled. It must:
+
+
+
+
+
+Be fixed to the left edge of the screen, full height
+
+
+
+Have a toggle button (chevron/arrow icon) that collapses it to icon-only mode (approx 52px wide) and expands it to full mode (approx 220px wide)
+
+
+
+Remember the collapsed/expanded state in localStorage so it persists on page reload
+
+
+
+Animate the width change smoothly (CSS transition, ~0.2s)
+
+Navigation groups and items
+
+Organise all existing menu items into the following labelled groups. Map each existing feature to the closest group — do not remove any existing functionality:
+
+
+
+
+
+
+
+Group label
+
+
+
+Items to include
+
+
+
+
+
+Overview
+
+
+
+Dashboard / Home
+
+
+
+
+
+People
+
+
+
+Visitors, Contractors, Staff
+
+
+
+
+
+Compliance
+
+
+
+Inductions, Documents, Permits (or equivalent compliance features)
+
+
+
+
+
+Safety
+
+
+
+Muster, Zones (or equivalent safety/emergency features)
+
+
+
+
+
+Reports
+
+
+
+Reports, Audit log
+
+
+
+
+
+Settings
+
+
+
+Placed at the bottom of the sidebar, below a divider
+
+
+
+
+
+Each group label should be displayed as a small uppercase muted heading above its items (hidden in collapsed mode)
+
+
+
+Each item should have an icon (use the existing icon set) and a text label (hidden in collapsed mode, visible on hover as a tooltip)
+
+
+
+The active item should be visually highlighted
+
+
+
+If any feature has a live count (e.g. visitors currently on site), show a small badge on that item
+
+
+
+Settings item sits pinned to the bottom of the sidebar, separated by a border
+
+Sidebar header
+
+
+
+
+
+Show the TPR Max logo/name when expanded
+
+
+
+Show only the logo icon when collapsed
+
+
+
+The collapse toggle button sits in the header
+
+
+
+2. Settings toggle — switch between menu styles
+
+Add a new option in the existing Settings area called "Navigation style" with two choices:
+
+
+
+
+
+Classic — the existing top horizontal icon menu (current default)
+
+
+
+Sidebar — the new grouped sidebar navigation
+
+This preference must be:
+
+
+
+
+
+Saved per user (stored in the user's profile/preferences in the database, not just localStorage)
+
+
+
+Applied immediately on change without a page reload
+
+
+
+Defaulted to Classic for all existing users so nothing breaks on release
+
+When Sidebar is selected:
+
+
+
+
+
+Hide the top icon menu
+
+
+
+Show the left sidebar
+
+
+
+The main content area adjusts its left margin to accommodate the sidebar width
+
+
+
+When the sidebar is collapsed, the content area uses the narrow (52px) offset
+
+When Classic is selected:
+
+
+
+
+
+Show the existing top menu as normal
+
+
+
+Hide the sidebar entirely
+
+
+
+3. Responsive behaviour
+
+
+
+
+
+On screens narrower than 768px, the sidebar should overlay the content (slide in/out) rather than pushing it, with a semi-transparent backdrop behind it
+
+
+
+On mobile, default to collapsed/hidden regardless of the saved preference
+
+
+
+4. Implementation notes
+
+
+
+
+
+Do not remove or break any existing navigation routes or functionality
+
+
+
+The sidebar component should be self-contained and easy to extend (new items/groups added in one place)
+
+
+
+Use the existing CSS framework/component library already in the project — do not introduce new dependencies unless essential
+
+
+
+Ensure keyboard accessibility: sidebar items are focusable, Enter/Space activates them, Escape closes the sidebar on mobile overlay mode
+
+
+
+5. Acceptance criteria
+
+
+
+
+
+Sidebar renders correctly with all existing features accessible
+
+
+
+Collapse/expand works and persists on reload
+
+
+
+Classic ↔ Sidebar toggle in Settings works without page reload
+
+
+
+Existing users default to Classic — no visual change for them on first load after deploy
+
+
+
+No existing routes or features broken
+
+
+
+Works on mobile (overlay mode)

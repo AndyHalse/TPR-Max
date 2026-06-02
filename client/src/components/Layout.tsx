@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
 import HelpPanel from "@/components/HelpPanel";
+import Sidebar, { SIDEBAR_COLLAPSED_KEY, SIDEBAR_EXPANDED_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from "@/components/Sidebar";
 import type { CompanySettings } from "@shared/schema";
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { getQueryFn } from "@/lib/queryClient";
@@ -19,12 +20,37 @@ export default function Layout({ children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
-  
-  const { data: user } = useQuery<{ id: string; username: string; firstName?: string | null; lastName?: string | null; role?: string; allowedMenuItems?: string[] | null; defaultLandingPage?: string | null; customerId?: string } | null>({
+
+  // Sidebar state (lifted so Layout can adjust content margin)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true"; } catch { return false; }
+  });
+  const [sidebarMobileOpen, setSidebarMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const { data: user } = useQuery<{
+    id: string;
+    username: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    role?: string;
+    allowedMenuItems?: string[] | null;
+    defaultLandingPage?: string | null;
+    navStyle?: string | null;
+    customerId?: string;
+  } | null>({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     staleTime: 5 * 60 * 1000,
   });
+
+  const navStyle: "classic" | "sidebar" = (user?.navStyle === "sidebar") ? "sidebar" : "classic";
 
   const customerId = user?.customerId;
 
@@ -56,18 +82,12 @@ export default function Layout({ children }: LayoutProps) {
   });
 
   const [logoFallbackStage, setLogoFallbackStage] = useState(0);
-  
+
   const getLogoSrc = useCallback(() => {
     if (logoError || !settings?.logoUrl) return null;
-    
     const logoToken = localStorage.getItem('tprmax-logo-token');
-    
-    if (logoFallbackStage === 0 && logoToken) {
-      return `/api/public-logo/${logoToken}`;
-    }
-    if (logoFallbackStage === 1) {
-      return `/api/company-logo`;
-    }
+    if (logoFallbackStage === 0 && logoToken) return `/api/public-logo/${logoToken}`;
+    if (logoFallbackStage === 1) return `/api/company-logo`;
     if (logoFallbackStage === 2) {
       const normalizedUrl = settings.logoUrl.replace(/^\/objects/, '');
       return `/objects${normalizedUrl}`;
@@ -82,35 +102,25 @@ export default function Layout({ children }: LayoutProps) {
   const handleLogoError = useCallback(() => {
     setLogoFallbackStage(prev => {
       const next = prev + 1;
-      if (next > 3) {
-        console.info(`[BRANDING] All logo sources failed, showing letter placeholder`);
-        setLogoError(true);
-        return prev;
-      }
-      console.info(`[BRANDING] Logo source ${prev} failed, trying fallback ${next}`);
+      if (next > 3) { setLogoError(true); return prev; }
       return next;
     });
   }, []);
 
   useEffect(() => {
     if (settings?.backgroundColor || settings?.foregroundColor || settings?.accentColor) {
-      console.info(`[BRANDING] Applying colors - bg=${settings.backgroundColor}, fg=${settings.foregroundColor}, accent=${settings.accentColor}`);
       const root = document.documentElement;
-      
-      // Convert hex to HSL for CSS variables
+
       const hexToHsl = (hex: string) => {
         const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
         if (!result) return null;
-        
         const r = parseInt(result[1], 16) / 255;
         const g = parseInt(result[2], 16) / 255;
         const b = parseInt(result[3], 16) / 255;
-        
         const max = Math.max(r, g, b);
         const min = Math.min(r, g, b);
         let h = 0, s = 0;
         const l = (max + min) / 2;
-        
         if (max !== min) {
           const d = max - min;
           s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
@@ -121,11 +131,9 @@ export default function Layout({ children }: LayoutProps) {
           }
           h /= 6;
         }
-        
         return `${Math.round(h * 360)}, ${Math.round(s * 100)}%, ${Math.round(l * 100)}%`;
       };
 
-      // Apply background color
       if (settings.backgroundColor) {
         const hsl = hexToHsl(settings.backgroundColor);
         if (hsl) {
@@ -141,9 +149,7 @@ export default function Layout({ children }: LayoutProps) {
             const cg = Math.min(g + 25, 255);
             const cb = Math.min(b + 25, 255);
             const cardHsl = hexToHsl(`#${cr.toString(16).padStart(2,'0')}${cg.toString(16).padStart(2,'0')}${cb.toString(16).padStart(2,'0')}`);
-            if (cardHsl) {
-              root.style.setProperty('--card', `hsl(${cardHsl})`);
-            }
+            if (cardHsl) root.style.setProperty('--card', `hsl(${cardHsl})`);
             const br = Math.min(r + 50, 255);
             const bg2 = Math.min(g + 50, 255);
             const bb = Math.min(b + 50, 255);
@@ -162,9 +168,6 @@ export default function Layout({ children }: LayoutProps) {
             root.style.setProperty('--glass-bg', `rgba(255, 255, 255, 0.92)`);
             root.style.setProperty('--glass-border', `rgba(0, 0, 0, 0.08)`);
             root.style.setProperty('--glass-hover', `rgba(255, 255, 255, 0.97)`);
-            // For light backgrounds, compute a slightly-darker muted tint so tab
-            // bars and muted surfaces read clearly instead of inheriting the dark
-            // value that may remain from a previously-applied dark theme mode
             const mr = Math.max(r - 14, 0);
             const mg = Math.max(g - 14, 0);
             const mb = Math.max(b - 14, 0);
@@ -178,7 +181,6 @@ export default function Layout({ children }: LayoutProps) {
         }
       }
 
-      // Apply fixed text color (labels, headings, static elements)
       if (settings.foregroundColor) {
         const hsl = hexToHsl(settings.foregroundColor);
         if (hsl) {
@@ -188,21 +190,15 @@ export default function Layout({ children }: LayoutProps) {
           root.style.setProperty('--secondary-foreground', `hsl(${hsl})`);
           root.style.setProperty('--muted-foreground', `hsl(${hsl})`);
           root.style.setProperty('--accent-foreground', `hsl(${hsl})`);
-          // Fixed text color for labels and headings
           root.style.setProperty('--fixed-text', `hsl(${hsl})`);
         }
       }
 
-      // Apply variable text color (data values, content, dynamic information)
       if (settings.variableTextColor) {
         const hsl = hexToHsl(settings.variableTextColor);
-        if (hsl) {
-          // Variable text color for data values and content
-          root.style.setProperty('--variable-text', `hsl(${hsl})`);
-        }
+        if (hsl) root.style.setProperty('--variable-text', `hsl(${hsl})`);
       }
 
-      // Apply accent color
       if (settings.accentColor) {
         const hsl = hexToHsl(settings.accentColor);
         if (hsl) {
@@ -216,7 +212,6 @@ export default function Layout({ children }: LayoutProps) {
 
   useEffect(() => {
     if (settings) {
-      console.info(`[BRANDING] Settings received - company=${settings.companyName || 'NONE'}, logo=${settings.logoUrl || 'NONE'}, bg=${settings.backgroundColor || 'NONE'}, accent=${settings.accentColor || 'NONE'}, varText=${settings.variableTextColor || 'NONE'}`);
       setLogoError(false);
       setLogoFallbackStage(0);
     }
@@ -237,10 +232,10 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/hs-incidents", icon: AlertTriangle, label: "H&S Incidents", featureKey: "featureHsIncidents", defaultOn: true },
     { path: "/fire-risk-assessment", icon: Flame, label: "Fire Risk Assessment", featureKey: "featureFireRiskAssessment", defaultOn: true },
     { path: "/ppm", icon: Wrench, label: "PPM", tooltip: "Planned Preventive Maintenance", featureKey: "featurePPM", defaultOn: false, badge: ppmGapsCount > 0 ? ppmGapsCount : undefined },
-    { path: "/audits", icon: ClipboardCheck, label: "Audits & Inspections", tooltip: "Audit & Inspection Engine — safety, fire, vehicle, behavioural & environmental audits", featureKey: "featureAuditEngine", defaultOn: false },
-    { path: "/compliance-certificates", icon: ShieldCheck, label: "Compliance Register", tooltip: "Compliance Certificate Register — EICR, gas safety, fire alarms, LOLER & more", featureKey: "featureComplianceCertificates", defaultOn: false },
-    { path: "/permit-to-work", icon: ClipboardList, label: "Permit to Work", tooltip: "Permit-to-Work System — hot works, electrical isolation, confined space & more", featureKey: "featurePermitToWork", defaultOn: false },
-    { path: "/ra-builder", icon: FileEdit, label: "RA Builder", tooltip: "Risk Assessment Builder — author, review and approve risk assessments", featureKey: "featureRaBuilder", defaultOn: false },
+    { path: "/audits", icon: ClipboardCheck, label: "Audits & Inspections", tooltip: "Audit & Inspection Engine", featureKey: "featureAuditEngine", defaultOn: false },
+    { path: "/compliance-certificates", icon: ShieldCheck, label: "Compliance Register", tooltip: "Compliance Certificate Register", featureKey: "featureComplianceCertificates", defaultOn: false },
+    { path: "/permit-to-work", icon: ClipboardList, label: "Permit to Work", tooltip: "Permit-to-Work System", featureKey: "featurePermitToWork", defaultOn: false },
+    { path: "/ra-builder", icon: FileEdit, label: "RA Builder", tooltip: "Risk Assessment Builder", featureKey: "featureRaBuilder", defaultOn: false },
     { path: "/helpdesk", icon: Ticket, label: "Help Desk", featureKey: "featureHelpDesk", defaultOn: false },
     { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw" },
     { path: "/reports", icon: FileText, label: "Reports", featureKey: "featureReports", defaultOn: true },
@@ -251,25 +246,19 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/settings", icon: Settings, label: "Settings", featureKey: "featureSettingsPage", defaultOn: true },
   ];
 
-  // Filter navigation items based on feature toggles and user-specific menu access.
-  // While settings are loading, only show always-visible items so there is no flash of extra nav items.
   const allowedItems = user?.allowedMenuItems;
   const hasMenuRestrictions = Array.isArray(allowedItems) && allowedItems.length > 0;
 
   const navItems = allNavItems.filter(item => {
-    // If this user has specific menu restrictions, enforce them (admins are never restricted)
     if (hasMenuRestrictions && user?.role !== 'admin') {
       if (!allowedItems!.includes(item.path)) return false;
     }
-    if (!settings) return item.alwaysVisible; // hide feature-gated items until settings have loaded
+    if (!settings) return (item as any).alwaysVisible;
     if (item.featureKey) {
-      // Platform admin can hard-lock any feature off — check first
       const platformDisabled = (settings as any).platformDisabledFeatures;
       if (Array.isArray(platformDisabled) && platformDisabled.includes(item.featureKey)) return false;
       const val = settings[item.featureKey as keyof CompanySettings];
-      // defaultOn items (opt-out) are visible unless explicitly set to false
       if (item.defaultOn) return val !== false;
-      // normal opt-in items require explicit true
       return val === true;
     }
     return true;
@@ -284,182 +273,230 @@ export default function Layout({ children }: LayoutProps) {
   const bannerTextStyle: CSSProperties = navInvert ? { color: '#ffffff' } : {};
   const bannerActiveIconStyle: CSSProperties = navInvert ? { color: '#ffffff' } : { color: 'var(--primary)' };
 
+  // Compute sidebar width for content offset (desktop only, sidebar mode only)
+  const sidebarWidth = navStyle === "sidebar" && !isMobile
+    ? (sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_EXPANDED_WIDTH)
+    : 0;
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
-      {/* Navigation */}
-      <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-3 sm:px-6 py-2 sm:py-3" style={navBannerStyle}>
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/marketing">
-            <div className="flex items-center space-x-4 min-w-0 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
-              <div className="w-[50px] h-[50px] sm:w-20 sm:h-20 rounded-xl flex items-center justify-center flex-shrink-0">
-                {currentLogoSrc ? (
-                  <img 
-                    src={currentLogoSrc}
-                    alt="Company Logo" 
-                    className="w-full h-full object-contain rounded"
-                    onError={handleLogoError}
-                  />
-                ) : (
-                  <div className="w-[50px] h-[50px] sm:w-[70px] sm:h-[70px] rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold" style={navInvert ? { color: '#ffffff' } : {color: settings?.accentColor || '#2460a9'}}>
-                    {settings?.companyName?.charAt(0) || 'A'}
+
+      {/* ── SIDEBAR NAV ── */}
+      {navStyle === "sidebar" && (
+        <Sidebar
+          navItems={navItems}
+          collapsed={sidebarCollapsed}
+          onCollapsedChange={setSidebarCollapsed}
+          mobileOpen={sidebarMobileOpen}
+          onMobileClose={() => setSidebarMobileOpen(false)}
+          isMobile={isMobile}
+          settings={settings ? {
+            navBannerColor: settings.navBannerColor,
+            navBannerInvert: settings.navBannerInvert,
+            accentColor: settings.accentColor,
+            companyName: settings.companyName,
+          } : null}
+          logoSrc={currentLogoSrc}
+          onLogoError={handleLogoError}
+        />
+      )}
+
+      {/* ── CLASSIC TOP NAV ── */}
+      {navStyle === "classic" && (
+        <>
+          <nav className="glass-effect fixed top-0 left-0 right-0 z-50 px-3 sm:px-6 py-2 sm:py-3" style={navBannerStyle}>
+            <div className="max-w-7xl mx-auto flex items-center justify-between">
+              <Link href="/marketing">
+                <div className="flex items-center space-x-4 min-w-0 flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity">
+                  <div className="w-[50px] h-[50px] sm:w-20 sm:h-20 rounded-xl flex items-center justify-center flex-shrink-0">
+                    {currentLogoSrc ? (
+                      <img
+                        src={currentLogoSrc}
+                        alt="Company Logo"
+                        className="w-full h-full object-contain rounded"
+                        onError={handleLogoError}
+                      />
+                    ) : (
+                      <div className="w-[50px] h-[50px] sm:w-[70px] sm:h-[70px] rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold" style={navInvert ? { color: '#ffffff' } : { color: settings?.accentColor || '#2460a9' }}>
+                        {settings?.companyName?.charAt(0) || 'A'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="hidden sm:block min-w-0 max-w-[220px] lg:max-w-xs">
+                    <h1 className="text-base sm:text-lg lg:text-xl font-bold truncate" style={navInvert ? bannerTextStyle : {}}>{settings?.companyName || ''}</h1>
+                    <p className="text-xs" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}}>TPR</p>
+                  </div>
+                </div>
+              </Link>
+
+              <div className="hidden lg:flex items-center space-x-1 flex-1 justify-center">
+                <TooltipProvider>
+                  {navItems.map((item) => (
+                    <Tooltip key={item.path}>
+                      <TooltipTrigger asChild>
+                        <Link href={item.path}>
+                          <button
+                            className={`nav-btn p-3 rounded-lg transition-colors relative ${
+                              location === item.path ? 'bg-white/20 shadow-sm' : 'hover:bg-white/10'
+                            }`}
+                            style={location === item.path ? bannerActiveIconStyle : bannerTextStyle}
+                            data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                          >
+                            <item.icon size={21} />
+                            {'badge' in item && item.badge !== undefined && (
+                              <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                                {item.badge > 99 ? '99+' : item.badge}
+                              </span>
+                            )}
+                          </button>
+                        </Link>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{'tooltip' in item && item.tooltip ? item.tooltip : item.label}{item.path === '/hr' ? ' (Beta)' : ''}{('badge' in item && item.badge !== undefined) ? ` (${item.badge} gap${item.badge !== 1 ? 's' : ''})` : ''}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ))}
+                </TooltipProvider>
+              </div>
+
+              <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
+                <button
+                  className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition-colors"
+                  style={bannerTextStyle}
+                  onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                  data-testid="mobile-menu-button"
+                >
+                  {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+                </button>
+
+                {user && (
+                  <div className="flex items-center space-x-1 sm:space-x-2">
+                    <Link href="/profile">
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <div className="flex items-center space-x-1 max-w-[80px] sm:max-w-[140px] cursor-pointer hover:opacity-80 transition-opacity">
+                              <User size={14} className="flex-shrink-0 opacity-70" style={bannerTextStyle} />
+                              <span className="text-xs sm:text-sm font-medium truncate" style={bannerTextStyle}>
+                                {user.firstName && user.lastName
+                                  ? `${user.firstName} ${user.lastName}`
+                                  : user.username}
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          {user.firstName && user.lastName && (
+                            <TooltipContent><p>{user.username}</p></TooltipContent>
+                          )}
+                        </Tooltip>
+                      </TooltipProvider>
+                    </Link>
+                    <LogoutButton bannerInvert={navInvert} />
                   </div>
                 )}
               </div>
-              <div className="hidden sm:block min-w-0 max-w-[220px] lg:max-w-xs">
-                <h1 className="text-base sm:text-lg lg:text-xl font-bold truncate" style={navInvert ? bannerTextStyle : {}}>{settings?.companyName || ''}</h1>
-                <p className="text-xs" style={navInvert ? { color: 'rgba(255,255,255,0.7)' } : {}}>TPR</p>
-              </div>
             </div>
-          </Link>
-          
-          <div className="hidden lg:flex items-center space-x-1 flex-1 justify-center">
-            <TooltipProvider>
-              {navItems.map((item) => (
-                <Tooltip key={item.path}>
-                  <TooltipTrigger asChild>
-                    <Link href={item.path}>
-                      <button 
-                        className={`nav-btn p-3 rounded-lg transition-colors relative ${
-                          location === item.path 
-                            ? 'bg-white/20 shadow-sm' 
-                            : 'hover:bg-white/10'
+          </nav>
+
+          {/* Classic mobile overlay menu */}
+          {mobileMenuOpen && (
+            <>
+              <div
+                className="lg:hidden fixed inset-0 bg-black/40 z-40"
+                onClick={() => setMobileMenuOpen(false)}
+                data-testid="mobile-menu-backdrop"
+              />
+              <div className="lg:hidden fixed top-[72px] sm:top-[88px] left-0 right-0 z-50 shadow-xl max-h-[calc(100vh-72px)] sm:max-h-[calc(100vh-88px)] overflow-y-auto" style={{ background: 'var(--background)' }}>
+                <div className="px-3 py-2 space-y-1">
+                  {navItems.map((item) => (
+                    <Link key={item.path} href={item.path}>
+                      <button
+                        className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-colors flex items-center space-x-3 text-sm ${
+                          location === item.path ? 'bg-white/20 shadow-sm' : 'text-fixed hover:bg-white/10'
                         }`}
-                        style={location === item.path ? bannerActiveIconStyle : bannerTextStyle}
-                        data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, '-')}`}
+                        style={location === item.path ? { color: 'var(--primary)' } : {}}
+                        onClick={() => setMobileMenuOpen(false)}
+                        data-testid={`mobile-nav-${item.label.toLowerCase().replace(' ', '-')}`}
                       >
-                        <item.icon size={21} />
+                        <item.icon size={16} />
+                        <span className="truncate flex-1">
+                          {item.label}
+                          {item.path === '/hr' && (
+                            <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">β</span>
+                          )}
+                        </span>
                         {'badge' in item && item.badge !== undefined && (
-                          <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none">
+                          <span className="ml-auto min-w-[20px] h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center leading-none flex-shrink-0">
                             {item.badge > 99 ? '99+' : item.badge}
                           </span>
                         )}
                       </button>
                     </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{'tooltip' in item && item.tooltip ? item.tooltip : item.label}{item.path === '/hr' ? ' (Beta)' : ''}{('badge' in item && item.badge !== undefined) ? ` (${item.badge} gap${item.badge !== 1 ? 's' : ''})` : ''}</p>
-                  </TooltipContent>
-                </Tooltip>
-              ))}
-            </TooltipProvider>
-          </div>
-          
-          <div className="flex items-center space-x-2 sm:space-x-3 flex-shrink-0">
-            {/* Mobile menu button */}
-            <button
-              className="lg:hidden p-2 rounded-lg hover:bg-white/10 transition-colors"
-              style={bannerTextStyle}
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              data-testid="mobile-menu-button"
-            >
-              {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-            </button>
-            
-            {user && (
-              <div className="flex items-center space-x-1 sm:space-x-2">
-                <Link href="/profile">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="flex items-center space-x-1 max-w-[80px] sm:max-w-[140px] cursor-pointer hover:opacity-80 transition-opacity">
-                          <User size={14} className="flex-shrink-0 opacity-70" style={bannerTextStyle} />
-                          <span className="text-xs sm:text-sm font-medium truncate" style={bannerTextStyle}>
-                            {user.firstName && user.lastName
-                              ? `${user.firstName} ${user.lastName}`
-                              : user.username}
-                          </span>
-                        </div>
-                      </TooltipTrigger>
-                      {user.firstName && user.lastName && (
-                        <TooltipContent>
-                          <p>{user.username}</p>
-                        </TooltipContent>
-                      )}
-                    </Tooltip>
-                  </TooltipProvider>
-                </Link>
-                <LogoutButton bannerInvert={navInvert} />
+                  ))}
+                  <div className="border-t border-border/40 pt-1 mt-1">
+                    <Link href="/profile">
+                      <button
+                        className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-colors flex items-center space-x-3 text-sm ${
+                          location === '/profile' ? 'bg-white/20 shadow-sm' : 'text-fixed hover:bg-white/10'
+                        }`}
+                        style={location === '/profile' ? { color: 'var(--primary)' } : {}}
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        <User size={16} />
+                        <span className="truncate">My Profile</span>
+                      </button>
+                    </Link>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
-        
-      </nav>
-
-      {/* Mobile Navigation Menu - Fixed Overlay */}
-      {mobileMenuOpen && (
-        <>
-          {/* Backdrop */}
-          <div 
-            className="lg:hidden fixed inset-0 bg-black/40 z-40"
-            onClick={() => setMobileMenuOpen(false)}
-            data-testid="mobile-menu-backdrop"
-          />
-          
-          {/* Menu Panel */}
-          <div className="lg:hidden fixed top-[72px] sm:top-[88px] left-0 right-0 z-50 shadow-xl max-h-[calc(100vh-72px)] sm:max-h-[calc(100vh-88px)] overflow-y-auto" style={{ background: 'var(--background)' }}>
-            <div className="px-3 py-2 space-y-1">
-              {navItems.map((item) => (
-                <Link key={item.path} href={item.path}>
-                  <button 
-                    className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-colors flex items-center space-x-3 text-sm ${
-                      location === item.path 
-                        ? 'bg-white/20 shadow-sm' 
-                        : 'text-fixed hover:bg-white/10'
-                    }`}
-                    style={location === item.path ? { color: 'var(--primary)' } : {}}
-                    onClick={() => setMobileMenuOpen(false)}
-                    data-testid={`mobile-nav-${item.label.toLowerCase().replace(' ', '-')}`}
-                  >
-                    <item.icon size={16} />
-                    <span className="truncate flex-1">
-                      {item.label}
-                      {item.path === '/hr' && (
-                        <span className="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">β</span>
-                      )}
-                    </span>
-                    {'badge' in item && item.badge !== undefined && (
-                      <span className="ml-auto min-w-[20px] h-5 px-1 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center leading-none flex-shrink-0">
-                        {item.badge > 99 ? '99+' : item.badge}
-                      </span>
-                    )}
-                  </button>
-                </Link>
-              ))}
-              <div className="border-t border-border/40 pt-1 mt-1">
-                <Link href="/profile">
-                  <button
-                    className={`w-full text-left px-3 py-2.5 rounded-lg font-medium transition-colors flex items-center space-x-3 text-sm ${
-                      location === '/profile' ? 'bg-white/20 shadow-sm' : 'text-fixed hover:bg-white/10'
-                    }`}
-                    style={location === '/profile' ? { color: 'var(--primary)' } : {}}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <User size={16} />
-                    <span className="truncate">My Profile</span>
-                  </button>
-                </Link>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </>
       )}
 
-      {/* Main Content */}
-      <div className="pt-20 sm:pt-28 pb-24 sm:pb-8 px-3 sm:px-6">
-        <div className="max-w-7xl mx-auto">
-          {children}
-        </div>
+      {/* ── SIDEBAR MODE — mobile menu button (top-right FAB) ── */}
+      {navStyle === "sidebar" && isMobile && !sidebarMobileOpen && (
+        <button
+          className="fixed top-3 left-3 z-40 p-2 rounded-lg glass-effect shadow-md hover:bg-white/20 transition-colors"
+          onClick={() => setSidebarMobileOpen(true)}
+          aria-label="Open navigation"
+        >
+          <Menu size={20} />
+        </button>
+      )}
+
+      {/* ── MAIN CONTENT ── */}
+      <div
+        className="pb-24 sm:pb-8 px-3 sm:px-6 transition-all duration-200"
+        style={{
+          paddingTop: navStyle === "sidebar" ? (isMobile ? "56px" : "24px") : undefined,
+          paddingLeft: navStyle === "sidebar" && !isMobile
+            ? `calc(${sidebarWidth}px + 1rem)`
+            : undefined,
+        }}
+        // Classic mode keeps Tailwind pt-20 sm:pt-28 via className below
+      >
+        {navStyle === "classic" && (
+          <div className="pt-20 sm:pt-28">
+            <div className="max-w-7xl mx-auto">
+              {children}
+            </div>
+          </div>
+        )}
+        {navStyle === "sidebar" && (
+          <div className="max-w-7xl mx-auto">
+            {children}
+          </div>
+        )}
       </div>
 
       {/* Help System */}
-      <HelpButton 
-        onClick={() => setIsHelpPanelOpen(!isHelpPanelOpen)} 
-        isHelpPanelOpen={isHelpPanelOpen} 
+      <HelpButton
+        onClick={() => setIsHelpPanelOpen(!isHelpPanelOpen)}
+        isHelpPanelOpen={isHelpPanelOpen}
       />
-      <HelpPanel 
-        isOpen={isHelpPanelOpen} 
-        onClose={() => setIsHelpPanelOpen(false)} 
+      <HelpPanel
+        isOpen={isHelpPanelOpen}
+        onClose={() => setIsHelpPanelOpen(false)}
       />
     </div>
   );

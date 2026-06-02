@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Bot, Building2, Palette, Users, Building, Globe, Mail, Phone, FileText, Printer, HardHat, AlertTriangle, Brain, Wrench, Settings2, Bell, ScrollText, MapPin, Shield, ClipboardList, Briefcase, PenLine } from "lucide-react";
+import { Bot, Building2, Palette, Users, Building, Globe, Mail, Phone, FileText, Printer, HardHat, AlertTriangle, Brain, Wrench, Settings2, Bell, ScrollText, MapPin, Shield, ClipboardList, Briefcase, PenLine, PanelLeft } from "lucide-react";
 
 import GeneralSettings from "./settings/GeneralSettings";
 import BrandingSettings from "./settings/BrandingSettings";
@@ -25,6 +25,7 @@ import LoneWorkerSettings from "./settings/LoneWorkerSettings";
 import SystemSettings from "./settings/SystemSettings";
 import VisitReasonsSettings from "./settings/VisitReasonsSettings";
 import JobTitlesSettings from "./settings/JobTitlesSettings";
+import PreferencesSettings from "./settings/PreferencesSettings";
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("company");
@@ -84,6 +85,7 @@ export default function Settings() {
               <SelectItem value="job-titles">Job Titles</SelectItem>
               <SelectItem value="lone-worker">Lone Worker</SelectItem>
               <SelectItem value="system">System</SelectItem>
+              <SelectItem value="preferences">My Preferences</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -150,6 +152,9 @@ export default function Settings() {
           <TabsTrigger value="system" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
             <Wrench size={14} />System
           </TabsTrigger>
+          <TabsTrigger value="preferences" className="flex items-center gap-1.5 px-3 py-2 text-xs whitespace-nowrap">
+            <PanelLeft size={14} />My Preferences
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="company" className="space-y-6 mt-6"><GeneralSettings /></TabsContent>
@@ -172,6 +177,7 @@ export default function Settings() {
         <TabsContent value="job-titles" className="space-y-6 mt-6"><JobTitlesSettings /></TabsContent>
         <TabsContent value="lone-worker" className="space-y-6 mt-6"><LoneWorkerSettings /></TabsContent>
         <TabsContent value="system" className="space-y-6 mt-6"><SystemSettings /></TabsContent>
+        <TabsContent value="preferences" className="space-y-6 mt-6"><PreferencesSettings /></TabsContent>
       </Tabs>
     </div>
   );
