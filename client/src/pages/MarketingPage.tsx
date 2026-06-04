@@ -84,6 +84,7 @@ import {
   ShieldAlert,
   BadgeCheck,
   Tablet,
+  ThumbsUp,
 } from "lucide-react";
 
 // Import ACS logo, screenshots and pricing image
