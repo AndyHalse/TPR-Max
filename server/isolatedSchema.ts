@@ -2443,6 +2443,13 @@ export const hsIncidents = pgTable("hs_incidents", {
   riddorReportedAt: timestamp("riddor_reported_at"),
   riddorReference: text("riddor_reference"),
   riddorReminderSentAt: timestamp("riddor_reminder_sent_at"),
+  // Behaviour-Based Safety (BBS) fields
+  recordType: text("record_type").notNull().default("incident"), // incident | near_miss | good_spot | positive_action
+  hazardType: text("hazard_type"),
+  resolved: boolean("resolved").notNull().default(false),
+  resolvedBy: text("resolved_by"),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  resolutionNotes: text("resolution_notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

@@ -1731,10 +1731,159 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       logger.warn(`Sample Permit to Work data failed: ${e.message}`);
     }
 
+    // ── H&S Incidents (RIDDOR + Near Miss + BBS) ───────────────────────────────
+    let hsIncidentsAdded = 0;
+    try {
+      // Ensure table and BBS columns exist before inserting
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".hs_incidents (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
+          title TEXT NOT NULL, description TEXT,
+          incident_date TIMESTAMPTZ NOT NULL,
+          location TEXT, reported_by TEXT,
+          injured_person TEXT, injured_person_type TEXT,
+          is_near_miss BOOLEAN NOT NULL DEFAULT FALSE,
+          near_miss_potential TEXT, near_miss_hazard_type TEXT,
+          riddor_category TEXT, riddor_reporting_deadline TIMESTAMPTZ,
+          riddor_reported_at TIMESTAMPTZ, riddor_reference TEXT,
+          riddor_reminder_sent_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT NOW(), updated_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS record_type TEXT NOT NULL DEFAULT 'incident'`);
+      await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS hazard_type TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolved BOOLEAN NOT NULL DEFAULT FALSE`);
+      await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolved_by TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ`);
+      await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolution_notes TEXT`);
+
+      const now = new Date();
+      const d = (daysAgo: number) => new Date(now.getTime() - daysAgo * 24 * 60 * 60 * 1000).toISOString();
+      const riddorDeadline10 = (daysAgo: number) => new Date(now.getTime() + (10 - daysAgo) * 24 * 60 * 60 * 1000).toISOString();
+
+      const sampleHsIncidents = [
+        // Incident 1 — RIDDOR specified_injury, 3 days ago
+        {
+          id: 'hs-demo-001', title: 'Fractured wrist — fall on wet floor in reception',
+          description: 'Employee slipped on wet floor in main reception area after cleaning. Fell and sustained a fractured wrist. Wet floor sign was not in place at the time of the incident. Employee was taken to A&E and admitted for treatment.',
+          incidentDate: d(3), location: 'Main Reception', reportedBy: 'sarah.jones@example.com',
+          injuredPerson: 'David Mitchell', injuredPersonType: 'staff',
+          isNearMiss: false, riddorCategory: 'specified_injury',
+          riddorReportingDeadline: riddorDeadline10(3),
+          recordType: 'incident',
+        },
+        // Incident 2 — Not RIDDOR reportable, 14 days ago
+        {
+          id: 'hs-demo-002', title: 'Minor cut — broken glass in canteen',
+          description: 'Member of staff cut their hand on a broken glass in the canteen while clearing tables. Wound cleaned and dressed in first aid room. No hospital treatment required. Glass was broken when dropped earlier in the shift.',
+          incidentDate: d(14), location: 'Staff Canteen', reportedBy: 'mark.taylor@example.com',
+          injuredPerson: 'Emma Patel', injuredPersonType: 'staff',
+          isNearMiss: false, riddorCategory: 'not_riddor_reportable',
+          riddorReportingDeadline: null,
+          recordType: 'incident',
+        },
+        // Near miss 1 — slip/trip/fall, 7 days ago
+        {
+          id: 'hs-demo-003', title: 'Near miss — trailing cable across main corridor',
+          description: 'Extension cable found trailing across the main corridor between offices. No one was injured but several members of staff narrowly avoided tripping. Cable had been left by maintenance contractor carrying out IT works. Potential for serious trip and fall injury.',
+          incidentDate: d(7), location: 'Main Corridor — First Floor', reportedBy: 'james.wilson@example.com',
+          injuredPerson: null, injuredPersonType: null,
+          isNearMiss: true, nearMissPotential: 'serious', nearMissHazardType: 'slip_trip_fall',
+          riddorCategory: 'not_riddor_reportable',
+          recordType: 'near_miss',
+        },
+        // Near miss 2 — working at height, 21 days ago
+        {
+          id: 'hs-demo-004', title: 'Near miss — unsecured ladder during roof maintenance',
+          description: 'Ladder found unsecured and unattended on the flat roof area during maintenance works. Contractor had left site for a break without securing the ladder. Strong wind could have caused the ladder to fall onto the car park below where vehicles and pedestrians were present.',
+          incidentDate: d(21), location: 'Roof — Plant Room Access', reportedBy: 'rachel.brown@example.com',
+          injuredPerson: null, injuredPersonType: null,
+          isNearMiss: true, nearMissPotential: 'critical', nearMissHazardType: 'working_at_height',
+          riddorCategory: 'not_riddor_reportable',
+          recordType: 'near_miss',
+        },
+        // Good Spot 1 — open (awaiting resolution), 2 days ago
+        {
+          id: 'hs-demo-005', title: 'Good Spot — frayed electrical cable in server room',
+          description: 'Noticed a frayed power cable on the UPS unit in the server room. Insulation worn through exposing live conductors. Risk of electric shock or fire. Reported to facilities team for urgent replacement.',
+          incidentDate: d(2), location: 'Server Room — IT Suite', reportedBy: 'tom.harris@example.com',
+          injuredPerson: null, injuredPersonType: null,
+          isNearMiss: false, hazardType: 'electrical',
+          resolved: false, riddorCategory: null,
+          recordType: 'good_spot',
+        },
+        // Good Spot 2 — resolved, 10 days ago
+        {
+          id: 'hs-demo-006', title: 'Good Spot — blocked fire exit in warehouse',
+          description: 'Fire exit at the rear of the warehouse was partially blocked by a pallet of stock. Exit door could not be fully opened. Reported immediately to site supervisor.',
+          incidentDate: d(10), location: 'Warehouse — Rear Fire Exit', reportedBy: 'lisa.chen@example.com',
+          injuredPerson: null, injuredPersonType: null,
+          isNearMiss: false, hazardType: 'fire_explosion',
+          resolved: true, resolvedBy: 'Ben Ashworth', resolvedAt: d(9),
+          resolutionNotes: 'Pallet relocated to designated storage bay. Fire exit confirmed clear and operational. Reminder issued to all warehouse staff re: fire exit access.',
+          riddorCategory: null,
+          recordType: 'good_spot',
+        },
+        // Positive Action 1 — resolved (self-resolved), 5 days ago
+        {
+          id: 'hs-demo-007', title: 'Positive Action — spillage of cleaning chemical in corridor',
+          description: 'Noticed a cleaning chemical had spilled in the south corridor near the cleaners\' store. Strong fumes and slip risk. Immediately cordoned off the area with barriers, donned PPE and cleaned up the spillage using the correct neutraliser. Ventilated the area and checked COSHH data sheet.',
+          incidentDate: d(5), location: 'South Corridor — Level 2', reportedBy: 'mike.robinson@example.com',
+          injuredPerson: null, injuredPersonType: null,
+          isNearMiss: false, hazardType: 'chemical_substance',
+          resolved: true, resolvedBy: 'Mike Robinson', resolvedAt: d(5),
+          resolutionNotes: 'Spillage contained, cleaned and neutralised on discovery. PPE worn throughout. Area re-opened after 30 minutes. COSHH sheet reviewed and additional PPE stocks ordered.',
+          riddorCategory: null,
+          recordType: 'positive_action',
+        },
+        // Positive Action 2 — resolved, 18 days ago
+        {
+          id: 'hs-demo-008', title: 'Positive Action — loose handrail on external staircase',
+          description: 'Found that the handrail on the external staircase to the car park was very loose — two fixing bolts missing. High risk of the handrail giving way if someone leaned on it. Immediately placed "Do Not Use" sign on staircase and contacted maintenance to carry out urgent repair.',
+          incidentDate: d(18), location: 'External Staircase — South Car Park', reportedBy: 'anna.foster@example.com',
+          injuredPerson: null, injuredPersonType: null,
+          isNearMiss: false, hazardType: 'slip_trip_fall',
+          resolved: true, resolvedBy: 'Facilities Team', resolvedAt: d(16),
+          resolutionNotes: 'Staircase closed until repair completed. Maintenance replaced missing bolts and torqued all fixings. Handrail confirmed secure. Staircase reopened after sign-off from H&S rep.',
+          riddorCategory: null,
+          recordType: 'positive_action',
+        },
+      ];
+
+      for (const inc of sampleHsIncidents) {
+        await pool.query(`
+          INSERT INTO "${schemaName}".hs_incidents (
+            id, title, description, incident_date, location, reported_by,
+            injured_person, injured_person_type, is_near_miss,
+            near_miss_potential, near_miss_hazard_type,
+            riddor_category, riddor_reporting_deadline,
+            record_type, hazard_type,
+            resolved, resolved_by, resolved_at, resolution_notes,
+            created_at, updated_at
+          ) VALUES (
+            $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,NOW(),NOW()
+          ) ON CONFLICT (id) DO NOTHING`,
+          [
+            inc.id, inc.title, inc.description ?? null, inc.incidentDate, inc.location ?? null, inc.reportedBy ?? null,
+            (inc as any).injuredPerson ?? null, (inc as any).injuredPersonType ?? null, inc.isNearMiss ?? false,
+            (inc as any).nearMissPotential ?? null, (inc as any).nearMissHazardType ?? null,
+            (inc as any).riddorCategory ?? null, (inc as any).riddorReportingDeadline ?? null,
+            inc.recordType, (inc as any).hazardType ?? null,
+            (inc as any).resolved ?? false, (inc as any).resolvedBy ?? null,
+            (inc as any).resolvedAt ?? null, (inc as any).resolutionNotes ?? null,
+          ]
+        );
+        hsIncidentsAdded++;
+      }
+      logger.info(`✅ H&S Incidents sample data: ${hsIncidentsAdded} records`);
+    } catch (e: any) {
+      logger.warn(`Sample H&S Incidents data failed: ${e.message}`);
+    }
+
     res.json({
       success: true,
-      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members, ${raAssessmentsAdded} risk assessments, ${auditTemplatesAdded} audit templates (${auditRecordsAdded} records, ${auditActionsAdded} actions), ${permitsAdded} permits — plus HR, certifications, visits, pre-bookings and attendance records`,
-      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0, raAssessmentsAdded, auditTemplatesAdded, auditRecordsAdded, auditActionsAdded, permitsAdded },
+      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members, ${raAssessmentsAdded} risk assessments, ${auditTemplatesAdded} audit templates (${auditRecordsAdded} records, ${auditActionsAdded} actions), ${permitsAdded} permits, ${hsIncidentsAdded} H&S incident records — plus HR, certifications, visits, pre-bookings and attendance records`,
+      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0, raAssessmentsAdded, auditTemplatesAdded, auditRecordsAdded, auditActionsAdded, permitsAdded, hsIncidentsAdded },
     });
   } catch (error) {
     logger.error('Error loading sample data:', error);
@@ -2036,6 +2185,17 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         }
         logger.info(`✅ Permit to Work demo data cleared`);
       } catch (e) { logger.warn(`Clear sample: permit_to_work demo — ${(e as any).message}`); }
+
+      // ── H&S Incidents sample data cleanup ──────────────────────────────────
+      try {
+        const demoHsRes = await pool.query(`SELECT id FROM "${schemaName}".hs_incidents WHERE id LIKE 'hs-demo-%'`);
+        if (demoHsRes.rows.length > 0) {
+          const hsIds: string[] = demoHsRes.rows.map((r: any) => r.id);
+          await pool.query(`DELETE FROM "${schemaName}".hs_incidents WHERE id IN (${inP(hsIds)})`, hsIds);
+          deleted['hs_incidents'] = hsIds.length;
+        }
+        logger.info(`✅ H&S Incidents demo data cleared`);
+      } catch (e) { logger.warn(`Clear sample: hs_incidents — ${(e as any).message}`); }
 
       res.json({ success: true, message: 'Sample data cleared successfully', deleted });
     } catch (error) {

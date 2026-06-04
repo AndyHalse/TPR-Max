@@ -11,8 +11,9 @@ import { calculateRIDDORDeadline, getDaysUntilRIDDORDeadline, RIDDOR_CATEGORY_LA
 import { EXTERNAL_LINKS } from '../utils/externalLinks';
 
 async function ensureHsIncidentsTable(custDb: any, schemaName: string) {
-  await custDb.execute(sql.raw(`
-    CREATE TABLE IF NOT EXISTS ${schemaName}.hs_incidents (
+  const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS "${schemaName}".hs_incidents (
       id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid()::text,
       title TEXT NOT NULL,
       description TEXT,
@@ -32,7 +33,16 @@ async function ensureHsIncidentsTable(custDb: any, schemaName: string) {
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
-  `));
+  `);
+  // BBS columns (idempotent ALTER TABLE — safe to run on every request)
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS record_type TEXT NOT NULL DEFAULT 'incident'`);
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS hazard_type TEXT`);
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolved BOOLEAN NOT NULL DEFAULT FALSE`);
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolved_by TEXT`);
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolution_notes TEXT`);
+  // Migrate legacy near_miss records to new record_type field
+  await pool.query(`UPDATE "${schemaName}".hs_incidents SET record_type = 'near_miss' WHERE is_near_miss = TRUE AND record_type = 'incident'`);
 }
 
 export function registerHsIncidentRoutes(app: Express): void {
@@ -61,9 +71,20 @@ export function registerHsIncidentRoutes(app: Express): void {
 
       const body = req.body as any;
       const incidentDate = new Date(body.incidentDate);
+      const recordType: string = body.recordType || (body.isNearMiss ? 'near_miss' : 'incident');
+      const isBbs = recordType === 'good_spot' || recordType === 'positive_action';
+      const isNearMiss = recordType === 'near_miss';
 
-      // Near miss auto-sets riddorCategory
-      let riddorCategory = body.isNearMiss ? 'not_riddor_reportable' : (body.riddorCategory || null);
+      // Near miss auto-sets riddorCategory; BBS types are never RIDDOR
+      let riddorCategory: string | null = null;
+      if (isBbs) {
+        riddorCategory = null;
+      } else if (isNearMiss) {
+        riddorCategory = 'not_riddor_reportable';
+      } else {
+        riddorCategory = body.riddorCategory || null;
+      }
+
       let riddorDeadline: Date | null = null;
       if (riddorCategory && riddorCategory !== 'not_riddor_reportable' && riddorCategory !== 'occupational_disease') {
         riddorDeadline = calculateRIDDORDeadline(riddorCategory as RIDDORCategory, incidentDate);
@@ -75,13 +96,19 @@ export function registerHsIncidentRoutes(app: Express): void {
         incidentDate,
         location: body.location || null,
         reportedBy: body.reportedBy || null,
-        injuredPerson: body.injuredPerson || null,
-        injuredPersonType: body.injuredPersonType || null,
-        isNearMiss: !!body.isNearMiss,
-        nearMissPotential: body.isNearMiss ? body.nearMissPotential : null,
-        nearMissHazardType: body.isNearMiss ? body.nearMissHazardType : null,
+        injuredPerson: isBbs ? null : (body.injuredPerson || null),
+        injuredPersonType: isBbs ? null : (body.injuredPersonType || null),
+        isNearMiss,
+        nearMissPotential: isNearMiss ? (body.nearMissPotential || null) : null,
+        nearMissHazardType: isNearMiss ? (body.nearMissHazardType || null) : null,
         riddorCategory,
         riddorReportingDeadline: riddorDeadline,
+        recordType,
+        hazardType: isBbs ? (body.hazardType || null) : null,
+        resolved: isBbs ? !!body.resolved : false,
+        resolvedBy: isBbs ? (body.resolvedBy || null) : null,
+        resolvedAt: (isBbs && body.resolvedAt) ? new Date(body.resolvedAt) : null,
+        resolutionNotes: isBbs ? (body.resolutionNotes || null) : null,
       }).returning();
 
       // Immediate fatality alert
@@ -106,37 +133,47 @@ export function registerHsIncidentRoutes(app: Express): void {
 
       const body = req.body as any;
       const incidentDate = body.incidentDate ? new Date(body.incidentDate) : undefined;
+      const recordType: string = body.recordType || (body.isNearMiss ? 'near_miss' : 'incident');
+      const isBbs = recordType === 'good_spot' || recordType === 'positive_action';
+      const isNearMiss = recordType === 'near_miss';
 
-      let riddorCategory = body.isNearMiss ? 'not_riddor_reportable' : (body.riddorCategory ?? undefined);
+      let riddorCategory: string | null | undefined = undefined;
+      if (isBbs) {
+        riddorCategory = null;
+      } else if (isNearMiss) {
+        riddorCategory = 'not_riddor_reportable';
+      } else {
+        riddorCategory = body.riddorCategory ?? undefined;
+      }
+
       let riddorDeadline: Date | null | undefined = undefined;
-      if (riddorCategory && incidentDate) {
-        if (riddorCategory !== 'not_riddor_reportable' && riddorCategory !== 'occupational_disease') {
+      if (riddorCategory !== undefined && incidentDate) {
+        if (riddorCategory && riddorCategory !== 'not_riddor_reportable' && riddorCategory !== 'occupational_disease') {
           riddorDeadline = calculateRIDDORDeadline(riddorCategory as RIDDORCategory, incidentDate);
         } else {
           riddorDeadline = null;
         }
       }
 
-      const updates: Record<string, any> = {
-        updatedAt: new Date(),
-      };
+      const updates: Record<string, any> = { updatedAt: new Date(), recordType, isNearMiss };
       if (body.title !== undefined) updates.title = body.title;
       if (body.description !== undefined) updates.description = body.description;
       if (incidentDate) updates.incidentDate = incidentDate;
       if (body.location !== undefined) updates.location = body.location;
       if (body.reportedBy !== undefined) updates.reportedBy = body.reportedBy;
-      if (body.injuredPerson !== undefined) updates.injuredPerson = body.injuredPerson;
-      if (body.injuredPersonType !== undefined) updates.injuredPersonType = body.injuredPersonType;
-      if (body.isNearMiss !== undefined) updates.isNearMiss = !!body.isNearMiss;
-      if (body.isNearMiss) {
-        updates.nearMissPotential = body.nearMissPotential ?? null;
-        updates.nearMissHazardType = body.nearMissHazardType ?? null;
-      } else {
-        updates.nearMissPotential = null;
-        updates.nearMissHazardType = null;
-      }
+      updates.injuredPerson = isBbs ? null : (body.injuredPerson ?? null);
+      updates.injuredPersonType = isBbs ? null : (body.injuredPersonType ?? null);
+      updates.nearMissPotential = isNearMiss ? (body.nearMissPotential ?? null) : null;
+      updates.nearMissHazardType = isNearMiss ? (body.nearMissHazardType ?? null) : null;
+      updates.hazardType = isBbs ? (body.hazardType ?? null) : null;
       if (riddorCategory !== undefined) updates.riddorCategory = riddorCategory;
       if (riddorDeadline !== undefined) updates.riddorReportingDeadline = riddorDeadline;
+      if (isBbs) {
+        updates.resolved = !!body.resolved;
+        updates.resolvedBy = body.resolvedBy ?? null;
+        updates.resolvedAt = body.resolvedAt ? new Date(body.resolvedAt) : null;
+        updates.resolutionNotes = body.resolutionNotes ?? null;
+      }
 
       const [updated] = await custDb.update(isolatedSchema.hsIncidents)
         .set(updates)
@@ -161,6 +198,23 @@ export function registerHsIncidentRoutes(app: Express): void {
     } catch (err) {
       logger.error('Error deleting H&S incident:', err);
       res.status(500).json({ error: 'Failed to delete incident' });
+    }
+  });
+
+  // PATCH resolve a Good Spot or Positive Action
+  app.patch('/api/hs-incidents/:id/resolve', requireAuth, async (req, res) => {
+    try {
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { resolvedBy, resolutionNotes } = req.body as { resolvedBy: string; resolutionNotes: string };
+      const [updated] = await custDb.update(isolatedSchema.hsIncidents)
+        .set({ resolved: true, resolvedBy: resolvedBy || null, resolvedAt: new Date(), resolutionNotes: resolutionNotes || null, updatedAt: new Date() })
+        .where(eq(isolatedSchema.hsIncidents.id, req.params.id))
+        .returning();
+      if (!updated) return res.status(404).json({ error: 'Record not found' });
+      res.json(updated);
+    } catch (err) {
+      logger.error('Error resolving Good Spot:', err);
+      res.status(500).json({ error: 'Failed to resolve' });
     }
   });
 
@@ -236,11 +290,30 @@ export function registerHsIncidentRoutes(app: Express): void {
           ? `Pending — deadline ${new Date(incident.riddorReportingDeadline).toLocaleDateString('en-GB')}`
           : 'Not yet assessed';
 
+      const isBbsRecord = incident.recordType === 'good_spot' || incident.recordType === 'positive_action';
+      const reportTitle = isBbsRecord ? 'POSITIVE SAFETY REPORT' : 'WORKPLACE INCIDENT REPORT';
+      const refPrefix = isBbsRecord ? 'BBS' : 'IR';
+
+      let bannerClass = 'standard';
+      let bannerText = '✓ Workplace Incident Report';
+      if (isBbsRecord) {
+        bannerClass = 'good-spot';
+        bannerText = incident.recordType === 'good_spot'
+          ? '✓ GOOD SPOT — Hazard identified and reported'
+          : '✓ POSITIVE ACTION — Hazard identified and resolved';
+      } else if (incident.isNearMiss) {
+        bannerClass = 'near-miss';
+        bannerText = '⚠ NEAR MISS REPORT — No injury occurred but potential hazard identified';
+      } else if (incident.riddorCategory && incident.riddorCategory !== 'not_riddor_reportable') {
+        bannerClass = 'riddor';
+        bannerText = `⚠ RIDDOR 2013 — ${esc(RIDDOR_LABELS[incident.riddorCategory] || incident.riddorCategory)}`;
+      }
+
       const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Incident Report — ${esc(incident.title)}</title>
+<title>${reportTitle} — ${esc(incident.title)}</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
   body { font-family: Arial, Helvetica, sans-serif; font-size:11px; color:#1f2937; background:#fff; }
@@ -252,6 +325,7 @@ export function registerHsIncidentRoutes(app: Express): void {
   .type-banner.riddor { background:#fef3c7; color:#92400e; border-bottom:2px solid #f59e0b; }
   .type-banner.near-miss { background:#dbeafe; color:#1e40af; border-bottom:2px solid #3b82f6; }
   .type-banner.standard { background:#f0fdf4; color:#166534; border-bottom:2px solid #22c55e; }
+  .type-banner.good-spot { background:#f0fdf4; color:#166534; border-bottom:2px solid #22c55e; }
   .section { margin:16px 24px 0; }
   .section-title { font-size:12px; font-weight:700; color:#1e3a5f; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid #1e3a5f; padding-bottom:4px; margin-bottom:8px; }
   table { width:100%; border-collapse:collapse; }
@@ -264,6 +338,8 @@ export function registerHsIncidentRoutes(app: Express): void {
   .riddor-box .riddor-title { font-weight:700; color:#92400e; font-size:12px; margin-bottom:6px; }
   .near-miss-box { margin:16px 24px 0; background:#dbeafe; border:1px solid #93c5fd; border-radius:6px; padding:12px 14px; }
   .near-miss-box .nm-title { font-weight:700; color:#1e40af; font-size:12px; margin-bottom:6px; }
+  .bbs-box { margin:16px 24px 0; background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:12px 14px; }
+  .bbs-box .bbs-title { font-weight:700; color:#166534; font-size:12px; margin-bottom:6px; }
   .action-box { margin:16px 24px 0; background:#f0fdf4; border:1px solid #86efac; border-radius:6px; padding:12px 14px; }
   .sig-section { margin:20px 24px 0; display:flex; gap:40px; }
   .sig-box { flex:1; }
@@ -281,41 +357,53 @@ export function registerHsIncidentRoutes(app: Express): void {
     <p>${esc(siteName)}${address ? ` · ${esc(address)}` : ''}</p>
   </div>
   <div class="header-right">
-    <strong>WORKPLACE INCIDENT REPORT</strong><br>
-    Ref: IR-${esc(incident.id.slice(0,8).toUpperCase())}<br>
+    <strong>${reportTitle}</strong><br>
+    Ref: ${refPrefix}-${esc(incident.id.slice(0,8).toUpperCase())}<br>
     Generated: ${dateStr}
   </div>
 </div>
 
-<div class="type-banner ${incident.isNearMiss ? 'near-miss' : (incident.riddorCategory && incident.riddorCategory !== 'not_riddor_reportable' ? 'riddor' : 'standard')}">
-  ${incident.isNearMiss ? '⚠ NEAR MISS REPORT — No injury occurred but potential hazard identified' : incident.riddorCategory && incident.riddorCategory !== 'not_riddor_reportable' ? `⚠ RIDDOR 2013 — ${esc(RIDDOR_LABELS[incident.riddorCategory] || incident.riddorCategory)}` : '✓ Workplace Incident Report'}
+<div class="type-banner ${bannerClass}">
+  ${bannerText}
 </div>
 
 <div class="section">
-  <div class="section-title">Incident Details</div>
+  <div class="section-title">${isBbsRecord ? 'Observation Details' : 'Incident Details'}</div>
   <table>
-    ${row('Incident title', incident.title)}
+    ${row(isBbsRecord ? 'Observation title' : 'Incident title', incident.title)}
     ${row('Date &amp; time', incidentDateStr)}
     ${row('Location', incident.location || '')}
     ${row('Reported by', incident.reportedBy || '')}
   </table>
 </div>
 
+${!isBbsRecord ? `
 <div class="section">
   <div class="section-title">Person Involved</div>
   <table>
     ${row('Injured / involved person', incident.injuredPerson || 'Not recorded')}
     ${row('Person type', incident.injuredPersonType ? personTypeLabel(incident.injuredPersonType) : '')}
   </table>
-</div>
+</div>` : ''}
 
 ${incident.description ? `
 <div class="section">
-  <div class="section-title">Description of Incident</div>
+  <div class="section-title">${isBbsRecord ? 'Observation Description' : 'Description of Incident'}</div>
   <div class="description-box">${esc(incident.description)}</div>
 </div>` : ''}
 
-${incident.isNearMiss ? `
+${isBbsRecord ? `
+<div class="bbs-box">
+  <div class="bbs-title">${incident.recordType === 'good_spot' ? 'Good Spot — Hazard Identified' : 'Positive Action — Hazard Identified &amp; Resolved'}</div>
+  <table>
+    ${row('Hazard type', incident.hazardType ? HAZARD_LABELS[incident.hazardType] || incident.hazardType : 'Not specified')}
+    ${row('Status', incident.resolved ? `Resolved by ${esc(incident.resolvedBy || 'N/A')} on ${incident.resolvedAt ? new Date(incident.resolvedAt).toLocaleDateString('en-GB') : 'N/A'}` : 'Awaiting resolution')}
+    ${incident.resolutionNotes ? row('Resolution notes', incident.resolutionNotes) : ''}
+  </table>
+  <p style="margin-top:8px;font-size:10px;color:#166534">Proactive hazard reporting demonstrates due diligence under the Management of Health &amp; Safety at Work Regulations 1999.</p>
+</div>` : ''}
+
+${!isBbsRecord && incident.isNearMiss ? `
 <div class="near-miss-box">
   <div class="nm-title">Near Miss — Management of Health &amp; Safety at Work Regulations 1999</div>
   <table>
@@ -325,7 +413,7 @@ ${incident.isNearMiss ? `
   <p style="margin-top:8px;font-size:10px;color:#1e40af">Near misses must be investigated and used to update risk assessments under MHSWR 1999.</p>
 </div>` : ''}
 
-${!incident.isNearMiss && incident.riddorCategory ? `
+${!isBbsRecord && !incident.isNearMiss && incident.riddorCategory ? `
 <div class="riddor-box">
   <div class="riddor-title">RIDDOR 2013 — Reporting of Injuries, Diseases and Dangerous Occurrences Regulations</div>
   <table>
@@ -336,6 +424,7 @@ ${!incident.isNearMiss && incident.riddorCategory ? `
   </table>
 </div>` : ''}
 
+${!isBbsRecord ? `
 <div class="action-box">
   <table>
     ${row('Investigated by', '')}
@@ -358,11 +447,21 @@ ${!incident.isNearMiss && incident.riddorCategory ? `
     <div class="sig-line"></div>
     <div class="sig-label">Director sign-off &amp; date</div>
   </div>
-</div>
+</div>` : `
+<div class="sig-section">
+  <div class="sig-box">
+    <div class="sig-line"></div>
+    <div class="sig-label">H&amp;S representative acknowledgement &amp; date</div>
+  </div>
+  <div class="sig-box">
+    <div class="sig-line"></div>
+    <div class="sig-label">Manager review &amp; date</div>
+  </div>
+</div>`}
 
 <div class="footer">
   <span>Generated by TPR Max · ${esc(companyName)} · ${dateStr}</span>
-  <span>RIDDOR 2013 | MHSWR 1999 | Health and Safety at Work Act 1974</span>
+  <span>MHSWR 1999 | Health and Safety at Work Act 1974</span>
 </div>
 
 </body>

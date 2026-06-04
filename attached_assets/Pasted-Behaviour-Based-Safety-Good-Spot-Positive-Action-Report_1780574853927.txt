@@ -1,0 +1,688 @@
+Behaviour-Based Safety: Good Spot & Positive Action Reporting
+
+What This Feature Does
+
+This extends the existing H&S Incidents module (/hs-incidents) to support Behaviour-Based Safety (BBS) reporting — specifically two new positive report types that sit alongside incident and near miss records:
+
+
+
+
+
+Good Spot — someone notices a hazard and reports it (e.g. cable out of its conduit, spilt liquid on stairs, missing guard rail). Passive positive behaviour.
+
+
+
+Positive Action — someone notices a hazard AND arranges for it to be fixed themselves. Active positive behaviour.
+
+These are completely separate from incidents and near misses. They have no RIDDOR category and no injured person — because nothing went wrong. They're about recognising proactive safety behaviour.
+
+The goal is to give management a Safety Engagement Dashboard that shows the ratio of positive reports to incidents over time — which is a far more useful indicator of safety culture than raw incident counts alone.
+
+
+
+Files to Change
+
+
+
+
+
+server/routes/hsIncidents.ts
+
+
+
+server/isolatedSchema.ts (or wherever hsIncidents schema is defined — find it)
+
+
+
+client/src/pages/HSIncidents.tsx
+
+Do not create new files unless strictly necessary. This all lives in the existing H&S incidents module.
+
+
+
+1. Database Changes
+
+New columns on hs_incidents table
+
+Add these columns. The ensureHsIncidentsTable function already uses CREATE TABLE IF NOT EXISTS — add ALTER TABLE ... ADD COLUMN IF NOT EXISTS statements for the new columns immediately after the existing CREATE block. Follow the same pattern used elsewhere in the codebase.
+
+record_type          TEXT NOT NULL DEFAULT 'incident',
+  -- values: 'incident' | 'near_miss' | 'good_spot' | 'positive_action'
+
+hazard_type          TEXT,
+  -- reuses the same hazard type values as near_miss_hazard_type
+  -- used for good_spot and positive_action records
+
+resolved             BOOLEAN NOT NULL DEFAULT FALSE,
+resolved_by          TEXT,
+resolved_at          TIMESTAMPTZ,
+resolution_notes     TEXT
+  -- resolution fields: used for good_spot and positive_action records only
+
+Data migration
+
+In ensureHsIncidentsTable, after adding the new columns, run this once:
+
+UPDATE {schemaName}.hs_incidents
+SET record_type = 'near_miss'
+WHERE is_near_miss = TRUE AND record_type = 'incident';
+
+This safely migrates existing near miss records to the new record_type field without touching anything else.
+
+isolatedSchema.ts
+
+Add the four new fields to the hsIncidents Drizzle schema definition to match the new columns:
+
+
+
+
+
+recordType: text('record_type').notNull().default('incident')
+
+
+
+hazardType: text('hazard_type')
+
+
+
+resolved: boolean('resolved').notNull().default(false)
+
+
+
+resolvedBy: text('resolved_by')
+
+
+
+resolvedAt: timestamp('resolved_at', { withTimezone: true })
+
+
+
+resolutionNotes: text('resolution_notes')
+
+
+
+2. Backend Changes (server/routes/hsIncidents.ts)
+
+Update POST /api/hs-incidents
+
+Accept the new fields from the request body:
+
+const recordType = body.recordType || 'incident'; // 'incident' | 'near_miss' | 'good_spot' | 'positive_action'
+const isNearMiss = recordType === 'near_miss'; // keep is_near_miss in sync for backwards compat
+
+For record_type of good_spot or positive_action:
+
+
+
+
+
+Set riddor_category = null (not applicable)
+
+
+
+Set is_near_miss = false
+
+
+
+Set near_miss_potential = null, near_miss_hazard_type = null
+
+
+
+Accept hazard_type from body
+
+
+
+Accept resolved, resolved_by, resolved_at, resolution_notes from body
+
+For record_type of near_miss: same logic as current isNearMiss = true path. Continue setting riddor_category = 'not_riddor_reportable' and populating near_miss_hazard_type / near_miss_potential.
+
+For record_type of incident: same as current logic.
+
+Include all new fields in the .values({...}) insert call.
+
+Update PUT /api/hs-incidents/:id
+
+Same field handling as POST — accept and update all new fields.
+
+Keep isNearMiss in sync: set it true when recordType === 'near_miss', false otherwise.
+
+New PATCH /api/hs-incidents/:id/resolve
+
+Add this new endpoint to mark a Good Spot or Positive Action as resolved:
+
+app.patch('/api/hs-incidents/:id/resolve', requireAuth, async (req, res) => {
+  // body: { resolvedBy: string, resolutionNotes: string }
+  // set resolved = true, resolved_by, resolved_at = NOW(), resolution_notes
+  // return updated record
+});
+
+Update GET /api/hs-incidents
+
+No change needed — the new columns will be returned automatically since the query uses select() without specifying columns.
+
+PDF generation
+
+Update the PDF route to handle the new record types. Changes:
+
+
+
+
+
+The .type-banner section: add two new banner types:
+
+
+
+
+
+good-spot — green banner: ✓ GOOD SPOT — Hazard identified and reported
+
+
+
+positive-action — green banner: ✓ POSITIVE ACTION — Hazard identified and resolved
+
+
+
+For good_spot and positive_action records:
+
+
+
+
+
+Hide the "Person Involved" section (no injured person)
+
+
+
+Hide the RIDDOR section
+
+
+
+Hide the near miss section
+
+
+
+Show a "Hazard Details" section with the hazard type
+
+
+
+If resolved: show a "Resolution" section with resolved_by, resolved_at, resolution_notes
+
+
+
+Change the header to POSITIVE SAFETY REPORT instead of WORKPLACE INCIDENT REPORT
+
+
+
+Update the CSS .type-banner.good-spot and .type-banner.positive-action to use green (background:#f0fdf4; color:#166534; border-bottom:2px solid #22c55e).
+
+
+
+3. Frontend Changes (client/src/pages/HSIncidents.tsx)
+
+Update TypeScript interface
+
+Add to HsIncident:
+
+recordType: string; // 'incident' | 'near_miss' | 'good_spot' | 'positive_action'
+hazardType: string | null;
+resolved: boolean;
+resolvedBy: string | null;
+resolvedAt: string | null;
+resolutionNotes: string | null;
+
+Update form state
+
+Replace the isNearMiss: false field in emptyForm with recordType: 'incident' (keep isNearMiss out of the form state — derive it from recordType).
+
+Add to form state:
+
+recordType: 'incident' as string,
+hazardType: '',
+resolutionNotes: '',
+
+Form dialog — record type selector
+
+At the top of the form (before the title field), add a prominent record type selector. Use four clearly labelled radio-style buttons or a segmented control:
+
+
+
+
+
+
+
+Option
+
+
+
+Colour
+
+
+
+Label
+
+
+
+
+
+Incident
+
+
+
+Amber
+
+
+
+"Incident — something went wrong"
+
+
+
+
+
+Near Miss
+
+
+
+Blue
+
+
+
+"Near Miss — nothing happened, but it could have"
+
+
+
+
+
+Good Spot
+
+
+
+Green
+
+
+
+"Good Spot — I noticed a hazard and reported it"
+
+
+
+
+
+Positive Action
+
+
+
+Green
+
+
+
+"Positive Action — I noticed a hazard and dealt with it"
+
+When recordType changes:
+
+
+
+
+
+Clear fields that don't apply (e.g. switching to Good Spot clears nearMissPotential, nearMissHazardType, riddorCategory)
+
+
+
+For Good Spot / Positive Action: hide the "Person involved / Injured person" fields (not applicable)
+
+
+
+For Good Spot / Positive Action: hide the near miss section and RIDDOR section
+
+
+
+Show a simplified "Hazard Details" section instead with just hazardType (reuse the existing HAZARD_TYPES array) and description
+
+
+
+For Positive Action: also show a resolutionNotes text area ("What did you do to fix it?")
+
+
+
+For Incident: show the existing person fields, near miss checkbox (remove — replaced by record type selector), RIDDOR section
+
+
+
+For Near Miss: show the existing near miss fields (potential severity, hazard type) and hide RIDDOR
+
+Submit button label: Change dynamically — "Record Incident" / "Record Near Miss" / "Record Good Spot" / "Record Positive Action"
+
+Form dialog — edit pre-population
+
+Update handleEdit to populate recordType from incident.recordType. Keep backwards compat: if incident.isNearMiss === true and recordType is missing or 'incident', treat as 'near_miss'.
+
+Resolve dialog for Good Spots
+
+Add a new state variable resolvingId: string | null and a Dialog (same pattern as the existing "Mark Reported to HSE" dialog) for resolving Good Spots / Positive Actions.
+
+Dialog fields:
+
+
+
+
+
+resolvedBy — text input (who resolved it, auto-populated with the logged-in user if available)
+
+
+
+resolutionNotes — textarea ("What was done?")
+
+Wire this to a new resolveMutation calling PATCH /api/hs-incidents/:id/resolve.
+
+Filter tabs
+
+Update the filter tabs. Current: All | RIDDOR Only | Near Misses. Replace with:
+
+All | Incidents | Near Misses | Good Spots | Positive Actions | RIDDOR Only
+
+Update the filtered logic to match.
+
+Incident list cards
+
+Update each card's left-border colour and badge based on recordType:
+
+
+
+
+
+
+
+recordType
+
+
+
+Border colour
+
+
+
+Badge
+
+
+
+
+
+incident
+
+
+
+Existing RIDDOR-based logic
+
+
+
+Existing badges
+
+
+
+
+
+near_miss
+
+
+
+Blue
+
+
+
+Near Miss (existing)
+
+
+
+
+
+good_spot
+
+
+
+Green
+
+
+
+Good Spot (green badge)
+
+
+
+
+
+positive_action
+
+
+
+Green (darker)
+
+
+
+Positive Action (teal badge)
+
+For Good Spot and Positive Action cards:
+
+
+
+
+
+Hide injured person, RIDDOR details
+
+
+
+Show hazard type
+
+
+
+Show resolved status: if resolved, show green "✅ Resolved" badge with resolved_by and resolved_at. If not resolved, show a small amber "⏳ Awaiting resolution" badge.
+
+
+
+Show a "Mark Resolved" button (triggers the resolve dialog) if !incident.resolved
+
+NextAction component
+
+Add a new case for good_spot and positive_action:
+
+
+
+
+
+If resolved === false: show a green prompt — "Thank you for reporting this. Mark it as resolved once the hazard has been dealt with."
+
+
+
+If resolved === true: show a green confirmation — "Resolved by {resolvedBy} on {date}. {resolutionNotes}"
+
+Summary widget — Safety Engagement Dashboard
+
+Replace (or extend) the existing "Near Miss Summary (last 90 days)" widget with a broader Safety Engagement Dashboard. Show it whenever the total record count across all types is > 0. The widget should have two sections:
+
+Section 1 — Record Counts (last 90 days)
+
+Four stat boxes in a grid:
+
+
+
+
+
+Incidents (amber)
+
+
+
+Near Misses (blue)
+
+
+
+Good Spots (green)
+
+
+
+Positive Actions (teal/dark green)
+
+Section 2 — Safety Engagement Ratio
+
+Calculate:
+
+positiveReports = goodSpots + positiveActions (last 90 days)
+incidents = incidents + nearMisses (last 90 days)
+ratio = positiveReports / Math.max(1, incidents)
+
+Display this as a simple bar or stat with an interpretation:
+
+
+
+
+
+ratio < 0.5: "🔴 Low engagement — fewer positive reports than incidents. Encourage staff to report hazards."
+
+
+
+ratio 0.5–2: "🟡 Developing — positive reporting is building. Keep encouraging Good Spot submissions."
+
+
+
+ratio > 2: "🟢 Strong safety culture — more hazards being caught proactively than incidents occurring."
+
+Section 3 — Good Spot Resolution Rate
+
+totalGoodSpots = all good_spot + positive_action records
+resolved = those with resolved = true
+resolutionRate = resolved / Math.max(1, totalGoodSpots) × 100
+
+Show as a percentage with a note: "High resolution rates build trust — staff report more when they see action taken."
+
+Keep the existing hazard breakdown badges from the near miss widget, but now apply them to all record types combined (near_miss + good_spot + positive_action).
+
+
+
+4. Wording / Labels
+
+Use these exact labels throughout:
+
+
+
+
+
+
+
+Value
+
+
+
+Display label
+
+
+
+
+
+good_spot
+
+
+
+Good Spot
+
+
+
+
+
+positive_action
+
+
+
+Positive Action
+
+
+
+
+
+incident
+
+
+
+Incident
+
+
+
+
+
+near_miss
+
+
+
+Near Miss
+
+The tooltip on the page header should be updated to include:
+
+
+
+Good Spot — A positive safety observation. Someone has noticed a hazard and reported it before anyone was hurt. Recording Good Spots builds a proactive safety culture and demonstrates due diligence under the Management of Health & Safety at Work Regulations 1999.
+
+Positive Action — Someone has not only spotted a hazard but taken steps to resolve it. This represents the highest standard of proactive safety behaviour.
+
+
+
+5. What NOT to Change
+
+
+
+
+
+The RIDDOR logic, cron job, fatality email, and "Mark Reported to HSE" flow — leave all of this exactly as it is.
+
+
+
+The PDF structure for standard incident and near miss records — only add the new banner types and Good Spot/Positive Action PDF layout. Don't change the existing HTML for incident/near miss PDFs.
+
+
+
+The PersonCombobox component and person type logic — leave as-is (only shown for incident records).
+
+
+
+The delete confirmation dialog — no changes.
+
+
+
+The ensureHsIncidentsTable function signature or its CREATE TABLE statement — only add ALTER TABLE statements after it.
+
+
+
+6. Plan Gate
+
+Good Spot and Positive Action reporting should be available on TPR Pro and TPR Max plans only (the existing requirePlan('tpr_pro') middleware pattern). Standard incident and near miss recording remains available on all plans including TPR Basic.
+
+Apply the plan gate to the new PATCH /api/hs-incidents/:id/resolve endpoint, and on the frontend hide the Good Spot / Positive Action record type options for TPR Basic customers.
+
+
+
+Done When
+
+
+
+
+
+record_type column added to DB with data migration running cleanly on existing records
+
+
+
+POST, PUT, and new PATCH /resolve routes work correctly for all four record types
+
+
+
+Form shows the correct fields for each record type, with no irrelevant fields shown
+
+
+
+Good Spot and Positive Action cards display correctly in the list with resolve button
+
+
+
+Safety Engagement Dashboard widget renders with ratio and resolution rate
+
+
+
+Filter tabs work for all four types
+
+
+
+PDF correctly generates a green "Positive Safety Report" for good_spot and positive_action records
+
+
+
+Plan gate applied — TPR Basic only sees incident and near miss record types

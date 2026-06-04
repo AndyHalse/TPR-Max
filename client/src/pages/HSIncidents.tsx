@@ -7,13 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Plus, Trash2, ExternalLink, CheckCircle, AlertCircle, BarChart3, Edit, Search, Info, FileDown, ArrowRight } from "lucide-react";
+import { AlertTriangle, Plus, Trash2, ExternalLink, CheckCircle, AlertCircle, BarChart3, Edit, Search, Info, FileDown, ArrowRight, ThumbsUp, Zap } from "lucide-react";
 import { EXTERNAL_LINKS } from "@/lib/externalLinks";
 
 interface HsIncident {
@@ -33,6 +32,12 @@ interface HsIncident {
   riddorReportedAt: string | null;
   riddorReference: string | null;
   riddorReminderSentAt: string | null;
+  recordType: string;
+  hazardType: string | null;
+  resolved: boolean;
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  resolutionNotes: string | null;
   createdAt: string;
 }
 
@@ -77,6 +82,13 @@ const NEAR_MISS_POTENTIALS = [
   { value: "critical", label: "Critical — Life-threatening or fatality" },
 ];
 
+const RECORD_TYPES = [
+  { value: "incident", label: "Incident", sublabel: "Something went wrong", color: "border-amber-400 bg-amber-50 dark:bg-amber-950 text-amber-900 dark:text-amber-100" },
+  { value: "near_miss", label: "Near Miss", sublabel: "Nothing happened, but it could have", color: "border-blue-400 bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100" },
+  { value: "good_spot", label: "Good Spot", sublabel: "I noticed a hazard and reported it", color: "border-green-400 bg-green-50 dark:bg-green-950 text-green-900 dark:text-green-100" },
+  { value: "positive_action", label: "Positive Action", sublabel: "I noticed a hazard and dealt with it", color: "border-teal-400 bg-teal-50 dark:bg-teal-950 text-teal-900 dark:text-teal-100" },
+];
+
 function getDaysUntil(deadline: string): number {
   const diff = new Date(deadline).getTime() - Date.now();
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -95,7 +107,6 @@ function RiddorBadge({ incident }: { incident: HsIncident }) {
   return <Badge className="bg-blue-100 text-blue-800 border-blue-300">RIDDOR deadline: {days}d</Badge>;
 }
 
-// Searchable person combobox — free text allowed, shows DB suggestions as you type
 function PersonCombobox({
   value,
   onChange,
@@ -163,13 +174,14 @@ const emptyForm = {
   reportedBy: "",
   injuredPerson: "",
   injuredPersonType: "",
-  isNearMiss: false,
+  recordType: "incident" as string,
   nearMissPotential: "",
   nearMissHazardType: "",
+  hazardType: "",
   riddorCategory: "",
+  resolutionNotes: "",
 };
 
-// Display label for person type (handles legacy "employee" value)
 function personTypeLabel(v: string) {
   if (v === "staff" || v === "employee") return "Staff";
   if (v === "contractor") return "Contractor";
@@ -185,26 +197,24 @@ export default function HSIncidents() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [reportingId, setReportingId] = useState<string | null>(null);
   const [hseReference, setHseReference] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "riddor" | "near_miss">("all");
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [resolveForm, setResolveForm] = useState({ resolvedBy: "", resolutionNotes: "" });
+  const [filterType, setFilterType] = useState<"all" | "incident" | "near_miss" | "good_spot" | "positive_action" | "riddor">("all");
   const [form, setForm] = useState({ ...emptyForm });
 
-  // --- People data queries ---
   const { data: staffList = [] } = useQuery<StaffMember[]>({
     queryKey: ["/api/staff"],
     queryFn: () => apiRequest("GET", "/api/staff").then(r => r.json()),
   });
-
   const { data: contractorWorkers = [] } = useQuery<ContractorWorker[]>({
     queryKey: ["/api/contractors/workers/all"],
     queryFn: () => apiRequest("GET", "/api/contractors/workers/all").then(r => r.json()),
   });
-
   const { data: visitors = [] } = useQuery<Visitor[]>({
     queryKey: ["/api/visitors"],
     queryFn: () => apiRequest("GET", "/api/visitors").then(r => r.json()),
   });
 
-  // Deduplicate options — remove entries where both name AND sublabel are identical
   function deduplicateOptions(opts: { label: string; sublabel?: string }[]) {
     const seen = new Set<string>();
     return opts.filter(o => {
@@ -215,41 +225,11 @@ export default function HSIncidents() {
     });
   }
 
-  // Build option lists
-  const staffOptions = deduplicateOptions(
-    staffList.map(s => ({
-      label: `${s.firstName} ${s.lastName}`,
-      sublabel: s.jobTitle ? `Staff · ${s.jobTitle}` : "Staff",
-    }))
-  );
+  const staffOptions = deduplicateOptions(staffList.map(s => ({ label: `${s.firstName} ${s.lastName}`, sublabel: s.jobTitle ? `Staff · ${s.jobTitle}` : "Staff" })));
+  const contractorOptions = deduplicateOptions(contractorWorkers.map(w => ({ label: `${w.firstName} ${w.lastName}`, sublabel: w.companyName ? `Contractor · ${w.companyName}` : "Contractor" })));
+  const visitorOptions = deduplicateOptions(visitors.map(v => ({ label: `${v.firstName} ${v.lastName}`, sublabel: v.company ? `Visitor · ${v.company}` : "Visitor" })));
+  const reportedByOptions = deduplicateOptions([...staffList.map(s => ({ label: `${s.firstName} ${s.lastName}`, sublabel: s.jobTitle ? `Staff · ${s.jobTitle}` : "Staff" })), ...contractorWorkers.map(w => ({ label: `${w.firstName} ${w.lastName}`, sublabel: w.companyName ? `Contractor · ${w.companyName}` : "Contractor" }))]);
 
-  const contractorOptions = deduplicateOptions(
-    contractorWorkers.map(w => ({
-      label: `${w.firstName} ${w.lastName}`,
-      sublabel: w.companyName ? `Contractor · ${w.companyName}` : "Contractor",
-    }))
-  );
-
-  const visitorOptions = deduplicateOptions(
-    visitors.map(v => ({
-      label: `${v.firstName} ${v.lastName}`,
-      sublabel: v.company ? `Visitor · ${v.company}` : "Visitor",
-    }))
-  );
-
-  // "Reported by" searches across staff + contractor workers
-  const reportedByOptions = deduplicateOptions([
-    ...staffList.map(s => ({
-      label: `${s.firstName} ${s.lastName}`,
-      sublabel: s.jobTitle ? `Staff · ${s.jobTitle}` : "Staff",
-    })),
-    ...contractorWorkers.map(w => ({
-      label: `${w.firstName} ${w.lastName}`,
-      sublabel: w.companyName ? `Contractor · ${w.companyName}` : "Contractor",
-    })),
-  ]);
-
-  // Options for "Injured person" — changes based on selected person type
   function injuredPersonOptions() {
     const t = form.injuredPersonType;
     if (t === "staff" || t === "employee") return staffOptions;
@@ -266,9 +246,9 @@ export default function HSIncidents() {
       queryClient.invalidateQueries({ queryKey: ["/api/hs-incidents"] });
       setShowForm(false);
       setForm({ ...emptyForm });
-      toast({ title: "Incident recorded successfully" });
+      toast({ title: "Record saved successfully" });
     },
-    onError: () => toast({ title: "Failed to save incident", variant: "destructive" }),
+    onError: () => toast({ title: "Failed to save record", variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
@@ -278,9 +258,9 @@ export default function HSIncidents() {
       setShowForm(false);
       setEditingId(null);
       setForm({ ...emptyForm });
-      toast({ title: "Incident updated" });
+      toast({ title: "Record updated" });
     },
-    onError: () => toast({ title: "Failed to update incident", variant: "destructive" }),
+    onError: () => toast({ title: "Failed to update record", variant: "destructive" }),
   });
 
   const deleteMutation = useMutation({
@@ -288,7 +268,7 @@ export default function HSIncidents() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/hs-incidents"] });
       setDeleteId(null);
-      toast({ title: "Incident deleted" });
+      toast({ title: "Record deleted" });
     },
     onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
   });
@@ -305,7 +285,20 @@ export default function HSIncidents() {
     onError: () => toast({ title: "Failed to update", variant: "destructive" }),
   });
 
+  const resolveMutation = useMutation({
+    mutationFn: ({ id, ...data }: { id: string; resolvedBy: string; resolutionNotes: string }) =>
+      apiRequest("PATCH", `/api/hs-incidents/${id}/resolve`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/hs-incidents"] });
+      setResolvingId(null);
+      setResolveForm({ resolvedBy: "", resolutionNotes: "" });
+      toast({ title: "Marked as resolved — thank you for taking action!" });
+    },
+    onError: () => toast({ title: "Failed to resolve", variant: "destructive" }),
+  });
+
   function handleEdit(incident: HsIncident) {
+    const recordType = incident.recordType || (incident.isNearMiss ? "near_miss" : "incident");
     setForm({
       title: incident.title,
       description: incident.description || "",
@@ -314,10 +307,12 @@ export default function HSIncidents() {
       reportedBy: incident.reportedBy || "",
       injuredPerson: incident.injuredPerson || "",
       injuredPersonType: incident.injuredPersonType || "",
-      isNearMiss: incident.isNearMiss,
+      recordType,
       nearMissPotential: incident.nearMissPotential || "",
       nearMissHazardType: incident.nearMissHazardType || "",
+      hazardType: incident.hazardType || "",
       riddorCategory: incident.riddorCategory || "",
+      resolutionNotes: incident.resolutionNotes || "",
     });
     setEditingId(incident.id);
     setShowForm(true);
@@ -325,12 +320,17 @@ export default function HSIncidents() {
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const isNearMiss = form.recordType === "near_miss";
+    const isBbs = form.recordType === "good_spot" || form.recordType === "positive_action";
     const payload = {
       ...form,
-      incidentDate: form.incidentDate,
-      riddorCategory: form.isNearMiss ? "not_riddor_reportable" : form.riddorCategory || null,
-      nearMissPotential: form.isNearMiss ? form.nearMissPotential : null,
-      nearMissHazardType: form.isNearMiss ? form.nearMissHazardType : null,
+      isNearMiss,
+      riddorCategory: isBbs ? null : (isNearMiss ? "not_riddor_reportable" : form.riddorCategory || null),
+      nearMissPotential: isNearMiss ? form.nearMissPotential : null,
+      nearMissHazardType: isNearMiss ? form.nearMissHazardType : null,
+      hazardType: isBbs ? form.hazardType : null,
+      injuredPerson: isBbs ? null : form.injuredPerson,
+      injuredPersonType: isBbs ? null : form.injuredPersonType,
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, data: payload });
@@ -339,51 +339,94 @@ export default function HSIncidents() {
     }
   }
 
-  const filtered = incidents.filter(i => {
-    if (filterType === "riddor") return !i.isNearMiss && i.riddorCategory && i.riddorCategory !== "not_riddor_reportable";
-    if (filterType === "near_miss") return i.isNearMiss;
-    return true;
-  });
+  function handleRecordTypeChange(newType: string) {
+    setForm(f => ({
+      ...f,
+      recordType: newType,
+      nearMissPotential: "",
+      nearMissHazardType: "",
+      hazardType: "",
+      riddorCategory: "",
+      resolutionNotes: "",
+    }));
+  }
 
-  // Near miss analytics (last 90 days)
+  // ── Analytics ───────────────────────────────────────────────────────────────
   const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-  const recentNearMisses = incidents.filter(i => i.isNearMiss && new Date(i.incidentDate) > ninetyDaysAgo);
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  const thisMonth = recentNearMisses.filter(i => new Date(i.incidentDate) > thirtyDaysAgo).length;
-  const lastMonth = recentNearMisses.filter(i => {
-    const d = new Date(i.incidentDate);
-    return d <= thirtyDaysAgo && d > new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
-  }).length;
 
-  const hazardCounts: Record<string, number> = {};
-  recentNearMisses.forEach(i => {
-    if (i.nearMissHazardType) hazardCounts[i.nearMissHazardType] = (hazardCounts[i.nearMissHazardType] || 0) + 1;
-  });
-
-  const severityCounts = {
-    minor: recentNearMisses.filter(i => i.nearMissPotential === "minor").length,
-    serious: recentNearMisses.filter(i => i.nearMissPotential === "serious").length,
-    critical: recentNearMisses.filter(i => i.nearMissPotential === "critical").length,
+  const recent = {
+    incidents: incidents.filter(i => (i.recordType || (i.isNearMiss ? 'near_miss' : 'incident')) === 'incident' && new Date(i.incidentDate) > ninetyDaysAgo),
+    nearMisses: incidents.filter(i => (i.recordType || (i.isNearMiss ? 'near_miss' : 'incident')) === 'near_miss' && new Date(i.incidentDate) > ninetyDaysAgo),
+    goodSpots: incidents.filter(i => i.recordType === 'good_spot' && new Date(i.incidentDate) > ninetyDaysAgo),
+    positiveActions: incidents.filter(i => i.recordType === 'positive_action' && new Date(i.incidentDate) > ninetyDaysAgo),
   };
 
-  const pendingRiddor = incidents.filter(i =>
-    !i.isNearMiss &&
-    i.riddorCategory &&
-    i.riddorCategory !== "not_riddor_reportable" &&
-    i.riddorCategory !== "occupational_disease" &&
-    !i.riddorReportedAt &&
-    i.riddorReportingDeadline
-  );
+  const positiveReports = recent.goodSpots.length + recent.positiveActions.length;
+  const negativeReports = recent.incidents.length + recent.nearMisses.length;
+  const engagementRatio = positiveReports / Math.max(1, negativeReports);
+
+  const allBbsRecords = incidents.filter(i => i.recordType === 'good_spot' || i.recordType === 'positive_action');
+  const resolvedBbs = allBbsRecords.filter(i => i.resolved);
+  const resolutionRate = allBbsRecords.length > 0 ? Math.round((resolvedBbs.length / allBbsRecords.length) * 100) : 0;
+
+  // Hazard breakdown across near_miss + good_spot + positive_action
+  const hazardCounts: Record<string, number> = {};
+  incidents.forEach(i => {
+    const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
+    if (rt === 'near_miss' && i.nearMissHazardType) hazardCounts[i.nearMissHazardType] = (hazardCounts[i.nearMissHazardType] || 0) + 1;
+    if ((rt === 'good_spot' || rt === 'positive_action') && i.hazardType) hazardCounts[i.hazardType] = (hazardCounts[i.hazardType] || 0) + 1;
+  });
+
+  const showDashboard = incidents.length > 0;
+
+  const pendingRiddor = incidents.filter(i => {
+    const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
+    return rt === 'incident' && i.riddorCategory && i.riddorCategory !== "not_riddor_reportable" && i.riddorCategory !== "occupational_disease" && !i.riddorReportedAt && i.riddorReportingDeadline;
+  });
+
+  const filtered = incidents.filter(i => {
+    const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
+    if (filterType === "all") return true;
+    if (filterType === "riddor") return rt === 'incident' && i.riddorCategory && i.riddorCategory !== "not_riddor_reportable";
+    return rt === filterType;
+  });
 
   function handleDownloadPdf(id: string) {
     window.open(`/api/hs-incidents/${id}/pdf`, '_blank');
   }
 
-  // Determine what action the user needs to take next for each incident
+  const submitLabel = () => {
+    if (editingId) return "Save Changes";
+    if (form.recordType === "near_miss") return "Record Near Miss";
+    if (form.recordType === "good_spot") return "Record Good Spot";
+    if (form.recordType === "positive_action") return "Record Positive Action";
+    return "Record Incident";
+  };
+
   function NextAction({ incident }: { incident: HsIncident }) {
+    const rt = incident.recordType || (incident.isNearMiss ? 'near_miss' : 'incident');
     const days = incident.riddorReportingDeadline ? getDaysUntil(incident.riddorReportingDeadline) : null;
 
-    if (incident.isNearMiss) {
+    if (rt === 'good_spot' || rt === 'positive_action') {
+      if (incident.resolved) {
+        return (
+          <div className="mt-2 flex items-center gap-2 rounded-md bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 px-3 py-1.5 text-xs text-green-800 dark:text-green-200">
+            <CheckCircle size={12} className="shrink-0" />
+            <span>Resolved by <strong>{incident.resolvedBy || "N/A"}</strong>{incident.resolvedAt ? ` on ${new Date(incident.resolvedAt).toLocaleDateString("en-GB")}` : ""}
+              {incident.resolutionNotes ? ` — ${incident.resolutionNotes}` : ""}
+            </span>
+          </div>
+        );
+      }
+      return (
+        <div className="mt-2 flex items-center gap-2 rounded-md bg-teal-50 dark:bg-teal-950 border border-teal-200 dark:border-teal-800 px-3 py-1.5 text-xs text-teal-800 dark:text-teal-200">
+          <ArrowRight size={12} className="shrink-0" />
+          <span>Thank you for reporting this. Mark it as resolved once the hazard has been dealt with.</span>
+        </div>
+      );
+    }
+
+    if (rt === 'near_miss') {
       return (
         <div className="mt-2 flex items-center gap-2 rounded-md bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 px-3 py-1.5 text-xs text-blue-800 dark:text-blue-200">
           <ArrowRight size={12} className="shrink-0" />
@@ -391,6 +434,7 @@ export default function HSIncidents() {
         </div>
       );
     }
+
     if (!incident.riddorCategory || incident.riddorCategory === "") {
       return (
         <div className="mt-2 flex items-center gap-2 rounded-md bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 px-3 py-1.5 text-xs text-amber-800 dark:text-amber-200">
@@ -424,6 +468,8 @@ export default function HSIncidents() {
     return null;
   }
 
+  const isBbs = (rt: string) => rt === 'good_spot' || rt === 'positive_action';
+
   return (
     <TooltipProvider>
     <div className="p-4 sm:p-6 space-y-6">
@@ -434,7 +480,7 @@ export default function HSIncidents() {
             H&S Incident Reports
           </h1>
           <div className="flex items-center gap-1.5 mt-1">
-            <p className="text-sm text-muted-foreground">RIDDOR 2013 &amp; Near Miss reporting — Management of Health &amp; Safety at Work Regulations 1999</p>
+            <p className="text-sm text-muted-foreground">RIDDOR 2013 · Near Miss reporting · Behaviour-Based Safety</p>
             <Tooltip>
               <TooltipTrigger asChild>
                 <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -442,14 +488,16 @@ export default function HSIncidents() {
                 </button>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-sm text-xs space-y-2 p-3">
-                <p><strong>RIDDOR 2013</strong> — The Reporting of Injuries, Diseases and Dangerous Occurrences Regulations 2013. Employers are legally required to report certain workplace incidents to the Health and Safety Executive (HSE): deaths, specified injuries (fractures, amputations, etc.), injuries causing over 7 days' incapacitation, occupational diseases, and dangerous occurrences. Failure to report is a <strong>criminal offence</strong>.</p>
-                <p><strong>Near Miss reporting</strong> — Required under the Management of Health &amp; Safety at Work Regulations 1999. A near miss is any unplanned event that didn't cause injury but had the potential to. Employers must investigate near misses and use the findings to update risk assessments to prevent future incidents.</p>
+                <p><strong>RIDDOR 2013</strong> — The Reporting of Injuries, Diseases and Dangerous Occurrences Regulations 2013. Employers are legally required to report certain workplace incidents to the HSE. Failure to report is a <strong>criminal offence</strong>.</p>
+                <p><strong>Near Miss reporting</strong> — Required under the Management of Health &amp; Safety at Work Regulations 1999. A near miss is any unplanned event that didn't cause injury but had the potential to.</p>
+                <p><strong>Good Spot</strong> — A positive safety observation. Someone has noticed a hazard and reported it before anyone was hurt. Recording Good Spots builds a proactive safety culture and demonstrates due diligence under MHSWR 1999.</p>
+                <p><strong>Positive Action</strong> — Someone has not only spotted a hazard but taken steps to resolve it. This represents the highest standard of proactive safety behaviour.</p>
               </TooltipContent>
             </Tooltip>
           </div>
         </div>
         <Button onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); }}>
-          <Plus size={16} className="mr-1" /> Record Incident
+          <Plus size={16} className="mr-1" /> Record
         </Button>
       </div>
 
@@ -473,76 +521,126 @@ export default function HSIncidents() {
         </div>
       )}
 
-      {/* Near miss summary widget */}
-      {recentNearMisses.length > 0 && (
-        <GlassCard className="p-4">
-          <h2 className="font-semibold flex items-center gap-2 mb-3">
-            <BarChart3 size={16} className="text-blue-500" /> Near Miss Summary (last 90 days)
+      {/* Safety Engagement Dashboard */}
+      {showDashboard && (
+        <GlassCard className="p-4 space-y-4">
+          <h2 className="font-semibold flex items-center gap-2">
+            <BarChart3 size={16} className="text-blue-500" /> Safety Engagement Dashboard (last 90 days)
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div className="rounded-lg bg-amber-50 dark:bg-amber-950 p-3">
+              <div className="text-2xl font-bold text-amber-700">{recent.incidents.length}</div>
+              <div className="text-xs text-muted-foreground">Incidents</div>
+            </div>
             <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-3">
-              <div className="text-2xl font-bold text-blue-700">{recentNearMisses.length}</div>
-              <div className="text-xs text-muted-foreground">Total near misses</div>
+              <div className="text-2xl font-bold text-blue-700">{recent.nearMisses.length}</div>
+              <div className="text-xs text-muted-foreground">Near Misses</div>
             </div>
             <div className="rounded-lg bg-green-50 dark:bg-green-950 p-3">
-              <div className="text-2xl font-bold text-green-700">{thisMonth}</div>
-              <div className="text-xs text-muted-foreground">This month</div>
+              <div className="text-2xl font-bold text-green-700">{recent.goodSpots.length}</div>
+              <div className="text-xs text-muted-foreground">Good Spots</div>
             </div>
-            <div className="rounded-lg bg-amber-50 dark:bg-amber-950 p-3">
-              <div className="text-2xl font-bold text-amber-700">{lastMonth}</div>
-              <div className="text-xs text-muted-foreground">Last month</div>
-            </div>
-            <div className="rounded-lg bg-red-50 dark:bg-red-950 p-3">
-              <div className="text-2xl font-bold text-red-700">{severityCounts.critical}</div>
-              <div className="text-xs text-muted-foreground">Critical potential</div>
+            <div className="rounded-lg bg-teal-50 dark:bg-teal-950 p-3">
+              <div className="text-2xl font-bold text-teal-700">{recent.positiveActions.length}</div>
+              <div className="text-xs text-muted-foreground">Positive Actions</div>
             </div>
           </div>
+
+          <div className="grid sm:grid-cols-2 gap-4">
+            {/* Engagement ratio */}
+            <div className="rounded-lg border p-3 space-y-1">
+              <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Safety Engagement Ratio</div>
+              <div className="text-xl font-bold">{engagementRatio.toFixed(1)}:1 <span className="text-sm font-normal text-muted-foreground">positive : incident</span></div>
+              <div className={`text-xs rounded px-2 py-1 ${engagementRatio > 2 ? "bg-green-50 text-green-800" : engagementRatio >= 0.5 ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-800"}`}>
+                {engagementRatio > 2 ? "🟢 Strong safety culture — more hazards being caught proactively than incidents occurring." : engagementRatio >= 0.5 ? "🟡 Developing — positive reporting is building. Keep encouraging Good Spot submissions." : "🔴 Low engagement — fewer positive reports than incidents. Encourage staff to report hazards."}
+              </div>
+            </div>
+
+            {/* Resolution rate */}
+            {allBbsRecords.length > 0 && (
+              <div className="rounded-lg border p-3 space-y-1">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Good Spot Resolution Rate</div>
+                <div className="text-xl font-bold">{resolutionRate}% <span className="text-sm font-normal text-muted-foreground">{resolvedBbs.length}/{allBbsRecords.length} resolved</span></div>
+                <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-2 mt-1">
+                  <div className="bg-green-500 h-2 rounded-full" style={{ width: `${resolutionRate}%` }} />
+                </div>
+                <div className="text-xs text-muted-foreground">High resolution rates build trust — staff report more when they see action taken.</div>
+              </div>
+            )}
+          </div>
+
           {Object.keys(hazardCounts).length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {Object.entries(hazardCounts).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
-                <Badge key={type} variant="outline" className="text-xs">
-                  {HAZARD_TYPES.find(h => h.value === type)?.label || type}: {count}
-                </Badge>
-              ))}
+            <div>
+              <div className="text-xs font-semibold text-muted-foreground mb-2">Hazard types (near misses + observations)</div>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(hazardCounts).sort((a, b) => b[1] - a[1]).map(([type, count]) => (
+                  <Badge key={type} variant="outline" className="text-xs">
+                    {HAZARD_TYPES.find(h => h.value === type)?.label || type}: {count}
+                  </Badge>
+                ))}
+              </div>
             </div>
           )}
         </GlassCard>
       )}
 
       {/* Filter tabs */}
-      <div className="flex gap-2">
-        {(["all", "riddor", "near_miss"] as const).map(f => (
-          <Button key={f} size="sm" variant={filterType === f ? "default" : "outline"} onClick={() => setFilterType(f)}>
-            {f === "all" ? "All" : f === "riddor" ? "RIDDOR Only" : "Near Misses"}
+      <div className="flex flex-wrap gap-2">
+        {([
+          { key: "all", label: "All" },
+          { key: "incident", label: "Incidents" },
+          { key: "near_miss", label: "Near Misses" },
+          { key: "good_spot", label: "Good Spots" },
+          { key: "positive_action", label: "Positive Actions" },
+          { key: "riddor", label: "RIDDOR Only" },
+        ] as const).map(f => (
+          <Button key={f.key} size="sm" variant={filterType === f.key ? "default" : "outline"} onClick={() => setFilterType(f.key)}>
+            {f.label}
           </Button>
         ))}
       </div>
 
       {/* Incident list */}
       {isLoading ? (
-        <div className="text-center py-12 text-muted-foreground">Loading incidents…</div>
+        <div className="text-center py-12 text-muted-foreground">Loading records…</div>
       ) : filtered.length === 0 ? (
         <GlassCard className="text-center py-12 text-muted-foreground">
           <AlertTriangle size={40} className="mx-auto mb-3 opacity-30" />
-          <p>No incidents recorded yet.</p>
+          <p>No records found.</p>
         </GlassCard>
       ) : (
         <div className="space-y-3">
           {filtered.map(incident => {
+            const rt = incident.recordType || (incident.isNearMiss ? 'near_miss' : 'incident');
             const days = incident.riddorReportingDeadline ? getDaysUntil(incident.riddorReportingDeadline) : null;
-            const borderColor = incident.riddorReportedAt ? "border-green-300"
-              : days !== null && days <= 0 ? "border-red-400"
-              : days !== null && days <= 2 ? "border-red-300"
-              : days !== null && days <= 5 ? "border-amber-300"
-              : "";
+
+            let borderColor = "border-transparent";
+            if (rt === 'good_spot') borderColor = "border-green-400";
+            else if (rt === 'positive_action') borderColor = "border-teal-500";
+            else if (rt === 'near_miss') borderColor = "border-blue-400";
+            else if (incident.riddorReportedAt) borderColor = "border-green-300";
+            else if (days !== null && days <= 0) borderColor = "border-red-400";
+            else if (days !== null && days <= 2) borderColor = "border-red-300";
+            else if (days !== null && days <= 5) borderColor = "border-amber-300";
 
             return (
-              <GlassCard key={incident.id} className={`p-4 border-l-4 ${borderColor || "border-transparent"}`}>
+              <GlassCard key={incident.id} className={`p-4 border-l-4 ${borderColor}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="font-semibold">{incident.title}</span>
-                      {incident.isNearMiss && (
+
+                      {rt === 'good_spot' && (
+                        <Badge className="bg-green-100 text-green-800 border-green-300 text-xs flex items-center gap-1">
+                          <ThumbsUp size={10} /> Good Spot
+                        </Badge>
+                      )}
+                      {rt === 'positive_action' && (
+                        <Badge className="bg-teal-100 text-teal-800 border-teal-300 text-xs flex items-center gap-1">
+                          <Zap size={10} /> Positive Action
+                        </Badge>
+                      )}
+                      {rt === 'near_miss' && (
                         <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">Near Miss</Badge>
                       )}
                       {incident.nearMissPotential === "critical" && (
@@ -551,21 +649,28 @@ export default function HSIncidents() {
                       {incident.nearMissPotential === "serious" && (
                         <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">Serious potential</Badge>
                       )}
+                      {isBbs(rt) && incident.resolved && (
+                        <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">✅ Resolved</Badge>
+                      )}
+                      {isBbs(rt) && !incident.resolved && (
+                        <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">⏳ Awaiting resolution</Badge>
+                      )}
                       <RiddorBadge incident={incident} />
                     </div>
                     <div className="text-sm text-muted-foreground space-y-0.5">
                       <div>{new Date(incident.incidentDate).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}{incident.location ? ` · ${incident.location}` : ""}</div>
                       {incident.reportedBy && <div>Reported by: {incident.reportedBy}</div>}
-                      {incident.injuredPerson && (
-                        <div>
-                          Injured person: {incident.injuredPerson}
-                          {incident.injuredPersonType
-                            ? ` (${personTypeLabel(incident.injuredPersonType)})`
-                            : ""}
-                        </div>
+                      {!isBbs(rt) && incident.injuredPerson && (
+                        <div>Injured person: {incident.injuredPerson}{incident.injuredPersonType ? ` (${personTypeLabel(incident.injuredPersonType)})` : ""}</div>
+                      )}
+                      {isBbs(rt) && incident.hazardType && (
+                        <div>Hazard: {HAZARD_TYPES.find(h => h.value === incident.hazardType)?.label || incident.hazardType}</div>
+                      )}
+                      {rt === 'near_miss' && incident.nearMissHazardType && (
+                        <div className="text-xs">Hazard: {HAZARD_TYPES.find(h => h.value === incident.nearMissHazardType)?.label || incident.nearMissHazardType}</div>
                       )}
                       {incident.description && <div className="mt-1 text-xs">{incident.description}</div>}
-                      {incident.riddorCategory && !incident.isNearMiss && (
+                      {!isBbs(rt) && incident.riddorCategory && rt !== 'near_miss' && (
                         <div className="mt-1">RIDDOR: {RIDDOR_LABELS[incident.riddorCategory] || incident.riddorCategory}
                           {incident.riddorReportingDeadline && !incident.riddorReportedAt && (
                             <span className={`ml-2 font-medium ${days !== null && days <= 2 ? "text-red-600" : "text-amber-600"}`}>
@@ -577,13 +682,15 @@ export default function HSIncidents() {
                       {incident.riddorReportedAt && incident.riddorReference && (
                         <div className="text-green-700 text-xs">HSE Ref: {incident.riddorReference}</div>
                       )}
-                      {incident.nearMissHazardType && (
-                        <div className="text-xs">Hazard: {HAZARD_TYPES.find(h => h.value === incident.nearMissHazardType)?.label || incident.nearMissHazardType}</div>
-                      )}
                     </div>
                   </div>
-                  <div className="flex gap-1 shrink-0">
-                    {!incident.isNearMiss && incident.riddorCategory && incident.riddorCategory !== "not_riddor_reportable" && !incident.riddorReportedAt && (
+                  <div className="flex gap-1 shrink-0 flex-wrap justify-end">
+                    {isBbs(rt) && !incident.resolved && (
+                      <Button size="sm" variant="outline" className="text-xs text-green-700 border-green-300 hover:bg-green-50" onClick={() => { setResolvingId(incident.id); setResolveForm({ resolvedBy: "", resolutionNotes: "" }); }}>
+                        <CheckCircle size={12} className="mr-1" /> Mark Resolved
+                      </Button>
+                    )}
+                    {!isBbs(rt) && rt !== 'near_miss' && incident.riddorCategory && incident.riddorCategory !== "not_riddor_reportable" && !incident.riddorReportedAt && (
                       <Button size="sm" variant="outline" className="text-xs" onClick={() => { setReportingId(incident.id); setHseReference(""); }}>
                         <CheckCircle size={12} className="mr-1" /> Mark Reported
                       </Button>
@@ -615,14 +722,37 @@ export default function HSIncidents() {
       <Dialog open={showForm} onOpenChange={open => { if (!open) { setShowForm(false); setEditingId(null); } }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Incident" : "Record Incident"}</DialogTitle>
-            <DialogDescription>Record a workplace incident, near miss, or RIDDOR-reportable event.</DialogDescription>
+            <DialogTitle>{editingId ? "Edit Record" : "Record Incident / Observation"}</DialogTitle>
+            <DialogDescription>Record a workplace incident, near miss, or positive safety observation.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
+
+            {/* Record type selector */}
+            <div>
+              <Label className="mb-2 block">Record type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {RECORD_TYPES.map(rt => (
+                  <button
+                    key={rt.value}
+                    type="button"
+                    onClick={() => handleRecordTypeChange(rt.value)}
+                    className={`text-left p-3 rounded-lg border-2 transition-all ${form.recordType === rt.value ? rt.color + " font-semibold" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}
+                  >
+                    <div className="text-sm font-medium">{rt.label}</div>
+                    <div className="text-xs opacity-70 mt-0.5">{rt.sublabel}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="sm:col-span-2">
-                <Label>Incident title *</Label>
-                <Input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Brief description of what happened" />
+                <Label>{form.recordType === 'good_spot' || form.recordType === 'positive_action' ? 'Observation title *' : 'Incident title *'}</Label>
+                <Input required value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder={
+                  form.recordType === 'good_spot' ? "What hazard did you spot?" :
+                  form.recordType === 'positive_action' ? "What hazard did you deal with?" :
+                  "Brief description of what happened"
+                } />
               </div>
               <div>
                 <Label>Date &amp; time *</Label>
@@ -632,99 +762,104 @@ export default function HSIncidents() {
                 <Label>Location</Label>
                 <Input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Where it happened" />
               </div>
-
-              {/* Reported by — searches staff + contractor workers */}
               <div className="sm:col-span-2">
                 <Label>Reported by</Label>
-                <PersonCombobox
-                  value={form.reportedBy}
-                  onChange={v => setForm(f => ({ ...f, reportedBy: v }))}
-                  options={reportedByOptions}
-                  placeholder="Search staff or contractor, or type a name…"
-                />
+                <PersonCombobox value={form.reportedBy} onChange={v => setForm(f => ({ ...f, reportedBy: v }))} options={reportedByOptions} placeholder="Search staff or contractor, or type a name…" />
               </div>
 
-              {/* Person type (renamed Employee → Staff) */}
-              <div>
-                <Label>Person type</Label>
-                <Select
-                  value={form.injuredPersonType}
-                  onValueChange={v => setForm(f => ({ ...f, injuredPersonType: v, injuredPerson: "" }))}
-                >
-                  <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="staff">Staff</SelectItem>
-                    <SelectItem value="contractor">Contractor</SelectItem>
-                    <SelectItem value="visitor">Visitor</SelectItem>
-                    <SelectItem value="member_of_public">Member of public</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Injured person — combobox when person type is known, plain text for member_of_public */}
-              <div>
-                <Label>Injured person</Label>
-                {form.injuredPersonType === "member_of_public" || form.injuredPersonType === "" ? (
-                  <Input
-                    value={form.injuredPerson}
-                    onChange={e => setForm(f => ({ ...f, injuredPerson: e.target.value }))}
-                    placeholder={form.injuredPersonType === "" ? "Select person type first, or type a name" : "Name (if applicable)"}
-                  />
-                ) : (
-                  <PersonCombobox
-                    value={form.injuredPerson}
-                    onChange={v => setForm(f => ({ ...f, injuredPerson: v }))}
-                    options={injuredPersonOptions()}
-                    placeholder={
-                      form.injuredPersonType === "staff" ? "Search staff members…"
-                      : form.injuredPersonType === "contractor" ? "Search contractor workers…"
-                      : "Search visitors…"
-                    }
-                  />
-                )}
-              </div>
+              {/* Person involved — only for incident/near_miss */}
+              {(form.recordType === 'incident' || form.recordType === 'near_miss') && (
+                <>
+                  <div>
+                    <Label>Person type</Label>
+                    <Select value={form.injuredPersonType} onValueChange={v => setForm(f => ({ ...f, injuredPersonType: v, injuredPerson: "" }))}>
+                      <SelectTrigger><SelectValue placeholder="Select…" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="staff">Staff</SelectItem>
+                        <SelectItem value="contractor">Contractor</SelectItem>
+                        <SelectItem value="visitor">Visitor</SelectItem>
+                        <SelectItem value="member_of_public">Member of public</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label>Injured person</Label>
+                    {form.injuredPersonType === "member_of_public" || form.injuredPersonType === "" ? (
+                      <Input value={form.injuredPerson} onChange={e => setForm(f => ({ ...f, injuredPerson: e.target.value }))} placeholder={form.injuredPersonType === "" ? "Select person type first, or type a name" : "Name (if applicable)"} />
+                    ) : (
+                      <PersonCombobox value={form.injuredPerson} onChange={v => setForm(f => ({ ...f, injuredPerson: v }))} options={injuredPersonOptions()} placeholder={form.injuredPersonType === "staff" ? "Search staff members…" : form.injuredPersonType === "contractor" ? "Search contractor workers…" : "Search visitors…"} />
+                    )}
+                  </div>
+                </>
+              )}
 
               <div className="sm:col-span-2">
                 <Label>Description</Label>
-                <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder="Full details of what happened…" />
+                <Textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} placeholder={
+                  form.recordType === 'good_spot' ? "Describe what you spotted and where…" :
+                  form.recordType === 'positive_action' ? "Describe what you spotted and what you did to fix it…" :
+                  "Full details of what happened…"
+                } />
               </div>
             </div>
+
+            {/* Hazard type — for good_spot and positive_action */}
+            {(form.recordType === 'good_spot' || form.recordType === 'positive_action') && (
+              <div className="rounded-lg border border-green-200 dark:border-green-800 p-4 space-y-3 bg-green-50/50 dark:bg-green-950/30">
+                <h3 className="font-semibold text-green-900 dark:text-green-100">Hazard Details</h3>
+                <div>
+                  <Label>Hazard type</Label>
+                  <Select value={form.hazardType} onValueChange={v => setForm(f => ({ ...f, hazardType: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select hazard type…" /></SelectTrigger>
+                    <SelectContent>
+                      {HAZARD_TYPES.map(h => <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {form.recordType === 'positive_action' && (
+                  <div>
+                    <Label>What did you do to fix it?</Label>
+                    <Textarea value={form.resolutionNotes} onChange={e => setForm(f => ({ ...f, resolutionNotes: e.target.value }))} rows={2} placeholder="Describe the action you took…" />
+                  </div>
+                )}
+                <p className="text-xs text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-900 rounded p-2">
+                  {form.recordType === 'good_spot'
+                    ? "Good Spot reports demonstrate proactive safety culture under MHSWR 1999. Thank you for reporting!"
+                    : "Positive Action is the highest standard of proactive safety behaviour. Your action may have prevented an injury."}
+                </p>
+              </div>
+            )}
 
             {/* Near miss section */}
-            <div className="rounded-lg border p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Checkbox id="nearMiss" checked={form.isNearMiss} onCheckedChange={v => setForm(f => ({ ...f, isNearMiss: !!v, riddorCategory: v ? "not_riddor_reportable" : "" }))} />
-                <Label htmlFor="nearMiss" className="font-medium cursor-pointer">This is a near miss — no injury occurred, but one could have</Label>
-              </div>
-              {form.isNearMiss && (
-                <div className="space-y-3 pl-6">
-                  <div>
-                    <Label>Potential severity if injury had occurred</Label>
-                    <Select value={form.nearMissPotential} onValueChange={v => setForm(f => ({ ...f, nearMissPotential: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Select severity…" /></SelectTrigger>
-                      <SelectContent>
-                        {NEAR_MISS_POTENTIALS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label>Hazard type</Label>
-                    <Select value={form.nearMissHazardType} onValueChange={v => setForm(f => ({ ...f, nearMissHazardType: v }))}>
-                      <SelectTrigger><SelectValue placeholder="Select hazard type…" /></SelectTrigger>
-                      <SelectContent>
-                        {HAZARD_TYPES.map(h => <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950 rounded p-2">
-                    Near misses are not reportable to the HSE under RIDDOR, but they must be investigated and used to update your risk assessments under the Management of Health &amp; Safety at Work Regulations 1999.
-                  </p>
+            {form.recordType === 'near_miss' && (
+              <div className="rounded-lg border border-blue-200 dark:border-blue-800 p-4 space-y-3 bg-blue-50/50 dark:bg-blue-950/30">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100">Near Miss Details</h3>
+                <div>
+                  <Label>Potential severity if injury had occurred</Label>
+                  <Select value={form.nearMissPotential} onValueChange={v => setForm(f => ({ ...f, nearMissPotential: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select severity…" /></SelectTrigger>
+                    <SelectContent>
+                      {NEAR_MISS_POTENTIALS.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
-              )}
-            </div>
+                <div>
+                  <Label>Hazard type</Label>
+                  <Select value={form.nearMissHazardType} onValueChange={v => setForm(f => ({ ...f, nearMissHazardType: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select hazard type…" /></SelectTrigger>
+                    <SelectContent>
+                      {HAZARD_TYPES.map(h => <SelectItem key={h.value} value={h.value}>{h.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950 rounded p-2">
+                  Near misses are not reportable to the HSE under RIDDOR, but they must be investigated and used to update your risk assessments under MHSWR 1999.
+                </p>
+              </div>
+            )}
 
-            {/* RIDDOR section */}
-            {!form.isNearMiss && (
+            {/* RIDDOR section — only for standard incidents */}
+            {form.recordType === 'incident' && (
               <div className="rounded-lg border p-4 space-y-3">
                 <div>
                   <h3 className="font-semibold">RIDDOR Assessment</h3>
@@ -750,10 +885,36 @@ export default function HSIncidents() {
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
               <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {editingId ? "Save Changes" : "Record Incident"}
+                {submitLabel()}
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Resolve Good Spot / Positive Action dialog */}
+      <Dialog open={!!resolvingId} onOpenChange={open => { if (!open) setResolvingId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Mark as Resolved</DialogTitle>
+            <DialogDescription>Record who resolved this hazard and what action was taken.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Resolved by</Label>
+              <Input value={resolveForm.resolvedBy} onChange={e => setResolveForm(f => ({ ...f, resolvedBy: e.target.value }))} placeholder="Name of person who resolved it" />
+            </div>
+            <div>
+              <Label>What was done?</Label>
+              <Textarea value={resolveForm.resolutionNotes} onChange={e => setResolveForm(f => ({ ...f, resolutionNotes: e.target.value }))} rows={3} placeholder="Describe the action taken to resolve the hazard…" />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setResolvingId(null)}>Cancel</Button>
+              <Button className="bg-green-600 hover:bg-green-700 text-white" onClick={() => resolveMutation.mutate({ id: resolvingId!, ...resolveForm })} disabled={resolveMutation.isPending}>
+                <CheckCircle size={14} className="mr-1" /> Confirm Resolved
+              </Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -789,8 +950,8 @@ export default function HSIncidents() {
       <AlertDialog open={!!deleteId} onOpenChange={open => { if (!open) setDeleteId(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete incident?</AlertDialogTitle>
-            <AlertDialogDescription>This will permanently remove this incident record.</AlertDialogDescription>
+            <AlertDialogTitle>Delete record?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently remove this record.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
