@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import { AlertTriangle, Plus, Trash2, ExternalLink, CheckCircle, AlertCircle, BarChart3, Edit, Search, Info, FileDown, ArrowRight, ThumbsUp, Zap } from "lucide-react";
 import { EXTERNAL_LINKS } from "@/lib/externalLinks";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 
 interface HsIncident {
   id: string;
@@ -201,6 +202,7 @@ export default function HSIncidents() {
   const [resolveForm, setResolveForm] = useState({ resolvedBy: "", resolutionNotes: "" });
   const [filterType, setFilterType] = useState<"all" | "incident" | "near_miss" | "good_spot" | "positive_action" | "riddor">("all");
   const [form, setForm] = useState({ ...emptyForm });
+  const [showManagementView, setShowManagementView] = useState(false);
 
   const { data: staffList = [] } = useQuery<StaffMember[]>({
     queryKey: ["/api/staff"],
@@ -378,6 +380,40 @@ export default function HSIncidents() {
   });
 
   const showDashboard = incidents.length > 0;
+
+  // Pyramid data (all-time)
+  const pyramidData = {
+    riddor: incidents.filter(i => {
+      const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
+      return rt === 'incident' && i.riddorCategory && i.riddorCategory !== 'not_riddor_reportable' && i.riddorCategory !== 'occupational_disease';
+    }).length,
+    incidents: incidents.filter(i => (i.recordType || (i.isNearMiss ? 'near_miss' : 'incident')) === 'incident').length,
+    nearMisses: incidents.filter(i => (i.recordType || (i.isNearMiss ? 'near_miss' : 'incident')) === 'near_miss').length,
+    goodSpots: incidents.filter(i => i.recordType === 'good_spot' || i.recordType === 'positive_action').length,
+  };
+  const pyramidMax = Math.max(pyramidData.goodSpots, pyramidData.nearMisses, pyramidData.incidents, 1);
+
+  // 12-month monthly trend
+  const monthlyTrend = (() => {
+    const months: { month: string; positive: number; negative: number }[] = [];
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+      const label = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+      const inMonth = incidents.filter(inc => {
+        const dt = new Date(inc.incidentDate);
+        return dt >= d && dt < next;
+      });
+      const positive = inMonth.filter(inc => inc.recordType === 'good_spot' || inc.recordType === 'positive_action').length;
+      const negative = inMonth.filter(inc => {
+        const rt = inc.recordType || (inc.isNearMiss ? 'near_miss' : 'incident');
+        return rt === 'incident' || rt === 'near_miss';
+      }).length;
+      months.push({ month: label, positive, negative });
+    }
+    return months;
+  })();
 
   const pendingRiddor = incidents.filter(i => {
     const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
@@ -579,6 +615,110 @@ export default function HSIncidents() {
                   </Badge>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Management view toggle */}
+          <div className="pt-2 border-t">
+            <button
+              type="button"
+              onClick={() => setShowManagementView(v => !v)}
+              className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+            >
+              <BarChart3 size={13} />
+              {showManagementView ? "Hide management view" : "Show management view — pyramid & 12-month trend"}
+            </button>
+          </div>
+
+          {showManagementView && (
+            <div className="space-y-6 pt-2">
+
+              {/* Safety Observation Pyramid */}
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Safety observation pyramid (all time)</div>
+                <div className="space-y-2">
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-28 text-xs text-muted-foreground text-right shrink-0">{pyramidData.riddor} RIDDOR</div>
+                    <div className="flex-1">
+                      <div className="h-7 rounded flex items-center px-2 bg-red-500 text-red-50 text-xs font-semibold transition-all"
+                        style={{ width: `${Math.max(8, Math.round((pyramidData.riddor / pyramidMax) * 100))}%`, minWidth: pyramidData.riddor > 0 ? '2rem' : '1.5rem' }}>
+                        {pyramidData.riddor > 0 ? pyramidData.riddor : ''}
+                      </div>
+                    </div>
+                    <div className="w-36 text-xs text-muted-foreground shrink-0 hidden sm:block">Reportable to HSE</div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-28 text-xs text-muted-foreground text-right shrink-0">{pyramidData.incidents} incident{pyramidData.incidents !== 1 ? 's' : ''}</div>
+                    <div className="flex-1">
+                      <div className="h-7 rounded flex items-center px-2 bg-orange-500 text-orange-50 text-xs font-semibold transition-all"
+                        style={{ width: `${Math.max(10, Math.round((pyramidData.incidents / pyramidMax) * 100))}%`, minWidth: '2rem' }}>
+                        {pyramidData.incidents > 0 ? pyramidData.incidents : ''}
+                      </div>
+                    </div>
+                    <div className="w-36 text-xs text-muted-foreground shrink-0 hidden sm:block">Something went wrong</div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-28 text-xs text-muted-foreground text-right shrink-0">{pyramidData.nearMisses} near miss{pyramidData.nearMisses !== 1 ? 'es' : ''}</div>
+                    <div className="flex-1">
+                      <div className="h-7 rounded flex items-center px-2 bg-amber-500 text-amber-50 text-xs font-semibold transition-all"
+                        style={{ width: `${Math.max(12, Math.round((pyramidData.nearMisses / pyramidMax) * 100))}%`, minWidth: '2rem' }}>
+                        {pyramidData.nearMisses > 0 ? pyramidData.nearMisses : ''}
+                      </div>
+                    </div>
+                    <div className="w-36 text-xs text-muted-foreground shrink-0 hidden sm:block">Could have gone wrong</div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="w-28 text-xs text-muted-foreground text-right shrink-0">{pyramidData.goodSpots} good spot{pyramidData.goodSpots !== 1 ? 's' : ''}</div>
+                    <div className="flex-1">
+                      <div className="h-7 rounded flex items-center px-2 bg-green-600 text-green-50 text-xs font-semibold transition-all"
+                        style={{ width: `${Math.max(15, Math.round((pyramidData.goodSpots / pyramidMax) * 100))}%`, minWidth: '2rem' }}>
+                        {pyramidData.goodSpots > 0 ? `${pyramidData.goodSpots} hazards caught proactively` : '0'}
+                      </div>
+                    </div>
+                    <div className="w-36 text-xs text-green-700 dark:text-green-400 font-medium shrink-0 hidden sm:block">Proactive — harm prevented</div>
+                  </div>
+
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 bg-green-50 dark:bg-green-950 rounded p-2 border border-green-200 dark:border-green-800">
+                  A wide base of good spots means fewer incidents reach the top. HSE research shows 23 near misses occur for every reportable injury — most are never recorded without a system like this.
+                </p>
+              </div>
+
+              {/* 12-month trend chart */}
+              <div>
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Leading vs lagging indicators — 12-month trend</div>
+                <div className="flex items-center gap-4 mb-3 flex-wrap">
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="inline-block w-5 h-0.5 bg-green-600 rounded" />
+                    Good spots &amp; positive actions
+                  </span>
+                  <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <span className="inline-block w-5 h-0.5 bg-red-500 rounded" style={{ borderTop: '2px dashed #ef4444', background: 'none' }} />
+                    Incidents &amp; near misses
+                  </span>
+                </div>
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={monthlyTrend} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" />
+                    <XAxis dataKey="month" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <RechartsTooltip
+                      contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+                      formatter={(value: number, name: string) => [value, name === 'positive' ? 'Good spots & positive actions' : 'Incidents & near misses']}
+                    />
+                    <Line type="monotone" dataKey="positive" stroke="#16a34a" strokeWidth={2} dot={{ r: 3, fill: '#16a34a' }} activeDot={{ r: 5 }} name="positive" />
+                    <Line type="monotone" dataKey="negative" stroke="#ef4444" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 3, fill: '#ef4444' }} activeDot={{ r: 5 }} name="negative" />
+                  </LineChart>
+                </ResponsiveContainer>
+                <p className="text-xs text-muted-foreground mt-2">
+                  As positive reporting builds, incidents fall. When staff see their observations acted on, they report more — which means more hazards caught before they cause harm.
+                </p>
+              </div>
+
             </div>
           )}
         </GlassCard>

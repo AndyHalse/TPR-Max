@@ -1,0 +1,316 @@
+Safety Engagement Dashboard Charts
+
+Context
+
+The H&S Incidents module (client/src/pages/HSIncidents.tsx) already has a Safety Engagement Dashboard widget (lines ~524–585). It shows four stat cards (incidents, near misses, good spots, positive actions for the last 90 days), an engagement ratio, a resolution rate bar, and hazard type badges. All this works correctly — do not change any of it.
+
+This prompt adds a Management View section below the existing stats. It contains:
+
+
+
+
+
+A visual Safety Observation Pyramid
+
+
+
+A 12-month leading vs lagging trend chart
+
+Both are computed entirely from the incidents array that's already fetched. There are no backend changes.
+
+
+
+File to Change
+
+client/src/pages/HSIncidents.tsx only.
+
+
+
+1. New Import
+
+Add recharts to the existing imports at the top of HSIncidents.tsx:
+
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
+
+Recharts is already installed in the project. Do not install anything new.
+
+
+
+2. New State
+
+Add one piece of state near the other useState calls in the HSIncidents component:
+
+const [showManagementView, setShowManagementView] = useState(false);
+
+
+
+3. New Data Computation
+
+Add this block in the // ── Analytics ── section, after the existing analytics (after showDashboard is defined). Do not remove or change any existing analytics.
+
+3a. Pyramid counts (all-time, not just 90 days)
+
+const pyramidData = {
+  riddor: incidents.filter(i => {
+    const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
+    return rt === 'incident' && i.riddorCategory && i.riddorCategory !== 'not_riddor_reportable' && i.riddorCategory !== 'occupational_disease';
+  }).length,
+  incidents: incidents.filter(i => (i.recordType || (i.isNearMiss ? 'near_miss' : 'incident')) === 'incident').length,
+  nearMisses: incidents.filter(i => (i.recordType || (i.isNearMiss ? 'near_miss' : 'incident')) === 'near_miss').length,
+  goodSpots: incidents.filter(i => i.recordType === 'good_spot' || i.recordType === 'positive_action').length,
+};
+const pyramidMax = Math.max(pyramidData.goodSpots, pyramidData.nearMisses, pyramidData.incidents, 1);
+
+3b. 12-month monthly trend
+
+const monthlyTrend = (() => {
+  const months: { month: string; positive: number; negative: number }[] = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const next = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    const label = d.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
+    const inMonth = incidents.filter(inc => {
+      const dt = new Date(inc.incidentDate);
+      return dt >= d && dt < next;
+    });
+    const positive = inMonth.filter(inc => inc.recordType === 'good_spot' || inc.recordType === 'positive_action').length;
+    const negative = inMonth.filter(inc => {
+      const rt = inc.recordType || (inc.isNearMiss ? 'near_miss' : 'incident');
+      return rt === 'incident' || rt === 'near_miss';
+    }).length;
+    months.push({ month: label, positive, negative });
+  }
+  return months;
+})();
+
+
+
+4. UI Changes — Management View Toggle
+
+Inside the existing {showDashboard && (...)} GlassCard, at the very bottom of the card (after the hazard types <div> but still inside </GlassCard>), add a toggle button and the management view panel:
+
+{/* Management view toggle */}
+<div className="pt-2 border-t">
+  <button
+    type="button"
+    onClick={() => setShowManagementView(v => !v)}
+    className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
+  >
+    <BarChart3 size={13} />
+    {showManagementView ? "Hide management view" : "Show management view — pyramid & 12-month trend"}
+  </button>
+</div>
+
+{showManagementView && (
+  <div className="space-y-6 pt-2">
+
+    {/* Safety Observation Pyramid */}
+    <div>
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-3">Safety observation pyramid (all time)</div>
+      <div className="space-y-2">
+
+        {/* RIDDOR row */}
+        <div className="flex items-center gap-3">
+          <div className="w-28 text-xs text-muted-foreground text-right shrink-0">
+            {pyramidData.riddor} RIDDOR
+          </div>
+          <div className="flex-1">
+            <div
+              className="h-7 rounded flex items-center px-2 bg-red-500 text-red-50 text-xs font-semibold transition-all"
+              style={{ width: `${Math.max(8, Math.round((pyramidData.riddor / pyramidMax) * 100))}%`, minWidth: pyramidData.riddor > 0 ? '2rem' : '1.5rem' }}
+            >
+              {pyramidData.riddor > 0 ? pyramidData.riddor : ''}
+            </div>
+          </div>
+          <div className="w-36 text-xs text-muted-foreground shrink-0 hidden sm:block">Reportable to HSE</div>
+        </div>
+
+        {/* Incidents row */}
+        <div className="flex items-center gap-3">
+          <div className="w-28 text-xs text-muted-foreground text-right shrink-0">
+            {pyramidData.incidents} incident{pyramidData.incidents !== 1 ? 's' : ''}
+          </div>
+          <div className="flex-1">
+            <div
+              className="h-7 rounded flex items-center px-2 bg-orange-500 text-orange-50 text-xs font-semibold transition-all"
+              style={{ width: `${Math.max(10, Math.round((pyramidData.incidents / pyramidMax) * 100))}%`, minWidth: '2rem' }}
+            >
+              {pyramidData.incidents > 0 ? pyramidData.incidents : ''}
+            </div>
+          </div>
+          <div className="w-36 text-xs text-muted-foreground shrink-0 hidden sm:block">Something went wrong</div>
+        </div>
+
+        {/* Near misses row */}
+        <div className="flex items-center gap-3">
+          <div className="w-28 text-xs text-muted-foreground text-right shrink-0">
+            {pyramidData.nearMisses} near miss{pyramidData.nearMisses !== 1 ? 'es' : ''}
+          </div>
+          <div className="flex-1">
+            <div
+              className="h-7 rounded flex items-center px-2 bg-amber-500 text-amber-50 text-xs font-semibold transition-all"
+              style={{ width: `${Math.max(12, Math.round((pyramidData.nearMisses / pyramidMax) * 100))}%`, minWidth: '2rem' }}
+            >
+              {pyramidData.nearMisses > 0 ? pyramidData.nearMisses : ''}
+            </div>
+          </div>
+          <div className="w-36 text-xs text-muted-foreground shrink-0 hidden sm:block">Could have gone wrong</div>
+        </div>
+
+        {/* Good Spots row */}
+        <div className="flex items-center gap-3">
+          <div className="w-28 text-xs text-muted-foreground text-right shrink-0">
+            {pyramidData.goodSpots} good spot{pyramidData.goodSpots !== 1 ? 's' : ''}
+          </div>
+          <div className="flex-1">
+            <div
+              className="h-7 rounded flex items-center px-2 bg-green-600 text-green-50 text-xs font-semibold transition-all"
+              style={{ width: `${Math.max(15, Math.round((pyramidData.goodSpots / pyramidMax) * 100))}%`, minWidth: '2rem' }}
+            >
+              {pyramidData.goodSpots > 0 ? `${pyramidData.goodSpots} hazards caught proactively` : '0'}
+            </div>
+          </div>
+          <div className="w-36 text-xs text-green-700 dark:text-green-400 font-medium shrink-0 hidden sm:block">Proactive — harm prevented</div>
+        </div>
+
+      </div>
+      <p className="text-xs text-muted-foreground mt-3 bg-green-50 dark:bg-green-950 rounded p-2 border border-green-200 dark:border-green-800">
+        A wide base of good spots means fewer incidents reach the top. HSE research shows 23 near misses occur for every reportable injury — most are never recorded without a system like this.
+      </p>
+    </div>
+
+    {/* 12-month trend chart */}
+    <div>
+      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Leading vs lagging indicators — 12-month trend</div>
+      <div className="flex items-center gap-4 mb-3 flex-wrap">
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="inline-block w-5 h-0.5 bg-green-600 rounded" />
+          Good spots & positive actions
+        </span>
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <span className="inline-block w-5 h-0.5 bg-red-500 rounded border-dashed" style={{ borderTop: '2px dashed #ef4444', background: 'none' }} />
+          Incidents & near misses
+        </span>
+      </div>
+      <ResponsiveContainer width="100%" height={220}>
+        <LineChart data={monthlyTrend} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.15)" />
+          <XAxis
+            dataKey="month"
+            tick={{ fontSize: 11, fill: 'currentColor' }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <YAxis
+            tick={{ fontSize: 11, fill: 'currentColor' }}
+            tickLine={false}
+            axisLine={false}
+            allowDecimals={false}
+          />
+          <RechartsTooltip
+            contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
+            formatter={(value: number, name: string) => [value, name === 'positive' ? 'Good spots & positive actions' : 'Incidents & near misses']}
+          />
+          <Line
+            type="monotone"
+            dataKey="positive"
+            stroke="#16a34a"
+            strokeWidth={2}
+            dot={{ r: 3, fill: '#16a34a' }}
+            activeDot={{ r: 5 }}
+            name="positive"
+          />
+          <Line
+            type="monotone"
+            dataKey="negative"
+            stroke="#ef4444"
+            strokeWidth={2}
+            strokeDasharray="5 3"
+            dot={{ r: 3, fill: '#ef4444' }}
+            activeDot={{ r: 5 }}
+            name="negative"
+          />
+        </LineChart>
+      </ResponsiveContainer>
+      <p className="text-xs text-muted-foreground mt-2">
+        As positive reporting builds, incidents fall. When staff see their observations acted on, they report more — which means more hazards caught before they cause harm.
+      </p>
+    </div>
+
+  </div>
+)}
+
+
+
+5. What NOT to Change
+
+
+
+
+
+The existing four stat cards, engagement ratio box, resolution rate bar, and hazard badges — leave all of these exactly as they are.
+
+
+
+The filter tabs, the incident list cards, all dialogs, all mutations, the RIDDOR cron, PDF generation — leave untouched.
+
+
+
+The // ── Analytics ── block that currently exists — only add to it, don't replace it.
+
+
+
+Do not install any new packages. Recharts is already in the project.
+
+
+
+6. Edge Cases
+
+
+
+
+
+If pyramidData.goodSpots === 0 and pyramidData.incidents === 0, the management view still renders — the bars just show at minimum width.
+
+
+
+The pyramidMax guard (Math.max(..., 1)) prevents division by zero when there are no records.
+
+
+
+monthlyTrend always returns exactly 12 entries, even for months with no records (value = 0). This is correct.
+
+
+
+Bar widths use Math.max(8, ...) to ensure a sliver is always visible even for low counts, so the pyramid shape is always readable.
+
+
+
+Done When
+
+
+
+
+
+"Show management view" toggle button appears at the bottom of the existing Safety Engagement Dashboard card
+
+
+
+Clicking it expands to show the pyramid and trend chart; clicking again collapses them
+
+
+
+Pyramid bars are proportional to real data and update when new records are added
+
+
+
+Trend chart shows 12 calendar months with correct monthly counts for both series
+
+
+
+Recharts tooltip shows readable labels ("Good spots & positive actions", "Incidents & near misses")
+
+
+
+All existing dashboard content (stat cards, ratio, resolution rate, hazard badges) still works exactly as before

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Safety Engagement Dashboard — TPR</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #f8f9fa; color: #1a1a1a; padding: 24px; }
+  .page { max-width: 960px; margin: 0 auto; }
+  .header { background: #1e3a5f; color: #fff; padding: 24px 28px; border-radius: 10px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 12px; }
+  .header h1 { font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+  .header p { font-size: 13px; opacity: 0.75; }
+  .header-right { font-size: 12px; opacity: 0.7; text-align: right; }
+  .label { font-size: 11px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 24px; }
+  .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 16px; }
+  .card .card-label { font-size: 12px; color: #6b7280; margin-bottom: 8px; }
+  .card .card-value { font-size: 28px; font-weight: 600; line-height: 1; }
+  .card .card-sub { font-size: 11px; margin-top: 5px; }
+  .green { color: #3B6D11; }
+  .red { color: #A32D2D; }
+  .section { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+  .pyramid-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .pyramid-label { flex: 0 0 110px; font-size: 12px; color: #6b7280; text-align: right; }
+  .pyramid-bar { border-radius: 4px; height: 32px; display: flex; align-items: center; padding-left: 10px; font-size: 12px; font-weight: 600; }
+  .pyramid-note { flex: 0 0 180px; font-size: 11px; color: #6b7280; }
+  .callout { margin-top: 10px; padding: 10px 14px; background: #f0fdf4; border-radius: 8px; border-left: 3px solid #3B6D11; font-size: 12px; color: #374151; }
+  .two-col { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-bottom: 20px; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  .legend span { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #6b7280; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+  .chart-wrap { position: relative; width: 100%; height: 260px; }
+  .chart-wrap-sm { position: relative; width: 100%; height: 200px; }
+  .calc { background: #f8f9fa; border-radius: 8px; padding: 16px; }
+  .calc label { font-size: 12px; color: #6b7280; display: block; margin-bottom: 4px; }
+  .calc-row { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+  .calc-row input[type=range] { flex: 1; accent-color: #1e3a5f; }
+  .calc-row span { font-size: 15px; font-weight: 600; min-width: 72px; text-align: right; }
+  .result { border-top: 1px solid #e5e7eb; padding-top: 14px; margin-top: 4px; }
+  .result-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .result-row .result-label { font-size: 13px; color: #6b7280; }
+  .result-row .result-val { font-size: 22px; font-weight: 600; }
+  .result-note { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #374151; }
+  .footer { text-align: center; font-size: 11px; color: #9ca3af; margin-top: 24px; padding-top: 16px; border-top: 1px solid #e5e7eb; }
+  .doughnut-total { text-align: center; margin-top: -6px; }
+  .doughnut-total .total-val { font-size: 22px; font-weight: 600; color: #A32D2D; }
+  .doughnut-total .total-sub { font-size: 12px; color: #6b7280; margin-left: 6px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div>
+      <h1>Safety Engagement — Management Overview</h1>
+      <p>How positive safety reporting reduces incidents and protects the business</p>
+    </div>
+    <div class="header-right">
+      Illustrative sample data<br>12-month site view<br>Powered by TPR
+    </div>
+  </div>
+
+  <div class="label">Key metrics — year overview</div>
+  <div class="cards">
+    <div class="card">
+      <div class="card-label">Good spots logged (Q4)</div>
+      <div class="card-value green">226</div>
+      <div class="card-sub green">+1,510% vs Q1</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Incidents (Q4)</div>
+      <div class="card-value red">2</div>
+      <div class="card-sub red">-85% vs Q1</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Engagement ratio</div>
+      <div class="card-value green">113:1</div>
+      <div class="card-sub green">Strong safety culture</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Estimated cost avoided</div>
+      <div class="card-value green">£195k</div>
+      <div class="card-sub" style="color:#6b7280;">vs year-start incident rate</div>
+    </div>
+  </div>
+
+  <div class="section" style="margin-bottom:20px;">
+    <div class="label">The safety observation pyramid</div>
+    <div class="pyramid-row">
+      <div class="pyramid-label">1 RIDDOR</div>
+      <div style="flex:1;">
+        <div class="pyramid-bar" style="width:8%; background:#E24B4A; color:#FCEBEB; min-width:36px;">1</div>
+      </div>
+      <div class="pyramid-note">Reportable to HSE — legal obligation</div>
+    </div>
+    <div class="pyramid-row">
+      <div class="pyramid-label">8 incidents</div>
+      <div style="flex:1;">
+        <div class="pyramid-bar" style="width:22%; background:#D85A30; color:#FAECE7; min-width:48px;">8</div>
+      </div>
+      <div class="pyramid-note">Something went wrong</div>
+    </div>
+    <div class="pyramid-row">
+      <div class="pyramid-label">24 near misses</div>
+      <div style="flex:1;">
+        <div class="pyramid-bar" style="width:44%; background:#BA7517; color:#FAEEDA;">24</div>
+      </div>
+      <div class="pyramid-note">Could have gone wrong</div>
+    </div>
+    <div class="pyramid-row">
+      <div class="pyramid-label">87 good spots</div>
+      <div style="flex:1;">
+        <div class="pyramid-bar" style="width:100%; background:#3B6D11; color:#EAF3DE;">87 hazards spotted &amp; reported</div>
+      </div>
+      <div class="pyramid-note" style="color:#3B6D11; font-weight:600;">Proactive — harm prevented</div>
+    </div>
+    <div class="callout">A wide base of proactive Good Spots is the strongest predictor of a safe site. Every hazard caught at the bottom is one that never reaches the top. HSE research shows 23 near misses occur for every reportable injury — most are never recorded without a system like this.</div>
+  </div>
+
+  <div class="section">
+    <div class="label">Leading vs lagging indicators — 12-month trend</div>
+    <div class="legend">
+      <span><span class="legend-dot" style="background:#3B6D11;"></span>Good spots &amp; positive actions (leading)</span>
+      <span><span class="legend-dot" style="background:#E24B4A;"></span>Incidents (lagging)</span>
+    </div>
+    <div class="chart-wrap">
+      <canvas id="trendChart" role="img" aria-label="Line chart showing good spots increasing from 6 to 87 over 12 months, while incidents fall from 5 to 0">Good spots: 6,9,14,21,28,35,44,52,58,67,72,87. Incidents: 5,4,4,3,3,2,2,2,1,1,1,0.</canvas>
+    </div>
+    <div class="callout" style="margin-top:12px;">As positive reporting builds, incidents fall. This is not coincidence — it's how Behaviour-Based Safety works in practice. When staff and contractors feel their observations are valued and acted on, they report more. More hazards caught early means fewer serious events.</div>
+  </div>
+
+  <div class="two-col">
+    <div class="section">
+      <div class="label">True cost of one serious incident</div>
+      <div class="legend">
+        <span><span class="legend-dot" style="background:#E24B4A;"></span>HSE fine £45k</span>
+        <span><span class="legend-dot" style="background:#D85A30;"></span>Compensation £38k</span>
+        <span><span class="legend-dot" style="background:#BA7517;"></span>Lost time £18k</span>
+        <span><span class="legend-dot" style="background:#185FA5;"></span>Legal £12k</span>
+        <span><span class="legend-dot" style="background:#534AB7;"></span>Management £8k</span>
+        <span><span class="legend-dot" style="background:#0F6E56;"></span>Insurance rise £6k</span>
+      </div>
+      <div class="chart-wrap-sm">
+        <canvas id="costChart" role="img" aria-label="Doughnut chart: total cost of serious incident £127,000">Fine 45k, Compensation 38k, Lost time 18k, Legal 12k, Management 8k, Insurance 6k.</canvas>
+      </div>
+      <div class="doughnut-total">
+        <span class="total-val">£127,000</span>
+        <span class="total-sub">total cost, one serious injury</span>
+      </div>
+      <div class="callout" style="margin-top:12px;">This is a conservative estimate for a serious (not fatal) injury. A fatality can cost £500k–£2m+ in prosecution fines alone, before compensation. Source: HSE — average prosecution fine 2024/25 was £170,000. The total cost to GB of workplace injuries is £22.9bn per year.</div>
+    </div>
+
+    <div class="section">
+      <div class="label">Cost avoidance calculator</div>
+      <div class="calc">
+        <label>Good spots logged this year</label>
+        <div class="calc-row">
+          <input type="range" min="10" max="200" value="87" id="gsSlider" step="1">
+          <span id="gsVal">87</span>
+        </div>
+        <label>% that could have become incidents</label>
+        <div class="calc-row">
+          <input type="range" min="5" max="40" value="15" id="pctSlider" step="1">
+          <span id="pctVal">15%</span>
+        </div>
+        <label>Average cost per prevented incident</label>
+        <div class="calc-row">
+          <input type="range" min="5000" max="150000" value="30000" id="costSlider" step="1000">
+          <span id="costVal">£30,000</span>
+        </div>
+        <div class="result">
+          <div class="result-row">
+            <span class="result-label">Incidents prevented</span>
+            <span class="result-val red" id="prevCount">13</span>
+          </div>
+          <div class="result-row">
+            <span class="result-label">Estimated saving</span>
+            <span class="result-val green" id="saving">£390,000</span>
+          </div>
+          <div class="result-note" id="comparison">That's <strong>36× the annual cost of TPR Pro</strong> for this site — saved by knowing about hazards before they hurt someone.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Illustrative data only — for demonstration purposes. All cost figures derived from HSE published statistics (2024/25).
+    TPR is a product of ACS Safety &amp; Security Ltd · tpr-max.com
+  </div>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+new Chart(document.getElementById('trendChart'), {
+  type: 'line',
+  data: {
+    labels: months,
+    datasets: [
+      { label: 'Good spots', data: [6,9,14,21,28,35,44,52,58,67,72,87], borderColor: '#3B6D11', backgroundColor: 'rgba(59,109,17,0.07)', borderWidth: 2.5, pointRadius: 4, pointBackgroundColor: '#3B6D11', fill: true, tension: 0.3 },
+      { label: 'Incidents', data: [5,4,4,3,3,2,2,2,1,1,1,0], borderColor: '#E24B4A', backgroundColor: 'rgba(226,75,74,0.06)', borderWidth: 2.5, borderDash: [6,3], pointRadius: 4, pointBackgroundColor: '#E24B4A', fill: true, tension: 0.3 }
+    ]
+  },
+  options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(0,0,0,0.06)' }, ticks: { font: { size: 11 }, color: '#9ca3af' } }, y: { grid: { color: 'rgba(0,0,0,0.06)' }, beginAtZero: true, ticks: { font: { size: 11 }, color: '#9ca3af' } } } }
+});
+
+new Chart(document.getElementById('costChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Fine','Compensation','Lost time','Legal','Management','Insurance rise'],
+    datasets: [{ data: [45,38,18,12,8,6], backgroundColor: ['#E24B4A','#D85A30','#BA7517','#185FA5','#534AB7','#0F6E56'], borderWidth: 0, hoverOffset: 4 }]
+  },
+  options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false } } }
+});
+
+function updateCalc() {
+  const gs = parseInt(document.getElementById('gsSlider').value);
+  const pct = parseInt(document.getElementById('pctSlider').value);
+  const cost = parseInt(document.getElementById('costSlider').value);
+  const prevented = Math.round(gs * pct / 100);
+  const saving = prevented * cost;
+  const tprCost = 89 * 12;
+  const multiple = Math.round(saving / tprCost);
+  document.getElementById('gsVal').textContent = gs;
+  document.getElementById('pctVal').textContent = pct + '%';
+  document.getElementById('costVal').textContent = '£' + cost.toLocaleString();
+  document.getElementById('prevCount').textContent = prevented;
+  document.getElementById('saving').textContent = '£' + saving.toLocaleString();
+  document.getElementById('comparison').innerHTML = prevented > 0
+    ? 'That\'s <strong>' + multiple + '&times; the annual cost of TPR Pro</strong> for this site &mdash; saved by knowing about hazards before they hurt someone.'
+    : 'Adjust the sliders to model your savings.';
+}
+
+['gsSlider','pctSlider','costSlider'].forEach(id => document.getElementById(id).addEventListener('input', updateCalc));
+updateCalc();
+</script>
+</body>
+</html>
