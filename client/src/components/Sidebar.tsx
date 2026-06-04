@@ -115,47 +115,27 @@ export default function Sidebar({
           className="flex items-center gap-2 px-3 border-b border-border/30 flex-shrink-0"
           style={{ minHeight: 64 }}
         >
-          {(!effectiveCollapsed || isMobile) ? (
-            <Link
-              href="/marketing"
-              className="flex items-center gap-2 hover:opacity-80 transition-opacity min-w-0 flex-1 no-underline"
-            >
-              {logoSrc ? (
-                <img
-                  src={logoSrc}
-                  alt="Logo"
-                  className="w-8 h-8 object-contain rounded flex-shrink-0"
-                  onError={onLogoError}
-                />
-              ) : (
-                <div
-                  className="w-8 h-8 rounded flex items-center justify-center text-sm font-bold flex-shrink-0"
-                  style={{ backgroundColor: logoBg, color: logoColor }}
-                >
-                  {logoLetter}
-                </div>
-              )}
-              <span className="text-sm font-semibold truncate" style={textStyle}>
-                {settings?.companyName || "TPR Max"}
-              </span>
-            </Link>
-          ) : (
-            <Link
-              href="/marketing"
-              className="hover:opacity-80 transition-opacity no-underline"
-            >
-              {logoSrc ? (
-                <img src={logoSrc} alt="Logo" className="w-8 h-8 object-contain rounded" onError={onLogoError} />
-              ) : (
-                <div
-                  className="w-8 h-8 rounded flex items-center justify-center text-sm font-bold"
-                  style={{ backgroundColor: logoBg, color: logoColor }}
-                >
-                  {logoLetter}
-                </div>
-              )}
-            </Link>
-          )}
+          <Link
+            href="/marketing"
+            className="flex items-center justify-center hover:opacity-80 transition-opacity no-underline flex-1 min-w-0"
+          >
+            {logoSrc ? (
+              <img
+                src={logoSrc}
+                alt="Logo"
+                className={`object-contain rounded flex-shrink-0 ${effectiveCollapsed && !isMobile ? "w-8 h-8" : "h-10 max-w-full"}`}
+                style={effectiveCollapsed && !isMobile ? {} : { maxWidth: "calc(100% - 40px)" }}
+                onError={onLogoError}
+              />
+            ) : (
+              <div
+                className={`rounded flex items-center justify-center font-bold flex-shrink-0 ${effectiveCollapsed && !isMobile ? "w-8 h-8 text-sm" : "w-10 h-10 text-lg"}`}
+                style={{ backgroundColor: logoBg, color: logoColor }}
+              >
+                {logoLetter}
+              </div>
+            )}
+          </Link>
 
           {isMobile ? (
             <button
