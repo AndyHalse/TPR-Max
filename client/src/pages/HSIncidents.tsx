@@ -39,6 +39,10 @@ interface HsIncident {
   resolvedBy: string | null;
   resolvedAt: string | null;
   resolutionNotes: string | null;
+  resolutionReminderSentAt: string | null;
+  investigationStatus: string;
+  investigatedBy: string | null;
+  investigationNotes: string | null;
   createdAt: string;
 }
 
@@ -181,6 +185,9 @@ const emptyForm = {
   hazardType: "",
   riddorCategory: "",
   resolutionNotes: "",
+  investigationStatus: "open" as string,
+  investigatedBy: "",
+  investigationNotes: "",
 };
 
 function personTypeLabel(v: string) {
@@ -218,6 +225,11 @@ export default function HSIncidents() {
     queryKey: ["/api/visitors"],
     queryFn: () => apiRequest("GET", "/api/visitors").then(r => r.json()),
   });
+  const { data: settings } = useQuery<any>({
+    queryKey: ["/api/settings"],
+    queryFn: () => apiRequest("GET", "/api/settings").then(r => r.json()),
+  });
+  const featureBbs: boolean = settings?.featureBbs ?? true;
 
   function deduplicateOptions(opts: { label: string; sublabel?: string }[]) {
     const seen = new Set<string>();
@@ -317,6 +329,9 @@ export default function HSIncidents() {
       hazardType: incident.hazardType || "",
       riddorCategory: incident.riddorCategory || "",
       resolutionNotes: incident.resolutionNotes || "",
+      investigationStatus: incident.investigationStatus || "open",
+      investigatedBy: incident.investigatedBy || "",
+      investigationNotes: incident.investigationNotes || "",
     });
     setEditingId(incident.id);
     setShowForm(true);
@@ -335,6 +350,9 @@ export default function HSIncidents() {
       hazardType: isBbs ? form.hazardType : null,
       injuredPerson: isBbs ? null : form.injuredPerson,
       injuredPersonType: isBbs ? null : form.injuredPersonType,
+      investigationStatus: !isBbs ? (form.investigationStatus || "open") : undefined,
+      investigatedBy: !isBbs ? (form.investigatedBy || null) : undefined,
+      investigationNotes: !isBbs ? (form.investigationNotes || null) : undefined,
     };
     if (editingId) {
       updateMutation.mutate({ id: editingId, data: payload });
@@ -372,6 +390,11 @@ export default function HSIncidents() {
   const allBbsRecords = incidents.filter(i => i.recordType === 'good_spot' || i.recordType === 'positive_action');
   const resolvedBbs = allBbsRecords.filter(i => i.resolved);
   const resolutionRate = allBbsRecords.length > 0 ? Math.round((resolvedBbs.length / allBbsRecords.length) * 100) : 0;
+
+  const openInvestigations = incidents.filter(i => {
+    const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
+    return (rt === 'incident' || rt === 'near_miss') && (!i.investigationStatus || i.investigationStatus === 'open');
+  }).length;
 
   // Hazard breakdown across near_miss + good_spot + positive_action
   const hazardCounts: Record<string, number> = {};
@@ -694,7 +717,7 @@ export default function HSIncidents() {
           <h2 className="font-semibold flex items-center gap-2">
             <BarChart3 size={16} className="text-blue-500" /> Safety Engagement Dashboard (last 90 days)
           </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
             <div className="rounded-lg bg-amber-50 dark:bg-amber-950 p-3">
               <div className="text-2xl font-bold text-amber-700">{recent.incidents.length}</div>
               <div className="text-xs text-muted-foreground">Incidents</div>
@@ -702,6 +725,10 @@ export default function HSIncidents() {
             <div className="rounded-lg bg-blue-50 dark:bg-blue-950 p-3">
               <div className="text-2xl font-bold text-blue-700">{recent.nearMisses.length}</div>
               <div className="text-xs text-muted-foreground">Near Misses</div>
+            </div>
+            <div className={`rounded-lg p-3 ${openInvestigations > 0 ? 'bg-purple-50 dark:bg-purple-950' : 'bg-gray-50 dark:bg-gray-900'}`}>
+              <div className={`text-2xl font-bold ${openInvestigations > 0 ? 'text-purple-700' : 'text-gray-500'}`}>{openInvestigations}</div>
+              <div className="text-xs text-muted-foreground">Open Investigations</div>
             </div>
             <div className="rounded-lg bg-green-50 dark:bg-green-950 p-3">
               <div className="text-2xl font-bold text-green-700">{recent.goodSpots.length}</div>
@@ -926,6 +953,15 @@ export default function HSIncidents() {
                       {isBbs(rt) && !incident.resolved && (
                         <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">⏳ Awaiting resolution</Badge>
                       )}
+                      {!isBbs(rt) && incident.investigationStatus === 'closed' && (
+                        <Badge className="bg-purple-100 text-purple-800 border-purple-300 text-xs">🔍 Investigation closed</Badge>
+                      )}
+                      {!isBbs(rt) && incident.investigationStatus === 'in_progress' && (
+                        <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">🔍 Under investigation</Badge>
+                      )}
+                      {!isBbs(rt) && (!incident.investigationStatus || incident.investigationStatus === 'open') && (
+                        <Badge className="bg-gray-100 text-gray-600 border-gray-300 text-xs">🔍 Investigation open</Badge>
+                      )}
                       <RiddorBadge incident={incident} />
                     </div>
                     <div className="text-sm text-muted-foreground space-y-0.5">
@@ -952,6 +988,12 @@ export default function HSIncidents() {
                       )}
                       {incident.riddorReportedAt && incident.riddorReference && (
                         <div className="text-green-700 text-xs">HSE Ref: {incident.riddorReference}</div>
+                      )}
+                      {!isBbs(rt) && incident.investigatedBy && (
+                        <div className="text-xs text-purple-700 dark:text-purple-300">Investigated by: {incident.investigatedBy}</div>
+                      )}
+                      {!isBbs(rt) && incident.investigationNotes && (
+                        <div className="text-xs text-muted-foreground mt-1 italic">{incident.investigationNotes}</div>
                       )}
                     </div>
                   </div>
@@ -1002,17 +1044,23 @@ export default function HSIncidents() {
             <div>
               <Label className="mb-2 block">Record type</Label>
               <div className="grid grid-cols-2 gap-2">
-                {RECORD_TYPES.map(rt => (
-                  <button
-                    key={rt.value}
-                    type="button"
-                    onClick={() => handleRecordTypeChange(rt.value)}
-                    className={`text-left p-3 rounded-lg border-2 transition-all ${form.recordType === rt.value ? rt.color + " font-semibold" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}
-                  >
-                    <div className="text-sm font-medium">{rt.label}</div>
-                    <div className="text-xs opacity-70 mt-0.5">{rt.sublabel}</div>
-                  </button>
-                ))}
+                {RECORD_TYPES.map(rt => {
+                  const isBbsType = rt.value === 'good_spot' || rt.value === 'positive_action';
+                  const locked = isBbsType && !featureBbs;
+                  return (
+                    <button
+                      key={rt.value}
+                      type="button"
+                      disabled={locked}
+                      onClick={() => !locked && handleRecordTypeChange(rt.value)}
+                      title={locked ? "Good Spot and Positive Action reporting is not enabled on your plan" : undefined}
+                      className={`text-left p-3 rounded-lg border-2 transition-all ${locked ? "opacity-40 cursor-not-allowed border-gray-200 dark:border-gray-700" : form.recordType === rt.value ? rt.color + " font-semibold" : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"}`}
+                    >
+                      <div className="text-sm font-medium">{rt.label}</div>
+                      <div className="text-xs opacity-70 mt-0.5">{locked ? "Not available on your plan" : rt.sublabel}</div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -1126,6 +1174,32 @@ export default function HSIncidents() {
                 <p className="text-xs text-muted-foreground bg-blue-50 dark:bg-blue-950 rounded p-2">
                   Near misses are not reportable to the HSE under RIDDOR, but they must be investigated and used to update your risk assessments under MHSWR 1999.
                 </p>
+              </div>
+            )}
+
+            {/* Investigation section — for incident and near_miss */}
+            {(form.recordType === 'incident' || form.recordType === 'near_miss') && (
+              <div className="rounded-lg border border-purple-200 dark:border-purple-800 p-4 space-y-3 bg-purple-50/50 dark:bg-purple-950/30">
+                <h3 className="font-semibold text-purple-900 dark:text-purple-100">Investigation</h3>
+                <div>
+                  <Label>Investigation status</Label>
+                  <Select value={form.investigationStatus} onValueChange={v => setForm(f => ({ ...f, investigationStatus: v }))}>
+                    <SelectTrigger><SelectValue placeholder="Select status…" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="open">Open — not yet investigated</SelectItem>
+                      <SelectItem value="in_progress">In progress</SelectItem>
+                      <SelectItem value="closed">Closed — investigation complete</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Investigated by</Label>
+                  <PersonCombobox value={form.investigatedBy} onChange={v => setForm(f => ({ ...f, investigatedBy: v }))} options={reportedByOptions} placeholder="Search staff or type a name…" />
+                </div>
+                <div>
+                  <Label>Investigation notes</Label>
+                  <Textarea value={form.investigationNotes} onChange={e => setForm(f => ({ ...f, investigationNotes: e.target.value }))} rows={3} placeholder="Root cause, contributing factors, corrective actions taken…" />
+                </div>
               </div>
             )}
 

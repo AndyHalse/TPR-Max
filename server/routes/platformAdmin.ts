@@ -818,7 +818,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
     'featureInductionSettings', 'featureKiosk', 'featureEmailOutbox',
     'featureHrModule', 'featureComplianceDashboard', 'featureSettingsPage',
     'featurePPM', 'featureAuditEngine', 'featureComplianceCertificates',
-    'featurePermitToWork', 'featureRaBuilder', 'featureHelpDesk',
+    'featurePermitToWork', 'featureRaBuilder', 'featureHelpDesk', 'featureBbs',
   ]);
 
   // Platform admin: read per-customer platform-level feature locks

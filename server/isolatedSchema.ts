@@ -517,6 +517,7 @@ export const companySettings = pgTable("company_settings", {
   featurePPM: boolean("feature_ppm").default(false),
   featureHelpDesk: boolean("feature_help_desk").default(false),
   featureHsIncidents: boolean("feature_hs_incidents").default(true),
+  featureBbs: boolean("feature_bbs").default(false),
   featureFireRiskAssessment: boolean("feature_fire_risk_assessment").default(true),
   featureComplianceCertificates: boolean("feature_compliance_certificates").default(false),
   featureComplianceDashboard: boolean("feature_compliance_dashboard").default(true),
@@ -2451,6 +2452,11 @@ export const hsIncidents = pgTable("hs_incidents", {
   resolvedBy: text("resolved_by"),
   resolvedAt: timestamp("resolved_at", { withTimezone: true }),
   resolutionNotes: text("resolution_notes"),
+  resolutionReminderSentAt: timestamp("resolution_reminder_sent_at", { withTimezone: true }),
+  // Investigation lifecycle — for incident and near_miss only
+  investigationStatus: text("investigation_status").notNull().default("open"), // open | investigating | closed
+  investigatedBy: text("investigated_by"),
+  investigationNotes: text("investigation_notes"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });

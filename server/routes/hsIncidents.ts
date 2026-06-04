@@ -41,9 +41,26 @@ async function ensureHsIncidentsTable(custDb: any, schemaName: string) {
   await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolved_by TEXT`);
   await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolved_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolution_notes TEXT`);
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS resolution_reminder_sent_at TIMESTAMPTZ`);
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS investigation_status TEXT NOT NULL DEFAULT 'open'`);
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS investigated_by TEXT`);
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS investigation_notes TEXT`);
   // Migrate legacy near_miss records to new record_type field
   await pool.query(`UPDATE "${schemaName}".hs_incidents SET record_type = 'near_miss' WHERE is_near_miss = TRUE AND record_type = 'incident'`);
 }
+
+const requireBbsFeature = async (req: any, res: any, next: any) => {
+  try {
+    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featureBbs) {
+      return res.status(403).json({ error: 'Good Spot and Positive Action reporting is not enabled for your account. Please upgrade to TPR Pro or contact support.' });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
 
 export function registerHsIncidentRoutes(app: Express): void {
 
@@ -74,6 +91,15 @@ export function registerHsIncidentRoutes(app: Express): void {
       const recordType: string = body.recordType || (body.isNearMiss ? 'near_miss' : 'incident');
       const isBbs = recordType === 'good_spot' || recordType === 'positive_action';
       const isNearMiss = recordType === 'near_miss';
+
+      // BBS feature flag check
+      if (isBbs) {
+        const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId!);
+        const settings = await simpleDatabaseService.getCompanySettings(context);
+        if (!settings?.featureBbs) {
+          return res.status(403).json({ error: 'Good Spot and Positive Action reporting is not enabled for your account.' });
+        }
+      }
 
       // Near miss auto-sets riddorCategory; BBS types are never RIDDOR
       let riddorCategory: string | null = null;
@@ -109,6 +135,9 @@ export function registerHsIncidentRoutes(app: Express): void {
         resolvedBy: isBbs ? (body.resolvedBy || null) : null,
         resolvedAt: (isBbs && body.resolvedAt) ? new Date(body.resolvedAt) : null,
         resolutionNotes: isBbs ? (body.resolutionNotes || null) : null,
+        investigationStatus: !isBbs ? (body.investigationStatus || 'open') : 'open',
+        investigatedBy: !isBbs ? (body.investigatedBy || null) : null,
+        investigationNotes: !isBbs ? (body.investigationNotes || null) : null,
       }).returning();
 
       // Immediate fatality alert
@@ -142,6 +171,15 @@ export function registerHsIncidentRoutes(app: Express): void {
       const recordType: string = body.recordType || (body.isNearMiss ? 'near_miss' : 'incident');
       const isBbs = recordType === 'good_spot' || recordType === 'positive_action';
       const isNearMiss = recordType === 'near_miss';
+
+      // BBS feature flag check
+      if (isBbs) {
+        const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId!);
+        const settings = await simpleDatabaseService.getCompanySettings(context);
+        if (!settings?.featureBbs) {
+          return res.status(403).json({ error: 'Good Spot and Positive Action reporting is not enabled for your account.' });
+        }
+      }
 
       let riddorCategory: string | null | undefined = undefined;
       if (isBbs) {
@@ -179,6 +217,10 @@ export function registerHsIncidentRoutes(app: Express): void {
         updates.resolvedBy = body.resolvedBy ?? null;
         updates.resolvedAt = body.resolvedAt ? new Date(body.resolvedAt) : null;
         updates.resolutionNotes = body.resolutionNotes ?? null;
+      } else {
+        updates.investigationStatus = body.investigationStatus || 'open';
+        updates.investigatedBy = body.investigatedBy ?? null;
+        updates.investigationNotes = body.investigationNotes ?? null;
       }
 
       const [updated] = await custDb.update(isolatedSchema.hsIncidents)
@@ -208,7 +250,7 @@ export function registerHsIncidentRoutes(app: Express): void {
   });
 
   // PATCH resolve a Good Spot or Positive Action
-  app.patch('/api/hs-incidents/:id/resolve', requireAuth, async (req, res) => {
+  app.patch('/api/hs-incidents/:id/resolve', requireAuth, requireBbsFeature, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const { resolvedBy, resolutionNotes } = req.body as { resolvedBy: string; resolutionNotes: string };
@@ -600,6 +642,111 @@ ${!isBbsRecord ? `
       logger.info('[RIDDOR Cron] Daily check complete');
     } catch (err) {
       logger.error('[RIDDOR Cron] Fatal error:', err);
+    }
+  }, { timezone: 'Europe/London' });
+
+  // ── Good Spot Resolution Reminder Cron (daily at 08:00 Europe/London) ────
+  cron.schedule('0 8 * * *', async () => {
+    try {
+      logger.info('[Resolution Reminder Cron] Running daily unresolved Good Spot check…');
+      const allCustomers = await customerDbService.getAllCustomers();
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+      for (const customer of allCustomers) {
+        try {
+          const custDb = await customerDbService.getCustomerDatabase(customer.id);
+          const schemaName = customerDbService.generateSchemaName(customer.id);
+          await ensureHsIncidentsTable(custDb, schemaName);
+
+          const unresolved = await custDb.select().from(isolatedSchema.hsIncidents)
+            .where(and(
+              sql`${isolatedSchema.hsIncidents.recordType} IN ('good_spot', 'positive_action')`,
+              eq(isolatedSchema.hsIncidents.resolved, false),
+              lte(isolatedSchema.hsIncidents.createdAt, sevenDaysAgo),
+              isNull(isolatedSchema.hsIncidents.resolutionReminderSentAt),
+            ));
+
+          if (unresolved.length === 0) continue;
+
+          const settingsRows = await custDb.execute(sql.raw(`SELECT company_name, email, site_name FROM ${schemaName}.company_settings LIMIT 1`));
+          const settings = settingsRows.rows[0] as any;
+          const companyName = settings?.company_name || 'TPR';
+          const siteName = settings?.site_name || companyName;
+          const adminEmail = settings?.email as string | undefined;
+          if (!adminEmail) continue;
+
+          const HAZARD_LABELS: Record<string, string> = {
+            slip_trip_fall: 'Slip, trip or fall', struck_by_object: 'Struck by object',
+            manual_handling: 'Manual handling', vehicle_plant: 'Vehicle or plant',
+            working_at_height: 'Working at height', electrical: 'Electrical',
+            fire_explosion: 'Fire or explosion', chemical_substance: 'Chemical or substance',
+            machinery: 'Machinery', other: 'Other',
+          };
+
+          const rows = unresolved.map(i => {
+            const daysOld = Math.floor((Date.now() - new Date(i.createdAt!).getTime()) / (1000 * 60 * 60 * 24));
+            const typeLabel = i.recordType === 'positive_action' ? 'Positive Action' : 'Good Spot';
+            return `
+              <tr>
+                <td style="padding:8px;border:1px solid #e5e7eb">${typeLabel}</td>
+                <td style="padding:8px;border:1px solid #e5e7eb">${i.title}</td>
+                <td style="padding:8px;border:1px solid #e5e7eb">${i.location || '—'}</td>
+                <td style="padding:8px;border:1px solid #e5e7eb">${i.reportedBy || '—'}</td>
+                <td style="padding:8px;border:1px solid #e5e7eb">${i.hazardType ? (HAZARD_LABELS[i.hazardType] || i.hazardType) : '—'}</td>
+                <td style="padding:8px;border:1px solid #e5e7eb;color:${daysOld >= 14 ? '#dc2626' : '#b45309'};font-weight:bold">${daysOld} days</td>
+              </tr>
+            `;
+          }).join('');
+
+          const emailSvc = new EmailService(customer.id);
+          await emailSvc.sendEmail({
+            to: adminEmail,
+            subject: `⏳ ${unresolved.length} Good Spot${unresolved.length > 1 ? 's' : ''} awaiting resolution — ${siteName}`,
+            companyName,
+            html: `
+              <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto">
+                <div style="background:#b45309;color:#fff;padding:20px;border-radius:8px 8px 0 0">
+                  <h2 style="margin:0">⏳ Good Spots Awaiting Resolution</h2>
+                  <p style="margin:4px 0 0;opacity:0.85">${siteName}</p>
+                </div>
+                <div style="background:#fff;padding:20px;border:1px solid #e5e7eb;border-top:none">
+                  <p>${unresolved.length} safety observation${unresolved.length > 1 ? 's have' : ' has'} been logged but not yet resolved. Staff are more likely to keep reporting hazards when they see their observations acted on.</p>
+                  <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:13px">
+                    <thead>
+                      <tr style="background:#f9fafb">
+                        <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Type</th>
+                        <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Observation</th>
+                        <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Location</th>
+                        <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Reported by</th>
+                        <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Hazard</th>
+                        <th style="padding:8px;border:1px solid #e5e7eb;text-align:left">Age</th>
+                      </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                  </table>
+                  <p>Log in to TPR and mark each Good Spot as resolved once the hazard has been dealt with.</p>
+                  <p style="font-size:12px;color:#6b7280;margin-top:16px">Each observation will only be reminded once. This reminder was sent automatically by TPR.</p>
+                </div>
+              </div>
+            `,
+            text: `${unresolved.length} Good Spot${unresolved.length > 1 ? 's' : ''} awaiting resolution at ${siteName}.\n\n${unresolved.map(i => `- ${i.title}${i.location ? ` (${i.location})` : ''}${i.reportedBy ? ` — reported by ${i.reportedBy}` : ''}`).join('\n')}\n\nLog in to TPR to resolve these records.`,
+          });
+
+          const now = new Date();
+          for (const record of unresolved) {
+            await custDb.update(isolatedSchema.hsIncidents)
+              .set({ resolutionReminderSentAt: now })
+              .where(eq(isolatedSchema.hsIncidents.id, record.id));
+          }
+
+          logger.info(`[Resolution Reminder Cron] Sent reminder for ${unresolved.length} unresolved record(s) — customer ${customer.id}`);
+        } catch (custErr) {
+          logger.error(`[Resolution Reminder Cron] Error for customer ${customer.id}:`, custErr);
+        }
+      }
+      logger.info('[Resolution Reminder Cron] Daily check complete');
+    } catch (err) {
+      logger.error('[Resolution Reminder Cron] Fatal error:', err);
     }
   }, { timezone: 'Europe/London' });
 }

@@ -374,6 +374,13 @@ export class CustomerDatabaseService {
       logger.warn(`⚠️ visitors.nda_accepted_ip column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Ensure feature_bbs column exists in company_settings (BBS feature flag migration)
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_bbs BOOLEAN DEFAULT false`);
+    } catch (err: any) {
+      logger.warn(`⚠️ feature_bbs column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure PPM tables exist (PPM module migration)
     try {
       // ppm_asset_groups must be created before ppm_assets (FK dependency)
