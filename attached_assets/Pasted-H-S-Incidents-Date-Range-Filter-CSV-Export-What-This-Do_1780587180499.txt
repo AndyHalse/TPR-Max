@@ -1,0 +1,276 @@
+H&S Incidents: Date Range Filter & CSV Export
+
+What This Does
+
+Adds a date range filter (From / To date inputs) above the filter tabs, and a CSV export button that downloads the currently filtered records. Both operate entirely client-side — no backend changes needed since all records are already loaded.
+
+Run this prompt after prompt 04 (investigation status) — the CSV includes investigation fields. If prompt 04 hasn't been built yet, omit the investigation columns from the CSV headers and rows.
+
+
+
+File to Change
+
+client/src/pages/HSIncidents.tsx only.
+
+
+
+1. New State
+
+Add near the other useState calls:
+
+const [dateFrom, setDateFrom] = useState('');
+const [dateTo, setDateTo] = useState('');
+
+
+
+2. Update the filtered Computation
+
+The existing filtered array filters by filterType. Extend it to also apply the date range:
+
+const filtered = incidents.filter(i => {
+  const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
+
+  // Existing type filter
+  if (filterType === 'riddor') {
+    if (!(rt === 'incident' && i.riddorCategory && i.riddorCategory !== 'not_riddor_reportable')) return false;
+  } else if (filterType !== 'all') {
+    if (rt !== filterType) return false;
+  }
+
+  // Date range filter
+  const incDate = new Date(i.incidentDate);
+  if (dateFrom && incDate < new Date(dateFrom + 'T00:00:00')) return false;
+  if (dateTo && incDate > new Date(dateTo + 'T23:59:59')) return false;
+
+  return true;
+});
+
+Replace the existing filtered computation entirely with this version.
+
+
+
+3. CSV Export Function
+
+Add this function inside the HSIncidents component, before the return statement:
+
+function exportCsv() {
+  const HAZARD_LABELS: Record<string, string> = {
+    slip_trip_fall: 'Slip, trip or fall', struck_by_object: 'Struck by object',
+    manual_handling: 'Manual handling', vehicle_plant: 'Vehicle or plant',
+    working_at_height: 'Working at height', electrical: 'Electrical',
+    fire_explosion: 'Fire or explosion', chemical_substance: 'Chemical or substance',
+    machinery: 'Machinery', other: 'Other',
+  };
+  const RIDDOR_LABELS_CSV: Record<string, string> = {
+    fatality: 'Fatality', specified_injury: 'Specified Injury',
+    over_7_day: 'Over-7-Day Incapacitation', dangerous_occurrence: 'Dangerous Occurrence',
+    occupational_disease: 'Occupational Disease', not_riddor_reportable: 'Not RIDDOR Reportable',
+  };
+
+  const headers = [
+    'Date & Time', 'Record Type', 'Title', 'Location', 'Reported By',
+    'Injured Person', 'Person Type', 'Hazard Type', 'Description',
+    'Near Miss Potential', 'RIDDOR Category', 'RIDDOR Deadline', 'RIDDOR Reported', 'HSE Reference',
+    'Resolved', 'Resolved By', 'Resolved At', 'Resolution Notes',
+    'Investigation Status', 'Investigated By', 'Investigation Notes',
+  ];
+
+  const rows = filtered.map(i => {
+    const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
+    const isBbsRecord = rt === 'good_spot' || rt === 'positive_action';
+    const recordTypeLabel = rt === 'incident' ? 'Incident' : rt === 'near_miss' ? 'Near Miss' : rt === 'good_spot' ? 'Good Spot' : 'Positive Action';
+    return [
+      new Date(i.incidentDate).toLocaleString('en-GB'),
+      recordTypeLabel,
+      i.title,
+      i.location || '',
+      i.reportedBy || '',
+      (!isBbsRecord && i.injuredPerson) ? i.injuredPerson : '',
+      (!isBbsRecord && i.injuredPersonType) ? personTypeLabel(i.injuredPersonType) : '',
+      i.hazardType ? (HAZARD_LABELS[i.hazardType] || i.hazardType) :
+        (i.nearMissHazardType ? (HAZARD_LABELS[i.nearMissHazardType] || i.nearMissHazardType) : ''),
+      i.description || '',
+      i.nearMissPotential || '',
+      i.riddorCategory ? (RIDDOR_LABELS_CSV[i.riddorCategory] || i.riddorCategory) : '',
+      i.riddorReportingDeadline ? new Date(i.riddorReportingDeadline).toLocaleDateString('en-GB') : '',
+      i.riddorReportedAt ? new Date(i.riddorReportedAt).toLocaleDateString('en-GB') : '',
+      i.riddorReference || '',
+      isBbsRecord ? (i.resolved ? 'Yes' : 'No') : '',
+      isBbsRecord ? (i.resolvedBy || '') : '',
+      (isBbsRecord && i.resolvedAt) ? new Date(i.resolvedAt).toLocaleDateString('en-GB') : '',
+      isBbsRecord ? (i.resolutionNotes || '') : '',
+      (!isBbsRecord) ? (i.investigationStatus || 'open') : '',
+      (!isBbsRecord) ? (i.investigatedBy || '') : '',
+      (!isBbsRecord) ? (i.investigationNotes || '') : '',
+    ];
+  });
+
+  const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+  const csv = [headers, ...rows].map(row => row.map(escape).join(',')).join('\n');
+
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+
+  // Build filename from active filters and date range
+  const parts = ['hs-records'];
+  if (filterType !== 'all') parts.push(filterType.replace('_', '-'));
+  if (dateFrom) parts.push(`from-${dateFrom}`);
+  if (dateTo) parts.push(`to-${dateTo}`);
+  parts.push(new Date().toISOString().slice(0, 10));
+  a.download = parts.join('-') + '.csv';
+
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+The '﻿' BOM prefix ensures Excel opens the CSV with correct encoding (important for UK users).
+
+
+
+4. UI Changes
+
+4a. Add Export CSV button to the page header
+
+In the header row (where the "Record" button is), add the export button alongside it:
+
+<div className="flex gap-2">
+  <Button
+    variant="outline"
+    size="sm"
+    onClick={exportCsv}
+    disabled={filtered.length === 0}
+  >
+    <FileDown size={14} className="mr-1" /> Export CSV
+    {filtered.length > 0 && (
+      <span className="ml-1.5 text-xs text-muted-foreground">({filtered.length})</span>
+    )}
+  </Button>
+  <Button onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); }}>
+    <Plus size={16} className="mr-1" /> Record
+  </Button>
+</div>
+
+FileDown is already imported.
+
+4b. Add date range filter row
+
+Add this block between the RIDDOR pending alerts and the Safety Engagement Dashboard (before {showDashboard && ...}):
+
+{/* Date range filter */}
+<div className="flex flex-wrap items-center gap-3">
+  <span className="text-sm text-muted-foreground shrink-0">Date range:</span>
+  <div className="flex items-center gap-2">
+    <Input
+      type="date"
+      value={dateFrom}
+      onChange={e => setDateFrom(e.target.value)}
+      className="w-40 text-sm"
+      placeholder="From"
+    />
+    <span className="text-muted-foreground text-sm">—</span>
+    <Input
+      type="date"
+      value={dateTo}
+      onChange={e => setDateTo(e.target.value)}
+      className="w-40 text-sm"
+      placeholder="To"
+    />
+  </div>
+  {(dateFrom || dateTo) && (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={() => { setDateFrom(''); setDateTo(''); }}
+      className="text-xs text-muted-foreground"
+    >
+      Clear
+    </Button>
+  )}
+  {(dateFrom || dateTo) && (
+    <span className="text-xs text-muted-foreground">
+      {filtered.length} record{filtered.length !== 1 ? 's' : ''} in range
+    </span>
+  )}
+</div>
+
+
+
+5. What NOT to Change
+
+
+
+
+
+The filter tabs (All / Incidents / Near Misses / Good Spots / Positive Actions / RIDDOR Only) — leave exactly as they are. Date range and type filter both apply simultaneously.
+
+
+
+All dialogs, mutations, the dashboard, the pyramid, the trend chart — untouched.
+
+
+
+No backend changes at all.
+
+
+
+Notes
+
+Interaction between filters: Type filter and date range both apply to the same filtered array simultaneously — a user can filter to "Good Spots" AND "June 2026" at the same time. The Export CSV button always exports the currently visible (filtered) records, so what you see is what you get.
+
+investigationStatus field: If prompt 04 (investigation status) has not yet been built, the investigationStatus / investigatedBy / investigationNotes cells will all be empty strings in the CSV — no error, just blank columns. The headers are still included so the CSV structure is ready for when prompt 04 is built.
+
+Large datasets: All records are already in memory from the existing /api/hs-incidents query, so the CSV is built entirely client-side with no extra server call.
+
+
+
+Done When
+
+
+
+
+
+Date range inputs appear above the dashboard section
+
+
+
+Selecting a date range updates the filtered list in real-time
+
+
+
+"X records in range" count shows when a date range is active
+
+
+
+Clear button resets both dates
+
+
+
+Date range and type filter work together simultaneously
+
+
+
+Export CSV button appears in the page header, disabled when no records
+
+
+
+Button label shows the count of records that will be exported
+
+
+
+Exported CSV includes all columns listed above
+
+
+
+CSV opens cleanly in Excel with correct character encoding
+
+
+
+Filename reflects active filters and date range
+
+
+
+All existing functionality unchanged

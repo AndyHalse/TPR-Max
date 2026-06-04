@@ -203,6 +203,8 @@ export default function HSIncidents() {
   const [filterType, setFilterType] = useState<"all" | "incident" | "near_miss" | "good_spot" | "positive_action" | "riddor">("all");
   const [form, setForm] = useState({ ...emptyForm });
   const [showManagementView, setShowManagementView] = useState(false);
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
 
   const { data: staffList = [] } = useQuery<StaffMember[]>({
     queryKey: ["/api/staff"],
@@ -422,9 +424,15 @@ export default function HSIncidents() {
 
   const filtered = incidents.filter(i => {
     const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
-    if (filterType === "all") return true;
-    if (filterType === "riddor") return rt === 'incident' && i.riddorCategory && i.riddorCategory !== "not_riddor_reportable";
-    return rt === filterType;
+    if (filterType === 'riddor') {
+      if (!(rt === 'incident' && i.riddorCategory && i.riddorCategory !== 'not_riddor_reportable')) return false;
+    } else if (filterType !== 'all') {
+      if (rt !== filterType) return false;
+    }
+    const incDate = new Date(i.incidentDate);
+    if (dateFrom && incDate < new Date(dateFrom + 'T00:00:00')) return false;
+    if (dateTo && incDate > new Date(dateTo + 'T23:59:59')) return false;
+    return true;
   });
 
   function handleDownloadPdf(id: string) {
@@ -506,6 +514,79 @@ export default function HSIncidents() {
 
   const isBbs = (rt: string) => rt === 'good_spot' || rt === 'positive_action';
 
+  function exportCsv() {
+    const HAZARD_LABELS: Record<string, string> = {
+      slip_trip_fall: 'Slip, trip or fall', struck_by_object: 'Struck by object',
+      manual_handling: 'Manual handling', vehicle_plant: 'Vehicle or plant',
+      working_at_height: 'Working at height', electrical: 'Electrical',
+      fire_explosion: 'Fire or explosion', chemical_substance: 'Chemical or substance',
+      machinery: 'Machinery', other: 'Other',
+    };
+    const RIDDOR_LABELS_CSV: Record<string, string> = {
+      fatality: 'Fatality', specified_injury: 'Specified Injury',
+      over_7_day: 'Over-7-Day Incapacitation', dangerous_occurrence: 'Dangerous Occurrence',
+      occupational_disease: 'Occupational Disease', not_riddor_reportable: 'Not RIDDOR Reportable',
+    };
+
+    const headers = [
+      'Date & Time', 'Record Type', 'Title', 'Location', 'Reported By',
+      'Injured Person', 'Person Type', 'Hazard Type', 'Description',
+      'Near Miss Potential', 'RIDDOR Category', 'RIDDOR Deadline', 'RIDDOR Reported', 'HSE Reference',
+      'Resolved', 'Resolved By', 'Resolved At', 'Resolution Notes',
+      'Investigation Status', 'Investigated By', 'Investigation Notes',
+    ];
+
+    const rows = filtered.map(i => {
+      const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
+      const isBbsRecord = rt === 'good_spot' || rt === 'positive_action';
+      const recordTypeLabel = rt === 'incident' ? 'Incident' : rt === 'near_miss' ? 'Near Miss' : rt === 'good_spot' ? 'Good Spot' : 'Positive Action';
+      return [
+        new Date(i.incidentDate).toLocaleString('en-GB'),
+        recordTypeLabel,
+        i.title,
+        i.location || '',
+        i.reportedBy || '',
+        (!isBbsRecord && i.injuredPerson) ? i.injuredPerson : '',
+        (!isBbsRecord && i.injuredPersonType) ? personTypeLabel(i.injuredPersonType) : '',
+        i.hazardType ? (HAZARD_LABELS[i.hazardType] || i.hazardType) :
+          (i.nearMissHazardType ? (HAZARD_LABELS[i.nearMissHazardType] || i.nearMissHazardType) : ''),
+        i.description || '',
+        i.nearMissPotential || '',
+        i.riddorCategory ? (RIDDOR_LABELS_CSV[i.riddorCategory] || i.riddorCategory) : '',
+        i.riddorReportingDeadline ? new Date(i.riddorReportingDeadline).toLocaleDateString('en-GB') : '',
+        i.riddorReportedAt ? new Date(i.riddorReportedAt).toLocaleDateString('en-GB') : '',
+        i.riddorReference || '',
+        isBbsRecord ? (i.resolved ? 'Yes' : 'No') : '',
+        isBbsRecord ? (i.resolvedBy || '') : '',
+        (isBbsRecord && i.resolvedAt) ? new Date(i.resolvedAt).toLocaleDateString('en-GB') : '',
+        isBbsRecord ? (i.resolutionNotes || '') : '',
+        (!isBbsRecord) ? ((i as any).investigationStatus || 'open') : '',
+        (!isBbsRecord) ? ((i as any).investigatedBy || '') : '',
+        (!isBbsRecord) ? ((i as any).investigationNotes || '') : '',
+      ];
+    });
+
+    const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const csv = [headers, ...rows].map(row => row.map(escape).join(',')).join('\n');
+
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+
+    const parts = ['hs-records'];
+    if (filterType !== 'all') parts.push(filterType.replace('_', '-'));
+    if (dateFrom) parts.push(`from-${dateFrom}`);
+    if (dateTo) parts.push(`to-${dateTo}`);
+    parts.push(new Date().toISOString().slice(0, 10));
+    a.download = parts.join('-') + '.csv';
+
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <TooltipProvider>
     <div className="p-4 sm:p-6 space-y-6">
@@ -532,9 +613,22 @@ export default function HSIncidents() {
             </Tooltip>
           </div>
         </div>
-        <Button onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); }}>
-          <Plus size={16} className="mr-1" /> Record
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={exportCsv}
+            disabled={filtered.length === 0}
+          >
+            <FileDown size={14} className="mr-1" /> Export CSV
+            {filtered.length > 0 && (
+              <span className="ml-1.5 text-xs text-muted-foreground">({filtered.length})</span>
+            )}
+          </Button>
+          <Button onClick={() => { setShowForm(true); setEditingId(null); setForm({ ...emptyForm }); }}>
+            <Plus size={16} className="mr-1" /> Record
+          </Button>
+        </div>
       </div>
 
       {/* RIDDOR pending alerts */}
@@ -556,6 +650,43 @@ export default function HSIncidents() {
           })}
         </div>
       )}
+
+      {/* Date range filter */}
+      <div className="flex flex-wrap items-center gap-3">
+        <span className="text-sm text-muted-foreground shrink-0">Date range:</span>
+        <div className="flex items-center gap-2">
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            className="w-40 text-sm"
+            placeholder="From"
+          />
+          <span className="text-muted-foreground text-sm">—</span>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+            className="w-40 text-sm"
+            placeholder="To"
+          />
+        </div>
+        {(dateFrom || dateTo) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => { setDateFrom(''); setDateTo(''); }}
+            className="text-xs text-muted-foreground"
+          >
+            Clear
+          </Button>
+        )}
+        {(dateFrom || dateTo) && (
+          <span className="text-xs text-muted-foreground">
+            {filtered.length} record{filtered.length !== 1 ? 's' : ''} in range
+          </span>
+        )}
+      </div>
 
       {/* Safety Engagement Dashboard */}
       {showDashboard && (
