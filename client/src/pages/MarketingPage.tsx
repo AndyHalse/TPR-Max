@@ -245,11 +245,11 @@ export default function MarketingPage() {
                 Industries
               </button>
               <button
-                onClick={() => window.location.href = "/blog"}
+                onClick={() => window.location.href = "/about"}
                 className="text-slate-600 dark:text-slate-300 transition-colors hover:text-[#2460A9]"
-                data-testid="link-blog"
+                data-testid="link-about"
               >
-                Blog
+                About
               </button>
               <button
                 onClick={() => scrollToSection("pricing")}
@@ -322,10 +322,10 @@ export default function MarketingPage() {
                 Industries
               </button>
               <button
-                onClick={() => { window.location.href = "/blog"; }}
+                onClick={() => { window.location.href = "/about"; }}
                 className="block w-full text-left px-4 py-2 text-slate-600 dark:text-slate-300 hover:text-[#2460A9] hover:bg-slate-50 dark:hover:bg-slate-800 rounded-md"
               >
-                Blog
+                About
               </button>
               <button
                 onClick={() => { scrollToSection("pricing"); setMobileMenuOpen(false); }}

@@ -45,6 +45,7 @@ import WorkerDocumentUpload from "@/pages/WorkerDocumentUpload";
 import MarketingPage from "@/pages/MarketingPage";
 import BlogListPage from "@/pages/BlogListPage";
 import BlogPostPage from "@/pages/BlogPostPage";
+import AboutPage from "@/pages/AboutPage";
 import AISettings from "@/pages/AISettings";
 import LeaverTemplateSettings from "@/pages/settings/LeaverTemplateSettings";
 import OnboardingTemplateSettings from "@/pages/settings/OnboardingTemplateSettings";
@@ -260,6 +261,11 @@ function Router() {
   // Public marketing page - no authentication required
   if (window.location.pathname === '/marketing') {
     return <MarketingPage />;
+  }
+
+  // Public about page - no authentication required
+  if (window.location.pathname === '/about') {
+    return <AboutPage />;
   }
   
   // Public onboarding pages - no authentication required
