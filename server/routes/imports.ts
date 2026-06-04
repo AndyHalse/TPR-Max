@@ -1366,10 +1366,375 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       logger.warn(`Sample RA Builder data failed: ${e.message}`);
     }
 
+    // ── Audit & Inspection sample data ───────────────────────────────────────
+    let auditTemplatesAdded = 0, auditRecordsAdded = 0, auditActionsAdded = 0;
+    try {
+      const auditTemplateData = [
+        {
+          id: `audit-demo-${batchId}-tmpl-001`,
+          name: 'Monthly H&S Workplace Inspection',
+          description: 'General health and safety inspection covering all workplace areas including offices, welfare facilities, fire systems and pedestrian routes.',
+          category: 'safety', frequency: 'monthly', estimatedMinutes: 45, passScore: 80,
+          items: [
+            { q: 'Are all fire exit routes clear and unobstructed?',                              cat: 'Fire Safety',   critical: true,  photo: false, note: true  },
+            { q: 'Are fire extinguishers in date and correctly sited?',                           cat: 'Fire Safety',   critical: true,  photo: false, note: true  },
+            { q: 'Is the fire alarm test log up to date?',                                        cat: 'Fire Safety',   critical: false, photo: false, note: false },
+            { q: 'Are all emergency lighting units operational?',                                 cat: 'Fire Safety',   critical: true,  photo: false, note: true  },
+            { q: 'Are pedestrian walkways clearly marked and free from obstruction?',             cat: 'Housekeeping',  critical: false, photo: true,  note: false },
+            { q: 'Is spillage/slip hazard management in place?',                                  cat: 'Housekeeping',  critical: false, photo: false, note: true  },
+            { q: 'Are first aid kits fully stocked and in date?',                                 cat: 'First Aid',     critical: true,  photo: false, note: true  },
+            { q: 'Is the first aid register up to date?',                                         cat: 'First Aid',     critical: false, photo: false, note: false },
+            { q: 'Are all electrical panels and distribution boards accessible and unblocked?',   cat: 'Electrical',    critical: true,  photo: false, note: true  },
+            { q: 'Is PPE available, in good condition and correctly stored?',                     cat: 'PPE',           critical: false, photo: false, note: true  },
+            { q: 'Is the accident/incident book accessible and correctly completed?',             cat: 'Records',       critical: false, photo: false, note: false },
+            { q: 'Are H&S policies and risk assessments displayed/accessible to staff?',         cat: 'Records',       critical: false, photo: false, note: false },
+          ],
+        },
+        {
+          id: `audit-demo-${batchId}-tmpl-002`,
+          name: 'Fire Safety Quarterly Audit',
+          description: 'Quarterly structured audit of all fire safety measures, prevention controls, evacuation procedures and responsible persons obligations.',
+          category: 'fire_safety', frequency: 'quarterly', estimatedMinutes: 60, passScore: 85,
+          items: [
+            { q: 'Has the fire risk assessment been reviewed in the last 12 months?',             cat: 'Documentation', critical: true,  photo: false, note: true  },
+            { q: 'Are all fire doors in good condition and self-closing?',                        cat: 'Passive',       critical: true,  photo: true,  note: true  },
+            { q: 'Is the fire alarm panel showing normal with no faults?',                        cat: 'Detection',     critical: true,  photo: false, note: true  },
+            { q: 'Have all manual call points been tested in the last 12 months?',               cat: 'Detection',     critical: true,  photo: false, note: true  },
+            { q: 'Is emergency lighting tested monthly and results recorded?',                    cat: 'Evacuation',    critical: true,  photo: false, note: true  },
+            { q: 'Are assembly point signs visible and unobstructed externally?',                cat: 'Evacuation',    critical: false, photo: true,  note: false },
+            { q: 'Have evacuation drills been conducted in the last 6 months?',                  cat: 'Evacuation',    critical: true,  photo: false, note: true  },
+            { q: 'Are all sprinkler heads clean and unobstructed?',                              cat: 'Suppression',   critical: true,  photo: false, note: true  },
+            { q: 'Is a hot works permit procedure in place and communicated?',                   cat: 'Prevention',    critical: false, photo: false, note: false },
+            { q: 'Are all fire signage and exit signs illuminated and visible?',                  cat: 'Signage',       critical: true,  photo: true,  note: false },
+          ],
+        },
+        {
+          id: `audit-demo-${batchId}-tmpl-003`,
+          name: 'Contractor Site Induction Compliance Check',
+          description: 'Verification that visiting contractors have completed all required induction steps and carry valid documentation before commencing work.',
+          category: 'compliance', frequency: 'weekly', estimatedMinutes: 20, passScore: 100,
+          items: [
+            { q: 'Has the contractor completed the site induction on TPR?',                      cat: 'Induction',     critical: true,  photo: false, note: false },
+            { q: 'Does the contractor hold a valid CSCS or equivalent card?',                    cat: 'Competence',    critical: true,  photo: true,  note: true  },
+            { q: 'Has a valid RAMS been received and approved for the work?',                    cat: 'Documentation', critical: true,  photo: false, note: true  },
+            { q: 'Is the contractor\'s public liability insurance in date?',                     cat: 'Insurance',     critical: true,  photo: false, note: true  },
+            { q: 'Is a Permit to Work required and has it been issued?',                         cat: 'Permits',       critical: true,  photo: false, note: true  },
+            { q: 'Is the contractor wearing appropriate PPE for the task?',                      cat: 'PPE',           critical: true,  photo: true,  note: false },
+            { q: 'Does the contractor have emergency contact details for site?',                  cat: 'Emergency',     critical: false, photo: false, note: false },
+          ],
+        },
+      ];
+
+      for (const tmpl of auditTemplateData) {
+        await pool.query(`
+          INSERT INTO "${schemaName}".audit_templates
+            (id, name, description, category, frequency, estimated_minutes, pass_score, is_active)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,true)
+          ON CONFLICT (id) DO NOTHING`,
+          [tmpl.id, tmpl.name, tmpl.description, tmpl.category, tmpl.frequency, tmpl.estimatedMinutes, tmpl.passScore]
+        );
+        auditTemplatesAdded++;
+        for (let i = 0; i < tmpl.items.length; i++) {
+          const item = tmpl.items[i];
+          const itemId = `${tmpl.id}-item-${String(i + 1).padStart(2, '0')}`;
+          await pool.query(`
+            INSERT INTO "${schemaName}".audit_template_items
+              (id, template_id, question, category, requires_photo, requires_note, is_critical, sort_order)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+            ON CONFLICT (id) DO NOTHING`,
+            [itemId, tmpl.id, item.q, item.cat, item.photo, item.note, item.critical, i]
+          );
+        }
+      }
+
+      // 5 audit records: 3 completed (pass, fail, pass), 1 scheduled, 1 in-progress
+      const auditRecordDefs = [
+        {
+          id: `audit-demo-${batchId}-rec-001`,
+          templateId: `audit-demo-${batchId}-tmpl-001`,
+          templateName: 'Monthly H&S Workplace Inspection', category: 'safety',
+          title: 'Monthly H&S Inspection — January 2026', conductedBy: 'Neil Baxter',
+          conductedAt: new Date('2026-01-20T10:30:00Z'), scheduledDate: '2026-01-20',
+          location: 'Main Office & Warehouse — Building A',
+          status: 'completed', overallScore: 92, passed: true,
+          summary: 'Generally strong performance. Fire exit signage updated since last audit. First aid kit in server room requires restocking — action raised.',
+        },
+        {
+          id: `audit-demo-${batchId}-rec-002`,
+          templateId: `audit-demo-${batchId}-tmpl-001`,
+          templateName: 'Monthly H&S Workplace Inspection', category: 'safety',
+          title: 'Monthly H&S Inspection — February 2026', conductedBy: 'Ingrid Holm',
+          conductedAt: new Date('2026-02-18T09:00:00Z'), scheduledDate: '2026-02-18',
+          location: 'Main Office & Warehouse — Building A',
+          status: 'completed', overallScore: 67, passed: false,
+          summary: 'FAILED: Three critical findings — emergency lighting unit in stairwell B defective, fire extinguisher in loading bay expired, and pedestrian walkway on goods-in bay partially blocked by pallets. Immediate corrective actions raised.',
+        },
+        {
+          id: `audit-demo-${batchId}-rec-003`,
+          templateId: `audit-demo-${batchId}-tmpl-002`,
+          templateName: 'Fire Safety Quarterly Audit', category: 'fire_safety',
+          title: 'Fire Safety Audit — Q1 2026', conductedBy: 'Neil Baxter',
+          conductedAt: new Date('2026-03-14T14:00:00Z'), scheduledDate: '2026-03-14',
+          location: 'All Buildings',
+          status: 'completed', overallScore: 88, passed: true,
+          summary: 'Good overall compliance. One minor finding: east stairwell emergency lighting requires replacement battery. Action raised with facilities team.',
+        },
+        {
+          id: `audit-demo-${batchId}-rec-004`,
+          templateId: `audit-demo-${batchId}-tmpl-001`,
+          templateName: 'Monthly H&S Workplace Inspection', category: 'safety',
+          title: 'Monthly H&S Inspection — April 2026', conductedBy: 'Ingrid Holm',
+          conductedAt: null, scheduledDate: '2026-04-20',
+          location: 'Main Office & Warehouse — Building A',
+          status: 'scheduled', overallScore: null, passed: null, summary: null,
+        },
+        {
+          id: `audit-demo-${batchId}-rec-005`,
+          templateId: `audit-demo-${batchId}-tmpl-003`,
+          templateName: 'Contractor Site Induction Compliance Check', category: 'compliance',
+          title: 'Contractor Compliance Check — BuildRight Contractors', conductedBy: 'James Fletcher',
+          conductedAt: new Date('2026-02-25T08:30:00Z'), scheduledDate: '2026-02-25',
+          location: 'Site Entrance & Works Area — Goods-in Extension',
+          status: 'completed', overallScore: 86, passed: true,
+          summary: 'Induction completed, CSCS cards verified. RAMS approved prior to works. PTW issued. Minor: one operative wearing incorrect footwear — corrected immediately on site.',
+        },
+      ];
+
+      for (const rec of auditRecordDefs) {
+        await pool.query(`
+          INSERT INTO "${schemaName}".audit_records
+            (id, template_id, template_name, category, title, conducted_by, conducted_at, scheduled_date, location, status, overall_score, passed, summary)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          ON CONFLICT (id) DO NOTHING`,
+          [rec.id, rec.templateId, rec.templateName, rec.category, rec.title, rec.conductedBy,
+           rec.conductedAt ?? null, rec.scheduledDate, rec.location, rec.status,
+           rec.overallScore ?? null, rec.passed ?? null, rec.summary ?? null]
+        );
+        auditRecordsAdded++;
+      }
+
+      // Items for rec-001 (passed 92% — one fail on first aid kit)
+      const rec001Items = [
+        { q: 'Are all fire exit routes clear and unobstructed?',                            critical: true,  resp: 'pass', note: null },
+        { q: 'Are fire extinguishers in date and correctly sited?',                         critical: true,  resp: 'pass', note: null },
+        { q: 'Is the fire alarm test log up to date?',                                      critical: false, resp: 'pass', note: null },
+        { q: 'Are all emergency lighting units operational?',                               critical: true,  resp: 'pass', note: null },
+        { q: 'Are pedestrian walkways clearly marked and free from obstruction?',           critical: false, resp: 'pass', note: null },
+        { q: 'Is spillage/slip hazard management in place?',                                critical: false, resp: 'pass', note: null },
+        { q: 'Are first aid kits fully stocked and in date?',                               critical: true,  resp: 'fail', note: 'First aid kit in server room requires restocking — plasters and burns dressings depleted.' },
+        { q: 'Is the first aid register up to date?',                                       critical: false, resp: 'pass', note: null },
+        { q: 'Are all electrical panels accessible and unblocked?',                         critical: true,  resp: 'pass', note: null },
+        { q: 'Is PPE available, in good condition and correctly stored?',                   critical: false, resp: 'pass', note: null },
+        { q: 'Is the accident/incident book accessible and correctly completed?',           critical: false, resp: 'pass', note: null },
+        { q: 'Are H&S policies and risk assessments displayed/accessible to staff?',       critical: false, resp: 'pass', note: null },
+      ];
+      for (let i = 0; i < rec001Items.length; i++) {
+        const it = rec001Items[i];
+        await pool.query(`INSERT INTO "${schemaName}".audit_record_items (id,audit_id,question,is_critical,response,note,sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING`,
+          [`${auditRecordDefs[0].id}-item-${String(i+1).padStart(2,'0')}`, auditRecordDefs[0].id, it.q, it.critical, it.resp, it.note, i]);
+      }
+
+      // Items for rec-002 (failed 67% — three fails: extinguisher, emergency lighting, walkway)
+      const rec002Items = [
+        { q: 'Are all fire exit routes clear and unobstructed?',                            critical: true,  resp: 'pass', note: null },
+        { q: 'Are fire extinguishers in date and correctly sited?',                         critical: true,  resp: 'fail', note: 'Fire extinguisher No. 7 in loading bay — annual service tag expired 31/12/2025. Removed from service pending engineer visit.' },
+        { q: 'Is the fire alarm test log up to date?',                                      critical: false, resp: 'pass', note: null },
+        { q: 'Are all emergency lighting units operational?',                               critical: true,  resp: 'fail', note: 'Unit in stairwell B (2nd floor landing) not illuminating on test. Battery self-contained unit — requires replacement.' },
+        { q: 'Are pedestrian walkways clearly marked and free from obstruction?',           critical: false, resp: 'fail', note: 'Walkway on goods-in bay partially blocked by 3 pallets awaiting processing. Operatives instructed to clear immediately.' },
+        { q: 'Is spillage/slip hazard management in place?',                                critical: false, resp: 'pass', note: null },
+        { q: 'Are first aid kits fully stocked and in date?',                               critical: true,  resp: 'pass', note: null },
+        { q: 'Is the first aid register up to date?',                                       critical: false, resp: 'pass', note: null },
+        { q: 'Are all electrical panels accessible and unblocked?',                         critical: true,  resp: 'pass', note: null },
+        { q: 'Is PPE available, in good condition and correctly stored?',                   critical: false, resp: 'pass', note: null },
+        { q: 'Is the accident/incident book accessible and correctly completed?',           critical: false, resp: 'pass', note: null },
+        { q: 'Are H&S policies and risk assessments displayed/accessible to staff?',       critical: false, resp: 'pass', note: null },
+      ];
+      const rec002ItemIds: string[] = [];
+      for (let i = 0; i < rec002Items.length; i++) {
+        const it = rec002Items[i];
+        const itemId = `${auditRecordDefs[1].id}-item-${String(i+1).padStart(2,'0')}`;
+        rec002ItemIds.push(itemId);
+        await pool.query(`INSERT INTO "${schemaName}".audit_record_items (id,audit_id,question,is_critical,response,note,sort_order) VALUES ($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(id) DO NOTHING`,
+          [itemId, auditRecordDefs[1].id, it.q, it.critical, it.resp, it.note, i]);
+      }
+
+      // 3 corrective actions for rec-002 (the failed audit)
+      const rec002Actions = [
+        {
+          id: `audit-demo-${batchId}-action-001`,
+          auditId: auditRecordDefs[1].id, auditItemId: rec002ItemIds[1],
+          title: 'Replace/re-service loading bay fire extinguisher',
+          description: 'Fire extinguisher No. 7 in loading bay has an expired service tag (31/12/2025). Arrange emergency service visit or replace with a serviced unit immediately.',
+          priority: 'high', assignedTo: 'Louise Grant', assignedEmail: `demo.facilities.mgr.${batchId}@example.com`,
+          dueDate: '2026-02-25', status: 'closed',
+          closureNotes: 'Replacement CO2 2kg extinguisher installed 22/02/2026, service tag valid to 2027. Old unit sent for annual service.',
+          closedAt: new Date('2026-02-22T11:00:00Z'), closedBy: 'Louise Grant',
+        },
+        {
+          id: `audit-demo-${batchId}-action-002`,
+          auditId: auditRecordDefs[1].id, auditItemId: rec002ItemIds[3],
+          title: 'Replace emergency lighting battery — Stairwell B 2nd floor',
+          description: 'Self-contained emergency lighting unit in stairwell B (2nd floor landing) failed function test. Unit requires new battery pack or replacement fitting.',
+          priority: 'high', assignedTo: 'Becky Crane', assignedEmail: `demo.facilities.super.${batchId}@example.com`,
+          dueDate: '2026-02-28', status: 'open',
+          closureNotes: null, closedAt: null, closedBy: null,
+        },
+        {
+          id: `audit-demo-${batchId}-action-003`,
+          auditId: auditRecordDefs[1].id, auditItemId: rec002ItemIds[4],
+          title: 'Clear goods-in bay pedestrian walkway',
+          description: 'Three pallets partially blocking the pedestrian walkway in goods-in bay. Supervisor to ensure walkway is cleared and to brief team on housekeeping expectations.',
+          priority: 'medium', assignedTo: 'James Fletcher', assignedEmail: `demo.ops.mgr.${batchId}@example.com`,
+          dueDate: '2026-02-18', status: 'closed',
+          closureNotes: 'Pallets cleared on the day. Team briefed. Supervisor conducting daily walkway check until next audit.',
+          closedAt: new Date('2026-02-18T16:00:00Z'), closedBy: 'James Fletcher',
+        },
+      ];
+      for (const action of rec002Actions) {
+        await pool.query(`
+          INSERT INTO "${schemaName}".audit_corrective_actions
+            (id, audit_id, audit_item_id, title, description, priority, assigned_to, assigned_email, due_date, status, closure_notes, closed_at, closed_by)
+          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+          ON CONFLICT (id) DO NOTHING`,
+          [action.id, action.auditId, action.auditItemId, action.title, action.description,
+           action.priority, action.assignedTo, action.assignedEmail, action.dueDate, action.status,
+           action.closureNotes, action.closedAt ?? null, action.closedBy ?? null]
+        );
+        auditActionsAdded++;
+      }
+      logger.info(`✅ Audit sample data: ${auditTemplatesAdded} templates, ${auditRecordsAdded} records, ${auditActionsAdded} actions`);
+    } catch (e: any) {
+      logger.warn(`Sample Audit data failed: ${e.message}`);
+    }
+
+    // ── Permit to Work sample data ────────────────────────────────────────────
+    let permitsAdded = 0;
+    try {
+      const oneWeekAgo  = new Date(now.getTime() - 7  * 86400000);
+      const twoWeeksAgo = new Date(now.getTime() - 14 * 86400000);
+      const tomorrow    = new Date(now.getTime() + 1  * 86400000);
+      const nextWeek    = new Date(now.getTime() + 7  * 86400000);
+
+      const samplePermits = [
+        {
+          id: `ptw-demo-${batchId}-001`,
+          permitNumber: `DEMO-HOT-${batchId}-001`,
+          permitType: 'hot_work',
+          workDescription: 'Welding and hot cutting of steel frame supports in the loading bay extension. All combustibles within 5m radius removed or protected prior to works commencing. Works form part of approved structural extension project.',
+          workLocation: 'Loading Bay — Extension Zone C, Building A',
+          contractorCompanyName: 'BuildRight Contractors Ltd', contractorWorkerName: 'Dave Ramsey',
+          staffName: 'James Fletcher',
+          plannedStartDate: twoWeeksAgo.toISOString().slice(0,10), plannedStartTime: '08:00',
+          plannedEndDate:   twoWeeksAgo.toISOString().slice(0,10), plannedEndTime:   '17:00',
+          permitValidFrom: twoWeeksAgo, permitValidUntil: new Date(twoWeeksAgo.getTime() + 10 * 3600000),
+          status: 'closed',
+          authorisedByName: 'Marcus Webb', authorisedAt: new Date(twoWeeksAgo.getTime() - 3600000),
+          authNotes: 'Fire watch in place throughout. CO2 extinguisher positioned within 2m of work area. Smoke detection in Zone C isolated for duration of works.',
+          closedByName: 'James Fletcher', closedAt: new Date(twoWeeksAgo.getTime() + 9 * 3600000),
+          closureNotes: 'All welding works completed. Area inspected — no smouldering found. Fire watch maintained 60 minutes post-works. Area returned to normal use.',
+          workCompletedSatisfactorily: true, createdByName: 'James Fletcher',
+        },
+        {
+          id: `ptw-demo-${batchId}-002`,
+          permitNumber: `DEMO-WAH-${batchId}-002`,
+          permitType: 'working_at_height',
+          workDescription: 'Replacement of guttering and downpipes on the north face of Building A at approximately 8m. Access via podium scaffold erected and inspected by approved scaffolding contractor.',
+          workLocation: 'North Elevation — Building A Roofline',
+          contractorCompanyName: 'SafeWork Facilities UK', contractorWorkerName: 'Mike Doyle',
+          staffName: 'Louise Grant',
+          plannedStartDate: oneWeekAgo.toISOString().slice(0,10), plannedStartTime: '07:30',
+          plannedEndDate:   tomorrow.toISOString().slice(0,10),   plannedEndTime:   '16:30',
+          permitValidFrom: oneWeekAgo, permitValidUntil: new Date(tomorrow.getTime() + 17 * 3600000),
+          status: 'active',
+          authorisedByName: 'Neil Baxter', authorisedAt: new Date(oneWeekAgo.getTime() - 2 * 3600000),
+          authNotes: 'Scaffold inspection certificate provided and on file (valid). Exclusion zone established below works area. All ground workers briefed on overhead works.',
+          closedByName: null, closedAt: null, closureNotes: null, workCompletedSatisfactorily: null,
+          createdByName: 'Louise Grant',
+        },
+        {
+          id: `ptw-demo-${batchId}-003`,
+          permitNumber: `DEMO-CS-${batchId}-003`,
+          permitType: 'confined_space',
+          workDescription: 'Inspection and CCTV drainage survey of foul water manhole MH-07 in the south car park. Required following ground movement investigation by structural engineer.',
+          workLocation: 'South Car Park — Manhole MH-07',
+          contractorCompanyName: 'Delta Technical Services', contractorWorkerName: 'Phil Asher',
+          staffName: 'Stuart Nolan',
+          plannedStartDate: tomorrow.toISOString().slice(0,10), plannedStartTime: '09:00',
+          plannedEndDate:   tomorrow.toISOString().slice(0,10), plannedEndTime:   '14:00',
+          permitValidFrom: tomorrow, permitValidUntil: new Date(tomorrow.getTime() + 5 * 3600000),
+          status: 'authorised',
+          authorisedByName: 'Neil Baxter', authorisedAt: new Date(now.getTime() - 3600000),
+          authNotes: 'Attendant to remain topside at all times. Gas monitoring equipment required — contractor to confirm calibration certificate on arrival. Emergency rescue plan submitted and approved.',
+          closedByName: null, closedAt: null, closureNotes: null, workCompletedSatisfactorily: null,
+          createdByName: 'Stuart Nolan',
+        },
+        {
+          id: `ptw-demo-${batchId}-004`,
+          permitNumber: `DEMO-ELEC-${batchId}-004`,
+          permitType: 'electrical_isolation',
+          workDescription: 'Isolation and replacement of faulty MCBs in distribution board DB-04 serving the east warehouse lighting circuit. Works by Approved Electrician (17th Edition BS 7671 qualified).',
+          workLocation: 'East Warehouse — Electrical Room ER-02',
+          contractorCompanyName: 'Apex Maintenance Group', contractorWorkerName: 'Steve Calder',
+          staffName: 'Chris Patel',
+          plannedStartDate: nextWeek.toISOString().slice(0,10), plannedStartTime: '06:00',
+          plannedEndDate:   nextWeek.toISOString().slice(0,10), plannedEndTime:   '12:00',
+          permitValidFrom: nextWeek, permitValidUntil: new Date(nextWeek.getTime() + 6 * 3600000),
+          status: 'draft',
+          authorisedByName: null, authorisedAt: null, authNotes: null,
+          closedByName: null, closedAt: null, closureNotes: null, workCompletedSatisfactorily: null,
+          createdByName: 'Chris Patel',
+        },
+        {
+          id: `ptw-demo-${batchId}-005`,
+          permitNumber: `DEMO-GEN-${batchId}-005`,
+          permitType: 'general',
+          workDescription: 'Installation of new CCTV cameras on Building B exterior (ground and 1st floor only). Cable runs routed through existing trunking within the building — no structural work.',
+          workLocation: 'Building B — Exterior Walls and Internal Trunking Routes',
+          contractorCompanyName: 'SecureIT Solutions', contractorWorkerName: 'Gary Blaine',
+          staffName: 'Ben Ashworth',
+          plannedStartDate: twoWeeksAgo.toISOString().slice(0,10), plannedStartTime: '09:00',
+          plannedEndDate:   oneWeekAgo.toISOString().slice(0,10),  plannedEndTime:   '17:00',
+          permitValidFrom: twoWeeksAgo, permitValidUntil: oneWeekAgo,
+          status: 'closed',
+          authorisedByName: 'Ben Ashworth', authorisedAt: new Date(twoWeeksAgo.getTime() - 30 * 60000),
+          authNotes: 'Standard install — no high-risk activities. Contractor to contain all arisings and leave site clean each day.',
+          closedByName: 'Ben Ashworth', closedAt: oneWeekAgo,
+          closureNotes: '8 cameras installed and commissioned. As-built drawing provided to IT team. Site left clean and tidy.',
+          workCompletedSatisfactorily: true, createdByName: 'Ben Ashworth',
+        },
+      ];
+
+      for (const permit of samplePermits) {
+        await pool.query(`
+          INSERT INTO "${schemaName}".permit_to_work (
+            id, permit_number, permit_type, work_description, work_location,
+            contractor_company_name, contractor_worker_name, staff_name,
+            planned_start_date, planned_start_time, planned_end_date, planned_end_time,
+            permit_valid_from, permit_valid_until, status,
+            authorised_by_name, authorised_at, auth_notes,
+            closed_by_name, closed_at, closure_notes, work_completed_satisfactorily,
+            created_by_name, created_at, updated_at
+          ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,NOW(),NOW())
+          ON CONFLICT (id) DO NOTHING`,
+          [permit.id, permit.permitNumber, permit.permitType, permit.workDescription, permit.workLocation,
+           permit.contractorCompanyName, permit.contractorWorkerName, permit.staffName,
+           permit.plannedStartDate, permit.plannedStartTime, permit.plannedEndDate, permit.plannedEndTime,
+           permit.permitValidFrom, permit.permitValidUntil, permit.status,
+           permit.authorisedByName ?? null, permit.authorisedAt ?? null, permit.authNotes ?? null,
+           permit.closedByName ?? null, permit.closedAt ?? null, permit.closureNotes ?? null,
+           permit.workCompletedSatisfactorily ?? null, permit.createdByName ?? null]
+        );
+        permitsAdded++;
+      }
+      logger.info(`✅ Permit to Work sample data: ${permitsAdded} permits`);
+    } catch (e: any) {
+      logger.warn(`Sample Permit to Work data failed: ${e.message}`);
+    }
+
     res.json({
       success: true,
-      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members, ${raAssessmentsAdded} risk assessments — plus HR, certifications, visits, pre-bookings, permits, and attendance records`,
-      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0, raAssessmentsAdded },
+      message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members, ${raAssessmentsAdded} risk assessments, ${auditTemplatesAdded} audit templates (${auditRecordsAdded} records, ${auditActionsAdded} actions), ${permitsAdded} permits — plus HR, certifications, visits, pre-bookings and attendance records`,
+      results: { staffAdded, visitorsAdded, contractorsAdded, workersAdded, membersAdded, hrDataAdded: staffIds.length > 0, raAssessmentsAdded, auditTemplatesAdded, auditRecordsAdded, auditActionsAdded, permitsAdded },
     });
   } catch (error) {
     logger.error('Error loading sample data:', error);
@@ -1614,6 +1979,63 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
           deleted['ra_builder_assessments'] = raIds.length;
         }
       } catch (e) { logger.warn(`Clear sample: ra_builder — ${(e as any).message}`); }
+
+      // ── Audit & Inspection sample data cleanup ─────────────────────────────
+      try {
+        // Delete corrective actions created with demo email addresses (child of record items)
+        await pool.query(`DELETE FROM "${schemaName}".audit_corrective_actions WHERE assigned_email LIKE '%@example.com'`);
+        // Delete corrective actions with demo-prefixed IDs
+        const demoCaRes = await pool.query(`SELECT id FROM "${schemaName}".audit_corrective_actions WHERE id LIKE 'audit-demo-%'`);
+        if (demoCaRes.rows.length > 0) {
+          const caIds: string[] = demoCaRes.rows.map((r: any) => r.id);
+          await pool.query(`DELETE FROM "${schemaName}".audit_corrective_actions WHERE id IN (${inP(caIds)})`, caIds);
+        }
+        // Audit records created with demo-prefixed IDs (record items + corrective actions cascade)
+        const demoRecRes = await pool.query(`SELECT id FROM "${schemaName}".audit_records WHERE id LIKE 'audit-demo-%'`);
+        if (demoRecRes.rows.length > 0) {
+          const recIds: string[] = demoRecRes.rows.map((r: any) => r.id);
+          const rP = inP(recIds);
+          await pool.query(`DELETE FROM "${schemaName}".audit_corrective_actions WHERE audit_id IN (${rP})`, recIds);
+          await pool.query(`DELETE FROM "${schemaName}".audit_record_items WHERE audit_id IN (${rP})`, recIds);
+          await pool.query(`DELETE FROM "${schemaName}".audit_records WHERE id IN (${rP})`, recIds);
+          deleted['audit_records'] = recIds.length;
+        }
+        // Audit templates with demo-prefixed IDs (template items cascade, records already deleted above)
+        const demoTmplRes = await pool.query(`SELECT id FROM "${schemaName}".audit_templates WHERE id LIKE 'audit-demo-%'`);
+        if (demoTmplRes.rows.length > 0) {
+          const tmplIds: string[] = demoTmplRes.rows.map((r: any) => r.id);
+          const tP = inP(tmplIds);
+          await pool.query(`DELETE FROM "${schemaName}".audit_template_items WHERE template_id IN (${tP})`, tmplIds);
+          await pool.query(`DELETE FROM "${schemaName}".audit_templates WHERE id IN (${tP})`, tmplIds);
+          deleted['audit_templates'] = tmplIds.length;
+        }
+        logger.info(`✅ Audit sample data cleared`);
+      } catch (e) { logger.warn(`Clear sample: audit engine — ${(e as any).message}`); }
+
+      // ── Permit to Work sample data cleanup ─────────────────────────────────
+      // New-style demo permits: identified by DEMO- prefix in permit_number
+      try {
+        const demoPtwRes = await pool.query(`SELECT id FROM "${schemaName}".permit_to_work WHERE permit_number LIKE 'DEMO-%'`);
+        if (demoPtwRes.rows.length > 0) {
+          const demoPtwIds: string[] = demoPtwRes.rows.map((r: any) => r.id);
+          const pP = inP(demoPtwIds);
+          try { await pool.query(`DELETE FROM "${schemaName}".permit_checklist WHERE permit_id IN (${pP})`, demoPtwIds); } catch (_) { /* table may not exist */ }
+          try { await pool.query(`DELETE FROM "${schemaName}".permit_attachments WHERE permit_id IN (${pP})`, demoPtwIds); } catch (_) { /* table may not exist */ }
+          await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE id IN (${pP})`, demoPtwIds);
+          deleted['permit_to_work_demo'] = demoPtwIds.length;
+        }
+        // Also delete permits with demo-prefixed IDs (belt-and-braces)
+        const demoPtwIdRes = await pool.query(`SELECT id FROM "${schemaName}".permit_to_work WHERE id LIKE 'ptw-demo-%'`);
+        if (demoPtwIdRes.rows.length > 0) {
+          const extraIds: string[] = demoPtwIdRes.rows.map((r: any) => r.id);
+          const eP = inP(extraIds);
+          try { await pool.query(`DELETE FROM "${schemaName}".permit_checklist WHERE permit_id IN (${eP})`, extraIds); } catch (_) { /* table may not exist */ }
+          try { await pool.query(`DELETE FROM "${schemaName}".permit_attachments WHERE permit_id IN (${eP})`, extraIds); } catch (_) { /* table may not exist */ }
+          await pool.query(`DELETE FROM "${schemaName}".permit_to_work WHERE id IN (${eP})`, extraIds);
+          deleted['permit_to_work_demo'] = (deleted['permit_to_work_demo'] ?? 0) + extraIds.length;
+        }
+        logger.info(`✅ Permit to Work demo data cleared`);
+      } catch (e) { logger.warn(`Clear sample: permit_to_work demo — ${(e as any).message}`); }
 
       res.json({ success: true, message: 'Sample data cleared successfully', deleted });
     } catch (error) {
