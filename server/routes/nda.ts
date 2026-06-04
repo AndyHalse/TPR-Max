@@ -82,9 +82,14 @@ export function registerNdaRoutes(app: Express): void {
         return res.status(410).json({ error: 'This NDA signing link has expired.' });
       }
 
+      const acceptedIp = (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim()
+        || req.socket?.remoteAddress
+        || req.ip
+        || null;
+
       await customerDb
         .update(isolatedSchema.visitors)
-        .set({ ndaAccepted: true, ndaAcceptedAt: new Date() })
+        .set({ ndaAccepted: true, ndaAcceptedAt: new Date(), ndaAcceptedIp: acceptedIp })
         .where(eq(isolatedSchema.visitors.id, visitor.id));
 
       logger.info(`NDA accepted via email link for visitor ${visitor.id} (${visitor.firstName} ${visitor.lastName})`);
