@@ -893,11 +893,11 @@ export default function MarketingPage() {
               },
               {
                 icon: AlertTriangle,
-                name: "H&S Incidents",
+                name: "H&S Incidents & BBS",
                 color: "text-orange-600",
                 bg: "bg-orange-50 dark:bg-orange-900/20",
                 border: "border-orange-200 dark:border-orange-800",
-                desc: "RIDDOR 2013 compliant incident logging — auto-classification, statutory reporting deadlines, HSE notification tracking, and near-miss capture.",
+                desc: "RIDDOR 2013 incident logging, near-miss capture, and Behaviour-Based Safety — Good Spots, Positive Actions, Safety Engagement Dashboard, and 12-month trend charts for management.",
               },
               {
                 icon: Flame,
@@ -2537,28 +2537,50 @@ export default function MarketingPage() {
 
             {/* H&S Incidents Tab */}
             <TabsContent value="hs-incidents" className="space-y-6" data-testid="content-hs-incidents">
-              <div className="grid lg:grid-cols-2 gap-8 items-center">
+              <div className="grid lg:grid-cols-2 gap-8 items-start">
                 <div className="space-y-6">
                   <div>
-                    <Badge className="mb-4 bg-orange-600 text-white">
-                      <AlertTriangle className="h-3 w-3 mr-1" />
-                      RIDDOR 2013 Compliant
-                    </Badge>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      <Badge className="bg-orange-600 text-white">
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        RIDDOR 2013 Compliant
+                      </Badge>
+                      <Badge className="bg-green-600 text-white">
+                        <ThumbsUp className="h-3 w-3 mr-1" />
+                        Behaviour-Based Safety
+                      </Badge>
+                    </div>
                     <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
-                      Health &amp; Safety Incident Reporting
+                      H&amp;S Incidents &amp; Safety Engagement
                     </h3>
                     <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
-                      Log, classify, and track every workplace incident under the Reporting of Injuries, Diseases and Dangerous Occurrences Regulations 2013. Automatic statutory deadlines, HSE notification tracking, and near-miss capture — all in one compliant register.
+                      One register for every type of safety event — from RIDDOR-reportable injuries to proactive Good Spots. The Safety Engagement Dashboard shows management exactly how your safety culture is developing with a live pyramid and 12-month trend chart.
                     </p>
                   </div>
+
+                  {/* Four record types */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { color: "border-orange-400 bg-orange-50 dark:bg-orange-950", label: "Incident", sub: "RIDDOR assessment + deadline tracking" },
+                      { color: "border-blue-400 bg-blue-50 dark:bg-blue-950", label: "Near Miss", sub: "Hazard type + severity capture" },
+                      { color: "border-green-400 bg-green-50 dark:bg-green-950", label: "Good Spot", sub: "Proactive hazard observation" },
+                      { color: "border-teal-400 bg-teal-50 dark:bg-teal-950", label: "Positive Action", sub: "Hazard spotted and resolved" },
+                    ].map(({ color, label, sub }) => (
+                      <div key={label} className={`rounded-lg border-l-4 p-3 ${color}`}>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-100">{label}</div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{sub}</div>
+                      </div>
+                    ))}
+                  </div>
+
                   <div className="space-y-3">
                     {[
-                      { title: "Automatic RIDDOR Classification", desc: "Fatalities, specified injuries, over-7-day incidents, dangerous occurrences, and occupational diseases — automatically categorised with the correct statutory reporting deadline" },
-                      { title: "Countdown Deadline Tracking", desc: "Visual countdown badges show days remaining to report to the HSE — colour-coded amber then red as the deadline approaches, with email reminders" },
-                      { title: "HSE Reference Logging", desc: "Once reported, record your HSE reference number directly against the incident — creating a full audit trail of notification compliance" },
-                      { title: "Near Miss Register", desc: "Capture near misses as a separate class — not RIDDOR reportable but essential evidence for proactive safety management and insurance purposes" },
+                      { title: "RIDDOR Auto-Classification", desc: "Fatalities, specified injuries, over-7-day incidents and dangerous occurrences — auto-categorised with statutory deadlines, countdown badges, and HSE notification tracking" },
+                      { title: "Good Spot & Positive Action Register", desc: "Log proactive safety observations separately from incidents — with hazard type, resolution tracking, and a resolution rate metric to show staff their reports are acted on" },
+                      { title: "Safety Engagement Dashboard", desc: "90-day stats, engagement ratio (positive vs negative reports), resolution rate bar, and hazard type breakdown — updated in real time as records are added" },
+                      { title: "Management View — Observation Pyramid", desc: "Visual Safety Observation Pyramid shows RIDDOR → incidents → near misses → good spots in proportion — the classic BBS model used by HSE to evidence proactive safety culture" },
+                      { title: "12-Month Trend Chart", desc: "Leading vs lagging indicators charted over 12 calendar months — as good spots grow, incidents fall. Ideal for board reporting and insurance reviews" },
                       { title: "Fatality Instant Alert", desc: "Fatal incidents trigger an immediate urgent email to site management with the HSE reporting link and Incident Contact Centre number — zero delay" },
-                      { title: "RIDDOR Filter View", desc: "Switch between All incidents, RIDDOR-only, and Near Misses — instantly see your statutory backlog and overdue items" },
                     ].map(({ title, desc }) => (
                       <div key={title} className="flex items-start space-x-3">
                         <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
@@ -2570,68 +2592,88 @@ export default function MarketingPage() {
                   </div>
                   <Button size="lg" onClick={() => scrollToSection("contact")} className="text-white bg-orange-600 hover:bg-orange-700">
                     <AlertTriangle className="h-4 w-4 mr-2" />
-                    See H&amp;S Incident System Live
+                    See H&amp;S &amp; Safety Engagement Live
                   </Button>
                 </div>
 
-                <div className="relative">
-                  <div className="rounded-xl shadow-2xl border border-orange-200 dark:border-orange-800 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="h-5 w-5 text-orange-600" />
-                        <span className="font-bold text-orange-800 dark:text-orange-200 text-sm">Incident Register</span>
-                      </div>
-                      <div className="flex gap-1.5">
-                        {["All", "RIDDOR", "Near Miss"].map((f, i) => (
-                          <span key={f} className={`text-[10px] px-2 py-0.5 rounded-full font-medium border ${i === 1 ? "bg-orange-600 text-white border-orange-600" : "bg-white text-slate-500 border-slate-200"}`}>{f}</span>
-                        ))}
-                      </div>
+                <div className="space-y-4">
+                  {/* Safety Engagement Dashboard mock */}
+                  <div className="rounded-xl shadow-xl border border-orange-200 dark:border-orange-800 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/30 dark:to-amber-900/30 p-5">
+                    <div className="flex items-center gap-2 mb-4">
+                      <BarChart3 className="h-4 w-4 text-orange-600" />
+                      <span className="font-bold text-orange-800 dark:text-orange-200 text-sm">Safety Engagement Dashboard</span>
+                      <span className="ml-auto text-[10px] text-slate-400">last 90 days</span>
                     </div>
 
-                    {/* Urgent overdue banner */}
-                    <div className="flex items-center gap-2 px-3 py-2 mb-4 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs">
-                      <AlertTriangle className="h-3.5 w-3.5 text-red-600 shrink-0" />
-                      <span><strong>1 RIDDOR deadline overdue</strong> — HSE notification required</span>
-                    </div>
-
-                    <div className="space-y-2">
+                    {/* 4 stat cards */}
+                    <div className="grid grid-cols-4 gap-2 mb-4">
                       {[
-                        { title: "Fall from height — scaffolding", cat: "Specified Injury", days: -2, reported: false, nearMiss: false },
-                        { title: "Hand injury — circular saw", cat: "Over-7-Day", days: 4, reported: false, nearMiss: false },
-                        { title: "Chemical near miss — acid spill", cat: "Near Miss", days: null, reported: false, nearMiss: true },
-                        { title: "Fractured wrist — loading bay", cat: "Specified Injury", days: null, reported: true, nearMiss: false },
-                      ].map((inc) => (
-                        <div key={inc.title} className={`bg-white/90 dark:bg-slate-800/90 rounded-lg p-3 border ${inc.days !== null && inc.days < 0 ? "border-red-300" : inc.reported ? "border-green-300" : "border-slate-200 dark:border-slate-700"}`}>
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0">
-                              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">{inc.title}</div>
-                              <div className="flex items-center gap-1.5 mt-1">
-                                {inc.nearMiss
-                                  ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">Near Miss</span>
-                                  : <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium">{inc.cat}</span>
-                                }
-                                {inc.reported && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">✓ Reported</span>}
-                                {!inc.nearMiss && !inc.reported && inc.days !== null && (
-                                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${inc.days < 0 ? "bg-red-100 text-red-700" : inc.days <= 3 ? "bg-amber-100 text-amber-700" : "bg-blue-100 text-blue-700"}`}>
-                                    {inc.days < 0 ? `${Math.abs(inc.days)}d overdue` : `${inc.days}d left`}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
+                        { val: "2", label: "Incidents", bg: "bg-amber-50 dark:bg-amber-900/40", color: "text-amber-700" },
+                        { val: "3", label: "Near Misses", bg: "bg-blue-50 dark:bg-blue-900/40", color: "text-blue-700" },
+                        { val: "18", label: "Good Spots", bg: "bg-green-50 dark:bg-green-900/40", color: "text-green-700" },
+                        { val: "9", label: "+ve Actions", bg: "bg-teal-50 dark:bg-teal-900/40", color: "text-teal-700" },
+                      ].map(({ val, label, bg, color }) => (
+                        <div key={label} className={`rounded-lg p-2 text-center ${bg}`}>
+                          <div className={`text-xl font-bold ${color}`}>{val}</div>
+                          <div className="text-[9px] text-slate-500">{label}</div>
                         </div>
                       ))}
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 mt-4">
+                    {/* Engagement ratio */}
+                    <div className="rounded-lg border bg-white/80 dark:bg-slate-800/60 p-3 mb-3">
+                      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Safety Engagement Ratio</div>
+                      <div className="text-lg font-bold text-green-700">5.4:1 <span className="text-xs font-normal text-slate-500">positive : incident</span></div>
+                      <div className="mt-1.5 text-[10px] bg-green-50 text-green-800 rounded px-2 py-1">🟢 Strong safety culture — more hazards being caught proactively than incidents occurring.</div>
+                    </div>
+
+                    {/* Observation Pyramid (simplified) */}
+                    <div className="rounded-lg border bg-white/80 dark:bg-slate-800/60 p-3">
+                      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-2">Safety Observation Pyramid</div>
+                      <div className="space-y-1.5">
+                        {[
+                          { label: "1 RIDDOR", pct: 4, bg: "bg-red-500", note: "Reportable" },
+                          { label: "2 Incidents", pct: 12, bg: "bg-orange-500", note: "Went wrong" },
+                          { label: "3 Near Misses", pct: 22, bg: "bg-amber-500", note: "Could have" },
+                          { label: "27 Good Spots", pct: 100, bg: "bg-green-600", note: "Prevented ✓" },
+                        ].map(({ label, pct, bg, note }) => (
+                          <div key={label} className="flex items-center gap-2">
+                            <div className="w-16 text-[9px] text-slate-500 text-right shrink-0">{label}</div>
+                            <div className="flex-1 h-5 rounded overflow-hidden bg-slate-100 dark:bg-slate-700">
+                              <div className={`h-full rounded ${bg} flex items-center px-1.5`} style={{ width: `${pct}%`, minWidth: "1.5rem" }}>
+                                <span className="text-white text-[9px] font-bold truncate">{note}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="text-[9px] text-slate-400 mt-2">A wide base of good spots means fewer incidents reach the top — the core principle of Behaviour-Based Safety.</p>
+                    </div>
+                  </div>
+
+                  {/* Sample incident cards */}
+                  <div className="rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="font-semibold text-slate-700 dark:text-slate-200 text-sm">Incident Register</span>
+                      <div className="flex gap-1">
+                        {["All", "Incidents", "Good Spots"].map((f, i) => (
+                          <span key={f} className={`text-[9px] px-1.5 py-0.5 rounded-full font-medium border ${i === 0 ? "bg-slate-700 text-white border-slate-700" : "bg-white text-slate-400 border-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:border-slate-600"}`}>{f}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-1.5">
                       {[
-                        { label: "Total", value: 4, color: "text-slate-700 dark:text-slate-200" },
-                        { label: "Overdue", value: 1, color: "text-red-600" },
-                        { label: "Reported", value: 1, color: "text-green-600" },
-                      ].map(({ label, value, color }) => (
-                        <div key={label} className="bg-white/80 dark:bg-slate-800/80 rounded-lg p-2 text-center">
-                          <div className={`text-xl font-bold ${color}`}>{value}</div>
-                          <div className="text-[10px] text-slate-400">{label}</div>
+                        { title: "Fractured wrist — wet floor", type: "Incident", badge: "bg-orange-100 text-orange-700", right: "RIDDOR 4d left", rightCls: "bg-amber-100 text-amber-700" },
+                        { title: "Near miss — unsecured ladder", type: "Near Miss", badge: "bg-blue-100 text-blue-700", right: "Investigate", rightCls: "bg-blue-50 text-blue-600" },
+                        { title: "Good Spot — frayed cable, server room", type: "Good Spot", badge: "bg-green-100 text-green-700", right: "Open", rightCls: "bg-green-50 text-green-600" },
+                        { title: "+ve Action — gas cylinders secured", type: "Positive Action", badge: "bg-teal-100 text-teal-700", right: "✓ Resolved", rightCls: "bg-green-100 text-green-700" },
+                      ].map(({ title, type, badge, right, rightCls }) => (
+                        <div key={title} className="flex items-center justify-between gap-2 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/50 px-3 py-2">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold text-slate-700 dark:text-slate-200 truncate">{title}</div>
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${badge}`}>{type}</span>
+                          </div>
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium shrink-0 ${rightCls}`}>{right}</span>
                         </div>
                       ))}
                     </div>
