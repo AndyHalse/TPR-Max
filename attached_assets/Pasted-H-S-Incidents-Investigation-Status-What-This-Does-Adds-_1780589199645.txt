@@ -1,0 +1,272 @@
+H&S Incidents: Investigation Status
+
+What This Does
+
+Adds an investigation lifecycle to incident and near miss records: Open → Under Investigation → Closed. Right now an incident is logged and RIDDOR-assessed, but there's no way to track whether it's actually been investigated. H&S managers need this to demonstrate due diligence and manage their workload.
+
+This is separate from the Good Spot resolve workflow — BBS records (good_spot/positive_action) already have their own resolved flag and are not affected by this change.
+
+
+
+Files to Change
+
+
+
+
+
+server/routes/hsIncidents.ts
+
+
+
+server/isolatedSchema.ts
+
+
+
+client/src/pages/HSIncidents.tsx
+
+
+
+1. Database Changes
+
+In ensureHsIncidentsTable (server/routes/hsIncidents.ts)
+
+Add three new columns after the existing ALTER TABLE block:
+
+await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS investigation_status TEXT NOT NULL DEFAULT 'open'`);
+await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS investigated_by TEXT`);
+await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS investigation_notes TEXT`);
+
+Valid values for investigation_status: 'open' | 'investigating' | 'closed'
+
+Default is 'open' — all new and existing incident/near miss records start as open.
+
+In isolatedSchema.ts
+
+Add to the hsIncidents Drizzle table definition:
+
+investigationStatus: text('investigation_status').notNull().default('open'),
+investigatedBy: text('investigated_by'),
+investigationNotes: text('investigation_notes'),
+
+
+
+2. Backend Changes (server/routes/hsIncidents.ts)
+
+POST handler
+
+After the isBbs variable is set, add:
+
+const investigationStatus = (!isBbs && !isNearMiss && body.investigationStatus) ? body.investigationStatus : 
+  (!isBbs ? (body.investigationStatus || 'open') : null);
+
+Wait — simpler: BBS records don't use investigation_status. For incident and near_miss, accept from body or default to 'open':
+
+// Investigation fields — only for incident and near_miss
+const investigationStatus = (!isBbs) ? (body.investigationStatus || 'open') : 'open';
+const investigatedBy = (!isBbs) ? (body.investigatedBy || null) : null;
+const investigationNotes = (!isBbs) ? (body.investigationNotes || null) : null;
+
+Include these in the .values({...}) insert:
+
+investigationStatus,
+investigatedBy,
+investigationNotes,
+
+PUT handler
+
+Same: accept body.investigationStatus, body.investigatedBy, body.investigationNotes and include in the updates object for non-BBS records:
+
+if (!isBbs) {
+  updates.investigationStatus = body.investigationStatus || 'open';
+  updates.investigatedBy = body.investigatedBy ?? null;
+  updates.investigationNotes = body.investigationNotes ?? null;
+}
+
+
+
+3. Frontend Changes (client/src/pages/HSIncidents.tsx)
+
+3a. Update HsIncident interface
+
+Add:
+
+investigationStatus: string;  // 'open' | 'investigating' | 'closed'
+investigatedBy: string | null;
+investigationNotes: string | null;
+
+3b. Update emptyForm
+
+Add:
+
+investigationStatus: 'open' as string,
+investigatedBy: '',
+investigationNotes: '',
+
+3c. Update handleEdit
+
+Add to the setForm call:
+
+investigationStatus: incident.investigationStatus || 'open',
+investigatedBy: incident.investigatedBy || '',
+investigationNotes: incident.investigationNotes || '',
+
+3d. Update handleSubmit payload
+
+In the payload object, include:
+
+investigationStatus: isBbs ? undefined : form.investigationStatus,
+investigatedBy: isBbs ? undefined : form.investigatedBy || null,
+investigationNotes: isBbs ? undefined : form.investigationNotes || null,
+
+Where isBbs is derived from form.recordType === 'good_spot' || form.recordType === 'positive_action'.
+
+3e. Add Investigation section to the form
+
+In the form dialog, add this section for incident and near_miss record types only, placed after the near miss / RIDDOR sections:
+
+{(form.recordType === 'incident' || form.recordType === 'near_miss') && (
+  <div className="rounded-lg border p-4 space-y-3">
+    <h3 className="font-semibold">Investigation</h3>
+    <div>
+      <Label>Investigation status</Label>
+      <Select value={form.investigationStatus} onValueChange={v => setForm(f => ({ ...f, investigationStatus: v }))}>
+        <SelectTrigger><SelectValue /></SelectTrigger>
+        <SelectContent>
+          <SelectItem value="open">Open — not yet investigated</SelectItem>
+          <SelectItem value="investigating">Under investigation</SelectItem>
+          <SelectItem value="closed">Closed — investigation complete</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    {(form.investigationStatus === 'investigating' || form.investigationStatus === 'closed') && (
+      <>
+        <div>
+          <Label>Investigated by</Label>
+          <Input value={form.investigatedBy} onChange={e => setForm(f => ({ ...f, investigatedBy: e.target.value }))} placeholder="Name of person conducting the investigation" />
+        </div>
+        <div>
+          <Label>Investigation notes</Label>
+          <Textarea value={form.investigationNotes} onChange={e => setForm(f => ({ ...f, investigationNotes: e.target.value }))} rows={3} placeholder="Findings, root cause, corrective actions taken…" />
+        </div>
+      </>
+    )}
+  </div>
+)}
+
+3f. Add investigation status badge to cards
+
+In the incident list card, for incident and near_miss records, add an investigation status badge alongside the other badges:
+
+{(rt === 'incident' || rt === 'near_miss') && (
+  <>
+    {incident.investigationStatus === 'open' && (
+      <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-xs">Investigation open</Badge>
+    )}
+    {incident.investigationStatus === 'investigating' && (
+      <Badge className="bg-blue-100 text-blue-800 border-blue-300 text-xs">Under investigation</Badge>
+    )}
+    {incident.investigationStatus === 'closed' && (
+      <Badge className="bg-green-100 text-green-800 border-green-300 text-xs">✅ Investigation closed</Badge>
+    )}
+  </>
+)}
+
+3g. Show investigation detail on cards
+
+In the card detail section (where reportedBy, injuredPerson, etc. are shown), add for incident/near_miss records:
+
+{(rt === 'incident' || rt === 'near_miss') && incident.investigatedBy && (
+  <div className="text-xs">Investigated by: {incident.investigatedBy}</div>
+)}
+{(rt === 'incident' || rt === 'near_miss') && incident.investigationNotes && (
+  <div className="text-xs mt-1 italic">{incident.investigationNotes}</div>
+)}
+
+3h. Update NextAction component
+
+For incident and near_miss records, add an additional prompt when investigation is still open (at the bottom of the existing NextAction JSX for those types):
+
+{(rt === 'incident' || rt === 'near_miss') && incident.investigationStatus === 'open' && (
+  <div className="mt-1 flex items-center gap-2 rounded-md bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800 px-3 py-1.5 text-xs text-purple-800 dark:text-purple-200">
+    <ArrowRight size={12} className="shrink-0" />
+    <span>Update investigation status — edit this record to record findings and close the investigation.</span>
+  </div>
+)}
+
+3i. Add investigation status to Safety Engagement Dashboard
+
+In the analytics block, add a count:
+
+const openInvestigations = incidents.filter(i => {
+  const rt = i.recordType || (i.isNearMiss ? 'near_miss' : 'incident');
+  return (rt === 'incident' || rt === 'near_miss') && i.investigationStatus === 'open';
+}).length;
+
+In the dashboard stat cards grid, add a fifth card if openInvestigations > 0:
+
+{openInvestigations > 0 && (
+  <div className="rounded-lg bg-purple-50 dark:bg-purple-950 p-3 text-center">
+    <div className="text-2xl font-bold text-purple-700">{openInvestigations}</div>
+    <div className="text-xs text-muted-foreground">Open investigations</div>
+  </div>
+)}
+
+
+
+4. What NOT to Change
+
+
+
+
+
+Good Spot and Positive Action records — investigation_status defaults to 'open' in the DB but is never shown, set, or used in the frontend for BBS records.
+
+
+
+All existing RIDDOR, near miss potential, hazard type, and BBS resolve workflows — untouched.
+
+
+
+The resolved / resolvedBy / resolvedAt fields on BBS records — completely separate system.
+
+
+
+Done When
+
+
+
+
+
+Three new columns exist in DB with ALTER TABLE IF NOT EXISTS
+
+
+
+New incident/near miss records default to investigation_status = 'open'
+
+
+
+Existing records all show open (from DB default)
+
+
+
+Form shows Investigation section for incident and near_miss only — hidden for good_spot/positive_action
+
+
+
+Investigated by and investigation notes fields only show when status is 'investigating' or 'closed'
+
+
+
+Cards show the correct coloured badge for each investigation status
+
+
+
+NextAction prompt appears for open investigations
+
+
+
+Dashboard shows "Open investigations" count card when > 0
+
+
+
+All existing functionality unchanged

@@ -117,6 +117,12 @@ export function registerHsIncidentRoutes(app: Express): void {
           logger.error('Failed to send fatality alert:', err));
       }
 
+      // Good Spot / Positive Action notification email
+      if (isBbs) {
+        sendGoodSpotNotification(req.customerId!, created, incidentDate).catch(err =>
+          logger.error('Failed to send Good Spot notification:', err));
+      }
+
       res.status(201).json(created);
     } catch (err) {
       logger.error('Error creating H&S incident:', err);
@@ -634,5 +640,66 @@ async function sendFatalityAlert(customerId: string, incident: any, incidentDate
       </div>
     `,
     text: `URGENT — Fatal Incident Requires Immediate HSE Notification\n\nIncident: ${incident.title}\nDate: ${incidentDate.toLocaleDateString('en-GB')}\nSite: ${siteName}\n\nReport to HSE immediately: ${EXTERNAL_LINKS.riddor.report}\nHSE Incident Contact Centre: ${EXTERNAL_LINKS.riddor.contactCentrePhone} (${EXTERNAL_LINKS.riddor.contactCentreHours})`,
+  });
+}
+
+async function sendGoodSpotNotification(customerId: string, incident: any, incidentDate: Date) {
+  const custDb = await customerDbService.getCustomerDatabase(customerId);
+  const schemaName = customerDbService.generateSchemaName(customerId);
+  const settingsRows = await custDb.execute(sql.raw(`SELECT company_name, email, site_name FROM ${schemaName}.company_settings LIMIT 1`));
+  const settings = settingsRows.rows[0] as any;
+  const companyName = settings?.company_name || 'TPR';
+  const siteName = settings?.site_name || companyName;
+  const adminEmail = settings?.email as string | undefined;
+  if (!adminEmail) return;
+
+  const isPositiveAction = incident.recordType === 'positive_action';
+  const typeLabel = isPositiveAction ? 'Positive Action' : 'Good Spot';
+  const subjectPrefix = isPositiveAction ? '✅ Positive Action' : '✅ Good Spot';
+  const headerColor = '#166534';
+
+  const HAZARD_LABELS: Record<string, string> = {
+    slip_trip_fall: 'Slip, trip or fall', struck_by_object: 'Struck by object',
+    manual_handling: 'Manual handling', vehicle_plant: 'Vehicle or plant',
+    working_at_height: 'Working at height', electrical: 'Electrical',
+    fire_explosion: 'Fire or explosion', chemical_substance: 'Chemical or substance',
+    machinery: 'Machinery', other: 'Other',
+  };
+
+  const emailSvc = new EmailService(customerId);
+  await emailSvc.sendEmail({
+    to: adminEmail,
+    subject: `${subjectPrefix} logged — ${incident.title}`,
+    companyName,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+        <div style="background:${headerColor};color:#fff;padding:20px;border-radius:8px 8px 0 0">
+          <h2 style="margin:0">${subjectPrefix} Logged</h2>
+          <p style="margin:4px 0 0;opacity:0.85">${siteName}</p>
+        </div>
+        <div style="background:#fff;padding:20px;border:1px solid #e5e7eb;border-top:none">
+          <p style="margin:0 0 16px">A ${typeLabel.toLowerCase()} has been recorded in TPR. ${isPositiveAction ? 'Someone has already dealt with this hazard.' : 'Please review and arrange for the hazard to be resolved.'}</p>
+          <table style="width:100%;border-collapse:collapse;margin:0 0 16px">
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f0fdf4;width:35%">Type</td><td style="padding:8px;border:1px solid #e5e7eb;color:#166534;font-weight:600">${typeLabel}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Observation</td><td style="padding:8px;border:1px solid #e5e7eb">${incident.title}</td></tr>
+            <tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Date &amp; time</td><td style="padding:8px;border:1px solid #e5e7eb">${incidentDate.toLocaleString('en-GB', { dateStyle: 'long', timeStyle: 'short' })}</td></tr>
+            ${incident.location ? `<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Location</td><td style="padding:8px;border:1px solid #e5e7eb">${incident.location}</td></tr>` : ''}
+            ${incident.reportedBy ? `<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Reported by</td><td style="padding:8px;border:1px solid #e5e7eb">${incident.reportedBy}</td></tr>` : ''}
+            ${incident.hazardType ? `<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Hazard type</td><td style="padding:8px;border:1px solid #e5e7eb">${HAZARD_LABELS[incident.hazardType] || incident.hazardType}</td></tr>` : ''}
+            ${incident.description ? `<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f9fafb">Description</td><td style="padding:8px;border:1px solid #e5e7eb">${incident.description}</td></tr>` : ''}
+            ${isPositiveAction && incident.resolutionNotes ? `<tr><td style="padding:8px;border:1px solid #e5e7eb;font-weight:bold;background:#f0fdf4">Action taken</td><td style="padding:8px;border:1px solid #e5e7eb;color:#166534">${incident.resolutionNotes}</td></tr>` : ''}
+          </table>
+          ${!isPositiveAction ? `
+          <div style="background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:12px;margin-bottom:16px">
+            <p style="margin:0;font-size:13px;color:#713f12"><strong>Action required:</strong> Log in to TPR, review this Good Spot, and mark it as resolved once the hazard has been dealt with. Staff are more likely to report again when they see their observations acted on promptly.</p>
+          </div>` : `
+          <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:12px;margin-bottom:16px">
+            <p style="margin:0;font-size:13px;color:#166534"><strong>No action required</strong> — this hazard has already been dealt with. Log in to TPR to review and close the record.</p>
+          </div>`}
+          <p style="font-size:12px;color:#6b7280;margin:0">This notification was sent automatically by TPR. It demonstrates proactive safety culture under the Management of Health &amp; Safety at Work Regulations 1999.</p>
+        </div>
+      </div>
+    `,
+    text: `${typeLabel} logged — ${incident.title}\n\nDate: ${incidentDate.toLocaleString('en-GB')}\n${incident.location ? `Location: ${incident.location}\n` : ''}${incident.reportedBy ? `Reported by: ${incident.reportedBy}\n` : ''}${incident.hazardType ? `Hazard: ${HAZARD_LABELS[incident.hazardType] || incident.hazardType}\n` : ''}${incident.description ? `\nDescription: ${incident.description}\n` : ''}${isPositiveAction && incident.resolutionNotes ? `\nAction taken: ${incident.resolutionNotes}\n` : ''}`,
   });
 }

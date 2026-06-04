@@ -1,0 +1,187 @@
+H&S Incidents: Feature Flag for BBS Record Types
+
+Context
+
+TPR gates features using boolean flags in company_settings, checked by custom middleware per module. There is no requirePlan middleware — look at requireRaBuilderFeature in server/routes/raBuilder.ts lines 12–23 for the exact pattern to follow.
+
+Good Spot and Positive Action record types are currently available to all customers. They need their own feature flag so the platform admin can selectively enable BBS reporting for Pro/Max customers at signup.
+
+
+
+Files to Change
+
+
+
+
+
+server/isolatedSchema.ts
+
+
+
+server/routes/hsIncidents.ts
+
+
+
+client/src/pages/HSIncidents.tsx
+
+
+
+1. Add featureBbs to company_settings schema
+
+In server/isolatedSchema.ts, find the feature toggles block (around line 505–527 — search for featureRaBuilder). Add this line near the other H&S feature flags:
+
+featureBbs: boolean("feature_bbs").default(false),
+
+Place it after featureHsIncidents (line ~518). Default is false — platform admin enables it per customer.
+
+
+
+2. Add feature flag middleware to server/routes/hsIncidents.ts
+
+Add this middleware function near the top of the file, following the exact same pattern as requireRaBuilderFeature in raBuilder.ts:
+
+import { simpleDatabaseService } from '../simpleDatabaseService';
+
+const requireBbsFeature = async (req: any, res: any, next: any) => {
+  try {
+    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featureBbs) {
+      return res.status(403).json({ error: 'Good Spot and Positive Action reporting is not enabled for your account. Please upgrade to TPR Pro or contact support.' });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+If simpleDatabaseService is already imported in hsIncidents.ts, don't add it again.
+
+
+
+3. Apply middleware to PATCH /resolve
+
+Add requireBbsFeature to the resolve endpoint:
+
+app.patch('/api/hs-incidents/:id/resolve', requireAuth, requireBbsFeature, async (req, res) => {
+
+
+
+4. Apply check inside POST handler for BBS creation
+
+In the POST /api/hs-incidents handler, after const isBbs = recordType === 'good_spot' || recordType === 'positive_action';, add:
+
+if (isBbs) {
+  const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId!);
+  const settings = await simpleDatabaseService.getCompanySettings(context);
+  if (!settings?.featureBbs) {
+    return res.status(403).json({ error: 'Good Spot and Positive Action reporting is not enabled for your account.' });
+  }
+}
+
+
+
+5. Apply same check inside PUT handler
+
+Same pattern: after const isBbs = ... in the PUT handler, add the same settings check if isBbs is true.
+
+
+
+6. Frontend — client/src/pages/HSIncidents.tsx
+
+6a. Fetch featureBbs setting
+
+Add a query to read company settings. Check how other components in the codebase fetch /api/settings or /api/company-settings — find the exact endpoint and match the pattern. Add something like:
+
+const { data: companySettings } = useQuery({
+  queryKey: ["/api/settings"],
+  queryFn: () => apiRequest("GET", "/api/settings").then(r => r.json()),
+});
+const isBbsEnabled: boolean = !!(companySettings?.featureBbs);
+
+Use the exact endpoint already used elsewhere in the codebase — don't guess.
+
+6b. Disable Good Spot and Positive Action buttons for customers without the flag
+
+In the record type selector, for the good_spot and positive_action buttons:
+
+{RECORD_TYPES.map(rt => {
+  const isBbsType = rt.value === 'good_spot' || rt.value === 'positive_action';
+  const isDisabled = isBbsType && !isBbsEnabled;
+  return (
+    <button
+      key={rt.value}
+      type="button"
+      disabled={isDisabled}
+      onClick={() => !isDisabled && handleRecordTypeChange(rt.value)}
+      className={`text-left p-3 rounded-lg border-2 transition-all
+        ${isDisabled ? 'opacity-40 cursor-not-allowed border-gray-200 dark:border-gray-700' : ''}
+        ${!isDisabled && form.recordType === rt.value ? rt.color + ' font-semibold' : ''}
+        ${!isDisabled && form.recordType !== rt.value ? 'border-gray-200 dark:border-gray-700 hover:border-gray-300' : ''}
+      `}
+    >
+      <div className="text-sm font-medium">{rt.label}</div>
+      <div className="text-xs opacity-70 mt-0.5">
+        {isDisabled ? 'Not enabled on your plan' : rt.sublabel}
+      </div>
+    </button>
+  );
+})}
+
+6c. Hide "Mark Resolved" button when BBS not enabled
+
+{isBbs(rt) && !incident.resolved && isBbsEnabled && (
+  <Button ...>Mark Resolved</Button>
+)}
+
+6d. Conditionally show the Safety Engagement Dashboard
+
+The BBS stats (Good Spots count, Positive Actions count, engagement ratio, resolution rate, pyramid, trend chart) only make sense when BBS is enabled. Wrap the full dashboard widget — or at least the BBS-specific sections — with {isBbsEnabled && ...} so Basic customers don't see an empty dashboard.
+
+
+
+7. Platform Admin — enable featureBbs for new signups
+
+In server/routes/platformAdmin.ts, find where feature flags are set during customer provisioning (search for featureRaBuilder or featureHsIncidents). Add featureBbs to the list of flags that get set to true for Pro and Max tier customers during signup. For Basic customers, leave it false.
+
+If there's a customer creation or settings initialisation block, add:
+
+featureBbs: plan === 'tpr_pro' || plan === 'tpr_max',
+
+
+
+Done When
+
+
+
+
+
+featureBbs column exists in company_settings schema with default(false)
+
+
+
+requireBbsFeature middleware created, following the exact same pattern as requireRaBuilderFeature
+
+
+
+PATCH /resolve returns 403 when featureBbs is false
+
+
+
+POST and PUT return 403 for BBS record types when featureBbs is false
+
+
+
+Frontend disables Good Spot/Positive Action record type buttons with "Not enabled on your plan" label
+
+
+
+"Mark Resolved" button hidden when BBS not enabled
+
+
+
+BBS dashboard sections conditionally shown only when BBS enabled
+
+
+
+Platform admin signup provisioning sets featureBbs: true for Pro/Max customers
