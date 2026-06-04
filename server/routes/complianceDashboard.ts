@@ -1,11 +1,27 @@
 import type { Express } from 'express';
 import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
+import { simpleDatabaseService } from '../simpleDatabaseService';
 import * as schema from '../isolatedSchema';
 import { eq, ne } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
+const requireComplianceDashboardFeature = async (req: any, res: any, next: any) => {
+  try {
+    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featureComplianceDashboard) {
+      return res.status(403).json({ error: 'Compliance Dashboard is not enabled for your account.' });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
 export function registerComplianceDashboardRoutes(app: Express): void {
+  app.use('/api/compliance-dashboard', requireAuth, requireComplianceDashboardFeature);
+
   app.get('/api/compliance-dashboard', requireAuth, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);

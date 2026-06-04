@@ -1,0 +1,109 @@
+Bug Fix: Feature Flag Checks Missing on Two Routes
+
+What This Fixes
+
+Two modules have feature flags defined in the schema but their route files never check them, meaning the features are accessible to all authenticated customers regardless of what the platform admin has set.
+
+
+
+
+
+Compliance Dashboard — featureComplianceDashboard exists in company_settings (default: true) but complianceDashboard.ts has no check.
+
+
+
+Fire Risk Assessment — featureFireRiskAssessment exists in company_settings (default: true) but fireRiskAssessment.ts has no check.
+
+Both defaults are true so existing customers are unaffected. This just ensures the toggle actually works when an admin turns it off.
+
+
+
+Files to Change
+
+
+
+
+
+server/routes/complianceDashboard.ts
+
+
+
+server/routes/fireRiskAssessment.ts
+
+
+
+Pattern to Follow
+
+Look at server/routes/raBuilder.ts lines 12–23 for the exact middleware pattern. Copy it, rename it, check the correct flag.
+
+
+
+1. server/routes/complianceDashboard.ts
+
+Add import for simpleDatabaseService if not already present. Add middleware and apply it:
+
+import { simpleDatabaseService } from '../simpleDatabaseService';
+
+const requireComplianceDashboardFeature = async (req: any, res: any, next: any) => {
+  try {
+    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featureComplianceDashboard) {
+      return res.status(403).json({ error: 'Compliance Dashboard is not enabled for your account.' });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+Apply to all compliance dashboard routes using app.use:
+
+app.use('/api/compliance-dashboard', requireAuth, requireComplianceDashboardFeature);
+
+Remove the individual requireAuth from each route (it's now handled by the app.use above), or leave them — redundant auth checks are harmless.
+
+
+
+2. server/routes/fireRiskAssessment.ts
+
+Same pattern:
+
+const requireFireRiskAssessmentFeature = async (req: any, res: any, next: any) => {
+  try {
+    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featureFireRiskAssessment) {
+      return res.status(403).json({ error: 'Fire Risk Assessment is not enabled for your account.' });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+app.use('/api/fire-risk-assessments', requireAuth, requireFireRiskAssessmentFeature);
+
+Note: the cron job inside fireRiskAssessment.ts already checks the feature flag per-customer before sending emails (it reads company settings in the loop). The app.use fix is only for the HTTP routes.
+
+
+
+Done When
+
+
+
+
+
+GET/POST/PUT/DELETE /api/compliance-dashboard returns 403 when featureComplianceDashboard is false
+
+
+
+All /api/fire-risk-assessments routes return 403 when featureFireRiskAssessment is false
+
+
+
+Both features remain fully accessible when their flags are true (no change for existing customers since both default to true)
+
+
+
+FRA cron job unaffected

@@ -2,11 +2,25 @@ import type { Express } from 'express';
 import cron from 'node-cron';
 import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
+import { simpleDatabaseService } from '../simpleDatabaseService';
 import * as isolatedSchema from '../isolatedSchema';
 import { EmailService } from '../emailService';
 import { eq, desc, sql } from 'drizzle-orm';
 import { EXTERNAL_LINKS } from '../utils/externalLinks';
 import { logger } from '../utils/logger';
+
+const requireFireRiskAssessmentFeature = async (req: any, res: any, next: any) => {
+  try {
+    const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+    const settings = await simpleDatabaseService.getCompanySettings(context);
+    if (!settings?.featureFireRiskAssessment) {
+      return res.status(403).json({ error: 'Fire Risk Assessment is not enabled for your account.' });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
 
 async function ensureFraTable(custDb: any, schemaName: string) {
   await custDb.execute(sql.raw(`
@@ -94,6 +108,7 @@ async function getActionSummary(custDb: any, schemaName: string, fraId?: string)
 }
 
 export function registerFireRiskAssessmentRoutes(app: Express): void {
+  app.use('/api/fire-risk-assessments', requireAuth, requireFireRiskAssessmentFeature);
 
   // ── GET all FRAs ──────────────────────────────────────────────────────────
   app.get('/api/fire-risk-assessments', requireAuth, async (req, res) => {

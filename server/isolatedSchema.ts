@@ -864,7 +864,6 @@ export const contractorWorkers = pgTable("contractor_workers", {
   // NDA acceptance tracking
   ndaAccepted: boolean("nda_accepted").default(false),
   ndaAcceptedAt: timestamp("nda_accepted_at"),
-  ndaAcceptedIp: text("nda_accepted_ip"),
   // Card status (calculated field for UI)
   currentCardStatus: text("current_card_status").default("pending"), // clear, yellow, red, banned, pending
   isActive: boolean("is_active").default(true).notNull(),

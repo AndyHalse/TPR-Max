@@ -367,6 +367,13 @@ export class CustomerDatabaseService {
       logger.warn(`⚠️ feature_compliance_dashboard column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Ensure nda_accepted_ip column exists on visitors table (NDA IP logging migration)
+    try {
+      await pool.query(`ALTER TABLE "${schemaName}".visitors ADD COLUMN IF NOT EXISTS nda_accepted_ip TEXT`);
+    } catch (err: any) {
+      logger.warn(`⚠️ visitors.nda_accepted_ip column ensure failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure PPM tables exist (PPM module migration)
     try {
       // ppm_asset_groups must be created before ppm_assets (FK dependency)
