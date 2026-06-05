@@ -4133,8 +4133,33 @@ export function registerInductionRoutes(app: Express): void {
       // Store AI-generated questions with clean delete-then-insert
       if (aiQuestions.length > 0) {
         logger.info(`💾 Storing ${aiQuestions.length} questions — deleting old ones first...`);
-        
-        // DELETE all existing questions for this customer+roleType (clean slate)
+
+        // Collect existing question IDs before deleting (needed to cascade answers)
+        const existingPrimary = await db
+          .select({ id: inductionQuestions.id })
+          .from(inductionQuestions)
+          .where(eq(inductionQuestions.videoId, customerVideoId));
+
+        const existingLegacy = await db
+          .select({ id: inductionQuestions.id })
+          .from(inductionQuestions)
+          .where(and(
+            eq(inductionQuestions.roleType, roleType),
+            eq(inductionQuestions.videoId, roleType)
+          ));
+
+        const allOldIds = [...existingPrimary, ...existingLegacy].map(r => r.id);
+
+        // Delete induction_answers referencing these questions BEFORE deleting questions
+        if (allOldIds.length > 0) {
+          for (const qid of allOldIds) {
+            await db
+              .delete(isolatedSchema.inductionAnswers)
+              .where(eq(isolatedSchema.inductionAnswers.questionId, qid));
+          }
+        }
+
+        // Now safe to DELETE questions (FK constraint satisfied)
         await db
           .delete(inductionQuestions)
           .where(eq(inductionQuestions.videoId, customerVideoId));
