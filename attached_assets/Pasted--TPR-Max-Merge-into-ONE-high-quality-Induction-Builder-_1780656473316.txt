@@ -1,0 +1,101 @@
+# TPR Max — Merge into ONE high-quality Induction Builder
+
+## Context — read this carefully first
+There are currently TWO induction settings pages and they have drifted apart. Neither is 
+complete on its own. Your job is to MERGE them into ONE single, well-organised, easy-to-use 
+page — losing NOTHING from either. This feature is business-critical and must be done carefully.
+
+- `client/src/pages/InductionSettings.tsx` — the page currently routed at `/induction-settings`. 
+  Has: role tabs (visitor/staff/contractor), AI slide/video generation, MP4 upload, the 
+  questions system, preview, sent-links log, kiosk integration.
+- `client/src/pages/settings/InductionSettings.tsx` — an alternative page NOT currently routed. 
+  Has: Site Details fields, per-slide editor with real-photo upload, QR checkpoint (walk-around) 
+  builder, H&S Rules editor.
+
+Backend already exists for most of this (do NOT rebuild it): 
+`server/routes/induction.ts`, `server/videoGenerationService.ts` (note: it already has a 
+site-specific context block ~line 340 that consumes hazards/PPE/assembly point/etc.), 
+`server/inductionService.ts`. Schema in `shared/schema.ts` (`inductionSettings`, 
+`inductionTokens`, `inductionQuestions`, `inductionAnswers`, and any checkpoint tables).
+
+Endpoints that MUST all still work after the merge:
+`/api/induction/settings`, `/api/induction/questions` (+ generate-questions, cleanup), 
+`/api/induction/generate-video/`, `/api/induction/upload-video`, `/api/induction/checkpoints`, 
+`/api/induction/status/`, `/api/induction/send`, `/api/induction/admin/tokens`, 
+and the `/induction-preview/:roleType` preview route.
+
+## The goal
+ONE page at `/induction-settings` that lets an admin build a genuinely good, legally-compliant, 
+SITE-SPECIFIC induction with the least possible friction. Keep the existing top-level 
+role tabs (Visitor / Staff / Contractor). Within the selected role, organise everything into a 
+clear, guided, numbered workflow using tabs or an accordion (mobile-friendly):
+
+### Step 1 — Site Details (drives quality)
+All of these fields (from the alternative page), saved per role and fed into the AI generation's 
+existing site-context block so slides are genuinely site-specific (CDM 2015 requirement):
+- Industry / Sector
+- Site Address
+- Site-Specific Hazards
+- PPE Requirements
+- Emergency Assembly Point
+- First Aid Location & Contact
+- Emergency Contact
+- Additional Site Rules
+Add a short helper line on each explaining why it matters for a compliant induction.
+
+### Step 2 — Induction Content
+A clear choice of content source (radio/segmented control), all preserved from both pages:
+- **AI-Generated Slides** — "Generate" button calling the existing generate-video endpoint, 
+  using the Step 1 site details. Show generation status/progress.
+- **Upload MP4 Video** — existing upload-video flow, as an alternative.
+Then a **slide editor** (from the alternative page) so the admin can, for each slide:
+- edit Slide Title and Content
+- **attach a real Site Photo** (optional) that overrides the AI image for that slide
+- reorder slides
+Include a prominent **Preview** button that opens the real contractor experience 
+(`/induction-preview/:roleType`).
+
+### Step 3 — Knowledge Questions
+Preserve the full questions system from the routed page: generate questions from the content, 
+add/edit/delete, set the pass percentage (default 80% — keep this). 
+IMPROVEMENT: associate each question with a slide/section so questions can be asked 
+section-by-section, and surface that option as a toggle ("Ask a question after each section"). 
+Every question must support an explanation shown on a wrong answer.
+
+### Step 4 — Site Walk-Around (QR Checkpoints) — optional add-on
+Preserve the checkpoint builder from the alternative page (Checkpoint Label, Information Shown 
+on Scan, ordering, the `/api/induction/checkpoints` CRUD). Let the admin generate and PRINT a 
+QR code per checkpoint (reuse `client/src/components/QRCodeImage.tsx`). Make this clearly 
+optional — an enhancement to the slide/video induction, not a replacement.
+
+### Step 5 — H&S Rules
+Preserve the H&S Rules editor (markdown content, external URL option, "Require Acceptance" 
+toggle, and the "Load Default UK H&S Rules" button).
+
+### Step 6 — Delivery & Records
+Preserve: kiosk check-in toggle, send-link toggle, the Sent Induction Links log 
+(`/api/induction/admin/tokens`), and any model/format settings.
+
+## Quality bar (this is the point of the feature)
+- Every induction must be able to be SITE-SPECIFIC: real hazards, real photos, real assembly 
+  point — not generic. The AI must use the Step 1 data.
+- Keep the CDM 2015 / HSE mandatory-topics coverage that already exists in 
+  videoGenerationService.ts — do not weaken it.
+- The admin must always be able to PREVIEW exactly what the contractor will see before sending.
+- Knowledge check with pass threshold and explanations must remain intact.
+- Completion must remain logged for the audit trail.
+
+## Rules
+- The route `/induction-settings` must point to this ONE merged page. 
+- Do NOT delete the other file — just stop routing to it (leave it orphaned) so nothing is lost 
+  if we need to refer back.
+- British spelling in all UI copy.
+- Mobile-first for anything a contractor touches; the admin builder can be desktop-oriented but 
+  must not break on a tablet.
+- Additive, backwards-compatible. Provide Drizzle migrations for any new/changed columns.
+- Do NOT drop AI generation or the questions system again — verify both work end-to-end before 
+  finishing.
+
+## Deliverable
+After building, give me: (1) a list of every file changed, (2) confirmation that each of the 
+6 steps works end-to-end, and (3) a 6-point manual test script I can follow to demo the feature.
