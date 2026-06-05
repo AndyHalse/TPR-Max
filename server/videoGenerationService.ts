@@ -160,7 +160,19 @@ export class VideoGenerationService {
     const result = await manager.callClaude(combinedPrompt, modelName, claudeOptions);
 
     if (!ResultUtils.isSuccess(result)) {
-      throw new Error(result.error?.message || 'Claude generation failed');
+      const errMsg = result.error?.message || 'Claude generation failed';
+      // If Claude is out of credits, transparently switch to OpenAI (Replit AI integrations)
+      if (this.isCreditsExhaustedError(errMsg)) {
+        logger.warn(`⚠️ Claude credits exhausted in script generation — falling back to OpenAI`);
+        const openAiOptions = {
+          ...options,
+          model: 'gpt-5',
+          response_format: { type: 'json_object' },
+          max_completion_tokens: options.max_tokens || options.max_completion_tokens || 4000,
+        };
+        return this.aiJsonFromMessages<T>(messages, _schemaHints, openAiOptions);
+      }
+      throw new Error(errMsg);
     }
 
     const text = result.data;
@@ -180,6 +192,19 @@ export class VideoGenerationService {
       'No Anthropic API key available',
     ];
     return terminalPhrases.some(phrase => message.includes(phrase));
+  }
+
+  private isCreditsExhaustedError(message: string): boolean {
+    const phrases = [
+      'credit balance is too low',
+      'insufficient_quota',
+      'billing_hard_limit',
+      'you exceeded your current quota',
+      'quota exceeded',
+      'your account has insufficient balance',
+    ];
+    const lower = message.toLowerCase();
+    return phrases.some(p => lower.includes(p));
   }
   
   // Generate AI-powered questions based on video script content

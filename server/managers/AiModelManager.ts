@@ -119,12 +119,33 @@ export class AiModelManager implements IAiChatClient {
     }
   }
 
+  private isCreditsExhaustedError(message: string): boolean {
+    const phrases = [
+      'credit balance is too low',
+      'insufficient_quota',
+      'billing_hard_limit',
+      'you exceeded your current quota',
+      'quota exceeded',
+      'your account has insufficient balance',
+    ];
+    const lower = message.toLowerCase();
+    return phrases.some(p => lower.includes(p));
+  }
+
   async complete(prompt: string, options: AiModelOptions = {}): Promise<Result<string>> {
     const startModel = options.model || this.modelConfigs[0].name;
 
     // Route to Claude if the selected model is a Claude model
     if (this.isClaudeModel(startModel)) {
-      return this.callClaude(prompt, startModel, options);
+      const claudeResult = await this.callClaude(prompt, startModel, options);
+      if (ResultUtils.isSuccess(claudeResult)) return claudeResult;
+      // If Claude fails due to billing/credit exhaustion, transparently try OpenAI
+      if (this.isCreditsExhaustedError(claudeResult.error?.message || '')) {
+        logger.warn(`⚠️ Claude credits exhausted — falling back to OpenAI: ${claudeResult.error?.message}`);
+        // Fall through to the OpenAI model chain below
+      } else {
+        return claudeResult; // Auth errors, rate limits, etc. returned as-is
+      }
     }
 
     const startIndex = this.modelConfigs.findIndex(config => config.name === startModel);
