@@ -36,7 +36,7 @@ import PPMWorkOrderMobile from "@/pages/PPMWorkOrderMobile";
 import Audits from "@/pages/Audits";
 import AuditMobile from "@/pages/AuditMobile";
 import HelpDesk from "@/pages/HelpDesk";
-import InductionSettings from "@/pages/settings/InductionSettings";
+import InductionSettings from "@/pages/InductionSettings";
 import EmailOutbox from "@/pages/EmailOutbox";
 import MeetingRooms from "@/pages/MeetingRooms";
 import Login from "@/pages/Login";

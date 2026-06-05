@@ -1068,8 +1068,6 @@ export default function InductionSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
 
   const [siteOpen, setSiteOpen] = useState(false);
-  const [hsOpen, setHsOpen] = useState(false);
-
   // ── Quick Start state ──
   const [qs, setQs] = useState<{
     phase: 'idle' | 'fill_details' | 'generating' | 'done' | 'failed';
@@ -1414,70 +1412,9 @@ export default function InductionSettings() {
           )}
         </GlassCard>
 
-        {/* ── Step 5: H&S Rules (global) ── */}
-        <GlassCard className="p-0 overflow-hidden">
-          <button className="w-full flex items-center justify-between px-6 py-4 text-left" onClick={() => setHsOpen(o => !o)}>
-            <div className="flex items-center gap-3">
-              <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">5</span>
-              <div>
-                <h2 className="text-base font-semibold text-fixed">Health &amp; Safety Rules</h2>
-                <p className="text-xs text-variable">Displayed to all inductees before or during check-in — optionally require acceptance.</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Badge variant={currentSettings?.hsRulesEnabled !== false ? 'default' : 'secondary'} className="text-xs hidden sm:flex">
-                {currentSettings?.hsRulesEnabled !== false ? 'Enabled' : 'Disabled'}
-              </Badge>
-              {hsOpen ? <ChevronUp className="w-5 h-5 text-variable" /> : <ChevronDown className="w-5 h-5 text-variable" />}
-            </div>
-          </button>
-          {hsOpen && (
-            <div className="px-6 pb-6 border-t border-white/10 dark:border-slate-700/30">
-              <div className="mt-4 flex flex-wrap items-center gap-6 mb-5">
-                <div className="flex items-center gap-2">
-                  <Switch checked={currentSettings?.hsRulesEnabled !== false} onCheckedChange={(c) => handleInputChange('hsRulesEnabled', c)} />
-                  <Label className="text-sm font-medium text-fixed">Enable H&amp;S Rules</Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Switch checked={currentSettings?.hsRulesRequireAcceptance || false} onCheckedChange={(c) => handleInputChange('hsRulesRequireAcceptance', c)} />
-                  <div className="flex items-center gap-1.5">
-                    <Label className="text-sm font-medium text-fixed">Require Acceptance</Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
-                      <TooltipContent className="max-w-xs">When enabled, visitors must tick a checkbox confirming they've read the H&amp;S rules before their e-Pass is issued.</TooltipContent>
-                    </Tooltip>
-                  </div>
-                </div>
-              </div>
-              {currentSettings?.hsRulesEnabled !== false ? (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-fixed">H&amp;S Rules Content (Markdown supported)</Label>
-                    <textarea
-                      value={currentSettings?.hsRulesContent || ''}
-                      onChange={(e) => handleInputChange('hsRulesContent', e.target.value)}
-                      className="w-full h-56 px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-fixed font-mono text-sm resize-y"
-                      placeholder="Enter your company's health and safety rules here…"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-fixed">External H&amp;S Rules URL (Optional)</Label>
-                    <Input type="url" value={currentSettings?.hsRulesUrl || ''} onChange={(e) => handleInputChange('hsRulesUrl', e.target.value)} placeholder="https://yourcompany.com/health-safety-policy" />
-                  </div>
-                </div>
-              ) : (
-                <div className="text-center py-6 text-variable">
-                  <Shield className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                  <p className="text-sm">H&amp;S Rules are disabled. Toggle on above to add your site rules.</p>
-                </div>
-              )}
-            </div>
-          )}
-        </GlassCard>
-
-        {/* ── Role Tabs (Steps 2–4 & 6) ── */}
+        {/* ── Role Tabs (Steps 2–5) ── */}
         <div>
-          <p className="text-sm text-muted-foreground mb-3">Steps 2–4 and 6 are role-specific — select a role to build and manage that induction:</p>
+          <p className="text-sm text-muted-foreground mb-3">Steps 2–5 are role-specific — select a role to build and manage that induction:</p>
           <Tabs value={activeRole} onValueChange={(v) => setActiveRole(v as any)}>
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="visitor" className="flex items-center gap-2">
