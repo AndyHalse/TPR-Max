@@ -579,7 +579,34 @@ export function registerSettingsRoutes(
             await databaseService.updateApiKeyLastUsed(context, serviceType);
           }
         } catch (error: any) {
-          testResult = { success: false, message: `Claude connection failed: ${error.message}` };
+          const msg: string = error.message || '';
+          const isCreditsError = [
+            'credit balance is too low',
+            'insufficient_quota',
+            'billing_hard_limit',
+            'you exceeded your current quota',
+            'quota exceeded',
+            'your account has insufficient balance',
+          ].some(p => msg.toLowerCase().includes(p));
+
+          if (isCreditsError) {
+            // Key is valid — account just has no credits
+            testResult = {
+              success: true,
+              message: "Claude API key is valid. Account has insufficient credits — please top up at console.anthropic.com.",
+              model: "claude-3-5-sonnet-20241022",
+            };
+            if (!tempKey) {
+              await databaseService.updateApiKeyLastUsed(context, serviceType);
+            }
+          } else {
+            testResult = {
+              success: false,
+              message: error.status === 401
+                ? "Invalid API key — please check and re-enter your Anthropic key."
+                : `Claude connection failed: ${msg}`,
+            };
+          }
         }
       }
       

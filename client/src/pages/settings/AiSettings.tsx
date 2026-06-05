@@ -65,7 +65,7 @@ export default function AiSettings() {
       const res = await apiRequest("POST", "/api/settings/ai-keys/test", { serviceType, tempKey: tempKey || undefined });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Test failed");
-      setAiKeyTestResults(prev => ({ ...prev, [serviceType]: data.success ? "✓ Connection successful" : "✗ Test failed" }));
+      setAiKeyTestResults(prev => ({ ...prev, [serviceType]: data.success ? `✓ ${data.message || "Connection successful"}` : `✗ ${data.message || "Test failed"}` }));
     } catch (err: any) {
       setAiKeyTestResults(prev => ({ ...prev, [serviceType]: `✗ ${err.message}` }));
     } finally {
