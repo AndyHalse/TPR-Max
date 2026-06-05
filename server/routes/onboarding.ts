@@ -52,253 +52,63 @@ export function registerOnboardingRoutes(app: Express): void {
     }
   });
 
-  // Serve induction preview HTML page
+  // Serve induction preview HTML page — serves the REAL generatedHtml, not a hardcoded template
   app.get('/induction-preview/:roleType', async (req, res) => {
     try {
       const { roleType } = req.params;
       
-      // Use development customer context for public preview
-      const context = databaseService.createDevelopmentContext();
+      // Use the session's customer context if available (user is logged in), else fall back to dev
+      const sessionCustomerId = (req.session as any)?.customerId;
+      const context = sessionCustomerId
+        ? { customerId: sessionCustomerId }
+        : databaseService.createDevelopmentContext();
       
-      // Get settings for this role type
+      // Look up the actual induction for this role
       const setting = await databaseService.getInductionSettingsByRole(context, roleType);
+      const generatedHtml: string | null = (setting as any)?.generatedHtml ?? null;
       
-      if (!setting) {
-        return res.status(404).send('Induction settings not found for this role');
+      if (generatedHtml) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache');
+        return res.send(generatedHtml);
       }
 
-      // Get AI images for each slide type using customer-isolated database
-      const slideTypes = ['legal_framework', 'ppe', 'emergency', 'hazard', 'site_rules'];
-      const imagePromises = slideTypes.map(slideType => 
-        databaseService.getAiGeneratedImageBySlideType(context, slideType)
-      );
-
-      const imageResults = await Promise.all(imagePromises);
-      const images: Record<string, any> = {};
-      slideTypes.forEach((slideType, index) => {
-        images[slideType] = imageResults[index] || null;
-      });
-
-      // Generate HTML preview with AI images
-      const html = `
-<!DOCTYPE html>
+      // Nothing generated yet — friendly placeholder
+      const roleLabel = roleType.charAt(0).toUpperCase() + roleType.slice(1);
+      return res.send(`<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Induction</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 0;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            overflow-x: hidden;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-            text-align: center;
-        }
-        .header {
-            margin-bottom: 30px;
-        }
-        .title {
-            font-size: 2.5rem;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }
-        .subtitle {
-            font-size: 1.2rem;
-            opacity: 0.9;
-            margin-bottom: 20px;
-        }
-        .duration {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 8px 16px;
-            border-radius: 25px;
-            font-size: 0.9rem;
-        }
-        .slide-preview {
-            background: rgba(255, 255, 255, 0.15);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 40px;
-            margin: 30px 0;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-        }
-        .slide-number {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 8px 12px;
-            border-radius: 15px;
-            font-size: 0.8rem;
-        }
-        .slide-title {
-            font-size: 2rem;
-            font-weight: bold;
-            margin-bottom: 20px;
-        }
-        .slide-image {
-            width: 100%;
-            max-width: 600px;
-            height: 400px;
-            object-fit: cover;
-            border-radius: 15px;
-            margin: 20px 0;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        }
-        .slide-content {
-            font-size: 1.1rem;
-            line-height: 1.6;
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .interactive-badge {
-            display: inline-block;
-            background: rgba(34, 197, 94, 0.2);
-            color: #22c55e;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            margin: 10px 5px;
-            border: 1px solid rgba(34, 197, 94, 0.3);
-        }
-        .loading {
-            opacity: 0.6;
-            text-align: center;
-            font-style: italic;
-        }
-        .error-image {
-            width: 100%;
-            max-width: 600px;
-            height: 400px;
-            background: rgba(255, 255, 255, 0.1);
-            border-radius: 15px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 20px auto;
-            border: 2px dashed rgba(255, 255, 255, 0.3);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${roleLabel} Induction Preview</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;
+         background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);
+         min-height:100vh;display:flex;align-items:center;justify-content:center;
+         color:#fff;text-align:center;padding:20px}
+    .card{background:rgba(255,255,255,0.15);backdrop-filter:blur(12px);
+          border:1px solid rgba(255,255,255,0.25);border-radius:20px;
+          padding:48px 40px;max-width:500px;width:100%}
+    .icon{font-size:3.5rem;margin-bottom:20px}
+    h1{font-size:2rem;font-weight:700;margin-bottom:12px}
+    p{opacity:0.9;line-height:1.7;font-size:1.05rem}
+    strong{font-weight:600}
+  </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1 class="title">${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Induction</h1>
-            <p class="subtitle">Comprehensive AI-generated safety induction covering all essential requirements for ${roleType}s. Duration: 21 minutes.</p>
-            <div class="duration">
-                <span>⏱️ 21 minutes</span>
-                <span>📱 INTERACTIVE SLIDES</span>
-            </div>
-        </div>
-
-        <!-- Welcome and Introduction Slide -->
-        <div class="slide-preview" style="position: relative;">
-            <div class="slide-number">1 / 7</div>
-            <h2 class="slide-title">Welcome and Introduction</h2>
-            ${images.legal_framework ? 
-              `<img src="${images.legal_framework.imageUrl}" alt="Legal Framework" class="slide-image" />` :
-              '<div class="error-image">🏢 Legal Framework Image Loading...</div>'
-            }
-            <div class="slide-content">
-                <p>Welcome to Hexagon Business Centres Ltd. As a valued ${roleType}, your safety is our priority.</p>
-                <div class="interactive-badge">Interactive Content</div>
-            </div>
-        </div>
-
-        <!-- PPE Requirements Slide -->
-        <div class="slide-preview" style="position: relative;">
-            <div class="slide-number">2 / 7</div>
-            <h2 class="slide-title">Personal Protective Equipment (PPE)</h2>
-            ${images.ppe ? 
-              `<img src="${images.ppe.imageUrl}" alt="PPE Requirements" class="slide-image" />` :
-              '<div class="error-image">🦺 PPE Requirements Image Loading...</div>'
-            }
-            <div class="slide-content">
-                <p>Essential PPE requirements for all ${roleType}s on site including hard hats, high-visibility clothing, and safety footwear.</p>
-                <div class="interactive-badge">PPE Checklist</div>
-                <div class="interactive-badge">Interactive Quiz</div>
-            </div>
-        </div>
-
-        <!-- Emergency Procedures Slide -->
-        <div class="slide-preview" style="position: relative;">
-            <div class="slide-number">3 / 7</div>
-            <h2 class="slide-title">Emergency Procedures</h2>
-            ${images.emergency ? 
-              `<img src="${images.emergency.imageUrl}" alt="Emergency Procedures" class="slide-image" />` :
-              '<div class="error-image">🚨 Emergency Procedures Image Loading...</div>'
-            }
-            <div class="slide-content">
-                <p>Critical emergency evacuation procedures, assembly points, and safety protocols.</p>
-                <div class="interactive-badge">Emergency Drill</div>
-                <div class="interactive-badge">Assembly Points</div>
-            </div>
-        </div>
-
-        <!-- Hazard Identification Slide -->
-        <div class="slide-preview" style="position: relative;">
-            <div class="slide-number">4 / 7</div>
-            <h2 class="slide-title">Hazard Identification</h2>
-            ${images.hazard ? 
-              `<img src="${images.hazard.imageUrl}" alt="Hazard Identification" class="slide-image" />` :
-              '<div class="error-image">⚠️ Hazard Identification Image Loading...</div>'
-            }
-            <div class="slide-content">
-                <p>Common workplace hazards and how to identify, assess, and report safety concerns.</p>
-                <div class="interactive-badge">Hazard Spotting</div>
-                <div class="interactive-badge">Reporting System</div>
-            </div>
-        </div>
-
-        <!-- Site Rules and Regulations Slide -->
-        <div class="slide-preview" style="position: relative;">
-            <div class="slide-number">5 / 7</div>
-            <h2 class="slide-title">Site Rules and Regulations</h2>
-            ${images.site_rules ? 
-              `<img src="${images.site_rules.imageUrl}" alt="Site Rules" class="slide-image" />` :
-              '<div class="error-image">📋 Site Rules Image Loading...</div>'
-            }
-            <div class="slide-content">
-                <p>Essential site rules, access control, and compliance requirements for ${roleType}s.</p>
-                <div class="interactive-badge">Rules Quiz</div>
-                <div class="interactive-badge">Compliance Check</div>
-            </div>
-        </div>
-
-    </div>
-
-    <script>
-        // Auto-refresh images if they fail to load
-        document.addEventListener('DOMContentLoaded', function() {
-            const images = document.querySelectorAll('.slide-image');
-            images.forEach(img => {
-                img.onerror = function() {
-                    // Retry loading the image after a delay
-                    setTimeout(() => {
-                        this.src = this.src + '?retry=' + Date.now();
-                    }, 2000);
-                };
-            });
-        });
-    </script>
+  <div class="card">
+    <div class="icon">🎬</div>
+    <h1>${roleLabel} Induction</h1>
+    <p>No induction has been generated for this role yet.<br><br>
+       Go to <strong>Induction Settings</strong> and click
+       <strong>Generate</strong> to create the ${roleLabel.toLowerCase()} induction.</p>
+  </div>
 </body>
-</html>`;
-
-      res.send(html);
+</html>`);
     } catch (error) {
       logger.error('Error serving induction preview:', error);
-      res.status(500).send('Failed to load induction preview');
+      res.status(500).send('Failed to load induction preview.');
     }
   });
 

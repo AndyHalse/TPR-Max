@@ -787,6 +787,11 @@ Respond with valid JSON:
   async generateSceneImages(scenes: Array<{imagePrompt: string}>): Promise<string[]> {
     const companyName = this.companySettings?.companyName || "TPR";
     
+    // Warn early if the image generation key is missing — makes failures diagnosable
+    if (!process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+      logger.warn('⚠️ AI_INTEGRATIONS_OPENAI_API_KEY is not set — image generation will fail. Set it in Secrets.');
+    }
+
     // GENERATE IMAGES FOR ALL SCENES - Critical for professional presentation
     const selectedScenes = scenes; // Use all scenes to ensure every page has an image
     

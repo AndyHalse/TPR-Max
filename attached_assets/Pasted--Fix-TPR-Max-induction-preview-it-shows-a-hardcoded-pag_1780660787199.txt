@@ -1,0 +1,37 @@
+# Fix TPR Max induction preview — it shows a hardcoded page with broken images
+
+## The bug
+The route `/induction-preview/:roleType` in `server/routes/onboarding.ts` serves a HARDCODED 
+5-slide HTML template ("Hexagon Business Centres Ltd…"). For images it calls 
+`getAiGeneratedImageBySlideType()` looking up fixed keys (legal_framework, ppe, emergency, 
+hazard, site_rules) in the `aiGeneratedImages` table. But the REAL generator 
+(`server/videoGenerationService.ts`, triggered by `/api/induction/generate-video/:roleType`) 
+NEVER saves images under those keys — it embeds images directly into the HTML it saves to 
+`inductionSettings.generatedHtml`. Result: the preview's image lookups always return null and 
+every slide shows a "…Image Loading…" placeholder, and the preview never reflects the real 
+induction at all.
+
+## The fix
+Rewrite the `/induction-preview/:roleType` route so it serves the ACTUAL generated induction:
+1. Look up the induction settings for that roleType (visitor/staff/contractor) for the current 
+   customer context.
+2. If `generatedHtml` exists, serve THAT html directly (the images are already embedded in it). 
+   This is the same content the contractor sees — the preview must match reality.
+3. If `generatedHtml` is empty/null (nothing generated yet), return a clean, friendly page that 
+   says "No induction has been generated for this role yet — go to Induction Settings and click 
+   Generate," NOT a hardcoded sample with fake company data.
+4. Delete the hardcoded slide HTML and the `getAiGeneratedImageBySlideType` lookups from this 
+   route — they are the source of the broken images. Do not delete the `aiGeneratedImages` 
+   table or its helpers (other code may use them); just stop this route depending on them.
+
+## Also verify (root cause of "no images" generally)
+- Confirm `AI_INTEGRATIONS_OPENAI_API_KEY` and `AI_INTEGRATIONS_OPENAI_BASE_URL` are set in 
+  Secrets. Add a clear server log if image generation fails so it's diagnosable, instead of 
+  silently embedding nothing.
+- In `videoGenerationService.generateSceneImages`, make sure a single image failure logs the 
+  real error and does not silently produce a blank slide.
+
+## Test
+Generate an induction for "visitor", then open /induction-preview/visitor. It must show the 
+real generated slides WITH images. Generate for a role with no content yet and confirm the 
+friendly "generate first" message appears.
