@@ -2252,6 +2252,59 @@ app.post("/api/import/sample-data", requireAuth, async (req, res) => {
       logger.warn(`Sample H&S Incidents data failed: ${e.message}`);
     }
 
+    // ── Induction Site Details — populate company_settings with realistic sample data ──
+    try {
+      await pool.query(`
+        UPDATE "${schemaName}".company_settings SET
+          induction_industry    = $1,
+          site_address          = $2,
+          induction_hazards     = $3,
+          induction_ppe         = $4,
+          assembly_point        = $5,
+          first_aid_location    = $6,
+          emergency_contact     = $7,
+          induction_site_rules  = $8
+        WHERE id IS NOT NULL
+      `, [
+        'Construction & Civil Engineering',
+        'Apex Construction Park, Unit 7, Brunel Way, Birmingham, B1 2PX',
+        [
+          '• Heavy plant and vehicle movement — stay clear of banksman zones',
+          '• Deep excavations and trenching — exclusion barriers must be respected at all times',
+          '• Overhead power lines on the eastern boundary — no cranes or elevated equipment within 6m',
+          '• Asbestos-containing materials in the existing structure — do not disturb red-labelled areas',
+          '• Uneven ground surfaces and temporary walkways — watch your footing',
+          '• High-noise zones near concrete batching plant — hearing protection mandatory',
+          '• Confined spaces in basement plant rooms — permit to work required',
+        ].join('\n'),
+        [
+          '• Hard hat (EN 397) — mandatory across entire site',
+          '• Hi-visibility vest or jacket (EN ISO 20471 Class 2 minimum)',
+          '• Steel-toecap safety boots (EN ISO 20345 S3)',
+          '• Safety glasses when in fabrication or cutting areas',
+          '• Cut-resistant gloves when handling rebar or sheet materials',
+          '• Respiratory protection (FFP3) when entering dusty or hazardous atmospheres',
+          '• High-ankle boots required in basement and trench areas',
+        ].join('\n'),
+        'Main car park adjacent to the site office — Muster Point A (green sign). Secondary muster: grass verge opposite main entrance — Muster Point B.',
+        'Site office (portacabin, main entrance) — first aid kit on the rear wall. Nearest first aider: Neil Baxter (H&S Manager) — 07700 900888. Nearest A&E: Birmingham City Hospital, 5 minutes by car.',
+        'Neil Baxter (H&S Manager) — 07700 900888. Out of hours: Site Security — 07700 900999.',
+        [
+          '• Site speed limit: 10 mph throughout — pedestrians have priority',
+          '• No lone working — always inform the site office before working in isolated areas',
+          '• Permit to Work required for: hot works, confined spaces, work at height above 2m, electrical isolation',
+          '• No smoking or vaping anywhere on site — designated smoking area at the main car park exit only',
+          '• Mobile phones may only be used in the welfare cabin or designated rest areas — not on the active site',
+          '• All visitors and contractors must sign in and out at the site office',
+          '• Report all near-misses, incidents and unsafe conditions to the H&S Manager immediately',
+          '• COSHH assessment required before bringing any hazardous substances on site',
+        ].join('\n'),
+      ]);
+      logger.info('✅ Sample induction site details populated in company_settings');
+    } catch (e: any) {
+      logger.warn(`Sample induction site details failed: ${e.message}`);
+    }
+
     res.json({
       success: true,
       message: `Sample data loaded: ${staffAdded} staff, ${visitorsAdded} visitors, ${contractorsAdded} contractor companies (${workersAdded} workers), ${membersAdded} members, ${raAssessmentsAdded} risk assessments, ${auditTemplatesAdded} audit templates (${auditRecordsAdded} records, ${auditActionsAdded} actions), ${permitsAdded} permits, ${hsIncidentsAdded} H&S incident records — plus HR, certifications, visits, pre-bookings and attendance records`,
