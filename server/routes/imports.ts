@@ -2282,11 +2282,15 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       const visitorIds: string[] = visitorRes.rows.map((r: any) => r.id);
 
       const deleted: Record<string, number> = {};
+      const failures: string[] = [];
       const del = async (table: string, sql: string, params: any[] = []) => {
         try {
           const r = await pool.query(`DELETE FROM "${schemaName}".${table} ${sql}`, params);
           deleted[table] = (deleted[table] ?? 0) + (r.rowCount ?? 0);
-        } catch (e) { logger.warn(`Clear sample: ${table} — ${(e as any).message}`); }
+        } catch (e) {
+          failures.push(`${table}: ${(e as any).message}`);
+          logger.warn(`Clear sample: ${table} — ${(e as any).message}`);
+        }
       };
       const inP = (ids: string[]) => ids.map((_, i) => `$${i + 1}`).join(',');
 
@@ -2569,6 +2573,9 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
         logger.info(`✅ H&S Incidents demo data cleared`);
       } catch (e) { logger.warn(`Clear sample: hs_incidents — ${(e as any).message}`); }
 
+      if (failures.length > 0) {
+        return res.status(500).json({ error: 'Some records could not be cleared', failures, deleted });
+      }
       res.json({ success: true, message: 'Sample data cleared successfully', deleted });
     } catch (error) {
       logger.error('Error clearing sample data:', error);

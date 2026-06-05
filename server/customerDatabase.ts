@@ -1004,7 +1004,7 @@ export class CustomerDatabaseService {
 
     // HR feature toggle in company_settings
     try {
-      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_hr_module BOOLEAN DEFAULT true`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_hr_module BOOLEAN DEFAULT false`);
     } catch (err: any) {
       logger.warn(`⚠️ HR feature toggle migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }

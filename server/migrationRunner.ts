@@ -525,6 +525,50 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260605_057_lone_worker_tables',
+      description: 'Ensure lone_worker_sessions and lone_worker_tokens tables exist (replaces runtime self-heal)',
+      async up(db: any) {
+        try {
+          await db.execute(`
+            CREATE TABLE IF NOT EXISTS lone_worker_sessions (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              customer_id TEXT NOT NULL,
+              person_id TEXT NOT NULL,
+              person_type TEXT NOT NULL DEFAULT 'staff',
+              person_name TEXT NOT NULL,
+              person_email TEXT,
+              started_at TIMESTAMP NOT NULL DEFAULT NOW(),
+              ended_at TIMESTAMP,
+              interval_mins INTEGER NOT NULL DEFAULT 30,
+              grace_period_mins INTEGER NOT NULL DEFAULT 10,
+              status TEXT NOT NULL DEFAULT 'active',
+              check_ins_completed INTEGER NOT NULL DEFAULT 0,
+              escalations_fired INTEGER NOT NULL DEFAULT 0,
+              ended_by TEXT
+            )
+          `);
+          logger.info('✅ [057] lone_worker_sessions table ensured');
+        } catch (err: any) {
+          logger.warn(`⚠️ [057] lone_worker_sessions: ${err.message?.substring(0, 80)}`);
+        }
+        try {
+          await db.execute(`
+            CREATE TABLE IF NOT EXISTS lone_worker_tokens (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              token TEXT NOT NULL UNIQUE,
+              session_id UUID NOT NULL REFERENCES lone_worker_sessions(id),
+              created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+              expires_at TIMESTAMP NOT NULL,
+              used_at TIMESTAMP
+            )
+          `);
+          logger.info('✅ [057] lone_worker_tokens table ensured');
+        } catch (err: any) {
+          logger.warn(`⚠️ [057] lone_worker_tokens: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

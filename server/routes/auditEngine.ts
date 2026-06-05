@@ -39,27 +39,45 @@ const auditPublicRateLimit = rateLimit({
 
 export function registerAuditEngineRoutes(app: Express): void {
 
+  // Resolve custDb + record from token — uses customerId prefix for O(1) lookup,
+  // falls back to full scan for legacy tokens issued before the prefix was added.
+  async function resolveAuditDb(token: string): Promise<{ custDb: any; record: any } | null> {
+    const dotIndex = token.indexOf('.');
+    if (dotIndex > 0) {
+      const customerId = token.slice(0, dotIndex);
+      try {
+        const custDb = await customerDbService.getCustomerDatabase(customerId);
+        const [record] = await custDb.select().from(isolatedSchema.auditRecords)
+          .where(eq(isolatedSchema.auditRecords.accessToken, token));
+        if (record) return { custDb, record };
+      } catch { /* fall through to legacy scan */ }
+    }
+    // Legacy fallback: tokens issued before customerId prefix was added
+    const allCustomers = await customerDbService.getAllCustomers();
+    for (const customer of allCustomers) {
+      const custDb = await customerDbService.getCustomerDatabase(customer.id);
+      const [record] = await custDb.select().from(isolatedSchema.auditRecords)
+        .where(eq(isolatedSchema.auditRecords.accessToken, token));
+      if (record) return { custDb, record };
+    }
+    return null;
+  }
+
   // ── PUBLIC ENDPOINTS (registered BEFORE auth middleware) ─────────────────
 
   app.get('/api/audits/public/:token', auditPublicRateLimit, async (req, res) => {
     try {
       const { token } = req.params;
-      const allCustomers = await customerDbService.getAllCustomers();
-      for (const customer of allCustomers) {
-        const custDb = await customerDbService.getCustomerDatabase(customer.id);
-        const [record] = await custDb.select().from(isolatedSchema.auditRecords)
-          .where(eq(isolatedSchema.auditRecords.accessToken, token));
-        if (record) {
-          if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
-            return res.status(410).json({ error: 'This link has expired. Please request a new one.' });
-          }
-          const items = await custDb.select().from(isolatedSchema.auditRecordItems)
-            .where(eq(isolatedSchema.auditRecordItems.auditId, record.id))
-            .orderBy(isolatedSchema.auditRecordItems.sortOrder);
-          return res.json({ record, items });
-        }
+      const resolved = await resolveAuditDb(token);
+      if (!resolved) return res.status(404).json({ error: 'Audit not found or link is invalid.' });
+      const { custDb, record } = resolved;
+      if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
+        return res.status(410).json({ error: 'This link has expired. Please request a new one.' });
       }
-      return res.status(404).json({ error: 'Audit not found or link is invalid.' });
+      const items = await custDb.select().from(isolatedSchema.auditRecordItems)
+        .where(eq(isolatedSchema.auditRecordItems.auditId, record.id))
+        .orderBy(isolatedSchema.auditRecordItems.sortOrder);
+      return res.json({ record, items });
     } catch (error: unknown) {
       logger.error('GET /api/audits/public/:token', error);
       res.status(500).json({ error: 'Failed to load audit' });
@@ -70,25 +88,19 @@ export function registerAuditEngineRoutes(app: Express): void {
     try {
       const { token } = req.params;
       const { itemId, response, note, photoUrl, photoFileName } = req.body;
-      const allCustomers = await customerDbService.getAllCustomers();
-      for (const customer of allCustomers) {
-        const custDb = await customerDbService.getCustomerDatabase(customer.id);
-        const [record] = await custDb.select().from(isolatedSchema.auditRecords)
-          .where(eq(isolatedSchema.auditRecords.accessToken, token));
-        if (record) {
-          if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
-            return res.status(410).json({ error: 'This link has expired.' });
-          }
-          await custDb.update(isolatedSchema.auditRecordItems)
-            .set({ response, note, photoUrl, photoFileName })
-            .where(and(
-              eq(isolatedSchema.auditRecordItems.id, itemId),
-              eq(isolatedSchema.auditRecordItems.auditId, record.id)
-            ));
-          return res.json({ ok: true });
-        }
+      const resolved = await resolveAuditDb(token);
+      if (!resolved) return res.status(404).json({ error: 'Audit not found.' });
+      const { custDb, record } = resolved;
+      if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
+        return res.status(410).json({ error: 'This link has expired.' });
       }
-      return res.status(404).json({ error: 'Audit not found.' });
+      await custDb.update(isolatedSchema.auditRecordItems)
+        .set({ response, note, photoUrl, photoFileName })
+        .where(and(
+          eq(isolatedSchema.auditRecordItems.id, itemId),
+          eq(isolatedSchema.auditRecordItems.auditId, record.id)
+        ));
+      return res.json({ ok: true });
     } catch (error: unknown) {
       logger.error('PUT /api/audits/public/:token', error);
       res.status(500).json({ error: 'Failed to update item' });
@@ -99,38 +111,32 @@ export function registerAuditEngineRoutes(app: Express): void {
     try {
       const { token } = req.params;
       const { summary } = req.body;
-      const allCustomers = await customerDbService.getAllCustomers();
-      for (const customer of allCustomers) {
-        const custDb = await customerDbService.getCustomerDatabase(customer.id);
-        const [record] = await custDb.select().from(isolatedSchema.auditRecords)
-          .where(eq(isolatedSchema.auditRecords.accessToken, token));
-        if (record) {
-          if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
-            return res.status(410).json({ error: 'This link has expired.' });
-          }
-          const items = await custDb.select().from(isolatedSchema.auditRecordItems)
-            .where(eq(isolatedSchema.auditRecordItems.auditId, record.id));
-          const passCount = items.filter(i => i.response === 'pass').length;
-          const failCount = items.filter(i => i.response === 'fail').length;
-          const scoreable = passCount + failCount;
-          const score = scoreable > 0 ? Math.round((passCount / scoreable) * 100) : 100;
-          const hasCriticalFail = items.some(i => i.isCritical && i.response === 'fail');
-          let template = null;
-          if (record.templateId) {
-            const [t] = await custDb.select().from(isolatedSchema.auditTemplates)
-              .where(eq(isolatedSchema.auditTemplates.id, record.templateId));
-            template = t;
-          }
-          const passThreshold = template?.passScore ?? 80;
-          const passed = hasCriticalFail ? false : score >= passThreshold;
-          const [updated] = await custDb.update(isolatedSchema.auditRecords)
-            .set({ status: 'completed', overallScore: score, passed, conductedAt: new Date(), summary: summary || null, updatedAt: new Date() })
-            .where(eq(isolatedSchema.auditRecords.id, record.id))
-            .returning();
-          return res.json({ record: updated, overallScore: score, passed, passCount, failCount, naCount: items.filter(i => i.response === 'na').length });
-        }
+      const resolved = await resolveAuditDb(token);
+      if (!resolved) return res.status(404).json({ error: 'Audit not found.' });
+      const { custDb, record } = resolved;
+      if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
+        return res.status(410).json({ error: 'This link has expired.' });
       }
-      return res.status(404).json({ error: 'Audit not found.' });
+      const items = await custDb.select().from(isolatedSchema.auditRecordItems)
+        .where(eq(isolatedSchema.auditRecordItems.auditId, record.id));
+      const passCount = items.filter((i: any) => i.response === 'pass').length;
+      const failCount = items.filter((i: any) => i.response === 'fail').length;
+      const scoreable = passCount + failCount;
+      const score = scoreable > 0 ? Math.round((passCount / scoreable) * 100) : 100;
+      const hasCriticalFail = items.some((i: any) => i.isCritical && i.response === 'fail');
+      let template = null;
+      if (record.templateId) {
+        const [t] = await custDb.select().from(isolatedSchema.auditTemplates)
+          .where(eq(isolatedSchema.auditTemplates.id, record.templateId));
+        template = t;
+      }
+      const passThreshold = template?.passScore ?? 80;
+      const passed = hasCriticalFail ? false : score >= passThreshold;
+      const [updated] = await custDb.update(isolatedSchema.auditRecords)
+        .set({ status: 'completed', overallScore: score, passed, conductedAt: new Date(), summary: summary || null, updatedAt: new Date() })
+        .where(eq(isolatedSchema.auditRecords.id, record.id))
+        .returning();
+      return res.json({ record: updated, overallScore: score, passed, passCount, failCount, naCount: items.filter((i: any) => i.response === 'na').length });
     } catch (error: unknown) {
       logger.error('POST /api/audits/public/:token/submit', error);
       res.status(500).json({ error: 'Failed to submit audit' });
@@ -142,31 +148,25 @@ export function registerAuditEngineRoutes(app: Express): void {
       const { token } = req.params;
       const { data, mimeType, fileName, itemId } = req.body;
       if (!data || !mimeType || !fileName) return res.status(400).json({ error: 'Missing file data' });
-      const allCustomers = await customerDbService.getAllCustomers();
-      for (const customer of allCustomers) {
-        const custDb = await customerDbService.getCustomerDatabase(customer.id);
-        const [record] = await custDb.select().from(isolatedSchema.auditRecords)
-          .where(eq(isolatedSchema.auditRecords.accessToken, token));
-        if (record) {
-          if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
-            return res.status(410).json({ error: 'This link has expired.' });
-          }
-          const buffer = Buffer.from(data, 'base64');
-          const storage = new ObjectStorageService();
-          const uploadPath = `audit-photos/${record.id}/${Date.now()}-${fileName}`;
-          const fileUrl = await storage.uploadFile(buffer, uploadPath, mimeType);
-          if (itemId) {
-            await custDb.update(isolatedSchema.auditRecordItems)
-              .set({ photoUrl: fileUrl, photoFileName: fileName })
-              .where(and(
-                eq(isolatedSchema.auditRecordItems.id, itemId),
-                eq(isolatedSchema.auditRecordItems.auditId, record.id)
-              ));
-          }
-          return res.json({ fileUrl, fileName });
-        }
+      const resolved = await resolveAuditDb(token);
+      if (!resolved) return res.status(404).json({ error: 'Audit not found.' });
+      const { custDb, record } = resolved;
+      if (record.accessTokenExpiresAt && new Date(record.accessTokenExpiresAt) < new Date()) {
+        return res.status(410).json({ error: 'This link has expired.' });
       }
-      return res.status(404).json({ error: 'Audit not found.' });
+      const buffer = Buffer.from(data, 'base64');
+      const storage = new ObjectStorageService();
+      const uploadPath = `audit-photos/${record.id}/${Date.now()}-${fileName}`;
+      const fileUrl = await storage.uploadFile(buffer, uploadPath, mimeType);
+      if (itemId) {
+        await custDb.update(isolatedSchema.auditRecordItems)
+          .set({ photoUrl: fileUrl, photoFileName: fileName })
+          .where(and(
+            eq(isolatedSchema.auditRecordItems.id, itemId),
+            eq(isolatedSchema.auditRecordItems.auditId, record.id)
+          ));
+      }
+      return res.json({ fileUrl, fileName });
     } catch (error: unknown) {
       logger.error('POST /api/audits/public/:token/upload', error);
       res.status(500).json({ error: 'Upload failed' });
@@ -758,7 +758,7 @@ export function registerAuditEngineRoutes(app: Express): void {
     try {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-      const token = randomBytes(24).toString('hex');
+      const token = `${context.customerId}.${randomBytes(24).toString('hex')}`;
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const [record] = await custDb.update(isolatedSchema.auditRecords)
         .set({ accessToken: token, accessTokenExpiresAt: expiresAt, updatedAt: new Date() })
@@ -780,7 +780,7 @@ export function registerAuditEngineRoutes(app: Express): void {
       const { staffEmail, staffName } = req.body;
       if (!staffEmail) return res.status(400).json({ error: 'Staff email is required' });
 
-      const token = randomBytes(24).toString('hex');
+      const token = `${context.customerId}.${randomBytes(24).toString('hex')}`;
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       const [record] = await custDb.update(isolatedSchema.auditRecords)
         .set({ accessToken: token, accessTokenExpiresAt: expiresAt, updatedAt: new Date() })

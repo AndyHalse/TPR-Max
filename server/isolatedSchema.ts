@@ -524,7 +524,7 @@ export const companySettings = pgTable("company_settings", {
   complianceCertAlertHour: integer("compliance_cert_alert_hour").default(7),
   featurePermitToWork: boolean("feature_permit_to_work").default(false),
   ptwAlertHour: integer("ptw_alert_hour").default(7),
-  featureHrModule: boolean("feature_hr_module").default(true),
+  featureHrModule: boolean("feature_hr_module").default(false),
   featureAuditEngine: boolean("feature_audit_engine").default(false),
   featureRaBuilder: boolean("feature_ra_builder").default(false),
   // Core navigation feature toggles — default ON
