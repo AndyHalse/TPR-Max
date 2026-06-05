@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, CheckCircle2, Clock, Play, AlertTriangle, Shield, HardHat, RefreshCw, ClipboardCheck, Lock } from "lucide-react";
+import { CheckCircle, CheckCircle2, Clock, Play, AlertTriangle, Shield, HardHat, RefreshCw, ClipboardCheck, Lock, MapPin, QrCode, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import QRCodeImage from "@/components/QRCodeImage";
 
 interface InductionToken {
   id: string;
@@ -40,6 +41,25 @@ interface InductionQuestion {
   optionD?: string;
   explanation: string;
   category: string;
+  sceneIndex?: number | null;
+}
+
+interface InductionScene {
+  title: string;
+  content: string;
+  duration?: number;
+  imagePrompt?: string;
+  imageUrl?: string;
+}
+
+interface WalkCheckpoint {
+  id: string;
+  label: string;
+  orderIndex: number;
+  content: string;
+  imageUrl?: string | null;
+  qrToken: string;
+  isActive: boolean;
 }
 
 interface WorkerDetails {
@@ -107,6 +127,14 @@ export default function SiteInduction() {
   const [alreadyCompleted, setAlreadyCompleted] = useState(false);
   const [branding, setBranding] = useState<InductionBranding | null>(null);
   const fetchedTokenRef = useRef<string | null>(null);
+
+  // ── Per-section quiz + native slide state ────────────────────────────────
+  const [scenes, setScenes] = useState<InductionScene[]>([]);
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [perSceneAnswers, setPerSceneAnswers] = useState<Record<string, string>>({});
+  // ── Walk-around checkpoints (shown on completed step) ────────────────────
+  const [walkCheckpoints, setWalkCheckpoints] = useState<WalkCheckpoint[]>([]);
+  const [scannedCpIds, setScannedCpIds] = useState<string[]>([]);
 
   // Derive usable brand values with safe fallbacks
   const brandAccent = branding?.accentColor || '#2460a9';
@@ -185,6 +213,24 @@ export default function SiteInduction() {
         setQuestions(questionsResponse.questions || []);
       }
 
+      // Fetch scenes for native per-section slide rendering (non-blocking)
+      fetch(`/api/induction/scenes/by-token/${token}`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : Promise.resolve({ scenes: [] }))
+        .then(d => setScenes(Array.isArray(d.scenes) ? d.scenes : []))
+        .catch(() => {});
+
+      // Fetch walk-around checkpoints for the completed step (non-blocking)
+      fetch(`/api/induction/checkpoints/public?token=${token}`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : Promise.resolve({ checkpoints: [] }))
+        .then(d => setWalkCheckpoints(Array.isArray(d.checkpoints) ? d.checkpoints : []))
+        .catch(() => {});
+
+      // Fetch walk-around scan progress (non-blocking)
+      fetch(`/api/induction/${token}/checkpoint-progress`, { credentials: 'include' })
+        .then(r => r.ok ? r.json() : Promise.resolve({ scannedCheckpointIds: [] }))
+        .then(d => setScannedCpIds(Array.isArray(d.scannedCheckpointIds) ? d.scannedCheckpointIds : []))
+        .catch(() => {});
+
       // Fetch video HTML in the background (it can be large — don't block page render)
       if (tokenResponse.videoContent?.hasGeneratedContent) {
         setVideoHtmlLoading(true);
@@ -241,26 +287,34 @@ export default function SiteInduction() {
   };
 
   const submitQuiz = async () => {
-    if (!tokenData || questions.length === 0) return;
+    if (!tokenData) return;
     
-    // Check all questions are answered
-    const unansweredQuestions = questions.filter(q => !answers[q.id]);
-    if (unansweredQuestions.length > 0) {
+    // Separate global questions from per-scene questions
+    const globalQuestions = questions.filter(q => q.sceneIndex == null);
+    const sceneQuestions = questions.filter(q => q.sceneIndex != null);
+
+    // Check all global questions are answered
+    const unansweredGlobal = globalQuestions.filter(q => !answers[q.id]);
+    if (unansweredGlobal.length > 0) {
       toast({
         title: "Incomplete Quiz",
-        description: `Please answer all ${questions.length} questions before submitting.`,
+        description: `Please answer all ${globalQuestions.length} questions before submitting.`,
         variant: "destructive"
       });
       return;
     }
 
+    if (globalQuestions.length === 0 && sceneQuestions.length === 0) return;
+
     try {
       setQuizSubmitted(true);
       
-      const answersArray = questions.map(q => ({
-        questionId: q.id,
-        selectedAnswer: answers[q.id]
-      }));
+      // Merge per-scene answers + global answers
+      const sceneAnswersArray = sceneQuestions
+        .filter(q => perSceneAnswers[q.id])
+        .map(q => ({ questionId: q.id, selectedAnswer: perSceneAnswers[q.id] }));
+      const globalAnswersArray = globalQuestions.map(q => ({ questionId: q.id, selectedAnswer: answers[q.id] }));
+      const answersArray = [...sceneAnswersArray, ...globalAnswersArray];
 
       const res = await fetch(`/api/induction/${tokenData.id}/submit-quiz`, {
         method: 'POST',
@@ -323,6 +377,109 @@ export default function SiteInduction() {
     setCurrentQuestionIndex(0);
     setQuizResults(null);
     setQuizSubmitted(false);
+  };
+
+  // ── Native slide renderer (per-section knowledge checks) ─────────────────
+  const renderNativeSlideStep = () => {
+    if (!scenes.length) return null;
+    const scene = scenes[currentSlideIndex];
+    if (!scene) return null;
+
+    const sceneQs = questions.filter(q => q.sceneIndex === currentSlideIndex);
+    const allSceneQsAnswered = sceneQs.every(q => perSceneAnswers[q.id]);
+    const isLastSlide = currentSlideIndex === scenes.length - 1;
+
+    const goNext = async () => {
+      if (isLastSlide) {
+        await markVideoWatched();
+      } else {
+        setCurrentSlideIndex(i => i + 1);
+      }
+    };
+
+    return (
+      <div className="space-y-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-lg">{scene.title}</CardTitle>
+              <span className="text-xs text-variable shrink-0">
+                {currentSlideIndex + 1} / {scenes.length}
+              </span>
+            </div>
+            <Progress value={((currentSlideIndex + 1) / scenes.length) * 100} className="h-1.5 mt-2" />
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {scene.imageUrl && (
+              <img
+                src={`/objects${scene.imageUrl}`}
+                alt={scene.title}
+                className="w-full rounded-lg object-cover max-h-72"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            )}
+            <div
+              className="prose prose-sm max-w-none text-fixed"
+              dangerouslySetInnerHTML={{ __html: scene.content.replace(/\n/g, '<br/>') }}
+            />
+
+            {/* Per-scene knowledge check questions */}
+            {sceneQs.length > 0 && (
+              <div className="mt-4 space-y-4 border-t pt-4">
+                <p className="text-sm font-semibold text-fixed flex items-center gap-1.5">
+                  <HardHat className="w-4 h-4" style={{ color: brandAccent }} />
+                  Quick Check — {scene.title}
+                </p>
+                {sceneQs.map((q) => {
+                  const opts = [q.optionA, q.optionB, q.optionC, q.optionD].filter(Boolean) as string[];
+                  return (
+                    <div key={q.id} className="rounded-xl border p-4 bg-gray-50 dark:bg-slate-800/50">
+                      <p className="text-sm font-medium text-fixed mb-3">{q.questionText}</p>
+                      <div className="space-y-2">
+                        {opts.map((opt) => (
+                          <button
+                            key={opt}
+                            onClick={() => setPerSceneAnswers(prev => ({ ...prev, [q.id]: opt }))}
+                            className={`w-full text-left text-sm px-3 py-2 rounded-lg border transition-all ${
+                              perSceneAnswers[q.id] === opt
+                                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/30 font-medium'
+                                : 'border-gray-200 dark:border-gray-600 hover:bg-white dark:hover:bg-slate-700'
+                            }`}
+                          >
+                            {opt}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={currentSlideIndex === 0}
+                onClick={() => setCurrentSlideIndex(i => i - 1)}
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" /> Previous
+              </Button>
+              <Button
+                onClick={goNext}
+                disabled={sceneQs.length > 0 && !allSceneQsAnswered}
+                style={{ backgroundColor: brandAccent }}
+                className="text-white"
+              >
+                {isLastSlide ? 'Continue to Quiz →' : (
+                  <>Next <ChevronRight className="w-4 h-4 ml-1" /></>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   };
 
   if (loading) {
@@ -411,6 +568,10 @@ export default function SiteInduction() {
   };
 
   const renderVideoStep = () => {
+    // Use native per-section slide mode when scenes are loaded AND questions have sceneIndex
+    const useNativeMode = scenes.length > 0 && questions.some(q => q.sceneIndex != null);
+    if (useNativeMode) return renderNativeSlideStep();
+
     const isCustomUpload = videoContent?.videoMode === 'custom_upload' && !!videoContent?.customVideoUrl;
     const hasGeneratedVideo = !isCustomUpload && videoContent?.hasGeneratedContent;
     const rawUrl = videoContent?.videoUrl ?? '';
@@ -845,6 +1006,67 @@ export default function SiteInduction() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Walk-around checkpoints section */}
+        {walkCheckpoints.length > 0 && (
+          <Card className="border-blue-200">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-blue-800">
+                <MapPin className="w-5 h-5" />
+                Site Walk-around Checkpoints
+              </CardTitle>
+              <CardDescription>
+                Scan each QR code on-site to complete your walk-around induction.{' '}
+                {scannedCpIds.length}/{walkCheckpoints.length} checked in.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {walkCheckpoints.map((cp) => {
+                const scanned = scannedCpIds.includes(cp.id);
+                const qrUrl = `${window.location.origin}/induction/checkpoint/${cp.qrToken}?t=${params?.token}`;
+                return (
+                  <div
+                    key={cp.id}
+                    className={`border rounded-xl p-4 ${scanned ? 'border-green-200 bg-green-50' : 'border-blue-100 bg-blue-50/40'}`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${scanned ? 'bg-green-500' : 'bg-blue-200'}`}>
+                        {scanned ? (
+                          <CheckCircle className="w-4 h-4 text-white" />
+                        ) : (
+                          <span className="text-blue-700 font-bold text-xs">{cp.orderIndex + 1}</span>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm text-fixed">{cp.label}</p>
+                        {cp.content && <p className="text-xs text-variable mt-0.5">{cp.content}</p>}
+                        {scanned && (
+                          <p className="text-xs text-green-700 mt-1 font-medium">✓ Scanned</p>
+                        )}
+                      </div>
+                      {!scanned && (
+                        <div className="bg-white p-1 rounded-lg border shadow-sm shrink-0">
+                          <QRCodeImage data={qrUrl} size={80} alt={`QR: ${cp.label}`} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {scannedCpIds.length < walkCheckpoints.length && (
+                <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                  Scan the QR codes at each location on site. Use your phone camera to scan.
+                </div>
+              )}
+              {scannedCpIds.length === walkCheckpoints.length && walkCheckpoints.length > 0 && (
+                <div className="p-3 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800 font-medium">
+                  ✓ All checkpoints scanned — walk-around complete!
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
       </div>
     );
   };

@@ -1,0 +1,107 @@
+# TPR Max — Induction Feature Upgrade (3 improvements)
+
+You are working on the TPR Max contractor management app (React/TypeScript client, 
+Express/Drizzle/Postgres server). I want to upgrade the existing site induction feature 
+with THREE improvements. Do NOT rebuild the induction from scratch — extend what exists.
+
+## What already exists (read these first)
+- `server/inductionService.ts` — token creation, quiz scoring, completion tracking.
+- `server/videoGenerationService.ts` — AI slide/scene generation. IMPORTANT: it already 
+  has a "site-specific context block" (~line 340) that accepts companyName, siteAddress, 
+  industry, specificHazards, ppeRequired, assemblyPoint, firstAidLocation, emergencyContact 
+  and siteRules. This is half-built — we are exposing and extending it.
+- `client/src/pages/SiteInduction.tsx` — the contractor-facing flow: step states 
+  "video" → "quiz" → "completed".
+- `client/src/pages/settings/InductionSettings.tsx` — the admin settings screen.
+- Schema (`shared/schema.ts`): `inductionSettings` (has `scenesData` JSON: array of 
+  {title, content, duration, imagePrompt}; `videoFormat` can be 'ai_generated' or 
+  'custom_upload'), `inductionTokens`, `inductionQuestions` (has `videoId`, `category`, 
+  `roleType`), `inductionAnswers`.
+- QR scanning ALREADY exists and must be reused: `client/src/components/MusterQRScanner.tsx`, 
+  `QRScannerModal.tsx`, `QRCodeImage.tsx`, `ScannerReticle.tsx`.
+
+## Global rules
+- Workers/visitors/staff live in per-customer ISOLATED schemas — follow the existing 
+  pattern in routes.ts for reading/writing those records. Tokens/questions are in the shared DB.
+- Contractors complete inductions ON THEIR PHONE — everything contractor-facing must be 
+  mobile-first.
+- British spelling in all UI copy (organise, colour, etc.).
+- Do not break the existing email-link induction flow or the kiosk flow.
+- Keep the existing 80% quiz pass threshold logic intact.
+
+---
+
+## IMPROVEMENT 1 — Site-specific induction from the safety officer's own photos & details
+GOAL: Let an admin build a genuinely site-specific induction by entering this site's real 
+details and attaching REAL photos to each slide, instead of relying only on AI-drawn images.
+
+BUILD:
+1. In `InductionSettings.tsx`, add a "Site Details" section with inputs for: specificHazards, 
+   ppeRequired, assemblyPoint, firstAidLocation, emergencyContact, siteRules, siteAddress, 
+   industry. Persist these (add columns to `inductionSettings` or a related site-details 
+   record) and feed them into the existing siteContext block in videoGenerationService.ts so 
+   generated slides use the real data.
+2. Add a per-slide PHOTO UPLOAD: extend each scene object in `scenesData` with an optional 
+   `imageUrl`. Reuse the existing file-upload mechanism already used for custom MP4 upload. 
+   When a slide has an uploaded `imageUrl`, render that real photo INSTEAD of the AI-generated 
+   image in both the preview and the contractor flow (`SiteInduction.tsx`).
+3. Provide a slide editor UI so the admin can reorder slides, edit text, and attach a photo 
+   per slide.
+
+ACCEPTANCE: An admin can type this site's hazards/assembly point/etc., upload a real photo to 
+each slide, and the contractor sees site-specific text and the real photos.
+
+---
+
+## IMPROVEMENT 2 — Per-section knowledge checks
+GOAL: Ask a question after each section instead of one quiz block at the end (proves 
+understanding section-by-section, like a real walk-around).
+
+BUILD:
+- `inductionQuestions` already links to content. Associate each question with a scene/section 
+  (use/extend the existing `videoId`/order linkage, or add a `sceneIndex`).
+- In `SiteInduction.tsx`, change the flow so after each section the contractor answers its 
+  question(s) before continuing. Keep storing answers in `inductionAnswers` and keep the 
+  overall 80% pass calculation working across all answers.
+- If they fail a section question, show the explanation and let them re-read that section.
+
+ACCEPTANCE: Contractor answers a question after each section; total score and pass/fail still 
+computed and logged exactly as before.
+
+---
+
+## IMPROVEMENT 3 — QR-anchored self-guided site walk-around (the flagship)
+GOAL: Recreate a physical induction walk-around. The admin defines a sequence of physical 
+checkpoints (e.g. muster point, high-risk area, welfare block). Printed QR codes are placed 
+at each. The contractor walks the site and scans each QR in sequence; each scan shows that 
+location's safety info + a confirmation, and LOGS proof they were physically there.
+
+BUILD:
+1. New tables (shared DB):
+   - `inductionCheckpoints`: id, settingsId/siteId, label, orderIndex, content (text), 
+     optional imageUrl, qrToken (unique), optional latitude/longitude, isActive.
+   - `inductionCheckpointScans`: id, checkpointId, inductionTokenId, scannedAt, 
+     optional latitude/longitude (captured via navigator.geolocation if permitted), 
+     ipAddress/userAgent.
+2. Admin UI (new section in induction settings): create/reorder/edit checkpoints and 
+   GENERATE + PRINT QR codes for each (reuse `QRCodeImage.tsx`). Each QR encodes the 
+   checkpoint's qrToken tied to the induction.
+3. Contractor flow: a new "walk-around" induction type. Reuse the existing scanner 
+   (`MusterQRScanner.tsx`/`QRScannerModal.tsx`) so the contractor scans each checkpoint. 
+   On scan: validate token, show that checkpoint's content + "I understand" confirmation, 
+   record a row in `inductionCheckpointScans`. Enforce that all active checkpoints are 
+   scanned (in order if order matters) before the induction can complete.
+4. Make this an induction MODE that can run instead of, or alongside, the slide/video flow — 
+   admin chooses per role/site.
+
+ACCEPTANCE: Admin defines checkpoints and prints QR codes. On their phone, a contractor scans 
+each checkpoint, sees its info, confirms, and cannot complete until all are scanned. Each scan 
+is logged with timestamp (and GPS if allowed) as an audit trail.
+
+---
+
+## Delivery
+- Provide Drizzle migrations for all new columns/tables.
+- Keep changes additive and backwards-compatible with existing inductions.
+- After building, give me a short summary of every file changed and how to test each of the 
+  three improvements end-to-end.

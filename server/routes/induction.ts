@@ -4836,4 +4836,373 @@ export function registerInductionRoutes(app: Express): void {
       `);
     }
   });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Scenes API (slide editor)
+  // ────────────────────────────────────────────────────────────────────────────
+
+  // GET /api/induction/scenes/by-token/:token — public, returns scenes for native rendering
+  app.get('/api/induction/scenes/by-token/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      const tokenRecord = await inductionService.getTokenByValue(token);
+      if (!tokenRecord) return res.status(404).json({ error: 'Invalid induction token' });
+
+      const roleType = tokenRecord.personType || 'contractor';
+      const customerId = (tokenRecord as any).customerId;
+
+      let scenesRaw: string | null = null;
+
+      if (customerId) {
+        try {
+          const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+          const [row] = await custDb
+            .select({ scenesData: isolatedSchema.inductionSettings.scenesData })
+            .from(isolatedSchema.inductionSettings)
+            .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+          scenesRaw = row?.scenesData ?? null;
+        } catch (_) { /* fall through to global */ }
+      }
+
+      if (!scenesRaw) {
+        const [row] = await db
+          .select({ scenesData: inductionSettings.scenesData })
+          .from(inductionSettings)
+          .where(eq(inductionSettings.roleType, roleType));
+        scenesRaw = row?.scenesData ?? null;
+      }
+
+      if (!scenesRaw) return res.json({ scenes: [] });
+      try {
+        const scenes = JSON.parse(scenesRaw);
+        return res.json({ scenes: Array.isArray(scenes) ? scenes : [] });
+      } catch {
+        return res.json({ scenes: [] });
+      }
+    } catch (error) {
+      logger.error('Error fetching scenes by token:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/induction/settings/:roleType/scenes — admin, returns scenes for slide editor
+  app.get('/api/induction/settings/:roleType/scenes', requireAuth, async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const customerId = req.customerId || 'default';
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const [row] = await custDb
+        .select({ scenesData: isolatedSchema.inductionSettings.scenesData })
+        .from(isolatedSchema.inductionSettings)
+        .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+      if (!row?.scenesData) return res.json({ scenes: [] });
+      try {
+        const scenes = JSON.parse(row.scenesData);
+        return res.json({ scenes: Array.isArray(scenes) ? scenes : [] });
+      } catch {
+        return res.json({ scenes: [] });
+      }
+    } catch (error) {
+      logger.error('Error fetching scenes for slide editor:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // PUT /api/induction/settings/:roleType/scenes — admin, save edited scenes
+  app.put('/api/induction/settings/:roleType/scenes', requireAuth, async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const { scenes } = req.body;
+      if (!Array.isArray(scenes)) return res.status(400).json({ error: 'scenes must be an array' });
+
+      const customerId = req.customerId || 'default';
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      await custDb
+        .update(isolatedSchema.inductionSettings)
+        .set({ scenesData: JSON.stringify(scenes), updatedAt: new Date() })
+        .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+
+      return res.json({ success: true });
+    } catch (error) {
+      logger.error('Error saving scenes:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/induction/settings/:roleType/scenes/photo — upload per-slide photo
+  const slidePhotoUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) cb(null, true);
+      else cb(new Error('Only image files are allowed'));
+    },
+  });
+
+  app.post('/api/induction/settings/:roleType/scenes/photo', requireAuth, slidePhotoUpload.single('photo'), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
+      const { roleType } = req.params;
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = req.file.mimetype || 'image/jpeg';
+      const objectId = randomUUID();
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const fullPath = `${privateObjectDir}/induction-slides/${context.customerId}/${roleType}/${objectId}.${ext}`;
+      const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      await file.save(req.file.buffer, { contentType: mimeType });
+      const storedPath = `/induction-slides/${context.customerId}/${roleType}/${objectId}.${ext}`;
+      logger.info(`🖼️ Slide photo saved: ${storedPath}`);
+      return res.json({ success: true, url: storedPath });
+    } catch (error: any) {
+      logger.error('Error uploading slide photo:', error);
+      res.status(500).json({ error: error.message || 'Failed to upload photo' });
+    }
+  });
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // Walk-around Checkpoints API
+  // ────────────────────────────────────────────────────────────────────────────
+
+  // GET /api/induction/checkpoints — admin, list checkpoints for this customer
+  app.get('/api/induction/checkpoints', requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId;
+      if (!customerId) return res.status(403).json({ error: 'No customer context' });
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const rows = await custDb
+        .select()
+        .from(isolatedSchema.inductionCheckpoints)
+        .where(eq(isolatedSchema.inductionCheckpoints.customerId, customerId))
+        .orderBy(isolatedSchema.inductionCheckpoints.orderIndex);
+      return res.json({ checkpoints: rows });
+    } catch (error) {
+      logger.error('Error listing checkpoints:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/induction/checkpoints/public — public list (by induction token)
+  app.get('/api/induction/checkpoints/public', async (req, res) => {
+    try {
+      const tokenParam = req.query.token as string;
+      if (!tokenParam) return res.status(400).json({ error: 'token required' });
+      const tokenRecord = await inductionService.getTokenByValue(tokenParam);
+      if (!tokenRecord) return res.status(404).json({ error: 'Invalid induction token' });
+      const customerId = (tokenRecord as any).customerId;
+      if (!customerId) return res.json({ checkpoints: [] });
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const rows = await custDb
+        .select({
+          id: isolatedSchema.inductionCheckpoints.id,
+          label: isolatedSchema.inductionCheckpoints.label,
+          orderIndex: isolatedSchema.inductionCheckpoints.orderIndex,
+          content: isolatedSchema.inductionCheckpoints.content,
+          imageUrl: isolatedSchema.inductionCheckpoints.imageUrl,
+          qrToken: isolatedSchema.inductionCheckpoints.qrToken,
+          isActive: isolatedSchema.inductionCheckpoints.isActive,
+        })
+        .from(isolatedSchema.inductionCheckpoints)
+        .where(and(
+          eq(isolatedSchema.inductionCheckpoints.customerId, customerId),
+          eq(isolatedSchema.inductionCheckpoints.isActive, true)
+        ))
+        .orderBy(isolatedSchema.inductionCheckpoints.orderIndex);
+      return res.json({ checkpoints: rows });
+    } catch (error) {
+      logger.error('Error fetching public checkpoints:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/induction/checkpoints — admin, create checkpoint
+  app.post('/api/induction/checkpoints', requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId;
+      if (!customerId) return res.status(403).json({ error: 'No customer context' });
+      const { label, content, orderIndex, latitude, longitude } = req.body;
+      if (!label?.trim()) return res.status(400).json({ error: 'label is required' });
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const qrToken = randomUUID();
+      const [newCheckpoint] = await custDb
+        .insert(isolatedSchema.inductionCheckpoints)
+        .values({
+          customerId,
+          label: label.trim(),
+          content: content || '',
+          orderIndex: orderIndex ?? 0,
+          qrToken,
+          latitude: latitude ?? null,
+          longitude: longitude ?? null,
+        })
+        .returning();
+      return res.json({ checkpoint: newCheckpoint });
+    } catch (error) {
+      logger.error('Error creating checkpoint:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // PUT /api/induction/checkpoints/:id — admin, update checkpoint
+  app.put('/api/induction/checkpoints/:id', requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId;
+      if (!customerId) return res.status(403).json({ error: 'No customer context' });
+      const { id } = req.params;
+      const { label, content, orderIndex, isActive, imageUrl } = req.body;
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const updateData: Record<string, any> = { updatedAt: new Date() };
+      if (label !== undefined) updateData.label = label;
+      if (content !== undefined) updateData.content = content;
+      if (orderIndex !== undefined) updateData.orderIndex = orderIndex;
+      if (isActive !== undefined) updateData.isActive = isActive;
+      if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+      await custDb
+        .update(isolatedSchema.inductionCheckpoints)
+        .set(updateData)
+        .where(and(
+          eq(isolatedSchema.inductionCheckpoints.id, id),
+          eq(isolatedSchema.inductionCheckpoints.customerId, customerId)
+        ));
+      return res.json({ success: true });
+    } catch (error) {
+      logger.error('Error updating checkpoint:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // DELETE /api/induction/checkpoints/:id — admin, delete checkpoint
+  app.delete('/api/induction/checkpoints/:id', requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId;
+      if (!customerId) return res.status(403).json({ error: 'No customer context' });
+      const { id } = req.params;
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      await custDb
+        .delete(isolatedSchema.inductionCheckpoints)
+        .where(and(
+          eq(isolatedSchema.inductionCheckpoints.id, id),
+          eq(isolatedSchema.inductionCheckpoints.customerId, customerId)
+        ));
+      return res.json({ success: true });
+    } catch (error) {
+      logger.error('Error deleting checkpoint:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/induction/checkpoint/:qrToken — public, resolve checkpoint for scan page
+  app.get('/api/induction/checkpoint/:qrToken', async (req, res) => {
+    try {
+      const { qrToken } = req.params;
+      // Search all customer databases for this qrToken — or use global fallback
+      // Strategy: scan all known customers (this is called once per scan, acceptable overhead)
+      const allCustomers = await customerDbService.getAllCustomers();
+      for (const cust of allCustomers) {
+        try {
+          const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(cust.id);
+          const [row] = await custDb
+            .select()
+            .from(isolatedSchema.inductionCheckpoints)
+            .where(eq(isolatedSchema.inductionCheckpoints.qrToken, qrToken));
+          if (row) {
+            return res.json({ checkpoint: row });
+          }
+        } catch (_) { /* try next customer */ }
+      }
+      return res.status(404).json({ error: 'Checkpoint not found' });
+    } catch (error) {
+      logger.error('Error resolving checkpoint by qrToken:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/induction/checkpoint/:qrToken/scan — public, record a checkpoint scan
+  app.post('/api/induction/checkpoint/:qrToken/scan', async (req, res) => {
+    try {
+      const { qrToken } = req.params;
+      const { inductionTokenId, latitude, longitude } = req.body;
+      if (!inductionTokenId) return res.status(400).json({ error: 'inductionTokenId required' });
+
+      // Validate induction token
+      const inductionToken = await inductionService.getTokenByValue(inductionTokenId);
+      if (!inductionToken) return res.status(404).json({ error: 'Invalid induction token' });
+      const customerId = (inductionToken as any).customerId;
+      if (!customerId) return res.status(400).json({ error: 'Cannot resolve customer from token' });
+
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+
+      // Resolve checkpoint
+      const [checkpoint] = await custDb
+        .select()
+        .from(isolatedSchema.inductionCheckpoints)
+        .where(and(
+          eq(isolatedSchema.inductionCheckpoints.qrToken, qrToken),
+          eq(isolatedSchema.inductionCheckpoints.customerId, customerId)
+        ));
+      if (!checkpoint) return res.status(404).json({ error: 'Checkpoint not found' });
+      if (!checkpoint.isActive) return res.status(410).json({ error: 'This checkpoint is inactive' });
+
+      // Avoid duplicate scans (same checkpoint + same token)
+      const [existing] = await custDb
+        .select({ id: isolatedSchema.inductionCheckpointScans.id })
+        .from(isolatedSchema.inductionCheckpointScans)
+        .where(and(
+          eq(isolatedSchema.inductionCheckpointScans.checkpointId, checkpoint.id),
+          eq(isolatedSchema.inductionCheckpointScans.inductionTokenId, (inductionToken as any).id)
+        ));
+
+      if (!existing) {
+        await custDb.insert(isolatedSchema.inductionCheckpointScans).values({
+          checkpointId: checkpoint.id,
+          inductionTokenId: (inductionToken as any).id,
+          latitude: latitude ?? null,
+          longitude: longitude ?? null,
+          ipAddress: req.ip ?? null,
+          userAgent: req.headers['user-agent'] ?? null,
+        });
+        logger.info(`✅ Checkpoint scan recorded: ${checkpoint.label} for token ${(inductionToken as any).id}`);
+      }
+
+      return res.json({
+        success: true,
+        alreadyScanned: !!existing,
+        checkpoint: {
+          id: checkpoint.id,
+          label: checkpoint.label,
+          content: checkpoint.content,
+          imageUrl: checkpoint.imageUrl,
+          orderIndex: checkpoint.orderIndex,
+        },
+      });
+    } catch (error) {
+      logger.error('Error recording checkpoint scan:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // GET /api/induction/:tokenValue/checkpoint-progress — public, scanned checkpoints for this token
+  app.get('/api/induction/:tokenValue/checkpoint-progress', async (req, res) => {
+    try {
+      const { tokenValue } = req.params;
+      const inductionToken = await inductionService.getTokenByValue(tokenValue);
+      if (!inductionToken) return res.status(404).json({ error: 'Invalid induction token' });
+      const customerId = (inductionToken as any).customerId;
+      if (!customerId) return res.json({ scannedCheckpointIds: [] });
+
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      const scans = await custDb
+        .select({ checkpointId: isolatedSchema.inductionCheckpointScans.checkpointId, scannedAt: isolatedSchema.inductionCheckpointScans.scannedAt })
+        .from(isolatedSchema.inductionCheckpointScans)
+        .where(eq(isolatedSchema.inductionCheckpointScans.inductionTokenId, (inductionToken as any).id));
+
+      return res.json({ scannedCheckpointIds: scans.map(s => s.checkpointId), scans });
+    } catch (error) {
+      logger.error('Error fetching checkpoint progress:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
 }

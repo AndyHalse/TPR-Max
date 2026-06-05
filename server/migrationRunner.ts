@@ -569,6 +569,66 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260605_058_induction_enhancements',
+      description: 'Add inductionIndustry to company_settings, sceneIndex to induction_questions, walk-around checkpoint tables',
+      async up(db: any) {
+        // 1. inductionIndustry on company_settings
+        try {
+          await db.execute(`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS induction_industry TEXT`);
+          logger.info('✅ [058] induction_industry column ensured on company_settings');
+        } catch (err: any) {
+          logger.warn(`⚠️ [058] induction_industry: ${err.message?.substring(0, 80)}`);
+        }
+        // 2. sceneIndex on induction_questions
+        try {
+          await db.execute(`ALTER TABLE induction_questions ADD COLUMN IF NOT EXISTS scene_index INTEGER`);
+          logger.info('✅ [058] scene_index column ensured on induction_questions');
+        } catch (err: any) {
+          logger.warn(`⚠️ [058] scene_index: ${err.message?.substring(0, 80)}`);
+        }
+        // 3. induction_checkpoints table
+        try {
+          await db.execute(`
+            CREATE TABLE IF NOT EXISTS induction_checkpoints (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              customer_id TEXT NOT NULL,
+              label TEXT NOT NULL,
+              order_index INTEGER NOT NULL DEFAULT 0,
+              content TEXT NOT NULL DEFAULT '',
+              image_url TEXT,
+              qr_token TEXT NOT NULL UNIQUE,
+              latitude REAL,
+              longitude REAL,
+              is_active BOOLEAN NOT NULL DEFAULT TRUE,
+              created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+              updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+            )
+          `);
+          logger.info('✅ [058] induction_checkpoints table ensured');
+        } catch (err: any) {
+          logger.warn(`⚠️ [058] induction_checkpoints: ${err.message?.substring(0, 80)}`);
+        }
+        // 4. induction_checkpoint_scans table
+        try {
+          await db.execute(`
+            CREATE TABLE IF NOT EXISTS induction_checkpoint_scans (
+              id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+              checkpoint_id UUID NOT NULL,
+              induction_token_id TEXT NOT NULL,
+              scanned_at TIMESTAMP NOT NULL DEFAULT NOW(),
+              latitude REAL,
+              longitude REAL,
+              ip_address TEXT,
+              user_agent TEXT
+            )
+          `);
+          logger.info('✅ [058] induction_checkpoint_scans table ensured');
+        } catch (err: any) {
+          logger.warn(`⚠️ [058] induction_checkpoint_scans: ${err.message?.substring(0, 80)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

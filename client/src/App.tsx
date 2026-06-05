@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import NotFound from "@/pages/not-found";
 import NdaSign from "@/pages/NdaSign";
 import SiteInduction from "@/pages/SiteInduction";
+import InductionCheckpoint from "@/pages/InductionCheckpoint";
 import Layout from "@/components/Layout";
 import Dashboard from "@/pages/Dashboard";
 import StaffManagement from "@/pages/StaffManagement";
@@ -312,6 +313,9 @@ function Router() {
         </div>
       </div>
     );
+  }
+  if (window.location.pathname.startsWith('/induction/checkpoint/')) {
+    return <InductionCheckpoint />;
   }
   if (window.location.pathname.startsWith('/induction/') && !window.location.pathname.startsWith('/induction-preview/')) {
     return <SiteInduction />;

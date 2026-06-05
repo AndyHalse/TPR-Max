@@ -428,6 +428,7 @@ export const companySettings = pgTable("company_settings", {
   firstAidLocation: text("first_aid_location"),   // Where the first aid kit / first aider is
   emergencyContact: text("emergency_contact"),    // Combined name + number for the emergency contact
   inductionSiteRules: text("induction_site_rules"), // Additional site-specific rules
+  inductionIndustry: text("induction_industry"),   // Industry type (Construction, Engineering, etc.) for AI context
   // QR Code Reader Integration Settings
   qrReaderEnabled: boolean("qr_reader_enabled").default(false),
   qrReaderDevice: text("qr_reader_device").default("auto"), // auto, hid, serial, usb
@@ -1157,6 +1158,7 @@ export const inductionQuestions = pgTable("induction_questions", {
   isAiGenerated: boolean("is_ai_generated").default(false).notNull(), // Flag to identify AI-generated questions
   isActive: boolean("is_active").default(true).notNull(),
   orderIndex: integer("order_index").default(0),
+  sceneIndex: integer("scene_index"),              // If set, this question belongs to a specific slide/scene (per-section quiz)
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
@@ -1191,6 +1193,34 @@ export const inductionAnswers = pgTable("induction_answers", {
   selectedAnswer: text("selected_answer").notNull(),
   isCorrect: boolean("is_correct").notNull(),
   answeredAt: timestamp("answered_at").defaultNow().notNull(),
+});
+
+// Walk-around checkpoint stations — physical QR codes placed around the site
+export const inductionCheckpoints = pgTable("induction_checkpoints", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  customerId: text("customer_id").notNull(),
+  label: text("label").notNull(),
+  orderIndex: integer("order_index").notNull().default(0),
+  content: text("content").notNull().default(""),   // Safety information shown after scan
+  imageUrl: text("image_url"),                      // Optional uploaded photo for this station
+  qrToken: text("qr_token").notNull().unique(),     // Unique token encoded in the QR code
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// Scans recorded when a contractor scans a checkpoint QR code
+export const inductionCheckpointScans = pgTable("induction_checkpoint_scans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  checkpointId: varchar("checkpoint_id").notNull().references(() => inductionCheckpoints.id),
+  inductionTokenId: varchar("induction_token_id").notNull(),
+  scannedAt: timestamp("scanned_at").defaultNow().notNull(),
+  latitude: doublePrecision("latitude"),
+  longitude: doublePrecision("longitude"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
 });
 
 // Local Labour Reporting
