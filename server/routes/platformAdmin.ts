@@ -245,7 +245,32 @@ export function registerPlatformAdminRoutes(app: Express): void {
   // ============================================
   // PLATFORM ADMIN CUSTOMER MANAGEMENT ENDPOINTS
   // ============================================
-  
+
+  // Features disabled for each tier (deny-list — everything not listed is ON)
+  const DISABLED_FEATURES_BY_TIER: Record<string, string[]> = {
+    trial: [
+      'featureKiosk', 'featureTimeAttendance', 'featureContractorPage', 'featureContractors',
+      'featureInductionSettings', 'featureMeetingRooms', 'featureMembers',
+      'featureIncidentReports', 'featureHsIncidents', 'featureBbs', 'featureFireRiskAssessment',
+      'featureComplianceDashboard', 'featureMartynLaw', 'featurePPM', 'featureHelpDesk',
+      'featureComplianceCertificates', 'featurePermitToWork', 'featureAuditEngine',
+      'featureRaBuilder', 'featureHrModule',
+    ],
+    tpr_basic: [
+      'featureTimeAttendance', 'featureContractorPage', 'featureContractors',
+      'featureInductionSettings', 'featureMeetingRooms', 'featureMembers',
+      'featureIncidentReports', 'featureHsIncidents', 'featureBbs', 'featureFireRiskAssessment',
+      'featureComplianceDashboard', 'featureMartynLaw', 'featurePPM', 'featureHelpDesk',
+      'featureComplianceCertificates', 'featurePermitToWork', 'featureAuditEngine',
+      'featureRaBuilder', 'featureHrModule',
+    ],
+    tpr_pro: [
+      'featureMeetingRooms', 'featureMartynLaw', 'featurePPM', 'featureHelpDesk',
+      'featurePermitToWork', 'featureAuditEngine', 'featureHrModule',
+    ],
+    tpr_max: [],
+  };
+
   /**
    * Direct Customer Provisioning (bypasses payment)
    * Platform admins can manually onboard customers
@@ -267,6 +292,15 @@ export function registerPlatformAdminRoutes(app: Express): void {
       
       // Provision customer directly using onboarding service
       const result = await customerOnboardingService.provisionCustomer(provisioningRequest);
+
+      // Apply tier-based feature restrictions via the existing deny-list mechanism
+      const tierDisabled = DISABLED_FEATURES_BY_TIER[provisioningRequest.planType] ?? DISABLED_FEATURES_BY_TIER['tpr_basic'];
+      if (tierDisabled.length > 0) {
+        await db.update(sharedSchema.customers)
+          .set({ platformDisabledFeatures: tierDisabled })
+          .where(eq(sharedSchema.customers.id, result.customerId));
+        logger.info(`Applied tier deny-list for ${provisioningRequest.planType} (${tierDisabled.length} features disabled) to customer ${result.customerId}`);
+      }
       
       logger.info(`Customer provisioned successfully by platform admin: ${result.customer.companyName}`);
       

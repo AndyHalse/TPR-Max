@@ -408,35 +408,6 @@ export class CustomerOnboardingService {
       }
     }
     
-    // Create default meeting rooms (skip if they already exist)
-    const defaultMeetingRooms = [
-      { 
-        name: 'Conference Room A', 
-        capacity: 10, 
-        location: 'Ground Floor',
-        isActive: true 
-      },
-      { 
-        name: 'Meeting Room B', 
-        capacity: 6, 
-        location: 'First Floor',
-        isActive: true 
-      },
-    ];
-    
-    for (const room of defaultMeetingRooms) {
-      const existing = await customerDb
-        .select()
-        .from(isolatedSchema.meetingRooms)
-        .where(eq(isolatedSchema.meetingRooms.name, room.name))
-        .limit(1);
-      if (existing.length === 0) {
-        await customerDb
-          .insert(isolatedSchema.meetingRooms)
-          .values(room);
-      }
-    }
-    
     // Create default muster points for emergency evacuations (skip if they already exist)
     const defaultMusterPoints = [
       { 
@@ -734,6 +705,10 @@ export class CustomerOnboardingService {
   private getMaxVisitorsByPlan(planType: string): number {
     switch (planType) {
       case 'trial': return 100;
+      case 'tpr_basic': return 500;
+      case 'tpr_pro': return 2000;
+      case 'tpr_max': return 10000;
+      // Legacy values for backward compatibility
       case 'basic': return 500;
       case 'professional': return 2000;
       case 'enterprise': return 10000;

@@ -63,7 +63,7 @@ export default function ContractorManagement() {
         </Button>
       </div>
 
-      <ContractorTabNav activeTab={st.activeTab} setActiveTab={st.setActiveTab} headerF10OverdueCount={st.headerF10OverdueCount} />
+      <ContractorTabNav activeTab={st.activeTab} setActiveTab={st.setActiveTab} headerF10OverdueCount={st.headerF10OverdueCount} settings={st.companySettings} />
 
       {/* Tab Content */}
       {st.activeTab === "previous" && (
@@ -142,11 +142,11 @@ export default function ContractorManagement() {
       )}
 
       {st.activeTab === "prebook" && <ContractorPreBooking />}
-      {st.activeTab === "co2" && <ContractorCO2Tab companies={st.companies} selectedId={st.selectedCO2CompanyId} setSelectedId={st.setSelectedCO2CompanyId} />}
+      {st.activeTab === "co2" && st.companySettings?.featureContractors !== false && <ContractorCO2Tab companies={st.companies} selectedId={st.selectedCO2CompanyId} setSelectedId={st.setSelectedCO2CompanyId} />}
       {st.activeTab === "assign-hs" && <ContractorAssignHSTab setActiveTab={st.setActiveTab} toast={st.toast} />}
       {st.activeTab === "rams" && <RAMSManagement />}
-      {st.activeTab === "ppm" && <ContractorPPMTab />}
-      {st.activeTab === "cdm" && <ContractorCDMTab companies={st.companies} />}
+      {st.activeTab === "ppm" && st.companySettings?.featurePPM !== false && <ContractorPPMTab />}
+      {st.activeTab === "cdm" && st.companySettings?.featureContractors !== false && <ContractorCDMTab companies={st.companies} />}
 
       {st.selectedWorker && (
         <ContractorPassPreviewModal

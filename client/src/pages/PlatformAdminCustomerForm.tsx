@@ -23,7 +23,7 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
     adminPassword: "",
     adminFirstName: "",
     adminLastName: "",
-    planType: "enterprise" as "trial" | "enterprise",
+    planType: "tpr_basic" as "trial" | "tpr_basic" | "tpr_pro" | "tpr_max",
     trialDays: 14,
     timezone: "Europe/London",
     currency: "GBP",
@@ -137,8 +137,10 @@ export default function PlatformAdminCustomerForm({ onSuccess }: PlatformAdminCu
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="trial">Trial</SelectItem>
-                <SelectItem value="enterprise">Enterprise</SelectItem>
+                <SelectItem value="trial">Trial (pre-sales demo)</SelectItem>
+                <SelectItem value="tpr_basic">TPR Basic — £49/site/mo</SelectItem>
+                <SelectItem value="tpr_pro">TPR Pro — £89/site/mo</SelectItem>
+                <SelectItem value="tpr_max">TPR Max — £195/site/mo</SelectItem>
               </SelectContent>
             </Select>
           </div>

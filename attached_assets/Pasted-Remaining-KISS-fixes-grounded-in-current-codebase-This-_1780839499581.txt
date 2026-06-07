@@ -1,0 +1,275 @@
+Remaining KISS fixes (grounded in current codebase)
+
+This prompt covers the three KISS items that are not yet done, verified against the current main branch. Do them in order. Run npm run check after each section. Do not change any Stripe or billing logic.
+⸻
+Section 1 — Remove default meeting rooms at provisioning
+
+File: server/customerOnboardingService.ts
+
+Inside the initializeCompanyDefaults method, find and delete this entire block (it creates Conference Room A and Meeting Room B for every new customer):
+
+// Create default meeting rooms (skip if they already exist)
+const defaultMeetingRooms = [
+  { 
+    name: 'Conference Room A', 
+    capacity: 10, 
+    location: 'Ground Floor',
+    isActive: true 
+  },
+  { 
+    name: 'Meeting Room B', 
+    capacity: 6, 
+    location: 'First Floor',
+    isActive: true 
+  },
+];
+
+for (const room of defaultMeetingRooms) {
+  const existing = await customerDb
+    .select()
+    .from(isolatedSchema.meetingRooms)
+    .where(eq(isolatedSchema.meetingRooms.name, room.name))
+    .limit(1);
+  if (existing.length = 0) {
+    await customerDb
+      .insert(isolatedSchema.meetingRooms)
+      .values(room);
+  }
+}
+
+
+Delete only this block. Do not touch the departments or muster points blocks.
+
+Verify: Provision a new test customer → log in → navigate to Meeting Rooms → the list should be empty.
+⸻
+Section 2 — Gate contractor tabs by feature flags
+
+The ContractorTabNav.tsx currently renders all 9 tabs to every customer regardless of what modules they have enabled. Add feature gating so CO2, PPM, and CDM tabs are hidden when the relevant feature is off.
+
+2a — Update ContractorTabNav.tsx
+
+File: client/src/pages/contractor/ContractorTabNav.tsx
+
+Add a settings prop and wrap the three feature-gated tabs conditionally:
+
+import { Button } from "@/components/ui/button";
+import { History, Building2, UserPlus, CalendarPlus, Leaf, Shield, FileText, Wrench, HardHat as HardHatIcon } from "lucide-react";
+
+type Tab = "previous" | "walkin" | "prebook" | "contractors" | "co2" | "assign-hs" | "rams" | "ppm" | "cdm";
+
+interface Props {
+  activeTab: Tab;
+  setActiveTab: (t: Tab) => void;
+  headerF10OverdueCount: number;
+  settings?: {
+    featurePPM?: boolean | null;
+    featureCo2Tracking?: boolean | null; // check isolatedSchema.ts for exact column name
+    featureContractors?: boolean | null; // CDM is gated on contractors
+  } | null;
+}
+
+export default function ContractorTabNav({ activeTab, setActiveTab, settings }: Props) {
+  const btn = (tab: Tab, label: string, mobileLabel: string, Icon: any, testId: string) => (
+    <Button
+      key={tab}
+      variant={activeTab = tab ? "default" : "outline"}
+      onClick={() => setActiveTab(tab)}
+      className="flex items-center gap-1.5 text-xs sm:text-sm px-2.5 sm:px-4 whitespace-nowrap flex-shrink-0"
+      data-testid={testId}
+    >
+      <Icon className="h-3.5 w-3.5 flex-shrink-0" />
+      {mobileLabel ! label ? (
+        <>
+          <span className="hidden sm:inline">{label}</span>
+          <span className="sm:hidden">{mobileLabel}</span>
+        </>
+      ) : (
+        <span>{label}</span>
+      )}
+    </Button>
+  );
+
+  return (
+    <div className="flex overflow-x-auto gap-1.5 sm:flex-wrap sm:overflow-visible pb-1 sm:pb-0 scrollbar-hide">
+      {btn("previous", "Previous Workers", "Prev", History, "tab-previous-contractors")}
+      {btn("contractors", "Contractors", "Companies", Building2, "tab-contractors")}
+      {btn("walkin", "Walk-in", "Walk-in", UserPlus, "tab-walkin-registration")}
+      {btn("prebook", "Pre-booking", "Pre-book", CalendarPlus, "tab-pre-booking")}
+      {settings?.featureCo2Tracking ! false && btn("co2", "CO2 Reports", "CO2", Leaf, "tab-co2-reports")}
+      {btn("assign-hs", "H&S Document", "H&S", Shield, "tab-assign-hs")}
+      {btn("rams", "RAMS", "RAMS", FileText, "tab-rams")}
+      {settings?.featurePPM ! false && btn("ppm", "PPM", "PPM", Wrench, "tab-ppm")}
+      {settings?.featureContractors ! false && btn("cdm", "CDM 2015", "CDM 2015", HardHatIcon, "tab-cdm")}
+    </div>
+  );
+}
+
+
+Important: Check server/isolatedSchema.ts for the exact boolean column name for CO2 tracking — it may be featureCo2Tracking, featureSustainability, or something else. Use whatever the actual schema column is. If no dedicated CO2 flag exists, gate it on featureContractors.
+
+Note on CDM: CDM is part of the core contractors module, so it's gated on featureContractors rather than a separate flag.
+
+2b — Pass settings to ContractorTabNav
+
+In ContractorManagement.tsx, find where <ContractorTabNav> is rendered and add the settings prop. The component already fetches company settings (check the useContractorManagement hook or the top-level useQuery calls in ContractorManagement.tsx for a settings query). Pass the settings object through:
+
+<ContractorTabNav
+  activeTab={st.activeTab}
+  setActiveTab={st.setActiveTab}
+  headerF10OverdueCount={st.headerF10OverdueCount}
+  settings={st.companySettings}  // or wherever settings are fetched
+/>
+
+
+If companySettings isn't already in the hook state, add a useQuery for /api/settings following the same pattern as any other settings query in the file.
+
+2c — Guard tab content panels
+
+In ContractorManagement.tsx, find the tab content rendering for co2, ppm, and cdm. Add the settings check alongside the existing tab check:
+
+// Before:
+{st.activeTab = "co2" && <ContractorCO2Tab ... />}
+{st.activeTab = "ppm" && <ContractorPPMTab ... />}
+{st.activeTab = "cdm" && <ContractorCDMTab ... />}
+
+// After:
+{st.activeTab = "co2" && st.companySettings?.featureCo2Tracking ! false && <ContractorCO2Tab ... />}
+{st.activeTab = "ppm" && st.companySettings?.featurePPM ! false && <ContractorPPMTab ... />}
+{st.activeTab = "cdm" && st.companySettings?.featureContractors ! false && <ContractorCDMTab ... />}
+
+
+2d — Reset active tab if it becomes hidden
+
+In the contractor management hook (likely client/src/pages/contractor/useContractorManagement.ts), add a useEffect to redirect away from a gated tab if it's no longer visible:
+
+useEffect(() => {
+  const gatedTabs: Record<string, boolean | null | undefined> = {
+    co2: companySettings?.featureCo2Tracking,
+    ppm: companySettings?.featurePPM,
+    cdm: companySettings?.featureContractors,
+  };
+  if (activeTab in gatedTabs && gatedTabs[activeTab] = false) {
+    setActiveTab('previous');
+  }
+}, [activeTab, companySettings]);
+
+
+Verify:
+- Customer with PPM/CO2 off → those tabs hidden on contractor page
+- Customer with all flags on → all 9 tabs visible as before
+- npm run check passes
+⸻
+Section 3 — Platform Admin: replace Trial/Enterprise with TPR Basic/Pro/Max
+
+The current PlatformAdminCustomerForm.tsx has hardcoded "trial" | "enterprise" options. Replace with the three real tiers plus a trial option.
+
+3a — Update PlatformAdminCustomerForm.tsx
+
+File: client/src/pages/PlatformAdminCustomerForm.tsx
+
+Change 1: Update the form state type:
+
+// Before:
+planType: "enterprise" as "trial" | "enterprise",
+
+// After:
+planType: "tpr_basic" as "trial" | "tpr_basic" | "tpr_pro" | "tpr_max",
+
+
+Change 2: Replace the <SelectContent> for Plan Type:
+
+// Before:
+<SelectContent>
+  <SelectItem value="trial">Trial</SelectItem>
+  <SelectItem value="enterprise">Enterprise</SelectItem>
+</SelectContent>
+
+// After:
+<SelectContent>
+  <SelectItem value="trial">Trial (pre-sales demo)</SelectItem>
+  <SelectItem value="tpr_basic">TPR Basic — £49/site/mo</SelectItem>
+  <SelectItem value="tpr_pro">TPR Pro — £89/site/mo</SelectItem>
+  <SelectItem value="tpr_max">TPR Max — £195/site/mo</SelectItem>
+</SelectContent>
+
+
+3b — Update getMaxVisitorsByPlan in customerOnboardingService.ts
+
+File: server/customerOnboardingService.ts
+
+Find the getMaxVisitorsByPlan method and update the switch cases to handle the new tier names:
+
+private getMaxVisitorsByPlan(planType: string): number {
+  switch (planType) {
+    case 'trial': return 100;
+    case 'tpr_basic': return 500;
+    case 'tpr_pro': return 2000;
+    case 'tpr_max': return 10000;
+    // Keep legacy values for backward compatibility during migration
+    case 'basic': return 500;
+    case 'professional': return 2000;
+    case 'enterprise': return 10000;
+    default: return 100;
+  }
+}
+
+
+3c — Apply tier feature defaults at provisioning time
+
+The backend in platformAdmin.ts already has a KNOWN_FEATURE_KEYS set and a PATCH /platform-admin/customers/:customerId/features endpoint using a platformDisabledFeatures deny-list on the customer record.
+
+When a new customer is provisioned via POST /platform-admin/customers, apply the appropriate feature configuration based on the selected tier. Add this constant near the top of platformAdmin.ts:
+
+// Features disabled for each tier (deny-list approach — everything not listed is ON)
+const DISABLED_FEATURES_BY_TIER: Record<string, string[]> = {
+  trial: [
+    'featureKiosk', 'featureTimeAttendance', 'featureContractorPage', 'featureContractors',
+    'featureInductionSettings', 'featureMeetingRooms', 'featureMembers',
+    'featureIncidentReports', 'featureHsIncidents', 'featureBbs', 'featureFireRiskAssessment',
+    'featureComplianceDashboard', 'featureMartynLaw', 'featurePPM', 'featureHelpDesk',
+    'featureComplianceCertificates', 'featurePermitToWork', 'featureAuditEngine',
+    'featureRaBuilder', 'featureHrModule',
+  ],
+  tpr_basic: [
+    'featureTimeAttendance', 'featureContractorPage', 'featureContractors',
+    'featureInductionSettings', 'featureMeetingRooms', 'featureMembers',
+    'featureIncidentReports', 'featureHsIncidents', 'featureBbs', 'featureFireRiskAssessment',
+    'featureComplianceDashboard', 'featureMartynLaw', 'featurePPM', 'featureHelpDesk',
+    'featureComplianceCertificates', 'featurePermitToWork', 'featureAuditEngine',
+    'featureRaBuilder', 'featureHrModule',
+  ],
+  tpr_pro: [
+    'featureMeetingRooms', 'featureMartynLaw', 'featurePPM', 'featureHelpDesk',
+    'featurePermitToWork', 'featureAuditEngine', 'featureHrModule',
+  ],
+  tpr_max: [], // All features enabled — empty deny list
+};
+
+
+Then in the POST /platform-admin/customers handler, after the customer is provisioned successfully, save the deny list for that tier:
+
+const result = await customerOnboardingService.provisionCustomer(provisioningRequest);
+
+// Apply tier-based feature restrictions
+const tierDisabled = DISABLED_FEATURES_BY_TIER[provisioningRequest.planType] ?? DISABLED_FEATURES_BY_TIER['tpr_basic'];
+if (tierDisabled.length > 0) {
+  await db.update(sharedSchema.customers)
+    .set({ platformDisabledFeatures: tierDisabled })
+    .where(eq(sharedSchema.customers.id, result.customerId));
+}
+
+
+This uses the existing platformDisabledFeatures mechanism that's already wired up for feature control. The admin can still go into the customer's feature settings and override individual toggles after provisioning.
+⸻
+Summary checklist
+
+- [ ] Default meeting rooms block removed from initializeCompanyDefaults
+- [ ] ContractorTabNav accepts settings prop and gates CO2/PPM/CDM tabs
+- [ ] ContractorManagement.tsx passes settings to ContractorTabNav
+- [ ] Tab content panels guard-checked for gated tabs
+- [ ] Tab resets to previous if active gated tab becomes hidden
+- [ ] PlatformAdminCustomerForm.tsx shows Trial / TPR Basic / TPR Pro / TPR Max
+- [ ] getMaxVisitorsByPlan handles new tier names + legacy values
+- [ ] DISABLED_FEATURES_BY_TIER added to platformAdmin.ts
+- [ ] New customer provisioning saves tier deny-list via platformDisabledFeatures
+- [ ] npm run check passes after each section

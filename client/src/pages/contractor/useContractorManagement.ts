@@ -76,6 +76,17 @@ export function useContractorManagement() {
   });
   const { data: companySettings } = useQuery<any>({ queryKey: ["/api/settings"] });
 
+  useEffect(() => {
+    const gatedTabs: Record<string, boolean | null | undefined> = {
+      co2: companySettings?.featureContractors,
+      ppm: companySettings?.featurePPM,
+      cdm: companySettings?.featureContractors,
+    };
+    if (activeTab in gatedTabs && gatedTabs[activeTab] === false) {
+      setActiveTab("previous");
+    }
+  }, [activeTab, companySettings]);
+
   const startContractorLoneWorkerMutation = useMutation({
     mutationFn: (id: string) => apiRequest("POST", `/api/contractor-workers/${id}/lone-worker/start`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/lone-worker/active"] }),
