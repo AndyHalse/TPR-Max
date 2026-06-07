@@ -239,6 +239,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/template-library", icon: BookOpen, label: "Template Library", tooltip: "Pre-built H&S Templates", featureKey: "featureTemplateLibrary", defaultOn: true },
     { path: "/helpdesk", icon: Ticket, label: "Help Desk", featureKey: "featureHelpDesk", defaultOn: false },
     { path: "/settings/teams-integration", icon: Webhook, label: "Teams Alerts", tooltip: "Microsoft Teams Notifications", featureKey: "featureTeamsIntegration", defaultOn: false },
+    { path: "/settings/calendar-integration", icon: CalendarPlus, label: "Calendar Sync", tooltip: "Auto Visitor Pre-Registration from Calendar", featureKey: "featureCalendarIntegration", defaultOn: false },
     { path: "/martyn-law", icon: Shield, label: "Martyn's Law", featureKey: "featureMartynLaw" },
     { path: "/reports", icon: FileText, label: "Reports", featureKey: "featureReports", defaultOn: true },
     { path: "/induction-settings", icon: Video, label: "Induction Settings", featureKey: "featureInductionSettings", defaultOn: true },

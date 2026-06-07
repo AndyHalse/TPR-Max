@@ -45,6 +45,7 @@ import { registerVisitReasonRoutes } from './visitReasons';
 import { registerNdaRoutes } from './nda';
 import { registerTemplateLibraryRoutes } from './templateLibrary';
 import { registerTeamsIntegrationRoutes } from './teamsIntegration';
+import { registerCalendarIntegrationRoutes } from './calendarIntegration';
 
 export async function registerSplitRoutes(
   app: Express,
@@ -95,5 +96,6 @@ export async function registerSplitRoutes(
   registerNdaRoutes(app);
   await registerTemplateLibraryRoutes(app);
   registerTeamsIntegrationRoutes(app);
+  registerCalendarIntegrationRoutes(app);
   await registerRemainingRoutes(app, server);
 }

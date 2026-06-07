@@ -1192,6 +1192,39 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS quick_setup_dismissed BOOLEAN DEFAULT false`);
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_template_library BOOLEAN DEFAULT true`);
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_teams_integration BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_calendar_integration BOOLEAN DEFAULT false`);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".calendar_connections (
+          id SERIAL PRIMARY KEY,
+          provider TEXT NOT NULL,
+          connected_by TEXT NOT NULL,
+          connected_email TEXT,
+          access_token TEXT NOT NULL DEFAULT '',
+          refresh_token TEXT NOT NULL DEFAULT '',
+          token_expiry TIMESTAMPTZ,
+          calendar_id TEXT,
+          active BOOLEAN DEFAULT true,
+          last_synced_at TIMESTAMPTZ,
+          sync_window_days INTEGER DEFAULT 7,
+          auto_create_pre_reg BOOLEAN DEFAULT true,
+          notify_on_create BOOLEAN DEFAULT true,
+          domain_filter TEXT,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".calendar_synced_events (
+          id SERIAL PRIMARY KEY,
+          connection_id INTEGER NOT NULL,
+          external_event_id TEXT NOT NULL,
+          event_title TEXT,
+          event_start TIMESTAMPTZ,
+          attendee_email TEXT NOT NULL,
+          visitor_pre_reg_id TEXT,
+          status TEXT DEFAULT 'synced',
+          synced_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
       await pool.query(`
         CREATE TABLE IF NOT EXISTS "${schemaName}".teams_webhooks (
           id SERIAL PRIMARY KEY,
