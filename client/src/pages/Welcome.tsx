@@ -614,7 +614,7 @@ export default function Welcome() {
           <Sparkles className="h-4 w-4 text-green-600" />
           <AlertDescription className="text-green-800 dark:text-green-200">
             <strong>Your 30-day free trial is now active!</strong> You have full access to all features. 
-            Need help getting started? Our support team is here to assist you at support@visigatepro.com
+            Need help getting started? Our support team is here to assist you at support@tpr-max.com
           </AlertDescription>
         </Alert>
 
@@ -691,7 +691,7 @@ export default function Welcome() {
         <div className="text-center mt-8 text-sm text-slate-500 dark:text-slate-400">
           <p>
             Need help?{" "}
-            <a href="mailto:support@visigatepro.com" className="text-blue-600 hover:underline">
+            <a href="mailto:support@tpr-max.com" className="text-blue-600 hover:underline">
               Contact our support team
             </a>
           </p>

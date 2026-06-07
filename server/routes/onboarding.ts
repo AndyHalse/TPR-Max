@@ -973,7 +973,7 @@ export function registerOnboardingRoutes(app: Express): void {
           
           // Secure redirect to welcome page WITHOUT credentials in URL
           const welcomeUrl = process.env.NODE_ENV === 'production' 
-            ? `https://${customer.slug}.visigatepro.app/welcome`
+            ? `https://${customer.slug}.tpr-max.com/welcome`
             : `/welcome`;
 
           res.redirect(welcomeUrl);
@@ -1134,9 +1134,9 @@ export function registerOnboardingRoutes(app: Express): void {
       // Create development customer request
       const devRequest: CustomerOnboardingRequest = {
         companyName,
-        contactEmail: `dev+${customerId}@visigatepro.local`,
+        contactEmail: `dev+${customerId}@tpr-max.local`,
         adminUsername,
-        adminEmail: `admin+${customerId}@visigatepro.local`,
+        adminEmail: `admin+${customerId}@tpr-max.local`,
         adminPassword: devProvPassword,
         adminFirstName: 'Admin',
         adminLastName: 'User',
@@ -1308,7 +1308,7 @@ export function registerOnboardingRoutes(app: Express): void {
             createdAt: customer.createdAt
           },
           loginUrl: process.env.NODE_ENV === 'production' 
-            ? `https://${customer.slug}.visigatepro.app/login`
+            ? `https://${customer.slug}.tpr-max.com/login`
             : `${process.env.FRONTEND_URL || 'http://localhost:5000'}/login`
         });
         

@@ -1,0 +1,103 @@
+Settings quick-start section
+
+The Settings page currently has 21 tabs. A new customer who just wants to go live needs 4 of them. The rest are advanced config they'll never touch in their first week. This prompt adds a "Quick Setup" section at the top of the Settings page that surfaces only the essentials, with a progress indicator.
+
+Do not remove or modify any existing tabs. Do not touch any settings logic or auto-save hooks. Run npm run check after completing.
+⸻
+What to build
+
+Add a new section at the top of client/src/pages/Settings.tsx, above the existing tab bar. It should show only when the customer hasn't completed quick setup. Once all 4 items are ticked, the section collapses permanently.
+⸻
+Step 1 — Backend: quick-setup status endpoint
+
+Add a new GET endpoint:
+
+GET /api/settings/quick-setup-status
+
+
+Returns:
+
+{
+  "complete": false,
+  "dismissed": false,
+  "items": {
+    "companyLogoSet": false,
+    "emergencyEmailSet": false,
+    "emailSmtpConfigured": false,
+    "mustersPointNamed": false
+  }
+}
+
+
+Logic:
+
+- companyLogoSet — company_settings.logo_url is not null and does not contain d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6 (the default ACS logo UUID)
+- emergencyEmailSet — the emergency contact/CDM alert email field in company_settings is not null/empty
+- emailSmtpConfigured — company_settings has a non-null, non-empty SMTP host or SendGrid API key configured (whichever field is used — check server/routes/ for the email settings fields)
+- mustersPointNamed — at least one row in muster_points where name is NOT one of the three defaults ('Main Car Park', 'Rear Assembly Area', 'Side Entrance')
+
+Also add a POST endpoint:
+
+POST /api/settings/quick-setup-dismiss
+
+
+Add a quick_setup_dismissed boolean column (default false) to company_settings in isolatedSchema.ts. Include in the customerDatabase.ts ALTER TABLE block. This endpoint sets it to true.
+⸻
+Step 2 — Frontend: the quick-setup panel
+
+In client/src/pages/Settings.tsx, add a query and dismiss mutation at the top of the component (alongside other queries if any):
+
+const { data: quickSetup } = useQuery({
+  queryKey: ["/api/settings/quick-setup-status"],
+  staleTime: 10000,
+});
+
+const dismissQuickSetup = useMutation({
+  mutationFn: () => apiRequest("POST", "/api/settings/quick-setup-dismiss"),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/settings/quick-setup-status"] }),
+});
+
+
+Show the panel only when quickSetup is loaded AND quickSetup.complete = false AND quickSetup.dismissed = false.
+
+Place it between the "Auto-save enabled" green banner and the <Tabs> component.
+
+The panel:
+
+┌─────────────────────────────────────────────────────────┐
+│  Quick Setup  ●●●○  3 of 4 done             [Skip]       │
+├─────────────────────────────────────────────────────────┤
+│  ✅  Upload your company logo            → Company tab   │
+│  ✅  Set emergency alert email           → Zones tab     │
+│  ✅  Configure email delivery            → Email tab     │
+│  ○   Name your muster points             → Zones tab     │
+└─────────────────────────────────────────────────────────┘
+
+
+Each row has:
+- A green tick (✅) if complete, grey circle (○) if not
+- A label
+- A right-aligned link that switches to the relevant settings tab (calls setActiveTab("company") etc.)
+
+The tabs to link to:
+Item	Tab value
+companyLogoSet	"company"
+emergencyEmailSet	"zones"
+emailSmtpConfigured	"email"
+mustersPointNamed	"zones"
+
+The "Skip" link in the top-right calls dismissQuickSetup.mutate() and hides the panel.
+
+When all 4 items are complete, auto-hide the panel (no need to click Skip).
+
+Style: use a border border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-800 rounded-lg p-4 wrapper. Keep it compact — this is not a prominent hero section, just a gentle nudge.
+⸻
+Verify
+
+1. Open Settings as a brand-new customer → Quick Setup panel appears with incomplete items
+2. Upload a logo via the Company tab → companyLogoSet turns to ✅ on next load/refetch
+3. Complete all 4 → panel disappears
+4. Reload → panel stays hidden
+5. Click "Skip" → panel disappears and stays hidden on reload
+6. Existing customers who already have all 4 items → panel does not appear
+7. npm run check passes

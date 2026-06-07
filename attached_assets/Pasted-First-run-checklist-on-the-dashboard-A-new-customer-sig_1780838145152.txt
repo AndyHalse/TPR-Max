@@ -1,0 +1,101 @@
+First-run checklist on the dashboard
+
+A new customer signs up, gets their credentials, and lands on the dashboard with no guidance whatsoever. This prompt adds a persistent "Getting Started" checklist that appears only for new customers and disappears once all steps are complete. It uses the featureOnboardingCompleted field that already exists in the schema.
+
+Do not refactor anything outside what is listed here. Run npm run check after completing and confirm no new type errors.
+⸻
+What to build
+
+A dismissible "Getting Started" card on the dashboard (client/src/pages/Dashboard.tsx) that shows 5 completion steps. Each step checks real data to determine whether it's done. Once all 5 are complete (or the user manually dismisses the card), it disappears permanently and never shows again.
+⸻
+Step 1 — Backend: completion-status endpoint
+
+Create a new GET endpoint in server/routes/remaining.ts (or an appropriate existing routes file):
+
+GET /api/onboarding/checklist-status
+
+
+Requires authentication (use existing auth middleware pattern). Returns:
+
+{
+  "allComplete": false,
+  "dismissed": false,
+  "steps": {
+    "logoUploaded": false,
+    "emergencyContactSet": false,
+    "staffAdded": false,
+    "mustersPointConfigured": false,
+    "firstVisitorOrContractor": false
+  }
+}
+
+
+Logic for each step (all read from the customer's isolated database):
+
+- logoUploaded — company_settings.logo_url is not null AND does not contain d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6 (that UUID is the default ACS logo set at provisioning — if it's still the default, the customer hasn't uploaded their own)
+- emergencyContactSet — company_settings.emergency_contact_email is not null and not empty (or whichever field stores the emergency/CDM alert email)
+- staffAdded — COUNT of rows in staff table > 1 (the admin account is created at signup, so >1 means they've added real staff)
+- musterPointConfigured — at least one row in muster_points where name does NOT match any of these default strings: 'Main Car Park', 'Rear Assembly Area', 'Side Entrance'. i.e., they've renamed or added their own.
+- firstVisitorOrContractor — COUNT of rows in visitors table > 0 OR COUNT of rows in contractor_workers table > 0
+
+Also add a POST endpoint to persist the dismissal:
+
+POST /api/onboarding/checklist-dismiss
+
+
+Sets a flag. The simplest approach: add a boolean column onboarding_checklist_dismissed (default false) to the company_settings table in server/isolatedSchema.ts and update it via this endpoint. Include this in the customerDatabase.ts ALTER TABLE block so existing tenants get the column.
+
+The GET endpoint should also read this flag — if dismissed = true, return { allComplete: true, dismissed: true, steps: {...} } (front end will hide the card entirely).
+⸻
+Step 2 — Frontend: the checklist card
+
+In client/src/pages/Dashboard.tsx, add a new query near the top (alongside the existing stats query):
+
+const { data: checklistStatus } = useQuery({
+  queryKey: ["/api/onboarding/checklist-status"],
+  enabled: !!currentUser,
+  staleTime: 30000,
+});
+
+
+Add a dismiss mutation:
+
+const dismissChecklist = useMutation({
+  mutationFn: () => apiRequest("POST", "/api/onboarding/checklist-dismiss"),
+  onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/onboarding/checklist-status"] }),
+});
+
+
+Show the card only when checklistStatus is loaded AND checklistStatus.allComplete = false AND checklistStatus.dismissed = false.
+
+Place the card at the very top of the dashboard content area, before the stats cards. Style it to stand out gently — a soft blue/teal banner with a "Getting started" heading.
+
+The card contains:
+
+- Heading: "Getting started — 5 steps to go live"
+- A progress bar showing completed steps out of 5 (use shadcn Progress component)
+5 rows, each with a tick icon (green = complete, grey = not done) and label + a short description + a link to where you do it:
+Step	Label	Link
+logoUploaded	Upload your company logo	/settings (opens on company tab)
+emergencyContactSet	Set your emergency alert email	/settings (opens on zones/emergency tab — whichever holds that field)
+staffAdded	Add your first staff member	/staff
+musterPointConfigured	Name your muster points	/settings (zones tab) or /muster
+firstVisitorOrContractor	Sign in your first visitor or contractor	/visitors
+
+- A small "Dismiss" text link in the top-right corner of the card that calls the dismiss mutation and immediately hides the card.
+
+When all 5 steps are ticked, auto-hide the card (don't wait for dismiss). No celebration animation needed — just hide it cleanly.
+⸻
+Step 3 — Auto-hide when all steps done
+
+In the render condition, also hide the card when checklistStatus.steps has all values true, regardless of allComplete. This handles the case where the backend hasn't been updated yet.
+⸻
+Verify
+
+1. Sign up as a brand-new test customer → checklist card appears on dashboard with all 5 steps grey
+2. Upload a logo → logoUploaded turns green on next load
+3. Add a staff member → staffAdded turns green
+4. Complete all 5 → card disappears automatically
+5. Refresh the page → card stays hidden (it was auto-dismissed by all-complete state)
+6. Test with an existing customer that already has real data → card should not appear (or appear with correct steps already ticked)
+7. npm run check passes

@@ -170,7 +170,7 @@ export class CustomerOnboardingService {
           accessLevel: 'admin',
         },
         loginUrl: process.env.NODE_ENV === 'production' 
-          ? `https://${customer.slug}.visigate.app/login`
+          ? `https://${customer.slug}.tpr-max.com/login`
           : `${process.env.FRONTEND_URL || 'http://localhost:5000'}/login`,
         credentials: {
           companyName: customer.companyName,

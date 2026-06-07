@@ -132,7 +132,7 @@ const optionalVars = [
   {
     name: 'SALES_EMAIL',
     description: 'Sales contact email',
-    defaultValue: 'sales@visigatepro.com'
+    defaultValue: 'sales@tpr-max.com'
   },
   {
     name: 'DEV_AUTH_BYPASS',

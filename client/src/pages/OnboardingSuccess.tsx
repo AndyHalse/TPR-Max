@@ -119,7 +119,7 @@ export default function OnboardingSuccess({}: OnboardingSuccessProps) {
                 Try Again
               </Button>
               <Button 
-                onClick={() => window.location.href = 'mailto:support@visigatepro.com'}
+                onClick={() => window.location.href = 'mailto:support@tpr-max.com'}
                 data-testid="button-contact-support"
               >
                 Contact Support
