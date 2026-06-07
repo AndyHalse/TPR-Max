@@ -1,0 +1,96 @@
+Calendar Integration (Outlook / Google Calendar → Visitor Pre-Registration)
+What This Does
+Connects TPR to Outlook (Microsoft 365) or Google Calendar. When a meeting is created with external attendees, TPR automatically creates visitor pre-registrations for those attendees — without the admin doing anything.
+This eliminates the most common source of friction in visitor management: the gap between "we've invited someone to a meeting" and "we've told reception to expect them." For SMEs without a dedicated receptionist, this gap often means visitors arriving unannounced to a locked door.
+Feature flag: featureCalendarIntegration (default: false — TPR Pro and above).
+
+How It Works (Overview)
+The integration uses a polling approach rather than webhooks for simplicity and reliability:
+
+Admin connects their Microsoft 365 or Google Calendar account via OAuth.
+TPR stores the OAuth tokens securely.
+A scheduled cron job (every 15 minutes) fetches upcoming calendar events.
+For each event with external attendees (not @your-domain emails), TPR checks whether a pre-registration already exists.
+If not, TPR creates a visitor pre-registration and optionally sends the visitor their invite email.
+The admin is notified of newly created pre-registrations.
+
+
+Files to Create
+
+server/routes/calendarIntegration.ts
+server/services/calendarSync.ts — polling service + pre-reg creation logic
+server/services/microsoftGraphService.ts — Microsoft Graph API calls
+server/services/googleCalendarService.ts — Google Calendar API calls
+client/src/pages/settings/CalendarIntegrationSettings.tsx
+
+Files to Change
+
+server/isolatedSchema.ts — add calendarConnections and calendarSyncedEvents tables
+server/customerDatabase.ts — migrations
+server/cron.ts (or wherever scheduled jobs are registered) — add 15-minute sync cron
+client/src/pages/Settings.tsx — nav link
+client/src/App.tsx — route + OAuth callback routes
+
+
+1. Database — server/isolatedSchema.ts
+typescriptexport const calendarConnections = pgTable('calendar_connections', {
+  id: serial('id').primaryKey(),
+  provider: text('provider').notNull(),           // 'microsoft' | 'google'
+  connectedBy: text('connected_by').notNull(),    // TPR user who connected it
+  accessToken: text('access_token').notNull(),    // encrypted at rest
+  refreshToken: text('refresh_token').notNull(),  // encrypted at rest
+  tokenExpiry: timestamp('token_expiry'),
+  calendarId: text('calendar_id'),                // specific calendar to sync (optional — default: primary)
+  active: boolean('active').default(true),
+  lastSyncedAt: timestamp('last_synced_at'),
+  syncWindowDays: integer('sync_window_days').default(7),   // how far ahead to look
+  autoCreatePreReg: boolean('auto_create_pre_reg').default(true),
+  notifyOnCreate: boolean('notify_on_create').default(true),
+  domainFilter: text('domain_filter'),            // only create pre-regs for specific domain (optional)
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const calendarSyncedEvents = pgTable('calendar_synced_events', {
+  id: serial('id').primaryKey(),
+  connectionId: integer('connection_id').notNull(),
+  externalEventId: text('external_event_id').notNull(),     // the event ID from Google/Microsoft
+  eventTitle: text('event_title'),
+  eventStart: timestamp('event_start'),
+  attendeeEmail: text('attendee_email').notNull(),
+  visitorPreRegId: integer('visitor_pre_reg_id'),           // FK to visitor pre-registration if created
+  status: text('status').default('synced'),                 // 'synced' | 'pre_reg_created' | 'skipped'
+  syncedAt: timestamp('synced_at').defaultNow(),
+});
+Migrations:
+typescriptawait pool.query(`
+  CREATE TABLE IF NOT EXISTS "${schemaName}".calendar_connections (
+    id SERIAL PRIMARY KEY,
+    provider TEXT NOT NULL,
+    connected_by TEXT NOT NULL,
+    access_token TEXT NOT NULL,
+    refresh_token TEXT NOT NULL,
+    token_expiry TIMESTAMPTZ,
+    calendar_id TEXT,
+    active BOOLEAN DEFAULT true,
+    last_synced_at TIMESTAMPTZ,
+    sync_window_days INTEGER DEFAULT 7,
+    auto_create_pre_reg BOOLEAN DEFAULT true,
+    notify_on_create BOOLEAN DEFAULT true,
+    domain_filter TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+  )
+`);
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS "${schemaName}".calendar_synced_events (
+    id SERIAL PRIMARY KEY,
+    connection_id INTEGER NOT NULL,
+    external_event_id TEXT NOT NULL,
+    event_title TEXT,
+    event_start TIMESTAMPTZ,
+    attendee_email TEXT NOT NULL,
+    visitor_pre_reg_id INTEGER,
+    status TEXT DEFAULT 'synced',
+    synced_at TIMESTAMPTZ DEFAULT NOW()
+  )
+`);
+Tokens must be encrypted at rest. Use the existing server/utils/encryption.ts encrypt/decrypt functions before storing and after reading.
