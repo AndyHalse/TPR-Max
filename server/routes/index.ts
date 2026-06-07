@@ -43,6 +43,7 @@ import { registerHrDbsRoutes } from './hrDbs';
 import { registerSsoRoutes } from './sso';
 import { registerVisitReasonRoutes } from './visitReasons';
 import { registerNdaRoutes } from './nda';
+import { registerTemplateLibraryRoutes } from './templateLibrary';
 
 export async function registerSplitRoutes(
   app: Express,
@@ -91,5 +92,6 @@ export async function registerSplitRoutes(
   registerHrDbsRoutes(app);
   registerVisitReasonRoutes(app);
   registerNdaRoutes(app);
+  await registerTemplateLibraryRoutes(app);
   await registerRemainingRoutes(app, server);
 }

@@ -66,6 +66,7 @@ import ComplianceCertificateRegister from "@/pages/ComplianceCertificateRegister
 import ComplianceDashboard from "@/pages/ComplianceDashboard";
 import PermitToWorkPage from "@/pages/PermitToWork";
 import RaBuilder from "@/pages/RaBuilder";
+import TemplateLibrary from "@/pages/TemplateLibrary";
 import HrHub from "@/pages/hr/HrHub";
 import StaffProfile from "@/pages/hr/StaffProfile";
 import OrgChart from "@/pages/hr/OrgChart";
@@ -476,6 +477,7 @@ function Router() {
             <Route path="/compliance-dashboard" component={ComplianceDashboard} />
             <Route path="/permit-to-work" component={PermitToWorkPage} />
             <Route path="/ra-builder" component={RaBuilder} />
+            <Route path="/template-library" component={TemplateLibrary} />
             <Route path="/hr" component={HrHub} />
             <Route path="/hr/staff/:id" component={StaffProfile} />
             <Route path="/hr/org-chart" component={OrgChart} />

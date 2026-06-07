@@ -528,6 +528,7 @@ export const companySettings = pgTable("company_settings", {
   featureHrModule: boolean("feature_hr_module").default(false),
   featureAuditEngine: boolean("feature_audit_engine").default(false),
   featureRaBuilder: boolean("feature_ra_builder").default(false),
+  featureTemplateLibrary: boolean("feature_template_library").default(true),
   // Core navigation feature toggles — default ON
   featureDashboard: boolean("feature_dashboard").default(true),
   featureVisitors: boolean("feature_visitors").default(true),

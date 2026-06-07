@@ -1190,6 +1190,7 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS clue_device_groups TEXT[] DEFAULT ARRAY[]::TEXT[]`);
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS onboarding_checklist_dismissed BOOLEAN DEFAULT false`);
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS quick_setup_dismissed BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_template_library BOOLEAN DEFAULT true`);
       logger.info(`✅ Induction/AI/QR/CLUe settings columns ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Induction settings column migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
