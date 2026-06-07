@@ -1191,6 +1191,21 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS onboarding_checklist_dismissed BOOLEAN DEFAULT false`);
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS quick_setup_dismissed BOOLEAN DEFAULT false`);
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_template_library BOOLEAN DEFAULT true`);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_teams_integration BOOLEAN DEFAULT false`);
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".teams_webhooks (
+          id SERIAL PRIMARY KEY,
+          name TEXT NOT NULL,
+          webhook_url TEXT NOT NULL,
+          active BOOLEAN DEFAULT true,
+          notify_visitor_arrival BOOLEAN DEFAULT true,
+          notify_evacuation BOOLEAN DEFAULT true,
+          notify_riddor BOOLEAN DEFAULT true,
+          notify_compliance_red BOOLEAN DEFAULT false,
+          notify_document_expiry BOOLEAN DEFAULT false,
+          created_at TIMESTAMPTZ DEFAULT NOW()
+        )
+      `);
       logger.info(`✅ Induction/AI/QR/CLUe settings columns ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Induction settings column migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

@@ -1,6 +1,7 @@
 import type { Express } from 'express';
 import cron from 'node-cron';
 import { requireAuth } from '../auth';
+import { sendTeamsNotification } from '../utils/teamsNotifier';
 import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import * as isolatedSchema from '../isolatedSchema';
@@ -150,6 +151,24 @@ export function registerHsIncidentRoutes(app: Express): void {
       if (isBbs) {
         sendGoodSpotNotification(req.customerId!, created, incidentDate).catch(err =>
           logger.error('Failed to send Good Spot notification:', err));
+      }
+
+      // Teams notification for RIDDOR reportable incidents — fire and forget
+      if (riddorCategory && riddorCategory !== 'not_riddor_reportable' && riddorCategory !== 'occupational_disease') {
+        const _teamsSchemaInc = customerDbService.generateSchemaName(req.customerId!);
+        const _deadlineStr = riddorDeadline ? riddorDeadline.toLocaleDateString('en-GB') : 'Check with HSE';
+        sendTeamsNotification(_teamsSchemaInc, 'riddor_incident', {
+          eventType: 'riddor_incident',
+          title: '⚠️ RIDDOR reportable incident logged',
+          summary: 'A RIDDOR-reportable incident has been recorded. Report to HSE by the deadline.',
+          facts: [
+            { name: 'Incident', value: body.title || created.title },
+            { name: 'Category', value: RIDDOR_CATEGORY_LABELS[riddorCategory as RIDDORCategory] || riddorCategory },
+            { name: 'Reporting deadline', value: _deadlineStr },
+            { name: 'Logged by', value: body.reportedBy || req.user?.username || 'Unknown' },
+          ],
+          urgency: 'high',
+        }).catch(() => {});
       }
 
       res.status(201).json(created);

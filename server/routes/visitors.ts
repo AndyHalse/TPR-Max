@@ -15,6 +15,7 @@ import * as isolatedSchema from '../isolatedSchema';
 import { insertVisitorSchema, insertPreBookingSchema } from '../isolatedSchema';
 import { evacuations } from '@shared/schema';
 import { db } from '../db';
+import { sendTeamsNotification } from '../utils/teamsNotifier';
 import { websocketService } from '../websocketService';
 import { VoiceNotificationService } from '../voiceNotificationService';
 import { paxtonService } from '../paxtonService';
@@ -504,6 +505,19 @@ export function registerVisitorRoutes(app: Express): void {
           }
         })();
       }
+
+      // Teams notification — fire and forget, never blocks check-in
+      const _teamsSchema = customerDbService.generateSchemaName(context.customerId);
+      sendTeamsNotification(_teamsSchema, 'visitor_arrival', {
+        eventType: 'visitor_arrival',
+        title: '👤 Visitor arrived',
+        summary: `${visitor.firstName} ${visitor.lastName} has signed in at ${(settings as any)?.companyName || 'site'}.`,
+        facts: [
+          { name: 'Visitor', value: `${visitor.firstName} ${visitor.lastName}` },
+          { name: 'Purpose', value: visitor.purpose || 'Not specified' },
+          { name: 'Time', value: new Date().toLocaleTimeString('en-GB') },
+        ],
+      }).catch(() => {});
 
       res.json(visitor);
     } catch (error) {

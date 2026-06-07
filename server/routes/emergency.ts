@@ -18,7 +18,8 @@ import {
 } from '@shared/schema';
 import { z } from 'zod';
 import { eq, and, sql, desc, inArray, gte, lt, or, not } from 'drizzle-orm';
-import { db } from '../db';
+import { db, pool } from '../db';
+import { sendTeamsNotification } from '../utils/teamsNotifier';
 import { logger } from '../utils/logger';
 
 // ─── Module-scope helper ────────────────────────────────────────────────────
@@ -798,7 +799,24 @@ export function registerEmergencyRoutes(app: Express): void {
         errors.forEach(err => logger.info(`- ${err}`));
       }
       logger.info(`============================================\n`);
-      
+
+      // Teams notification — fire and forget, never blocks emergency activation
+      const _teamsSchemaEvac = customerDbService.generateSchemaName(context.customerId);
+      const _onSiteCount = (checkedInStaff?.length || 0) + (currentVisitors?.length || 0) + (checkedInContractors?.length || 0) + (checkedInMembers?.length || 0);
+      sendTeamsNotification(_teamsSchemaEvac, 'evacuation_started', {
+        eventType: 'evacuation_started',
+        title: drillMode ? '🔔 EVACUATION DRILL IN PROGRESS' : '🚨 EVACUATION IN PROGRESS',
+        summary: `An evacuation${drillMode ? ' drill' : ''} has been activated at ${companySettings?.companyName || 'site'}. Check TPR for the live roll-call.`,
+        facts: [
+          { name: 'Site', value: companySettings?.companyName || 'Site' },
+          { name: 'Activated by', value: activatedBy },
+          { name: 'Time', value: new Date().toLocaleTimeString('en-GB') },
+          { name: 'Personnel on site', value: String(_onSiteCount) },
+          ...(drillMode ? [{ name: 'Mode', value: 'DRILL — not a real emergency' }] : []),
+        ],
+        urgency: drillMode ? 'normal' : 'high',
+      }).catch(() => {});
+
       res.json({
         success: true,
         message: `Emergency activated! Sent ${totalEmailsSent} total alerts (${evacuationData.notificationsSent} regular + ${fireMarshalEmailsSent} Fire Marshal).`,
@@ -2016,6 +2034,21 @@ export function registerEmergencyRoutes(app: Express): void {
         const startMs = completedEvac?.startedAt ? new Date(completedEvac.startedAt).getTime() : 0;
         const endMs = new Date().getTime();
         const durSec = startMs ? Math.round((endMs - startMs) / 1000) : null;
+
+        // Teams notification — evacuation ended, fire and forget
+        const _teamsSchemaEnd = customerDbService.generateSchemaName(customerId);
+        const _durStr = durSec ? `${Math.floor(durSec / 60)}m ${durSec % 60}s` : 'Unknown';
+        sendTeamsNotification(_teamsSchemaEnd, 'evacuation_ended', {
+          eventType: 'evacuation_ended',
+          title: completedEvac?.isDrill ? '✅ Evacuation drill complete' : '✅ Evacuation complete',
+          summary: `The evacuation at site has been marked as complete.`,
+          facts: [
+            { name: 'Duration', value: _durStr },
+            { name: 'Accounted for', value: `${accountedCt} of ${totalCt}` },
+            { name: 'Unaccounted', value: String(totalCt - accountedCt) },
+            { name: 'Completion', value: `${pct}%` },
+          ],
+        }).catch(() => {});
         const custDb = await customerDbService.getCustomerDatabase(customerId);
         const reportUrl = `/api/emergency/incident-report/${evacuationId}`;
         const existing = await custDb.select({ id: isolatedSchema.incidentReports.id })

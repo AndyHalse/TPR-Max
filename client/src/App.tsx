@@ -67,6 +67,7 @@ import ComplianceDashboard from "@/pages/ComplianceDashboard";
 import PermitToWorkPage from "@/pages/PermitToWork";
 import RaBuilder from "@/pages/RaBuilder";
 import TemplateLibrary from "@/pages/TemplateLibrary";
+import TeamsIntegrationSettings from "@/pages/settings/TeamsIntegrationSettings";
 import HrHub from "@/pages/hr/HrHub";
 import StaffProfile from "@/pages/hr/StaffProfile";
 import OrgChart from "@/pages/hr/OrgChart";
@@ -478,6 +479,7 @@ function Router() {
             <Route path="/permit-to-work" component={PermitToWorkPage} />
             <Route path="/ra-builder" component={RaBuilder} />
             <Route path="/template-library" component={TemplateLibrary} />
+            <Route path="/settings/teams-integration" component={TeamsIntegrationSettings} />
             <Route path="/hr" component={HrHub} />
             <Route path="/hr/staff/:id" component={StaffProfile} />
             <Route path="/hr/org-chart" component={OrgChart} />
