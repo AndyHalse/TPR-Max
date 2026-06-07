@@ -142,6 +142,9 @@ export default function MarketingPage() {
           "permit-to-work",
           "ra-builder",
           "nda",
+          "template-library",
+          "teams-integration",
+          "calendar-integration",
         ].includes(hash)
       ) {
         setActiveTab(hash);
@@ -371,7 +374,7 @@ export default function MarketingPage() {
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-emerald-600">
                   <Zap className="h-3 w-3 mr-1" />
-                  26 Modules · One Platform
+                  28 Modules · One Platform
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-violet-600">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -420,6 +423,9 @@ export default function MarketingPage() {
                   "HR Module — Full Staff Lifecycle",
                   "Meeting Rooms & Booking",
                   "Risk Assessment Builder",
+                  "Template Library — Pre-Built H&S Frameworks",
+                  "Microsoft Teams Event Notifications",
+                  "Outlook & Google Calendar Auto Visitor Sync",
                 ].map((f) => (
                   <div key={f} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
                     <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
@@ -1197,6 +1203,30 @@ export default function MarketingPage() {
               >
                 <FileText className="h-4 w-4 mb-1" />
                 NDA
+              </TabsTrigger>
+              <TabsTrigger
+                value="template-library"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-emerald-700 transition-all duration-200"
+                data-testid="tab-template-library"
+              >
+                <BookOpen className="h-4 w-4 mb-1" />
+                Templates
+              </TabsTrigger>
+              <TabsTrigger
+                value="teams-integration"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-indigo-700 transition-all duration-200"
+                data-testid="tab-teams-integration"
+              >
+                <Network className="h-4 w-4 mb-1" />
+                Teams
+              </TabsTrigger>
+              <TabsTrigger
+                value="calendar-integration"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-violet-700 transition-all duration-200"
+                data-testid="tab-calendar-integration"
+              >
+                <CalendarClock className="h-4 w-4 mb-1" />
+                Cal Sync
               </TabsTrigger>
             </TabsList>
 
@@ -3257,6 +3287,338 @@ export default function MarketingPage() {
               </div>
             </TabsContent>
 
+            {/* Template Library Tab */}
+            <TabsContent value="template-library" className="space-y-6" data-testid="content-template-library">
+              <div className="grid lg:grid-cols-2 gap-8 items-start">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-emerald-700 text-white">
+                      <BookOpen className="h-3 w-3 mr-1" />
+                      Pre-Built H&S Frameworks
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      50+ Ready-to-Use H&S Templates
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Stop writing safety documents from scratch. TPR's Template Library gives you professionally crafted, UK-legislation-aligned frameworks for risk assessments, method statements, permits, induction checklists, and inspection forms — ready to clone, customise, and put to work immediately.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>One-Click Clone:</strong> Copy any template into your own document library with a single click — then edit, approve, and deploy as your own.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Categorised by Type:</strong> Risk Assessments, Method Statements, Permits, Induction Checklists, Inspection Forms, and Policy Documents — each with relevant UK regulation references.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Regulation-Aligned:</strong> Every template references the relevant UK legislation — CDM 2015, COSHH, LOLER, WAH Regs, RIDDOR, Fire Safety Order — so you know exactly what you're complying with.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Preview Before You Commit:</strong> Read the full template description and see its structure before cloning — so you pick exactly the right starting point.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Industry-Specific Sets:</strong> Templates grouped by sector — Construction, Warehousing, Healthcare, Education, FM, and Office — so you find relevant documents fast.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Always Growing:</strong> New templates added regularly by our UK H&S specialists — your library grows without any extra cost.
+                      </span>
+                    </div>
+                  </div>
+                  <Button size="lg" onClick={() => scrollToSection("contact")} className="text-white bg-emerald-700 hover:bg-emerald-800">
+                    <Eye className="h-4 w-4 mr-2" />
+                    See the Template Library
+                  </Button>
+                </div>
+                <div className="rounded-xl shadow-2xl border border-emerald-200 dark:border-emerald-800 bg-white dark:bg-slate-800 p-6 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
+                        <BookOpen className="h-5 w-5 text-emerald-700" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-900 dark:text-white text-sm">Template Library</h4>
+                        <p className="text-xs text-slate-500">50+ pre-built H&S frameworks</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs">UK Compliant</Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "Risk Assessments", count: 18, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-900/30" },
+                      { label: "Method Statements", count: 12, color: "text-orange-600", bg: "bg-orange-50 dark:bg-orange-900/30" },
+                      { label: "Permits", count: 8, color: "text-red-600", bg: "bg-red-50 dark:bg-red-900/30" },
+                      { label: "Induction Checklists", count: 6, color: "text-purple-600", bg: "bg-purple-50 dark:bg-purple-900/30" },
+                      { label: "Inspection Forms", count: 9, color: "text-teal-600", bg: "bg-teal-50 dark:bg-teal-900/30" },
+                      { label: "Policy Docs", count: 5, color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-900/30" },
+                    ].map((t) => (
+                      <div key={t.label} className={`p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 ${t.bg} text-center`}>
+                        <div className={`text-xl font-bold ${t.color}`}>{t.count}</div>
+                        <div className="text-[10px] text-slate-600 dark:text-slate-400 mt-0.5 leading-tight">{t.label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Popular templates</p>
+                    {[
+                      { title: "Working at Height — Roof Access RA", type: "Risk Assessment", tag: "WAH Regs 2005", tagColor: "bg-red-100 text-red-700" },
+                      { title: "COSHH — Industrial Cleaning Chemicals", type: "Risk Assessment", tag: "COSHH Regs 2002", tagColor: "bg-purple-100 text-purple-700" },
+                      { title: "Hot Works Permit — General", type: "Permit to Work", tag: "CDM 2015", tagColor: "bg-orange-100 text-orange-700" },
+                      { title: "Contractor Site Induction Checklist", type: "Induction", tag: "HSWA 1974", tagColor: "bg-blue-100 text-blue-700" },
+                    ].map((t) => (
+                      <div key={t.title} className="flex items-center justify-between gap-2 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-slate-900 dark:text-white truncate">{t.title}</p>
+                          <p className="text-[10px] text-slate-500">{t.type}</p>
+                        </div>
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${t.tagColor}`}>{t.tag}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs text-slate-500">
+                    <span>Clone → Customise → Deploy</span>
+                    <span className="text-emerald-700 font-semibold">New templates added monthly</span>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Microsoft Teams Integration Tab */}
+            <TabsContent value="teams-integration" className="space-y-6" data-testid="content-teams-integration">
+              <div className="grid lg:grid-cols-2 gap-8 items-start">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-indigo-700 text-white">
+                      <Network className="h-3 w-3 mr-1" />
+                      Microsoft Teams Integration
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Safety Alerts Direct to Microsoft Teams
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Keep your team informed in real time without leaving Teams. TPR posts instant Adaptive Card notifications to any Teams channel when key safety events occur — visitor arrivals, evacuations, RIDDOR incidents, and more. No extra apps, no separate logins.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Visitor Arrival Alerts:</strong> When a visitor checks in at reception, the host's Teams channel receives an instant card — name, company, purpose, and time of arrival.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Evacuation Notifications:</strong> A high-urgency red card fires to your Safety team's channel the moment an evacuation is activated — with drill detection to distinguish real events from practice.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>RIDDOR Incident Alerts:</strong> When a RIDDOR-reportable incident is logged, Teams receives an immediate card with the 10-day HSE reporting deadline highlighted — so nothing falls through the cracks.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Multiple Webhooks:</strong> Route different event types to different channels — visitor arrivals to reception, safety incidents to the H&S team, evacuations to senior management.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Per-Event Subscriptions:</strong> Each webhook is configured with toggles for exactly which events to receive — no unwanted noise, just the alerts that matter to each channel.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Fire-and-Forget Delivery:</strong> Failed notifications are caught and logged silently — they never interrupt the primary operation that triggered them.
+                      </span>
+                    </div>
+                  </div>
+                  <Button size="lg" onClick={() => scrollToSection("contact")} className="text-white bg-indigo-700 hover:bg-indigo-800">
+                    <Eye className="h-4 w-4 mr-2" />
+                    See Teams Integration Live
+                  </Button>
+                </div>
+                <div className="rounded-xl shadow-2xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-slate-800 p-6 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-lg bg-indigo-100 dark:bg-indigo-900/40">
+                        <Network className="h-5 w-5 text-indigo-700" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-900 dark:text-white text-sm">Teams Notifications</h4>
+                        <p className="text-xs text-slate-500">Real-time safety event alerts</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-indigo-100 text-indigo-800 border border-indigo-300 text-xs">3 webhooks active</Badge>
+                  </div>
+                  <div className="space-y-3">
+                    {[
+                      { event: "Visitor Arrival", channel: "#reception-desk", color: "border-l-blue-500", badgeColor: "bg-blue-100 text-blue-700", icon: UserCheck, time: "Just now", detail: "John Smith · Acme Ltd · Meeting with Sarah" },
+                      { event: "EVACUATION ACTIVE", channel: "#safety-team", color: "border-l-red-600", badgeColor: "bg-red-100 text-red-700", icon: Siren, time: "2h ago", detail: "46 on site · Zone 3 affected · Not a drill" },
+                      { event: "RIDDOR Incident", channel: "#hs-manager", color: "border-l-orange-500", badgeColor: "bg-orange-100 text-orange-700", icon: AlertTriangle, time: "Yesterday", detail: "Fracture — HSE deadline in 10 days" },
+                    ].map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <div key={item.event} className={`border-l-4 ${item.color} bg-slate-50 dark:bg-slate-700/30 rounded-r-lg p-3`}>
+                          <div className="flex items-center justify-between gap-2 mb-1">
+                            <div className="flex items-center gap-1.5">
+                              <Icon className="h-3.5 w-3.5 text-slate-600 dark:text-slate-400" />
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${item.badgeColor}`}>{item.event}</span>
+                            </div>
+                            <span className="text-[10px] text-slate-400">{item.time}</span>
+                          </div>
+                          <p className="text-xs text-slate-600 dark:text-slate-400 mb-1">{item.detail}</p>
+                          <p className="text-[10px] text-slate-400">{item.channel}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex items-center justify-between">
+                    <span>Works with any Teams channel via Incoming Webhooks</span>
+                    <span className="text-indigo-700 font-semibold">No app install needed</span>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Calendar Integration Tab */}
+            <TabsContent value="calendar-integration" className="space-y-6" data-testid="content-calendar-integration">
+              <div className="grid lg:grid-cols-2 gap-8 items-start">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-violet-700 text-white">
+                      <CalendarClock className="h-3 w-3 mr-1" />
+                      Calendar Auto-Sync
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Calendar Meetings → Visitor Pre-Registrations, Automatically
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Connect your Outlook or Google Calendar and TPR takes care of the rest. Every time you invite an external attendee to a meeting, TPR creates a visitor pre-registration automatically — so reception always knows who to expect, without any manual entry.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Microsoft 365 & Google Calendar:</strong> Connect Outlook or Google Workspace calendars via secure OAuth — read-only access, no write permissions needed.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Automatic Pre-Registration:</strong> External attendees (not on your domain) are automatically pre-registered as expected visitors — complete with name, email, and meeting start time.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Smart Internal Filtering:</strong> Set your company domain once — attendees on that domain are treated as internal staff and skipped, so only genuine external visitors are pre-registered.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>15-Minute Sync Cycle:</strong> Calendars are polled every 15 minutes with configurable sync window (3–30 days ahead) — keeping reception's diary always current.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Zero Duplication:</strong> Each event–attendee pair is tracked — if the same person is on multiple meetings this week, they're only pre-registered once.
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-3">
+                      <CheckCircle className="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Tokens Encrypted at Rest:</strong> OAuth tokens are AES-256-GCM encrypted before storage and refreshed automatically — your calendar credentials are never stored in plain text.
+                      </span>
+                    </div>
+                  </div>
+                  <Button size="lg" onClick={() => scrollToSection("contact")} className="text-white bg-violet-700 hover:bg-violet-800">
+                    <Eye className="h-4 w-4 mr-2" />
+                    See Calendar Sync Live
+                  </Button>
+                </div>
+                <div className="rounded-xl shadow-2xl border border-violet-200 dark:border-violet-800 bg-white dark:bg-slate-800 p-6 space-y-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 rounded-lg bg-violet-100 dark:bg-violet-900/40">
+                        <CalendarClock className="h-5 w-5 text-violet-700" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-slate-900 dark:text-white text-sm">Calendar Integration</h4>
+                        <p className="text-xs text-slate-500">Outlook + Google → auto pre-reg</p>
+                      </div>
+                    </div>
+                    <Badge className="bg-green-100 text-green-800 border border-green-300 text-xs">2 calendars synced</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-5 h-5 rounded bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center">M</div>
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Microsoft 365</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500">sarah@acmeltd.com</p>
+                      <p className="text-[10px] text-green-600 mt-1">Synced 3 min ago</p>
+                    </div>
+                    <div className="rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="w-5 h-5 rounded bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">G</div>
+                        <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Google Calendar</span>
+                      </div>
+                      <p className="text-[10px] text-slate-500">james@acmeltd.com</p>
+                      <p className="text-[10px] text-green-600 mt-1">Synced 14 min ago</p>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Auto-created this week</p>
+                    {[
+                      { name: "David Chen", email: "d.chen@supplierco.uk", meeting: "Q2 Review", time: "Mon 14:00", source: "M365" },
+                      { name: "Emma Patel", email: "emma.p@partnergroup.com", meeting: "Onsite Survey", time: "Tue 09:30", source: "Google" },
+                      { name: "James Thornton", email: "j.thornton@builders.co.uk", meeting: "Site Walk", time: "Wed 11:00", source: "M365" },
+                      { name: "Priya Nair", email: "priya@consultancy.io", meeting: "Kick-off Call", time: "Thu 15:00", source: "Google" },
+                    ].map((v) => (
+                      <div key={v.email} className="flex items-center justify-between gap-2 p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-700/30">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-slate-900 dark:text-white truncate">{v.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{v.meeting} · {v.time}</p>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${v.source === "M365" ? "bg-blue-100 text-blue-700" : "bg-red-100 text-red-700"}`}>{v.source}</span>
+                          <CheckCircle className="h-3.5 w-3.5 text-green-500" />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="pt-2 border-t border-slate-200 dark:border-slate-700 text-xs text-slate-500 flex items-center justify-between">
+                    <span>Tokens AES-256-GCM encrypted at rest</span>
+                    <span className="text-violet-700 font-semibold">15-min sync cycle</span>
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+
           </Tabs>
 
         </div>
@@ -3689,6 +4051,9 @@ export default function MarketingPage() {
                   "Lone Worker Protection system",
                   "Suprema/BioStar 2 hardware integration",
                   "Portfolio dashboard (multi-site)",
+                  "Template Library — 50+ pre-built H&S frameworks",
+                  "Microsoft Teams event notifications",
+                  "Outlook & Google Calendar auto visitor sync",
                 ].map(f => (
                   <li key={f} className="flex items-start gap-3 text-sm text-slate-300">
                     <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0 mt-0.5" />
@@ -3986,7 +4351,7 @@ export default function MarketingPage() {
             <div>
               <h3 className="text-base font-semibold mb-4 text-white">About TPR</h3>
               <p className="text-slate-300 text-sm leading-relaxed">
-                The UK's Connected Workforce &amp; Site Safety Platform. 23 modules covering contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, and more — all in one subscription.
+                The UK's Connected Workforce &amp; Site Safety Platform. 28 modules covering contractor compliance, emergency mustering, audits &amp; inspections, risk assessments, HR lifecycle, lone worker protection, CDM 2015, PPM, Teams notifications, calendar sync, and more — all in one subscription.
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 {["GDPR Compliant", "UK-Built", "Multi-Tenant", "BioStar 2 Ready"].map(tag => (
@@ -4002,7 +4367,7 @@ export default function MarketingPage() {
               © 2026 ACS Safety & Security Ltd. All rights reserved.
             </p>
             <p className="text-slate-500 text-xs">
-              TPR is a product of ACS Safety & Security Ltd, registered in England & Wales.
+              The UK's Connected Workforce & Site Safety Platform — 28 modules, one subscription.
             </p>
           </div>
         </div>
