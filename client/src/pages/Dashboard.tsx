@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn, Trash2, Flame, Siren } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn, Trash2, Flame, Siren, Circle, X, Rocket } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -165,6 +166,31 @@ export default function Dashboard() {
     queryKey: ["/api/analytics/peak-hours"],
     refetchInterval: 30000, // Refresh every 30 seconds
     enabled: !!currentUser,
+  });
+
+  const { data: checklistStatus } = useQuery<{
+    steps: {
+      companyLogoSet: boolean;
+      emergencyEmailSet: boolean;
+      emailSmtpConfigured: boolean;
+      mustersPointNamed: boolean;
+      staffAdded: boolean;
+      firstVisitorOrContractor: boolean;
+    };
+    completedCount: number;
+    totalCount: number;
+    allComplete: boolean;
+    dismissed: boolean;
+  }>({
+    queryKey: ["/api/onboarding/checklist-status"],
+    enabled: !!currentUser,
+  });
+
+  const dismissChecklistMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/onboarding/checklist-dismiss"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/onboarding/checklist-status"] });
+    },
   });
 
   // Company settings for feature toggles
@@ -800,8 +826,108 @@ export default function Dashboard() {
     return <div>Loading dashboard...</div>;
   }
 
+  const checklistStepDefs = [
+    {
+      key: "companyLogoSet" as const,
+      label: "Upload your company logo",
+      href: "/settings",
+    },
+    {
+      key: "emergencyEmailSet" as const,
+      label: "Set emergency / CDM alerts email",
+      href: "/settings",
+    },
+    {
+      key: "emailSmtpConfigured" as const,
+      label: "Configure email delivery (SMTP)",
+      href: "/settings",
+    },
+    {
+      key: "mustersPointNamed" as const,
+      label: "Name your muster points",
+      href: "/settings",
+    },
+    {
+      key: "staffAdded" as const,
+      label: "Add your first staff member",
+      href: "/staff",
+    },
+    {
+      key: "firstVisitorOrContractor" as const,
+      label: "Register a visitor or contractor",
+      href: "/visitors",
+    },
+  ];
+
+  const showChecklist =
+    checklistStatus && !checklistStatus.dismissed && !checklistStatus.allComplete;
+
   return (
     <div className="space-y-4 sm:space-y-8 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
+      {/* Getting-Started Checklist */}
+      {showChecklist && (
+        <div className="relative rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 p-4 sm:p-5">
+          <button
+            onClick={() => dismissChecklistMutation.mutate()}
+            className="absolute top-3 right-3 text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 transition-colors"
+            aria-label="Dismiss checklist"
+          >
+            <X size={16} />
+          </button>
+
+          <div className="flex items-center gap-2 mb-2">
+            <Rocket size={18} className="text-indigo-600 dark:text-indigo-400 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
+                Getting Started — {checklistStatus.completedCount} of {checklistStatus.totalCount} done
+              </h3>
+              <p className="text-xs text-indigo-500 dark:text-indigo-400 mt-0.5">
+                Finish these steps to set up your site
+              </p>
+            </div>
+          </div>
+
+          <Progress
+            value={(checklistStatus.completedCount / checklistStatus.totalCount) * 100}
+            className="h-1.5 mb-4 bg-indigo-200 dark:bg-indigo-800 [&>div]:bg-indigo-500"
+          />
+
+          <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {checklistStepDefs.map(({ key, label, href }) => {
+              const done = checklistStatus.steps[key];
+              return (
+                <li key={key}>
+                  <a
+                    href={href}
+                    onClick={(e) => { if (done) e.preventDefault(); }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-xs transition-colors ${
+                      done
+                        ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 pointer-events-none"
+                        : "border-indigo-200 dark:border-indigo-700 bg-white dark:bg-indigo-900/20 hover:bg-indigo-100 dark:hover:bg-indigo-900/40"
+                    }`}
+                  >
+                    {done ? (
+                      <CheckCircle2 size={14} className="text-green-500 flex-shrink-0" />
+                    ) : (
+                      <Circle size={14} className="text-indigo-400 dark:text-indigo-500 flex-shrink-0" />
+                    )}
+                    <span
+                      className={
+                        done
+                          ? "text-green-700 dark:text-green-300 line-through"
+                          : "text-indigo-900 dark:text-indigo-100 font-medium"
+                      }
+                    >
+                      {label}
+                    </span>
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       {/* People On-Site Section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">

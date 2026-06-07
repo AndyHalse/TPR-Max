@@ -1,9 +1,11 @@
 import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Bot, Building2, Palette, Users, Building, Globe, Mail, Phone, FileText, Printer, HardHat, AlertTriangle, Brain, Wrench, Settings2, Bell, ScrollText, MapPin, Shield, ClipboardList, Briefcase, PenLine, PanelLeft } from "lucide-react";
+import { Bot, Building2, Palette, Users, Building, Globe, Mail, Phone, FileText, Printer, HardHat, AlertTriangle, Brain, Wrench, Settings2, Bell, ScrollText, MapPin, Shield, ClipboardList, Briefcase, PenLine, PanelLeft, CheckCircle2, Circle, X, Rocket } from "lucide-react";
+import { apiRequest, queryClient as globalQueryClient } from "@/lib/queryClient";
 
 import GeneralSettings from "./settings/GeneralSettings";
 import BrandingSettings from "./settings/BrandingSettings";
@@ -27,8 +29,66 @@ import VisitReasonsSettings from "./settings/VisitReasonsSettings";
 import JobTitlesSettings from "./settings/JobTitlesSettings";
 import PreferencesSettings from "./settings/PreferencesSettings";
 
+interface QuickSetupStatus {
+  complete: boolean;
+  dismissed: boolean;
+  items: {
+    companyLogoSet: boolean;
+    emergencyEmailSet: boolean;
+    emailSmtpConfigured: boolean;
+    mustersPointNamed: boolean;
+  };
+}
+
+const QUICK_SETUP_ITEMS = [
+  {
+    key: "companyLogoSet" as const,
+    label: "Upload your company logo",
+    hint: "Appears on ID passes, kiosk screen and email headers",
+    tab: "branding",
+  },
+  {
+    key: "emergencyEmailSet" as const,
+    label: "Set your emergency / CDM alerts email",
+    hint: "Receives fire-muster and CDM incident notifications",
+    tab: "company",
+  },
+  {
+    key: "emailSmtpConfigured" as const,
+    label: "Configure email delivery (SMTP)",
+    hint: "Required for visitor invitations, welcome emails and alerts",
+    tab: "email",
+  },
+  {
+    key: "mustersPointNamed" as const,
+    label: "Name at least one muster point",
+    hint: "Used during emergency evacuations",
+    tab: "zones",
+  },
+];
+
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("company");
+  const qc = useQueryClient();
+
+  const { data: quickSetup } = useQuery<QuickSetupStatus>({
+    queryKey: ["/api/settings/quick-setup-status"],
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: () => apiRequest("POST", "/api/settings/quick-setup-dismiss"),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/settings/quick-setup-status"] });
+    },
+  });
+
+  const showPanel =
+    quickSetup && !quickSetup.dismissed && !quickSetup.complete;
+
+  const completedCount = quickSetup
+    ? Object.values(quickSetup.items).filter(Boolean).length
+    : 0;
+  const totalCount = QUICK_SETUP_ITEMS.length;
 
   return (
     <div className="space-y-4 sm:space-y-6 p-3 sm:p-6 rounded-xl bg-background min-h-screen">
@@ -56,6 +116,85 @@ export default function Settings() {
           ✨ Auto-save enabled — changes saved after 1.5 seconds
         </p>
       </div>
+
+      {/* Quick-Setup Panel */}
+      {showPanel && (
+        <div className="relative rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-950/30 p-4 sm:p-5">
+          <button
+            onClick={() => dismissMutation.mutate()}
+            className="absolute top-3 right-3 text-blue-400 hover:text-blue-600 dark:hover:text-blue-300 transition-colors"
+            aria-label="Dismiss quick setup"
+          >
+            <X size={16} />
+          </button>
+
+          <div className="flex items-center gap-2 mb-3">
+            <Rocket size={18} className="text-blue-600 dark:text-blue-400 flex-shrink-0" />
+            <div>
+              <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100">
+                Quick Setup — {completedCount} of {totalCount} complete
+              </h3>
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                Complete these steps to get the most out of TPR Max
+              </p>
+            </div>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full h-1.5 rounded-full bg-blue-200 dark:bg-blue-800 mb-4">
+            <div
+              className="h-1.5 rounded-full bg-blue-500 transition-all duration-500"
+              style={{ width: `${(completedCount / totalCount) * 100}%` }}
+            />
+          </div>
+
+          <ul className="grid sm:grid-cols-2 gap-2">
+            {QUICK_SETUP_ITEMS.map(({ key, label, hint, tab }) => {
+              const done = quickSetup?.items[key] ?? false;
+              return (
+                <li key={key}>
+                  <button
+                    onClick={() => setActiveTab(tab)}
+                    className={`w-full flex items-start gap-2.5 text-left px-3 py-2.5 rounded-lg border transition-colors ${
+                      done
+                        ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 cursor-default"
+                        : "border-blue-200 dark:border-blue-700 bg-white dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 cursor-pointer"
+                    }`}
+                  >
+                    {done ? (
+                      <CheckCircle2
+                        size={16}
+                        className="text-green-500 flex-shrink-0 mt-0.5"
+                      />
+                    ) : (
+                      <Circle
+                        size={16}
+                        className="text-blue-400 dark:text-blue-500 flex-shrink-0 mt-0.5"
+                      />
+                    )}
+                    <div className="min-w-0">
+                      <p
+                        className={`text-xs font-medium leading-tight ${
+                          done
+                            ? "text-green-700 dark:text-green-300 line-through"
+                            : "text-blue-900 dark:text-blue-100"
+                        }`}
+                      >
+                        {label}
+                      </p>
+                      {!done && (
+                        <p className="text-xs text-blue-500 dark:text-blue-400 mt-0.5 leading-tight">
+                          {hint}
+                        </p>
+                      )}
+                    </div>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Mobile (< md): full-width dropdown selector */}

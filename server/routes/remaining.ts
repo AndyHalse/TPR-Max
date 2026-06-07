@@ -4,6 +4,7 @@ import { eq, and, sql, desc } from 'drizzle-orm';
 import { requireAuth } from '../auth';
 import { db } from '../db';
 import { simpleDatabaseService } from '../simpleDatabaseService';
+import { customerDbService, CustomerDatabaseService } from '../customerDatabase';
 import {
   helpCategories,
   helpArticles,
@@ -230,4 +231,75 @@ export async function registerRemainingRoutes(app: Express, server: Server): Pro
       }
     });
   }
+
+  // ── Getting-Started Checklist ─────────────────────────────────────────────
+
+  app.get("/api/onboarding/checklist-status", requireAuth, async (req, res) => {
+    try {
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+
+      const dismissed = !!(settings as any)?.onboardingChecklistDismissed;
+
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
+      const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+
+      const companyLogoSet = !!(
+        settings?.logoUrl &&
+        !settings.logoUrl.includes("d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6")
+      );
+      const emergencyEmailSet = !!(settings?.cdmAlertsEmail && settings.cdmAlertsEmail.trim() !== "");
+      const emailSmtpConfigured = !!(settings?.smtpHost && settings.smtpHost.trim() !== "");
+
+      const [musterRes, staffRes, visitorRes, contractorRes] = await Promise.all([
+        pool.query(
+          `SELECT COUNT(*) as count FROM "${schemaName}".muster_points WHERE name NOT IN ('Main Car Park', 'Rear Assembly Area', 'Side Entrance')`
+        ),
+        pool.query(`SELECT COUNT(*) as count FROM "${schemaName}".staff`),
+        pool.query(`SELECT COUNT(*) as count FROM "${schemaName}".visitors`),
+        pool.query(
+          `SELECT COUNT(*) as count FROM "${schemaName}".contractor_workers WHERE EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = '${schemaName}' AND table_name = 'contractor_workers')`
+        ).catch(() => ({ rows: [{ count: "0" }] })),
+      ]);
+
+      const mustersPointNamed = Number(musterRes.rows[0]?.count || 0) > 0;
+      const staffAdded = Number(staffRes.rows[0]?.count || 0) > 0;
+      const firstVisitorOrContractor =
+        Number(visitorRes.rows[0]?.count || 0) > 0 ||
+        Number(contractorRes.rows[0]?.count || 0) > 0;
+
+      const steps = {
+        companyLogoSet,
+        emergencyEmailSet,
+        emailSmtpConfigured,
+        mustersPointNamed,
+        staffAdded,
+        firstVisitorOrContractor,
+      };
+      const completedCount = Object.values(steps).filter(Boolean).length;
+      const allComplete = completedCount === Object.keys(steps).length;
+
+      return res.json({ steps, completedCount, totalCount: Object.keys(steps).length, allComplete, dismissed });
+    } catch (error: any) {
+      logger.error("[CHECKLIST] Error fetching status:", error);
+      return res.status(500).json({ error: "Failed to get checklist status" });
+    }
+  });
+
+  app.post("/api/onboarding/checklist-dismiss", requireAuth, async (req, res) => {
+    try {
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
+      const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+      await pool.query(`UPDATE "${schemaName}".company_settings SET onboarding_checklist_dismissed = true`);
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error("[CHECKLIST] Error dismissing:", error);
+      return res.status(500).json({ error: "Failed to dismiss checklist" });
+    }
+  });
 }

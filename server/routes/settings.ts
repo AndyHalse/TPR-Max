@@ -1210,6 +1210,56 @@ export function registerSettingsRoutes(
     }
   });
 
+  // ── Quick-Setup Status ────────────────────────────────────────────────────
+
+  app.get("/api/settings/quick-setup-status", requireAuth, async (req, res) => {
+    try {
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+
+      const dismissed = !!(settings as any)?.quickSetupDismissed;
+
+      const companyLogoSet = !!(
+        settings?.logoUrl &&
+        !settings.logoUrl.includes("d6fe1a5b-aa78-4c1f-84b7-74037a02e0f6")
+      );
+      const emergencyEmailSet = !!(settings?.cdmAlertsEmail && settings.cdmAlertsEmail.trim() !== "");
+      const emailSmtpConfigured = !!(settings?.smtpHost && settings.smtpHost.trim() !== "");
+
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
+      const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+      const musterResult = await pool.query(
+        `SELECT COUNT(*) as count FROM "${schemaName}".muster_points WHERE name NOT IN ('Main Car Park', 'Rear Assembly Area', 'Side Entrance')`
+      );
+      const mustersPointNamed = Number(musterResult.rows[0]?.count || 0) > 0;
+
+      const items = { companyLogoSet, emergencyEmailSet, emailSmtpConfigured, mustersPointNamed };
+      const complete = Object.values(items).every(Boolean);
+
+      return res.json({ complete, dismissed, items });
+    } catch (error: any) {
+      logger.error("[QUICK-SETUP] Error fetching status:", error);
+      return res.status(500).json({ error: "Failed to get quick setup status" });
+    }
+  });
+
+  app.post("/api/settings/quick-setup-dismiss", requireAuth, async (req, res) => {
+    try {
+      const username = req.user!.username;
+      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+      const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
+      const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+      await pool.query(`UPDATE "${schemaName}".company_settings SET quick_setup_dismissed = true`);
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error("[QUICK-SETUP] Error dismissing:", error);
+      return res.status(500).json({ error: "Failed to dismiss quick setup" });
+    }
+  });
+
   // ── Printer compliance / capabilities ─────────────────────────────────────
 
   // Get Zebra printer capabilities

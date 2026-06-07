@@ -597,6 +597,9 @@ export const companySettings = pgTable("company_settings", {
   ssoClientSecretTag: varchar("sso_client_secret_tag"),
   ssoRedirectUri: varchar("sso_redirect_uri"),
 
+  onboardingChecklistDismissed: boolean("onboarding_checklist_dismissed").default(false),
+  quickSetupDismissed: boolean("quick_setup_dismissed").default(false),
+
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
