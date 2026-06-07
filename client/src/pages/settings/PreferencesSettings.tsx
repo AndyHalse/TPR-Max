@@ -16,7 +16,7 @@ export default function PreferencesSettings() {
     queryKey: ["/api/auth/me"],
   });
 
-  const currentNavStyle: NavStyle = (user?.navStyle === "sidebar") ? "sidebar" : "classic";
+  const currentNavStyle: NavStyle = (user?.navStyle === "classic") ? "classic" : "sidebar";
 
   const navStyleMutation = useMutation({
     mutationFn: async (navStyle: NavStyle) => {

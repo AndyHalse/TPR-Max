@@ -50,7 +50,7 @@ export default function Layout({ children }: LayoutProps) {
     staleTime: 5 * 60 * 1000,
   });
 
-  const navStyle: "classic" | "sidebar" = (user?.navStyle === "sidebar") ? "sidebar" : "classic";
+  const navStyle: "classic" | "sidebar" = (user?.navStyle === "classic") ? "classic" : "sidebar";
 
   const customerId = user?.customerId;
 
