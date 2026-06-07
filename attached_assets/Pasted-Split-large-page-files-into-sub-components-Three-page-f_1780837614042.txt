@@ -1,0 +1,153 @@
+Split large page files into sub-components
+
+Three page files have grown to a size where they're actively painful to maintain:
+
+
+
+
+
+Dashboard.tsx — 3,062 lines
+
+
+
+EmergencyMuster.tsx — 1,838 lines
+
+
+
+KioskMode.tsx — 1,241 lines
+
+This prompt extracts clearly-bounded sections from each into sub-components. The pages should look and behave identically after the change. This is a refactor only — no logic changes, no UI changes, no new features.
+
+Do each file separately. Run npm run check after each one. Stop and flag any issues before continuing to the next file.
+
+
+
+General rules
+
+
+
+
+
+Every extracted component goes in a new subfolder: client/src/pages/dashboard/, client/src/pages/emergency/, client/src/pages/kiosk/
+
+
+
+Props are passed down — no new global state, no new context, no new API calls
+
+
+
+Keep all existing TypeScript types. If a sub-component needs a type, import it from @shared/schema or define it locally in the sub-component file
+
+
+
+Do not change any API endpoint calls, query keys, or mutation logic
+
+
+
+Do not rename or move anything that isn't listed here
+
+
+
+File 1 — Dashboard.tsx (3,062 lines)
+
+Extract the following sections. Each becomes its own .tsx file in client/src/pages/dashboard/:
+
+1a — DashboardStatCards.tsx
+
+The 4–5 stat cards at the top of the dashboard (current visitors, staff on site, contractors on site, today's check-ins). Find the JSX block that renders these cards and extract it. Props needed: stats, onCardClick (the function that opens the modal for each card).
+
+1b — DashboardReceptionDiary.tsx
+
+The "Reception Diary" section — the today/tomorrow/weekly view of scheduled visitors and contractors. This is a substantial self-contained block with its own date navigation state. It can manage its own local state internally. Props needed: whatever API data it needs (pre-booked visitors, meeting bookings etc — pass the already-fetched query results from the parent).
+
+1c — DashboardActivityFeed.tsx
+
+The recent activity feed section. Props: recentActivity, activityLoading.
+
+1d — DashboardDepartmentAnalytics.tsx
+
+The department analytics section with the breakdown by department. Props: departmentAnalytics, departmentsLoading, onDepartmentClick.
+
+After extraction, Dashboard.tsx should import and render these four components. All the useQuery calls and state management stay in Dashboard.tsx — the sub-components are purely presentational, receiving data as props.
+
+
+
+File 2 — EmergencyMuster.tsx (1,838 lines)
+
+Extract the following:
+
+2a — MusterRollCall.tsx
+
+The digital roll-call section — the list of people on site during an active evacuation, with the mark-safe / present / unaccounted buttons. This is the core of the fire marshal UI during a live evacuation. Props: evacuationSession, onMarkPresent, onMarkSafe, onMarkUnaccounted, and whatever data arrays it needs (visitors, staff, contractors on site).
+
+2b — MusterZonePanel.tsx
+
+The zone management panel that shows which zones are active, their status, and allows the marshal to filter by zone. Props: zones, activeZoneFilter, onZoneSelect.
+
+2c — MusterEvacuationControls.tsx
+
+The top control bar — the "Activate Evacuation" / "End Evacuation" buttons, the drill mode toggle, and the evacuation status banner. Props: isActive, isDrill, onActivate, onEnd, onToggleDrill.
+
+After extraction, EmergencyMuster.tsx stays as the orchestrator — holds state, makes API calls, renders the three sub-components.
+
+
+
+File 3 — KioskMode.tsx (1,241 lines)
+
+Extract the following:
+
+3a — KioskVisitorForm.tsx
+
+The visitor sign-in form — name, company, host selection, photo capture, signature. Props: all the form state and handlers. This is a self-contained form flow.
+
+3b — KioskCheckOutPanel.tsx
+
+The check-out flow — QR scan to check out, or name lookup. Props: the check-out state and mutation handlers.
+
+3c — KioskIdleScreen.tsx
+
+The idle/welcome screen shown when no one is interacting with the kiosk — the branded splash with "Tap to sign in" prompt. Props: companySettings (for logo and branding), onStart callback.
+
+After extraction, KioskMode.tsx stays as the orchestrator.
+
+
+
+Summary checklist
+
+
+
+
+
+client/src/pages/dashboard/ folder created with 4 sub-components
+
+
+
+client/src/pages/emergency/ folder created with 3 sub-components
+
+
+
+client/src/pages/kiosk/ folder created with 3 sub-components
+
+
+
+Dashboard.tsx reduced significantly in length (target: under 600 lines)
+
+
+
+EmergencyMuster.tsx reduced significantly (target: under 500 lines)
+
+
+
+KioskMode.tsx reduced significantly (target: under 400 lines)
+
+
+
+npm run check passes after each file
+
+
+
+UI behaviour is identical before and after each extraction
+
+
+
+No new API calls, no logic changes, no renamed query keys

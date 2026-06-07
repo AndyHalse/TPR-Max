@@ -1,0 +1,49 @@
+Fix hardcoded old brand email addresses
+
+A handful of files still reference visigatepro.com or visigate.app email addresses. These are the old brand — the product is now TPR / ACS Safety & Security Ltd. If a customer sees a support email pointing to visigatepro.com during a setup failure, it looks unprofessional and confusing.
+
+This is a small, safe find-and-replace. Do not change any logic. Run npm run check after completing.
+⸻
+Step 1 — Find all occurrences
+
+Run a search across the entire codebase (both client/ and server/) for:
+
+- visigatepro.com
+- visigate.app
+- support@visigate
+- visigatepro
+
+List every file and line number found before making any changes.
+⸻
+Step 2 — Apply the replacements
+
+For each occurrence, replace as follows:
+Old value	New value
+support@visigatepro.com	support@tpr-max.com
+support@visigate.app	support@tpr-max.com
+Any other @visigatepro.com address (e.g. info@visigatepro.com)	support@tpr-max.com
+visigate.app URLs (used as login URLs like https://${slug}.visigate.app/login)	tpr-max.com — i.e. https://${slug}.tpr-max.com/login
+
+Known location (confirmed in codebase):
+
+- client/src/pages/OnboardingSuccess.tsx — the "Contact Support" button uses mailto:support@visigatepro.com
+- server/customerOnboardingService.ts — the login URL is built as https://${customer.slug}.visigate.app/login
+
+Check for others — there may be more in email templates, error messages, or other route files.
+⸻
+Step 3 — Check for visigatepro in email templates
+
+Search server/emailService.ts and any other email template files for visigatepro or visigate.app. Update any sender addresses, footer text, or links found there.
+⸻
+What NOT to change
+
+- Do not change the Stripe product name or description (those are configured in Stripe's dashboard, not code)
+- Do not change database schema names or slugs for existing customers
+- Do not change internal code comments that say "VisiGate" — only user-facing strings matter
+⸻
+Verify
+
+1. Re-run the search after changes — zero results for visigatepro.com and visigate.app
+2. Trigger the onboarding error state (or just inspect the button) → "Contact Support" links to mailto:support@tpr-max.com
+3. Create a test customer and check the login URL returned → shows tpr-max.com domain
+4. npm run check passes
