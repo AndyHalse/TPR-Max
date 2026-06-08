@@ -62,10 +62,6 @@ async function generateSafetyToken(
 
 export function registerEmergencyRoutes(app: Express): void {
 
-  // Ensure status_option column exists in central evacuation_accountability table
-  db.execute(sql.raw(`ALTER TABLE evacuation_accountability ADD COLUMN IF NOT EXISTS status_option TEXT`))
-    .catch(err => logger.warn('[startup] Could not add status_option to evacuation_accountability:', err?.message?.substring(0, 80)));
-
   // ── Muster Settings (admin) ─────────────────────────────────────────────────
 
   app.get("/api/muster/settings", requireAuth, async (req, res) => {
