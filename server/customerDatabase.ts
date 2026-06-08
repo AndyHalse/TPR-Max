@@ -8,6 +8,7 @@ import type { Customer } from "@shared/schema";
 import { databaseProvisioningService } from "./databaseProvisioningService";
 import { createMigrationRunner } from "./migrationRunner";
 import { logger } from './utils/logger';
+import { db } from './db';
 
 /**
  * CUSTOMER DATABASE ISOLATION SERVICE
@@ -1585,16 +1586,8 @@ export class CustomerDatabaseService {
    * Update customer database URL in management database
    */
   private async updateCustomerDatabaseUrl(customerId: string, databaseUrl: string): Promise<void> {
-    const managementDbUrl = process.env.DATABASE_URL;
-    if (!managementDbUrl) {
-      throw new Error("DATABASE_URL must be set for management database");
-    }
-
-    const managementPool = new Pool({ connectionString: managementDbUrl });
-    const managementDb = drizzle({ client: managementPool, schema });
-
     try {
-      await managementDb
+      await db
         .update(schema.customers)
         .set({ databaseUrl, updatedAt: new Date() })
         .where(eq(schema.customers.id, customerId));
@@ -1603,8 +1596,6 @@ export class CustomerDatabaseService {
     } catch (error) {
       logger.error(`❌ Failed to update database URL for customer ${customerId}:`, error);
       throw error;
-    } finally {
-      await managementPool.end();
     }
   }
 
