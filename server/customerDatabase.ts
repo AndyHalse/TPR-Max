@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { eq } from 'drizzle-orm';
@@ -74,7 +75,6 @@ export class CustomerDatabaseService {
       return fullName;
     }
 
-    const crypto = require('crypto');
     const hash = crypto.createHash('sha256').update(customerId).digest('hex').substring(0, 8);
     const name = `c_${sanitized.substring(0, 50)}_${hash}`;
     this.schemaNameCache.set(customerId, name);
@@ -1337,7 +1337,6 @@ export class CustomerDatabaseService {
       }
 
       const bcrypt = await import('bcryptjs');
-      const crypto = await import('crypto');
 
       const isProduction = process.env.NODE_ENV === 'production';
       const tempPassword = isProduction
