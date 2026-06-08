@@ -800,7 +800,6 @@ export default function SecuritySettings() {
               <SelectItem value="/">Dashboard</SelectItem>
               <SelectItem value="/visitors">Visitors</SelectItem>
               <SelectItem value="/contractors">Contractors</SelectItem>
-              <SelectItem value="/contractor">Contractor In/Out</SelectItem>
               <SelectItem value="/staff">Staff</SelectItem>
               <SelectItem value="/members">Members</SelectItem>
               <SelectItem value="/meeting-rooms">Meeting Rooms</SelectItem>
@@ -832,7 +831,6 @@ export default function SecuritySettings() {
               { path: "/", label: "Dashboard" },
               { path: "/visitors", label: "Visitors" },
               { path: "/contractors", label: "Contractors" },
-              { path: "/contractor", label: "Contractor In/Out" },
               { path: "/staff", label: "Staff" },
               { path: "/members", label: "Members" },
               { path: "/meeting-rooms", label: "Meeting Rooms" },

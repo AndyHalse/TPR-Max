@@ -9,7 +9,7 @@ export const SIDEBAR_COLLAPSED_WIDTH = 56;
 
 const NAV_GROUPS_CONFIG = [
   { label: "Overview",    paths: ["/", "/compliance-dashboard"] },
-  { label: "People",      paths: ["/visitors", "/contractors", "/contractor", "/staff", "/members"] },
+  { label: "People",      paths: ["/visitors", "/contractors", "/staff", "/members"] },
   { label: "Compliance",  paths: ["/induction-settings", "/compliance-certificates", "/permit-to-work", "/ra-builder", "/audits"] },
   { label: "Safety",      paths: ["/muster", "/incident-reports", "/hs-incidents", "/fire-risk-assessment", "/martyn-law"] },
   { label: "Operations",  paths: ["/meeting-rooms", "/time-attendance", "/ppm", "/helpdesk", "/kiosk", "/email-outbox"] },

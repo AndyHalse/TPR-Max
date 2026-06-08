@@ -173,7 +173,6 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
       "/visitors": "Visitors",
       "/pre-bookings": "Pre-bookings & Invitations",
       "/contractors": "Contractors",
-      "/contractor": "Contractor In/Out",
       "/staff": "Staff Management",
       "/members": "Members",
       "/meeting-rooms": "Meeting Rooms",
