@@ -139,7 +139,9 @@ export function registerPlatformAdminRoutes(app: Express): void {
         return res.status(400).json({ error: "Verification code expired. Please log in again." });
       }
 
-      if (otp.trim() !== pending.otp) {
+      const submittedOtp = Buffer.from(otp.trim().padEnd(6, ' '));
+      const expectedOtp  = Buffer.from(pending.otp.padEnd(6, ' '));
+      if (submittedOtp.length !== expectedOtp.length || !crypto.timingSafeEqual(submittedOtp, expectedOtp)) {
         return res.status(400).json({ error: "Invalid verification code. Please try again." });
       }
 
