@@ -81,7 +81,7 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc:  ["'self'", "'unsafe-inline'"],   // tighten further once Vite nonces are set up
+      scriptSrc:  ["'self'", "'unsafe-inline'", "https://replit.com"],   // tighten further once Vite nonces are set up
       styleSrc:   ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
       fontSrc:    ["'self'", "https://fonts.gstatic.com"],
       imgSrc:     ["'self'", "data:", "blob:", "https:"],

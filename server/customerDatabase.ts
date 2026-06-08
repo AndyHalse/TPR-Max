@@ -583,6 +583,9 @@ export class CustomerDatabaseService {
       await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS principal_designer_name TEXT`);
       // Add F10 columns (idempotent backfill for existing tables)
       await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS f10_status TEXT NOT NULL DEFAULT 'not_required'`);
+      await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS f10_date TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS f10_reference TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS f10_notes TEXT`);
       await pool.query(`ALTER TABLE "${schemaName}".cdm_projects ADD COLUMN IF NOT EXISTS f10_alert_sent_at TIMESTAMP`);
       logger.info(`✅ CDM 2015 tables/columns ensured for ${schemaName}`);
     } catch (err: any) {
