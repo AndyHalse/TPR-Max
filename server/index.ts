@@ -78,8 +78,20 @@ process.on('unhandledRejection', (reason, promise) => {
 const app = express();
 
 app.use(helmet({
-  contentSecurityPolicy: false,       // CSP is already handled by Vite/custom headers
-  crossOriginEmbedderPolicy: false    // prevents issues with embedded kiosk content
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc:  ["'self'", "'unsafe-inline'"],   // tighten further once Vite nonces are set up
+      styleSrc:   ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      fontSrc:    ["'self'", "https://fonts.gstatic.com"],
+      imgSrc:     ["'self'", "data:", "blob:", "https:"],
+      connectSrc: ["'self'", "https://api.stripe.com", "wss:"],
+      frameSrc:   ["'none'"],
+      objectSrc:  ["'none'"],
+      upgradeInsecureRequests: [],
+    },
+  },
+  crossOriginEmbedderPolicy: false,   // prevents issues with embedded kiosk content
 }));
 
 // ── Gzip compression ── applied to all routes before anything else
