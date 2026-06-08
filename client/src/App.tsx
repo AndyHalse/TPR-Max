@@ -85,6 +85,45 @@ function Router() {
   const urlParams = new URLSearchParams(window.location.search);
   const emergencyToken = urlParams.get('token');
 
+  // Route flags — computed before hooks so useQuery is always called unconditionally
+  const isFireMarshalRoute = window.location.pathname.startsWith('/fire-marshal/');
+  const isLoneWorkerOkRoute = window.location.pathname.startsWith('/lone-worker/ok/');
+  const isPlatformAdminRoute = location.startsWith('/platform-admin');
+  const isPublicRoute = isFireMarshalRoute || isLoneWorkerOkRoute || isPlatformAdminRoute;
+
+  // Auth query — must be called unconditionally (Rules of Hooks) before any early returns
+  const { data: user, isLoading, error, isError } = useQuery({
+    queryKey: ["/api/auth/me"],
+    queryFn: async () => {
+      console.info("🔍 [AUTH QUERY] Executing /api/auth/me query...");
+      try {
+        const res = await fetch("/api/auth/me", {
+          credentials: "include",
+        });
+        console.info("📥 [AUTH QUERY] Response status:", res.status);
+        
+        if (res.status === 401) {
+          console.info("❌ [AUTH QUERY] Unauthenticated (401) - no valid session");
+          return null;
+        }
+        if (!res.ok) {
+          throw new Error(`${res.status}: ${res.statusText}`);
+        }
+        const userData = await res.json();
+        console.info("✅ [AUTH QUERY] Successfully authenticated user:", userData.username);
+        return userData;
+      } catch (error) {
+        console.info("💥 [AUTH QUERY] Network error:", error);
+        console.info("❌ [AUTH QUERY] No valid authentication available");
+        return null;
+      }
+    },
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
+    enabled: !isPublicRoute,
+  });
+
   // Special case: Fire Marshal emergency access with token
   if (window.location.pathname === '/fire-marshal' && emergencyToken) {
     return (
@@ -333,45 +372,6 @@ function Router() {
     );
   }
   
-  // Check if this is a public route that doesn't need authentication
-  const isFireMarshalRoute = window.location.pathname.startsWith('/fire-marshal/');
-  const isLoneWorkerOkRoute = window.location.pathname.startsWith('/lone-worker/ok/');
-  const isPlatformAdminRoute = location.startsWith('/platform-admin');
-  const isPublicRoute = isFireMarshalRoute || isLoneWorkerOkRoute || isPlatformAdminRoute;
-  
-  // Secure authentication - requires valid server session (skip for public routes)
-  const { data: user, isLoading, error, isError } = useQuery({
-    queryKey: ["/api/auth/me"],
-    queryFn: async () => {
-      console.info("🔍 [AUTH QUERY] Executing /api/auth/me query...");
-      try {
-        const res = await fetch("/api/auth/me", {
-          credentials: "include",
-        });
-        console.info("📥 [AUTH QUERY] Response status:", res.status);
-        
-        if (res.status === 401) {
-          console.info("❌ [AUTH QUERY] Unauthenticated (401) - no valid session");
-          return null;
-        }
-        if (!res.ok) {
-          throw new Error(`${res.status}: ${res.statusText}`);
-        }
-        const userData = await res.json();
-        console.info("✅ [AUTH QUERY] Successfully authenticated user:", userData.username);
-        return userData;
-      } catch (error) {
-        console.info("💥 [AUTH QUERY] Network error:", error);
-        console.info("❌ [AUTH QUERY] No valid authentication available");
-        return null;
-      }
-    },
-    retry: false,
-    staleTime: 0, // Always fresh - critical for proper auth flow
-    gcTime: 0, // Don't cache auth queries
-    enabled: !isPublicRoute, // Don't run auth query on public routes
-  });
-
   console.info("🔍 [AUTH STATE] Current state:", { user: user?.username || 'null', isLoading, isError, error });
 
   // Skip auth checks for public routes (they have their own authentication logic)
