@@ -51,6 +51,7 @@ integrations = ["javascript_object_storage:1.0.0", "javascript_websocket:1.0.0",
 USE_PG_SESSIONS = "true"
 SALES_EMAIL = "info@acsltd.eu"
 ENCRYPTION_KEY = "70294dcb4e1c3aad18e69c0eb2c77d0cb38610f914482d5d43ca1c6165617b7d"
+LOGO_TOKEN_SECRET = "c734c07b0bb0ec18e18d40fa280d17c4b1690ae47ddce91e839af5ce7660ae8c"
 
 [postMerge]
 path = "scripts/post-merge.sh"

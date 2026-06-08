@@ -21,8 +21,8 @@ import * as sharedSchema from '@shared/schema';
 // generateLogoToken — scoped short-lived HMAC token for the public logo endpoint.
 // Duplicated here from routes.ts so auth.ts is self-contained.
 // ---------------------------------------------------------------------------
-const LOGO_TOKEN_SECRET =
-  process.env.SESSION_SECRET || process.env.DATABASE_URL || 'tpr-max-logo-token-secret';
+const LOGO_TOKEN_SECRET = process.env.LOGO_TOKEN_SECRET;
+if (!LOGO_TOKEN_SECRET) throw new Error('LOGO_TOKEN_SECRET environment variable is required');
 
 function generateLogoToken(customerId: string): string {
   const expiry = Date.now() + 24 * 60 * 60 * 1000;

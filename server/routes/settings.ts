@@ -19,7 +19,8 @@ import { logger } from '../utils/logger';
 
 // ─── Logo token helpers ───────────────────────────────────────────────────────
 
-const LOGO_TOKEN_SECRET = process.env.SESSION_SECRET || process.env.DATABASE_URL || 'tpr-max-logo-token-secret';
+const LOGO_TOKEN_SECRET = process.env.LOGO_TOKEN_SECRET;
+if (!LOGO_TOKEN_SECRET) throw new Error('LOGO_TOKEN_SECRET environment variable is required');
 
 function generateLogoToken(customerId: string): string {
   const expiry = Date.now() + 24 * 60 * 60 * 1000;
