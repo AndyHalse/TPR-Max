@@ -262,6 +262,7 @@ export default function FireMarshalMobile({ urlId, token }: FireMarshalMobilePro
   const { data: activeEvacuation } = useQuery<ActiveEvacuationResponse>({
     queryKey: ["/api/emergency/active"],
     enabled: !!token && !urlId,
+    staleTime: 10 * 1000,
     refetchInterval: 5000,
     queryFn: async () => {
       const response = await fetch('/api/emergency/active', {

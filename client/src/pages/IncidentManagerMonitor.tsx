@@ -118,6 +118,7 @@ export default function IncidentManagerMonitor({ urlId }: IncidentManagerMonitor
       return res.json();
     },
     enabled: !!context?.valid,
+    staleTime: 10 * 1000,
     refetchInterval: 10000,
     retry: 2,
   });

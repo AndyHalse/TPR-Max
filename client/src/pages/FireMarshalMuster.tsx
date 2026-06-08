@@ -134,6 +134,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
   const { data: zoneData } = useQuery<{ zones: Zone[]; marshalZoneId: string | null }>({
     queryKey: ["/api/emergency/zones", token],
     enabled: isValidToken && !!token,
+    staleTime: 10 * 1000,
     refetchInterval: false,
   });
 
@@ -158,6 +159,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
       if (!res.ok) return [];
       return res.json();
     },
+    staleTime: 10 * 1000,
     refetchInterval: 15000,
   });
 
@@ -282,6 +284,7 @@ export default function FireMarshalMuster({ token }: FireMarshalProps) {
   const { data: musterResponse, isLoading, refetch } = useQuery<MusterResponse>({
     queryKey: ["/api/emergency/muster", token],
     enabled: isValidToken && !!token,
+    staleTime: 10 * 1000,
     refetchInterval: 30000,
     retry: 3,
     queryFn: async () => {

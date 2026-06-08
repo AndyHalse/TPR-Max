@@ -53,6 +53,7 @@ export default function MusterList() {
 
   const { data: musterList, isLoading } = useQuery<MusterEntry[]>({
     queryKey: ["/api/muster"],
+    staleTime: 10 * 1000,
   });
 
   const { data: biostarStaff, isLoading: biostarLoading } = useQuery<BiostarStaffMember[]>({
@@ -70,6 +71,7 @@ export default function MusterList() {
 
   const { data: musterSettings, isLoading: settingsLoading } = useQuery<MusterSettings>({
     queryKey: ["/api/muster/settings"],
+    staleTime: 10 * 1000,
   });
 
   // Save muster settings

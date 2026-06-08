@@ -26,6 +26,7 @@ export default function EmergencySettings() {
 
   const { data: musterSettings } = useQuery<{ statusOptionsEnabled: boolean; statusOptions: string[] }>({
     queryKey: ["/api/muster/settings"],
+    staleTime: 10 * 1000,
   });
 
   const saveMusterSettingsMutation = useMutation({

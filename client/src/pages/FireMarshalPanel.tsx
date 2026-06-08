@@ -73,13 +73,15 @@ export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
   const { data: evacuationData, isLoading, refetch } = useQuery<EvacuationData>({
     queryKey: [`/api/emergency/accountability/${activeEvacuationId || ''}`],
     enabled: !!activeEvacuationId,
-    refetchInterval: 3000 // Auto-refresh every 3 seconds for better real-time sync
+    staleTime: 10 * 1000,
+    refetchInterval: 3000, // Auto-refresh every 3 seconds for better real-time sync
   });
 
   // Check for active evacuation
   const { data: activeEvacuation } = useQuery<ActiveEvacuationResponse>({
     queryKey: ["/api/emergency/active"],
-    refetchInterval: 10000
+    staleTime: 10 * 1000,
+    refetchInterval: 10000,
   });
 
   useEffect(() => {

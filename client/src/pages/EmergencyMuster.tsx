@@ -138,12 +138,14 @@ export default function EmergencyMuster() {
 
   const { data: musterList = [], isLoading } = useQuery<MusterListItem[]>({
     queryKey: ["/api/muster"],
+    staleTime: 10 * 1000,
     refetchInterval: 5000, // Poll every 5 seconds for live updates
   });
 
   // Check for active evacuation
   const { data: activeEvacuation } = useQuery<ActiveEvacuation>({
     queryKey: ["/api/evacuation/status"],
+    staleTime: 10 * 1000,
     refetchInterval: 10000,
   });
 
@@ -161,6 +163,7 @@ export default function EmergencyMuster() {
 
   const { data: musterSettings } = useQuery<MusterSettings>({
     queryKey: ["/api/muster/settings"],
+    staleTime: 10 * 1000,
   });
 
   const saveSettingsMutation = useMutation({
@@ -212,6 +215,7 @@ export default function EmergencyMuster() {
       if (!res.ok) return [];
       return res.json();
     },
+    staleTime: 10 * 1000,
     refetchInterval: 15000,
   });
   const sweptZoneMap = useMemo(() => {
