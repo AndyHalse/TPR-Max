@@ -69,33 +69,31 @@ export function registerVisitorRoutes(app: Express): void {
         });
       }
       
-      // Send emergency evacuation email directly to the visitor
-      if (!visitor.email) {
-        logger.warn(`Cannot send emergency notification to visitor ID ${visitor.id} — no email address on record`);
-        return res.status(400).json({
-          error: "No visitor email on record",
-          message: "This visitor did not provide an email address at check-in"
-        });
-      }
-
+      // Alert reception/staff about the visitor — receptionEmail is already validated above
+      const visitorName = `${visitor.firstName} ${visitor.lastName}`;
       const siteName = companySettings.companyName || 'the site';
+      const hostName = hostStaff ? `${hostStaff.firstName} ${hostStaff.lastName}` : 'Unknown';
+      const urgencyNote = urgencyReason ? `<p><strong>Reason:</strong> ${urgencyReason}</p>` : '';
+
       const emailService = new EmailService(req.customerId);
       const emailSent = await emailService.sendEmail({
-        to: visitor.email,
-        subject: `URGENT: Emergency Evacuation — ${siteName}`,
-        html: `<p>An emergency evacuation has been activated at ${companySettings.companyName || 'the site'}.</p>
-               <p>Please make your way to the nearest assembly point immediately and check in with a Fire Marshal.</p>
-               <p>Your safety is our priority.</p>`,
-        text: `An emergency evacuation has been activated at ${companySettings.companyName || 'the site'}. Please make your way to the nearest assembly point immediately and check in with a Fire Marshal. Your safety is our priority.`,
+        to: receptionEmail,
+        subject: `URGENT: Emergency Alert for Visitor — ${visitorName} at ${siteName}`,
+        html: `<p>An emergency notification has been raised for a visitor currently on site.</p>
+               <p><strong>Visitor:</strong> ${visitorName}</p>
+               <p><strong>Host:</strong> ${hostName}</p>
+               ${urgencyNote}
+               <p>Please locate this visitor and ensure they are safe or have been evacuated.</p>`,
+        text: `Emergency notification for visitor ${visitorName} (host: ${hostName}) at ${siteName}.${urgencyReason ? ' Reason: ' + urgencyReason : ''} Please locate this visitor and ensure they are safe.`,
         companyName: companySettings.companyName || 'TPR Max',
       });
 
       if (emailSent) {
         res.json({
           success: true,
-          message: "Emergency evacuation notification sent to visitor",
-          recipient: visitor.email,
-          visitorName: `${visitor.firstName} ${visitor.lastName}`
+          message: "Emergency notification sent to reception",
+          recipient: receptionEmail,
+          visitorName,
         });
       } else {
         res.status(500).json({
