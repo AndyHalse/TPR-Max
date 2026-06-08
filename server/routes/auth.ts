@@ -344,9 +344,10 @@ export function registerAuthRoutes(app: Express): void {
       // 2FA: Check if user has an email address
       const userEmail = (user as any).email;
       if (!userEmail) {
-        logger.warn(`⚠️ 2FA skipped for ${username} — no email address on account`);
-        await createCustomerSession(req, res, user, customer, username);
-        return;
+        return res.status(403).json({
+          error: 'LOGIN_NO_EMAIL',
+          message: 'Your account does not have an email address and cannot be used to log in. Please contact your administrator.',
+        });
       }
 
       // Generate OTP and send verification email
