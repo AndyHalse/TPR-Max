@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, X, ChartLine, Activity, User, HardHat, CalendarPlus, Users, UserCheck, Calendar, Clock, ListChecks, ScrollText, AlertTriangle, Flame, Wrench, ClipboardCheck, ShieldCheck, ClipboardList, FileEdit, Ticket, Shield, FileText, Video, Dock, Mail, Briefcase, Settings } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, ChartLine, Activity, User, HardHat, CalendarPlus, Users, UserCheck, Calendar, Clock, ListChecks, ScrollText, AlertTriangle, Flame, Wrench, ClipboardCheck, ShieldCheck, ClipboardList, FileEdit, Ticket, Shield, FileText, Video, Dock, Mail, Briefcase, Settings, LogOut } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 export const SIDEBAR_COLLAPSED_KEY = "tprmax-sidebar-collapsed";
 export const SIDEBAR_EXPANDED_WIDTH = 220;
@@ -195,9 +197,9 @@ export default function Sidebar({
             })}
           </nav>
 
-          {/* Settings pinned at bottom */}
-          {settingsItem && (
-            <div className="flex-shrink-0 border-t border-border/30 py-2">
+          {/* Settings + Logout pinned at bottom */}
+          <div className="flex-shrink-0 border-t border-border/30 py-2">
+            {settingsItem && (
               <SidebarItem
                 item={settingsItem}
                 isActive={location === SETTINGS_PATH}
@@ -206,8 +208,9 @@ export default function Sidebar({
                 activeStyle={activeStyle}
                 onNavigate={isMobile ? onMobileClose : undefined}
               />
-            </div>
-          )}
+            )}
+            <SidebarLogoutButton collapsed={effectiveCollapsed} textStyle={textStyle} />
+          </div>
         </TooltipProvider>
       </aside>
     </>
@@ -269,6 +272,49 @@ function SidebarItem({ item, isActive, collapsed, textStyle, activeStyle, onNavi
             {item.badge !== undefined && item.badge > 0 ? ` (${item.badge})` : ""}
           </p>
         </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return inner;
+}
+
+function SidebarLogoutButton({ collapsed, textStyle }: { collapsed: boolean; textStyle: CSSProperties }) {
+  const queryClient = useQueryClient();
+  const logoutMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/auth/logout");
+      return response.json();
+    },
+    onSuccess: () => {
+      localStorage.removeItem('visigate_user');
+      localStorage.removeItem('tprmax-logo-token');
+      if (localStorage.getItem('tprmax-remember-me') !== 'true') {
+        localStorage.removeItem('tprmax-last-login');
+      }
+      queryClient.clear();
+      window.location.href = '/login';
+    },
+  });
+
+  const inner = (
+    <button
+      onClick={() => logoutMutation.mutate()}
+      disabled={logoutMutation.isPending}
+      className={`w-full flex items-center gap-3 px-3 py-2 mx-1 rounded-lg transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-50 ${collapsed ? "justify-center" : ""}`}
+      style={{ ...textStyle, width: "calc(100% - 8px)" }}
+      data-testid="button-logout-sidebar"
+    >
+      <span className="flex-shrink-0"><LogOut size={18} /></span>
+      {!collapsed && <span className="text-sm truncate flex-1">{logoutMutation.isPending ? "Logging out…" : "Logout"}</span>}
+    </button>
+  );
+
+  if (collapsed) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{inner}</TooltipTrigger>
+        <TooltipContent side="right"><p>Logout</p></TooltipContent>
       </Tooltip>
     );
   }
