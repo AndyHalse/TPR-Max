@@ -117,7 +117,7 @@ export default function Login() {
           return {
             companyName: parsed.companyName || "",
             username: parsed.username || "",
-            password: parsed.password || ""
+            password: ""
           };
         }
       }
@@ -189,8 +189,7 @@ export default function Login() {
         localStorage.setItem('tprmax-remember-me', 'true');
         localStorage.setItem('tprmax-last-login', JSON.stringify({
           companyName: credentials.companyName,
-          username: credentials.username,
-          password: credentials.password
+          username: credentials.username
         }));
       } else {
         localStorage.removeItem('tprmax-remember-me');
