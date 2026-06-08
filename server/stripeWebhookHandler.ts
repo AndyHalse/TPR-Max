@@ -2,10 +2,9 @@ import type { Express, Request, Response } from 'express';
 import express from 'express';
 import Stripe from 'stripe';
 import { stripeService } from './stripeService';
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq, and } from 'drizzle-orm';
 import * as sharedSchema from '@shared/schema';
+import { db } from './db';
 import crypto from 'crypto';
 import { emailService } from './emailService';
 import { logger } from './utils/logger';
@@ -36,19 +35,6 @@ export class StripeWebhookHandler {
       StripeWebhookHandler.instance = new StripeWebhookHandler();
     }
     return StripeWebhookHandler.instance;
-  }
-
-  /**
-   * Get management database connection
-   */
-  private getManagementDb() {
-    const managementDbUrl = process.env.DATABASE_URL;
-    if (!managementDbUrl) {
-      throw new Error("DATABASE_URL must be set for management database");
-    }
-    
-    const managementPool = new Pool({ connectionString: managementDbUrl });
-    return drizzle({ client: managementPool, schema: sharedSchema });
   }
 
   /**
@@ -144,7 +130,7 @@ export class StripeWebhookHandler {
    * Check if webhook event has already been processed
    */
   private async checkEventProcessed(event: Stripe.Event): Promise<boolean> {
-    const db = this.getManagementDb();
+
     
     const [existingEvent] = await db
       .select()
@@ -159,7 +145,7 @@ export class StripeWebhookHandler {
    * Store webhook event in database
    */
   private async storeWebhookEvent(event: Stripe.Event) {
-    const db = this.getManagementDb();
+
     
     const payloadHash = crypto.createHash('sha256')
       .update(JSON.stringify(event))
@@ -344,7 +330,7 @@ export class StripeWebhookHandler {
     // Update our customer record with Stripe customer ID if not already set
     const visiGateCustomerId = customer.metadata?.visigate_customer_id;
     if (visiGateCustomerId) {
-      const db = this.getManagementDb();
+  
       await db
         .update(sharedSchema.customers)
         .set({
@@ -365,7 +351,7 @@ export class StripeWebhookHandler {
     // Sync customer data if needed
     const visiGateCustomerId = customer.metadata?.visigate_customer_id;
     if (visiGateCustomerId) {
-      const db = this.getManagementDb();
+  
       await db
         .update(sharedSchema.customers)
         .set({
@@ -386,7 +372,7 @@ export class StripeWebhookHandler {
     const customerId = subscription.metadata?.visigate_customer_id;
     if (customerId) {
       try {
-        const db = this.getManagementDb();
+    
         const [customer] = await db
           .select({ contactEmail: sharedSchema.customers.contactEmail, companyName: sharedSchema.customers.companyName })
           .from(sharedSchema.customers)
@@ -490,7 +476,7 @@ export class StripeWebhookHandler {
 
     logger.info(`✅ Activating access for customer: ${customerId}`);
 
-    const db = this.getManagementDb();
+
     await db
       .update(sharedSchema.customers)
       .set({
@@ -509,7 +495,7 @@ export class StripeWebhookHandler {
 
     logger.info(`⚠️ Suspending access for customer: ${customerId}`);
 
-    const db = this.getManagementDb();
+
     await db
       .update(sharedSchema.customers)
       .set({
@@ -526,7 +512,7 @@ export class StripeWebhookHandler {
     const customerId = invoice.customer_email || invoice.subscription;
     if (!customerId) return;
 
-    const db = this.getManagementDb();
+
     
     // Check if invoice already exists
     const [existingInvoice] = await db
@@ -580,7 +566,7 @@ export class StripeWebhookHandler {
     logger.info(`🚨 Payment failure for customer: ${customerId}`);
 
     try {
-      const db = this.getManagementDb();
+  
       const [customer] = await db
         .select({ contactEmail: sharedSchema.customers.contactEmail, companyName: sharedSchema.customers.companyName })
         .from(sharedSchema.customers)
@@ -661,7 +647,7 @@ export class StripeWebhookHandler {
    * Mark event as processed
    */
   private async markEventProcessed(eventId: string) {
-    const db = this.getManagementDb();
+
     await db
       .update(sharedSchema.stripeWebhookEvents)
       .set({
@@ -676,7 +662,7 @@ export class StripeWebhookHandler {
    * Mark event as failed for retry
    */
   private async markEventFailed(eventId: string, error: any) {
-    const db = this.getManagementDb();
+
     
     // Get current retry count
     const [event] = await db

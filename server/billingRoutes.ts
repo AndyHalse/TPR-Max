@@ -2,10 +2,9 @@ import type { Express } from "express";
 import { stripeService } from "./stripeService";
 import { stripeWebhookHandler } from "./stripeWebhookHandler";
 import { requireAuth } from "./auth";
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq } from 'drizzle-orm';
 import * as sharedSchema from '@shared/schema';
+import { db } from './db';
 import { z } from "zod";
 import { logger } from './utils/logger';
 
@@ -58,13 +57,7 @@ export function registerBillingRoutes(app: Express) {
         });
       }
 
-      const managementDbUrl = process.env.DATABASE_URL;
-      if (!managementDbUrl) {
-        return res.status(500).json({ error: 'Database configuration error' });
-      }
 
-      const managementPool = new Pool({ connectionString: managementDbUrl });
-      const db = drizzle({ client: managementPool, schema: sharedSchema });
 
       // Get the single Professional Plan only
       const [plan] = await db
@@ -73,7 +66,7 @@ export function registerBillingRoutes(app: Express) {
         .where(eq(sharedSchema.subscriptionPlans.name, 'professional'))
         .limit(1);
 
-      await managementPool.end();
+
 
       if (!plan) {
         return res.status(404).json({
@@ -279,13 +272,7 @@ export function registerBillingRoutes(app: Express) {
         });
       }
 
-      const managementDbUrl = process.env.DATABASE_URL;
-      if (!managementDbUrl) {
-        return res.status(500).json({ error: 'Database configuration error' });
-      }
 
-      const managementPool = new Pool({ connectionString: managementDbUrl });
-      const db = drizzle({ client: managementPool, schema: sharedSchema });
 
       const invoices = await db
         .select({
@@ -303,7 +290,7 @@ export function registerBillingRoutes(app: Express) {
         .where(eq(sharedSchema.invoices.customerId, customerId))
         .orderBy(sharedSchema.invoices.createdAt);
 
-      await managementPool.end();
+
 
       res.json({
         success: true,
@@ -335,13 +322,7 @@ export function registerBillingRoutes(app: Express) {
         });
       }
 
-      const managementDbUrl = process.env.DATABASE_URL;
-      if (!managementDbUrl) {
-        return res.status(500).json({ error: 'Database configuration error' });
-      }
 
-      const managementPool = new Pool({ connectionString: managementDbUrl });
-      const db = drizzle({ client: managementPool, schema: sharedSchema });
 
       // Get current month's usage
       const currentDate = new Date();
@@ -357,7 +338,7 @@ export function registerBillingRoutes(app: Express) {
       // Get subscription plan limits
       const subscriptionData = await stripeService.getCustomerSubscription(customerId);
 
-      await managementPool.end();
+
 
       res.json({
         success: true,

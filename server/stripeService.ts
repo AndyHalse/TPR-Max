@@ -1,8 +1,7 @@
 import Stripe from 'stripe';
-import { Pool } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-serverless';
 import { eq, and } from 'drizzle-orm';
 import * as sharedSchema from '@shared/schema';
+import { db } from './db';
 import { logger } from './utils/logger';
 
 /**
@@ -48,19 +47,6 @@ export class StripeService {
       StripeService.instance = new StripeService();
     }
     return StripeService.instance;
-  }
-
-  /**
-   * Get management database connection
-   */
-  private getManagementDb() {
-    const managementDbUrl = process.env.DATABASE_URL;
-    if (!managementDbUrl) {
-      throw new Error("DATABASE_URL must be set for management database");
-    }
-    
-    const managementPool = new Pool({ connectionString: managementDbUrl });
-    return drizzle({ client: managementPool, schema: sharedSchema });
   }
 
   /**
@@ -156,7 +142,7 @@ export class StripeService {
     logger.info('🚀 Ensuring TPR subscription plans exist...');
 
     try {
-      const db = this.getManagementDb();
+  
       
       // Check if plan already exists in database
       const [existingPlan] = await db
@@ -249,7 +235,7 @@ export class StripeService {
       logger.info(`✅ Created yearly price: ${yearlyPrice.id} (£499.50)`);
 
       // Update local database with Stripe IDs
-      const db = this.getManagementDb();
+  
       
       // Use upsert to handle existing plans gracefully
       const [subscriptionPlan] = await db
@@ -357,7 +343,7 @@ export class StripeService {
       logger.info(`✅ Created Stripe customer: ${customer.id}`);
 
       // Update customer record with Stripe customer ID
-      const db = this.getManagementDb();
+  
       await db
         .update(sharedSchema.customers)
         .set({
@@ -423,7 +409,7 @@ export class StripeService {
       logger.info(`✅ Created Stripe subscription: ${subscription.id}`);
 
       // Get subscription plan from database
-      const db = this.getManagementDb();
+  
       const [plan] = await db
         .select()
         .from(sharedSchema.subscriptionPlans)
@@ -532,7 +518,7 @@ export class StripeService {
       logger.info(`🔄 Creating Stripe Checkout session for: ${data.customerId}`);
 
       // Get customer data from database
-      const db = this.getManagementDb();
+  
       const [customer] = await db
         .select()
         .from(sharedSchema.customers)
@@ -598,7 +584,7 @@ export class StripeService {
       logger.info(`🔄 Creating billing portal session for: ${data.customerId}`);
 
       // Get subscription data from database
-      const db = this.getManagementDb();
+  
       const [subscription] = await db
         .select()
         .from(sharedSchema.subscriptions)
@@ -632,7 +618,7 @@ export class StripeService {
    */
   async getCustomerSubscription(customerId: string) {
     try {
-      const db = this.getManagementDb();
+  
       
       const [subscription] = await db
         .select({
@@ -711,7 +697,7 @@ export class StripeService {
         return;
       }
 
-      const db = this.getManagementDb();
+  
 
       const currentPeriodStart = new Date((stripeSubscription as any).current_period_start * 1000);
       const currentPeriodEnd = new Date((stripeSubscription as any).current_period_end * 1000);
@@ -760,7 +746,7 @@ export class StripeService {
     try {
       logger.info(`🔄 Canceling subscription for customer: ${customerId}`);
 
-      const db = this.getManagementDb();
+  
       const [subscription] = await db
         .select()
         .from(sharedSchema.subscriptions)
