@@ -1,4 +1,4 @@
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { ErrorBoundary, EmergencyFallback } from "@/components/ErrorBoundary";
@@ -81,18 +81,10 @@ import AppraisalsDue from "@/pages/hr/AppraisalsDue";
 import PayrollExport from "@/pages/hr/PayrollExport";
 
 function Router() {
+  const [location] = useLocation();
   const urlParams = new URLSearchParams(window.location.search);
   const emergencyToken = urlParams.get('token');
-  
-  // Platform Admin routes (separate authentication system)
-  if (window.location.pathname === '/platform-admin' || window.location.pathname === '/platform-admin/' || window.location.pathname === '/platform-admin/login') {
-    return <PlatformAdminLogin />;
-  }
-  
-  if (window.location.pathname === '/platform-admin/dashboard') {
-    return <PlatformAdminDashboard />;
-  }
-  
+
   // Special case: Fire Marshal emergency access with token
   if (window.location.pathname === '/fire-marshal' && emergencyToken) {
     return (
@@ -344,7 +336,8 @@ function Router() {
   // Check if this is a public route that doesn't need authentication
   const isFireMarshalRoute = window.location.pathname.startsWith('/fire-marshal/');
   const isLoneWorkerOkRoute = window.location.pathname.startsWith('/lone-worker/ok/');
-  const isPublicRoute = isFireMarshalRoute || isLoneWorkerOkRoute;
+  const isPlatformAdminRoute = location.startsWith('/platform-admin');
+  const isPublicRoute = isFireMarshalRoute || isLoneWorkerOkRoute || isPlatformAdminRoute;
   
   // Secure authentication - requires valid server session (skip for public routes)
   const { data: user, isLoading, error, isError } = useQuery({
@@ -414,6 +407,9 @@ function Router() {
   // Show main app (either authenticated or public route)
   return (
     <Switch>
+      <Route path="/platform-admin/dashboard" component={PlatformAdminDashboard} />
+      <Route path="/platform-admin/login" component={PlatformAdminLogin} />
+      <Route path="/platform-admin" component={PlatformAdminLogin} />
       <Route path="/kiosk" component={KioskMode} />
       <Route path="/contractor" component={ContractorKiosk} />
       <Route path="/marketing" component={MarketingPage} />
