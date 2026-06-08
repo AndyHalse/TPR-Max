@@ -400,7 +400,6 @@ export default function PlatformAdminDashboard() {
     { key: 'featureComplianceDashboard', label: 'Compliance Score' },
     { key: 'featureVisitors', label: 'Visitors' },
     { key: 'featureContractors', label: 'Contractors' },
-    { key: 'featureContractorPage', label: 'Contractor In/Out' },
     { key: 'featureStaff', label: 'Staff' },
     { key: 'featureMembers', label: 'Members' },
     { key: 'featureMeetingRooms', label: 'Meeting Rooms' },
