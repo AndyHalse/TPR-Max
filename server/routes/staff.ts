@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import type { Express } from 'express';
 import {
   requireAuth,
@@ -54,7 +55,7 @@ async function sendFirstWelfareEmail(
 }
 
 function generateFireMarshalUrlId(): string {
-  return Math.random().toString(36).substring(2, 14);
+  return crypto.randomBytes(8).toString('hex');
 }
 
 // Helper: Check if staff should be a Fire Marshal
