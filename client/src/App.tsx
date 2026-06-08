@@ -407,87 +407,305 @@ function Router() {
   // Show main app (either authenticated or public route)
   return (
     <Switch>
-      <Route path="/platform-admin/dashboard" component={PlatformAdminDashboard} />
-      <Route path="/platform-admin/login" component={PlatformAdminLogin} />
-      <Route path="/platform-admin" component={PlatformAdminLogin} />
-      <Route path="/kiosk" component={KioskMode} />
-      <Route path="/contractor" component={ContractorKiosk} />
-      <Route path="/marketing" component={MarketingPage} />
-      <Route path="/audit/complete/:token">
-        {(params) => <AuditMobile token={params.token!} />}
+      <Route path="/platform-admin/dashboard">
+        <ErrorBoundary>
+          <PlatformAdminDashboard />
+        </ErrorBoundary>
       </Route>
-      <Route path="/lone-worker/ok/:token" component={LoneWorkerConfirmation} />
-      <Route path="/lone-worker/ok/:customerId/:token" component={LoneWorkerConfirmation} />
+      <Route path="/platform-admin/login">
+        <ErrorBoundary>
+          <PlatformAdminLogin />
+        </ErrorBoundary>
+      </Route>
+      <Route path="/platform-admin">
+        <ErrorBoundary>
+          <PlatformAdminLogin />
+        </ErrorBoundary>
+      </Route>
+      <Route path="/kiosk">
+        <ErrorBoundary>
+          <KioskMode />
+        </ErrorBoundary>
+      </Route>
+      <Route path="/contractor">
+        <ErrorBoundary>
+          <ContractorKiosk />
+        </ErrorBoundary>
+      </Route>
+      <Route path="/marketing">
+        <ErrorBoundary>
+          <MarketingPage />
+        </ErrorBoundary>
+      </Route>
+      <Route path="/audit/complete/:token">
+        {(params) => (
+          <ErrorBoundary>
+            <AuditMobile token={params.token!} />
+          </ErrorBoundary>
+        )}
+      </Route>
+      <Route path="/lone-worker/ok/:token">
+        <ErrorBoundary>
+          <LoneWorkerConfirmation />
+        </ErrorBoundary>
+      </Route>
+      <Route path="/lone-worker/ok/:customerId/:token">
+        <ErrorBoundary>
+          <LoneWorkerConfirmation />
+        </ErrorBoundary>
+      </Route>
       <Route path="/induction-preview/:roleType">
-        {(params) => {
+        {() => {
           const InductionPreview = lazy(() => import("./pages/InductionPreview"));
           return (
-            <Suspense fallback={
-              <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-950 to-purple-950">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-                  <p className="text-white text-lg">Loading induction preview...</p>
+            <ErrorBoundary>
+              <Suspense fallback={
+                <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-950 to-purple-950">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+                    <p className="text-white text-lg">Loading induction preview...</p>
+                  </div>
                 </div>
-              </div>
-            }>
-              <InductionPreview />
-            </Suspense>
+              }>
+                <InductionPreview />
+              </Suspense>
+            </ErrorBoundary>
           );
         }}
       </Route>
       <Route>
         <Layout>
           <Switch>
-            <Route path="/" component={Dashboard} />
-            <Route path="/staff" component={StaffManagement} />
-            <Route path="/visitors" component={Visitors} />
-            <Route path="/members" component={Members} />
-            <Route path="/contractors" component={ContractorManagement} />
-            <Route path="/contractors/legacy" component={Contractors} />
-            <Route path="/contractors/:id" component={ContractorDetails} />
-            <Route path="/checkin" component={VisitorCheckIn} />
+            <Route path="/">
+              <ErrorBoundary>
+                <Dashboard />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/staff">
+              <ErrorBoundary>
+                <StaffManagement />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/visitors">
+              <ErrorBoundary>
+                <Visitors />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/members">
+              <ErrorBoundary>
+                <Members />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/contractors">
+              <ErrorBoundary>
+                <ContractorManagement />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/contractors/legacy">
+              <ErrorBoundary>
+                <Contractors />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/contractors/:id">
+              <ErrorBoundary>
+                <ContractorDetails />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/checkin">
+              <ErrorBoundary>
+                <VisitorCheckIn />
+              </ErrorBoundary>
+            </Route>
             <Route path="/muster">
               <ErrorBoundary fallback={<EmergencyFallback />}>
                 <EmergencyMuster />
               </ErrorBoundary>
             </Route>
-            <Route path="/incident-reports" component={IncidentReports} />
-            <Route path="/ppm" component={PPM} />
-            <Route path="/audits" component={Audits} />
-            <Route path="/helpdesk" component={HelpDesk} />
-            <Route path="/martyn-law" component={MartynLaw} />
-            <Route path="/fire-marshal-panel" component={FireMarshalPanel} />
-            <Route path="/fire-marshal-mobile" component={FireMarshalMobile} />
-            <Route path="/reports" component={Reports} />
-            <Route path="/time-attendance" component={TimeAttendance} />
-            <Route path="/settings" component={Settings} />
-            <Route path="/settings/ai" component={AISettings} />
-            <Route path="/settings/leaver-template" component={LeaverTemplateSettings} />
-            <Route path="/settings/onboarding-template" component={OnboardingTemplateSettings} />
-            <Route path="/induction-settings" component={InductionSettings} />
-            <Route path="/email-outbox" component={EmailOutbox} />
-            <Route path="/meeting-rooms" component={MeetingRooms} />
-            <Route path="/billing" component={Billing} />
-            <Route path="/profile" component={Profile} />
-            <Route path="/hs-incidents" component={HSIncidents} />
-            <Route path="/fire-risk-assessment" component={FireRiskAssessmentPage} />
-            <Route path="/compliance-certificates" component={ComplianceCertificateRegister} />
-            <Route path="/compliance-dashboard" component={ComplianceDashboard} />
-            <Route path="/permit-to-work" component={PermitToWorkPage} />
-            <Route path="/ra-builder" component={RaBuilder} />
-            <Route path="/template-library" component={TemplateLibrary} />
-            <Route path="/settings/teams-integration" component={TeamsIntegrationSettings} />
-            <Route path="/settings/calendar-integration" component={CalendarIntegrationSettings} />
-            <Route path="/hr" component={HrHub} />
-            <Route path="/hr/staff/:id" component={StaffProfile} />
-            <Route path="/hr/org-chart" component={OrgChart} />
-            <Route path="/hr/leave" component={LeaveCalendar} />
-            <Route path="/hr/training" component={TrainingMatrix} />
-            <Route path="/hr/absence" component={AbsenceOverview} />
-            <Route path="/hr/onboarding" component={OnboardingOverview} />
-            <Route path="/hr/leavers" component={Leavers} />
-            <Route path="/hr/appraisals" component={AppraisalsDue} />
-            <Route path="/hr/payroll" component={PayrollExport} />
+            <Route path="/incident-reports">
+              <ErrorBoundary>
+                <IncidentReports />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/ppm">
+              <ErrorBoundary>
+                <PPM />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/audits">
+              <ErrorBoundary>
+                <Audits />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/helpdesk">
+              <ErrorBoundary>
+                <HelpDesk />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/martyn-law">
+              <ErrorBoundary>
+                <MartynLaw />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/fire-marshal-panel">
+              <ErrorBoundary fallback={<EmergencyFallback />}>
+                <FireMarshalPanel />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/fire-marshal-mobile">
+              <ErrorBoundary fallback={<EmergencyFallback />}>
+                <FireMarshalMobile />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/reports">
+              <ErrorBoundary>
+                <Reports />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/time-attendance">
+              <ErrorBoundary>
+                <TimeAttendance />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/settings">
+              <ErrorBoundary>
+                <Settings />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/settings/ai">
+              <ErrorBoundary>
+                <AISettings />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/settings/leaver-template">
+              <ErrorBoundary>
+                <LeaverTemplateSettings />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/settings/onboarding-template">
+              <ErrorBoundary>
+                <OnboardingTemplateSettings />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/induction-settings">
+              <ErrorBoundary>
+                <InductionSettings />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/email-outbox">
+              <ErrorBoundary>
+                <EmailOutbox />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/meeting-rooms">
+              <ErrorBoundary>
+                <MeetingRooms />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/billing">
+              <ErrorBoundary>
+                <Billing />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/profile">
+              <ErrorBoundary>
+                <Profile />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hs-incidents">
+              <ErrorBoundary>
+                <HSIncidents />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/fire-risk-assessment">
+              <ErrorBoundary>
+                <FireRiskAssessmentPage />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/compliance-certificates">
+              <ErrorBoundary>
+                <ComplianceCertificateRegister />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/compliance-dashboard">
+              <ErrorBoundary>
+                <ComplianceDashboard />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/permit-to-work">
+              <ErrorBoundary>
+                <PermitToWorkPage />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/ra-builder">
+              <ErrorBoundary>
+                <RaBuilder />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/template-library">
+              <ErrorBoundary>
+                <TemplateLibrary />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/settings/teams-integration">
+              <ErrorBoundary>
+                <TeamsIntegrationSettings />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/settings/calendar-integration">
+              <ErrorBoundary>
+                <CalendarIntegrationSettings />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hr">
+              <ErrorBoundary>
+                <HrHub />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hr/staff/:id">
+              <ErrorBoundary>
+                <StaffProfile />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hr/org-chart">
+              <ErrorBoundary>
+                <OrgChart />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hr/leave">
+              <ErrorBoundary>
+                <LeaveCalendar />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hr/training">
+              <ErrorBoundary>
+                <TrainingMatrix />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hr/absence">
+              <ErrorBoundary>
+                <AbsenceOverview />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hr/onboarding">
+              <ErrorBoundary>
+                <OnboardingOverview />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hr/leavers">
+              <ErrorBoundary>
+                <Leavers />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hr/appraisals">
+              <ErrorBoundary>
+                <AppraisalsDue />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/hr/payroll">
+              <ErrorBoundary>
+                <PayrollExport />
+              </ErrorBoundary>
+            </Route>
             <Route component={NotFound} />
           </Switch>
         </Layout>
