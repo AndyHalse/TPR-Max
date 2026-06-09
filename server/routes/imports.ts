@@ -2341,6 +2341,11 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
           const r = await pool.query(`DELETE FROM "${schemaName}".${table} ${sql}`, params);
           deleted[table] = (deleted[table] ?? 0) + (r.rowCount ?? 0);
         } catch (e) {
+          // 42P01 = undefined_table — table doesn't exist in this schema yet, safe to skip
+          if ((e as any).code === '42P01') {
+            logger.warn(`Clear sample: ${table} — table does not exist, skipping`);
+            return;
+          }
           failures.push(`${table}: ${(e as any).message}`);
           logger.warn(`Clear sample: ${table} — ${(e as any).message}`);
         }
@@ -2371,11 +2376,12 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
       // ── Step 3: Delete company-dependent rows (NO ACTION FKs) ─────────────
       if (companyIds.length > 0) {
         const cP = inP(companyIds);
-        await del('co2_records',              `WHERE company_id IN (${cP})`, companyIds);
-        await del('company_notes',            `WHERE company_id IN (${cP})`, companyIds);
-        await del('enhanced_company_details', `WHERE company_id IN (${cP})`, companyIds);
-        await del('local_labour_records',     `WHERE company_id IN (${cP})`, companyIds);
-        await del('rams_documents',           `WHERE company_id IN (${cP})`, companyIds);
+        await del('co2_records',                `WHERE company_id IN (${cP})`, companyIds);
+        await del('co2_sustainability_reports', `WHERE company_id IN (${cP})`, companyIds);
+        await del('company_notes',              `WHERE company_id IN (${cP})`, companyIds);
+        await del('enhanced_company_details',   `WHERE company_id IN (${cP})`, companyIds);
+        await del('local_labour_records',       `WHERE company_id IN (${cP})`, companyIds);
+        await del('rams_documents',             `WHERE company_id IN (${cP})`, companyIds);
         try {
           const r = await pool.query(
             `DELETE FROM "${schemaName}".cdm_projects WHERE company_id IN (${cP}) OR principal_contractor_id IN (${cP})`,
@@ -2531,8 +2537,12 @@ app.post("/api/import/clear-sample-data", requireAuth, async (req, res) => {
           // Pre-bookings
           try { await pool.query(`DELETE FROM "${schemaName}".contractor_prebookings WHERE company_name = ANY($1)`, [sampleCompanyNames]); } catch (e) { logger.warn(`Clear old-style: contractor_prebookings — ${(e as any).message}`); }
           // Company-level dependents
-          for (const t of ['co2_records','company_notes','enhanced_company_details','local_labour_records','rams_documents']) {
-            try { await pool.query(`DELETE FROM "${schemaName}".${t} WHERE company_id IN (${oP})`, oldCoIds); } catch (e) { logger.warn(`Clear old-style: ${t} — ${(e as any).message}`); }
+          for (const t of ['co2_records','co2_sustainability_reports','company_notes','enhanced_company_details','local_labour_records','rams_documents']) {
+            try {
+              await pool.query(`DELETE FROM "${schemaName}".${t} WHERE company_id IN (${oP})`, oldCoIds);
+            } catch (e) {
+              if ((e as any).code !== '42P01') logger.warn(`Clear old-style: ${t} — ${(e as any).message}`);
+            }
           }
           try {
             await pool.query(`DELETE FROM "${schemaName}".cdm_projects WHERE company_id IN (${oP}) OR principal_contractor_id IN (${oP})`, oldCoIds);
