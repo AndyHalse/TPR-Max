@@ -5,7 +5,8 @@ import { requireAuth } from '../auth';
 import { customerDbService } from '../customerDatabase';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { EmailService } from '../emailService';
-import { ObjectStorageService } from '../objectStorage';
+import { ObjectStorageService, objectStorageClient } from '../objectStorage';
+import { randomUUID } from 'crypto';
 import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, isNull, ne } from 'drizzle-orm';
 import { logger } from '../utils/logger';
@@ -251,7 +252,9 @@ export function registerComplianceCertificateRoutes(app: Express): void {
     }
   });
 
-  // ─── POST create certificate record ─────────────────────────────────────────
+  // ─── POST create certificate record (JSON only) ─────────────────────────────
+  // Note: multer is NOT used here because multer v2 resets req.body for JSON
+  // requests. File upload is handled as a second step via /:id/upload.
   app.post('/api/compliance-certificates', requireAuth, requireComplianceCertificatesFeature, async (req, res) => {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
@@ -309,8 +312,16 @@ export function registerComplianceCertificateRoutes(app: Express): void {
 
       if (req.file) {
         fileName = req.file.originalname;
-        const objectKey = `compliance-certs/${req.customerId}/${id}/${Date.now()}_${fileName}`;
-        fileUrl = await objectStorage.uploadObject(objectKey, req.file.buffer, req.file.mimetype);
+        const privateDir = objectStorage.getPrivateObjectDir();
+        const objectId = randomUUID();
+        const fullPath = `${privateDir}/uploads/${objectId}`;
+        const parts = fullPath.slice(1).split('/');
+        const bucketName = parts[0];
+        const objectName = parts.slice(1).join('/');
+        const bucket = objectStorageClient.bucket(bucketName);
+        const fileObj = bucket.file(objectName);
+        await fileObj.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
+        fileUrl = `/objects/uploads/${objectId}`;
       } else if (req.body.fileUrl) {
         fileUrl = req.body.fileUrl;
         fileName = req.body.fileName || fileName;

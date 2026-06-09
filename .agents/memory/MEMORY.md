@@ -2,3 +2,5 @@
 - [Drag-drop line manager fix](line-manager-id-raw-sql.md) — topic file updated; use PATCH /api/staff/:id/line-manager for org chart drag; never PUT with lineManagerId through Zod.
 - [apiRequest returns Response not JSON](apirequest-response-pattern.md) — apiRequest() returns a raw Response object; always call .json() explicitly to get parsed data.
 - [Sidebar navigation patterns](sidebar-nav-patterns.md) — single TooltipProvider for entire sidebar; Link from wouter styled directly, never wrap button inside Link.
+- [multer v2 body reset bug](multer-v2-body-reset.md) — multer v2 resets req.body={} for non-multipart requests; never add upload.single() to a JSON-capable route.
+- [Object storage upload pattern](object-storage-upload-pattern.md) — ObjectStorageService has no uploadObject(); use objectStorageClient.bucket().file().save() directly.

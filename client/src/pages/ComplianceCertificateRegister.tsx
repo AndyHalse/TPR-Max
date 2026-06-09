@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -128,7 +128,7 @@ export default function ComplianceCertificateRegister() {
   });
 
   const { data: history = [] } = useQuery<Certificate[]>({
-    queryKey: ['/api/compliance-certificates/by-type', viewHistoryTypeId],
+    queryKey: [`/api/compliance-certificates/by-type/${viewHistoryTypeId}`],
     enabled: !!viewHistoryTypeId,
   });
 
@@ -144,24 +144,26 @@ export default function ComplianceCertificateRegister() {
 
   const uploadMutation = useMutation({
     mutationFn: async ({ typeId, data }: { typeId: string; data: any }) => {
+      // Step 1: create the certificate record via JSON POST
+      const created = await apiRequest('POST', '/api/compliance-certificates', { ...data, certificateTypeId: typeId }).then(r => (r as Response).json());
+      // Step 2: if a file was selected, upload it to the new record
       if (uploadFile) {
         const fd = new FormData();
         fd.append('file', uploadFile);
-        Object.entries(data).forEach(([k, v]) => v && fd.append(k, v as string));
-        fd.append('certificateTypeId', typeId);
-        return fetch('/api/compliance-certificates', {
+        const csrfToken = document.cookie.split(';').find(c => c.trim().startsWith('csrf-token='))?.split('=')[1];
+        await fetch(`/api/compliance-certificates/${created.id}/upload`, {
           method: 'POST',
           credentials: 'include',
+          headers: csrfToken ? { 'x-csrf-token': csrfToken } : {},
           body: fd,
         }).then(r => r.ok ? r.json() : r.json().then(e => Promise.reject(e)));
-      } else {
-        return apiRequest('POST', '/api/compliance-certificates', { ...data, certificateTypeId: typeId });
       }
+      return created;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/compliance-certificates/types'] });
       qc.invalidateQueries({ queryKey: ['/api/compliance-certificates/status-summary'] });
-      if (viewHistoryTypeId) qc.invalidateQueries({ queryKey: ['/api/compliance-certificates/by-type', viewHistoryTypeId] });
+      if (viewHistoryTypeId) qc.invalidateQueries({ queryKey: [`/api/compliance-certificates/by-type/${viewHistoryTypeId}`] });
       setUploadTypeId(null);
       setUploadFile(null);
       setUploadForm({ issueDate: '', expiryDate: '', referenceNumber: '', issuedBy: '', issuingCompany: '', notes: '' });
@@ -182,7 +184,7 @@ export default function ComplianceCertificateRegister() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['/api/compliance-certificates/types'] });
       qc.invalidateQueries({ queryKey: ['/api/compliance-certificates/status-summary'] });
-      if (viewHistoryTypeId) qc.invalidateQueries({ queryKey: ['/api/compliance-certificates/by-type', viewHistoryTypeId] });
+      if (viewHistoryTypeId) qc.invalidateQueries({ queryKey: [`/api/compliance-certificates/by-type/${viewHistoryTypeId}`] });
       toast({ title: 'Certificate record deleted.' });
     },
     onError: () => toast({ title: 'Failed to delete', variant: 'destructive' }),
@@ -476,6 +478,9 @@ export default function ComplianceCertificateRegister() {
             <DialogTitle>
               {currentType?.latestCertificate ? 'Renew Certificate' : 'Upload Certificate'} — {currentType?.displayName}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              Enter the certificate details and optionally attach a document.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -543,6 +548,9 @@ export default function ComplianceCertificateRegister() {
               <FileText className="h-5 w-5" />
               Certificate History — {historyType?.displayName}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              View and manage previous certificate records for this type.
+            </DialogDescription>
           </DialogHeader>
           {history.length === 0 ? (
             <div className="text-center py-10 text-gray-500">No certificate records uploaded yet.</div>
@@ -595,7 +603,10 @@ export default function ComplianceCertificateRegister() {
       {/* Add Custom Type Dialog */}
       <Dialog open={showAddCustomType} onOpenChange={setShowAddCustomType}>
         <DialogContent className="max-w-md">
-          <DialogHeader><DialogTitle>Add Custom Certificate Type</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>Add Custom Certificate Type</DialogTitle>
+            <DialogDescription className="sr-only">Define a new custom certificate type to track.</DialogDescription>
+          </DialogHeader>
           <AddCustomTypeForm
             onSuccess={() => {
               setShowAddCustomType(false);
