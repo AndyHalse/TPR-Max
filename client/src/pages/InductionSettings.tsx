@@ -171,12 +171,17 @@ function SentLinksSection() {
                   <p className="text-xs text-muted-foreground mt-0.5">{t.personEmail} · Sent {fmt(t.createdAt)} · {attempts}/5 attempts</p>
                 </div>
                 {attempts >= 5 && (
-                  <Button size="sm" variant="outline"
-                    className={`text-xs shrink-0 ${locked ? 'border-red-300 text-red-700 hover:bg-red-50' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
-                    onClick={() => resetMutation.mutate(t.id)} disabled={resetMutation.isPending}>
-                    {resetMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RotateCcw className="w-3 h-3 mr-1" />}
-                    Reset Quiz
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" variant="outline"
+                        className={`text-xs shrink-0 ${locked ? 'border-red-300 text-red-700 hover:bg-red-50' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+                        onClick={() => resetMutation.mutate(t.id)} disabled={resetMutation.isPending}>
+                        {resetMutation.isPending ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RotateCcw className="w-3 h-3 mr-1" />}
+                        Reset Quiz
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs">Clears the attempt count so this person can retake the quiz. Use this if they've used all 5 attempts but still need to complete the induction.</TooltipContent>
+                  </Tooltip>
                 )}
               </div>
             );
@@ -525,14 +530,24 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
 
         {/* Video Source Toggle */}
         <div className="grid grid-cols-2 gap-2 mb-5">
-          <button type="button" onClick={() => setVideoSource('ai_generated')}
-            className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-sm transition-all ${videoSource === 'ai_generated' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-medium' : 'border-border bg-white dark:bg-slate-800 text-muted-foreground hover:border-blue-300'}`}>
-            <Sparkles className="h-4 w-4" />AI-Generated Slides
-          </button>
-          <button type="button" onClick={() => setVideoSource('custom_upload')}
-            className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-sm transition-all ${videoSource === 'custom_upload' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-medium' : 'border-border bg-white dark:bg-slate-800 text-muted-foreground hover:border-purple-300'}`}>
-            <Upload className="h-4 w-4" />Upload MP4 Video
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" onClick={() => setVideoSource('ai_generated')}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-sm transition-all ${videoSource === 'ai_generated' ? 'border-blue-500 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 font-medium' : 'border-border bg-white dark:bg-slate-800 text-muted-foreground hover:border-blue-300'}`}>
+                <Sparkles className="h-4 w-4" />AI-Generated Slides
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs text-xs">The AI writes a UK HSE-compliant script, builds interactive slides, and generates a knowledge quiz — all tailored to your site details. You can edit slides and add real site photos afterwards.</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button type="button" onClick={() => setVideoSource('custom_upload')}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border text-sm transition-all ${videoSource === 'custom_upload' ? 'border-purple-500 bg-purple-50 dark:bg-purple-950 text-purple-700 dark:text-purple-300 font-medium' : 'border-border bg-white dark:bg-slate-800 text-muted-foreground hover:border-purple-300'}`}>
+                <Upload className="h-4 w-4" />Upload MP4 Video
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="max-w-xs text-xs">Use your own pre-recorded induction video (MP4, MOV or WebM, max 500 MB). Inductees watch the video then take the AI-generated quiz. Ideal if you already have a professional recording.</TooltipContent>
+          </Tooltip>
         </div>
 
         {/* ── Custom MP4 Upload ── */}
@@ -646,9 +661,14 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             )}
 
             <div className="flex flex-wrap gap-2">
-              <Button onClick={handleGenerateVideo} disabled={isGenerating} className="flex items-center gap-2">
-                {isGenerating ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />Generating...</> : <><Sparkles className="h-4 w-4" />{hasVideo ? 'Regenerate Induction' : 'Generate Induction'}</>}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button onClick={handleGenerateVideo} disabled={isGenerating} className="flex items-center gap-2">
+                    {isGenerating ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />Generating...</> : <><Sparkles className="h-4 w-4" />{hasVideo ? 'Regenerate Induction' : 'Generate Induction'}</>}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="max-w-xs text-xs">{hasVideo ? 'Rewrites the slides and quiz using the latest Site Details. Your existing slide edits and site photos will be replaced — export a PDF first if you want to keep them.' : 'Generates a full set of interactive slides and a knowledge quiz for this role type, using the Site Details filled in above. Takes 1–2 minutes.'}</TooltipContent>
+              </Tooltip>
               {hasVideo && (
                 <Button variant="outline" onClick={() => window.open(`/induction-preview/${roleType}`, '_blank')} className="flex items-center gap-2 sm:hidden">
                   <Eye className="h-4 w-4" />Preview
@@ -744,14 +764,24 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         </div>
 
         <div className="flex flex-wrap gap-2 mb-5">
-          <Button size="sm" variant="outline" onClick={handleRegenerateQuestions} disabled={isRegeneratingQuestions} className="gap-1 text-xs">
-            {isRegeneratingQuestions ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
-            {questions.length > 0 ? 'Regenerate Questions' : 'Generate Questions'}
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" variant="outline" onClick={handleRegenerateQuestions} disabled={isRegeneratingQuestions} className="gap-1 text-xs">
+                {isRegeneratingQuestions ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                {questions.length > 0 ? 'Regenerate Questions' : 'Generate Questions'}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-xs">{questions.length > 0 ? 'Replaces all existing questions with a fresh set generated from the current induction slides. Any manual edits to questions will be lost.' : 'Creates a set of scenario-based multiple-choice questions from the induction slides. Requires slides to be generated first.'}</TooltipContent>
+          </Tooltip>
           {questions.length > 0 && (
-            <Button size="sm" variant="outline" onClick={handleCleanupQuestions} disabled={isCleaningUp} className="gap-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950">
-              {isCleaningUp ? <Loader2 className="h-3 w-3 animate-spin text-red-600" /> : <Trash2 className="h-3 w-3" />}Clear All
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="sm" variant="outline" onClick={handleCleanupQuestions} disabled={isCleaningUp} className="gap-1 text-xs text-red-600 hover:bg-red-50 dark:hover:bg-red-950">
+                  {isCleaningUp ? <Loader2 className="h-3 w-3 animate-spin text-red-600" /> : <Trash2 className="h-3 w-3" />}Clear All
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs text-xs">Permanently removes all quiz questions for this role type. Inductees will not be tested until you generate a new set.</TooltipContent>
+            </Tooltip>
           )}
         </div>
 
@@ -870,17 +900,37 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                       {cp.content && <p className="text-xs text-variable ml-8">{cp.content}</p>}
                     </div>
                     <div className="flex items-center gap-1.5 shrink-0">
-                      <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => setShowQrFor(showQrFor === cp.id ? null : cp.id)}>
-                        <QrCode className="w-3 h-3 mr-1" />QR
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => { setEditingCp(cp); setEditCpForm({ label: cp.label, content: cp.content }); }}><Edit2 className="w-3 h-3" /></Button>
-                      <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => toggleCpMutation.mutate({ id: cp.id, isActive: !cp.isActive })}>
-                        {cp.isActive ? <X className="w-3 h-3" /> : <Check className="w-3 h-3" />}
-                      </Button>
-                      <Button size="sm" variant="outline" className="h-7 w-7 p-0 text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950"
-                        onClick={() => { if (confirm(`Delete checkpoint "${cp.label}"?`)) deleteCpMutation.mutate(cp.id); }}>
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => setShowQrFor(showQrFor === cp.id ? null : cp.id)}>
+                            <QrCode className="w-3 h-3 mr-1" />QR
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Show the QR code to print and affix at this location on site</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => { setEditingCp(cp); setEditCpForm({ label: cp.label, content: cp.content }); }}><Edit2 className="w-3 h-3" /></Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Edit label and information text for this checkpoint</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => toggleCpMutation.mutate({ id: cp.id, isActive: !cp.isActive })}>
+                            {cp.isActive ? <X className="w-3 h-3" /> : <Check className="w-3 h-3" />}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">{cp.isActive ? 'Deactivate — inductees will no longer be required to scan this checkpoint' : 'Activate — this checkpoint will appear in the walk-around for inductees'}</TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0 text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950"
+                            onClick={() => { if (confirm(`Delete checkpoint "${cp.label}"?`)) deleteCpMutation.mutate(cp.id); }}>
+                            <Trash2 className="w-3 h-3" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Permanently delete this checkpoint and its QR code</TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
                 )}
@@ -971,9 +1021,14 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
 
         {/* Send Link dialog */}
         <Dialog open={showSendLink} onOpenChange={handleCloseSendDialog}>
-          <DialogTrigger asChild>
-            <Button variant="outline" className="flex items-center gap-2 mb-4"><Send className="h-4 w-4" />Send Induction Link by Email</Button>
-          </DialogTrigger>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2 mb-4"><Send className="h-4 w-4" />Send Induction Link by Email</Button>
+              </DialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-xs">Sends a secure, time-limited link to a specific person so they can complete this induction remotely — before arriving on site or from any device.</TooltipContent>
+          </Tooltip>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2"><Mail className="h-5 w-5 text-blue-600" />Send {getRoleDisplayName(roleType)} Induction Link</DialogTitle>

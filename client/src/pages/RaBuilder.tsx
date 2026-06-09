@@ -643,7 +643,10 @@ export default function RaBuilder() {
                     </Select>
                   </div>
                   <div>
-                    <Label>Status</Label>
+                    <Label className="flex items-center">
+                      Status
+                      <InfoTooltip text="Draft → author is still editing. Under Review → sent for sign-off. Approved → signed off; unlocks Approved By and the Publish to RAMS button. Archived → historical record, no longer active." />
+                    </Label>
                     <Select value={assessment.status || "draft"} onValueChange={(v) => updateAssessmentField("status", v)}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -671,7 +674,10 @@ export default function RaBuilder() {
                     <Input type="date" className="mt-1" value={assessment.assessmentDate || ""} onChange={(e) => updateAssessmentField("assessmentDate", e.target.value)} />
                   </div>
                   <div>
-                    <Label>Next Review Date</Label>
+                    <Label className="flex items-center">
+                      Next Review Date
+                      <InfoTooltip text="HSE guidance recommends reviewing risk assessments at least annually, or whenever there is a significant change to the work, personnel, or environment." />
+                    </Label>
                     <Input type="date" className="mt-1" value={assessment.nextReviewDate || ""} onChange={(e) => updateAssessmentField("nextReviewDate", e.target.value)} />
                   </div>
                   <div>
@@ -691,7 +697,10 @@ export default function RaBuilder() {
                     />
                   </div>
                   <div>
-                    <Label className={assessment.status !== "approved" ? "text-slate-400" : ""}>Approved By</Label>
+                    <Label className={`flex items-center ${assessment.status !== "approved" ? "text-slate-400" : ""}`}>
+                      Approved By
+                      <InfoTooltip text="Only enabled when Status is set to Approved. The approver's name appears on the printed sign-off page and in the RAMS library entry." />
+                    </Label>
                     <StaffNamePicker
                       value={assessment.approvedBy || ""}
                       onChange={(v) => updateAssessmentField("approvedBy", v)}
@@ -948,9 +957,14 @@ export default function RaBuilder() {
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       <Button size="sm" variant="outline" className="flex-1" onClick={() => openEditor(a)}>Edit</Button>
-                      <Button size="sm" variant="outline" onClick={() => printAssessment(a.id)}>
-                        <Printer className="h-3.5 w-3.5" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button size="sm" variant="outline" onClick={() => printAssessment(a.id)}>
+                            <Printer className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Print or save as PDF</TooltipContent>
+                      </Tooltip>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 hover:border-red-300">
