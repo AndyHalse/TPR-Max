@@ -1274,7 +1274,21 @@ export default function InductionSettings() {
 
         {/* Header */}
         <div className="space-y-1">
-          <h1 className="text-xl sm:text-3xl font-bold">Health &amp; Safety Induction Builder</h1>
+          <h1 className="text-xl sm:text-3xl font-bold flex items-center gap-2">
+            Health &amp; Safety Induction Builder
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button type="button" className="text-muted-foreground hover:text-foreground transition-colors">
+                  <Info size={16} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-sm text-xs space-y-1.5 p-3">
+                <p className="font-semibold">Health &amp; Safety Induction Builder</p>
+                <p>Create site-specific, UK HSE-compliant induction programmes for contractors, staff and visitors. The AI generates slides and knowledge-check quiz questions — you then add real site photos and preview before anyone sees it.</p>
+                <p className="text-muted-foreground">Checkpoints let inductees scan QR codes at physical locations during their site walk-around. All completions are logged against each person's record.</p>
+              </TooltipContent>
+            </Tooltip>
+          </h1>
           <p className="text-muted-foreground text-sm">Create professional, site-specific, UK HSE-compliant inductions for contractors, staff and visitors.</p>
         </div>
 
