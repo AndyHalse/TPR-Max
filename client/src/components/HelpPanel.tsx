@@ -202,6 +202,9 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
       "/compliance/certificates": "Compliance Certificates",
       "/hs-incidents": "H&S Incidents (RIDDOR)",
       "/incidents": "Incidents",
+      "/incident-reports": "Incident Reports",
+      "/ra-builder": "Risk Assessment Builder",
+      "/site-induction": "Site Induction",
       "/marketing": "Marketing",
     };
     return pageMap[location] || "Help";

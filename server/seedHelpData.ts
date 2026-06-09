@@ -1806,6 +1806,332 @@ The gate is enabled per customer in **Settings** > **PPM** > **Compliance Gate**
       helpfulCount: 0,
       notHelpfulCount: 0,
       viewCount: 0
+    },
+
+    // ─── INCIDENT REPORTS ─────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Safety & Compliance"],
+      title: "Incident Reports — Tracking & Analysis",
+      slug: createSlug("Incident Reports Tracking and Analysis"),
+      summary: "Recording incidents from alarm to resolution, understanding column meanings, and using filters and exports",
+      content: `# Incident Reports — Tracking & Analysis
+
+The Incident Reports page provides a full log of every site incident from initial alarm through to resolution, with real-time status tracking and exportable records.
+
+## What Is Recorded
+Each incident entry captures:
+- **Date & time** the incident was raised
+- **Type** — security alarm, fire alarm, medical, gas leak, theft, flood, power failure, or a custom type
+- **Location / zone** where the incident occurred
+- **Duration** — how long elapsed from the alarm being raised to the incident being marked closed
+- **On Site** — total number of people recorded on site at the moment the incident started (visitors + staff + contractors)
+- **Accounted** — how many of those people were confirmed safe by the time the incident closed
+- **Completion** — the percentage of on-site people who were accounted for; 100 % means everyone was confirmed safe
+
+## Completion Column
+A completion figure below 100 % shown with an amber warning triangle means not every person on site at the time of the incident was marked as accounted for before the record was closed. This is common for incidents resolved quickly before the full muster process ran.
+
+To update the completion figure, click **Refresh** on the incident row — the system recalculates against the current accountability data.
+
+## Filters & Search
+Use the filter bar to narrow the list:
+- **Date range** — restrict to a specific period
+- **Type** — filter by incident type (fire, security, medical, etc.)
+- **Status** — open incidents vs. closed
+- **Zone** — incidents recorded against a particular area
+
+## Exporting Records
+Click **Export** (top-right) to download the visible set of incidents as a CSV. The export includes all columns including duration, on-site count, accounted count, and completion percentage — suitable for H&S reports and insurance evidence.
+
+## Deleting an Incident
+Only Administrators can delete incident records. Deletion is permanent and removes the record from all exports and reports. Use this only to remove test records.
+
+## Relationship to Evacuations
+An incident is automatically created when an evacuation is activated via the Emergency Muster page. The incident record links to the muster session, so the on-site count and accountability figures are drawn directly from the evacuation data.`,
+      targetPages: ["incident-reports", "/incident-reports"],
+      searchKeywords: ["incident", "incident report", "alarm", "duration", "accounted", "completion", "on site", "evacuation record", "RIDDOR"],
+      estimatedReadTime: 5,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 9,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── RISK ASSESSMENT BUILDER ──────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Safety & Compliance"],
+      title: "Risk Assessment Builder (RA Builder)",
+      slug: createSlug("Risk Assessment Builder RA Builder"),
+      summary: "Creating, managing, and approving risk assessments using the five-step RA workflow and status lifecycle",
+      content: `# Risk Assessment Builder (RA Builder)
+
+The RA Builder provides a structured, HSE-compliant environment for creating and maintaining written risk assessments. Every assessment follows a defined lifecycle from drafting through to archiving.
+
+## Status Lifecycle
+Each risk assessment moves through four statuses:
+
+| Status | Meaning |
+|--------|---------|
+| **Draft** | Being written; not yet reviewed. Visible only to the author and admins. |
+| **Under Review** | Submitted for approval. A reviewer can comment and request changes. |
+| **Approved** | Formally signed off. The approved-by name is locked to the approver and a date stamp is applied. |
+| **Archived** | Superseded or no longer applicable. Retained for audit but not shown in active lists. |
+
+Only users with the **Approver** or **Admin** role can move an RA to Approved status.
+
+## Creating a Risk Assessment
+1. Navigate to **RA Builder** in the Safety menu
+2. Click **"New Risk Assessment"**
+3. Complete the header fields:
+   - **Title** — clear, descriptive name (e.g. "Manual Handling — Goods Inward")
+   - **Reference** — your internal RA reference number
+   - **Location / area** — where the activity takes place
+   - **Status** — leave as Draft until ready for review
+4. Add hazards using the **"Add Hazard"** button:
+   - Hazard description
+   - Who is at risk (employees, visitors, contractors, members of public)
+   - Inherent risk score (Likelihood × Severity before controls)
+   - Control measures — the steps already in place
+   - Residual risk score (Likelihood × Severity after controls)
+5. Save the RA — it is auto-saved as you work
+
+## Next Review Date
+The HSE recommends reviewing risk assessments at least annually, or sooner if:
+- There is a significant change to the activity or workplace
+- An incident or near-miss occurs related to the hazard
+- New equipment, materials or processes are introduced
+- Monitoring shows controls are no longer effective
+
+Set the **Next Review Date** to no more than 12 months from the approval date. The RA Builder will alert you 30 days before a review is due.
+
+## Approved By
+The **Approved By** field is only available when the status is set to **Approved**. It records the name of the person who formally signed off the assessment. This field is required for the RA to be considered legally compliant under the Management of Health & Safety at Work Regulations 1999.
+
+## Printing & Exporting
+Click the **Print** icon on any RA card to open a print-ready view. The printed output includes:
+- All hazard rows with likelihood, severity, and risk scores
+- Control measures
+- Approval signatures and dates
+- Your company logo and branding
+
+## RAMS — Method Statements
+Risk assessments can be linked to Method Statements (RAMS) in the **RAMS** section. Contractor workers are required to accept the RAMS before starting work on site.`,
+      targetPages: ["ra-builder", "/ra-builder", "rams", "/rams"],
+      searchKeywords: ["risk assessment", "RA", "RA builder", "RAMS", "hazard", "control measure", "residual risk", "approved by", "next review", "HSE", "COSHH", "manual handling"],
+      estimatedReadTime: 6,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 10,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── INDUCTION SETTINGS ───────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Settings & Configuration"],
+      title: "Induction Settings — Video, Checkpoints & Quiz",
+      slug: createSlug("Induction Settings Video Checkpoints Quiz"),
+      summary: "Configuring AI-generated or uploaded induction videos, knowledge-check questions, checkpoints, and remote induction links",
+      content: `# Induction Settings — Video, Checkpoints & Quiz
+
+Induction Settings is where you build and manage your site induction: the video content, the knowledge-check quiz, and the checkpoints that visitors, contractors, and staff must pass before entering the site.
+
+## Video Source
+Choose how the induction video is delivered:
+
+- **AI-Generated Slides** — TPR uses your site rules and hazard information to automatically generate a narrated slide presentation. No video file is needed. Click **"Generate Induction"** to create it; click **"Regenerate Induction"** to rebuild it (this overwrites the existing slides).
+- **Upload MP4** — Upload your own pre-recorded induction video. The uploaded file is served directly to inductees.
+
+You can switch between modes at any time. Switching to AI after uploading a video, or vice versa, replaces the current content.
+
+## Knowledge-Check Questions
+After watching the induction, inductees answer a quiz. Questions are configured here.
+
+- **Regenerate Questions** — rebuilds the question set using AI based on your current induction content. Existing questions are replaced. Inductees who have not yet started will get the new questions.
+- **Clear All Questions** — removes all quiz questions. Inductees will not be tested until new questions are added or regenerated.
+
+Questions have correct and incorrect answers. The induction player shows inductees which answers were wrong and why if they fail.
+
+## Checkpoints
+Checkpoints are the digital stations an inductee must complete in order. Each checkpoint can include:
+- A document to read or accept
+- A H&S policy to acknowledge
+- A video segment
+- A form to complete
+
+Manage checkpoints with the row of icon buttons on each checkpoint card:
+
+| Icon | Action |
+|------|--------|
+| **QR Code** | Generates a printable QR code for this checkpoint — scan to jump directly to it |
+| **Edit (pencil)** | Opens the checkpoint editor to change title, description, or content |
+| **Toggle (eye)** | Activates or deactivates the checkpoint. Inactive checkpoints are skipped during induction |
+| **Delete (bin)** | Permanently removes the checkpoint |
+
+## Sending an Induction Link by Email
+Use **"Send Induction Link"** to email a secure, time-limited induction link to a specific person (e.g. a contractor worker or visitor who will complete their induction remotely before arriving on site).
+
+The link:
+- Expires after a set period (configurable in settings)
+- Does not require the recipient to have a TPR login
+- Delivers the full induction including video and quiz
+
+## Sent Links Log & Reset Quiz
+The **Sent Links** tab shows every induction link that has been sent, including:
+- Recipient name and email
+- Date sent and expiry
+- Completion status
+
+If a person has failed the quiz the maximum number of times and is locked out, click **"Reset Quiz"** on their row to clear their attempt count and allow them to retake it.`,
+      targetPages: ["induction-settings", "/induction-settings"],
+      searchKeywords: ["induction", "induction settings", "AI video", "induction video", "quiz", "questions", "checkpoints", "send induction link", "remote induction", "reset quiz"],
+      estimatedReadTime: 6,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 4,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── PERMIT TO WORK ───────────────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Safety & Compliance"],
+      title: "Permit to Work — Creating & Managing Permits",
+      slug: createSlug("Permit to Work Creating and Managing Permits"),
+      summary: "Raising hot work, confined space, working at height, and electrical isolation permits with checklists, risk controls, and supporting documents",
+      content: `# Permit to Work — Creating & Managing Permits
+
+The Permit to Work (PTW) module enforces formal authorisation for high-risk activities. Every permit follows a structured workflow from creation through authorisation to safe closure.
+
+## When Is a Permit Required?
+A permit to work is legally or procedurally required for:
+- **Hot work** (welding, grinding, cutting — sources of ignition)
+- **Confined space entry** (tanks, voids, pits)
+- **Working at height** (above 2 m, or where a fall would cause injury)
+- **Electrical isolation** (live or recently live systems)
+- **Excavation** (buried services risk)
+- **Chemical / COSHH work** (hazardous substances)
+- Any other activity your site procedures designate as permit-required
+
+## Creating a Permit
+1. Navigate to **Permit to Work** in the Safety menu
+2. Click **"New Permit"**
+3. Complete the permit form:
+   - **Permit type** — select from the list above
+   - **Work description** — what work is being carried out
+   - **Location** — exact area / zone
+   - **Contractor / worker** — who is carrying out the work
+   - **Start and end date** — the validity window; end date must be after start date
+   - **Risk controls** — the precautions that must be in place before work starts
+4. Work through the **Checklist** tab — each section (precautions, isolation, PPE, emergency arrangements) must be signed off before the permit can be authorised
+5. Attach **Supporting Documents** — method statements, RAMS, inspection certificates, or photos
+6. Submit the permit for authorisation
+
+## Checklist Tabs
+The checklist is divided into sections that mirror the UK PTW best-practice structure:
+- **Precautions** — site-specific safety measures confirmed as in place
+- **Isolation** — energy sources locked out / tagged out
+- **PPE** — personal protective equipment required and confirmed available
+- **Emergency Arrangements** — rescue plan, first aid cover, means of raising alarm
+
+Each item is ticked by the authorising person. The permit cannot be submitted until all mandatory items are checked.
+
+## Supporting Documents
+Attach any files needed to support the permit:
+- Method statement or work plan
+- RAMS accepted by the contractor
+- COSHH assessment
+- Tool and equipment inspection records
+- Photographs of the work area
+
+Attached files are stored securely and included in the permit PDF export.
+
+## Authorisation & Closure
+- Once submitted, the permit moves to **Awaiting Authorisation** status
+- An authorised person reviews and either approves or rejects
+- Approved permits become **Active** — work may begin
+- On completion, the permit holder closes the permit, confirming work is finished and the area is safe
+- Closed permits are retained as a permanent record`,
+      targetPages: ["permits", "/permits", "permit-to-work", "/permit-to-work"],
+      searchKeywords: ["permit to work", "PTW", "hot work", "confined space", "working at height", "electrical isolation", "checklist", "authorisation", "RAMS", "isolation", "PPE"],
+      estimatedReadTime: 7,
+      difficulty: "intermediate",
+      isPublished: true,
+      isFeatured: true,
+      isQuickStart: false,
+      sortOrder: 11,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
+    },
+
+    // ─── SITE INDUCTION (PLAYER) ──────────────────────────────────────────────
+    {
+      categoryId: categoryMap["Visitor Management"] ?? categoryMap["Getting Started"],
+      title: "Completing a Site Induction",
+      slug: createSlug("Completing a Site Induction"),
+      summary: "How visitors and contractors complete the site induction — video, checkpoints, quiz, and what happens if answers are wrong",
+      content: `# Completing a Site Induction
+
+Before entering certain areas, visitors and contractors may be required to complete a site induction. This ensures everyone on site understands the key hazards, emergency procedures, and site rules.
+
+## How to Start
+You will receive a link via email, or a QR code to scan at reception. Opening the link on any device (phone, tablet, or desktop) launches the induction — no login is required.
+
+## The Induction Steps
+
+### 1. Welcome & Introduction
+A brief overview of the organisation and the induction process.
+
+### 2. Video
+Watch the induction video (or slides). The video must be watched to the end before you can proceed to the next checkpoint.
+
+### 3. Checkpoints
+Work through each checkpoint in order. A checkpoint may ask you to:
+- Read and acknowledge a safety policy
+- Watch an additional video segment
+- Confirm you have received specific PPE or information
+
+Tap the checkpoint link or button to open each one. Completed checkpoints are shown with a tick.
+
+### 4. Knowledge Check (Quiz)
+After the checkpoints, answer the quiz questions. Each question has one correct answer. Select your answer and tap **Submit**.
+
+**If you answer incorrectly**, the induction shows you:
+- Which answer you chose
+- Why it was incorrect
+- What the correct answer is
+
+You can review all your answers at the end of the quiz. If you fail the quiz (by scoring below the pass mark), you will be asked to retake it. If you exceed the maximum number of attempts, you will need to contact the site administrator to have your quiz reset.
+
+### 5. Completion
+On passing the quiz, your induction is marked complete. You will see a confirmation screen. The site administrator is automatically notified.
+
+## Tips
+- Use a modern browser (Chrome, Safari, or Edge) for the best experience
+- Complete the induction somewhere quiet where you can watch the video without interruption
+- If your link has expired, contact reception or the person who sent the invitation to request a new one`,
+      targetPages: ["site-induction", "/site-induction"],
+      searchKeywords: ["induction", "site induction", "quiz", "checkpoint", "video", "complete induction", "wrong answer", "failed quiz", "QR code", "induction link"],
+      estimatedReadTime: 4,
+      difficulty: "beginner",
+      isPublished: true,
+      isFeatured: false,
+      isQuickStart: true,
+      sortOrder: 5,
+      helpfulCount: 0,
+      notHelpfulCount: 0,
+      viewCount: 0
     }
   ];
 }
