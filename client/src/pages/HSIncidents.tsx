@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { AlertTriangle, Plus, Trash2, ExternalLink, CheckCircle, AlertCircle, BarChart3, Edit, Search, Info, FileDown, ArrowRight, ThumbsUp, Zap } from "lucide-react";
+import { AlertTriangle, Plus, Trash2, ExternalLink, CheckCircle, AlertCircle, BarChart3, Edit, Search, Info, FileDown, ArrowRight, ThumbsUp, Zap, Camera, X as XIcon, ImageIcon } from "lucide-react";
 import { EXTERNAL_LINKS } from "@/lib/externalLinks";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from "recharts";
 
@@ -43,6 +43,7 @@ interface HsIncident {
   investigationStatus: string;
   investigatedBy: string | null;
   investigationNotes: string | null;
+  photoUrl: string | null;
   createdAt: string;
 }
 
@@ -188,6 +189,7 @@ const emptyForm = {
   investigationStatus: "open" as string,
   investigatedBy: "",
   investigationNotes: "",
+  photoUrl: "" as string,
 };
 
 function personTypeLabel(v: string) {
@@ -212,6 +214,9 @@ export default function HSIncidents() {
   const [showManagementView, setShowManagementView] = useState(false);
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [photoFile, setPhotoFile] = useState<{ file: File; preview: string } | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const { data: staffList = [] } = useQuery<StaffMember[]>({
     queryKey: ["/api/staff"],
@@ -333,16 +338,36 @@ export default function HSIncidents() {
       investigatedBy: incident.investigatedBy || "",
       investigationNotes: incident.investigationNotes || "",
     });
+    setForm(f => ({ ...f, photoUrl: incident.photoUrl || "" }));
+    setPhotoFile(null);
     setEditingId(incident.id);
     setShowForm(true);
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const isNearMiss = form.recordType === "near_miss";
     const isBbs = form.recordType === "good_spot" || form.recordType === "positive_action";
+
+    let photoUrl = form.photoUrl || null;
+    if (photoFile) {
+      setUploadingPhoto(true);
+      try {
+        const fd = new FormData();
+        fd.append("photo", photoFile.file);
+        const uploadRes = await apiRequest("POST", "/api/hs-incidents/photo", fd as any);
+        const uploadData = await uploadRes.json();
+        photoUrl = uploadData.url || null;
+      } catch {
+        toast({ title: "Photo upload failed", description: "The record will be saved without the photo.", variant: "destructive" });
+      } finally {
+        setUploadingPhoto(false);
+      }
+    }
+
     const payload = {
       ...form,
+      photoUrl,
       isNearMiss,
       riddorCategory: isBbs ? null : (isNearMiss ? "not_riddor_reportable" : form.riddorCategory || null),
       nearMissPotential: isNearMiss ? form.nearMissPotential : null,
@@ -977,6 +1002,13 @@ export default function HSIncidents() {
                         <div className="text-xs">Hazard: {HAZARD_TYPES.find(h => h.value === incident.nearMissHazardType)?.label || incident.nearMissHazardType}</div>
                       )}
                       {incident.description && <div className="mt-1 text-xs">{incident.description}</div>}
+                      {incident.photoUrl && (
+                        <div className="mt-2">
+                          <a href={`/objects${incident.photoUrl}`} target="_blank" rel="noopener noreferrer">
+                            <img src={`/objects${incident.photoUrl}`} alt="Hazard photo" className="h-20 w-auto rounded border object-cover hover:opacity-90 transition-opacity" onError={e => { e.currentTarget.style.display = 'none'; }} />
+                          </a>
+                        </div>
+                      )}
                       {!isBbs(rt) && incident.riddorCategory && rt !== 'near_miss' && (
                         <div className="mt-1">RIDDOR: {RIDDOR_LABELS[incident.riddorCategory] || incident.riddorCategory}
                           {incident.riddorReportingDeadline && !incident.riddorReportedAt && (
@@ -1227,10 +1259,51 @@ export default function HSIncidents() {
               </div>
             )}
 
+            {/* Photo upload */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1.5"><Camera size={14} />Photo evidence (optional)</Label>
+              {(form.photoUrl || photoFile) ? (
+                <div className="relative inline-block">
+                  <img
+                    src={photoFile ? photoFile.preview : `/objects${form.photoUrl}`}
+                    alt="Evidence photo"
+                    className="h-28 w-auto rounded border object-cover"
+                    onError={e => { e.currentTarget.style.display = 'none'; }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { if (photoFile) URL.revokeObjectURL(photoFile.preview); setPhotoFile(null); setForm(f => ({ ...f, photoUrl: "" })); }}
+                    className="absolute -top-2 -right-2 w-6 h-6 bg-white rounded-full shadow border flex items-center justify-center text-gray-600 hover:text-red-600"
+                  >
+                    <XIcon size={12} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => photoInputRef.current?.click()}
+                  className="flex items-center gap-2 px-3 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                >
+                  <ImageIcon size={14} />Add photo
+                </button>
+              )}
+              <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0];
+                  if (f) { setPhotoFile({ file: f, preview: URL.createObjectURL(f) }); }
+                  e.target.value = "";
+                }}
+              />
+            </div>
+
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); }}>Cancel</Button>
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                {submitLabel()}
+              <Button type="button" variant="outline" onClick={() => { setShowForm(false); setEditingId(null); setPhotoFile(null); }}>Cancel</Button>
+              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending || uploadingPhoto}>
+                {uploadingPhoto ? <><div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />Uploading photo…</> : submitLabel()}
               </Button>
             </div>
           </form>

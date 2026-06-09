@@ -168,7 +168,7 @@ function SentLinksSection() {
                     {locked && <Badge className="text-xs bg-red-100 text-red-800 border-red-200 flex items-center gap-1"><Lock className="w-3 h-3" />Locked</Badge>}
                     {exp && !t.quizPassed && <Badge className="text-xs bg-gray-100 text-gray-600 border-gray-200">Expired</Badge>}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{t.personEmail} · Sent {fmt(t.createdAt)} · {attempts}/3 attempts</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{t.personEmail} · Sent {fmt(t.createdAt)} · {attempts}/5 attempts</p>
                 </div>
                 {attempts >= 5 && (
                   <Button size="sm" variant="outline"
@@ -339,7 +339,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     return Math.round((generationStatus.step / generationStatus.totalSteps) * 100);
   };
   const getQrUrl = (qrToken: string) => `${window.location.origin}/induction/checkpoint/${qrToken}`;
-  const hasVideo = settings?.generatedAt != null;
+  const hasVideo = settings?.generatedAt != null || !!currentCustomVideoUrl;
   const questionsByCategory = questions.reduce((acc, q) => {
     const cat = q.category || 'General Safety';
     if (!acc[cat]) acc[cat] = [];
@@ -916,10 +916,10 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
         </div>
       </GlassCard>
 
-      {/* ══ Step 6: Delivery & Records ══ */}
+      {/* ══ Step 5: Delivery & Records ══ */}
       <GlassCard className="p-6">
         <div className="flex items-start gap-3 mb-5">
-          <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">6</span>
+          <span className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">5</span>
           <div className="flex-1 min-w-0">
             <h3 className="text-base font-semibold text-fixed">Delivery &amp; Records</h3>
             <p className="text-xs text-variable mt-0.5">Control how inductees receive this induction and track completion records.</p>
@@ -939,6 +939,34 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             <Switch id={`kiosk-toggle-${roleType}`} checked={kioskEnabled} onCheckedChange={handleKioskToggle} disabled={isTogglingKiosk || !hasVideo} />
           </div>
           {!hasVideo && <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1"><AlertCircle className="h-3 w-3" />Generate an induction first to enable kiosk integration</p>}
+        </div>
+
+        {/* Hazard reporting toggle */}
+        <div className="p-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg mb-4 space-y-3">
+          <div className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-orange-500" /><h4 className="font-medium text-sm text-fixed">Walk-around Hazard Reporting</h4></div>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor={`hazard-report-toggle-${roleType}`} className="text-sm font-normal cursor-pointer">Allow hazard reports at checkpoints</Label>
+              <p className="text-xs text-muted-foreground">
+                {(companySettings as any)?.inductionAllowHazardReport !== false
+                  ? 'Inductees can photo-report hazards they spot during the walk-around'
+                  : 'Hazard reporting is disabled — inductees can only confirm checkpoint visits'}
+              </p>
+            </div>
+            <Switch
+              id={`hazard-report-toggle-${roleType}`}
+              checked={(companySettings as any)?.inductionAllowHazardReport !== false}
+              onCheckedChange={async (v) => {
+                try {
+                  await apiRequest('PUT', '/api/settings', { inductionAllowHazardReport: v });
+                  queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
+                  toast({ title: v ? 'Hazard reporting enabled' : 'Hazard reporting disabled' });
+                } catch {
+                  toast({ title: 'Failed to update setting', variant: 'destructive' });
+                }
+              }}
+            />
+          </div>
         </div>
 
         {/* Send Link dialog */}
@@ -1013,7 +1041,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
           <ul className="space-y-1 text-xs text-blue-800 dark:text-blue-300">
             <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600 dark:text-blue-400" /> Professional AI-generated slides with company branding</li>
             <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600 dark:text-blue-400" /> UK HSE 2024 compliant content tailored to your industry and site</li>
-            <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600 dark:text-blue-400" /> 10 scenario-based quiz questions across 5 safety categories</li>
+            <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600 dark:text-blue-400" /> {questions.length > 0 ? questions.length : 10} scenario-based quiz questions across 5 safety categories</li>
             <li className="flex items-center gap-1"><CheckCircle className="h-3 w-3 text-blue-600 dark:text-blue-400" /> 80% pass mark required — completion logged for audit trail</li>
           </ul>
         </div>
@@ -1475,7 +1503,7 @@ export default function InductionSettings() {
                 </ul>
               </div>
             </div>
-            <p className="text-xs text-amber-700 dark:text-amber-400 pt-1">Knowledge assessment: 10 scenario-based questions, 80% pass mark required. All completions are logged for your audit trail.</p>
+            <p className="text-xs text-amber-700 dark:text-amber-400 pt-1">Knowledge assessment: scenario-based questions, 80% pass mark required. All completions are logged for your audit trail.</p>
           </CardContent>
         </Card>
       </div>

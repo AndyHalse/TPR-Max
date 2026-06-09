@@ -130,6 +130,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const permitValidFrom = new Date(`${plannedStartDate}T${plannedStartTime}:00`);
       const permitValidUntil = new Date(`${plannedEndDate}T${plannedEndTime}:00`);
 
+      if (permitValidUntil <= permitValidFrom) {
+        return res.status(400).json({ error: 'End date/time must be after start date/time.' });
+      }
+
       const [permit] = await custDb.insert(isolatedSchema.permitToWork).values({
         permitNumber,
         permitType,

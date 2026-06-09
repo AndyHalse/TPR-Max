@@ -1,0 +1,44 @@
+1. Permit checklist completion
+The checklist is where a permit actually gets safe to authorise — and it has a genuine dead-end bug.
+
+When you answer "No" to a checklist item, the screen says "Mitigating control note required" — but there's no box to type the note in. The form only ever sends your Yes/No/N/A answer, never a note. Then when you hit Submit, the server blocks it because any "No" must have a note (permitToWork.ts:389) — a note you were never given a way to enter. So you're stuck, with an error you can't clear. (checklist UI at PermitToWork.tsx:1208)
+
+On top of that, the green "checklist complete" tick and the Submit button light up even when those notes are missing (line 1000) — so it looks ready, then fails. And the back end already supports attaching files to a permit (RAMS, isolation certificates), but the screen gives you no way to do it.
+
+Replit prompt — Permit-to-Work checklist completion
+
+Context: TPR Max permit-to-work. The checklist lives in the PermitDetailView component in client/src/pages/PermitToWork.tsx (the "Checklist" tab, around lines 1186–1249). The back end is server/routes/permitToWork.ts: checklist items are updated via PATCH /api/ptw/:id/checklist/:checklistItemId (accepts { response, notes }, ~line 353), and a permit is submitted via PATCH /api/ptw/:id/submit (~line 375), which rejects submission if any item answered "no" has no notes (~line 389). Only work on the checklist-completion experience — don't change the authorisation/suspend/close logic.
+
+Fix these in order, running the app to check each.
+
+Add the missing control-note field (the main bug). When a checklist item is answered "No", render a small text box directly under that item for the mitigating control note, and save it through the existing onChecklistUpdate(item.id, response, notes) path (it already accepts notes; the PATCH …/checklist/… endpoint already stores them). The note must be saved before the permit can be submitted. Optionally allow a note on "Yes"/"N/A" too, but only require it for "No".
+Make the front end agree with the back end on what "complete" means. Right now checklistComplete (~line 1000) only checks that every required item has an answer — it ignores the rule that a "No" needs a note. Change it so an item answered "No" with no note counts as incomplete. The Submit button (~line 1138) should stay disabled until every required item is answered and every "No" has a note, and its label should say what's outstanding (e.g. "2 control notes needed").
+Show a clear running status above the checklist: e.g. "6 of 8 required items done · 1 needs a control note", so the person knows exactly what's left before they can submit.
+Bigger tap targets. The Yes/No/N/A buttons are tiny (text-xs px-2 py-0.5) — these are used on tablets on site. Make them larger, clearly separated, with obvious selected states (green/red/grey).
+Let users attach supporting documents. The back end already has POST /api/ptw/:id/attachments (file upload, ~line 592) and the permit detail already loads attachments. Add a simple "Supporting documents" area in the permit detail (e.g. on the Details or Checklist tab) to upload and list files like the RAMS / method statement / isolation certificate, with file name and a link to open each. Reuse the upload pattern already used by the compliance-library upload in this same file.
+Tidy the accordion. The section expand/collapse condition (~line 1206) is convoluted — default it to all sections open, with each header toggling just its own section.
+Constraints: British spelling (authorise, organise). Don't break the existing create → complete-checklist → submit flow. Keep it clean for tablet use — no glassmorphism on the form controls.
+
+Check before finishing: answer an item "No", add a control note, and the permit submits successfully; with a "No" and no note, Submit stays disabled and tells you why; you can upload and see a supporting document.
+
+2. Induction public pages (what the inductee sees on their phone)
+Two real problems here.
+
+Wrong answers are never shown. Your admin screen promises "Wrong-answer explanations are shown to the inductee" — but they aren't. When someone fails the quiz, they just see a score and retry blind (SiteInduction.tsx:880). The questions already carry the correct answer and an explanation, so this is fixable on the page itself. For a tool that's meant to teach safety, letting people see what they got wrong before retrying is the whole point.
+
+The walk-around QR codes don't work the way they're shown. On the completion screen, the QR codes are drawn on the inductee's own phone for them to "scan" (line 1048) — you can't scan a code with the same phone that's displaying it. And the physical printed codes carry no induction reference, so when someone scans one on-site they're forced to find and paste a long token by hand (InductionCheckpoint.tsx:188). The walk-around is clever but the last step is fiddly.
+
+Replit prompt — Induction public (inductee-facing) pages
+
+Context: TPR Max site induction, the public pages an inductee opens from their email link on a phone. Main page: client/src/pages/SiteInduction.tsx (route /induction/:token). QR checkpoint page: client/src/pages/InductionCheckpoint.tsx (route /induction/checkpoint/:qrToken). Quiz questions are loaded client-side and already include correctAnswer and explanation per question (see the InductionQuestion interface). Only touch these inductee-facing pages — don't change the admin induction-settings page.
+
+Fix these in order, testing on a narrow mobile viewport.
+
+Show wrong answers and explanations after a failed quiz (main improvement). In SiteInduction.tsx, when an attempt fails (the block around line 880), add a review list: for each question the inductee got wrong, show the question, their answer, the correct answer, and the existing explanation text. Use the data already on the client (compare each answers[q.id] / perSceneAnswers[q.id] to q.correctAnswer). Then let them retry. Keep it calm and clear — this is a teaching moment, not a telling-off.
+Fix the walk-around checkpoint flow. On the completion screen (renderCompletedStep, ~line 1010), make each checkpoint row a tappable link that opens the checkpoint page with the induction token attached (/induction/checkpoint/{qrToken}?t={token}), for when the inductee is standing at that location — instead of relying on them scanning a QR shown on their own screen. Keep a short instruction that the printed QR codes around site do the same thing. De-emphasise or remove the on-screen QR image (it can't be self-scanned).
+Stop forcing inductees to paste a long token. When an induction is opened, store its token (e.g. in localStorage). On the checkpoint page (InductionCheckpoint.tsx), if there's no ?t= token in the URL, fall back to the stored one so the inductee doesn't have to find and paste their reference code after scanning a physical QR. Keep the manual-entry box only as a last resort.
+Reset per-scene answers on retry. retryQuiz (~line 375) clears the global answers but not perSceneAnswers — reset both so a retry is clean.
+Sanitise slide content (low priority). Slide content is injected via dangerouslySetInnerHTML (~line 423) without sanitising. Wrap it in DOMPurify (the project already uses it elsewhere) for consistency.
+Constraints: British spelling. Mobile-first — large tap targets, no glassmorphism on these screens (they may run on a kiosk or a worker's phone). Don't change the quiz scoring, attempt limit (5), or pass-mark logic.
+
+Check before finishing: fail a quiz on purpose and see exactly which questions were wrong with explanations; tap a checkpoint on the completion screen and have it open ready to confirm without pasting a code; retry a quiz and confirm no old answers linger.

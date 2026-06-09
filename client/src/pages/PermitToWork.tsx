@@ -20,14 +20,14 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
-const PERMIT_TYPES: Record<string, { label: string; icon: any; color: string }> = {
-  hot_works:            { label: 'Hot Works',           icon: Flame,        color: 'text-orange-600' },
-  working_at_height:    { label: 'Working at Height',   icon: HardHat,      color: 'text-blue-600' },
-  electrical_isolation: { label: 'Electrical Isolation', icon: Zap,         color: 'text-yellow-600' },
-  confined_space:       { label: 'Confined Space',      icon: Wind,         color: 'text-purple-600' },
-  excavation:           { label: 'Excavation',          icon: Shovel,       color: 'text-amber-700' },
-  asbestos:             { label: 'Asbestos',            icon: TriangleAlert, color: 'text-red-600' },
-  general_high_risk:    { label: 'General High Risk',   icon: FileWarning,  color: 'text-gray-600' },
+const PERMIT_TYPES: Record<string, { label: string; icon: any; color: string; bg: string; description: string }> = {
+  hot_works:            { label: 'Hot Works',            icon: Flame,         color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800',  description: 'Naked flames, welding, grinding or anything that generates heat or sparks.' },
+  working_at_height:    { label: 'Working at Height',    icon: HardHat,       color: 'text-blue-600',   bg: 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800',         description: 'Any work where a person could fall a distance liable to cause injury.' },
+  electrical_isolation: { label: 'Electrical Isolation', icon: Zap,           color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800', description: 'Isolating or working on live or recently live electrical systems.' },
+  confined_space:       { label: 'Confined Space',       icon: Wind,          color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800', description: 'Entry into or work inside an enclosed area with restricted access.' },
+  excavation:           { label: 'Excavation',           icon: Shovel,        color: 'text-amber-700',  bg: 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800',     description: 'Digging, trenching or groundwork where collapse or buried services are a risk.' },
+  asbestos:             { label: 'Asbestos',             icon: TriangleAlert, color: 'text-red-600',    bg: 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800',             description: 'Disturbing or working near materials that may contain asbestos.' },
+  general_high_risk:    { label: 'General High Risk',    icon: FileWarning,   color: 'text-gray-600',   bg: 'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700',            description: 'Any other high-risk activity not covered by a specific permit type.' },
 };
 
 const STATUS_CONFIG: Record<string, { label: string; variant: 'default'|'secondary'|'outline'|'destructive'; color: string }> = {
