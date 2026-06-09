@@ -35,7 +35,18 @@ export function registerRaBuilderRoutes(app: Express): void {
         .select()
         .from(isolatedSchema.raBuilderAssessments)
         .orderBy(desc(isolatedSchema.raBuilderAssessments.updatedAt));
-      res.json(rows);
+      // Fetch all hazards in one query and group by assessmentId so list cards
+      // can show the hazard count and highest risk rating without an N+1 load.
+      const allHazards = await custDb
+        .select()
+        .from(isolatedSchema.raBuilderHazards)
+        .orderBy(asc(isolatedSchema.raBuilderHazards.sortOrder));
+      const hazardsByAssessment: Record<string, typeof allHazards> = {};
+      for (const h of allHazards) {
+        if (!hazardsByAssessment[h.assessmentId]) hazardsByAssessment[h.assessmentId] = [];
+        hazardsByAssessment[h.assessmentId].push(h);
+      }
+      res.json(rows.map((r) => ({ ...r, hazards: hazardsByAssessment[r.id] ?? [] })));
     } catch (error) {
       logger.error('GET /api/ra-builder/assessments', error);
       res.status(500).json({ error: 'Failed to fetch assessments' });

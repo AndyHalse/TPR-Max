@@ -359,7 +359,7 @@ export default function RaBuilder() {
     [reordered[index], reordered[swapIndex]] = [reordered[swapIndex], reordered[index]];
     const withOrder = reordered.map((h, i) => ({ ...h, sortOrder: i }));
     setHazards(withOrder);
-    await apiRequest("POST", `/api/ra-builder/assessments/${currentAssessmentId}/hazards/reorder`, {}, withOrder.map((h) => ({ id: h.id, sortOrder: h.sortOrder })));
+    await apiRequest("POST", `/api/ra-builder/assessments/${currentAssessmentId}/hazards/reorder`, withOrder.map((h) => ({ id: h.id, sortOrder: h.sortOrder })));
   };
 
   const suggestControls = async (hazardId: string) => {
@@ -399,10 +399,9 @@ export default function RaBuilder() {
 
   // ── Export PDF (opens new print window) ──────────────────────────────────
 
-  const handleExportPdf = () => {
-    const meta = typeMetadata;
-    const raTypeLabel = RA_TYPE_CONFIG[assessment.raType as RAType]?.label || assessment.raType || "General";
-    const statusLabel = STATUS_CONFIG[assessment.status || "draft"]?.label || assessment.status || "Draft";
+  const buildAndPrint = (a: Partial<Assessment>, hz: Hazard[], meta: Record<string, any>, refId: string | null) => {
+    const raTypeLabel = RA_TYPE_CONFIG[a.raType as RAType]?.label || a.raType || "General";
+    const statusLabel = STATUS_CONFIG[a.status || "draft"]?.label || a.status || "Draft";
 
     const riskClass = (r: number) => r >= 15 ? "risk-vhigh" : r >= 10 ? "risk-high" : r >= 5 ? "risk-medium" : "risk-low";
     const riskLabel = (r: number) => r >= 15 ? "Very High" : r >= 10 ? "High" : r >= 5 ? "Medium" : "Low";
@@ -413,7 +412,7 @@ export default function RaBuilder() {
       .map(([k, v]) => `<tr><td style="width:160px;font-weight:bold">${k.replace(/([A-Z])/g, " $1").replace(/^./, s => s.toUpperCase())}</td><td>${Array.isArray(v) ? v.join(", ") : esc(String(v))}</td></tr>`)
       .join("");
 
-    const hazardRows = hazards.map((h, i) => `
+    const hazardRows = hz.map((h, i) => `
       <tr>
         <td style="text-align:center">${i + 1}</td>
         <td>${esc(h.hazardDescription)}</td>
@@ -433,7 +432,7 @@ export default function RaBuilder() {
     const html = `<!DOCTYPE html>
 <html><head>
   <meta charset="UTF-8">
-  <title>Risk Assessment — ${esc(assessment.title)}</title>
+  <title>Risk Assessment — ${esc(a.title)}</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
     body{font-family:Arial,sans-serif;font-size:10pt;color:#111;padding:20px}
@@ -461,28 +460,28 @@ export default function RaBuilder() {
 </head><body>
   <div class="header">
     <div>
-      <h1>${esc(assessment.title)}</h1>
+      <h1>${esc(a.title)}</h1>
       <div style="font-size:9pt;color:#555;margin-top:2px">
         Type: <strong>${raTypeLabel}</strong> &nbsp;|&nbsp;
         Status: <strong>${statusLabel}</strong> &nbsp;|&nbsp;
-        Ref: <strong>RA-${(currentAssessmentId || "").substring(0, 8).toUpperCase()}</strong>
+        Ref: <strong>RA-${(refId || "").substring(0, 8).toUpperCase()}</strong>
       </div>
     </div>
     <div class="header-right">
-      <div>Assessment Date: <strong>${esc(assessment.assessmentDate)}</strong></div>
-      <div>Next Review: <strong>${esc(assessment.nextReviewDate)}</strong></div>
-      <div>Location: <strong>${esc(assessment.location)}</strong></div>
+      <div>Assessment Date: <strong>${esc(a.assessmentDate)}</strong></div>
+      <div>Next Review: <strong>${esc(a.nextReviewDate)}</strong></div>
+      <div>Location: <strong>${esc(a.location)}</strong></div>
       <div>Printed: <strong>${new Date().toLocaleDateString("en-GB")}</strong></div>
     </div>
   </div>
   <div class="meta-grid">
-    <div><div class="meta-label">Task / Activity</div>${esc(assessment.taskDescription)}</div>
-    <div><div class="meta-label">Department</div>${esc(assessment.department)}</div>
-    <div><div class="meta-label">Prepared By</div>${esc(assessment.preparedBy)}</div>
+    <div><div class="meta-label">Task / Activity</div>${esc(a.taskDescription)}</div>
+    <div><div class="meta-label">Department</div>${esc(a.department)}</div>
+    <div><div class="meta-label">Prepared By</div>${esc(a.preparedBy)}</div>
   </div>
-  ${assessment.raType !== "general" && metaRows ? `<h2>${raTypeLabel} — Specific Details</h2><table style="max-width:600px"><tbody>${metaRows}</tbody></table>` : ""}
-  <h2>Hazard Register (${hazards.length} hazard${hazards.length !== 1 ? "s" : ""})</h2>
-  ${hazards.length === 0 ? `<p style="color:#999;font-size:9pt">No hazards recorded.</p>` : `
+  ${a.raType !== "general" && metaRows ? `<h2>${raTypeLabel} — Specific Details</h2><table style="max-width:600px"><tbody>${metaRows}</tbody></table>` : ""}
+  <h2>Hazard Register (${hz.length} hazard${hz.length !== 1 ? "s" : ""})</h2>
+  ${hz.length === 0 ? `<p style="color:#999;font-size:9pt">No hazards recorded.</p>` : `
   <table>
     <thead><tr>
       <th style="width:25px">#</th>
@@ -502,11 +501,11 @@ export default function RaBuilder() {
     <tbody>${hazardRows}</tbody>
   </table>`}
   <div class="signoff">
-    <div class="signoff-box"><div class="signoff-role">Prepared By</div><div>${esc(assessment.preparedBy)}</div><div class="sig-line">Signature</div></div>
-    <div class="signoff-box"><div class="signoff-role">Reviewed By</div><div>${esc(assessment.reviewedBy)}</div><div class="sig-line">Signature</div></div>
-    <div class="signoff-box"><div class="signoff-role">Approved By</div><div>${esc(assessment.approvedBy)}</div><div class="sig-line">Signature</div></div>
+    <div class="signoff-box"><div class="signoff-role">Prepared By</div><div>${esc(a.preparedBy)}</div><div class="sig-line">Signature</div></div>
+    <div class="signoff-box"><div class="signoff-role">Reviewed By</div><div>${esc(a.reviewedBy)}</div><div class="sig-line">Signature</div></div>
+    <div class="signoff-box"><div class="signoff-role">Approved By</div><div>${esc(a.approvedBy)}</div><div class="sig-line">Signature</div></div>
   </div>
-  ${assessment.notes ? `<div class="notes"><strong>Notes:</strong> ${esc(assessment.notes)}</div>` : ""}
+  ${a.notes ? `<div class="notes"><strong>Notes:</strong> ${esc(a.notes)}</div>` : ""}
   <div class="footer">
     <span>TPR — Connected Workforce &amp; Site Safety Platform</span>
     <span>Generated: ${new Date().toLocaleString("en-GB")}</span>
@@ -521,6 +520,18 @@ export default function RaBuilder() {
     win.document.write(html);
     win.document.close();
     setTimeout(() => win.print(), 600);
+  };
+
+  const handleExportPdf = () => buildAndPrint(assessment, hazards, typeMetadata, currentAssessmentId);
+
+  const printAssessment = async (id: string) => {
+    try {
+      const res = await apiRequest("GET", `/api/ra-builder/assessments/${id}`);
+      const full = await res.json();
+      buildAndPrint(full, full.hazards || [], JSON.parse(full.typeMetadata || "{}"), id);
+    } catch {
+      toast({ title: "Couldn't open that assessment to print", variant: "destructive" });
+    }
   };
 
   // ── Navigation ───────────────────────────────────────────────────────────
@@ -937,7 +948,7 @@ export default function RaBuilder() {
                     </div>
                     <div className="flex gap-2 flex-wrap">
                       <Button size="sm" variant="outline" className="flex-1" onClick={() => openEditor(a)}>Edit</Button>
-                      <Button size="sm" variant="outline" onClick={() => { openEditor(a); setTimeout(handlePrint, 300); }}>
+                      <Button size="sm" variant="outline" onClick={() => printAssessment(a.id)}>
                         <Printer className="h-3.5 w-3.5" />
                       </Button>
                       <AlertDialog>

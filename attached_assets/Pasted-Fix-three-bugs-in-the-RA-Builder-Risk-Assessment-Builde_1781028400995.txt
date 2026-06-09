@@ -1,0 +1,28 @@
+Fix three bugs in the RA Builder (Risk Assessment Builder) module. Files: client/src/pages/RaBuilder.tsx and server/routes/raBuilder.ts. Please make these exact changes and don't touch anything else.
+
+Bug 1 — Print icon on the assessment list cards crashes.
+In client/src/pages/RaBuilder.tsx, the list-view card has a printer button that calls handlePrint, which doesn't exist anywhere — clicking it throws a ReferenceError. The print logic (handleExportPdf) also reads component state, so it can't reliably print an assessment straight from the list (the hazards aren't loaded yet).
+
+Fix:
+
+Refactor the existing handleExportPdf into a reusable function buildAndPrint(a, hz, meta, refId) that takes the assessment, its hazards array, the parsed typeMetadata object, and the assessment id — and builds/prints the HTML from those arguments instead of from component state.
+Keep an editor wrapper: const handleExportPdf = () => buildAndPrint(assessment, hazards, typeMetadata, currentAssessmentId);
+Add a list wrapper that fetches the full record first:
+const printAssessment = async (id: string) => {
+  try {
+    const res = await apiRequest("GET", `/api/ra-builder/assessments/${id}`);
+    const full = await res.json();
+    buildAndPrint(full, full.hazards || [], JSON.parse(full.typeMetadata || "{}"), id);
+  } catch {
+    toast({ title: "Couldn't open that assessment to print", variant: "destructive" });
+  }
+};
+Change the list card's printer button to onClick={() => printAssessment(a.id)} (remove the old openEditor(a); setTimeout(handlePrint, 300)).
+Bug 2 — Re-ordering hazards never saves.
+In client/src/pages/RaBuilder.tsx, the reorderHazard function calls apiRequest with four arguments, but apiRequest(method, url, data) only takes three. The reorder array is dropped and an empty {} is sent as the body, so the server throws a 500 and the new order is lost on refresh. Fix: pass the array as the third (data) argument:
+
+await apiRequest("POST", `/api/ra-builder/assessments/${currentAssessmentId}/hazards/reorder`, withOrder.map((h) => ({ id: h.id, sortOrder: h.sortOrder })));
+Bug 3 — List cards always show "0 hazards" and no risk badge.
+In server/routes/raBuilder.ts, the GET /api/ra-builder/assessments route returns assessments with no hazards, but the list cards read a.hazards to show the hazard count and highest risk rating — so they're always empty. Fix: after fetching the assessment rows, fetch all hazards once, group them by assessmentId in JS, and attach a hazards array to each assessment before sending the response. (One extra query, no N+1.)
+
+After making the changes, run npx tsc and confirm there are no new type errors.

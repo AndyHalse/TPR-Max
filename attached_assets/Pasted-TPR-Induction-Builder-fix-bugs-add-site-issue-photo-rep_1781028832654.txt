@@ -1,0 +1,26 @@
+TPR Induction Builder: fix bugs + add site-issue photo reporting
+
+Context: This is the TPR Max H&S induction system. The main page is client/src/pages/InductionSettings.tsx (route /induction-settings), backed by server/routes/induction.ts. The Near-Miss/Incident register is client/src/pages/HSIncidents.tsx, backed by server/routes/hsIncidents.ts and the hs_incidents table in server/isolatedSchema.ts. There's already a working photo-upload pattern for induction slides — POST /api/induction/settings/:roleType/scenes/photo, which stores to object storage and returns { url }, displayed via /objects<url>. Reuse that exact pattern for all new photo uploads. Don't invent a new storage mechanism.
+
+Do these in order. Run the app and verify each before moving on.
+
+PART A — Four bugs on the induction page
+
+Wrong attempts count. In InductionSettings.tsx the UI shows {attempts}/3 attempts (around line 171), but the backend (server/routes/induction.ts, ~line 788) allows 5 attempts before lockout. Change the display to /5. Better: define the limit as a single shared constant (e.g. MAX_QUIZ_ATTEMPTS = 5) used by both the lockout check and the display so they can never drift apart again.
+Custom MP4 uploads are treated as "nothing generated". hasVideo is computed only from settings?.generatedAt (~line 342). A custom uploaded video doesn't set generatedAt, so the page shows "Not Generated" and the kiosk toggle stays disabled (~line 939) — meaning you can't turn the induction on at the kiosk if you use your own video. Fix hasVideo to be true when either AI slides exist (generatedAt != null) or a custom video exists (customVideoUrl is set). Make sure the "Ready" badge and the kiosk toggle both respect this.
+Step numbering skips 5. The cards run Step 1, 2, 3, 4, then jump to 6 ("Delivery & Records"), and the intro text says "Steps 2–5". Renumber Delivery & Records to Step 5 and fix any text that references the old numbers so the sequence is clean 1→5.
+Hard-coded question count. The "What's included" summary says "10 scenario-based quiz questions" (~line 1016). Make this reflect the actual number of generated questions, or reword to "scenario-based quiz questions" without a fixed number.
+PART B — New feature: report a site issue with a photo + description
+
+Right now the Near-Miss/Incident/Good Spot register captures text only — there's no way to attach a photo of the hazard. Add photo support, and let inductees report hazards during their induction walk-around. Build it as one shared photo-capable hazard-report component with two entry points.
+
+Database + backend. Add photo support to hs_incidents (a photo_url text column is fine for a single photo; a small hs_incident_photos table if you want multiple). Write a migration consistent with how other migrations in this project run. Add an upload endpoint that reuses the existing object-storage pattern from the slide-photo upload. Return the stored URL the same way.
+Register UI (HSIncidents.tsx). In the create/edit incident form, add a "Photo of the issue" upload (drag-or-click, mobile camera supported via accept="image/*" + capture), with a thumbnail preview and remove option. Show the thumbnail in the incident list/detail view.
+Induction walk-around entry point. During the induction walk-around (the QR checkpoint flow — find the public/inductee-facing checkpoint and induction pages, e.g. the route behind /induction/checkpoint/:qrToken), add a clear "Report a hazard" action. It opens the same photo + description form and creates a record in hs_incidents (record type near_miss or good_spot), tagged so the manager can see it came from an induction. Keep it dead simple: take photo → short description → submit → "Thanks, reported."
+Admin control on the induction page. Add a toggle in the induction settings (sensible place is the "Delivery & Records" card) — "Let inductees report site hazards with a photo during their walk-around" — that switches the walk-around entry point on/off. Default on.
+Constraints
+
+Plain, calm UI on the inductee-facing screens — these may run on a kiosk or a worker's phone. No glassmorphism on kiosk/emergency screens.
+British spelling throughout the UI copy (colour, organise, etc.).
+Don't break existing induction generation, the slide editor, checkpoints, or the existing register.
+Acceptance check (do this and report back): quiz screen shows "/5"; uploading a custom MP4 flips the page to "Ready" and lets you enable the kiosk toggle; steps read 1–5 with no gap; an inductee can photograph a hazard during the walk-around and it appears in the Near-Miss register with the photo; a manager can attach a photo when logging an incident directly.
