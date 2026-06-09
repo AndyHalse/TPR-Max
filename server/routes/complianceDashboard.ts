@@ -208,7 +208,45 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
       const indScore = indTotal === 0 ? 100 : Math.round((indCompliant / indTotal) * 100);
 
-      // ── 4. Compliance Certificates ────────────────────────────────────────────
+      // ── 4. Staff Right to Work ────────────────────────────────────────────────
+      let rtwTracked = 0, rtwCompliant = 0, rtwExpiring = 0, rtwExpired = 0;
+      try {
+        const rtwResult = await pool.query(
+          `SELECT rtw.staff_id, rtw.expiry_date, s.first_name, s.last_name, s.department
+           FROM "${schemaName}".right_to_work rtw
+           JOIN "${schemaName}".staff s ON s.id = rtw.staff_id
+           WHERE rtw.is_current = TRUE AND rtw.expiry_date IS NOT NULL AND s.is_active = TRUE`
+        );
+        rtwTracked = rtwResult.rows.length;
+        for (const row of rtwResult.rows) {
+          const days = daysUntil(row.expiry_date)!;
+          const staffName = `${row.first_name} ${row.last_name}`;
+          if (days < 0) {
+            rtwExpired++;
+            criticalIssues.push({
+              id: `rtw-expired-${row.staff_id}`, category: 'Staff Right to Work', severity: 'critical',
+              title: 'Right to Work expired', detail: `${staffName} (${row.department}) — expired ${Math.abs(days)} days ago`,
+              daysOverdue: Math.abs(days), linkPath: '/hr',
+            });
+          } else if (days <= 30) {
+            rtwExpiring++;
+            warnings.push({
+              id: `rtw-expiring-${row.staff_id}`, category: 'Staff Right to Work', severity: 'warning',
+              title: 'Right to Work expiring soon', detail: `${staffName} — expires in ${days} days`, linkPath: '/hr',
+            });
+            addTimeline(row.expiry_date, 'Staff Right to Work', `${staffName} — Right to Work`);
+          } else {
+            rtwCompliant++;
+            addTimeline(row.expiry_date, 'Staff Right to Work', `${staffName} — Right to Work`);
+          }
+        }
+      } catch (e: any) {
+        logger.warn('RTW query error (non-fatal):', e.message);
+      }
+
+      const rtwScore = rtwTracked === 0 ? 100 : Math.round((rtwCompliant / rtwTracked) * 100);
+
+      // ── 5. Compliance Certificates ────────────────────────────────────────────
       let certsTotal = 0, certsCompliant = 0, certsExpiring = 0, certsExpired = 0;
       try {
         const certRows = await pool.query(
@@ -247,7 +285,135 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
       const certsScore = certsTotal === 0 ? 100 : Math.round((certsCompliant / certsTotal) * 100);
 
-      // ── 5. PPM Work Orders ────────────────────────────────────────────────────
+      // ── 6. Permits to Work ────────────────────────────────────────────────────
+      let permitsTotal = 0, permitsCompliant = 0, permitsExpired = 0, permitsPending = 0;
+      try {
+        const permitsResult = await pool.query(
+          `SELECT id, work_description, status, permit_valid_until, permit_number
+           FROM "${schemaName}".permit_to_work
+           WHERE status NOT IN ('completed', 'rejected', 'draft')
+           AND created_at >= $1`,
+          [ago12Months.toISOString()]
+        );
+        for (const row of permitsResult.rows) {
+          permitsTotal++;
+          const validUntil = row.permit_valid_until ? new Date(row.permit_valid_until) : null;
+          const days = validUntil ? daysUntil(validUntil) : null;
+          if (row.status === 'expired' || (days !== null && days < 0)) {
+            permitsExpired++;
+            criticalIssues.push({
+              id: `permit-expired-${row.id}`, category: 'Permits to Work', severity: 'critical',
+              title: 'Permit to Work expired without closure', detail: `${row.work_description} (${row.permit_number})`,
+              daysOverdue: days !== null ? Math.abs(days) : undefined, linkPath: '/permit-to-work',
+            });
+          } else if (row.status === 'pending') {
+            permitsPending++;
+            warnings.push({
+              id: `permit-pending-${row.id}`, category: 'Permits to Work', severity: 'warning',
+              title: 'Permit to Work awaiting authorisation', detail: `${row.work_description} (${row.permit_number})`, linkPath: '/permit-to-work',
+            });
+          } else {
+            permitsCompliant++;
+            if (days !== null && days <= 7) {
+              addTimeline(row.permit_valid_until, 'Permits to Work', row.work_description);
+            }
+          }
+        }
+      } catch (e: any) {
+        logger.warn('Permits query error (non-fatal):', e.message);
+      }
+
+      const permitsScore = permitsTotal === 0 ? 100 : Math.round((permitsCompliant / permitsTotal) * 100);
+
+      // ── 7. Risk Assessments ───────────────────────────────────────────────────
+      let raTotal = 0, raCompliant = 0, raReviewDue = 0;
+      try {
+        const raRows = await custDb.select({
+          id: schema.raBuilderAssessments.id,
+          title: schema.raBuilderAssessments.title,
+          status: schema.raBuilderAssessments.status,
+          nextReviewDate: schema.raBuilderAssessments.nextReviewDate,
+        }).from(schema.raBuilderAssessments)
+          .where(ne(schema.raBuilderAssessments.status, 'archived'));
+
+        for (const ra of raRows) {
+          raTotal++;
+          const reviewDays = daysUntil(ra.nextReviewDate);
+          if (reviewDays !== null && reviewDays < 0) {
+            raReviewDue++;
+            criticalIssues.push({
+              id: `ra-overdue-${ra.id}`, category: 'Risk Assessments', severity: 'critical',
+              title: 'Risk Assessment review overdue', detail: ra.title,
+              daysOverdue: Math.abs(reviewDays), linkPath: '/ra-builder',
+            });
+          } else if (ra.status === 'review') {
+            raReviewDue++;
+            warnings.push({
+              id: `ra-review-${ra.id}`, category: 'Risk Assessments', severity: 'warning',
+              title: 'Risk Assessment pending review', detail: ra.title, linkPath: '/ra-builder',
+            });
+            addTimeline(ra.nextReviewDate, 'Risk Assessments', ra.title);
+          } else {
+            raCompliant++;
+            addTimeline(ra.nextReviewDate, 'Risk Assessments', `${ra.title} — review`);
+          }
+        }
+      } catch (e: any) {
+        logger.warn('RA query error (non-fatal):', e.message);
+      }
+
+      const raScore = raTotal === 0 ? 100 : Math.round((raCompliant / raTotal) * 100);
+
+      // ── 8. Audits ─────────────────────────────────────────────────────────────
+      let auditsTotal = 0, auditsCompliant = 0, auditsOverdue = 0;
+      try {
+        const auditRows = await custDb.select({
+          id: schema.auditRecords.id,
+          title: schema.auditRecords.title,
+          status: schema.auditRecords.status,
+          scheduledDate: schema.auditRecords.scheduledDate,
+          passed: schema.auditRecords.passed,
+        }).from(schema.auditRecords);
+
+        for (const audit of auditRows) {
+          if (audit.status === 'completed') {
+            auditsTotal++;
+            if (audit.passed !== false) {
+              auditsCompliant++;
+            } else {
+              criticalIssues.push({
+                id: `audit-failed-${audit.id}`, category: 'Audits', severity: 'critical',
+                title: 'Audit failed', detail: audit.title, linkPath: '/audits',
+              });
+            }
+          } else if (audit.status === 'overdue') {
+            auditsTotal++;
+            auditsOverdue++;
+            criticalIssues.push({
+              id: `audit-overdue-${audit.id}`, category: 'Audits', severity: 'critical',
+              title: 'Audit overdue', detail: audit.title, linkPath: '/audits',
+            });
+          } else if (audit.status === 'scheduled' && audit.scheduledDate) {
+            const scheduledDays = daysUntil(audit.scheduledDate);
+            if (scheduledDays !== null && scheduledDays < 0) {
+              auditsTotal++;
+              auditsOverdue++;
+              warnings.push({
+                id: `audit-missed-${audit.id}`, category: 'Audits', severity: 'warning',
+                title: 'Scheduled audit missed', detail: `${audit.title} — was due ${Math.abs(scheduledDays)} days ago`, linkPath: '/audits',
+              });
+            } else if (scheduledDays !== null && scheduledDays <= 14) {
+              addTimeline(audit.scheduledDate, 'Audits', audit.title);
+            }
+          }
+        }
+      } catch (e: any) {
+        logger.warn('Audit query error (non-fatal):', e.message);
+      }
+
+      const auditsScore = auditsTotal === 0 ? 100 : Math.round((auditsCompliant / auditsTotal) * 100);
+
+      // ── 9. PPM Work Orders ────────────────────────────────────────────────────
       let ppmTotal = 0, ppmOverdue = 0, ppmDueSoon = 0;
       try {
         const ppmOrders = await custDb.select({
@@ -289,7 +455,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       const ppmCompliant = ppmTotal - ppmOverdue;
       const ppmScore = ppmTotal === 0 ? 100 : Math.round((ppmCompliant / ppmTotal) * 100);
 
-      // ── 6. Fire Risk Assessments ──────────────────────────────────────────────
+      // ── 10. Fire Risk Assessments ─────────────────────────────────────────────
       let fraTotal = 0, fraCurrent = 0, fraReviewDue = 0, fraOverdue = 0;
       try {
         const fras = await custDb.select().from(schema.fireRiskAssessments);
@@ -319,55 +485,31 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
       const fraScore = fraTotal === 0 ? 100 : Math.round((fraCurrent / fraTotal) * 100);
 
-      // ── 7. Staff Right to Work ────────────────────────────────────────────────
-      let rtwTracked = 0, rtwCompliant = 0, rtwExpiring = 0, rtwExpired = 0;
-      try {
-        const rtwResult = await pool.query(
-          `SELECT rtw.staff_id, rtw.expiry_date, s.first_name, s.last_name, s.department
-           FROM "${schemaName}".right_to_work rtw
-           JOIN "${schemaName}".staff s ON s.id = rtw.staff_id
-           WHERE rtw.is_current = TRUE AND rtw.expiry_date IS NOT NULL AND s.is_active = TRUE`
-        );
-        rtwTracked = rtwResult.rows.length;
-        for (const row of rtwResult.rows) {
-          const days = daysUntil(row.expiry_date)!;
-          const staffName = `${row.first_name} ${row.last_name}`;
-          if (days < 0) {
-            rtwExpired++;
-            criticalIssues.push({
-              id: `rtw-expired-${row.staff_id}`, category: 'Staff Right to Work', severity: 'critical',
-              title: 'Right to Work expired', detail: `${staffName} (${row.department}) — expired ${Math.abs(days)} days ago`,
-              daysOverdue: Math.abs(days), linkPath: '/hr',
-            });
-          } else if (days <= 30) {
-            rtwExpiring++;
-            warnings.push({
-              id: `rtw-expiring-${row.staff_id}`, category: 'Staff Right to Work', severity: 'warning',
-              title: 'Right to Work expiring soon', detail: `${staffName} — expires in ${days} days`, linkPath: '/hr',
-            });
-            addTimeline(row.expiry_date, 'Staff Right to Work', `${staffName} — Right to Work`);
-          } else {
-            rtwCompliant++;
-            addTimeline(row.expiry_date, 'Staff Right to Work', `${staffName} — Right to Work`);
-          }
-        }
-      } catch (e: any) {
-        logger.warn('RTW query error (non-fatal):', e.message);
-      }
-
-      const rtwScore = rtwTracked === 0 ? 100 : Math.round((rtwCompliant / rtwTracked) * 100);
-
-      // ── Overall Score ─────────────────────────────────────────────────────────
-      const overallScore = Math.round(
-        insScore * 0.20 +
-        ramsScore * 0.15 +
-        indScore * 0.15 +
-        certsScore * 0.15 +
-        ppmScore * 0.15 +
-        fraScore * 0.10 +
-        rtwScore * 0.10
+      // ── Domain Scores ─────────────────────────────────────────────────────────
+      // Contractor: Insurance (35%), RAMS (25%), Inductions (25%), Right to Work (15%)
+      const contractorScore = Math.round(
+        insScore * 0.35 +
+        ramsScore * 0.25 +
+        indScore * 0.25 +
+        rtwScore * 0.15
       );
 
+      // Site: Compliance Certs (25%), Permits to Work (20%), Risk Assessments (20%),
+      //       Audits (15%), PPM (10%), Fire Risk Assessment (10%)
+      const siteScore = Math.round(
+        certsScore * 0.25 +
+        permitsScore * 0.20 +
+        raScore * 0.20 +
+        auditsScore * 0.15 +
+        ppmScore * 0.10 +
+        fraScore * 0.10
+      );
+
+      // Overall = 50% contractor + 50% site
+      const overallScore = Math.round(contractorScore * 0.50 + siteScore * 0.50);
+
+      const contractorBand = contractorScore >= 90 ? 'green' : contractorScore >= 70 ? 'amber' : contractorScore >= 50 ? 'orange' : 'red';
+      const siteBand = siteScore >= 90 ? 'green' : siteScore >= 70 ? 'amber' : siteScore >= 50 ? 'orange' : 'red';
       const riskBand = overallScore >= 90 ? 'green' : overallScore >= 70 ? 'amber' : overallScore >= 50 ? 'orange' : 'red';
       const riskLabel = riskBand === 'green' ? 'Good Standing' : riskBand === 'amber' ? 'Attention Required' : riskBand === 'orange' ? 'At Risk' : 'Critical';
 
@@ -378,10 +520,15 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
       expiryTimeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      const totalChecks = insTotal + ramsTotal + indTotal + certsTotal + ppmTotal + fraTotal + rtwTracked;
+      const totalChecks = insTotal + ramsTotal + indTotal + rtwTracked +
+        certsTotal + permitsTotal + raTotal + auditsTotal + ppmTotal + fraTotal;
 
       res.json({
         overallScore,
+        contractorScore,
+        siteScore,
+        contractorBand,
+        siteBand,
         riskBand,
         riskLabel,
         calculatedAt: new Date().toISOString(),
@@ -390,10 +537,13 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           contractorInsurance: { total: insTotal, compliant: insCompliant, expiring: insExpiring, expired: insExpired, score: insScore },
           rams: { total: ramsTotal, compliant: ramsValid, expiring: ramsExpiring, expired: ramsExpired, score: ramsScore },
           inductions: { total: indTotal, compliant: indCompliant, overdue: indOverdue, score: indScore },
+          staffRightToWork: { tracked: rtwTracked, compliant: rtwCompliant, expiring: rtwExpiring, expired: rtwExpired, score: rtwScore },
           complianceCerts: { total: certsTotal, compliant: certsCompliant, expiring: certsExpiring, expired: certsExpired, score: certsScore },
+          permits: { total: permitsTotal, compliant: permitsCompliant, expired: permitsExpired, pending: permitsPending, score: permitsScore },
+          riskAssessments: { total: raTotal, compliant: raCompliant, reviewDue: raReviewDue, score: raScore },
+          audits: { total: auditsTotal, compliant: auditsCompliant, overdue: auditsOverdue, score: auditsScore },
           ppm: { total: ppmTotal, compliant: ppmCompliant, overdue: ppmOverdue, dueSoon: ppmDueSoon, score: ppmScore },
           fireRiskAssessment: { total: fraTotal, current: fraCurrent, reviewDue: fraReviewDue, overdue: fraOverdue, score: fraScore },
-          staffRightToWork: { tracked: rtwTracked, compliant: rtwCompliant, expiring: rtwExpiring, expired: rtwExpired, score: rtwScore },
         },
         criticalIssues,
         warnings,

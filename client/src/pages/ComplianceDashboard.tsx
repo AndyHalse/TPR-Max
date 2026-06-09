@@ -5,7 +5,7 @@ import { format, formatDistanceToNow } from "date-fns";
 import {
   ShieldCheck, AlertTriangle, XCircle, CheckCircle2, Clock, ChevronDown, ChevronUp,
   ArrowRight, RefreshCw, Building2, HardHat, FileText, Wrench, Flame, Users, ScrollText,
-  Download, HelpCircle,
+  Download, HelpCircle, ClipboardList, Shield, ClipboardCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,10 @@ interface TimelineItem {
 
 interface DashboardData {
   overallScore: number;
+  contractorScore: number;
+  siteScore: number;
+  contractorBand: "green" | "amber" | "orange" | "red";
+  siteBand: "green" | "amber" | "orange" | "red";
   riskBand: "green" | "amber" | "orange" | "red";
   riskLabel: string;
   calculatedAt: string;
@@ -41,10 +45,13 @@ interface DashboardData {
     contractorInsurance: CategoryStat;
     rams: CategoryStat;
     inductions: CategoryStat;
+    staffRightToWork: CategoryStat;
     complianceCerts: CategoryStat;
+    permits: CategoryStat;
+    riskAssessments: CategoryStat;
+    audits: CategoryStat;
     ppm: CategoryStat;
     fireRiskAssessment: CategoryStat;
-    staffRightToWork: CategoryStat;
   };
   criticalIssues: CriticalIssue[];
   warnings: CriticalIssue[];
@@ -72,9 +79,25 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
     label: "Contractor Inductions", icon: HardHat, link: "/contractors",
     stat: c => c.total === 0 ? "No active workers" : c.overdue ? `${c.overdue} overdue` : `All ${c.total} inducted`,
   },
+  staffRightToWork: {
+    label: "Staff Right to Work", icon: Users, link: "/hr",
+    stat: c => (c.tracked ?? 0) === 0 ? "None tracked" : c.expired ? `${c.expired} expired` : c.expiring ? `${c.expiring} expiring soon` : `All ${c.tracked} compliant`,
+  },
   complianceCerts: {
     label: "Compliance Certificates", icon: ShieldCheck, link: "/compliance-certificates",
     stat: c => c.total === 0 ? "No certificates" : c.expired ? `${c.expired} expired` : c.expiring ? `${c.expiring} expiring soon` : `All ${c.total} current`,
+  },
+  permits: {
+    label: "Permits to Work", icon: ClipboardCheck, link: "/permit-to-work",
+    stat: c => c.total === 0 ? "No active permits" : c.expired ? `${c.expired} expired unclosed` : (c as any).pending ? `${(c as any).pending} awaiting auth` : `${c.total} in order`,
+  },
+  riskAssessments: {
+    label: "Risk Assessments", icon: AlertTriangle, link: "/ra-builder",
+    stat: c => c.total === 0 ? "None recorded" : c.reviewDue ? `${c.reviewDue} review due` : `${c.total} assessed`,
+  },
+  audits: {
+    label: "Audits", icon: ClipboardList, link: "/audits",
+    stat: c => c.total === 0 ? "No audits run" : c.overdue ? `${c.overdue} overdue` : `${c.compliant} of ${c.total} passed`,
   },
   ppm: {
     label: "PPM / Maintenance", icon: Wrench, link: "/ppm",
@@ -84,13 +107,32 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
     label: "Fire Risk Assessment", icon: Flame, link: "/fire-risk-assessment",
     stat: c => c.total === 0 ? "None recorded" : c.overdue ? `${c.overdue} overdue` : c.reviewDue ? `${c.reviewDue} review due` : `${c.current} current`,
   },
-  staffRightToWork: {
-    label: "Staff Right to Work", icon: Users, link: "/hr",
-    stat: c => (c.tracked ?? 0) === 0 ? "None tracked" : c.expired ? `${c.expired} expired` : c.expiring ? `${c.expiring} expiring soon` : `All ${c.tracked} compliant`,
-  },
 };
 
-function ScoreArc({ score, band }: { score: number; band: keyof typeof BAND_COLOURS }) {
+function ScoreArc({ score, band, size = 140 }: { score: number; band: keyof typeof BAND_COLOURS; size?: number }) {
+  const scale = size / 140;
+  const r = 54 * scale;
+  const cx = size / 2; const cy = size / 2;
+  const strokeW = 10 * scale;
+  const circumference = 2 * Math.PI * r;
+  const offset = circumference * (1 - score / 100);
+  const colour = BAND_COLOURS[band].arc;
+
+  return (
+    <svg width={size} height={size} className="rotate-[-90deg]">
+      <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth={strokeW} />
+      <circle
+        cx={cx} cy={cy} r={r} fill="none"
+        stroke="white"
+        strokeDasharray={circumference} strokeDashoffset={offset}
+        strokeLinecap="round" strokeWidth={strokeW}
+        style={{ transition: "stroke-dashoffset 0.6s ease" }}
+      />
+    </svg>
+  );
+}
+
+function ScoreArcMain({ score, band }: { score: number; band: keyof typeof BAND_COLOURS }) {
   const r = 54;
   const cx = 70; const cy = 70;
   const circumference = 2 * Math.PI * r;
@@ -108,6 +150,45 @@ function ScoreArc({ score, band }: { score: number; band: keyof typeof BAND_COLO
         style={{ transition: "stroke-dashoffset 0.6s ease" }}
       />
     </svg>
+  );
+}
+
+function DomainPanel({
+  title, icon, score, band, catKeys, categories, headerGradient, ringClass, badgeClass,
+}: {
+  title: string; icon: React.ReactNode; score: number; band: keyof typeof BAND_COLOURS;
+  catKeys: string[]; categories: Record<string, CategoryStat>;
+  headerGradient: string; ringClass: string; badgeClass: string;
+}) {
+  const bandLabel = score >= 90 ? "Good Standing" : score >= 70 ? "Attention Required" : score >= 50 ? "At Risk" : "Critical";
+  return (
+    <Card variant="glass" className={`ring-2 ${ringClass} overflow-hidden`}>
+      <div className={`bg-gradient-to-r ${headerGradient} p-4`}>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 text-white mb-0.5">
+              {icon}
+              <h3 className="text-base font-bold">{title}</h3>
+            </div>
+            <p className="text-white/80 text-sm font-semibold">{bandLabel}</p>
+          </div>
+          <div className="relative flex items-center justify-center shrink-0">
+            <ScoreArc score={score} band={band} size={80} />
+            <div className="absolute inset-0 flex flex-col items-center justify-center">
+              <span className="text-2xl font-black text-white leading-none">{score}</span>
+              <span className="text-white/60 text-[10px]">/ 100</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <CardContent className="p-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {catKeys.map(key => (
+            <CategoryCard key={key} catKey={key} data={categories[key]} />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -182,10 +263,13 @@ const TIMELINE_CATEGORY_COLOURS: Record<string, string> = {
   "Contractor Insurance": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
   "RAMS": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   "Contractor Inductions": "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
+  "Staff Right to Work": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
   "Compliance Certificates": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+  "Permits to Work": "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
+  "Risk Assessments": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  "Audits": "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300",
   "PPM": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
   "Fire Risk Assessment": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
-  "Staff Right to Work": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
 };
 
 function groupTimelineItems(items: TimelineItem[]) {
@@ -703,7 +787,8 @@ export default function ComplianceDashboard() {
   const visibleWarnings = showAllWarnings ? data.warnings : data.warnings.slice(0, MAX_VISIBLE);
   const timelineGroups = groupTimelineItems(data.expiryTimeline);
 
-  const catKeys = ["contractorInsurance", "rams", "inductions", "complianceCerts", "ppm", "fireRiskAssessment", "staffRightToWork"] as const;
+  const contractorKeys = ["contractorInsurance", "rams", "inductions", "staffRightToWork"];
+  const siteKeys = ["complianceCerts", "permits", "riskAssessments", "audits", "ppm", "fireRiskAssessment"];
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
@@ -750,7 +835,7 @@ export default function ComplianceDashboard() {
         <div className={`bg-gradient-to-r ${bc.bg} p-6 text-white`}>
           <div className="flex items-center gap-8 flex-wrap">
             <div className="relative flex items-center justify-center">
-              <ScoreArc score={data.overallScore} band={band} />
+              <ScoreArcMain score={data.overallScore} band={band} />
               <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className="text-4xl font-black leading-none">{data.overallScore}</span>
                 <span className="text-xs text-white/70 mt-0.5">/ 100</span>
@@ -784,14 +869,30 @@ export default function ComplianceDashboard() {
         </div>
       </Card>
 
-      {/* Section 2 — Category Scores */}
-      <div>
-        <h2 className="text-base font-semibold text-gray-800 dark:text-gray-200 mb-3">Category Breakdown</h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {catKeys.map(key => (
-            <CategoryCard key={key} catKey={key} data={(data.categories as any)[key]} />
-          ))}
-        </div>
+      {/* Section 2 — Contractor vs Site Domain Panels */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <DomainPanel
+          title="Contractor Compliance"
+          icon={<HardHat className="h-5 w-5" />}
+          score={data.contractorScore ?? data.overallScore}
+          band={data.contractorBand ?? data.riskBand}
+          catKeys={contractorKeys}
+          categories={data.categories as any}
+          headerGradient="from-blue-600 to-blue-700"
+          ringClass="ring-blue-300 dark:ring-blue-700"
+          badgeClass="bg-blue-100 text-blue-800"
+        />
+        <DomainPanel
+          title="Site Compliance"
+          icon={<Shield className="h-5 w-5" />}
+          score={data.siteScore ?? data.overallScore}
+          band={data.siteBand ?? data.riskBand}
+          catKeys={siteKeys}
+          categories={data.categories as any}
+          headerGradient="from-amber-500 to-orange-600"
+          ringClass="ring-amber-300 dark:ring-amber-700"
+          badgeClass="bg-amber-100 text-amber-800"
+        />
       </div>
 
       {/* Section 3 — Issues & Warnings */}
@@ -947,12 +1048,17 @@ export default function ComplianceDashboard() {
       {/* Scoring methodology note */}
       <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 p-4 text-xs text-gray-500 dark:text-gray-400">
         <p className="font-semibold text-gray-700 dark:text-gray-300 mb-1">How the score is calculated</p>
-        <p>
-          The overall score is a weighted average of 7 compliance categories: Contractor Insurance (20%), RAMS Documents (15%),
-          Contractor Inductions (15%), Compliance Certificates (15%), PPM / Maintenance (15%), Fire Risk Assessment (10%),
-          and Staff Right to Work (10%). Each category scores 0–100 based on compliant vs total items.
-          Categories with no tracked items score 100 (not applicable).
-        </p>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="font-medium text-blue-700 dark:text-blue-400 mb-0.5">🟦 Contractor Compliance (50% of overall)</p>
+            <p>Contractor Insurance (35%) · RAMS Documents (25%) · Contractor Inductions (25%) · Staff Right to Work (15%)</p>
+          </div>
+          <div>
+            <p className="font-medium text-amber-700 dark:text-amber-400 mb-0.5">🟧 Site Compliance (50% of overall)</p>
+            <p>Compliance Certificates (25%) · Permits to Work (20%) · Risk Assessments (20%) · Audits (15%) · PPM (10%) · Fire Risk Assessment (10%)</p>
+          </div>
+        </div>
+        <p className="mt-2">Each category scores 0–100 based on compliant vs total tracked items. Categories with no tracked items score 100 (not applicable).</p>
       </div>
     </div>
   );
