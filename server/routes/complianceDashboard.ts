@@ -112,6 +112,10 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       const insScore = insTotal === 0 ? 100 : Math.round((insCompliant / insTotal) * 100);
 
       // ── 2. RAMS Documents ─────────────────────────────────────────────────────
+      // NOTE: ramsDocuments.status is NOT kept in sync with expiryDate — nothing in
+      // the system ever transitions it to 'expiring'/'expired'. So compute expiry
+      // LIVE from expiryDate (matching Contractor Insurance / Compliance Certificates),
+      // and treat the stored status only as a backstop for manual overrides.
       const rams = await custDb.select().from(schema.ramsDocuments)
         .where(eq(schema.ramsDocuments.isActive, true));
 
@@ -119,23 +123,39 @@ export function registerComplianceDashboardRoutes(app: Express): void {
 
       for (const r of rams) {
         const companyName = companies.find(c => c.id === r.companyId)?.name;
-        if (r.status === 'expired') {
+        const ramsDays = daysUntil(r.expiryDate);
+
+        if (r.status === 'expired' || (ramsDays !== null && ramsDays < 0)) {
           ramsExpired++;
           criticalIssues.push({
             id: `rams-expired-${r.id}`, category: 'RAMS Documents', severity: 'critical',
-            title: 'RAMS document expired', detail: `${r.documentName} (${r.ramsIdRef})`, linkPath: '/contractors',
+            title: 'RAMS document expired',
+            detail: ramsDays !== null && ramsDays < 0
+              ? `${r.documentName} (${r.ramsIdRef}) — expired ${Math.abs(ramsDays)} days ago`
+              : `${r.documentName} (${r.ramsIdRef})`,
+            daysOverdue: ramsDays !== null && ramsDays < 0 ? Math.abs(ramsDays) : undefined,
+            linkPath: '/contractors',
           });
           if (companyName && r.companyId) {
             ensureContractorRisk(r.companyId, companyName);
             contractorRiskMap[r.companyId].issues.push(`RAMS expired: ${r.documentName}`);
             contractorRiskMap[r.companyId].issueCount++;
           }
-        } else if (r.status === 'expiring') {
+        } else if (r.status === 'expiring' || (ramsDays !== null && ramsDays <= 30)) {
           ramsExpiring++;
           warnings.push({
             id: `rams-expiring-${r.id}`, category: 'RAMS Documents', severity: 'warning',
-            title: 'RAMS document expiring soon', detail: `${r.documentName} (${r.ramsIdRef})`, linkPath: '/contractors',
+            title: 'RAMS document expiring soon',
+            detail: ramsDays !== null
+              ? `${r.documentName} (${r.ramsIdRef}) — expires in ${ramsDays} days`
+              : `${r.documentName} (${r.ramsIdRef})`,
+            linkPath: '/contractors',
           });
+          if (companyName && r.companyId) {
+            ensureContractorRisk(r.companyId, companyName);
+            contractorRiskMap[r.companyId].issues.push(`RAMS expiring: ${r.documentName}`);
+            contractorRiskMap[r.companyId].issueCount++;
+          }
           addTimeline(r.expiryDate, 'RAMS', r.documentName);
         } else {
           ramsValid++;
