@@ -420,18 +420,32 @@ export default function ComplianceCertificateRegister() {
                       {cert ? 'Renew' : 'Upload'}
                     </Button>
                     {cert?.documentUrl && (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="sm" variant="outline" className="text-xs px-2" asChild>
-                              <a href={`/api/compliance-certificates/${cert.id}/download`} target="_blank" rel="noopener noreferrer">
-                                <Download className="h-3 w-3" />
-                              </a>
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent>Download certificate</TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="outline" className="text-xs px-2" asChild>
+                                <a href={`/api/compliance-certificates/${cert.id}/download`} target="_blank" rel="noopener noreferrer">
+                                  <Eye className="h-3 w-3" />
+                                </a>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>View certificate</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="outline" className="text-xs px-2" asChild>
+                                <a href={`/api/compliance-certificates/${cert.id}/download`} target="_blank" rel="noopener noreferrer" download>
+                                  <Download className="h-3 w-3" />
+                                </a>
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Download certificate</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </>
                     )}
                     <TooltipProvider>
                       <Tooltip>
@@ -569,11 +583,18 @@ export default function ComplianceCertificateRegister() {
                     </div>
                     <div className="flex gap-2 shrink-0">
                       {cert.documentUrl && (
-                        <Button size="sm" variant="outline" asChild>
-                          <a href={`/api/compliance-certificates/${cert.id}/download`} target="_blank" rel="noopener noreferrer">
-                            <Download className="h-3 w-3 mr-1" /> Download
-                          </a>
-                        </Button>
+                        <>
+                          <Button size="sm" variant="outline" asChild>
+                            <a href={`/api/compliance-certificates/${cert.id}/download`} target="_blank" rel="noopener noreferrer">
+                              <Eye className="h-3 w-3 mr-1" /> View
+                            </a>
+                          </Button>
+                          <Button size="sm" variant="outline" asChild>
+                            <a href={`/api/compliance-certificates/${cert.id}/download`} target="_blank" rel="noopener noreferrer" download>
+                              <Download className="h-3 w-3 mr-1" /> Download
+                            </a>
+                          </Button>
+                        </>
                       )}
                       {!cert.isCurrent && (
                         <Button
