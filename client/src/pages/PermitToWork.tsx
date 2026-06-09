@@ -14,8 +14,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   ClipboardList, Plus, Eye, CheckCircle2, XCircle, Clock, AlertTriangle,
   Flame, Zap, HardHat, Wind, Shovel, TriangleAlert, FileWarning,
-  ChevronRight, User, Calendar, MapPin, MoreVertical, RefreshCw, Pause, Play, Lock, Info,
-  Shield, Upload, Trash2, RotateCcw, FileText, ExternalLink
+  ChevronRight, ChevronDown, User, Calendar, MapPin, MoreVertical, RefreshCw, Pause, Play, Lock, Info,
+  Shield, Upload, Trash2, RotateCcw, FileText, ExternalLink, Paperclip
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
@@ -831,42 +831,106 @@ function CreatePermitForm({ onSuccess, onCancel, onGoToCompliance }: {
   onGoToCompliance: () => void;
 }) {
   const { toast } = useToast();
+  const today = new Date().toISOString().slice(0, 10);
+
   const [form, setForm] = useState({
     permitType: '', workDescription: '', workLocation: '',
     plannedStartDate: '', plannedStartTime: '08:00',
     plannedEndDate: '', plannedEndTime: '17:00',
-    staffId: '', staffName: '',
   });
+  const [assigneeMode, setAssigneeMode] = useState<'contractor' | 'staff'>('contractor');
+  const [selectedWorker, setSelectedWorker] = useState<any>(null);
+  const [selectedStaff, setSelectedStaff] = useState<any>(null);
+  const [workerSearch, setWorkerSearch] = useState('');
   const [staffSearch, setStaffSearch] = useState('');
+  const [pastStartWarning, setPastStartWarning] = useState(false);
 
   const { data: staffList = [] } = useQuery<any[]>({ queryKey: ['/api/staff'] });
+  const { data: contractorWorkers = [] } = useQuery<any[]>({
+    queryKey: ['/api/contractors/workers/all'],
+    queryFn: () => apiRequest('GET', '/api/contractors/workers/all').then(r => r.json()),
+  });
   const { data: companyDocs = [] } = useQuery<CompanyDoc[]>({ queryKey: ['/api/ptw/company-documents'] });
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest('POST', '/api/ptw', data);
-      return res.json();
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to create permit');
+      return json;
     },
     onSuccess: (data: any) => onSuccess(data.id),
     onError: (e: any) => toast({ title: e?.message || 'Failed to create permit', variant: 'destructive' }),
   });
 
-  const handleSubmit = () => {
-    const { permitType, workDescription, workLocation, plannedStartDate, plannedStartTime, plannedEndDate, plannedEndTime } = form;
-    if (!permitType || !workDescription || !workLocation || !plannedStartDate || !plannedEndDate) {
-      toast({ title: 'Please fill in all required fields.', variant: 'destructive' }); return;
-    }
-    mutation.mutate(form);
-  };
-
-  // Compliance warning for staff permits — only count legally-required doc types
+  // Compliance warning — only relevant when a contractor is selected
   const legalCompanyDocs = companyDocs.filter(d => LEGAL_DOC_TYPES.includes(d.document_type));
   const expiredDocs = legalCompanyDocs.filter(d => d.status === 'expired');
   const expiringSoonDocs = legalCompanyDocs.filter(d => d.status === 'expiring_soon');
-  const showComplianceWarning = form.staffId && (expiredDocs.length > 0 || expiringSoonDocs.length > 0);
+  const showComplianceWarning = assigneeMode === 'contractor' && !!selectedWorker && (expiredDocs.length > 0 || expiringSoonDocs.length > 0);
+
+  const handleStartDateChange = (v: string) => {
+    setForm(f => ({ ...f, plannedStartDate: v }));
+    const picked = new Date(`${v}T${form.plannedStartTime}:00`);
+    setPastStartWarning(v < today || picked < new Date());
+  };
+
+  const handleSubmit = () => {
+    const { permitType, workDescription, workLocation, plannedStartDate, plannedStartTime, plannedEndDate, plannedEndTime } = form;
+
+    if (!permitType || !workDescription || !workLocation || !plannedStartDate || !plannedEndDate) {
+      toast({ title: 'Please fill in all required fields.', variant: 'destructive' }); return;
+    }
+
+    if (assigneeMode === 'contractor' && !selectedWorker) {
+      toast({ title: 'Please assign a contractor worker to this permit.', variant: 'destructive' }); return;
+    }
+    if (assigneeMode === 'staff' && !selectedStaff) {
+      toast({ title: 'Please assign a staff member to this permit.', variant: 'destructive' }); return;
+    }
+
+    const start = new Date(`${plannedStartDate}T${plannedStartTime}:00`);
+    const end = new Date(`${plannedEndDate}T${plannedEndTime}:00`);
+    if (end <= start) {
+      toast({ title: 'End must be after start', description: 'Please check your start and end dates.', variant: 'destructive' }); return;
+    }
+
+    const payload = {
+      permitType, workDescription, workLocation,
+      plannedStartDate, plannedStartTime, plannedEndDate, plannedEndTime,
+      ...(assigneeMode === 'contractor' ? {
+        contractorWorkerId: selectedWorker.id,
+        contractorWorkerName: `${selectedWorker.firstName} ${selectedWorker.lastName}`,
+        contractorCompanyName: selectedWorker.companyName || null,
+        contractorCompanyId: null,
+        staffId: null,
+        staffName: null,
+      } : {
+        contractorWorkerId: null,
+        contractorWorkerName: null,
+        contractorCompanyName: null,
+        contractorCompanyId: null,
+        staffId: selectedStaff.id,
+        staffName: `${selectedStaff.firstName} ${selectedStaff.lastName}`,
+      }),
+    };
+    mutation.mutate(payload);
+  };
+
+  const selectedPt = form.permitType ? PERMIT_TYPES[form.permitType] : null;
+
+  const filteredWorkers = (contractorWorkers as any[]).filter(w => {
+    const name = `${w.firstName} ${w.lastName} ${w.companyName || ''}`.toLowerCase();
+    return !workerSearch || name.includes(workerSearch.toLowerCase());
+  });
+  const filteredStaff = (staffList as any[]).filter(s => {
+    const name = `${s.firstName} ${s.lastName}`.toLowerCase();
+    return !staffSearch || name.includes(staffSearch.toLowerCase());
+  });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Compliance warning — contractor only */}
       {showComplianceWarning && (
         <div className={`rounded-lg border p-3 text-sm flex items-start gap-2.5 ${expiredDocs.length > 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/40 text-red-700 dark:text-red-300' : 'bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800/40 text-amber-700 dark:text-amber-300'}`}>
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
@@ -883,17 +947,34 @@ function CreatePermitForm({ onSuccess, onCancel, onGoToCompliance }: {
         </div>
       )}
 
+      {/* ── 1. Permit type tiles ── */}
       <div>
-        <Label>Permit type *</Label>
-        <Select value={form.permitType} onValueChange={v => setForm(f => ({ ...f, permitType: v }))}>
-          <SelectTrigger><SelectValue placeholder="Select permit type…" /></SelectTrigger>
-          <SelectContent>
-            {Object.entries(PERMIT_TYPES).map(([k, v]) => (
-              <SelectItem key={k} value={k}>{v.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Label className="text-sm font-medium mb-2 block">Permit type *</Label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {Object.entries(PERMIT_TYPES).map(([k, pt]) => {
+            const PtIcon = pt.icon;
+            const selected = form.permitType === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setForm(f => ({ ...f, permitType: k }))}
+                className={`flex flex-col items-start gap-1.5 p-3 rounded-lg border-2 text-left transition-all ${selected ? `${pt.bg} border-current ${pt.color} ring-2 ring-offset-1 ring-current` : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-800'}`}
+              >
+                <PtIcon className={`h-5 w-5 ${selected ? pt.color : 'text-gray-400'}`} />
+                <span className={`text-xs font-semibold leading-tight ${selected ? pt.color : 'text-gray-700 dark:text-gray-300'}`}>{pt.label}</span>
+              </button>
+            );
+          })}
+        </div>
+        {selectedPt && (
+          <p className="mt-2 text-xs text-muted-foreground flex items-start gap-1.5">
+            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />{selectedPt.description}
+          </p>
+        )}
       </div>
+
+      {/* ── 2. Work details ── */}
       <div>
         <Label>Work description *</Label>
         <Textarea rows={2} value={form.workDescription} onChange={e => setForm(f => ({ ...f, workDescription: e.target.value }))} placeholder="Describe the work to be carried out…" />
@@ -902,10 +983,12 @@ function CreatePermitForm({ onSuccess, onCancel, onGoToCompliance }: {
         <Label>Work location *</Label>
         <Input value={form.workLocation} onChange={e => setForm(f => ({ ...f, workLocation: e.target.value }))} placeholder="e.g. Roof Level 3, Boiler Room B" />
       </div>
+
+      {/* ── 3. Dates ── */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <Label>Start date *</Label>
-          <Input type="date" value={form.plannedStartDate} onChange={e => setForm(f => ({ ...f, plannedStartDate: e.target.value }))} />
+          <Input type="date" min={today} value={form.plannedStartDate} onChange={e => handleStartDateChange(e.target.value)} />
         </div>
         <div>
           <Label>Start time</Label>
@@ -913,53 +996,124 @@ function CreatePermitForm({ onSuccess, onCancel, onGoToCompliance }: {
         </div>
         <div>
           <Label>End date *</Label>
-          <Input type="date" value={form.plannedEndDate} onChange={e => setForm(f => ({ ...f, plannedEndDate: e.target.value }))} />
+          <Input type="date" min={form.plannedStartDate || today} value={form.plannedEndDate} onChange={e => setForm(f => ({ ...f, plannedEndDate: e.target.value }))} />
         </div>
         <div>
           <Label>End time</Label>
           <Input type="time" value={form.plannedEndTime} onChange={e => setForm(f => ({ ...f, plannedEndTime: e.target.value }))} />
         </div>
       </div>
+      {pastStartWarning && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs">
+          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>This start date/time is in the past. The permit can still be created, but it cannot be activated until the start window is current or future.</span>
+        </div>
+      )}
+
+      {/* ── 4. Who's doing the work ── */}
       <div>
-        <Label>Staff member</Label>
-        <Select
-          value={form.staffId}
-          onValueChange={v => {
-            const s = staffList.find((s: any) => s.id === v);
-            setForm(f => ({
-              ...f,
-              staffId: v,
-              staffName: s ? `${s.firstName} ${s.lastName}` : '',
-            }));
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select staff member…" />
-          </SelectTrigger>
-          <SelectContent>
-            <div className="px-2 py-1.5">
-              <Input
-                placeholder="Search staff…"
-                value={staffSearch}
-                onChange={e => setStaffSearch(e.target.value)}
-                className="h-8 text-sm"
-                onKeyDown={e => e.stopPropagation()}
-              />
-            </div>
-            {staffList
-              .filter((s: any) => {
-                const name = `${s.firstName} ${s.lastName}`.toLowerCase();
-                return !staffSearch || name.includes(staffSearch.toLowerCase());
-              })
-              .map((s: any) => (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.firstName} {s.lastName}
-                  {s.jobTitle && <span className="text-muted-foreground ml-1 text-xs">— {s.jobTitle}</span>}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
+        <Label className="text-sm font-medium block mb-2">Who's doing the work? *</Label>
+        <div className="flex rounded-lg border overflow-hidden mb-3">
+          <button
+            type="button"
+            onClick={() => setAssigneeMode('contractor')}
+            className={`flex-1 py-2 text-sm font-medium transition-colors ${assigneeMode === 'contractor' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+          >
+            Contractor
+          </button>
+          <button
+            type="button"
+            onClick={() => setAssigneeMode('staff')}
+            className={`flex-1 py-2 text-sm font-medium transition-colors border-l ${assigneeMode === 'staff' ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700'}`}
+          >
+            Staff member
+          </button>
+        </div>
+
+        {assigneeMode === 'contractor' ? (
+          <div>
+            {selectedWorker ? (
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                <div>
+                  <p className="font-medium text-sm">{selectedWorker.firstName} {selectedWorker.lastName}</p>
+                  {selectedWorker.companyName && <p className="text-xs text-muted-foreground">{selectedWorker.companyName}</p>}
+                </div>
+                <button type="button" onClick={() => setSelectedWorker(null)} className="text-xs text-gray-500 hover:text-red-600 underline">Change</button>
+              </div>
+            ) : (
+              <Select
+                value=""
+                onValueChange={v => {
+                  const w = (contractorWorkers as any[]).find(w => w.id === v);
+                  if (w) setSelectedWorker(w);
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Select contractor worker…" /></SelectTrigger>
+                <SelectContent>
+                  <div className="px-2 py-1.5">
+                    <Input
+                      placeholder="Search by name or company…"
+                      value={workerSearch}
+                      onChange={e => setWorkerSearch(e.target.value)}
+                      className="h-8 text-sm"
+                      onKeyDown={e => e.stopPropagation()}
+                    />
+                  </div>
+                  {filteredWorkers.length === 0 && (
+                    <div className="px-3 py-2 text-xs text-muted-foreground">No contractor workers found</div>
+                  )}
+                  {filteredWorkers.map(w => (
+                    <SelectItem key={w.id} value={w.id}>
+                      <span className="font-medium">{w.firstName} {w.lastName}</span>
+                      {w.companyName && <span className="text-muted-foreground ml-1 text-xs">— {w.companyName}</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        ) : (
+          <div>
+            {selectedStaff ? (
+              <div className="flex items-center justify-between p-3 rounded-lg border bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                <div>
+                  <p className="font-medium text-sm">{selectedStaff.firstName} {selectedStaff.lastName}</p>
+                  {selectedStaff.jobTitle && <p className="text-xs text-muted-foreground">{selectedStaff.jobTitle}</p>}
+                </div>
+                <button type="button" onClick={() => setSelectedStaff(null)} className="text-xs text-gray-500 hover:text-red-600 underline">Change</button>
+              </div>
+            ) : (
+              <Select
+                value=""
+                onValueChange={v => {
+                  const s = (staffList as any[]).find(s => s.id === v);
+                  if (s) setSelectedStaff(s);
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Select staff member…" /></SelectTrigger>
+                <SelectContent>
+                  <div className="px-2 py-1.5">
+                    <Input
+                      placeholder="Search staff…"
+                      value={staffSearch}
+                      onChange={e => setStaffSearch(e.target.value)}
+                      className="h-8 text-sm"
+                      onKeyDown={e => e.stopPropagation()}
+                    />
+                  </div>
+                  {filteredStaff.map(s => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.firstName} {s.lastName}
+                      {s.jobTitle && <span className="text-muted-foreground ml-1 text-xs">— {s.jobTitle}</span>}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
       </div>
+
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
         <Button onClick={handleSubmit} disabled={mutation.isPending}>
@@ -988,7 +1142,12 @@ function PermitDetailView({
   const sc = STATUS_CONFIG[permit.status] || STATUS_CONFIG.draft;
   const PtIcon = pt.icon;
   const [activeTab, setActiveTab] = useState('details');
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [pendingNotes, setPendingNotes] = useState<Record<string, string>>({});
+  const [attachUploading, setAttachUploading] = useState(false);
+  const attachFileRef = useRef<HTMLInputElement>(null);
+  const { toast: attachToast } = useToast();
+  const qcInner = useQueryClient();
 
   const checklist = permit.checklist || [];
   const sections: Record<string, ChecklistItem[]> = {};
@@ -997,8 +1156,14 @@ function PermitDetailView({
     sections[item.checklistSection].push(item);
   }
 
-  const checklistComplete = checklist.length === 0 || checklist.every(i => !i.isRequired || !!i.response);
-  const completedCount = checklist.filter(i => !!i.response).length;
+  const requiredItems = checklist.filter(i => i.isRequired);
+  const noNoteCount = checklist.filter(i => i.response === 'no' && !i.notes && !pendingNotes[i.id]).length;
+  const checklistComplete = requiredItems.length === 0 || (
+    requiredItems.every(i => !!i.response) && noNoteCount === 0
+  );
+  const completedCount = requiredItems.filter(i =>
+    !!i.response && !(i.response === 'no' && !i.notes && !pendingNotes[i.id])
+  ).length;
 
   const canEdit = permit.status === 'draft' || permit.status === 'submitted';
   const isSameUserAsCreator = permit.createdById === currentUserId;
@@ -1097,6 +1262,67 @@ function PermitDetailView({
             )}
           </div>
 
+          {/* Supporting documents */}
+          {(() => {
+            const attachments: any[] = permit.attachments || [];
+
+            const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+              const file = e.target.files?.[0];
+              if (!file) return;
+              setAttachUploading(true);
+              try {
+                const fd = new FormData();
+                fd.append('file', file);
+                fd.append('documentType', 'other');
+                const res = await fetch(`/api/ptw/${permit.id}/attachments`, {
+                  method: 'POST',
+                  body: fd,
+                  credentials: 'include',
+                });
+                if (!res.ok) throw new Error('Upload failed');
+                qcInner.invalidateQueries({ queryKey: ['/api/ptw', permit.id] });
+                attachToast({ title: 'Document attached successfully.' });
+              } catch {
+                attachToast({ title: 'Failed to upload document', variant: 'destructive' });
+              } finally {
+                setAttachUploading(false);
+                e.target.value = '';
+              }
+            };
+
+            return (
+              <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-xs font-semibold text-gray-600 dark:text-gray-300 uppercase tracking-wider flex items-center gap-1.5">
+                    <Paperclip className="h-3.5 w-3.5" /> Supporting Documents
+                  </h4>
+                  {canEdit && (
+                    <label className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 cursor-pointer font-medium">
+                      <Upload className="h-3.5 w-3.5" />
+                      {attachUploading ? 'Uploading…' : 'Attach file'}
+                      <input ref={attachFileRef} type="file" className="hidden" onChange={handleFileChange} disabled={attachUploading} />
+                    </label>
+                  )}
+                </div>
+                {attachments.length === 0 ? (
+                  <p className="text-xs text-gray-400 italic">No documents attached — add RAMS, method statements or isolation certificates here.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {attachments.map((att: any) => (
+                      <li key={att.id} className="flex items-center gap-2 text-xs">
+                        <FileText className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                        <a href={att.fileUrl.startsWith('/objects') ? att.fileUrl : `/objects${att.fileUrl}`} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline truncate flex-1">
+                          {att.fileName}
+                        </a>
+                        {att.uploadedByName && <span className="text-gray-400 shrink-0">— {att.uploadedByName}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Company compliance section */}
           <div className={`rounded-lg border p-3 ${hasComplianceIssues ? 'border-amber-200 dark:border-amber-800/40 bg-amber-50/50 dark:bg-amber-900/10' : 'border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-800/30'}`}>
             <div className="flex items-center justify-between mb-2">
@@ -1137,7 +1363,13 @@ function PermitDetailView({
             {permit.status === 'draft' && (
               <Button size="sm" onClick={() => onAction('submit')} className="bg-amber-600 hover:bg-amber-700 text-white" disabled={!checklistComplete}>
                 <ChevronRight className="h-4 w-4 mr-1" />
-                {checklistComplete ? 'Submit for Authorisation' : `Complete checklist first (${completedCount}/${checklist.length})`}
+                {checklistComplete
+                  ? 'Submit for Authorisation'
+                  : noNoteCount > 0 && completedCount < requiredItems.length
+                    ? `${requiredItems.length - completedCount} item${requiredItems.length - completedCount > 1 ? 's' : ''} + ${noNoteCount} control note${noNoteCount > 1 ? 's' : ''} needed`
+                    : noNoteCount > 0
+                      ? `${noNoteCount} control note${noNoteCount > 1 ? 's' : ''} needed`
+                      : `${requiredItems.length - completedCount} item${requiredItems.length - completedCount > 1 ? 's' : ''} needed`}
               </Button>
             )}
             {permit.status === 'submitted' && isManager && !isSameUserAsCreator && (
@@ -1189,56 +1421,106 @@ function PermitDetailView({
             <div className="text-center py-8 text-gray-500 text-sm">No checklist items for this permit.</div>
           ) : (
             <div className="space-y-3">
+              {/* Running status banner */}
+              <div className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium ${checklistComplete ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/40' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 border border-amber-200 dark:border-amber-800/40'}`}>
+                {checklistComplete ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <Clock className="h-4 w-4 shrink-0" />}
+                <span>
+                  {checklistComplete
+                    ? 'All required items completed — ready to submit'
+                    : `${completedCount} of ${requiredItems.length} required items done${noNoteCount > 0 ? ` · ${noNoteCount} need${noNoteCount === 1 ? 's' : ''} a control note` : ''}`}
+                </span>
+              </div>
+
               {Object.entries(sections).map(([section, items]) => {
-                const sectionComplete = items.every(i => !i.isRequired || !!i.response);
+                const sectionComplete = items.every(i =>
+                  !i.isRequired || (!!i.response && !(i.response === 'no' && !i.notes && !pendingNotes[i.id]))
+                );
+                const isCollapsed = collapsedSections.has(section);
+                const toggleCollapse = () => setCollapsedSections(prev => {
+                  const next = new Set(prev);
+                  if (next.has(section)) next.delete(section); else next.add(section);
+                  return next;
+                });
                 return (
                   <div key={section} className="border dark:border-gray-700 rounded-lg overflow-hidden">
                     <button
-                      className={`w-full flex items-center justify-between px-4 py-2.5 text-sm font-semibold ${sectionComplete ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300' : 'bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200'}`}
-                      onClick={() => setExpandedSection(expandedSection === section ? null : section)}
+                      className={`w-full flex items-center justify-between px-4 py-3 text-sm font-semibold ${sectionComplete ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300' : 'bg-gray-50 dark:bg-gray-800 text-gray-800 dark:text-gray-200'}`}
+                      onClick={toggleCollapse}
                     >
                       <span className="flex items-center gap-2">
                         {sectionComplete ? <CheckCircle2 className="h-4 w-4 text-emerald-600" /> : <Clock className="h-4 w-4 text-amber-500" />}
                         {section}
                       </span>
-                      <span className="text-xs text-gray-500">{items.filter(i => !!i.response).length}/{items.length}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">{items.filter(i => !!i.response).length}/{items.length}</span>
+                        {isCollapsed ? <ChevronRight className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+                      </span>
                     </button>
-                    {(expandedSection === section || !Object.keys(sections).some(s => s !== section && expandedSection === s)) && (
+                    {!isCollapsed && (
                       <div className="divide-y dark:divide-gray-700">
-                        {items.map(item => (
-                          <div key={item.id} className={`px-4 py-3 ${item.response === 'no' ? 'bg-red-50 dark:bg-red-900/10' : ''}`}>
-                            <div className="flex items-start gap-3">
-                              <div className="flex gap-2 mt-0.5">
-                                {['yes', 'no', 'n/a'].map(opt => (
-                                  <button
-                                    key={opt}
-                                    disabled={!canEdit}
-                                    onClick={() => canEdit && onChecklistUpdate(item.id, opt)}
-                                    className={`text-xs px-2 py-0.5 rounded font-medium border transition-colors ${
-                                      item.response === opt
-                                        ? opt === 'yes' ? 'bg-emerald-600 text-white border-emerald-600'
-                                          : opt === 'no' ? 'bg-red-600 text-white border-red-600'
-                                          : 'bg-gray-500 text-white border-gray-500'
-                                        : 'bg-transparent text-gray-500 border-gray-300 dark:border-gray-600 hover:border-gray-500'
-                                    } ${!canEdit ? 'opacity-60 cursor-default' : 'cursor-pointer'}`}
-                                  >
-                                    {opt.toUpperCase()}
-                                  </button>
-                                ))}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm text-gray-800 dark:text-gray-200">
-                                  {item.itemDescription}
-                                  {item.isRequired && <span className="text-red-400 ml-1">*</span>}
-                                </p>
-                                {item.response === 'no' && (
-                                  <p className="text-xs text-red-600 mt-1">Mitigating control note required:</p>
-                                )}
-                                {item.notes && <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 italic">Note: {item.notes}</p>}
+                        {items.map(item => {
+                          const noteValue = pendingNotes[item.id] !== undefined ? pendingNotes[item.id] : (item.notes || '');
+                          const hasNote = noteValue.trim().length > 0;
+                          return (
+                            <div key={item.id} className={`px-4 py-4 ${item.response === 'no' ? 'bg-red-50 dark:bg-red-900/10' : ''}`}>
+                              <div className="flex items-start gap-4">
+                                {/* YES / NO / N/A — bigger tap targets for tablet use */}
+                                <div className="flex flex-col gap-1.5 shrink-0">
+                                  {[
+                                    { opt: 'yes', label: 'YES', selCls: 'bg-emerald-600 text-white border-emerald-600', unselCls: 'border-emerald-300 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-900/20' },
+                                    { opt: 'no',  label: 'NO',  selCls: 'bg-red-600 text-white border-red-600',           unselCls: 'border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-400 dark:hover:bg-red-900/20' },
+                                    { opt: 'n/a', label: 'N/A', selCls: 'bg-gray-500 text-white border-gray-500',         unselCls: 'border-gray-300 text-gray-500 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-400 dark:hover:bg-gray-800' },
+                                  ].map(({ opt, label, selCls, unselCls }) => (
+                                    <button
+                                      key={opt}
+                                      disabled={!canEdit}
+                                      onClick={() => canEdit && onChecklistUpdate(item.id, opt, pendingNotes[item.id])}
+                                      className={`text-sm font-bold border-2 rounded-lg transition-colors min-w-[56px] py-1.5 px-3 ${
+                                        item.response === opt
+                                          ? selCls
+                                          : `bg-white dark:bg-gray-900 ${unselCls}`
+                                      } ${!canEdit ? 'opacity-50 cursor-default' : 'cursor-pointer'}`}
+                                    >
+                                      {label}
+                                    </button>
+                                  ))}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm text-gray-800 dark:text-gray-200 leading-snug">
+                                    {item.itemDescription}
+                                    {item.isRequired && <span className="text-red-400 ml-1 font-bold">*</span>}
+                                  </p>
+
+                                  {/* Control note textarea — shown and required for "No" */}
+                                  {item.response === 'no' && (
+                                    <div className="mt-2.5">
+                                      <label className="text-xs font-semibold text-red-700 dark:text-red-400 block mb-1">
+                                        {hasNote ? '✓ Mitigating control note saved' : 'Mitigating control note required *'}
+                                      </label>
+                                      <textarea
+                                        className={`w-full text-sm border-2 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 ${hasNote ? 'border-emerald-400 dark:border-emerald-600 focus:ring-emerald-400' : 'border-red-300 dark:border-red-700 focus:ring-red-400'}`}
+                                        rows={2}
+                                        placeholder="Describe the mitigating control in place…"
+                                        value={noteValue}
+                                        onChange={e => setPendingNotes(prev => ({ ...prev, [item.id]: e.target.value }))}
+                                        onBlur={() => {
+                                          if (canEdit) onChecklistUpdate(item.id, 'no', pendingNotes[item.id] ?? item.notes ?? '');
+                                        }}
+                                        disabled={!canEdit}
+                                      />
+                                    </div>
+                                  )}
+
+                                  {/* Optional note for Yes / N/A */}
+                                  {item.response && item.response !== 'no' && item.notes && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5 italic">Note: {item.notes}</p>
+                                  )}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

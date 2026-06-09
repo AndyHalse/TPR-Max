@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import DOMPurify from "dompurify";
 import { useRoute } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -374,6 +375,7 @@ export default function SiteInduction() {
 
   const retryQuiz = () => {
     setAnswers({});
+    setPerSceneAnswers({});
     setCurrentQuestionIndex(0);
     setQuizResults(null);
     setQuizSubmitted(false);
@@ -420,7 +422,7 @@ export default function SiteInduction() {
             )}
             <div
               className="prose prose-sm max-w-none text-fixed"
-              dangerouslySetInnerHTML={{ __html: scene.content.replace(/\n/g, '<br/>') }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(scene.content.replace(/\n/g, '<br/>')) }}
             />
 
             {/* Per-scene knowledge check questions */}
@@ -880,6 +882,13 @@ export default function SiteInduction() {
             {quizResults && !quizResults.passed && (() => {
               const attemptsUsed = tokenData.quizAttempts ?? 0;
               const attemptsRemaining = Math.max(0, 5 - attemptsUsed);
+
+              // Work out which questions were answered incorrectly
+              const wrongQuestions = questions.filter(q => {
+                const given = answers[q.id] || perSceneAnswers[q.id];
+                return given && given !== q.correctAnswer;
+              });
+
               return (
                 <div className="mt-6 max-w-lg mx-auto px-2 space-y-4">
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center space-y-4">
@@ -910,7 +919,46 @@ export default function SiteInduction() {
                     )}
                   </div>
 
-                  {/* CDM 2015 topics — shown even on fail so the operator can see coverage */}
+                  {/* Wrong-answer review — learning moment before retry */}
+                  {wrongQuestions.length > 0 && (
+                    <div className="border border-orange-200 rounded-xl overflow-hidden">
+                      <div className="bg-orange-600 px-4 py-3 flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 text-white shrink-0" />
+                        <span className="text-white text-sm font-semibold">
+                          Review — {wrongQuestions.length} question{wrongQuestions.length > 1 ? 's' : ''} to revisit
+                        </span>
+                      </div>
+                      <ul className="divide-y divide-orange-100">
+                        {wrongQuestions.map(q => {
+                          const given = answers[q.id] || perSceneAnswers[q.id];
+                          const givenText = given ? (q[`option${given}` as keyof InductionQuestion] as string) : 'No answer';
+                          const correctText = q[`option${q.correctAnswer}` as keyof InductionQuestion] as string;
+                          return (
+                            <li key={q.id} className="px-4 py-4 bg-orange-50 space-y-2">
+                              <p className="text-sm font-medium text-gray-900">{q.questionText}</p>
+                              <div className="space-y-1">
+                                <p className="text-sm flex items-start gap-1.5">
+                                  <span className="shrink-0 text-red-600 font-semibold">✗ Your answer:</span>
+                                  <span className="text-red-700">{givenText}</span>
+                                </p>
+                                <p className="text-sm flex items-start gap-1.5">
+                                  <span className="shrink-0 text-green-700 font-semibold">✓ Correct answer:</span>
+                                  <span className="text-green-800">{correctText}</span>
+                                </p>
+                              </div>
+                              {q.explanation && (
+                                <p className="text-xs text-gray-600 bg-white border border-orange-200 rounded-lg px-3 py-2 leading-relaxed">
+                                  {q.explanation}
+                                </p>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* CDM 2015 topics — shown even on fail */}
                   {quizResults.topicsCovered && quizResults.topicsCovered.length > 0 && (
                     <div className="border border-blue-200 rounded-lg overflow-hidden">
                       <div className="bg-blue-700 px-4 py-2 flex items-center gap-2">
@@ -1021,42 +1069,43 @@ export default function SiteInduction() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
+              <p className="text-xs text-gray-500">
+                Tap each location below to confirm your arrival, or scan the printed QR codes posted around the site — they do the same thing.
+              </p>
               {walkCheckpoints.map((cp) => {
                 const scanned = scannedCpIds.includes(cp.id);
-                const qrUrl = `${window.location.origin}/induction/checkpoint/${cp.qrToken}?t=${params?.token}`;
+                const cpUrl = `/induction/checkpoint/${cp.qrToken}?t=${params?.token}`;
                 return (
-                  <div
+                  <a
                     key={cp.id}
-                    className={`border rounded-xl p-4 ${scanned ? 'border-green-200 bg-green-50' : 'border-blue-100 bg-blue-50/40'}`}
+                    href={scanned ? undefined : cpUrl}
+                    className={`block border rounded-xl p-4 transition-colors ${scanned ? 'border-green-200 bg-green-50 cursor-default' : 'border-blue-200 bg-blue-50/60 hover:bg-blue-100/60 active:bg-blue-100 cursor-pointer'}`}
+                    onClick={scanned ? (e) => e.preventDefault() : undefined}
                   >
-                    <div className="flex items-start gap-3">
-                      <div className={`w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${scanned ? 'bg-green-500' : 'bg-blue-200'}`}>
+                    <div className="flex items-center gap-3">
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${scanned ? 'bg-green-500' : 'bg-blue-600'}`}>
                         {scanned ? (
-                          <CheckCircle className="w-4 h-4 text-white" />
+                          <CheckCircle className="w-5 h-5 text-white" />
                         ) : (
-                          <span className="text-blue-700 font-bold text-xs">{cp.orderIndex + 1}</span>
+                          <span className="text-white font-bold text-sm">{cp.orderIndex + 1}</span>
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-sm text-fixed">{cp.label}</p>
-                        {cp.content && <p className="text-xs text-variable mt-0.5">{cp.content}</p>}
-                        {scanned && (
-                          <p className="text-xs text-green-700 mt-1 font-medium">✓ Scanned</p>
-                        )}
+                        <p className={`font-semibold text-sm ${scanned ? 'text-green-800' : 'text-blue-900'}`}>{cp.label}</p>
+                        {cp.content && <p className="text-xs text-gray-500 mt-0.5 truncate">{cp.content}</p>}
+                        {scanned
+                          ? <p className="text-xs text-green-700 mt-0.5 font-medium">✓ Confirmed</p>
+                          : <p className="text-xs text-blue-600 mt-0.5">Tap to confirm when you arrive here →</p>
+                        }
                       </div>
-                      {!scanned && (
-                        <div className="bg-white p-1 rounded-lg border shadow-sm shrink-0">
-                          <QRCodeImage data={qrUrl} size={80} alt={`QR: ${cp.label}`} />
-                        </div>
-                      )}
                     </div>
-                  </div>
+                  </a>
                 );
               })}
 
               {scannedCpIds.length < walkCheckpoints.length && (
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
-                  Scan the QR codes at each location on site. Use your phone camera to scan.
+                  Printed QR codes around the site also work — scan with your phone camera to confirm each location.
                 </div>
               )}
               {scannedCpIds.length === walkCheckpoints.length && walkCheckpoints.length > 0 && (
