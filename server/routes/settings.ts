@@ -178,6 +178,15 @@ export function registerSettingsRoutes(
       
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      // Lazy migration — ensure new columns exist before querying
+      try {
+        const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(context.customerId);
+        const schemaName = CustomerDatabaseService.getInstance().generateSchemaName(context.customerId);
+        const pool = (customerDb as any).$client ?? (customerDb as any).session?.client;
+        await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS induction_allow_hazard_report BOOLEAN DEFAULT TRUE`);
+      } catch (_) { /* non-fatal */ }
+
       const settings = await simpleDatabaseService.getCompanySettings(context);
       
       logger.info(`[SETTINGS-API] customer=${context.customerId} logo=${settings?.logoUrl || 'NONE'} bg=${settings?.backgroundColor || 'NONE'} accent=${settings?.accentColor || 'NONE'} company=${settings?.companyName || 'NONE'}`);

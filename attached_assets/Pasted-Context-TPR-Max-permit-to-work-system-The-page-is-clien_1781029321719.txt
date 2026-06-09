@@ -1,0 +1,26 @@
+Context: TPR Max permit-to-work system. The page is client/src/pages/PermitToWork.tsx; the create form is the CreatePermitForm component (~line 826). The back end is server/routes/permitToWork.ts — the create endpoint is POST /api/ptw (~line 122). This task is only about the "New Permit" create flow — don't touch the authorisation, suspend/resume, or compliance-library code.
+
+Do these in order and run the app to check each one.
+
+1. Let users assign a contractor to a permit (most important).
+The create form currently only offers a "Staff member" picker and only sends staffId/staffName. The back end already accepts contractor fields — confirm in POST /api/ptw (~line 126): contractorCompanyId, contractorCompanyName, contractorWorkerId, contractorWorkerName. Add a "Who's doing the work?" section to the create form with two modes — Contractor or Staff — e.g. a simple toggle:
+
+Contractor: load GET /api/contractors/workers/all (returns workers each with id, firstName, lastName, email, companyName). Searchable picker matching the existing staff picker's style. When a worker is chosen, send contractorWorkerId, contractorWorkerName (first + last), and contractorCompanyName (from the worker's companyName).
+Staff: keep the existing staff picker as-is.
+Send whichever set matches the chosen mode; leave the other fields blank.
+2. Validate the dates — block end-before-start. In the form's handleSubmit, after the required-field check, build start and end as datetimes (plannedStartDate + plannedStartTime, same for end) and if end is not after start, show a destructive toast ("End must be after start") and stop. Also add the same guard server-side in POST /api/ptw — reject with a clear 400 if permitValidUntil <= permitValidFrom.
+
+3. Fix the compliance warning logic. Today showComplianceWarning only triggers when a staff member is selected (~line 866), but the documents it checks (public liability, employers' liability, H&S policy) belong to the contractor company. Change it so the warning shows when a contractor is selected and that company's legally-required docs are expired or expiring soon. If only a staff member is selected, don't show contractor-document warnings.
+
+4. Stop past start dates being a silent dead-end. Add min={today} to the start-date input. If the user picks a start date/time in the past, show an inline amber note explaining the permit won't be activatable (the system refuses to activate permits whose validity window has already passed). Don't hard-block it, just warn clearly.
+
+5. Turn permit type into selectable tiles. Replace the permit-type dropdown with a grid of selectable tiles, one per type in the existing PERMIT_TYPES map, each showing its icon and colour and label. Selected tile is clearly highlighted. Below the grid, when a type is selected, show a one-line plain-English description of that permit type (add a description to each entry in PERMIT_TYPES, e.g. Hot Works: "Naked flames, welding, grinding or anything that generates heat or sparks").
+
+6. Require someone to be assigned. Once contractor selection exists, require at least one of contractor worker or staff member before the permit can be created — show a clear message if neither is set.
+
+Constraints
+
+British spelling in all UI copy (authorise, organise, colour).
+Don't break the existing create-then-complete-checklist flow: on success it should still open the permit detail view to complete the checklist.
+Keep it clean and uncluttered — this form runs on tablets on site. No glassmorphism on the form fields.
+Check before finishing: you can create a permit naming a real contractor and their company; the contractor shows on the permit card afterwards; an end-before-start permit is refused; selecting a contractor with expired insurance shows the warning; permit-type tiles work and show descriptions.

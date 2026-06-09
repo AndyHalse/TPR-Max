@@ -1,5 +1,7 @@
 import type { Express } from 'express';
 import cron from 'node-cron';
+import multer from 'multer';
+import { randomUUID } from 'crypto';
 import { requireAuth } from '../auth';
 import { sendTeamsNotification } from '../utils/teamsNotifier';
 import { customerDbService } from '../customerDatabase';
@@ -8,6 +10,7 @@ import * as isolatedSchema from '../isolatedSchema';
 import { EmailService } from '../emailService';
 import { eq, and, isNull, isNotNull, lte, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
+import { ObjectStorageService, objectStorageClient, parseObjectPath as parseObjectStoragePath } from '../objectStorage';
 import { calculateRIDDORDeadline, getDaysUntilRIDDORDeadline, RIDDOR_CATEGORY_LABELS, type RIDDORCategory } from '../utils/riddorUtils';
 import { EXTERNAL_LINKS } from '../utils/externalLinks';
 
@@ -46,6 +49,8 @@ async function ensureHsIncidentsTable(custDb: any, schemaName: string) {
   await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS investigation_status TEXT NOT NULL DEFAULT 'open'`);
   await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS investigated_by TEXT`);
   await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS investigation_notes TEXT`);
+  // Photo evidence column
+  await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS photo_url TEXT`);
   // Migrate legacy near_miss records to new record_type field
   await pool.query(`UPDATE "${schemaName}".hs_incidents SET record_type = 'near_miss' WHERE is_near_miss = TRUE AND record_type = 'incident'`);
 }
@@ -768,6 +773,39 @@ ${!isBbsRecord ? `
       logger.error('[Resolution Reminder Cron] Fatal error:', err);
     }
   }, { timezone: 'Europe/London' });
+
+  // POST /api/hs-incidents/photo — upload a photo for an incident (admin-authenticated)
+  const incidentPhotoUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) cb(null, true);
+      else cb(new Error('Only image files are allowed'));
+    },
+  });
+
+  app.post('/api/hs-incidents/photo', requireAuth, incidentPhotoUpload.single('photo'), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
+      const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = req.file.mimetype || 'image/jpeg';
+      const objectId = randomUUID();
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const customerId = req.customerId || 'default';
+      const fullPath = `${privateObjectDir}/hs-incidents/${customerId}/${objectId}.${ext}`;
+      const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      await file.save(req.file.buffer, { contentType: mimeType });
+      const storedPath = `/hs-incidents/${customerId}/${objectId}.${ext}`;
+      logger.info(`📷 Incident photo saved: ${storedPath}`);
+      return res.json({ success: true, url: storedPath });
+    } catch (error: any) {
+      logger.error('Error uploading incident photo:', error);
+      res.status(500).json({ error: error.message || 'Failed to upload photo' });
+    }
+  });
 }
 
 async function sendFatalityAlert(customerId: string, incident: any, incidentDate: Date) {

@@ -5123,8 +5123,6 @@ export function registerInductionRoutes(app: Express): void {
   app.get('/api/induction/checkpoint/:qrToken', async (req, res) => {
     try {
       const { qrToken } = req.params;
-      // Search all customer databases for this qrToken — or use global fallback
-      // Strategy: scan all known customers (this is called once per scan, acceptable overhead)
       const allCustomers = await customerDbService.getAllCustomers();
       for (const cust of allCustomers) {
         try {
@@ -5134,7 +5132,13 @@ export function registerInductionRoutes(app: Express): void {
             .from(isolatedSchema.inductionCheckpoints)
             .where(eq(isolatedSchema.inductionCheckpoints.qrToken, qrToken));
           if (row) {
-            return res.json({ checkpoint: row });
+            const context = simpleDatabaseService.createCustomerContext('public', cust.id);
+            const companySettings = await simpleDatabaseService.getCompanySettings(context);
+            return res.json({
+              checkpoint: row,
+              companyName: companySettings?.companyName || null,
+              allowHazardReport: companySettings?.inductionAllowHazardReport ?? true,
+            });
           }
         } catch (_) { /* try next customer */ }
       }
@@ -5142,6 +5146,87 @@ export function registerInductionRoutes(app: Express): void {
     } catch (error) {
       logger.error('Error resolving checkpoint by qrToken:', error);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/induction/checkpoint/hazard-photo — public photo upload for inductee hazard reports
+  const hazardPhotoUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) cb(null, true);
+      else cb(new Error('Only image files are allowed'));
+    },
+  });
+
+  app.post('/api/induction/checkpoint/hazard-photo', hazardPhotoUpload.single('photo'), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
+      const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = req.file.mimetype || 'image/jpeg';
+      const objectId = randomUUID();
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const fullPath = `${privateObjectDir}/hazard-reports/${objectId}.${ext}`;
+      const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      await file.save(req.file.buffer, { contentType: mimeType });
+      const storedPath = `/hazard-reports/${objectId}.${ext}`;
+      logger.info(`📷 Hazard photo saved: ${storedPath}`);
+      return res.json({ success: true, url: storedPath });
+    } catch (error: any) {
+      logger.error('Error uploading hazard photo:', error);
+      res.status(500).json({ error: error.message || 'Failed to upload photo' });
+    }
+  });
+
+  // POST /api/induction/checkpoint/:qrToken/report-hazard — public, create a hazard report from inductee
+  app.post('/api/induction/checkpoint/:qrToken/report-hazard', async (req, res) => {
+    try {
+      const { qrToken } = req.params;
+      const { description, hazardType, photoUrl, reporterName, location } = req.body;
+      if (!description?.trim()) return res.status(400).json({ error: 'Description is required' });
+
+      // Find the customer for this checkpoint
+      const allCustomers = await customerDbService.getAllCustomers();
+      for (const cust of allCustomers) {
+        try {
+          const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(cust.id);
+          const schemaName = customerDbService.generateSchemaName(cust.id);
+          const [checkpoint] = await custDb
+            .select()
+            .from(isolatedSchema.inductionCheckpoints)
+            .where(eq(isolatedSchema.inductionCheckpoints.qrToken, qrToken));
+          if (!checkpoint) continue;
+
+          // Ensure photo_url column exists on hs_incidents
+          const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+          await pool.query(`ALTER TABLE "${schemaName}".hs_incidents ADD COLUMN IF NOT EXISTS photo_url TEXT`);
+
+          const title = `Hazard spotted during walk-around${checkpoint.label ? ` — ${checkpoint.label}` : ''}`;
+          await custDb.insert(isolatedSchema.hsIncidents).values({
+            title,
+            description: description.trim(),
+            incidentDate: new Date(),
+            location: location?.trim() || checkpoint.label || null,
+            reportedBy: reporterName?.trim() || 'Inductee (walk-around)',
+            recordType: 'good_spot',
+            isNearMiss: false,
+            hazardType: hazardType || null,
+            photoUrl: photoUrl || null,
+            investigationStatus: 'open',
+            resolved: false,
+          } as any);
+
+          logger.info(`✅ Hazard report submitted for checkpoint ${checkpoint.label} (customer ${cust.id})`);
+          return res.json({ success: true });
+        } catch (_) { /* try next customer */ }
+      }
+      return res.status(404).json({ error: 'Checkpoint not found' });
+    } catch (error: any) {
+      logger.error('Error submitting hazard report:', error);
+      res.status(500).json({ error: 'Failed to submit hazard report' });
     }
   });
 

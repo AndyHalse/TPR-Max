@@ -539,6 +539,7 @@ export const companySettings = pgTable("company_settings", {
   featureMusterList: boolean("feature_muster_list").default(true),
   featureReports: boolean("feature_reports").default(true),
   featureSettingsPage: boolean("feature_settings_page").default(true),
+  inductionAllowHazardReport: boolean("induction_allow_hazard_report").default(true),
   
   // Zones configuration
   zonesEnabled: boolean("zones_enabled").default(false),
@@ -2493,6 +2494,8 @@ export const hsIncidents = pgTable("hs_incidents", {
   investigationStatus: text("investigation_status").notNull().default("open"), // open | investigating | closed
   investigatedBy: text("investigated_by"),
   investigationNotes: text("investigation_notes"),
+  // Photo evidence (induction walk-around reports or manual uploads)
+  photoUrl: text("photo_url"),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
