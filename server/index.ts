@@ -256,8 +256,7 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/emergency/qr-mark-safe') ||
         req.originalUrl.startsWith('/api/emergency/sweep-zone') ||
         req.originalUrl.startsWith('/api/emergency/evacuation-note') ||
-        req.originalUrl.startsWith('/api/emergency/evacuation-photo') ||
-        req.originalUrl.startsWith('/api/muster-points')) {
+        req.originalUrl.startsWith('/api/emergency/evacuation-photo')) {
       // Check for emergency token in Authorization header or query parameter
       const emergencyToken = req.headers['x-emergency-token'] as string || req.query.token as string;
       const fireMarshalId = req.headers['x-fire-marshal-id'] as string;
