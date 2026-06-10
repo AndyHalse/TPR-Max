@@ -4690,4 +4690,205 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       res.status(500).json({ error: "Failed to update contractor CDM fields" });
     }
   });
+
+  // ── Contractor Portal: Invite a user ──────────────────────────────────────
+  app.post('/api/contractors/:companyId/portal-invite', requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const customerId = req.customerId!;
+      const { email, firstName, lastName, role = 'admin' } = req.body as Record<string, string>;
+
+      if (!email) {
+        return res.status(400).json({ error: 'Email address is required.' });
+      }
+
+      const { db } = await customerDbService.getCustomerDatabase(customerId);
+
+      const settingsRows = await db
+        .select({ featureContractorPortal: isolatedSchema.companySettings.featureContractorPortal })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+      if (!settingsRows[0]?.featureContractorPortal) {
+        return res.status(403).json({
+          error: 'The contractor portal is not enabled. Please enable it in Settings to send invitations.',
+        });
+      }
+
+      const companies = await db
+        .select()
+        .from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, companyId))
+        .limit(1);
+      if (!companies[0]) {
+        return res.status(404).json({ error: 'Contractor company not found.' });
+      }
+      const company = companies[0];
+
+      const inviteToken = randomBytes(32).toString('hex');
+      const inviteExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      const existing = await db
+        .select()
+        .from(isolatedSchema.contractorPortalUsers)
+        .where(
+          and(
+            eq(isolatedSchema.contractorPortalUsers.email, email.toLowerCase().trim()),
+            eq(isolatedSchema.contractorPortalUsers.contractorCompanyId, companyId)
+          )
+        )
+        .limit(1);
+
+      if (existing[0]) {
+        await db
+          .update(isolatedSchema.contractorPortalUsers)
+          .set({
+            inviteToken,
+            inviteExpiresAt,
+            invitedAt: new Date(),
+            firstName: firstName?.trim() || existing[0].firstName,
+            lastName: lastName?.trim() || existing[0].lastName,
+          })
+          .where(eq(isolatedSchema.contractorPortalUsers.id, existing[0].id));
+      } else {
+        await db.insert(isolatedSchema.contractorPortalUsers).values({
+          email: email.toLowerCase().trim(),
+          contractorCompanyId: companyId,
+          firstName: firstName?.trim() || '',
+          lastName: lastName?.trim() || '',
+          role,
+          isActive: false,
+          inviteToken,
+          inviteExpiresAt,
+        });
+      }
+
+      const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol;
+      const host = (req.headers['x-forwarded-host'] as string) || req.headers.host;
+      const portalUrl = `${protocol}://${host}/contractor-portal/accept-invite?token=${inviteToken}&cid=${customerId}`;
+
+      try {
+        const emailSvc = new EmailService(customerId);
+        await emailSvc.sendEmail({
+          to: email,
+          subject: `Contractor Portal invitation — ${company.companyName}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+              <h2 style="color:#1e293b">Contractor Portal Invitation</h2>
+              <p>Hello${firstName ? ` ${firstName}` : ''},</p>
+              <p>You have been invited to access the contractor compliance portal for <strong>${company.companyName}</strong>.</p>
+              <p>Click the button below to set up your account and start uploading your compliance documents:</p>
+              <p style="text-align:center;margin:32px 0">
+                <a href="${portalUrl}" style="background:#2563eb;color:white;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block">
+                  Accept Invitation
+                </a>
+              </p>
+              <p style="color:#64748b;font-size:13px">This invitation expires in 7 days. Your company access code is: <strong>${customerId}</strong></p>
+              <p style="color:#64748b;font-size:12px">If you did not expect this email, you can safely ignore it.</p>
+            </div>
+          `,
+          text: `You've been invited to the contractor compliance portal for ${company.companyName}.\n\nAccept your invitation at: ${portalUrl}\n\nYour company access code: ${customerId}\n\nThis link expires in 7 days.`,
+        });
+      } catch (emailErr: any) {
+        logger.warn(`[portal-invite] Email failed for ${email}:`, emailErr.message?.substring(0, 80));
+      }
+
+      return res.json({ success: true, message: `Invitation sent to ${email}.`, portalUrl });
+    } catch (error: any) {
+      logger.error('Error sending portal invite:', error);
+      return res.status(500).json({ error: 'Failed to send invitation.' });
+    }
+  });
+
+  // ── Contractor Portal: List portal users for a company ────────────────────
+  app.get('/api/contractors/:companyId/portal-users', requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const customerId = req.customerId!;
+      const { db } = await customerDbService.getCustomerDatabase(customerId);
+
+      const portalUsers = await db
+        .select()
+        .from(isolatedSchema.contractorPortalUsers)
+        .where(eq(isolatedSchema.contractorPortalUsers.contractorCompanyId, companyId))
+        .orderBy(desc(isolatedSchema.contractorPortalUsers.invitedAt));
+
+      return res.json(
+        portalUsers.map((u: any) => ({
+          id: u.id,
+          email: u.email,
+          firstName: u.firstName,
+          lastName: u.lastName,
+          role: u.role,
+          isActive: u.isActive,
+          hasPassword: !!u.passwordHash,
+          inviteExpiresAt: u.inviteExpiresAt,
+          lastLoginAt: u.lastLoginAt,
+          invitedAt: u.invitedAt,
+        }))
+      );
+    } catch (error: any) {
+      logger.error('Error listing portal users:', error);
+      return res.status(500).json({ error: 'Failed to load portal users.' });
+    }
+  });
+
+  // ── Contractor Portal: Review a document (approve/reject) ─────────────────
+  app.put('/api/contractors/documents/:docId/review', requireAuth, async (req, res) => {
+    try {
+      const { docId } = req.params;
+      const customerId = req.customerId!;
+      const { status, rejectedReason } = req.body as Record<string, string>;
+
+      if (!['approved', 'rejected'].includes(status)) {
+        return res.status(400).json({ error: 'Status must be "approved" or "rejected".' });
+      }
+
+      const { db } = await customerDbService.getCustomerDatabase(customerId);
+
+      const [updated] = await db
+        .update(isolatedSchema.contractorDocuments)
+        .set({
+          status,
+          approvedAt: status === 'approved' ? new Date() : null,
+          rejectedReason: status === 'rejected' ? (rejectedReason || 'Document rejected') : null,
+          updatedAt: new Date(),
+        })
+        .where(eq(isolatedSchema.contractorDocuments.id, docId))
+        .returning();
+
+      if (!updated) {
+        return res.status(404).json({ error: 'Document not found.' });
+      }
+
+      return res.json(updated);
+    } catch (error: any) {
+      logger.error('Error reviewing document:', error);
+      return res.status(500).json({ error: 'Failed to update document status.' });
+    }
+  });
+
+  // ── Contractor Portal: List pending documents for admin review ────────────
+  app.get('/api/contractors/:companyId/portal-documents', requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const customerId = req.customerId!;
+      const { db } = await customerDbService.getCustomerDatabase(customerId);
+
+      const docs = await db
+        .select()
+        .from(isolatedSchema.contractorDocuments)
+        .where(
+          and(
+            eq(isolatedSchema.contractorDocuments.companyId, companyId),
+            eq(isolatedSchema.contractorDocuments.isActive, true)
+          )
+        )
+        .orderBy(desc(isolatedSchema.contractorDocuments.uploadedAt));
+
+      return res.json(docs);
+    } catch (error: any) {
+      logger.error('Error listing portal documents:', error);
+      return res.status(500).json({ error: 'Failed to load portal documents.' });
+    }
+  });
 }

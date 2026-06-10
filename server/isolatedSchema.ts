@@ -603,10 +603,32 @@ export const companySettings = pgTable("company_settings", {
 
   onboardingChecklistDismissed: boolean("onboarding_checklist_dismissed").default(false),
   quickSetupDismissed: boolean("quick_setup_dismissed").default(false),
+  featureContractorPortal: boolean("feature_contractor_portal").default(false),
 
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+// Contractor Portal Users — accounts for contractors to log in to the self-service portal
+export const contractorPortalUsers = pgTable("contractor_portal_users", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  email: text("email").notNull(),
+  passwordHash: text("password_hash"),
+  contractorCompanyId: varchar("contractor_company_id").notNull(),
+  firstName: text("first_name").notNull().default(''),
+  lastName: text("last_name").notNull().default(''),
+  role: text("role").notNull().default('admin'),
+  isActive: boolean("is_active").notNull().default(false),
+  inviteToken: text("invite_token"),
+  inviteExpiresAt: timestamp("invite_expires_at"),
+  invitedAt: timestamp("invited_at").defaultNow(),
+  lastLoginAt: timestamp("last_login_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertContractorPortalUserSchema = createInsertSchema(contractorPortalUsers).omit({ id: true, createdAt: true });
+export type InsertContractorPortalUser = z.infer<typeof insertContractorPortalUserSchema>;
+export type ContractorPortalUser = typeof contractorPortalUsers.$inferSelect;
 
 // Evacuation Zones for emergency zone mapping
 export const evacuationZones = pgTable("evacuation_zones", {

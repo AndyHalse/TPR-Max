@@ -1,0 +1,382 @@
+import type { Express } from 'express';
+import bcrypt from 'bcryptjs';
+import {
+  requireContractorPortalAuth,
+  generatePortalToken,
+  type PortalTokenPayload,
+} from '../utils/contractorPortalAuth';
+import { customerDbService } from '../customerDatabase';
+import { ObjectStorageService, objectStorageClient } from '../objectStorage';
+import * as isolatedSchema from '../isolatedSchema';
+import { eq, and, desc } from 'drizzle-orm';
+import { randomUUID } from 'crypto';
+import { logger } from '../utils/logger';
+
+export async function registerContractorPortalRoutes(app: Express): Promise<void> {
+  const multerModule = await import('multer');
+  const uploadSingle = multerModule.default({
+    storage: multerModule.default.memoryStorage(),
+    limits: { fileSize: 20 * 1024 * 1024 },
+  }).single('file');
+
+  function portalUpload(req: any, res: any, next: any) {
+    uploadSingle(req, res, (err: any) => {
+      if (!err) return next();
+      if (err.code === 'LIMIT_FILE_SIZE')
+        return res.status(413).json({ error: 'File too large. Maximum 20 MB per upload.' });
+      return res.status(500).json({ error: 'File upload failed.' });
+    });
+  }
+
+  // ── Public: Login ──────────────────────────────────────────────────────────
+  app.post('/api/contractor-portal/login', async (req, res) => {
+    try {
+      const { email, password, customerId } = req.body as Record<string, string>;
+      if (!email || !password || !customerId) {
+        return res.status(400).json({ error: 'Email, password and company ID are required.' });
+      }
+
+      let db: any;
+      try {
+        ({ db } = await customerDbService.getCustomerDatabase(customerId));
+      } catch {
+        return res.status(401).json({ error: 'Invalid company access code.' });
+      }
+
+      const settingsRows = await db
+        .select({ featureContractorPortal: isolatedSchema.companySettings.featureContractorPortal })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+      if (!settingsRows[0]?.featureContractorPortal) {
+        return res.status(403).json({
+          error: 'The contractor portal is not currently enabled for this organisation. Please contact the site administrator.',
+        });
+      }
+
+      const users = await db
+        .select()
+        .from(isolatedSchema.contractorPortalUsers)
+        .where(
+          and(
+            eq(isolatedSchema.contractorPortalUsers.email, email.toLowerCase().trim()),
+            eq(isolatedSchema.contractorPortalUsers.isActive, true)
+          )
+        )
+        .limit(1);
+
+      const user = users[0];
+      if (!user || !user.passwordHash) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+      }
+
+      const valid = await bcrypt.compare(password, user.passwordHash);
+      if (!valid) {
+        return res.status(401).json({ error: 'Invalid email or password.' });
+      }
+
+      await db
+        .update(isolatedSchema.contractorPortalUsers)
+        .set({ lastLoginAt: new Date() })
+        .where(eq(isolatedSchema.contractorPortalUsers.id, user.id));
+
+      const companies = await db
+        .select({ companyName: isolatedSchema.contractorCompanies.companyName })
+        .from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, user.contractorCompanyId))
+        .limit(1);
+
+      const token = generatePortalToken({
+        portalUserId: user.id,
+        contractorCompanyId: user.contractorCompanyId,
+        customerId,
+        email: user.email,
+        role: user.role,
+      });
+
+      return res.json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          role: user.role,
+          contractorCompanyId: user.contractorCompanyId,
+          companyName: companies[0]?.companyName ?? '',
+          customerId,
+        },
+      });
+    } catch (err: any) {
+      logger.error('[portal-login]', err);
+      return res.status(500).json({ error: 'Login failed. Please try again.' });
+    }
+  });
+
+  // ── Public: Accept Invite ──────────────────────────────────────────────────
+  app.post('/api/contractor-portal/accept-invite', async (req, res) => {
+    try {
+      const { inviteToken, password, firstName, lastName, customerId } =
+        req.body as Record<string, string>;
+      if (!inviteToken || !password || !customerId) {
+        return res.status(400).json({ error: 'Invite token, password and company ID are required.' });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+      }
+
+      let db: any;
+      try {
+        ({ db } = await customerDbService.getCustomerDatabase(customerId));
+      } catch {
+        return res.status(400).json({ error: 'Invalid company access code.' });
+      }
+
+      const users = await db
+        .select()
+        .from(isolatedSchema.contractorPortalUsers)
+        .where(eq(isolatedSchema.contractorPortalUsers.inviteToken, inviteToken))
+        .limit(1);
+
+      const user = users[0];
+      if (!user) {
+        return res.status(400).json({ error: 'Invitation not found or already used.' });
+      }
+      if (user.inviteExpiresAt && new Date(user.inviteExpiresAt) < new Date()) {
+        return res.status(400).json({
+          error: 'This invitation has expired. Please ask the site administrator for a new one.',
+        });
+      }
+
+      const hash = await bcrypt.hash(password, 12);
+      await db
+        .update(isolatedSchema.contractorPortalUsers)
+        .set({
+          passwordHash: hash,
+          inviteToken: null,
+          inviteExpiresAt: null,
+          isActive: true,
+          firstName: firstName?.trim() || user.firstName,
+          lastName: lastName?.trim() || user.lastName,
+          lastLoginAt: new Date(),
+        })
+        .where(eq(isolatedSchema.contractorPortalUsers.id, user.id));
+
+      const companies = await db
+        .select({ companyName: isolatedSchema.contractorCompanies.companyName })
+        .from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, user.contractorCompanyId))
+        .limit(1);
+
+      const token = generatePortalToken({
+        portalUserId: user.id,
+        contractorCompanyId: user.contractorCompanyId,
+        customerId,
+        email: user.email,
+        role: user.role,
+      });
+
+      return res.json({
+        token,
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: firstName?.trim() || user.firstName,
+          lastName: lastName?.trim() || user.lastName,
+          role: user.role,
+          contractorCompanyId: user.contractorCompanyId,
+          companyName: companies[0]?.companyName ?? '',
+          customerId,
+        },
+      });
+    } catch (err: any) {
+      logger.error('[portal-accept-invite]', err);
+      return res.status(500).json({ error: 'Failed to accept invitation. Please try again.' });
+    }
+  });
+
+  // ── Auth: Me ───────────────────────────────────────────────────────────────
+  app.get('/api/contractor-portal/me', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const { db } = await customerDbService.getCustomerDatabase(pu.customerId);
+
+      const users = await db
+        .select()
+        .from(isolatedSchema.contractorPortalUsers)
+        .where(eq(isolatedSchema.contractorPortalUsers.id, pu.portalUserId))
+        .limit(1);
+
+      const user = users[0];
+      if (!user) return res.status(404).json({ error: 'User not found.' });
+
+      const companies = await db
+        .select()
+        .from(isolatedSchema.contractorCompanies)
+        .where(eq(isolatedSchema.contractorCompanies.id, user.contractorCompanyId))
+        .limit(1);
+
+      const company = companies[0];
+      return res.json({
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+        contractorCompanyId: user.contractorCompanyId,
+        companyName: company?.companyName ?? '',
+        industry: company?.industry ?? '',
+        contactEmail: company?.contactEmail ?? '',
+        companyStatus: company?.status ?? '',
+        customerId: pu.customerId,
+      });
+    } catch (err: any) {
+      logger.error('[portal-me]', err);
+      return res.status(500).json({ error: 'Failed to load user.' });
+    }
+  });
+
+  // ── Auth: List documents ───────────────────────────────────────────────────
+  app.get('/api/contractor-portal/documents', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const { db } = await customerDbService.getCustomerDatabase(pu.customerId);
+
+      const docs = await db
+        .select()
+        .from(isolatedSchema.contractorDocuments)
+        .where(
+          and(
+            eq(isolatedSchema.contractorDocuments.companyId, pu.contractorCompanyId),
+            eq(isolatedSchema.contractorDocuments.isActive, true)
+          )
+        )
+        .orderBy(desc(isolatedSchema.contractorDocuments.uploadedAt));
+
+      return res.json(docs);
+    } catch (err: any) {
+      logger.error('[portal-documents]', err);
+      return res.status(500).json({ error: 'Failed to load documents.' });
+    }
+  });
+
+  // ── Auth: Upload document ──────────────────────────────────────────────────
+  app.post(
+    '/api/contractor-portal/documents/upload',
+    requireContractorPortalAuth,
+    portalUpload,
+    async (req: any, res: any) => {
+      try {
+        const pu = req.portalUser as PortalTokenPayload;
+
+        if (!req.file) {
+          return res.status(400).json({ error: 'No file was uploaded.' });
+        }
+
+        const { documentType, documentName, expiryDate, issuedBy } =
+          req.body as Record<string, string>;
+        if (!documentType || !documentName) {
+          return res.status(400).json({ error: 'Document type and name are required.' });
+        }
+
+        let documentUrl = '';
+        try {
+          const objService = new ObjectStorageService();
+          const privateDir = objService.getPrivateObjectDir();
+          const objectId = randomUUID();
+          const ext = (req.file.originalname.split('.').pop() ?? 'bin').toLowerCase();
+          const fullPath = `${privateDir}/contractor-portal/${objectId}.${ext}`;
+          const parts = fullPath.slice(1).split('/');
+          const bucketName = parts[0];
+          const objectName = parts.slice(1).join('/');
+
+          await objectStorageClient.bucket(bucketName).file(objectName).save(req.file.buffer, {
+            contentType: req.file.mimetype,
+            resumable: false,
+          });
+          documentUrl = `/objects/contractor-portal/${objectId}.${ext}`;
+        } catch (storageErr: any) {
+          logger.warn('[portal-upload] Object storage unavailable:', storageErr.message?.substring(0, 80));
+          documentUrl = '';
+        }
+
+        const { db } = await customerDbService.getCustomerDatabase(pu.customerId);
+        const [doc] = await db
+          .insert(isolatedSchema.contractorDocuments)
+          .values({
+            companyId: pu.contractorCompanyId,
+            documentName,
+            documentType,
+            documentUrl: documentUrl || '',
+            expiryDate: expiryDate ? new Date(expiryDate) : null,
+            issuedBy: issuedBy || null,
+            uploadedBy: `portal:${pu.portalUserId}`,
+            status: 'pending',
+            isActive: true,
+          })
+          .returning();
+
+        return res.status(201).json(doc);
+      } catch (err: any) {
+        logger.error('[portal-upload]', err);
+        return res.status(500).json({ error: 'Failed to upload document. Please try again.' });
+      }
+    }
+  );
+
+  // ── Auth: List workers ─────────────────────────────────────────────────────
+  app.get('/api/contractor-portal/workers', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const { db } = await customerDbService.getCustomerDatabase(pu.customerId);
+
+      const workers = await db
+        .select()
+        .from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.companyId, pu.contractorCompanyId))
+        .orderBy(isolatedSchema.contractorWorkers.firstName);
+
+      return res.json(workers);
+    } catch (err: any) {
+      logger.error('[portal-workers]', err);
+      return res.status(500).json({ error: 'Failed to load workers.' });
+    }
+  });
+
+  // ── Auth: Document stats summary ──────────────────────────────────────────
+  app.get('/api/contractor-portal/document-stats', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const { db } = await customerDbService.getCustomerDatabase(pu.customerId);
+
+      const docs = await db
+        .select({ status: isolatedSchema.contractorDocuments.status })
+        .from(isolatedSchema.contractorDocuments)
+        .where(
+          and(
+            eq(isolatedSchema.contractorDocuments.companyId, pu.contractorCompanyId),
+            eq(isolatedSchema.contractorDocuments.isActive, true)
+          )
+        );
+
+      const stats = docs.reduce(
+        (acc: Record<string, number>, d: { status: string }) => {
+          const s = d.status ?? 'pending';
+          acc[s] = (acc[s] ?? 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
+      );
+
+      return res.json({
+        pending: stats['pending'] ?? 0,
+        approved: stats['approved'] ?? 0,
+        rejected: stats['rejected'] ?? 0,
+        expired: stats['expired'] ?? 0,
+        total: docs.length,
+      });
+    } catch (err: any) {
+      logger.error('[portal-doc-stats]', err);
+      return res.status(500).json({ error: 'Failed to load document stats.' });
+    }
+  });
+}

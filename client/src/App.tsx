@@ -79,6 +79,11 @@ import OnboardingOverview from "@/pages/hr/OnboardingOverview";
 import Leavers from "@/pages/hr/Leavers";
 import AppraisalsDue from "@/pages/hr/AppraisalsDue";
 import PayrollExport from "@/pages/hr/PayrollExport";
+import ContractorPortalLogin from "@/pages/contractor-portal/ContractorPortalLogin";
+import ContractorPortalAcceptInvite from "@/pages/contractor-portal/ContractorPortalAcceptInvite";
+import ContractorPortalDashboard from "@/pages/contractor-portal/ContractorPortalDashboard";
+import ContractorPortalDocuments from "@/pages/contractor-portal/ContractorPortalDocuments";
+import ContractorPortalWorkers from "@/pages/contractor-portal/ContractorPortalWorkers";
 
 function Router() {
   const [location] = useLocation();
@@ -89,7 +94,8 @@ function Router() {
   const isFireMarshalRoute = window.location.pathname.startsWith('/fire-marshal/');
   const isLoneWorkerOkRoute = window.location.pathname.startsWith('/lone-worker/ok/');
   const isPlatformAdminRoute = location.startsWith('/platform-admin');
-  const isPublicRoute = isFireMarshalRoute || isLoneWorkerOkRoute || isPlatformAdminRoute;
+  const isContractorPortalRoute = location.startsWith('/contractor-portal');
+  const isPublicRoute = isFireMarshalRoute || isLoneWorkerOkRoute || isPlatformAdminRoute || isContractorPortalRoute;
 
   // Auth query — must be called unconditionally (Rules of Hooks) before any early returns
   const { data: user, isLoading, error, isError } = useQuery({
@@ -402,6 +408,16 @@ function Router() {
   // Customer-facing kiosk pages — render without any admin Layout/nav
   if (window.location.pathname === '/contractor') {
     return <ContractorKiosk />;
+  }
+
+  // Contractor self-service portal — separate JWT-auth flow, no main Layout
+  if (isContractorPortalRoute) {
+    if (location === '/contractor-portal/accept-invite') return <ContractorPortalAcceptInvite />;
+    if (location === '/contractor-portal/documents') return <ContractorPortalDocuments />;
+    if (location === '/contractor-portal/workers') return <ContractorPortalWorkers />;
+    if (location === '/contractor-portal/login') return <ContractorPortalLogin />;
+    if (location === '/contractor-portal/dashboard' || location === '/contractor-portal') return <ContractorPortalDashboard />;
+    return <ContractorPortalLogin />;
   }
 
   // Show main app (either authenticated or public route)

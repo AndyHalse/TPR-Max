@@ -1,0 +1,190 @@
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Building2, Lock, User, Loader2, CheckCircle } from "lucide-react";
+
+export default function ContractorPortalAcceptInvite() {
+  const [, navigate] = useLocation();
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const params = new URLSearchParams(window.location.search);
+  const inviteToken = params.get("token") ?? "";
+  const customerId = params.get("cid") ?? "";
+
+  useEffect(() => {
+    if (!inviteToken || !customerId) {
+      setError("Invalid or missing invitation link. Please use the link from your email.");
+    }
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch("/api/contractor-portal/accept-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ inviteToken, customerId, firstName, lastName, password }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to accept invitation.");
+        return;
+      }
+      localStorage.setItem("portal_token", data.token);
+      localStorage.setItem("portal_customer_id", customerId);
+      localStorage.setItem("portal_user", JSON.stringify(data.user));
+      setDone(true);
+      setTimeout(() => navigate("/contractor-portal/dashboard"), 1800);
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (done) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
+        <div className="text-center text-white">
+          <CheckCircle className="h-16 w-16 text-green-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold">Account created</h2>
+          <p className="text-slate-400 mt-2">Redirecting to your portal...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 rounded-2xl mb-4 shadow-lg">
+            <Building2 className="h-7 w-7 text-white" />
+          </div>
+          <h1 className="text-2xl font-bold text-white">Accept Invitation</h1>
+          <p className="text-slate-400 text-sm mt-1">Set up your contractor portal account</p>
+        </div>
+
+        <Card className="border-0 shadow-2xl">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-lg">Create your account</CardTitle>
+            <CardDescription>Enter your details to activate the portal</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <Alert variant="destructive">
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
+              )}
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="firstName">First name</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                    <Input
+                      id="firstName"
+                      placeholder="First"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      className="pl-9"
+                      required
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="lastName">Last name</Label>
+                  <Input
+                    id="lastName"
+                    placeholder="Last"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="At least 8 characters"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-9"
+                    required
+                    minLength={8}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="confirmPassword">Confirm password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+                  <Input
+                    id="confirmPassword"
+                    type="password"
+                    placeholder="Repeat your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="pl-9"
+                    required
+                  />
+                </div>
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700"
+                disabled={loading || !inviteToken}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Setting up account...
+                  </>
+                ) : (
+                  "Activate account"
+                )}
+              </Button>
+            </form>
+
+            <p className="text-center text-sm text-slate-500 mt-4">
+              Already have an account?{" "}
+              <a href="/contractor-portal/login" className="text-blue-600 hover:underline font-medium">
+                Sign in
+              </a>
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}

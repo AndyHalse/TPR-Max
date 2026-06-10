@@ -1248,6 +1248,35 @@ export class CustomerDatabaseService {
       logger.warn(`⚠️ Induction settings column migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
     }
 
+    // Contractor Portal migration
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS "${schemaName}".contractor_portal_users (
+          id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+          email TEXT NOT NULL,
+          password_hash TEXT,
+          contractor_company_id VARCHAR NOT NULL,
+          first_name TEXT NOT NULL DEFAULT '',
+          last_name TEXT NOT NULL DEFAULT '',
+          role TEXT NOT NULL DEFAULT 'admin',
+          is_active BOOLEAN NOT NULL DEFAULT false,
+          invite_token TEXT,
+          invite_expires_at TIMESTAMPTZ,
+          invited_at TIMESTAMPTZ DEFAULT NOW(),
+          last_login_at TIMESTAMPTZ,
+          created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+        )
+      `);
+      await pool.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS contractor_portal_users_email_company_idx
+        ON "${schemaName}".contractor_portal_users (email, contractor_company_id)
+      `);
+      await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_contractor_portal BOOLEAN DEFAULT false`);
+      logger.info(`✅ Contractor portal migration ensured for ${schemaName}`);
+    } catch (err: any) {
+      logger.warn(`⚠️ Contractor portal migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
+    }
+
     // Ensure admin user exists in this customer schema (critical for production)
     try {
       await this.ensureAdminUserExists(customerId, db);
