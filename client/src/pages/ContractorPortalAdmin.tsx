@@ -22,7 +22,7 @@ import { toast } from "@/hooks/use-toast";
 const EMPTY_CONTRACTOR = {
   name: "", email: "", contactFirstName: "", contactLastName: "",
   phone: "", address: "", postcode: "", website: "", description: "",
-  industry: "", status: "pending", complianceScore: 0,
+  industry: "", status: "pending",
   publicLiabilityExpiry: "", employersLiabilityExpiry: "",
   healthSafetyExpiry: "", cisRegistration: "",
 };
