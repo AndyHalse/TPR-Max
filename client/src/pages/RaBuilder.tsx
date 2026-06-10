@@ -160,9 +160,17 @@ function InfoTooltip({ text }: { text: string }) {
 export default function RaBuilder() {
   const { toast } = useToast();
 
-  // View state
-  const [showEditor, setShowEditor] = useState(false);
-  const [currentAssessmentId, setCurrentAssessmentId] = useState<string | null>(null);
+  // View state — check for ?open=<id> deep-link on first mount
+  const [showEditor, setShowEditor] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return !!params.get('open');
+  });
+  const [currentAssessmentId, setCurrentAssessmentId] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('open');
+    if (id) window.history.replaceState({}, '', window.location.pathname);
+    return id || null;
+  });
 
   // New assessment dialog
   const [newDialogOpen, setNewDialogOpen] = useState(false);
@@ -184,6 +192,7 @@ export default function RaBuilder() {
 
   // Auto-save
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingUpdatesRef = useRef<{ fields: Partial<Assessment>; meta?: Record<string, any> }>({ fields: {} });
   const hazardTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
@@ -215,12 +224,17 @@ export default function RaBuilder() {
 
   const scheduleAutoSave = useCallback((updates: Partial<Assessment>, meta?: Record<string, any>) => {
     if (!currentAssessmentId) return;
+    // Merge incoming updates into the pending object so rapid edits are not lost
+    pendingUpdatesRef.current.fields = { ...pendingUpdatesRef.current.fields, ...updates };
+    if (meta !== undefined) pendingUpdatesRef.current.meta = meta;
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     setSaveStatus("saving");
     autoSaveTimer.current = setTimeout(async () => {
       try {
-        const payload: any = { ...updates };
-        if (meta !== undefined) payload.typeMetadata = JSON.stringify(meta);
+        const { fields, meta: pendingMeta } = pendingUpdatesRef.current;
+        pendingUpdatesRef.current = { fields: {} };
+        const payload: any = { ...fields };
+        if (pendingMeta !== undefined) payload.typeMetadata = JSON.stringify(pendingMeta);
         await apiRequest("PUT", `/api/ra-builder/assessments/${currentAssessmentId}`, payload);
         setSaveStatus("saved");
         queryClient.invalidateQueries({ queryKey: ["/api/ra-builder/assessments"] });

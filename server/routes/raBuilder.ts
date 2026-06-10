@@ -153,19 +153,19 @@ export function registerRaBuilderRoutes(app: Express): void {
         .values({
           ramsIdRef,
           documentName: `${assessment.title} (RA Builder)`,
-          documentUrl: `/ra-builder/assessments/${id}/print`,
+          documentUrl: `/ra-builder?open=${id}`,
           expiryDate,
           status: 'valid',
           isActive: true,
         })
         .returning();
 
-      // Update assessment
+      // Update assessment — preserve manually-entered approver name if already set
       const [updated] = await custDb
         .update(isolatedSchema.raBuilderAssessments)
         .set({
           status: 'approved',
-          approvedBy: req.user!.username,
+          approvedBy: assessment.approvedBy?.trim() ? assessment.approvedBy : req.user!.username,
           linkedRamsDocumentId: ramsDoc.id,
           updatedAt: new Date(),
         })
@@ -252,19 +252,40 @@ export function registerRaBuilderRoutes(app: Express): void {
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const { hazardId } = req.params;
       const body = req.body;
-      const likelihood = body.likelihood !== undefined ? Number(body.likelihood) : undefined;
-      const severity = body.severity !== undefined ? Number(body.severity) : undefined;
-      const residualLikelihood = body.residualLikelihood !== undefined ? Number(body.residualLikelihood) : undefined;
-      const residualSeverity = body.residualSeverity !== undefined ? Number(body.residualSeverity) : undefined;
       const updates: any = { ...body };
-      if (likelihood !== undefined) updates.likelihood = likelihood;
-      if (severity !== undefined) updates.severity = severity;
-      if (likelihood !== undefined && severity !== undefined) updates.riskRating = likelihood * severity;
-      if (residualLikelihood !== undefined) updates.residualLikelihood = residualLikelihood;
-      if (residualSeverity !== undefined) updates.residualSeverity = residualSeverity;
-      if (residualLikelihood !== undefined && residualSeverity !== undefined) {
-        updates.residualRiskRating = residualLikelihood * residualSeverity;
+
+      const hasLikelihood = body.likelihood !== undefined;
+      const hasSeverity = body.severity !== undefined;
+      const hasResidualLikelihood = body.residualLikelihood !== undefined;
+      const hasResidualSeverity = body.residualSeverity !== undefined;
+
+      // Recalculate ratings any time at least one factor of a pair arrives
+      const needsRating = hasLikelihood || hasSeverity;
+      const needsResidualRating = hasResidualLikelihood || hasResidualSeverity;
+
+      if (needsRating || needsResidualRating) {
+        const [existing] = await custDb
+          .select()
+          .from(isolatedSchema.raBuilderHazards)
+          .where(eq(isolatedSchema.raBuilderHazards.id, hazardId));
+        if (!existing) return res.status(404).json({ error: 'Hazard not found' });
+
+        if (needsRating) {
+          const lk = hasLikelihood ? Number(body.likelihood) : (existing.likelihood ?? 1);
+          const sv = hasSeverity   ? Number(body.severity)   : (existing.severity   ?? 1);
+          updates.likelihood  = lk;
+          updates.severity    = sv;
+          updates.riskRating  = lk * sv;
+        }
+        if (needsResidualRating) {
+          const rl = hasResidualLikelihood ? Number(body.residualLikelihood) : (existing.residualLikelihood ?? 1);
+          const rs = hasResidualSeverity   ? Number(body.residualSeverity)   : (existing.residualSeverity   ?? 1);
+          updates.residualLikelihood  = rl;
+          updates.residualSeverity    = rs;
+          updates.residualRiskRating  = rl * rs;
+        }
       }
+
       const parsed = isolatedSchema.insertRaBuilderHazardSchema.partial().parse(updates);
       const [row] = await custDb
         .update(isolatedSchema.raBuilderHazards)
@@ -323,12 +344,12 @@ export function registerRaBuilderRoutes(app: Express): void {
         return res.status(400).json({ error: 'hazardDescription is required' });
       }
 
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: 'Customer context not found' });
       }
 
       const { decryptData } = await import('../utils/encryption');
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       const apiKeys = await databaseService.getCustomerApiKeys(context);
       const claudeKeyRow = apiKeys.find((k: any) => k.serviceType === 'claude' && k.status === 'active');
 
@@ -351,7 +372,7 @@ Existing controls already in place: ${existingControls || 'None stated'}
 Suggest additional control measures.`;
 
       const aiManager = new AiModelManager();
-      const result = await aiManager.callClaude(combinedPrompt, 'claude-3-5-sonnet', {
+      const result = await aiManager.callClaude(combinedPrompt, 'claude-sonnet-4-6', {
         claudeApiKey,
         maxTokens: 512,
       });

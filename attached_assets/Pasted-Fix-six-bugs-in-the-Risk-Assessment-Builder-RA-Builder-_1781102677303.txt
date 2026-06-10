@@ -1,0 +1,115 @@
+Fix six bugs in the Risk Assessment Builder (RA Builder) module. Do not redesign
+anything, do not touch any other module, and do not change the database schema.
+The files involved are:
+- client/src/pages/RaBuilder.tsx
+- server/routes/raBuilder.ts
+- server/managers/AiModelManager.ts
+
+──────────────────────────────────────────────
+BUG 1 — Stored risk ratings go stale (most important)
+──────────────────────────────────────────────
+In server/routes/raBuilder.ts, in the PUT
+/api/ra-builder/assessments/:id/hazards/:hazardId handler (around line 249):
+
+The handler only recalculates riskRating when BOTH likelihood AND severity are
+in the request body, and only recalculates residualRiskRating when BOTH
+residualLikelihood AND residualSeverity are in the body. The front end
+auto-saves one field at a time, so the stored ratings are never updated and
+the database keeps stale values, which then appear on list cards and printed
+PDFs.
+
+Fix: when the body contains likelihood OR severity (but not both), first fetch
+the existing hazard row from the database, merge the incoming value with the
+stored value for the missing one, and always set riskRating = likelihood ×
+severity using the merged values. Do exactly the same for residualLikelihood /
+residualSeverity → residualRiskRating. If neither field of a pair is in the
+body, leave that rating untouched.
+
+──────────────────────────────────────────────
+BUG 2 — Auto-save silently drops edits
+──────────────────────────────────────────────
+In client/src/pages/RaBuilder.tsx, the scheduleAutoSave function (around line
+216) uses a single shared timer. Each call clears the previous timer and
+replaces the pending payload with ONLY the latest field. If a user edits Title
+and then Location within the 800ms window, the Title change is discarded and
+never saved.
+
+Fix: add a ref (e.g. pendingUpdatesRef) that accumulates updates. Each call to
+scheduleAutoSave should MERGE its updates (and typeMetadata if provided) into
+the pending object, then reset the timer. When the timer fires, send the full
+merged pending object in one PUT request and clear the ref. Keep the 800ms
+debounce and the saving/saved status behaviour exactly as it is now.
+
+──────────────────────────────────────────────
+BUG 3 — Approving creates a dead link in the RAMS register
+──────────────────────────────────────────────
+In server/routes/raBuilder.ts, the approve handler (around line 156) saves a
+RAMS document with documentUrl '/ra-builder/assessments/{id}/print'. That route
+does not exist anywhere in the app, so the document link in the RAMS register
+is broken.
+
+Fix in two parts:
+a) Change documentUrl to '/ra-builder?open={assessmentId}' (the real
+   assessment id, not the RA- reference).
+b) In client/src/pages/RaBuilder.tsx, on first mount read the 'open' query
+   parameter from the URL. If present, set currentAssessmentId to that value
+   and open the editor view (the existing useQuery + useEffect will load the
+   data). Then remove the parameter from the URL with
+   window.history.replaceState so refreshing doesn't re-trigger it. If the id
+   doesn't exist, the editor's existing error handling applies — just show the
+   normal list if the load fails.
+
+──────────────────────────────────────────────
+BUG 4 — "Approved By" name gets overwritten on publish
+──────────────────────────────────────────────
+In server/routes/raBuilder.ts, the approve handler (around line 168) sets
+approvedBy to req.user.username, which overwrites whatever approver name the
+user picked in the Approved By field.
+
+Fix: only set approvedBy to req.user.username when the assessment's existing
+approvedBy field is empty or null. If the user has already entered an approver
+name, keep it.
+
+──────────────────────────────────────────────
+BUG 5 — AI suggestions use an obsolete Claude model
+──────────────────────────────────────────────
+The suggest-controls endpoint in server/routes/raBuilder.ts (around line 354)
+calls callClaude with 'claude-3-5-sonnet', which AiModelManager maps to
+'claude-3-5-sonnet-20241022' — a model from 2024 that is end-of-life.
+
+Fix:
+a) In server/managers/AiModelManager.ts, add 'claude-sonnet-4-6' to the
+   CLAUDE_MODELS list and add a modelMap entry mapping 'claude-sonnet-4-6' to
+   the API model id 'claude-sonnet-4-6'.
+b) In raBuilder.ts, change the callClaude call to use 'claude-sonnet-4-6'.
+Do not remove the old model entries — other modules may still reference them.
+
+──────────────────────────────────────────────
+BUG 6 — Inconsistent customer check on the AI endpoint
+──────────────────────────────────────────────
+In server/routes/raBuilder.ts, the suggest-controls handler (around line 326)
+reads req.session?.customerId, while every other handler in the file uses
+req.customerId (set by the auth middleware). This breaks token-authenticated
+requests on this one route.
+
+Fix: replace req.session?.customerId with req.customerId, matching the rest of
+the file.
+
+──────────────────────────────────────────────
+ACCEPTANCE CHECKS — verify all of these before finishing
+──────────────────────────────────────────────
+1. Open a hazard, change ONLY Likelihood, wait 2 seconds, reload the page from
+   the list view: the risk rating pill on the list card reflects the new value.
+   Repeat for Residual Likelihood.
+2. In the editor, type in Title and immediately click into Location and type,
+   all within 1 second. Wait 2 seconds, go back to the list and reopen: BOTH
+   changes are saved.
+3. Approve an assessment, go to the RAMS register, click the document link:
+   it opens the RA Builder with that assessment loaded in the editor.
+4. Set Approved By to a name that is not the logged-in user, click Approve &
+   Publish: the name is unchanged afterwards. Then approve a different
+   assessment with Approved By left blank: it is filled with the logged-in
+   username.
+5. AI Suggest Controls still returns suggestions (with a valid API key
+   configured) and the request now uses claude-sonnet-4-6.
+6. No TypeScript errors, and no other module's behaviour has changed.

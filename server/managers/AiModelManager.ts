@@ -27,7 +27,7 @@ const defaultAnthropic = process.env.ANTHROPIC_API_KEY
   : null;
 
 // Claude model names for routing detection
-const CLAUDE_MODELS = ['claude-3-5-sonnet', 'claude-3-opus', 'claude-3-haiku', 'claude-3-sonnet', 'claude-2'];
+const CLAUDE_MODELS = ['claude-sonnet-4-6', 'claude-3-5-sonnet', 'claude-3-opus', 'claude-3-haiku', 'claude-3-sonnet', 'claude-2'];
 
 // OpenAI configured - detailed logging disabled for security
 
@@ -64,6 +64,13 @@ export class AiModelManager implements IAiChatClient {
   ];
 
   private readonly claudeModelConfigs: ModelConfig[] = [
+    {
+      name: "claude-sonnet-4-6",
+      maxTokens: 4000,
+      temperature: 0.7,
+      timeoutMs: 30000,
+      retryAttempts: 2
+    },
     {
       name: "claude-3-5-sonnet",
       maxTokens: 4000,
@@ -281,6 +288,7 @@ export class AiModelManager implements IAiChatClient {
   private mapClaudeModelId(modelName: string): string {
     // Map short names to full Anthropic model IDs
     const modelMap: Record<string, string> = {
+      'claude-sonnet-4-6': 'claude-sonnet-4-6',
       'claude-3-5-sonnet': 'claude-3-5-sonnet-20241022',
       'claude-3-opus': 'claude-3-opus-20240229',
       'claude-3-haiku': 'claude-3-haiku-20240307',
