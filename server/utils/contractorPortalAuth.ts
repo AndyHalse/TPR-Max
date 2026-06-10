@@ -1,6 +1,9 @@
 import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import { logger } from '../utils/logger';
+import { customerDbService } from '../customerDatabase';
+import * as isolatedSchema from '../isolatedSchema';
+import { eq } from 'drizzle-orm';
 
 export interface PortalTokenPayload {
   portalUserId: string;
@@ -59,11 +62,11 @@ export function verifyPortalToken(token: string): PortalTokenPayload | null {
   }
 }
 
-export function requireContractorPortalAuth(
+export async function requireContractorPortalAuth(
   req: Request,
   res: Response,
   next: NextFunction
-): void {
+): Promise<void> {
   const authHeader = req.headers['authorization'];
   const token = authHeader?.startsWith('Bearer ')
     ? authHeader.slice(7).trim()
@@ -77,6 +80,28 @@ export function requireContractorPortalAuth(
     res.status(401).json({ error: 'Invalid or expired portal session. Please log in again.', code: 'PORTAL_TOKEN_INVALID' });
     return;
   }
+
+  try {
+    const db = await customerDbService.getCustomerDatabase(payload.customerId);
+    const rows = await db
+      .select({ isActive: isolatedSchema.contractorPortalUsers.isActive })
+      .from(isolatedSchema.contractorPortalUsers)
+      .where(eq(isolatedSchema.contractorPortalUsers.id, payload.portalUserId))
+      .limit(1);
+    const user = rows[0];
+    if (!user || !user.isActive) {
+      res.status(401).json({
+        error: 'Your portal access has been removed. Please contact the site administrator.',
+        code: 'PORTAL_ACCESS_REVOKED',
+      });
+      return;
+    }
+  } catch (err: any) {
+    logger.error('[portal-auth] DB check failed:', err?.message);
+    res.status(500).json({ error: 'Authentication check failed. Please try again.' });
+    return;
+  }
+
   (req as any).portalUser = payload;
   next();
 }

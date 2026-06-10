@@ -43,7 +43,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
         return res.status(401).json({ error: 'Invalid company access code.' });
       }
 
-      const users = await db
+      const candidates = await db
         .select()
         .from(isolatedSchema.contractorPortalUsers)
         .where(
@@ -51,18 +51,31 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
             eq(isolatedSchema.contractorPortalUsers.email, email.toLowerCase().trim()),
             eq(isolatedSchema.contractorPortalUsers.isActive, true)
           )
-        )
-        .limit(1);
+        );
 
-      const user = users[0];
-      if (!user || !user.passwordHash) {
+      if (!candidates.length) {
         return res.status(401).json({ error: 'Invalid email or password.' });
       }
 
-      const valid = await bcrypt.compare(password, user.passwordHash);
-      if (!valid) {
+      // Find all candidates whose password matches (handles duplicate-email edge case)
+      const matched: typeof candidates = [];
+      for (const c of candidates) {
+        if (c.passwordHash && await bcrypt.compare(password, c.passwordHash)) {
+          matched.push(c);
+        }
+      }
+
+      if (matched.length === 0) {
         return res.status(401).json({ error: 'Invalid email or password.' });
       }
+      if (matched.length > 1) {
+        return res.status(409).json({
+          error: 'Multiple accounts share this email address. Please use the invitation link sent to your email to log in to the correct account.',
+          code: 'PORTAL_EMAIL_AMBIGUOUS',
+        });
+      }
+
+      const user = matched[0];
 
       await db
         .update(isolatedSchema.contractorPortalUsers)
@@ -358,7 +371,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
           return res.status(400).json({ error: 'Document type and name are required.' });
         }
 
-        let documentUrl = '';
+        let documentUrl: string;
         try {
           const objService = new ObjectStorageService();
           const privateDir = objService.getPrivateObjectDir();
@@ -375,8 +388,10 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
           });
           documentUrl = `/objects/contractor-portal/${objectId}.${ext}`;
         } catch (storageErr: any) {
-          logger.warn('[portal-upload] Object storage unavailable:', storageErr.message?.substring(0, 80));
-          documentUrl = '';
+          logger.error('[portal-upload] Object storage save failed:', storageErr?.message);
+          return res.status(502).json({
+            error: 'We could not store your file right now. Please try again in a moment.',
+          });
         }
 
         const db = await customerDbService.getCustomerDatabase(pu.customerId);
@@ -386,7 +401,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
             companyId: pu.contractorCompanyId,
             documentName,
             documentType,
-            documentUrl: documentUrl || '',
+            documentUrl,
             expiryDate: expiryDate ? new Date(expiryDate) : null,
             issuedBy: issuedBy || null,
             uploadedBy: `portal:${pu.portalUserId}`,
@@ -463,7 +478,10 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
       const db = await customerDbService.getCustomerDatabase(pu.customerId);
 
       const docs = await db
-        .select({ status: isolatedSchema.contractorDocuments.status })
+        .select({
+          status: isolatedSchema.contractorDocuments.status,
+          expiryDate: isolatedSchema.contractorDocuments.expiryDate,
+        })
         .from(isolatedSchema.contractorDocuments)
         .where(
           and(
@@ -472,22 +490,16 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
           )
         );
 
-      const stats = docs.reduce(
-        (acc: Record<string, number>, d: { status: string }) => {
-          const s = d.status ?? 'pending';
-          acc[s] = (acc[s] ?? 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
+      const now = new Date();
+      let pending = 0, approved = 0, rejected = 0, expired = 0;
+      for (const d of docs) {
+        if (d.expiryDate && new Date(d.expiryDate) < now) { expired++; continue; }
+        if (d.status === 'approved') approved++;
+        else if (d.status === 'rejected') rejected++;
+        else pending++;
+      }
 
-      return res.json({
-        pending: stats['pending'] ?? 0,
-        approved: stats['approved'] ?? 0,
-        rejected: stats['rejected'] ?? 0,
-        expired: stats['expired'] ?? 0,
-        total: docs.length,
-      });
+      return res.json({ pending, approved, rejected, expired, total: docs.length });
     } catch (err: any) {
       logger.error('[portal-doc-stats]', err);
       return res.status(500).json({ error: 'Failed to load document stats.' });
