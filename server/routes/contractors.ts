@@ -4889,6 +4889,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     }
   });
 
+  // ── Contractor Portal: Revoke / re-invite a portal user ──────────────────
+  app.patch('/api/contractors/portal-users/:userId/revoke', requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+
+      const [updated] = await db
+        .update(isolatedSchema.contractorPortalUsers)
+        .set({ isActive: false, passwordHash: null, inviteToken: null, inviteExpiresAt: null })
+        .where(eq(isolatedSchema.contractorPortalUsers.id, userId))
+        .returning();
+
+      if (!updated) return res.status(404).json({ error: 'Portal user not found.' });
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error('Error revoking portal user:', error);
+      return res.status(500).json({ error: 'Failed to revoke access.' });
+    }
+  });
+
   // ── Contractor Portal: Review a document (approve/reject) ─────────────────
   app.put('/api/contractors/documents/:docId/review', requireAuth, async (req, res) => {
     try {
