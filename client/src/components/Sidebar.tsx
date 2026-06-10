@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, type CSSProperties } from "react";
 import { Link, useLocation } from "wouter";
-import { ChevronLeft, ChevronRight, X, ChartLine, Activity, User, HardHat, CalendarPlus, Users, UserCheck, Calendar, Clock, ListChecks, ScrollText, AlertTriangle, Flame, Wrench, ClipboardCheck, ShieldCheck, ClipboardList, FileEdit, Ticket, Shield, FileText, Video, Dock, Mail, Briefcase, Settings, LogOut } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, ChartLine, Activity, User, HardHat, CalendarPlus, Users, UserCheck, Calendar, Clock, ListChecks, ScrollText, AlertTriangle, Flame, Wrench, ClipboardCheck, ShieldCheck, ClipboardList, FileEdit, Ticket, Shield, FileText, Video, Dock, Mail, Briefcase, Settings, LogOut, Globe } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
@@ -11,7 +11,7 @@ export const SIDEBAR_COLLAPSED_WIDTH = 56;
 
 const NAV_GROUPS_CONFIG = [
   { label: "Overview",    paths: ["/", "/compliance-dashboard"] },
-  { label: "People",      paths: ["/visitors", "/contractors", "/staff", "/members"] },
+  { label: "People",      paths: ["/visitors", "/contractors", "/contractor-portal-admin", "/staff", "/members"] },
   { label: "Compliance",  paths: ["/induction-settings", "/compliance-certificates", "/permit-to-work", "/ra-builder", "/audits"] },
   { label: "Safety",      paths: ["/muster", "/incident-reports", "/hs-incidents", "/fire-risk-assessment", "/martyn-law"] },
   { label: "Operations",  paths: ["/meeting-rooms", "/time-attendance", "/ppm", "/helpdesk", "/kiosk", "/email-outbox"] },

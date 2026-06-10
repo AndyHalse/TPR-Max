@@ -23,6 +23,7 @@ import Members from "@/pages/Members";
 import Reports from "@/pages/Reports";
 import Contractors from "@/pages/Contractors";
 import ContractorDetails from "@/pages/ContractorDetails";
+import ContractorPortalAdmin from "@/pages/ContractorPortalAdmin";
 import ContractorKiosk from "@/pages/ContractorKiosk";
 import ContractorManagement from "@/pages/ContractorManagement";
 import FireMarshalMuster from "@/pages/FireMarshalMuster";
@@ -520,6 +521,11 @@ function Router() {
             <Route path="/contractors/legacy">
               <ErrorBoundary>
                 <Contractors />
+              </ErrorBoundary>
+            </Route>
+            <Route path="/contractor-portal-admin">
+              <ErrorBoundary>
+                <ContractorPortalAdmin />
               </ErrorBoundary>
             </Route>
             <Route path="/contractors/:id">
