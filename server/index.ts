@@ -303,7 +303,10 @@ function createCSRFMiddleware() {
         req.originalUrl.startsWith('/api/nda/public') ||
         req.originalUrl.startsWith('/api/doc-request/') ||
         req.originalUrl.startsWith('/api/worker-doc-request/') ||
-        req.originalUrl.startsWith('/api/contractor-portal/')) {
+        req.originalUrl.startsWith('/api/contractor-portal/') ||
+        // Public mobile pages — protected by secret token in URL, no admin session
+        req.originalUrl.startsWith('/api/audits/public/') ||
+        req.originalUrl.startsWith('/api/induction/checkpoint/')) {
       return next();
     }
 

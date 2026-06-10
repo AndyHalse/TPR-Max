@@ -140,11 +140,7 @@ export default function EditContractorWorkerModal({
   // Add new NVQ qualification
   const addQualificationMutation = useMutation({
     mutationFn: async (newQualification: { name: string; level: number; industry: string; description: string }) => {
-      return await apiRequest("/api/nvq-qualifications", {
-        method: "POST",
-        body: JSON.stringify(newQualification),
-        headers: { "Content-Type": "application/json" },
-      });
+      return await apiRequest("POST", "/api/nvq-qualifications", newQualification);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/nvq-qualifications"] });

@@ -103,13 +103,11 @@ export default function Billing() {
 
   // Create billing portal session
   const billingPortalMutation = useMutation({
-    mutationFn: () => apiRequest('/api/billing/portal', {
-      method: 'POST',
-      body: JSON.stringify({
-        returnUrl: window.location.href
-      })
-    }),
-    onSuccess: (data) => {
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/billing/portal', { returnUrl: window.location.href });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
       window.open(data.portalUrl, '_blank');
     },
     onError: (error) => {
@@ -123,16 +121,15 @@ export default function Billing() {
 
   // Create checkout session
   const checkoutMutation = useMutation({
-    mutationFn: (data: { priceId: string; billingCycle: 'monthly' | 'yearly' }) => 
-      apiRequest('/api/billing/checkout', {
-        method: 'POST',
-        body: JSON.stringify({
-          ...data,
-          successUrl: `${window.location.origin}/billing?success=true`,
-          cancelUrl: `${window.location.origin}/billing?canceled=true`
-        })
-      }),
-    onSuccess: (data) => {
+    mutationFn: async (data: { priceId: string; billingCycle: 'monthly' | 'yearly' }) => {
+      const res = await apiRequest('POST', '/api/billing/checkout', {
+        ...data,
+        successUrl: `${window.location.origin}/billing?success=true`,
+        cancelUrl: `${window.location.origin}/billing?canceled=true`,
+      });
+      return res.json();
+    },
+    onSuccess: (data: any) => {
       if (data.checkoutUrl) {
         window.location.href = data.checkoutUrl;
       }

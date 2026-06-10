@@ -1,0 +1,54 @@
+What I found — three separate problems
+1. Public mobile pages are blocked entirely (most serious). Two flows are used by people on their phones via a link or QR code — they've never logged into the admin app, so they have no CSRF cookie at all:
+
+Audit Mobile (AuditMobile.tsx) — external auditors filling in an audit via a shared link. Every answer save, photo upload, and final submit hits /api/audits/public/..., which is not on the server's exemption list. They'll get a 403 on everything.
+Induction checkpoints (InductionCheckpoint.tsx) — inductees scanning QR checkpoints and reporting hazards. Same story: /api/induction/checkpoint/... isn't exempt.
+Other public flows (kiosk, NDA signing, fire marshal, worker document upload) were correctly added to the exemption list in server/index.ts:295-315 — these two were simply missed. Both are already protected by a secret token in the URL, so exempting them is safe.
+
+2. About 17 admin screens make raw requests without the token. Most of the app goes through a shared helper (apiRequest in queryClient.ts) that attaches the token automatically and even retries once if it's stale. But these files call fetch directly and never attach it — so the button looks fine but fails with a 403: ID Card Designer (both versions), Thermal Pass Designer, CO2 Tracker, Help panel feedback, H&S Template Editor and template reset, all three AI analysis tools, visitor emergency-notify on the Dashboard, Martyn's Law evidence upload, data import in System Settings, roughly ten calls in Integration Settings (Paxton, BioStar, API keys), the induction scene photo upload, and the test-worker generator.
+
+3. The Billing page is broken in a different way. Billing.tsx and one call in EditContractorWorkerModal.tsx call the shared helper with the arguments in the wrong order — apiRequest(url, options) when it expects apiRequest(method, url, data). The "Manage billing" and "Upgrade" buttons can't work at all. That's a revenue-path bug.
+
+Things I checked that are fine: document uploads that PUT to a signed storage link (those bypass the server, no token needed), the muster QR scanner (uses fire-marshal credentials, exempt), and the Super Admin page (uses the helper correctly).
+
+Replit prompts
+Prompt 1 — Unblock public audit and checkpoint pages (do this first)
+
+In server/index.ts, the CSRF middleware (createCSRFMiddleware, around lines 295–315) has a skip list for public endpoints that are accessed from mobile devices without an admin session. Two public flows were missed and are currently broken for real users — every mutating request gets 403 CSRF_INVALID:
+
+/api/audits/public/ — used by external auditors via a shared link (PUT autosave, POST upload, POST submit, defined in server/routes/auditEngine.ts). Protected by a secret URL token plus auditPublicRateLimit.
+/api/induction/checkpoint/ — used by inductees scanning QR checkpoints on their phones (POST scan, POST report-hazard, POST hazard-photo, defined in server/routes/induction.ts around lines 5152–5234). Protected by the secret qrToken.
+Add both prefixes to the existing req.originalUrl.startsWith(...) skip block (the one that already lists /api/kiosk, /api/nda/public, /api/worker-doc-request/ etc.) with a comment explaining they are token-protected public mobile endpoints. Do not change anything else in the middleware. Then verify by simulating: a POST to /api/audits/public/some-token/submit with no cookies must NOT return 403 CSRF_INVALID, and a POST to a normal admin endpoint like /api/staff with no token must still return 403.
+
+Prompt 2 — Fix the broken Billing page (revenue path)
+
+apiRequest in client/src/lib/queryClient.ts has the signature apiRequest(method, url, data) and returns a raw Response (not parsed JSON). Three calls use it wrongly, passing the URL first and an options object second, and treating the result as parsed JSON — so these features are completely broken:
+
+client/src/pages/Billing.tsx (~line 106): apiRequest('/api/billing/portal', { method: 'POST', body: JSON.stringify({ returnUrl }) }) → change to apiRequest('POST', '/api/billing/portal', { returnUrl: window.location.href }), then const data = await res.json() before using data.portalUrl in onSuccess.
+Same file (~line 126): the checkout mutation for /api/billing/checkout — same fix, and parse the response JSON before using the checkout URL.
+client/src/components/EditContractorWorkerModal.tsx (~line 144): the add-qualification mutation posting to /api/nvq-qualifications → change to apiRequest('POST', '/api/nvq-qualifications', newQualification).
+Do not change the apiRequest function itself — every other call site uses the correct order. Run npx tsc --noEmit and confirm the billing portal and checkout buttons fire real network requests.
+
+Prompt 3 — Add the CSRF token to raw fetch calls in admin screens
+
+The app's CSRF protection requires an x-csrf-token header (matching the csrf-token cookie) on every POST/PUT/PATCH/DELETE to admin endpoints. Most code uses apiRequest from client/src/lib/queryClient.ts, which handles this automatically. The files below call fetch directly without the header, so these actions fail with 403 CSRF_INVALID.
+
+Step 1: in client/src/lib/queryClient.ts, export the existing private getCsrfToken() function.
+
+Step 2: where the call sends JSON, prefer converting it to apiRequest(method, url, data). Where it sends FormData or needs custom handling, keep fetch but import getCsrfToken and add 'x-csrf-token': getCsrfToken() ?? '' to the headers (never set Content-Type manually on FormData requests). Fix these:
+
+components/IdCardDesignSystem.tsx — PUT /api/idcard/design, POST /api/idcard/test-print
+components/IdCardDesigner.tsx — POST /api/staff/:id/print-id-card
+components/ThermalPassDesigner.tsx — both PUT /api/thermal-passes/design/:passType calls
+components/CO2EmissionsTracker.tsx — POST .../co2/calculate, PUT .../transport
+components/HelpPanel.tsx — POST /api/help/interactions
+components/TemplateEditor.tsx — PUT template save, POST /api/uk-hs-documents/templates
+components/DefaultTemplateManager.tsx — POST /api/uk-hs-documents/defaults/:id/reset
+components/AIFlowOptimization.tsx, components/AIROICalculator.tsx, components/AICompetitiveAnalysis.tsx — POST /api/ai/...
+pages/Dashboard.tsx (~line 2378) — POST /api/visitors/:id/emergency-notify
+pages/MartynLaw.tsx (~line 285) — POST /api/martyn-law/evidence/upload (FormData — keep fetch, add header)
+pages/settings/SystemSettings.tsx (~line 114) — POST /api/import/:type (FormData — keep fetch, add header)
+pages/settings/IntegrationSettings.tsx — all POST/PATCH/DELETE calls (paxton test/sync, integrations api-key generate/revoke, test-webhook, biostar test/devices)
+pages/settings/InductionSettings.tsx (~line 163) — POST scene photo upload (FormData — keep fetch, add header)
+pages/contractor/useContractorManagement.ts (~line 114) — POST /api/contractors/generate-test-workers
+Do NOT touch public/mobile pages (AuditMobile.tsx, InductionCheckpoint.tsx, SiteInduction.tsx, NdaSign.tsx, WorkerDocumentUpload.tsx, fire marshal pages, MusterQRScanner.tsx) — those endpoints are CSRF-exempt by design. Also leave the PUT uploadURL calls alone (presigned object-storage uploads to an external host). Run npx tsc --noEmit when done.

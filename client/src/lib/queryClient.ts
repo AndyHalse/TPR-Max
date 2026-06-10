@@ -17,7 +17,7 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
-function getCsrfToken(): string | null {
+export function getCsrfToken(): string | null {
   const cookies = document.cookie.split(';');
   const csrfCookie = cookies.find(c => c.trim().startsWith('csrf-token='));
   if (csrfCookie) {
