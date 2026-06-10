@@ -129,6 +129,7 @@ export default function MarketingPage() {
           "people",
           "id-printing",
           "contractors",
+          "contractor-portal",
           "ai-compliance",
           "rams",
           "hr",
@@ -374,7 +375,7 @@ export default function MarketingPage() {
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-emerald-600">
                   <Zap className="h-3 w-3 mr-1" />
-                  28 Modules · One Platform
+                  29 Modules · One Platform
                 </Badge>
                 <Badge variant="secondary" className="text-white bg-violet-600">
                   <CheckCircle className="h-3 w-3 mr-1" />
@@ -407,6 +408,7 @@ export default function MarketingPage() {
                   "Emergency Mustering & Roll-Call",
                   "Visitor & Reception Management",
                   "Contractor & CDM 2015 Compliance",
+                  "Contractor Self-Service Compliance Portal",
                   "AI Safety Inductions & RAMS",
                   "Planned Preventative Maintenance",
                   "Audit & Inspection Engine",
@@ -1085,6 +1087,14 @@ export default function MarketingPage() {
                 Contractors
               </TabsTrigger>
               <TabsTrigger
+                value="contractor-portal"
+                className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-teal-700 transition-all duration-200"
+                data-testid="tab-contractor-portal"
+              >
+                <Globe className="h-4 w-4 mb-1" />
+                Portal
+              </TabsTrigger>
+              <TabsTrigger
                 value="ai-compliance"
                 className="flex flex-col items-center p-3 text-xs font-medium data-[state=active]:bg-white data-[state=active]:text-[#2460A9] transition-all duration-200"
                 data-testid="tab-ai-compliance"
@@ -1685,6 +1695,12 @@ export default function MarketingPage() {
                         <strong>CDM 2015 Compliance:</strong> Full duty-holder assignment, F10 HSE notifications, notifiability calculator, and five-section compliance scoring for construction projects
                       </span>
                     </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-teal-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Self-Service Contractor Portal:</strong> Invite contractors to a branded web portal where they upload their own RAMS, insurance, and certification — no chasing paperwork
+                      </span>
+                    </div>
                   </div>
 
                   <Button
@@ -1706,6 +1722,160 @@ export default function MarketingPage() {
                     className="rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700 w-full"
                     data-testid="img-contractor-management"
                   />
+                </div>
+              </div>
+            </TabsContent>
+
+            {/* Contractor Self-Service Portal Tab */}
+            <TabsContent
+              value="contractor-portal"
+              className="space-y-6"
+              data-testid="content-contractor-portal"
+            >
+              <div className="grid lg:grid-cols-2 gap-8 items-center">
+                <div className="space-y-6">
+                  <div>
+                    <Badge className="mb-4 bg-teal-600 text-white">
+                      <Globe className="h-3 w-3 mr-1" />
+                      NEW — Self-Service Compliance Portal
+                    </Badge>
+                    <h3 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">
+                      Contractor Portal — Stop Chasing Paperwork
+                    </h3>
+                    <p className="text-lg text-slate-600 dark:text-slate-300 leading-relaxed">
+                      Invite any contractor company to a branded, secure web portal where <em>they</em> upload their own compliance documents, manage their workers, and track document status — without ever needing a TPR account. Your admin team reviews and approves everything from the main dashboard.
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-teal-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Email Invite Flow:</strong> Send contractors a one-click invitation link — they create their account, set a password, and are immediately in the portal with their company access code
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-teal-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Branded Experience:</strong> The portal displays your company logo and name — contractors see a white-labelled environment that builds trust
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-teal-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Document Upload:</strong> Contractors upload RAMS, public liability insurance, employer's liability, method statements, and any custom document types you define
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-teal-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Worker Management:</strong> Contractors add their own operatives (name, email, phone) directly in the portal — no manual data entry for your team
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-teal-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>Live Status Dashboard:</strong> Contractors see real-time document status (Pending Review / Approved / Rejected) and a progress summary of their compliance completeness
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <CheckCircle className="h-5 w-5 text-teal-500 flex-shrink-0" />
+                      <span className="text-slate-700 dark:text-slate-300">
+                        <strong>No App Download Required:</strong> Fully browser-based — works on any desktop, tablet, or mobile device with a secure JWT-authenticated session
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-4">
+                    <p className="text-sm font-semibold text-teal-800 dark:text-teal-300 mb-1">How it works in practice</p>
+                    <ol className="text-sm text-teal-700 dark:text-teal-400 space-y-1 list-decimal list-inside">
+                      <li>Your team invites a contractor company by email from TPR</li>
+                      <li>Contractor accepts the invite and sets their access code</li>
+                      <li>They log in, upload documents, and add their workers</li>
+                      <li>Your admin reviews &amp; approves documents in the main dashboard</li>
+                      <li>Compliant contractors are cleared for site — full audit trail kept</li>
+                    </ol>
+                  </div>
+
+                  <Button
+                    size="lg"
+                    onClick={() => scrollToSection("contact")}
+                    className="text-white bg-teal-600 hover:bg-teal-700"
+                    data-testid="button-contractor-portal-demo"
+                  >
+                    <Eye className="h-4 w-4 mr-2" />
+                    See Contractor Portal Live
+                  </Button>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                    <div className="bg-teal-600 px-4 py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-white" />
+                        <span className="text-sm font-semibold text-white">Contractor Compliance Portal</span>
+                      </div>
+                      <Badge className="bg-white/20 text-white text-xs border-0">LIVE</Badge>
+                    </div>
+                    <div className="p-6 space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">ABC Building Services Ltd</p>
+                          <p className="text-xs text-slate-500">Logged in via secure access code</p>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-teal-600 font-semibold">72% Complete</div>
+                          <div className="w-24 bg-slate-200 rounded-full h-1.5 mt-1">
+                            <div className="bg-teal-500 h-1.5 rounded-full" style={{ width: "72%" }}></div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {[
+                          { doc: "Public Liability Insurance", status: "Approved", color: "text-green-600 bg-green-50" },
+                          { doc: "RAMS — Electrical Works", status: "Approved", color: "text-green-600 bg-green-50" },
+                          { doc: "Employer's Liability Insurance", status: "Pending Review", color: "text-amber-600 bg-amber-50" },
+                          { doc: "Method Statement — Roofing", status: "Awaiting Upload", color: "text-slate-500 bg-slate-50" },
+                        ].map(({ doc, status, color }) => (
+                          <div key={doc} className="flex items-center justify-between p-2.5 rounded-lg border border-slate-100 dark:border-slate-700">
+                            <div className="flex items-center gap-2">
+                              <FileText className="h-4 w-4 text-slate-400 flex-shrink-0" />
+                              <span className="text-xs text-slate-700 dark:text-slate-300">{doc}</span>
+                            </div>
+                            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${color} dark:bg-opacity-20`}>{status}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="border-t border-slate-100 dark:border-slate-700 pt-4">
+                        <p className="text-xs font-semibold text-slate-600 dark:text-slate-400 mb-2">Workers on this project</p>
+                        <div className="space-y-1.5">
+                          {["James Cooper", "Sarah Ellis", "Mohammed Patel"].map((name) => (
+                            <div key={name} className="flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-full bg-teal-100 dark:bg-teal-900 flex items-center justify-center">
+                                <span className="text-xs font-bold text-teal-700 dark:text-teal-300">{name[0]}</span>
+                              </div>
+                              <span className="text-xs text-slate-600 dark:text-slate-400">{name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-3 text-center border border-teal-200 dark:border-teal-800">
+                      <div className="text-2xl font-bold text-teal-700 dark:text-teal-400">0</div>
+                      <div className="text-xs text-slate-500 mt-1">IT setup needed</div>
+                    </div>
+                    <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-3 text-center border border-teal-200 dark:border-teal-800">
+                      <div className="text-2xl font-bold text-teal-700 dark:text-teal-400">∞</div>
+                      <div className="text-xs text-slate-500 mt-1">Contractors invited</div>
+                    </div>
+                    <div className="bg-teal-50 dark:bg-teal-900/20 rounded-lg p-3 text-center border border-teal-200 dark:border-teal-800">
+                      <div className="text-2xl font-bold text-teal-700 dark:text-teal-400">100%</div>
+                      <div className="text-xs text-slate-500 mt-1">Browser-based</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </TabsContent>
