@@ -102,6 +102,40 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
     }
   });
 
+  // ── Public: Company branding (logo + name) by customerId ─────────────────
+  app.get('/api/contractor-portal/branding', async (req, res) => {
+    try {
+      const { cid } = req.query as Record<string, string>;
+      if (!cid) return res.status(400).json({ error: 'Missing cid.' });
+
+      let db: any;
+      try {
+        db = await customerDbService.getCustomerDatabase(cid);
+      } catch {
+        return res.status(404).json({ error: 'Company not found.' });
+      }
+
+      const settings = await db
+        .select({
+          companyName: isolatedSchema.companySettings.companyName,
+          logoUrl: isolatedSchema.companySettings.logoUrl,
+        })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+
+      const s = settings[0];
+      const rawLogo = s?.logoUrl ?? '';
+      const logoUrl = rawLogo
+        ? rawLogo.startsWith('/uploads/') ? `/objects${rawLogo}` : rawLogo
+        : '';
+
+      return res.json({ companyName: s?.companyName ?? '', logoUrl });
+    } catch (err: any) {
+      logger.error('[portal-branding]', err);
+      return res.status(500).json({ error: 'Failed to load branding.' });
+    }
+  });
+
   // ── Public: Look up invite token → return pre-fill data ──────────────────
   app.get('/api/contractor-portal/invite-info', async (req, res) => {
     try {
@@ -109,22 +143,37 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
       if (!token || !cid) return res.status(400).json({ error: 'Missing token or cid.' });
 
       const db = await customerDbService.getCustomerDatabase(cid);
-      const users = await db
-        .select()
-        .from(isolatedSchema.contractorPortalUsers)
-        .where(eq(isolatedSchema.contractorPortalUsers.inviteToken, token))
-        .limit(1);
 
-      const user = users[0];
+      const [usersResult, settingsResult] = await Promise.all([
+        db
+          .select()
+          .from(isolatedSchema.contractorPortalUsers)
+          .where(eq(isolatedSchema.contractorPortalUsers.inviteToken, token))
+          .limit(1),
+        db
+          .select({ companyName: isolatedSchema.companySettings.companyName, logoUrl: isolatedSchema.companySettings.logoUrl })
+          .from(isolatedSchema.companySettings)
+          .limit(1),
+      ]);
+
+      const user = usersResult[0];
       if (!user) return res.status(404).json({ error: 'Invalid or expired invitation.' });
       if (user.inviteExpiresAt && new Date(user.inviteExpiresAt) < new Date()) {
         return res.status(410).json({ error: 'This invitation has expired. Please ask for a new one.' });
       }
 
+      const s = settingsResult[0];
+      const rawLogo = s?.logoUrl ?? '';
+      const logoUrl = rawLogo
+        ? rawLogo.startsWith('/uploads/') ? `/objects${rawLogo}` : rawLogo
+        : '';
+
       return res.json({
         email: user.email,
         firstName: user.firstName || '',
         lastName: user.lastName || '',
+        companyName: s?.companyName ?? '',
+        logoUrl,
       });
     } catch (err: any) {
       logger.error('[portal-invite-info]', err);
@@ -236,6 +285,16 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
         .limit(1);
 
       const company = companies[0];
+
+      const settingsRows = await db
+        .select({ logoUrl: isolatedSchema.companySettings.logoUrl })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+      const rawLogo = settingsRows[0]?.logoUrl ?? '';
+      const logoUrl = rawLogo
+        ? rawLogo.startsWith('/uploads/') ? `/objects${rawLogo}` : rawLogo
+        : '';
+
       return res.json({
         id: user.id,
         email: user.email,
@@ -248,6 +307,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
         contactEmail: company?.contactEmail ?? '',
         companyStatus: company?.status ?? '',
         customerId: pu.customerId,
+        logoUrl,
       });
     } catch (err: any) {
       logger.error('[portal-me]', err);
@@ -359,6 +419,40 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
     } catch (err: any) {
       logger.error('[portal-workers]', err);
       return res.status(500).json({ error: 'Failed to load workers.' });
+    }
+  });
+
+  // ── Auth: Add worker ──────────────────────────────────────────────────────
+  app.post('/api/contractor-portal/workers', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const { firstName, lastName, email, mobileNumber, phoneNumber, jobTitle, trade } =
+        req.body as Record<string, string>;
+
+      if (!firstName?.trim() || !lastName?.trim()) {
+        return res.status(400).json({ error: 'First name and last name are required.' });
+      }
+
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
+      const [worker] = await db
+        .insert(isolatedSchema.contractorWorkers)
+        .values({
+          companyId: pu.contractorCompanyId,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email?.trim() || null,
+          mobileNumber: mobileNumber?.trim() || null,
+          phoneNumber: phoneNumber?.trim() || null,
+          jobTitle: jobTitle?.trim() || null,
+          trade: trade?.trim() || null,
+          isActive: true,
+        })
+        .returning();
+
+      return res.status(201).json(worker);
+    } catch (err: any) {
+      logger.error('[portal-add-worker]', err);
+      return res.status(500).json({ error: 'Failed to add worker.' });
     }
   });
 

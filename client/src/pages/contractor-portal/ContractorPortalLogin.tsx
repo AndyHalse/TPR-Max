@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,14 +14,43 @@ export default function ContractorPortalLogin() {
   const [customerId, setCustomerId] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const brandingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // On mount: restore saved customerId & redirect if already logged in
   useEffect(() => {
     const saved = localStorage.getItem("portal_customer_id");
-    if (saved) setCustomerId(saved);
-
+    if (saved) {
+      setCustomerId(saved);
+      fetchBranding(saved);
+    }
     const token = localStorage.getItem("portal_token");
     if (token) navigate("/contractor-portal/dashboard");
   }, []);
+
+  function fetchBranding(cid: string) {
+    const id = cid.trim();
+    if (!id) { setLogoUrl(""); setCompanyName(""); return; }
+    fetch(`/api/contractor-portal/branding?cid=${encodeURIComponent(id)}`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data && !data.error) {
+          setLogoUrl(data.logoUrl || "");
+          setCompanyName(data.companyName || "");
+        } else {
+          setLogoUrl("");
+          setCompanyName("");
+        }
+      })
+      .catch(() => {});
+  }
+
+  function handleCustomerIdChange(val: string) {
+    setCustomerId(val);
+    if (brandingTimer.current) clearTimeout(brandingTimer.current);
+    brandingTimer.current = setTimeout(() => fetchBranding(val), 600);
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,12 +81,22 @@ export default function ContractorPortalLogin() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
-        {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 rounded-2xl mb-4 shadow-lg">
-            <Building2 className="h-7 w-7 text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-white">Contractor Portal</h1>
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={companyName || "Company logo"}
+              className="h-14 w-auto max-w-[180px] object-contain mx-auto mb-4 rounded-xl"
+              onError={() => setLogoUrl("")}
+            />
+          ) : (
+            <div className="inline-flex items-center justify-center w-14 h-14 bg-blue-600 rounded-2xl mb-4 shadow-lg">
+              <Building2 className="h-7 w-7 text-white" />
+            </div>
+          )}
+          <h1 className="text-2xl font-bold text-white">
+            {companyName ? `${companyName}` : "Contractor Portal"}
+          </h1>
           <p className="text-slate-400 text-sm mt-1">Upload and manage your compliance documents</p>
         </div>
 
@@ -118,7 +157,7 @@ export default function ContractorPortalLogin() {
                     type="text"
                     placeholder="Access code"
                     value={customerId}
-                    onChange={(e) => setCustomerId(e.target.value)}
+                    onChange={(e) => handleCustomerIdChange(e.target.value)}
                     className="pl-9"
                     required
                   />

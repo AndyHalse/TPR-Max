@@ -10,6 +10,8 @@ interface PortalUser {
   lastName: string;
   companyName: string;
   customerId: string;
+  contractorCompanyId: string;
+  logoUrl?: string;
 }
 
 interface Props {
@@ -56,8 +58,19 @@ export default function ContractorPortalLayout({ children }: Props) {
     const cached = localStorage.getItem("portal_user");
     if (cached) {
       try {
-        setUser(JSON.parse(cached));
+        const parsed = JSON.parse(cached);
+        setUser(parsed);
         setLoading(false);
+        // Refresh in background to pick up new logoUrl etc.
+        portalFetch("/api/contractor-portal/me")
+          .then((r) => r.json())
+          .then((data) => {
+            if (!data.error) {
+              setUser(data);
+              localStorage.setItem("portal_user", JSON.stringify(data));
+            }
+          })
+          .catch(() => {});
         return;
       } catch {}
     }
@@ -103,13 +116,21 @@ export default function ContractorPortalLayout({ children }: Props) {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      {/* Header */}
       <header className="bg-slate-900 text-white shadow-lg">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-600 rounded-lg p-1.5">
-              <Building2 className="h-5 w-5" />
-            </div>
+            {user?.logoUrl ? (
+              <img
+                src={user.logoUrl}
+                alt={user.companyName}
+                className="h-9 w-auto max-w-[120px] object-contain rounded"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+            ) : (
+              <div className="bg-blue-600 rounded-lg p-1.5">
+                <Building2 className="h-5 w-5" />
+              </div>
+            )}
             <div>
               <p className="text-xs text-slate-400 leading-none">Contractor Compliance Portal</p>
               <p className="text-sm font-semibold leading-tight">{user?.companyName || "My Company"}</p>
@@ -131,7 +152,6 @@ export default function ContractorPortalLayout({ children }: Props) {
           </div>
         </div>
 
-        {/* Nav tabs */}
         <div className="max-w-6xl mx-auto px-4">
           <nav className="flex gap-1 pb-0">
             {navItems.map(({ path, label, icon: Icon }) => {
@@ -157,7 +177,6 @@ export default function ContractorPortalLayout({ children }: Props) {
         </div>
       </header>
 
-      {/* Content */}
       <main className="max-w-6xl mx-auto px-4 py-6">{children}</main>
     </div>
   );
