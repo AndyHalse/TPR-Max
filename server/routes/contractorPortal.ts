@@ -102,6 +102,36 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
     }
   });
 
+  // ── Public: Look up invite token → return pre-fill data ──────────────────
+  app.get('/api/contractor-portal/invite-info', async (req, res) => {
+    try {
+      const { token, cid } = req.query as Record<string, string>;
+      if (!token || !cid) return res.status(400).json({ error: 'Missing token or cid.' });
+
+      const db = await customerDbService.getCustomerDatabase(cid);
+      const users = await db
+        .select()
+        .from(isolatedSchema.contractorPortalUsers)
+        .where(eq(isolatedSchema.contractorPortalUsers.inviteToken, token))
+        .limit(1);
+
+      const user = users[0];
+      if (!user) return res.status(404).json({ error: 'Invalid or expired invitation.' });
+      if (user.inviteExpiresAt && new Date(user.inviteExpiresAt) < new Date()) {
+        return res.status(410).json({ error: 'This invitation has expired. Please ask for a new one.' });
+      }
+
+      return res.json({
+        email: user.email,
+        firstName: user.firstName || '',
+        lastName: user.lastName || '',
+      });
+    } catch (err: any) {
+      logger.error('[portal-invite-info]', err);
+      return res.status(500).json({ error: 'Failed to load invite.' });
+    }
+  });
+
   // ── Public: Accept Invite ──────────────────────────────────────────────────
   app.post('/api/contractor-portal/accept-invite', async (req, res) => {
     try {

@@ -4795,6 +4795,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         )
         .limit(1);
 
+      const resolvedFirst = firstName?.trim() || company.contactFirstName || '';
+      const resolvedLast  = lastName?.trim()  || company.contactLastName  || '';
+
       if (existing[0]) {
         await db
           .update(isolatedSchema.contractorPortalUsers)
@@ -4802,16 +4805,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             inviteToken,
             inviteExpiresAt,
             invitedAt: new Date(),
-            firstName: firstName?.trim() || existing[0].firstName,
-            lastName: lastName?.trim() || existing[0].lastName,
+            firstName: resolvedFirst || existing[0].firstName,
+            lastName: resolvedLast  || existing[0].lastName,
           })
           .where(eq(isolatedSchema.contractorPortalUsers.id, existing[0].id));
       } else {
         await db.insert(isolatedSchema.contractorPortalUsers).values({
           email: email.toLowerCase().trim(),
           contractorCompanyId: companyId,
-          firstName: firstName?.trim() || '',
-          lastName: lastName?.trim() || '',
+          firstName: resolvedFirst,
+          lastName: resolvedLast,
           role,
           isActive: false,
           inviteToken,
