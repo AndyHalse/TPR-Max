@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getCsrfToken } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import GlassCard from "@/components/GlassCard";
 import { Button } from "@/components/ui/button";
@@ -282,7 +282,7 @@ export default function MartynLaw() {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res = await fetch("/api/martyn-law/evidence/upload", { method: "POST", body: fd });
+      const res = await fetch("/api/martyn-law/evidence/upload", { method: "POST", body: fd, headers: { 'x-csrf-token': getCsrfToken() ?? '' } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       setNewEvidence(n => ({ ...n, documentUrl: data.url, documentName: data.name }));

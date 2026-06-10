@@ -3,6 +3,7 @@ import DOMPurify from 'dompurify';
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { X, Search, ChevronRight, Clock, ThumbsUp, ThumbsDown, BookOpen, Star, ArrowLeft } from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -154,16 +155,12 @@ export default function HelpPanel({ isOpen, onClose }: HelpPanelProps) {
 
   const trackHelpInteraction = (type: string, articleId: string) => {
     // Track user interactions for analytics
-    fetch("/api/help/interactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        interactionType: type,
-        articleId,
-        pageContext: location,
-        sessionId: Date.now().toString(),
-        searchQuery: searchQuery || undefined,
-      }),
+    apiRequest("POST", "/api/help/interactions", {
+      interactionType: type,
+      articleId,
+      pageContext: location,
+      sessionId: Date.now().toString(),
+      searchQuery: searchQuery || undefined,
     }).catch(console.error);
   };
 

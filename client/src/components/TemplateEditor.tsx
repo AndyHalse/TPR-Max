@@ -134,19 +134,7 @@ export function TemplateEditor({
       const endpoint = apiEndpoint === '/api/uk-hs-documents/templates' 
         ? `${apiEndpoint}/${template?.id}`
         : `${apiEndpoint}/${template?.id}`;
-      const response = await fetch(endpoint, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update template');
-      }
-      
+      const response = await apiRequest('PUT', endpoint, data);
       return await response.json() as UkHSDocumentTemplate;
     },
     onSuccess: () => {
@@ -172,19 +160,7 @@ export function TemplateEditor({
   // Create mutation for new templates  
   const createTemplateMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const response = await fetch('/api/uk-hs-documents/templates', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create template');
-      }
-      
+      const response = await apiRequest('POST', '/api/uk-hs-documents/templates', data);
       return await response.json() as UkHSDocumentTemplate;
     },
     onSuccess: () => {

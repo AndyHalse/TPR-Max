@@ -13,6 +13,7 @@ import { Separator } from '@/components/ui/separator';
 import { Leaf, Car, Zap, Bus, AlertTriangle, TrendingDown, Calculator } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { CO2EmissionsData } from '@shared/schema';
+import { apiRequest } from '@/lib/queryClient';
 
 interface CO2EmissionsTrackerProps {
   workerId: string;
@@ -57,12 +58,7 @@ export function CO2EmissionsTracker({
   // Calculate CO2 emissions mutation
   const calculateMutation = useMutation({
     mutationFn: async (params: { postcode: string; transportMethod: string; workingDaysPerMonth: number }) => {
-      const response = await fetch(`/api/contractors/workers/${workerId}/co2/calculate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
-      });
-      if (!response.ok) throw new Error('Failed to calculate CO2 emissions');
+      const response = await apiRequest('POST', `/api/contractors/workers/${workerId}/co2/calculate`, params);
       return response.json();
     },
     onSuccess: () => {
@@ -87,12 +83,7 @@ export function CO2EmissionsTracker({
   // Update transport method mutation
   const updateTransportMutation = useMutation({
     mutationFn: async (params: { transportMethod: string; postcode?: string }) => {
-      const response = await fetch(`/api/contractors/workers/${workerId}/transport`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params)
-      });
-      if (!response.ok) throw new Error('Failed to update transport method');
+      const response = await apiRequest('PUT', `/api/contractors/workers/${workerId}/transport`, params);
       return response.json();
     },
     onSuccess: () => {

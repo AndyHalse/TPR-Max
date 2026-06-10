@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Target, TrendingUp, Shield, Trophy, Zap, Crown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface CompetitiveAnalysis {
   timeEfficiency: string;
@@ -30,16 +31,7 @@ export default function AICompetitiveAnalysis() {
       analysis: CompetitiveAnalysis;
       timestamp: string;
     }> => {
-      const response = await fetch('/api/ai/competitive-analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to generate competitive analysis');
-      }
-      
+      const response = await apiRequest('POST', '/api/ai/competitive-analysis', data);
       return response.json();
     },
     onSuccess: () => {

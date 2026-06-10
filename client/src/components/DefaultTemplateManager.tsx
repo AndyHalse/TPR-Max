@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Edit, RefreshCw, FileText, AlertTriangle, CheckCircle } from 'lucide-react';
 import { TemplateEditor } from './TemplateEditor';
-import { queryClient } from '@/lib/queryClient';
+import { queryClient, apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import type { UkHSDocumentTemplate } from '@shared/schema';
 
@@ -46,18 +46,7 @@ export function DefaultTemplateManager({ className }: DefaultTemplateManagerProp
   // Reset template mutation
   const resetTemplateMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const response = await fetch(`/api/uk-hs-documents/defaults/${templateId}/reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to reset template');
-      }
-
+      const response = await apiRequest('POST', `/api/uk-hs-documents/defaults/${templateId}/reset`);
       return response.json();
     },
     onSuccess: (data, templateId) => {

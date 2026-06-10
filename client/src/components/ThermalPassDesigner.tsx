@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { QrCode, Type, Image, Save, Printer, Plus, Trash2 } from "lucide-react";
 import { printPassViaIframe } from "@/lib/printUtils";
+import { apiRequest } from "@/lib/queryClient";
 
 // Thermal pass constraints for B-FV4D (95mm x 65mm)
 const THERMAL_PASS_WIDTH = 361; // 95mm at 96dpi
@@ -238,12 +239,7 @@ export function ThermalPassDesigner() {
         type: passType,
       };
 
-      await fetch(`/api/thermal-passes/design/${passType}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(designData)
-      });
-      
+      await apiRequest('PUT', `/api/thermal-passes/design/${passType}`, designData);
       console.info(`🎯 Auto-saved design`);
     } catch (error) {
       console.error('Auto-save failed:', error);
@@ -267,20 +263,11 @@ export function ThermalPassDesigner() {
         type: passType,
       };
 
-      const response = await fetch(`/api/thermal-passes/design/${passType}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(designData)
+      await apiRequest('PUT', `/api/thermal-passes/design/${passType}`, designData);
+      toast({
+        title: "Design Saved",
+        description: `${passType} thermal pass design saved successfully`
       });
-
-      if (response.ok) {
-        toast({
-          title: "Design Saved",
-          description: `${passType} thermal pass design saved successfully`
-        });
-      } else {
-        throw new Error('Failed to save design');
-      }
     } catch (error) {
       toast({
         title: "Save Failed",

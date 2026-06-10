@@ -204,18 +204,7 @@ export default function IdCardDesigner({ isOpen, onClose, staff }: IdCardDesigne
 
   const handlePrint = async () => {
     try {
-      const response = await fetch(`/api/staff/${staff.id}/print-id-card`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ design: elements }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to print ID card');
-      }
-
+      const response = await apiRequest('POST', `/api/staff/${staff.id}/print-id-card`, { design: elements });
       const result = await response.json();
       
       toast({

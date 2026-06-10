@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useSettingsAutoSave } from "@/hooks/useSettingsAutoSave";
+import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -45,7 +46,7 @@ export default function IntegrationSettings() {
   const handlePaxtonTest = async () => {
     setPaxtonTestLoading(true);
     try {
-      const res = await fetch("/api/paxton/test-connection", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const res = await apiRequest("POST", "/api/paxton/test-connection");
       const data = await res.json();
       setPaxtonTestResult(data.success ? `✓ ${data.message}` : `✗ ${data.message || data.error}`);
     } catch (err: any) { setPaxtonTestResult(`✗ ${err.message}`); }
@@ -55,7 +56,7 @@ export default function IntegrationSettings() {
   const handlePaxtonSync = async () => {
     setPaxtonSyncLoading(true);
     try {
-      const res = await fetch("/api/paxton/sync-staff", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const res = await apiRequest("POST", "/api/paxton/sync-staff");
       const data = await res.json();
       setPaxtonSyncResult(data.success ? `✓ ${data.message}` : `✗ ${data.message || data.error}`);
     } catch (err: any) { setPaxtonSyncResult(`✗ ${err.message}`); }
@@ -65,7 +66,7 @@ export default function IntegrationSettings() {
   const handleGenerateApiKey = async () => {
     setApiKeyGenerating(true);
     try {
-      const res = await fetch("/api/integrations/generate-api-key", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const res = await apiRequest("POST", "/api/integrations/generate-api-key");
       const data = await res.json();
       if (data.apiKey) { handleInputChange("apiKey", data.apiKey); toast({ title: "API Key Generated", description: "A new API key has been generated successfully." }); }
     } catch (err: any) { toast({ title: "Error", description: err.message || "Failed to generate API key", variant: "destructive" }); }
@@ -74,7 +75,7 @@ export default function IntegrationSettings() {
 
   const handleRevokeApiKey = async () => {
     try {
-      await fetch("/api/integrations/revoke-api-key", { method: "POST", headers: { "Content-Type": "application/json" } });
+      await apiRequest("POST", "/api/integrations/revoke-api-key");
       handleInputChange("apiKey", "");
       toast({ title: "API Key Revoked", description: "Your API key has been revoked." });
     } catch (err: any) { toast({ title: "Error", description: err.message || "Failed to revoke API key", variant: "destructive" }); }
@@ -83,7 +84,7 @@ export default function IntegrationSettings() {
   const handleTestWebhook = async () => {
     setWebhookTestLoading(true);
     try {
-      const res = await fetch("/api/integrations/test-webhook", { method: "POST", headers: { "Content-Type": "application/json" } });
+      const res = await apiRequest("POST", "/api/integrations/test-webhook");
       const data = await res.json();
       setWebhookTestResult(data.success ? `✓ ${data.message}` : `✗ ${data.message || data.error}`);
     } catch (err: any) { setWebhookTestResult(`✗ ${err.message}`); }
@@ -252,11 +253,7 @@ export default function IntegrationSettings() {
                 description: "Connecting to Biostar 2 server...",
               });
               
-              const response = await fetch('/api/biostar/test-connection', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-              });
-              
+              const response = await apiRequest('POST', '/api/biostar/test-connection');
               const result = await response.json();
               
               toast({
@@ -785,11 +782,7 @@ export default function IntegrationSettings() {
                 onClick={async () => {
                   if (!addDeviceForm.id || !addDeviceForm.name) return;
                   try {
-                    const r = await fetch('/api/biostar/devices', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify(addDeviceForm),
-                    });
+                    const r = await apiRequest('POST', '/api/biostar/devices', addDeviceForm);
                     const device = await r.json();
                     setBiostarDevices(prev => {
                       const filtered = prev.filter(d => d.id !== device.id);
@@ -850,11 +843,7 @@ export default function IntegrationSettings() {
                           setBiostarDevices(prev => prev.map(d => d.id === device.id ? { ...d, role: newRole } : d));
                           setDeviceSaveLoading(device.id);
                           try {
-                            await fetch(`/api/biostar/devices/${device.id}`, {
-                              method: 'PATCH',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ role: newRole }),
-                            });
+                            await apiRequest('PATCH', `/api/biostar/devices/${device.id}`, { role: newRole });
                           } catch { }
                           finally { setDeviceSaveLoading(null); }
                         }}
@@ -873,7 +862,7 @@ export default function IntegrationSettings() {
                         className="text-red-500 hover:text-red-700 text-xs h-7 px-2"
                         onClick={async () => {
                           if (!confirm(`Remove "${device.name}" from device configuration?`)) return;
-                          await fetch(`/api/biostar/devices/${device.id}`, { method: 'DELETE' });
+                          await apiRequest('DELETE', `/api/biostar/devices/${device.id}`);
                           setBiostarDevices(prev => prev.filter(d => d.id !== device.id));
                         }}
                       >

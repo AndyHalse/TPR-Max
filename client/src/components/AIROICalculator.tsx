@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Calculator, TrendingUp, DollarSign, Clock, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ROIAnalysis {
   annualSavings: number;
@@ -29,16 +30,7 @@ export default function AIROICalculator() {
       roi: ROIAnalysis;
       timestamp: string;
     }> => {
-      const response = await fetch('/api/ai/roi-analysis', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to calculate ROI');
-      }
-      
+      const response = await apiRequest('POST', '/api/ai/roi-analysis', data);
       return response.json();
     },
     onSuccess: () => {

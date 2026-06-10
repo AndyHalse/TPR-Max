@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import type { Staff } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 interface CardElement {
   id: string;
@@ -375,22 +376,11 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                     try {
                       console.info('💾 Saving ID card design with', cardElements.length, 'elements');
                       
-                      const response = await fetch('/api/idcard/design', {
-                        method: 'PUT',
-                        headers: {
-                          'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                          elements: cardElements,
-                          background: selectedCardBackground,
-                          cardSize: 'CR80'
-                        })
+                      const response = await apiRequest('PUT', '/api/idcard/design', {
+                        elements: cardElements,
+                        background: selectedCardBackground,
+                        cardSize: 'CR80'
                       });
-
-                      if (!response.ok) {
-                        throw new Error(`Server error: ${response.status}`);
-                      }
-
                       const data = await response.json();
                       console.info('✅ ID card design saved successfully:', data);
                       
@@ -1057,22 +1047,11 @@ export function IdCardDesignSystem({ className }: IdCardDesignSystemProps) {
                       return;
                     }
 
-                    const response = await fetch('/api/idcard/test-print', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                      },
-                      body: JSON.stringify({
-                        staffId: selectedTestStaffId,
-                        design: cardElements,
-                        background: selectedCardBackground
-                      }),
+                    const response = await apiRequest('POST', '/api/idcard/test-print', {
+                      staffId: selectedTestStaffId,
+                      design: cardElements,
+                      background: selectedCardBackground
                     });
-
-                    if (!response.ok) {
-                      throw new Error('Test print failed');
-                    }
-
                     const result = await response.json();
                     
                     setShowTestPrint(false);

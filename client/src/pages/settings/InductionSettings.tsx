@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getCsrfToken } from "@/lib/queryClient";
 import { useSettingsAutoSave } from "@/hooks/useSettingsAutoSave";
 import GlassCard from "@/components/GlassCard";
 import QRCodeImage from "@/components/QRCodeImage";
@@ -164,6 +164,7 @@ export default function InductionSettings() {
         method: "POST",
         body: fd,
         credentials: "include",
+        headers: { 'x-csrf-token': getCsrfToken() ?? '' },
       });
       if (!r.ok) throw new Error("Upload failed");
       return r.json() as Promise<{ url: string }>;

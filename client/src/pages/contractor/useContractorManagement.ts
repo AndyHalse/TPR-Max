@@ -111,11 +111,7 @@ export function useContractorManagement() {
 
   const generateTestWorkersMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/contractors/generate-test-workers", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-      if (!response.ok) throw new Error("Failed to generate test workers");
+      const response = await apiRequest("POST", "/api/contractors/generate-test-workers");
       return response.json();
     },
     onSuccess: () => {

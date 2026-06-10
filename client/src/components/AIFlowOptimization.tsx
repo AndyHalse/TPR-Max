@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Workflow, Clock, Zap, CheckSquare, ArrowRight, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
 
 interface FlowOptimization {
   optimizedFlow: string;
@@ -30,16 +31,7 @@ export default function AIFlowOptimization() {
       optimization: FlowOptimization;
       timestamp: string;
     }> => {
-      const response = await fetch('/api/ai/flow-optimization', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to generate flow optimization');
-      }
-      
+      const response = await apiRequest('POST', '/api/ai/flow-optimization', data);
       return response.json();
     },
     onSuccess: () => {

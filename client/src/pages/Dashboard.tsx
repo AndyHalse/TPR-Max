@@ -2375,16 +2375,9 @@ export default function Dashboard() {
                   <Button 
                     onClick={async () => {
                       try {
-                        const response = await fetch(`/api/visitors/${selectedVisitor.id}/emergency-notify`, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            urgencyReason: "Urgent Contact Required - Emergency Support"
-                          })
+                        const response = await apiRequest('POST', `/api/visitors/${selectedVisitor.id}/emergency-notify`, {
+                          urgencyReason: "Urgent Contact Required - Emergency Support"
                         });
-                        
                         const result = await response.json();
                         
                         if (response.ok) {

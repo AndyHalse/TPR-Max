@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getCsrfToken } from "@/lib/queryClient";
 import { useSettingsAutoSave } from "@/hooks/useSettingsAutoSave";
 import GlassCard from "@/components/GlassCard";
 import { Input } from "@/components/ui/input";
@@ -111,7 +111,7 @@ export default function SystemSettings() {
     mutationFn: async (data: { file: File; type: 'staff' | 'visitors' | 'contractors' | 'members' }) => {
       const formData = new FormData();
       formData.append('file', data.file);
-      const response = await fetch(`/api/import/${data.type}`, { method: 'POST', body: formData, credentials: 'include' });
+      const response = await fetch(`/api/import/${data.type}`, { method: 'POST', body: formData, credentials: 'include', headers: { 'x-csrf-token': getCsrfToken() ?? '' } });
       if (!response.ok) { const error = await response.json(); throw new Error(error.details || error.error || 'Import failed'); }
       return response.json();
     },
