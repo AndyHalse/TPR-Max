@@ -61,12 +61,17 @@ export default function ContractorDocumentUpload({ token }: Props) {
 
     setDocState(doc.key, { uploading: true, error: '' });
     try {
-      const urlRes = await fetch(`/api/doc-request/${token}/upload-url`);
-      if (!urlRes.ok) throw new Error('Failed to get upload URL');
-      const { uploadURL } = await urlRes.json();
-
-      await fetch(uploadURL, { method: 'PUT', body: state.file, headers: { 'Content-Type': state.file.type || 'application/octet-stream' } });
-      const documentUrl = uploadURL.split('?')[0];
+      const formData = new FormData();
+      formData.append('file', state.file);
+      const fileRes = await fetch(`/api/doc-request/${token}/upload-file`, {
+        method: 'POST',
+        body: formData,
+      });
+      if (!fileRes.ok) {
+        const body = await fileRes.json().catch(() => ({}));
+        throw new Error(body.error || 'File upload failed');
+      }
+      const { objectUrl } = await fileRes.json();
 
       const uploadRes = await fetch(`/api/doc-request/${token}/upload`, {
         method: 'POST',
@@ -74,7 +79,7 @@ export default function ContractorDocumentUpload({ token }: Props) {
         body: JSON.stringify({
           documentName: doc.name,
           documentType: doc.key,
-          documentUrl,
+          documentUrl: objectUrl,
           expiryDate: state.expiry || null,
           issuedBy: state.issuedBy || null,
         }),

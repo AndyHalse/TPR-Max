@@ -6,9 +6,10 @@ import { CustomerDatabaseService, customerDbService } from '../customerDatabase'
 import { EmailService, emailService } from '../emailService';
 import { inductionService } from '../inductionService';
 import { CO2CalculationService } from '../co2CalculationService';
-import { ObjectStorageService } from '../objectStorage';
+import { ObjectStorageService, parseObjectPath, objectStorageClient } from '../objectStorage';
 import { aiService } from '../aiService';
 import { websocketService } from '../websocketService';
+import multer from 'multer';
 import { db } from '../db';
 import * as isolatedSchema from '../isolatedSchema';
 import {
@@ -63,6 +64,8 @@ import { logger } from '../utils/logger';
     }
     return `${minutes}m`;
   }
+
+const docRequestUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -2590,6 +2593,70 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     } catch (error) {
       logger.error('Error saving worker document via token:', error);
       res.status(500).json({ error: 'Failed to save document' });
+    }
+  });
+
+  // ── Public: proxy file upload for doc-request (avoids browser CORS with GCS signed URLs) ──
+  app.post("/api/doc-request/:token/upload-file", docRequestUpload.single('file'), async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      const [request] = await db.select().from(contractorDocumentRequests)
+        .where(eq(contractorDocumentRequests.token, token)).limit(1);
+      if (!request || request.status !== 'active' || new Date() > new Date(request.expiresAt)) {
+        return res.status(403).json({ error: 'Invalid or expired link' });
+      }
+      if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      if (!privateObjectDir) return res.status(500).json({ error: 'Object storage not configured' });
+
+      const ext = (req.file.originalname || '').split('.').pop()?.toLowerCase() || 'bin';
+      const objectId = randomUUID();
+      const fullPath = `${privateObjectDir}/uploads/${objectId}.${ext}`;
+      const { bucketName, objectName } = parseObjectPath(fullPath);
+
+      await objectStorageClient.bucket(bucketName).file(objectName).save(req.file.buffer, {
+        contentType: req.file.mimetype || 'application/octet-stream',
+      });
+
+      const objectUrl = objectStorageService.normalizeObjectEntityPath(fullPath);
+      res.json({ objectUrl });
+    } catch (error) {
+      logger.error('Error proxying file upload for doc-request:', error);
+      res.status(500).json({ error: 'File upload failed' });
+    }
+  });
+
+  // ── Public: proxy file upload for worker-doc-request ──────────────────────
+  app.post("/api/worker-doc-request/:token/upload-file", docRequestUpload.single('file'), async (req: any, res) => {
+    try {
+      const { token } = req.params;
+      const [request] = await db.select().from(contractorWorkerDocumentRequests)
+        .where(eq(contractorWorkerDocumentRequests.token, token)).limit(1);
+      if (!request || request.status !== 'active' || new Date() > new Date(request.expiresAt)) {
+        return res.status(403).json({ error: 'Invalid or expired link' });
+      }
+      if (!req.file) return res.status(400).json({ error: 'No file provided' });
+
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      if (!privateObjectDir) return res.status(500).json({ error: 'Object storage not configured' });
+
+      const ext = (req.file.originalname || '').split('.').pop()?.toLowerCase() || 'bin';
+      const objectId = randomUUID();
+      const fullPath = `${privateObjectDir}/uploads/${objectId}.${ext}`;
+      const { bucketName, objectName } = parseObjectPath(fullPath);
+
+      await objectStorageClient.bucket(bucketName).file(objectName).save(req.file.buffer, {
+        contentType: req.file.mimetype || 'application/octet-stream',
+      });
+
+      const objectUrl = objectStorageService.normalizeObjectEntityPath(fullPath);
+      res.json({ objectUrl });
+    } catch (error) {
+      logger.error('Error proxying file upload for worker-doc-request:', error);
+      res.status(500).json({ error: 'File upload failed' });
     }
   });
 
