@@ -1165,6 +1165,25 @@ export default function SystemSettings() {
           disabled={isPlatformLocked("featureRaBuilder")}
         />
       </div>
+      {/* Contractor Self-Service Portal */}
+      <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-orange-100 rounded-lg">
+            <Globe className="w-5 h-5 text-orange-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-fixed">Contractor Self-Service Portal</h4>
+            <p className="text-xs text-variable">Allow contractor companies to log in to a self-service portal to upload compliance documents and manage their workers</p>
+            {isPlatformLocked("featureContractorPortal") && <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1"><Lock className="w-3 h-3" /> Disabled by your platform administrator</p>}
+          </div>
+        </div>
+        <Switch
+          checked={currentSettings?.featureContractorPortal === true}
+          onCheckedChange={(checked) => handleInputChange("featureContractorPortal", checked)}
+          data-testid="toggle-contractor-portal"
+          disabled={isPlatformLocked("featureContractorPortal")}
+        />
+      </div>
       {/* Audit & Inspection Engine */}
       <div className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/50 rounded-lg border hover:border-blue-200 dark:border-blue-800 transition-colors">
         <div className="flex items-center gap-3">

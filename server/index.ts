@@ -221,6 +221,8 @@ const generalRateLimit = rateLimit({
 // Apply rate limiting
 app.use('/api/auth', authRateLimit);
 app.use('/api/onboarding', authRateLimit);
+app.use('/api/contractor-portal/login', authRateLimit);
+app.use('/api/contractor-portal/accept-invite', authRateLimit);
 app.use('/api', generalRateLimit);
 
 app.use(cookieParser());

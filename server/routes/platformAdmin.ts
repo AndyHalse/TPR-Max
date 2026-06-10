@@ -290,7 +290,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
     ],
     tpr_pro: [
       'featureMeetingRooms', 'featureMartynLaw', 'featurePPM', 'featureHelpDesk',
-      'featurePermitToWork', 'featureAuditEngine', 'featureHrModule',
+      'featurePermitToWork', 'featureAuditEngine', 'featureHrModule', 'featureContractorPortal',
     ],
     tpr_max: [],
   };
@@ -877,6 +877,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
     'featureHrModule', 'featureComplianceDashboard', 'featureSettingsPage',
     'featurePPM', 'featureAuditEngine', 'featureComplianceCertificates',
     'featurePermitToWork', 'featureRaBuilder', 'featureHelpDesk', 'featureBbs',
+    'featureContractorPortal',
   ]);
 
   // Platform admin: read per-customer platform-level feature locks

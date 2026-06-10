@@ -111,6 +111,8 @@ export default function ContractorDetails() {
   const [issuingCard, setIssuingCard] = useState(false);
   const [addingCertification, setAddingCertification] = useState(false);
   const [addingWorker, setAddingWorker] = useState(false);
+  const [portalInviteOpen, setPortalInviteOpen] = useState(false);
+  const [portalInviteEmail, setPortalInviteEmail] = useState("");
   const [workerWizardStep, setWorkerWizardStep] = useState(1);
   const [workerWizardSavedName, setWorkerWizardSavedName] = useState("");
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
@@ -169,6 +171,29 @@ export default function ContractorDetails() {
       return res.json();
     },
     enabled: !!id,
+  });
+
+  // Portal users for this contractor company
+  const { data: portalUsers = [], refetch: refetchPortalUsers } = useQuery<any[]>({
+    queryKey: [`/api/contractors/${id}/portal-users`],
+    enabled: !!id && !!companySettings?.featureContractorPortal,
+  });
+
+  // Send portal invite mutation
+  const sendPortalInviteMutation = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await apiRequest("POST", `/api/contractors/${id}/portal-invite`, { email });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Invitation sent", description: `Portal invite sent to ${portalInviteEmail}.` });
+      setPortalInviteEmail("");
+      setPortalInviteOpen(false);
+      refetchPortalUsers();
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to send invite", description: err?.message || "Please try again.", variant: "destructive" });
+    },
   });
 
   // Form for issuing card violations
@@ -1123,6 +1148,9 @@ export default function ContractorDetails() {
           <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>
           <TabsTrigger value="reporting" data-testid="tab-reporting">Reporting</TabsTrigger>
           <TabsTrigger value="activity" data-testid="tab-activity">Activity</TabsTrigger>
+          {companySettings?.featureContractorPortal && (
+            <TabsTrigger value="portal" data-testid="tab-portal">Portal</TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="workers" className="space-y-4" data-testid="workers-tab-content">
@@ -1609,6 +1637,93 @@ export default function ContractorDetails() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Contractor Self-Service Portal tab */}
+        {companySettings?.featureContractorPortal && (
+          <TabsContent value="portal" className="space-y-4" data-testid="portal-tab-content">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Send className="w-5 h-5 text-blue-600" />
+                      Contractor Self-Service Portal
+                    </CardTitle>
+                    <CardDescription>
+                      Invite contacts from this company to the self-service portal where they can upload compliance documents.
+                    </CardDescription>
+                  </div>
+                  <Button onClick={() => setPortalInviteOpen(true)} className="flex items-center gap-2">
+                    <Send className="w-4 h-4" />
+                    Send Invite
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {portalUsers.length === 0 ? (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <Send className="w-8 h-8 mx-auto mb-3 opacity-30" />
+                    <p className="font-medium">No portal users yet</p>
+                    <p className="text-sm mt-1">Send an invite to give this contractor company access to the portal.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {portalUsers.map((u: any) => (
+                      <div key={u.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                        <div>
+                          <p className="font-medium text-sm">{u.email}</p>
+                          <p className="text-xs text-muted-foreground">
+                            Invited {u.invitedAt ? new Date(u.invitedAt).toLocaleDateString() : "—"}
+                          </p>
+                        </div>
+                        <Badge variant={u.inviteAccepted ? "default" : "secondary"}>
+                          {u.inviteAccepted ? "Active" : "Invite pending"}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Send invite dialog */}
+            <Dialog open={portalInviteOpen} onOpenChange={setPortalInviteOpen}>
+              <DialogContent className="max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Send Portal Invite</DialogTitle>
+                  <DialogDescription>
+                    The recipient will receive an email with a link to set their password and access the portal.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3 py-2">
+                  <Label htmlFor="portal-invite-email">Email address</Label>
+                  <Input
+                    id="portal-invite-email"
+                    type="email"
+                    placeholder="contact@contractorcompany.com"
+                    value={portalInviteEmail}
+                    onChange={(e) => setPortalInviteEmail(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && portalInviteEmail.trim()) {
+                        sendPortalInviteMutation.mutate(portalInviteEmail.trim());
+                      }
+                    }}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setPortalInviteOpen(false)}>Cancel</Button>
+                  <Button
+                    onClick={() => sendPortalInviteMutation.mutate(portalInviteEmail.trim())}
+                    disabled={!portalInviteEmail.trim() || sendPortalInviteMutation.isPending}
+                  >
+                    {sendPortalInviteMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Send className="w-4 h-4 mr-2" />}
+                    Send Invite
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </TabsContent>
+        )}
       </Tabs>
 
       {/* Worker Details Modal */}

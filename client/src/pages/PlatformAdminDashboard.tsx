@@ -423,6 +423,7 @@ export default function PlatformAdminDashboard() {
     { key: 'featurePermitToWork', label: 'Permit to Work' },
     { key: 'featureRaBuilder', label: 'RA Builder' },
     { key: 'featureHelpDesk', label: 'Help Desk' },
+    { key: 'featureContractorPortal', label: 'Contractor Self-Service Portal' },
   ];
 
   // Fetch the selected customer's platform feature locks when the edit dialog opens
