@@ -375,6 +375,45 @@ export function registerPermitToWorkRoutes(app: Express): void {
     }
   });
 
+  // ─── POST regenerate checklist ────────────────────────────────────────────
+  app.post('/api/ptw/:id/checklist/regenerate', requireAuth, requirePermitToWorkFeature, async (req, res) => {
+    try {
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const { id } = req.params;
+      const [permit] = await custDb.select().from(isolatedSchema.permitToWork)
+        .where(eq(isolatedSchema.permitToWork.id, id));
+      if (!permit) return res.status(404).json({ error: 'Permit not found' });
+
+      const existing = await custDb.select({ id: isolatedSchema.permitChecklist.id })
+        .from(isolatedSchema.permitChecklist)
+        .where(eq(isolatedSchema.permitChecklist.permitId, id));
+      if (existing.length > 0) {
+        return res.status(409).json({ error: 'This permit already has checklist items.' });
+      }
+
+      const permitType = (permit as any).permitType;
+      const items = PTW_CHECKLISTS[permitType] || PTW_CHECKLISTS.general_high_risk;
+      await custDb.insert(isolatedSchema.permitChecklist).values(
+        items.map(item => ({
+          permitId: id,
+          checklistSection: item.section,
+          itemDescription: item.description,
+          isRequired: item.isRequired,
+          displayOrder: item.order,
+        }))
+      );
+
+      const checklist = await custDb.select().from(isolatedSchema.permitChecklist)
+        .where(eq(isolatedSchema.permitChecklist.permitId, id))
+        .orderBy(isolatedSchema.permitChecklist.displayOrder);
+
+      res.json({ checklist });
+    } catch (err) {
+      logger.error('POST /api/ptw/:id/checklist/regenerate', err);
+      res.status(500).json({ error: 'Failed to regenerate checklist' });
+    }
+  });
+
   // ─── PATCH submit ────────────────────────────────────────────────────────────
   app.patch('/api/ptw/:id/submit', requireAuth, requirePermitToWorkFeature, async (req, res) => {
     try {
@@ -609,8 +648,16 @@ export function registerPermitToWorkRoutes(app: Express): void {
 
       if (req.file) {
         fileName = req.file.originalname;
-        const objectKey = `ptw-attachments/${req.customerId}/${id}/${Date.now()}_${fileName}`;
-        fileUrl = await objectStorage.uploadObject(objectKey, req.file.buffer, req.file.mimetype);
+        const objectId = randomUUID();
+        const privateObjectDir = objectStorage.getPrivateObjectDir();
+        const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+        const parts = fullPath.slice(1).split('/');
+        const bucketName = parts[0];
+        const objectName = parts.slice(1).join('/');
+        const bucket = objectStorageClient.bucket(bucketName);
+        const fileObj = bucket.file(objectName);
+        await fileObj.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
+        fileUrl = `/objects/uploads/${objectId}`;
       }
       if (!fileUrl || !fileName) return res.status(400).json({ error: 'File URL and name are required.' });
 

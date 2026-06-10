@@ -1,6 +1,6 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, getCsrfToken } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -1149,6 +1149,17 @@ function PermitDetailView({
   const { toast: attachToast } = useToast();
   const qcInner = useQueryClient();
 
+  const regenerateChecklistMutation = useMutation({
+    mutationFn: () => apiRequest('POST', `/api/ptw/${permit.id}/checklist/regenerate`),
+    onSuccess: () => {
+      qcInner.invalidateQueries({ queryKey: ['/api/ptw', permit.id] });
+      attachToast({ title: 'Checklist generated', description: 'Safety checklist items have been added to this permit.' });
+    },
+    onError: (err: any) => {
+      attachToast({ title: 'Failed to generate checklist', description: err?.message || 'Please try again.', variant: 'destructive' });
+    },
+  });
+
   const checklist = permit.checklist || [];
   const sections: Record<string, ChecklistItem[]> = {};
   for (const item of checklist) {
@@ -1278,6 +1289,7 @@ function PermitDetailView({
                   method: 'POST',
                   body: fd,
                   credentials: 'include',
+                  headers: { 'x-csrf-token': getCsrfToken() ?? '' },
                 });
                 if (!res.ok) throw new Error('Upload failed');
                 qcInner.invalidateQueries({ queryKey: ['/api/ptw', permit.id] });
@@ -1418,7 +1430,20 @@ function PermitDetailView({
         {/* Checklist tab */}
         <TabsContent value="checklist" className="mt-3">
           {checklist.length === 0 ? (
-            <div className="text-center py-8 text-gray-500 text-sm">No checklist items for this permit.</div>
+            <div className="text-center py-10 space-y-3">
+              <p className="text-gray-500 text-sm">No checklist items for this permit.</p>
+              {canEdit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => regenerateChecklistMutation.mutate()}
+                  disabled={regenerateChecklistMutation.isPending}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${regenerateChecklistMutation.isPending ? 'animate-spin' : ''}`} />
+                  {regenerateChecklistMutation.isPending ? 'Generating…' : 'Generate Checklist'}
+                </Button>
+              )}
+            </div>
           ) : (
             <div className="space-y-3">
               {/* Running status banner */}

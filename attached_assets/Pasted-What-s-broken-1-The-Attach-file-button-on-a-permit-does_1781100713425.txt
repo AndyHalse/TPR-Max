@@ -1,0 +1,13 @@
+What's broken
+1. The "Attach file" button on a permit doesn't work — twice over. This is the link for attaching RAMS and isolation certificates to a permit. The server calls a function (uploadObject) that doesn't exist anywhere in the codebase, so it would crash with an error. And separately, the browser side doesn't send the security token (CSRF) that every save needs, so the request gets rejected before it even reaches the server. The document upload on the Compliance tab does both of these correctly — the fix is to copy that pattern. This is the headline fix.
+
+Logic gaps worth fixing
+You can't edit a rejected permit. When a manager rejects one, it goes back to draft — but there's no edit screen. If the dates were wrong, the requester's only option is to cancel and start again. (The server has an edit route ready; nothing in the app uses it.)
+Cancelling leaves no trace. Anyone logged in can cancel any permit — including one with live work on it — and the system records nothing about who did it or why. Every other action records who/when/why; for a safety audit trail this one matters.
+Closing a permit always records "work completed satisfactorily — yes". The database can store "no", but the screen never offers it.
+A suspended permit can be resumed after it's expired. Suspend on Friday, resume the following week — it goes straight back to active even though the permit window has passed. Activation checks this; resume doesn't.
+The authoriser can't see who's doing the work. The permit detail screen and the "needs authorisation" email show the location, dates and description — but if it's assigned to a contractor, the person's name isn't shown anywhere on either. A manager is approving hot works without seeing who's holding the torch.
+Product gap, not a bug: the compliance warning checks your own documents (your PLI, ELI, H&S policy) — it never checks the contractor's compliance from the contractor module. Given TPR's whole pitch is "blocks non-compliant contractors", a hot-works permit for a contractor with expired insurance sails through. I'd fix this before pushing PTW hard in sales conversations.
+There are also a few minor tidy-ups (duplicate permit numbers possible if two are created at the same instant, about 55 lines of dead code, and drafts past their dates sit in "Pending" forever), but none are urgent.
+
+My suggested order: the attach-file fix first (it's a visible broken feature), then the contractor name on the authorisation screen and email, then the cancel/close audit gaps together. Want me to write the Replit prompts?
