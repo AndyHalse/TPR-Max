@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -69,6 +69,7 @@ const QUICK_SETUP_ITEMS = [
 
 export default function Settings() {
   const [activeTab, setActiveTab] = useState("company");
+  const tabsRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
 
   const { data: quickSetup } = useQuery<QuickSetupStatus>({
@@ -154,7 +155,10 @@ export default function Settings() {
               return (
                 <li key={key}>
                   <button
-                    onClick={() => setActiveTab(tab)}
+                    onClick={() => {
+                      setActiveTab(tab);
+                      setTimeout(() => tabsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                    }}
                     className={`w-full flex items-start gap-2.5 text-left px-3 py-2.5 rounded-lg border transition-colors ${
                       done
                         ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950/30 cursor-default"
@@ -196,6 +200,7 @@ export default function Settings() {
         </div>
       )}
 
+      <div ref={tabsRef}>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         {/* Mobile (< md): full-width dropdown selector */}
         <div className="md:hidden mb-4">
@@ -318,6 +323,7 @@ export default function Settings() {
         <TabsContent value="system" className="space-y-6 mt-6"><SystemSettings /></TabsContent>
         <TabsContent value="preferences" className="space-y-6 mt-6"><PreferencesSettings /></TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }
