@@ -836,11 +836,21 @@ export function registerVisitorRoutes(app: Express): void {
   app.get("/api/visitors/:id/accept-hs-rules", async (req, res) => {
     try {
       const { id } = req.params;
-      const { token } = req.query;
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'system';
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const { token, customerId: queryCustomerId } = req.query;
+
+      // Public endpoint — customerId must come from the query string (embedded in the email link)
+      const resolvedCustomerId = (queryCustomerId as string) || req.customerId;
+      if (!resolvedCustomerId) {
+        return res.status(400).send(`
+          <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+              <h1 style="color: #ef4444;">❌ Invalid Link</h1>
+              <p>This acceptance link is missing required information. Please contact reception.</p>
+            </body>
+          </html>
+        `);
+      }
+      const context = { customerId: resolvedCustomerId };
       
       // Get visitor
       const visitor = await databaseService.getVisitorById(context, id);
@@ -931,10 +941,13 @@ export function registerVisitorRoutes(app: Express): void {
     try {
       const { id } = req.params;
       const { token } = req.body;
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'system';
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      // Public endpoint — customerId must come from the query string or body
+      const resolvedCustomerId = (req.query.customerId as string) || (req.body.customerId as string) || req.customerId;
+      if (!resolvedCustomerId) {
+        return res.status(400).json({ error: "Customer context missing. Ensure the link includes a customerId parameter." });
+      }
+      const context = { customerId: resolvedCustomerId };
       
       // Get visitor
       const visitor = await databaseService.getVisitorById(context, id);
@@ -984,11 +997,12 @@ export function registerVisitorRoutes(app: Express): void {
         return res.status(400).json({ error: "Token is required" });
       }
 
-      // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
-        return res.status(401).json({ error: "Customer context not found in session" });
+      // Public endpoint — customerId must come from the query string (embedded in the email link)
+      const resolvedCustomerId = (req.query.customerId as string) || req.customerId;
+      if (!resolvedCustomerId) {
+        return res.status(400).json({ error: "Customer context missing. Ensure the link includes a customerId parameter." });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: resolvedCustomerId };
 
       // Get the contractor worker using customer-isolated database
       const worker = await databaseService.getContractorWorkerById(context, workerId);

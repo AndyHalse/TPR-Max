@@ -424,20 +424,13 @@ export function registerContractorRoutes(app: Express): void {
           c.companyName?.toLowerCase().trim() === preBooking.companyName?.toLowerCase().trim()
         );
         
-        // Fallback: partial match
-        if (!company && preBooking.companyName) {
-          company = allCompanies.find(c => 
-            c.companyName?.toLowerCase().includes(preBooking.companyName.toLowerCase().trim()) ||
-            preBooking.companyName.toLowerCase().trim().includes(c.companyName?.toLowerCase() || '')
-          );
-        }
       }
       
       if (!company) {
         logger.error(`Company lookup failed for pre-booking. workerName: "${preBooking.workerName}", companyName: "${preBooking.companyName}". Available companies:`, allCompanies.map(c => ({ id: c.id, name: c.companyName })));
         return res.status(400).json({ 
           error: "Contractor company not found",
-          details: `Company "${preBooking.companyName}" not found. Please add it first.`
+          details: `Contractor company '${preBooking.companyName}' not found. Ensure the company name in the pre-booking matches exactly.`
         });
       }
       
@@ -1011,6 +1004,7 @@ export function registerContractorRoutes(app: Express): void {
   });
 
   app.put("/api/contractors/:id", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -1118,6 +1112,7 @@ export function registerContractorRoutes(app: Express): void {
   });
 
   app.delete("/api/contractors/:id", requireAuth, async (req, res) => {
+    if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
     try {
       const { id } = req.params;
       const delCompContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);

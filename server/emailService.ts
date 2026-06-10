@@ -2003,7 +2003,7 @@ This is an automated emergency notification from ${companySettings.companyName}`
                               <table role="presentation" cellpadding="0" cellspacing="0" style="width: 100%; border-collapse: collapse;">
                                 <tr>
                                   <td align="center">
-                                    <a href="${baseUrl}/api/visitors/${visitor.id}/accept-hs-rules?token=${visitor.hsRulesAcceptanceToken}" 
+                                    <a href="${baseUrl}/api/visitors/${visitor.id}/accept-hs-rules?token=${visitor.hsRulesAcceptanceToken}&customerId=${encodeURIComponent(this.customerId || '')}" 
                                        class="mobile-button"
                                        style="display: inline-block; padding: 16px 40px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3); text-align: center;">
                                       ✅ I Accept Health & Safety Rules

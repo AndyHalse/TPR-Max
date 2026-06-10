@@ -1630,33 +1630,42 @@ export function registerStaffRoutes(app: Express): void {
   app.get("/api/staff/me/:customerId?", requireAuth, async (req, res) => {
     try {
       const { customerId: pathCustomerId } = req.params;
-      
-      // Get customer context from authenticated user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Use path customer ID if provided, otherwise use context customer ID
       const targetCustomerId = pathCustomerId || context.customerId;
-      
-      // Ensure user has access to this customer data
+
       if (context.customerId !== targetCustomerId) {
         return res.status(403).json({ error: 'Access denied to customer data' });
       }
-      
-      // Get staff member for this customer (simplified - in production you'd validate staff access)
-      // For now, return basic staff info based on authenticated user
-      const staffInfo = {
-        id: req.user.id,
-        firstName: req.user.username,
-        lastName: 'User',
-        email: `${req.user.username.toLowerCase()}@example.com`,
-        accessLevel: req.user.role === 'admin' ? 'admin' : 'supervisor',
-        customerId: targetCustomerId,
-        isActive: true
-      };
-      
-      logger.info(`Staff info retrieved for user ${username} and customer ${targetCustomerId}`);
-      res.json(staffInfo);
+
+      const customerDb = await customerDbService.getCustomerDatabase(targetCustomerId);
+
+      // Look up by userId link first, then fall back to email match
+      let [staffMember] = req.user!.id
+        ? await customerDb.select().from(isolatedSchema.staff).where(eq(isolatedSchema.staff.userId, req.user!.id))
+        : [];
+
+      if (!staffMember && req.user!.email) {
+        [staffMember] = await customerDb.select().from(isolatedSchema.staff).where(eq(isolatedSchema.staff.email, req.user!.email));
+      }
+
+      if (!staffMember) {
+        // Admin users may not have a staff record — return user-table data rather than fabricated stub
+        const staffInfo = {
+          id: req.user!.id,
+          firstName: req.user!.firstName || req.user!.username,
+          lastName: req.user!.lastName || '',
+          email: req.user!.email || null,
+          accessLevel: req.user!.role === 'admin' ? 'admin' : 'supervisor',
+          customerId: targetCustomerId,
+          isActive: true
+        };
+        logger.info(`No staff record found for user ${username} — returning user profile`);
+        return res.json(staffInfo);
+      }
+
+      logger.info(`Staff record retrieved for user ${username} and customer ${targetCustomerId}`);
+      res.json({ ...staffMember, customerId: targetCustomerId });
     } catch (error) {
       logger.error('Error fetching staff info:', error);
       res.status(500).json({ error: 'Failed to fetch staff information' });
@@ -1668,19 +1677,32 @@ export function registerStaffRoutes(app: Express): void {
     try {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      const staffInfo = {
-        id: req.user.id,
-        firstName: req.user.username,
-        lastName: 'User',
-        email: `${req.user.username.toLowerCase()}@example.com`,
-        accessLevel: req.user.role === 'admin' ? 'admin' : 'supervisor',
-        customerId: context.customerId,
-        isActive: true
-      };
-      
-      logger.info(`Staff info retrieved for user ${username} and customer ${context.customerId}`);
-      res.json(staffInfo);
+      const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+
+      let [staffMember] = req.user!.id
+        ? await customerDb.select().from(isolatedSchema.staff).where(eq(isolatedSchema.staff.userId, req.user!.id))
+        : [];
+
+      if (!staffMember && req.user!.email) {
+        [staffMember] = await customerDb.select().from(isolatedSchema.staff).where(eq(isolatedSchema.staff.email, req.user!.email));
+      }
+
+      if (!staffMember) {
+        const staffInfo = {
+          id: req.user!.id,
+          firstName: req.user!.firstName || req.user!.username,
+          lastName: req.user!.lastName || '',
+          email: req.user!.email || null,
+          accessLevel: req.user!.role === 'admin' ? 'admin' : 'supervisor',
+          customerId: context.customerId,
+          isActive: true
+        };
+        logger.info(`No staff record found for user ${username} — returning user profile`);
+        return res.json(staffInfo);
+      }
+
+      logger.info(`Staff record retrieved for user ${username} and customer ${context.customerId}`);
+      res.json({ ...staffMember, customerId: context.customerId });
     } catch (error) {
       logger.error('Error fetching staff info:', error);
       res.status(500).json({ error: 'Failed to fetch staff information' });

@@ -1,0 +1,66 @@
+New Bugs Found — TPR Max Codebase Review (10 June 2026)
+Five confirmed new bugs, ranked by severity.
+
+Bug 1 — H&S Rules email links are completely broken (HIGH)
+Files: server/routes/visitors.ts:836 and :930
+
+Both the GET and POST public endpoints for accept-hs-rules call simpleDatabaseService.createCustomerContext('system', req.customerId). On a public endpoint (no session, no requireAuth), req.customerId is undefined and 'system' doesn't contain a hyphen — so createCustomerContext throws an error every time. Every visitor who clicks the H&S acceptance link from their email gets a 500 error page. The contractor version at :976 has the same problem — it gates on req.session?.customerId and returns 401 for everyone clicking from email.
+
+Replit prompt:
+
+In server/routes/visitors.ts, the three public H&S rules acceptance endpoints are broken. They're public routes (no requireAuth) but they attempt to get a customer context from the session, which doesn't exist when a visitor/contractor clicks a link from an email.
+
+The fix: these endpoints need the customerId embedded in the link itself (as a query parameter), not derived from a session. When the H&S acceptance email is sent, add ?customerId=xxx&token=yyy to the URL. In the endpoints, read req.query.customerId and use that directly: const context = { customerId: req.query.customerId as string }. Validate that the customerId is a non-empty string before using it.
+
+Apply this to:
+
+GET /api/visitors/:id/accept-hs-rules (line 836)
+POST /api/visitors/:id/accept-hs-rules (line 930)
+POST /api/contractors/workers/:workerId/accept-hs-rules (line 976)
+Also check wherever these email links are generated (search for accept-hs-rules in the email sending code) and ensure the customerId is appended to the URL.
+
+Bug 2 — Any logged-in user can delete contractor companies (HIGH)
+File: server/routes/contractors.ts:1120
+
+DELETE /api/contractors/:id has requireAuth but no role check. Any logged-in user (including basic users) can delete any contractor company. Compare: the PATCH at line 1079 correctly checks if (req.user!.role !== "admin"). The PUT at line 1013 also has no role check.
+
+Replit prompt:
+
+In server/routes/contractors.ts, two endpoints are missing admin role checks that similar endpoints have:
+
+DELETE /api/contractors/:id (line 1120) — add if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" }); as the first line inside the handler, matching the pattern used in PATCH /api/contractors/:id at line 1080.
+PUT /api/contractors/:id (line 1013) — same fix, add the admin role check as the first line inside the handler.
+Without this, any authenticated non-admin user can modify or delete contractor companies.
+
+Bug 3 — /api/staff/me returns fabricated data (MEDIUM)
+File: server/routes/staff.ts:1630 and :1667
+
+Both /api/staff/me/:customerId? and /api/staff/me return hardcoded stub data — firstName: req.user.username, lastName: 'User', email: username@example.com. The comment says "simplified — in production you'd validate staff access." This is in production. Any feature that calls this endpoint gets wrong data for every user.
+
+Replit prompt:
+
+In server/routes/staff.ts, two endpoints (GET /api/staff/me/:customerId? at line 1630 and GET /api/staff/me at line 1667) return hardcoded stub data instead of real staff records. They construct a fake staffInfo object with firstName: req.user.username, lastName: 'User', and a fabricated @example.com email address.
+
+Fix: replace the stub with a real database lookup. The hrStaffMembers table in the isolated schema contains staff records. Query it for a record where the email or username matches the authenticated user. If the user is an admin, return their admin profile from the users table instead. If no matching staff record exists, return a 404 rather than fabricated data.
+
+Check which parts of the UI call this endpoint and verify they handle a 404 gracefully.
+
+Bug 4 — Partial company name match can check in contractor under the wrong company (MEDIUM)
+File: server/routes/contractors.ts:428
+
+In the pre-booking check-in flow, if exact company name match fails, the code does a partial string match — e.g. "ABC Corp" will match "ABC Corp Ltd". If two companies share a partial name, a contractor gets checked in under the wrong company. This is wrong in a compliance product where contractor company identity matters for insurance and documentation checks.
+
+Replit prompt:
+
+In server/routes/contractors.ts around line 421–433, the pre-booking check-in flow has a partial company name fallback that can silently match the wrong contractor company.
+
+The current logic:
+
+Exact name match → use it
+Partial match (one name contains the other) → silently use it
+Remove the partial match fallback entirely (lines ~428–433). If the exact match fails, return a 400 error with a clear message: "Contractor company '${preBooking.companyName}' not found. Ensure the company name in the pre-booking matches exactly." This forces the issue to be visible rather than silently using the wrong company, which could attach the check-in record to the wrong insurance documents.
+
+Bug 5 — Staff /me stub generates fake email with @example.com (MEDIUM — data leak risk)
+This is the same endpoint as Bug 3 but worth flagging separately: the fabricated @example.com email could end up stored in the database or sent in notifications if anything downstream writes it back. Already covered in the Replit prompt above, but make sure the developer knows to search for any place this stub email might have already been persisted.
+
+Additional note for the Replit prompt above: Add — "Search the database for any stored email addresses ending in @example.com in the hrStaffMembers or related tables and treat them as corrupt stub data."
