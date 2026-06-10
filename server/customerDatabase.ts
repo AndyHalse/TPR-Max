@@ -1001,6 +1001,10 @@ export class CustomerDatabaseService {
         )
       `);
       await pool.query(`ALTER TABLE "${schemaName}".ptw_company_documents ADD COLUMN IF NOT EXISTS expiry_alerted_at TIMESTAMP`).catch(() => {});
+      await pool.query(`ALTER TABLE "${schemaName}".permit_to_work ADD COLUMN IF NOT EXISTS cancelled_by_id VARCHAR`).catch(() => {});
+      await pool.query(`ALTER TABLE "${schemaName}".permit_to_work ADD COLUMN IF NOT EXISTS cancelled_by_name TEXT`).catch(() => {});
+      await pool.query(`ALTER TABLE "${schemaName}".permit_to_work ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMP`).catch(() => {});
+      await pool.query(`ALTER TABLE "${schemaName}".permit_to_work ADD COLUMN IF NOT EXISTS cancellation_reason TEXT`).catch(() => {});
       logger.info(`✅ Permit to Work tables ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Permit to Work table migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

@@ -88,8 +88,13 @@ interface Permit {
   closureNotes: string | null;
   closedByName: string | null;
   closedAt: string | null;
+  workCompletedSatisfactorily: boolean | null;
   suspensionReason: string | null;
   suspendedAt: string | null;
+  cancelledById: string | null;
+  cancelledByName: string | null;
+  cancelledAt: string | null;
+  cancellationReason: string | null;
   createdById: string | null;
   createdByName: string | null;
   createdAt: string;
@@ -139,6 +144,7 @@ export default function PermitToWork() {
   const [viewPermitId, setViewPermitId] = useState<string | null>(null);
   const [actionDialogState, setActionDialogState] = useState<{ type: string; permitId: string; permitNumber: string } | null>(null);
   const [actionReason, setActionReason] = useState('');
+  const [closeSatisfactory, setCloseSatisfactory] = useState(true);
 
   const { data: permits = [], isLoading } = useQuery<Permit[]>({
     queryKey: ['/api/ptw'],
@@ -146,6 +152,11 @@ export default function PermitToWork() {
 
   const { data: permitDetail } = useQuery<PermitDetail>({
     queryKey: ['/api/ptw', viewPermitId],
+    queryFn: async () => {
+      const res = await fetch(`/api/ptw/${viewPermitId}`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to fetch permit');
+      return res.json();
+    },
     enabled: !!viewPermitId,
   });
 
@@ -202,8 +213,9 @@ export default function PermitToWork() {
     const body: any = {};
     if (type === 'reject') body.rejectionReason = actionReason;
     if (type === 'suspend') body.suspensionReason = actionReason;
-    if (type === 'close') { body.closureNotes = actionReason; body.workCompletedSatisfactorily = true; }
+    if (type === 'close') { body.closureNotes = actionReason; body.workCompletedSatisfactorily = closeSatisfactory; }
     if (type === 'authorise') body.authNotes = actionReason;
+    if (type === 'cancel') body.cancellationReason = actionReason;
     actionMutation.mutate({ type, permitId, body });
   };
 
@@ -215,7 +227,7 @@ export default function PermitToWork() {
     suspend:   { label: 'Suspend Permit',              requiresReason: true,  reasonLabel: 'Reason for suspension *', reasonRequired: true, bg: 'bg-orange-600 hover:bg-orange-700' },
     resume:    { label: 'Resume Work',                 requiresReason: false, bg: 'bg-blue-600 hover:bg-blue-700' },
     close:     { label: 'Close & Complete Permit',     requiresReason: true,  reasonLabel: 'Closure notes (optional)', reasonRequired: false, bg: 'bg-teal-600 hover:bg-teal-700' },
-    cancel:    { label: 'Cancel Permit',               requiresReason: false, bg: 'bg-gray-600 hover:bg-gray-700' },
+    cancel:    { label: 'Cancel Permit',               requiresReason: true,  reasonLabel: 'Reason for cancellation *', reasonRequired: true, bg: 'bg-gray-600 hover:bg-gray-700' },
   };
 
   const expiredDocCount = companyDocs.filter(d => d.status === 'expired').length;
@@ -398,7 +410,7 @@ export default function PermitToWork() {
                               {!['completed', 'expired', 'cancelled'].includes(permit.status) && (
                                 <>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem className="text-red-600" onClick={() => actionMutation.mutate({ type: 'cancel', permitId: permit.id, body: {} })}>
+                                  <DropdownMenuItem className="text-red-600" onClick={() => setActionDialogState({ type: 'cancel', permitId: permit.id, permitNumber: permit.permitNumber })}>
                                     <XCircle className="h-4 w-4 mr-2" /> Cancel Permit
                                   </DropdownMenuItem>
                                 </>
@@ -463,7 +475,7 @@ export default function PermitToWork() {
       </Dialog>
 
       {/* Action Confirm Dialog */}
-      <Dialog open={!!actionDialogState} onOpenChange={open => { if (!open) { setActionDialogState(null); setActionReason(''); }}}>
+      <Dialog open={!!actionDialogState} onOpenChange={open => { if (!open) { setActionDialogState(null); setActionReason(''); setCloseSatisfactory(true); }}}>
         <DialogContent className="max-w-md">
           {actionDialogState && (
             <>
@@ -473,9 +485,34 @@ export default function PermitToWork() {
               <p className="text-sm text-gray-600 dark:text-gray-300">
                 Permit: <strong>{actionDialogState.permitNumber}</strong>
               </p>
+              {actionDialogState.type === 'close' && (
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Was the work completed satisfactorily? *</Label>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCloseSatisfactory(true)}
+                      className={`flex-1 py-2 rounded-md text-sm font-medium border transition-colors ${closeSatisfactory ? 'bg-emerald-600 text-white border-emerald-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-emerald-400'}`}
+                    >
+                      ✓ Yes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCloseSatisfactory(false)}
+                      className={`flex-1 py-2 rounded-md text-sm font-medium border transition-colors ${!closeSatisfactory ? 'bg-red-600 text-white border-red-600' : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-red-400'}`}
+                    >
+                      ✗ No
+                    </button>
+                  </div>
+                </div>
+              )}
               {ACTION_CONFIG[actionDialogState.type]?.requiresReason && (
                 <div>
-                  <Label>{ACTION_CONFIG[actionDialogState.type].reasonLabel}</Label>
+                  <Label>
+                    {actionDialogState.type === 'close' && !closeSatisfactory
+                      ? 'Closure notes — explain why work was unsatisfactory *'
+                      : ACTION_CONFIG[actionDialogState.type].reasonLabel}
+                  </Label>
                   <Textarea
                     rows={3}
                     value={actionReason}
@@ -485,11 +522,15 @@ export default function PermitToWork() {
                 </div>
               )}
               <DialogFooter>
-                <Button variant="outline" onClick={() => { setActionDialogState(null); setActionReason(''); }}>Cancel</Button>
+                <Button variant="outline" onClick={() => { setActionDialogState(null); setActionReason(''); setCloseSatisfactory(true); }}>Cancel</Button>
                 <Button
                   className={ACTION_CONFIG[actionDialogState.type]?.bg || ''}
                   onClick={handleActionConfirm}
-                  disabled={actionMutation.isPending || (ACTION_CONFIG[actionDialogState.type]?.reasonRequired && !actionReason.trim())}
+                  disabled={
+                    actionMutation.isPending ||
+                    (ACTION_CONFIG[actionDialogState.type]?.reasonRequired && !actionReason.trim()) ||
+                    (actionDialogState.type === 'close' && !closeSatisfactory && !actionReason.trim())
+                  }
                 >
                   {actionMutation.isPending ? 'Processing…' : ACTION_CONFIG[actionDialogState.type]?.label}
                 </Button>
@@ -1229,6 +1270,15 @@ function PermitDetailView({
             <div>{permit.plannedStartDate} {permit.plannedStartTime}</div>
             <div className="text-gray-500 dark:text-gray-400">Planned end</div>
             <div>{permit.plannedEndDate} {permit.plannedEndTime}</div>
+            {permit.contractorWorkerName && (
+              <>
+                <div className="text-gray-500 dark:text-gray-400">Contractor</div>
+                <div className="font-medium">
+                  {permit.contractorWorkerName}
+                  {permit.contractorCompanyName ? ` — ${permit.contractorCompanyName}` : ''}
+                </div>
+              </>
+            )}
             {permit.staffName && (
               <>
                 <div className="text-gray-500 dark:text-gray-400">Staff member</div>
@@ -1420,7 +1470,7 @@ function PermitDetailView({
               </>
             )}
             {!['completed', 'expired', 'cancelled'].includes(permit.status) && (
-              <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 ml-auto" onClick={() => onQuickAction('cancel')}>
+              <Button size="sm" variant="outline" className="text-red-600 hover:text-red-700 ml-auto" onClick={() => onAction('cancel')}>
                 Cancel Permit
               </Button>
             )}
@@ -1565,7 +1615,8 @@ function PermitDetailView({
               permit.rejectionReason ? { label: 'Rejected', date: (permit as any).rejectedAt, color: 'bg-red-500', note: permit.rejectionReason } : null,
               (permit as any).actualStartAt ? { label: 'Work started (activated)', date: (permit as any).actualStartAt, color: 'bg-emerald-500' } : null,
               permit.suspendedAt ? { label: 'Suspended', date: (permit as any).suspendedAt, color: 'bg-orange-500', note: permit.suspensionReason } : null,
-              permit.closedAt ? { label: 'Completed & closed', date: permit.closedAt, by: permit.closedByName, color: 'bg-teal-500', note: permit.closureNotes } : null,
+              permit.closedAt ? { label: `Completed & closed${permit.workCompletedSatisfactorily === false ? ' — UNSATISFACTORY' : ''}`, date: permit.closedAt, by: permit.closedByName, color: permit.workCompletedSatisfactorily === false ? 'bg-red-500' : 'bg-teal-500', note: permit.closureNotes } : null,
+              permit.cancelledAt ? { label: 'Cancelled', date: permit.cancelledAt, by: permit.cancelledByName, color: 'bg-gray-500', note: permit.cancellationReason } : null,
             ].filter(Boolean).map((event: any, i) => (
               <div key={i} className="flex gap-3">
                 <div className="flex flex-col items-center">

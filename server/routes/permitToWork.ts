@@ -87,9 +87,15 @@ async function ensureTables(custDb: any, schemaName: string) {
 async function generatePermitNumber(custDb: any, year: number): Promise<string> {
   const all = await custDb.select({ permitNumber: isolatedSchema.permitToWork.permitNumber })
     .from(isolatedSchema.permitToWork);
-  const thisYear = all.filter((r: any) => r.permitNumber?.startsWith(`PTW-${year}-`));
-  const next = (thisYear.length + 1).toString().padStart(3, '0');
-  return `PTW-${year}-${next}`;
+  const prefix = `PTW-${year}-`;
+  const maxSeq = all
+    .filter((r: any) => r.permitNumber?.startsWith(prefix))
+    .reduce((max: number, r: any) => {
+      const parts = (r.permitNumber as string).split('-');
+      const n = parts.length === 3 ? parseInt(parts[2], 10) : 0;
+      return n > max ? n : max;
+    }, 0);
+  return `${prefix}${(maxSeq + 1).toString().padStart(3, '0')}`;
 }
 
 async function notifyAdmins(custDb: any, customer: any, settings: any, subject: string, html: string, text: string) {
@@ -102,6 +108,9 @@ async function notifyAdmins(custDb: any, customer: any, settings: any, subject: 
     await emailSvc.sendEmail({ to: u.email, subject, html, text, companyName }).catch(() => {});
   }
 }
+
+const esc = (s: any) => String(s ?? '').replace(/[&<>"']/g, (c: string) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
 
 export function registerPermitToWorkRoutes(app: Express): void {
 
@@ -367,7 +376,9 @@ export function registerPermitToWorkRoutes(app: Express): void {
       }
       const [item] = await custDb.update(isolatedSchema.permitChecklist)
         .set({ response, notes: notes || null, respondedById: req.user!.id, respondedAt: new Date() })
-        .where(eq(isolatedSchema.permitChecklist.id, checklistItemId)).returning();
+        .where(and(eq(isolatedSchema.permitChecklist.id, checklistItemId), eq(isolatedSchema.permitChecklist.permitId, id)))
+        .returning();
+      if (!item) return res.status(404).json({ error: 'Checklist item not found on this permit.' });
       res.json(item);
     } catch (err) {
       logger.error('PATCH /api/ptw/:id/checklist/:checklistItemId', err);
@@ -441,18 +452,23 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const settings = await simpleDatabaseService.getCompanySettings(context).catch(() => null);
       const customer = { id: req.customerId! };
       const typeLabel = PERMIT_TYPE_LABELS[(permit as any).permitType] || (permit as any).permitType;
-      const subject = `📋 Permit-to-Work Requires Authorisation — ${typeLabel} ${(permit as any).permitNumber}`;
+      const p = permit as any;
+      const assignee = p.contractorWorkerName
+        ? `${esc(p.contractorWorkerName)}${p.contractorCompanyName ? ` (${esc(p.contractorCompanyName)})` : ''} — Contractor`
+        : p.staffName ? `${esc(p.staffName)} — Staff` : 'Not specified';
+      const subject = `📋 Permit-to-Work Requires Authorisation — ${typeLabel} ${p.permitNumber}`;
       const html = `<div style="font-family:Arial,sans-serif;max-width:640px">
         <div style="background:#d97706;color:#fff;padding:20px;border-radius:8px 8px 0 0"><h2 style="margin:0">${subject}</h2></div>
         <div style="background:#fff;padding:20px;border:1px solid #e5e7eb">
           <p>A Permit-to-Work has been submitted for authorisation.</p>
           <table style="width:100%;border-collapse:collapse">
-            <tr><td style="padding:4px 0;color:#6b7280;width:160px">Permit number</td><td style="font-weight:600">${(permit as any).permitNumber}</td></tr>
-            <tr><td style="padding:4px 0;color:#6b7280">Work type</td><td>${typeLabel}</td></tr>
-            <tr><td style="padding:4px 0;color:#6b7280">Location</td><td>${(permit as any).workLocation}</td></tr>
-            <tr><td style="padding:4px 0;color:#6b7280">Description</td><td>${(permit as any).workDescription}</td></tr>
-            <tr><td style="padding:4px 0;color:#6b7280">Planned start</td><td>${(permit as any).plannedStartDate} ${(permit as any).plannedStartTime}</td></tr>
-            <tr><td style="padding:4px 0;color:#6b7280">Planned end</td><td>${(permit as any).plannedEndDate} ${(permit as any).plannedEndTime}</td></tr>
+            <tr><td style="padding:4px 0;color:#6b7280;width:160px">Permit number</td><td style="font-weight:600">${esc(p.permitNumber)}</td></tr>
+            <tr><td style="padding:4px 0;color:#6b7280">Work type</td><td>${esc(typeLabel)}</td></tr>
+            <tr><td style="padding:4px 0;color:#6b7280">Assigned to</td><td>${assignee}</td></tr>
+            <tr><td style="padding:4px 0;color:#6b7280">Location</td><td>${esc(p.workLocation)}</td></tr>
+            <tr><td style="padding:4px 0;color:#6b7280">Description</td><td>${esc(p.workDescription)}</td></tr>
+            <tr><td style="padding:4px 0;color:#6b7280">Planned start</td><td>${esc(p.plannedStartDate)} ${esc(p.plannedStartTime)}</td></tr>
+            <tr><td style="padding:4px 0;color:#6b7280">Planned end</td><td>${esc(p.plannedEndDate)} ${esc(p.plannedEndTime)}</td></tr>
           </table>
           <p>Please log in to TPR Max to review and authorise this permit.</p>
         </div>
@@ -567,6 +583,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       if ((permit as any).status !== 'suspended') return res.status(400).json({ error: 'Permit must be suspended to resume.' });
+      const now = new Date();
+      if (now > new Date((permit as any).permitValidUntil)) {
+        return res.status(400).json({ error: 'Permit validity window has passed. Close this permit and raise a new one.' });
+      }
       const [updated] = await custDb.update(isolatedSchema.permitToWork)
         .set({ status: 'active', updatedAt: new Date() })
         .where(eq(isolatedSchema.permitToWork.id, id)).returning();
@@ -604,12 +624,24 @@ export function registerPermitToWorkRoutes(app: Express): void {
     try {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const { id } = req.params;
+      const { cancellationReason } = req.body;
+      if (!cancellationReason?.trim()) return res.status(400).json({ error: 'Cancellation reason is required.' });
       const [permit] = await custDb.select().from(isolatedSchema.permitToWork).where(eq(isolatedSchema.permitToWork.id, id));
       if (!permit) return res.status(404).json({ error: 'Permit not found' });
       const terminatedStatuses = ['completed', 'expired', 'cancelled'];
       if (terminatedStatuses.includes((permit as any).status)) return res.status(400).json({ error: 'Permit cannot be cancelled in its current state.' });
+      const pStatus = (permit as any).status;
+      const isMgr = req.user!.role === 'admin' || req.user!.role === 'manager';
+      const isCreator = (permit as any).createdById === req.user!.id;
+      if (['authorised', 'active', 'suspended'].includes(pStatus) && !isMgr) {
+        return res.status(403).json({ error: 'Only managers or admins can cancel an authorised or active permit.' });
+      }
+      if (['draft', 'submitted'].includes(pStatus) && !isMgr && !isCreator) {
+        return res.status(403).json({ error: 'Only the permit creator or a manager can cancel this permit.' });
+      }
+      const cancelledByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
       const [updated] = await custDb.update(isolatedSchema.permitToWork)
-        .set({ status: 'cancelled', updatedAt: new Date() })
+        .set({ status: 'cancelled', cancelledById: req.user!.id, cancelledByName, cancelledAt: new Date(), cancellationReason: cancellationReason.trim(), updatedAt: new Date() })
         .where(eq(isolatedSchema.permitToWork.id, id)).returning();
       res.json(updated);
     } catch (err) {
@@ -707,10 +739,10 @@ export function registerPermitToWorkRoutes(app: Express): void {
           const now = new Date();
           const nowPlus2h = new Date(now.getTime() + 2 * 60 * 60 * 1000);
 
-          // 1. Auto-expire authorised permits past validity window
+          // 1. Auto-expire permits past validity window (draft/submitted/authorised — never active ones with live work)
           const toExpire = await custDb.select({ id: isolatedSchema.permitToWork.id, permitNumber: isolatedSchema.permitToWork.permitNumber, createdById: isolatedSchema.permitToWork.createdById })
             .from(isolatedSchema.permitToWork)
-            .where(and(eq(isolatedSchema.permitToWork.status, 'authorised'), lt(isolatedSchema.permitToWork.permitValidUntil, now)))
+            .where(and(inArray(isolatedSchema.permitToWork.status, ['draft', 'submitted', 'authorised']), lt(isolatedSchema.permitToWork.permitValidUntil, now)))
             .catch(() => []) as any[];
           for (const p of toExpire) {
             await custDb.update(isolatedSchema.permitToWork).set({ status: 'expired', updatedAt: now })
