@@ -95,7 +95,7 @@ function Router() {
   const isFireMarshalRoute = window.location.pathname.startsWith('/fire-marshal/');
   const isLoneWorkerOkRoute = window.location.pathname.startsWith('/lone-worker/ok/');
   const isPlatformAdminRoute = location.startsWith('/platform-admin');
-  const isContractorPortalRoute = location.startsWith('/contractor-portal');
+  const isContractorPortalRoute = location.startsWith('/contractor-portal/') || location === '/contractor-portal';
   const isPublicRoute = isFireMarshalRoute || isLoneWorkerOkRoute || isPlatformAdminRoute || isContractorPortalRoute;
 
   // Auth query — must be called unconditionally (Rules of Hooks) before any early returns
