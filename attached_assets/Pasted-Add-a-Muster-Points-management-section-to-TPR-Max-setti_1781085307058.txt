@@ -1,0 +1,60 @@
+Add a "Muster Points" management section to TPR Max settings. The backend already 
+exists — do NOT rebuild it. Only build the missing front-end UI and wire it to the 
+existing API, then fix two consumer bugs.
+
+CONTEXT (already built, reuse it):
+- Table: `muster_points` in server/isolatedSchema.ts (fields: id, name, displayOrder, 
+  isActive, createdAt, updatedAt).
+- Working API in server/routes/emergency.ts:
+    GET    /api/muster-points            (list active points, ordered by displayOrder)
+    POST   /api/muster-points            (body: { name, displayOrder })
+    PUT    /api/muster-points/:id        (body: { name, displayOrder, isActive })
+    DELETE /api/muster-points/:id
+    POST   /api/muster-points/init-defaults
+- The onboarding checklist item "Name at least one muster point" 
+  (client/src/pages/Settings.tsx) points to tab "zones", which renders 
+  client/src/pages/settings/EmergencySettings.tsx. Its backend check 
+  (server/routes/settings.ts ~line 1244) marks the step complete only when a muster 
+  point exists whose name is NOT one of the three seeded defaults 
+  ('Main Car Park', 'Rear Assembly Area', 'Side Entrance').
+
+TASK 1 — Build the Muster Points UI:
+In client/src/pages/settings/EmergencySettings.tsx, add a new "Muster Points" card 
+at the TOP of the tab (above Zone management), since the onboarding step links here. 
+It must let an admin:
+  - See the list of current muster points (name), ordered by displayOrder.
+  - Add a new muster point (text input + Add button -> POST /api/muster-points).
+  - Rename an existing point (inline edit -> PUT /api/muster-points/:id).
+  - Delete a point (with a confirm dialog -> DELETE /api/muster-points/:id).
+  - Reorder via simple up/down arrows that update displayOrder (PUT).
+Use the same React Query + apiRequest + toast patterns already used in this file for 
+the Muster Status Options section. After any change, invalidate the 
+["/api/muster-points"] query AND the ["/api/settings/quick-setup-status"] query so the 
+onboarding checklist updates immediately.
+Add a short helper line under the heading: "These are the physical assembly points 
+where people gather and are accounted for during an evacuation. This is separate from 
+Zones below, which control zone-specific emergencies."
+
+SAFETY-CRITICAL STYLING: this sits on an emergency-related settings screen but is admin 
+config, so normal glass styling is fine — but do NOT apply glassmorphism to anything 
+that renders on the live Fire Marshal / muster / kiosk screens.
+
+TASK 2 — Fix the desktop Fire Marshal panel to use the real list:
+In client/src/pages/FireMarshalPanel.tsx, the muster point list currently falls back to 
+a hardcoded array `["Main Car Park", "Side Entrance", "Rear Assembly"]` (around line 70) 
+and uses evacuationData.musterPoints. Change it to fetch from GET /api/muster-points 
+(map to point.name) so admin-named points appear on the desktop marshal view, exactly 
+like FireMarshalMobile.tsx already does. Keep the hardcoded list only as a last-resort 
+fallback if the fetch returns empty.
+
+TASK 3 — Fix the seeded-default mismatch:
+The seeded default is 'Rear Assembly Area' but the hardcoded fallback says 
+'Rear Assembly'. Make them consistent (use 'Rear Assembly Area' everywhere).
+
+ACCEPTANCE CRITERIA:
+- An admin can add a muster point in Settings -> Zones and immediately see the 
+  onboarding "Name at least one muster point" step tick green.
+- The new point appears on BOTH the mobile and desktop Fire Marshal screens.
+- No changes needed to the Fire Marshal URL itself.
+- No glassmorphism on any live emergency/kiosk/muster screen.
+- Run the existing test suite; nothing should break.

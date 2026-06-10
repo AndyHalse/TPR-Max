@@ -67,7 +67,13 @@ export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
   }, [token]);
   
   // Muster points from evacuation data or defaults
-  const defaultMusterPoints = ["Main Car Park", "Side Entrance", "Rear Assembly"];
+  const defaultMusterPoints = ["Main Car Park", "Side Entrance", "Rear Assembly Area"];
+
+  // Fetch admin-configured muster points
+  const { data: configuredMusterPoints } = useQuery<Array<{ id: string; name: string; displayOrder: number }>>({
+    queryKey: ["/api/muster-points"],
+    staleTime: 60 * 1000,
+  });
 
   // Fetch current evacuation accountability list
   const { data: evacuationData, isLoading, refetch } = useQuery<EvacuationData>({
@@ -210,7 +216,12 @@ export default function FireMarshalPanel({ token }: FireMarshalPanelProps) {
   const totalPeople = evacuationData?.people?.length || 0;
   const accountedFor = evacuationData?.people?.filter((p: PersonOnSite) => p.isAccountedFor).length || 0;
   const unaccounted = totalPeople - accountedFor;
-  const musterPoints = evacuationData?.musterPoints || defaultMusterPoints;
+  const apiMusterPoints = configuredMusterPoints?.map((p) => p.name) ?? [];
+  const musterPoints = evacuationData?.musterPoints?.length
+    ? evacuationData.musterPoints
+    : apiMusterPoints.length
+      ? apiMusterPoints
+      : defaultMusterPoints;
 
   if (!activeEvacuationId) {
     return (
