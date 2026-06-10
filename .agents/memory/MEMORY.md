@@ -5,3 +5,4 @@
 - [multer v2 body reset bug](multer-v2-body-reset.md) — multer v2 resets req.body={} for non-multipart requests; never add upload.single() to a JSON-capable route.
 - [Object storage upload pattern](object-storage-upload-pattern.md) — ObjectStorageService has no uploadObject(); use objectStorageClient.bucket().file().save() directly.
 - [Contractor Portal auth & routing](contractor-portal.md) — JWT Bearer + isContractorPortalRoute in App.tsx; feature flag featureContractorPortal; portal users in isolated schema only.
+- [getCustomerDatabase returns drizzle instance directly](customer-db-destructuring.md) — never destructure { db } from getCustomerDatabase(); it returns the drizzle instance directly; use const db = await getCustomerDatabase().

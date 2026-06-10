@@ -4771,16 +4771,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       const db = await customerDbService.getCustomerDatabase(customerId);
 
-      const settingsRows = await db
-        .select({ featureContractorPortal: isolatedSchema.companySettings.featureContractorPortal })
-        .from(isolatedSchema.companySettings)
-        .limit(1);
-      if (!settingsRows[0]?.featureContractorPortal) {
-        return res.status(403).json({
-          error: 'The contractor portal is not enabled. Please enable it in Settings to send invitations.',
-        });
-      }
-
       const companies = await db
         .select()
         .from(isolatedSchema.contractorCompanies)

@@ -38,19 +38,9 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
 
       let db: any;
       try {
-        ({ db } = await customerDbService.getCustomerDatabase(customerId));
+        db = await customerDbService.getCustomerDatabase(customerId);
       } catch {
         return res.status(401).json({ error: 'Invalid company access code.' });
-      }
-
-      const settingsRows = await db
-        .select({ featureContractorPortal: isolatedSchema.companySettings.featureContractorPortal })
-        .from(isolatedSchema.companySettings)
-        .limit(1);
-      if (!settingsRows[0]?.featureContractorPortal) {
-        return res.status(403).json({
-          error: 'The contractor portal is not currently enabled for this organisation. Please contact the site administrator.',
-        });
       }
 
       const users = await db
@@ -126,7 +116,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
 
       let db: any;
       try {
-        ({ db } = await customerDbService.getCustomerDatabase(customerId));
+        db = await customerDbService.getCustomerDatabase(customerId);
       } catch {
         return res.status(400).json({ error: 'Invalid company access code.' });
       }
@@ -198,7 +188,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
   app.get('/api/contractor-portal/me', requireContractorPortalAuth, async (req, res) => {
     try {
       const pu = (req as any).portalUser as PortalTokenPayload;
-      const { db } = await customerDbService.getCustomerDatabase(pu.customerId);
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
 
       const users = await db
         .select()
@@ -239,7 +229,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
   app.get('/api/contractor-portal/documents', requireContractorPortalAuth, async (req, res) => {
     try {
       const pu = (req as any).portalUser as PortalTokenPayload;
-      const { db } = await customerDbService.getCustomerDatabase(pu.customerId);
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
 
       const docs = await db
         .select()
@@ -299,7 +289,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
           documentUrl = '';
         }
 
-        const { db } = await customerDbService.getCustomerDatabase(pu.customerId);
+        const db = await customerDbService.getCustomerDatabase(pu.customerId);
         const [doc] = await db
           .insert(isolatedSchema.contractorDocuments)
           .values({
@@ -327,7 +317,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
   app.get('/api/contractor-portal/workers', requireContractorPortalAuth, async (req, res) => {
     try {
       const pu = (req as any).portalUser as PortalTokenPayload;
-      const { db } = await customerDbService.getCustomerDatabase(pu.customerId);
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
 
       const workers = await db
         .select()
@@ -346,7 +336,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
   app.get('/api/contractor-portal/document-stats', requireContractorPortalAuth, async (req, res) => {
     try {
       const pu = (req as any).portalUser as PortalTokenPayload;
-      const { db } = await customerDbService.getCustomerDatabase(pu.customerId);
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
 
       const docs = await db
         .select({ status: isolatedSchema.contractorDocuments.status })

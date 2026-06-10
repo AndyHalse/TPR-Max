@@ -58,8 +58,8 @@ export default function ContractorPortalAdmin() {
     },
   });
 
-  const activeCount = allPortalUsers.filter((u) => u.inviteAccepted).length;
-  const pendingCount = allPortalUsers.filter((u) => !u.inviteAccepted).length;
+  const activeCount = allPortalUsers.filter((u) => u.isActive).length;
+  const pendingCount = allPortalUsers.filter((u) => !u.isActive).length;
   const companiesWithPortal = new Set(allPortalUsers.map((u) => u.companyId)).size;
 
   return (
@@ -174,8 +174,8 @@ export default function ContractorPortalAdmin() {
                     <span className="text-xs text-muted-foreground hidden sm:block">
                       {u.invitedAt ? `Invited ${new Date(u.invitedAt).toLocaleDateString()}` : "—"}
                     </span>
-                    <Badge variant={u.inviteAccepted ? "default" : "secondary"}>
-                      {u.inviteAccepted ? "Active" : "Invite pending"}
+                    <Badge variant={u.isActive ? "default" : "secondary"}>
+                      {u.isActive ? "Active" : "Invite pending"}
                     </Badge>
                   </div>
                 </div>
