@@ -4360,9 +4360,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           // Check if e-Pass is enabled in settings
           if (companySettings?.ePassEnabled) {
             logger.info(`Sending contractor e-pass to [email]`);
-            
+
+            // Ensure the worker has an H&S acceptance token — generate and persist one if missing
+            let workerHsToken: string = worker.hsRulesAcceptanceToken || '';
+            if (!workerHsToken) {
+              workerHsToken = randomBytes(16).toString('hex');
+              await databaseService.updateContractorWorker(context, workerId, {
+                hsRulesAcceptanceToken: workerHsToken
+              });
+              logger.info(`Generated H&S acceptance token for contractor worker ${workerId}`);
+            }
+
             const emailService = new EmailService(req.customerId);
-            
+
             emailSentSuccessfully = await emailService.sendContractorEPass(
               worker.email,
               `${worker.firstName} ${worker.lastName}`,
@@ -4372,7 +4382,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
               companySettings,
               workerId,
               hostName,
-              context.customerId
+              context.customerId,
+              workerHsToken
             );
             
             if (emailSentSuccessfully) {

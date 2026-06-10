@@ -2319,7 +2319,8 @@ Powered by TPR`;
     companySettings: CompanySettings,
     workerId?: string,
     hostName?: string,
-    customerId?: string
+    customerId?: string,
+    workerToken?: string
   ): Promise<boolean> {
     try {
       if (companySettings && companySettings.ePassEnabled === false) {
@@ -2347,7 +2348,9 @@ Powered by TPR`;
       const baseUrl = process.env.REPLIT_DOMAINS 
         ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` 
         : (process.env.PUBLIC_URL || 'http://localhost:5000');
-      const hsAcceptanceUrl = workerId ? `${baseUrl}/hs-contractor/${workerId}/accept-rules${customerId ? `?customerId=${encodeURIComponent(customerId)}` : ''}` : passUrl;
+      const hsAcceptanceUrl = workerId
+        ? `${baseUrl}/hs-contractor/${workerId}/accept-rules?customerId=${encodeURIComponent(customerId || '')}${workerToken ? `&token=${encodeURIComponent(workerToken)}` : ''}`
+        : passUrl;
       logger.info(`🔗 Generated contractor H&S acceptance URL for worker: ${workerId || 'unknown'}`);
       
       const html = `

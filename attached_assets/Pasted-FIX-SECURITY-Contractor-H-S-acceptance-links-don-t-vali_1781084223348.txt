@@ -1,0 +1,61 @@
+FIX — SECURITY: Contractor H&S acceptance links don't validate their token (cross-tenant check-in forgery)
+
+PRIORITY: Critical. This is an unauthenticated, cross-tenant flaw on a life-safety path. Fix before any release.
+
+THE PROBLEM
+The public contractor "accept H&S rules" endpoints take customerId and workerId
+straight from the URL and act on them WITHOUT validating the security token:
+  - GET  /hs-contractor/:workerId/accept-rules   (server/routes/visitors.ts ~line 677)
+  - POST /hs-contractor/:workerId/accept-rules   (server/routes/visitors.ts ~line 766)
+Both read `token` from the request but never check it. customerId and workerId are
+low-entropy/guessable, so anyone can mark ANY contractor at ANY customer as
+"checked in" and "H&S rules accepted" — forging the on-site register that mustering
+depends on, and crossing tenant boundaries.
+
+Note: the VISITOR equivalent already does this correctly. Use it as the reference,
+but make the contractor version FAIL CLOSED (stricter than the visitor GET at line 832,
+which skips validation when no token is present — do not copy that fail-open behaviour).
+
+WHAT TO CHANGE
+
+1. server/emailService.ts (~line 2350) — include the token in the contractor link.
+   The contractor H&S URL is built as:
+     `${baseUrl}/hs-contractor/${workerId}/accept-rules?customerId=...`
+   It omits the token. Append the worker's stored hsRulesAcceptanceToken, mirroring
+   the visitor link at ~line 2006:
+     ...accept-rules?customerId=...&token=${encodeURIComponent(worker.hsRulesAcceptanceToken)}
+   Ensure the worker's hsRulesAcceptanceToken is available where this URL is built;
+   pass it through if it isn't already. If a worker has no token yet, generate one with
+   randomBytes(16).toString('hex') (same as visitors.ts ~line 283) and persist it BEFORE
+   sending the email.
+
+2. server/routes/visitors.ts — GET handler (~line 677) AND POST handler (~line 766):
+   Validate the token FAIL-CLOSED, BEFORE reading or returning any worker details.
+   For each handler, immediately after loading the worker:
+     - If `token` is missing/empty → reject (401 "Invalid or missing link").
+     - If `worker.hsRulesAcceptanceToken` is null/empty → reject (401).
+     - If `worker.hsRulesAcceptanceToken !== token` → reject (401).
+   Only proceed to the existing logic (the "Already Accepted" page, the check-in /
+   hsRulesAccepted update) AFTER the token matches. Do NOT render the worker's name or
+   any personal data before the token passes. Use the strict comparison pattern already
+   in this file at ~line 972 (`if (worker.hsRulesAcceptanceToken !== token) ...`), not the
+   fail-open one at ~line 832.
+
+3. Do NOT clear the token after acceptance for this flow (i.e. don't set
+   hsRulesAcceptanceToken: null on the worker). The contractor may re-open the same link
+   to see confirmation; keep the token valid so the link stays idempotent. If a worker is
+   already accepted, after the token check passes, show the friendly "Already Accepted"
+   page as now.
+
+ACCEPTANCE CRITERIA (please verify before marking done)
+  a. A correct link from the e-Pass email (valid customerId + workerId + token) still works:
+     contractor sees the H&S page and can accept; record updates correctly.
+  b. Removing or changing the `token` in the URL returns 401 and changes NOTHING in the
+     database (worker is NOT checked in, hsRulesAccepted NOT set). Confirm via DB.
+  c. Supplying a different tenant's customerId (with any guessed workerId) returns 401/404
+     and exposes no worker name or data.
+  d. No worker personal data (name, dates) appears in any response before the token check.
+  e. Existing contractors with no token: the email regenerates and stores a token, so new
+     links work; old tokenless links correctly fail closed.
+
+Keep the same files and patterns already used in this codebase. Don't add new dependencies.

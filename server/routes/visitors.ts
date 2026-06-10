@@ -677,8 +677,8 @@ export function registerVisitorRoutes(app: Express): void {
   app.get("/hs-contractor/:workerId/accept-rules", async (req, res) => {
     try {
       const { workerId } = req.params;
-      const { token } = req.query;
-      
+      const token = req.query.token as string | undefined;
+
       const customerIdParam = req.query.customerId as string;
       if (!customerIdParam) {
         return res.status(400).send(`
@@ -691,58 +691,71 @@ export function registerVisitorRoutes(app: Express): void {
         `);
       }
       const context = simpleDatabaseService.createCustomerContext(customerIdParam);
-      
+
       const worker = await databaseService.getContractorWorkerById(context, workerId);
       if (!worker) {
         return res.status(404).send(`
           <html>
             <body style="font-family: Arial; text-align: center; padding: 50px;">
-              <h1 style="color: #ef4444;">❌ Worker Not Found</h1>
-              <p>The contractor worker could not be found. Please contact reception for assistance.</p>
+              <h1 style="color: #ef4444;">❌ Invalid Link</h1>
+              <p>This link is not valid. Please use the link from your e-Pass email.</p>
             </body>
           </html>
         `);
       }
-      
+
+      // FAIL-CLOSED token validation — must pass before any personal data is used or returned
+      if (!token || !worker.hsRulesAcceptanceToken || worker.hsRulesAcceptanceToken !== token) {
+        logger.warn(`Contractor H&S link rejected — invalid or missing token for worker ${workerId}`);
+        return res.status(401).send(`
+          <html>
+            <body style="font-family: Arial; text-align: center; padding: 50px;">
+              <h1 style="color: #ef4444;">❌ Invalid or Missing Link</h1>
+              <p>This link is not valid or has expired. Please use the link from your e-Pass email.</p>
+            </body>
+          </html>
+        `);
+      }
+
       if (worker.hsRulesAccepted && worker.hsRulesAcceptedAt) {
         return res.send(`
           <html>
             <body style="font-family: Arial; text-align: center; padding: 50px;">
               <h1 style="color: #10b981;">✅ Already Accepted</h1>
-              <h2>Health & Safety Rules Already Accepted</h2>
-              <p>You have already accepted the Health & Safety Rules on ${worker.hsRulesAcceptedAt ? new Date(worker.hsRulesAcceptedAt).toLocaleString('en-GB') : 'a previous visit'}.</p>
-              <p style="margin-top: 20px;">You may now close this window and proceed with your work.</p>
+              <h2>Health &amp; Safety Rules Already Accepted</h2>
+              <p>You have already accepted the Health &amp; Safety Rules. You may now close this window and proceed with your work.</p>
             </body>
           </html>
         `);
       }
-      
+
       const now = new Date();
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         hsRulesAccepted: true,
         hsRulesAcceptedAt: now,
         isCheckedIn: true,
         checkedInAt: now
+        // Note: token is intentionally NOT cleared — link must remain idempotent
       });
-      
+
       if (!updatedWorker) {
         return res.status(500).send(`
           <html>
             <body style="font-family: Arial; text-align: center; padding: 50px;">
               <h1 style="color: #ef4444;">❌ Update Failed</h1>
-              <p>Failed to update H&S acceptance. Please contact reception for assistance.</p>
+              <p>Failed to update H&amp;S acceptance. Please contact reception for assistance.</p>
             </body>
           </html>
         `);
       }
-      
+
       logger.info(`H&S Rules accepted by contractor: ID ${worker.id} - Now fully checked in`);
       res.send(`
         <html>
           <body style="font-family: Arial; text-align: center; padding: 50px;">
             <h1 style="color: #10b981;">✅ Thank You!</h1>
-            <h2>Health & Safety Rules Accepted</h2>
-            <p>Thank you ${worker.firstName} ${worker.lastName} for accepting our Health & Safety Rules.</p>
+            <h2>Health &amp; Safety Rules Accepted</h2>
+            <p>Thank you ${worker.firstName} ${worker.lastName} for accepting our Health &amp; Safety Rules.</p>
             <p>Your acceptance has been recorded at ${updatedWorker.hsRulesAcceptedAt ? new Date(updatedWorker.hsRulesAcceptedAt).toLocaleString('en-GB') : new Date().toLocaleString('en-GB')}.</p>
             <p><strong>You are now fully checked in and may proceed with your work.</strong></p>
             <p style="margin-top: 20px;">You may now close this window.</p>
@@ -766,19 +779,35 @@ export function registerVisitorRoutes(app: Express): void {
   app.post("/hs-contractor/:workerId/accept-rules", async (req, res) => {
     try {
       const { workerId } = req.params;
-      const { token, customerId: bodyCustomerId } = req.body;
+      const { token: bodyToken, customerId: bodyCustomerId } = req.body;
+      const token = (req.query.token as string | undefined) || bodyToken;
       const customerIdParam = (req.query.customerId as string) || bodyCustomerId;
       if (!customerIdParam) {
         return res.status(400).json({ error: "Missing customerId parameter" });
       }
       const context = simpleDatabaseService.createCustomerContext(customerIdParam);
-      
+
       const worker = await databaseService.getContractorWorkerById(context, workerId);
       if (!worker) {
-        return res.status(404).json({ error: "Contractor worker not found" });
+        return res.status(404).json({ error: "Invalid or missing link" });
       }
-      
-      // Update contractor worker with H&S acceptance and complete check-in (same as visitor pattern)
+
+      // FAIL-CLOSED token validation — must pass before any personal data is used or returned
+      if (!token || !worker.hsRulesAcceptanceToken || worker.hsRulesAcceptanceToken !== token) {
+        logger.warn(`Contractor H&S POST rejected — invalid or missing token for worker ${workerId}`);
+        return res.status(401).json({ error: "Invalid or missing link" });
+      }
+
+      if (worker.hsRulesAccepted) {
+        return res.json({
+          success: true,
+          message: "Health & Safety Rules already accepted",
+          checkedIn: true
+        });
+      }
+
+      // Update contractor worker with H&S acceptance and complete check-in
+      // Note: token is intentionally NOT cleared — link must remain idempotent
       const now = new Date();
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         hsRulesAccepted: true,
@@ -786,16 +815,15 @@ export function registerVisitorRoutes(app: Express): void {
         isCheckedIn: true,
         checkedInAt: now
       });
-      
+
       if (!updatedWorker) {
         return res.status(500).json({ error: "Failed to update H&S acceptance" });
       }
-      
+
       logger.info(`H&S Rules accepted by contractor: ID ${worker.id} - Now fully checked in`);
-      res.json({ 
-        success: true, 
+      res.json({
+        success: true,
         message: "Health & Safety Rules accepted successfully and contractor checked in",
-        worker: updatedWorker,
         checkedIn: true
       });
     } catch (error) {
