@@ -4769,7 +4769,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         return res.status(400).json({ error: 'Email address is required.' });
       }
 
-      const { db } = await customerDbService.getCustomerDatabase(customerId);
+      const db = await customerDbService.getCustomerDatabase(customerId);
 
       const settingsRows = await db
         .select({ featureContractorPortal: isolatedSchema.companySettings.featureContractorPortal })
@@ -4871,7 +4871,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     try {
       const { companyId } = req.params;
       const customerId = req.customerId!;
-      const { db } = await customerDbService.getCustomerDatabase(customerId);
+      const db = await customerDbService.getCustomerDatabase(customerId);
 
       const portalUsers = await db
         .select()
@@ -4910,7 +4910,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         return res.status(400).json({ error: 'Status must be "approved" or "rejected".' });
       }
 
-      const { db } = await customerDbService.getCustomerDatabase(customerId);
+      const db = await customerDbService.getCustomerDatabase(customerId);
 
       const [updated] = await db
         .update(isolatedSchema.contractorDocuments)
@@ -4939,7 +4939,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     try {
       const { companyId } = req.params;
       const customerId = req.customerId!;
-      const { db } = await customerDbService.getCustomerDatabase(customerId);
+      const db = await customerDbService.getCustomerDatabase(customerId);
 
       const docs = await db
         .select()
