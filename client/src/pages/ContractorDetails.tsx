@@ -173,6 +173,8 @@ export default function ContractorDetails() {
     enabled: !!id,
   });
 
+  const { data: companySettings } = useQuery<any>({ queryKey: ['/api/settings'] });
+
   // Portal users for this contractor company
   const { data: portalUsers = [], refetch: refetchPortalUsers } = useQuery<any[]>({
     queryKey: [`/api/contractors/${id}/portal-users`],
@@ -589,8 +591,6 @@ export default function ContractorDetails() {
   const handleWorkerPrint = (worker: ContractorWorker) => {
     setSelectedWorkerForPrint(worker);
   };
-
-  const { data: companySettings } = useQuery<any>({ queryKey: ['/api/settings'] });
 
   useEffect(() => {
     if ((qrPassWorker as any)?.qrCode) {
