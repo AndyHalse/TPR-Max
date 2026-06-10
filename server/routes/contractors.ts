@@ -2620,7 +2620,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         contentType: req.file.mimetype || 'application/octet-stream',
       });
 
-      const objectUrl = objectStorageService.normalizeObjectEntityPath(fullPath);
+      const objectUrl = `/objects/uploads/${objectId}.${ext}`;
       res.json({ objectUrl });
     } catch (error) {
       logger.error('Error proxying file upload for doc-request:', error);
@@ -2652,7 +2652,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         contentType: req.file.mimetype || 'application/octet-stream',
       });
 
-      const objectUrl = objectStorageService.normalizeObjectEntityPath(fullPath);
+      const objectUrl = `/objects/uploads/${objectId}.${ext}`;
       res.json({ objectUrl });
     } catch (error) {
       logger.error('Error proxying file upload for worker-doc-request:', error);
