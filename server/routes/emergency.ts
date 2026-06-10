@@ -3812,7 +3812,7 @@ ${evacuationPhotosData.length > 0 ? `
   });
 
   // Create muster point
-  app.post("/api/muster-points", requireAuthOrFireMarshal, async (req, res) => {
+  app.post("/api/muster-points", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId;
       if (!customerId) {
@@ -3844,7 +3844,7 @@ ${evacuationPhotosData.length > 0 ? `
   });
 
   // Update muster point
-  app.put("/api/muster-points/:id", requireAuthOrFireMarshal, async (req, res) => {
+  app.put("/api/muster-points/:id", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId;
       if (!customerId) {
@@ -3879,7 +3879,7 @@ ${evacuationPhotosData.length > 0 ? `
   });
 
   // Delete muster point
-  app.delete("/api/muster-points/:id", requireAuthOrFireMarshal, async (req, res) => {
+  app.delete("/api/muster-points/:id", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId;
       if (!customerId) {
@@ -3901,7 +3901,7 @@ ${evacuationPhotosData.length > 0 ? `
   });
 
   // Initialize default muster points for current customer (one-time setup for existing customers)
-  app.post("/api/muster-points/init-defaults", requireAuthOrFireMarshal, async (req, res) => {
+  app.post("/api/muster-points/init-defaults", requireAuth, async (req, res) => {
     try {
       const customerId = req.customerId;
       if (!customerId) {
