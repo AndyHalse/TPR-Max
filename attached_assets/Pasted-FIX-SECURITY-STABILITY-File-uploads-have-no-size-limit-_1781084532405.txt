@@ -1,0 +1,62 @@
+FIX — SECURITY/STABILITY: File uploads have no size limit (memory-exhaustion risk)
+
+PRIORITY: Medium. An authenticated user could upload a very large file and exhaust
+server memory (the app buffers uploads in memory), knocking the service over.
+
+THE PROBLEM
+Two multer instances use in-memory storage with NO size limit and NO type filter:
+  - server/routes/imports.ts (~line 22): upload.single('file') on
+      POST /api/import/staff, /api/import/visitors, /api/import/contractors,
+      /api/import/members. These expect CSV files only.
+  - server/routes/platformAdmin.ts (~line 16): upload.single('logo') on
+      POST /platform-admin/branding/upload-logo. This expects an image. Note it
+      checks the mimetype AFTER the whole file is buffered (~line 700), and has no
+      size cap — so a huge file is still read into memory before being rejected.
+
+WHAT TO CHANGE
+
+1. server/routes/imports.ts (~line 22) — add a size limit and a CSV-only filter:
+   const upload = multerModule.default({
+     storage: multerModule.default.memoryStorage(),
+     limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB — generous for a CSV import
+     fileFilter: (req, file, cb) => {
+       const okMime = ['text/csv', 'application/csv', 'application/vnd.ms-excel', 'text/plain'];
+       const okExt = file.originalname.toLowerCase().endsWith('.csv');
+       if (okMime.includes(file.mimetype) && okExt) return cb(null, true);
+       cb(new Error('INVALID_FILE_TYPE'));
+     },
+   });
+
+2. server/routes/platformAdmin.ts (~line 16) — add a size limit and reject non-images
+   up front (keep the existing mimetype check at ~line 700 as a second layer):
+   const upload = multer({
+     storage: multer.memoryStorage(),
+     limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB — plenty for a logo
+     fileFilter: (req, file, cb) => {
+       const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+       if (allowed.includes(file.mimetype)) return cb(null, true);
+       cb(new Error('INVALID_FILE_TYPE'));
+     },
+   });
+
+3. Handle the rejection cleanly so a blocked upload returns a friendly error, NOT a
+   crash or a 500. Add an error-handling middleware after these upload routes (or a
+   try/catch around the handlers) that maps:
+     - MulterError with code 'LIMIT_FILE_SIZE' → 413 { error: 'File too large. Maximum size is 5 MB (2 MB for logos).' }
+     - Error 'INVALID_FILE_TYPE' → 400 { error: 'Unsupported file type.' }
+   Confirm the server stays up and memory is not consumed when a large file is sent.
+
+OPTIONAL HARDENING (mention to Andy, low effort)
+   image/svg+xml can contain embedded scripts. If platform logos don't need SVG,
+   drop it from the allowed list; if they do, sanitise the SVG (dompurify is already
+   a dependency) before storing.
+
+ACCEPTANCE CRITERIA
+  a. A valid CSV under 5 MB still imports correctly on all four import endpoints.
+  b. A file over the size limit is rejected with 413 and the server stays running;
+     memory is not exhausted (the upload is cut off, not fully buffered).
+  c. A non-CSV file (e.g. .zip, .exe) sent to an import endpoint is rejected with 400.
+  d. A valid image under 2 MB still uploads as the platform logo.
+  e. A non-image, or an oversized image, is rejected cleanly (no 500, no crash).
+
+Use the existing multer dependency. Don't add new packages.

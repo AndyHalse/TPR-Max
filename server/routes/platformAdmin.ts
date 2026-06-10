@@ -13,7 +13,29 @@ import { customerOnboardingService } from '../customerOnboardingService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
 import { logger } from '../utils/logger';
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    (cb as any)(new Error('INVALID_FILE_TYPE'));
+  },
+});
+
+// Wrapper so multer errors return clean JSON instead of crashing
+function logoUpload(req: any, res: any, next: any) {
+  upload.single('logo')(req, res, (err: any) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ success: false, error: 'File too large. Maximum size is 2 MB.' });
+    }
+    if (err.message === 'INVALID_FILE_TYPE') {
+      return res.status(400).json({ success: false, error: 'Unsupported file type. Only images (JPEG, PNG, GIF, WebP, SVG) are accepted.' });
+    }
+    return res.status(500).json({ success: false, error: 'File upload failed.' });
+  });
+}
 
 // ─── In-memory OTP store ───────────────────────────────────────────────────
 interface PendingOtp {
@@ -687,7 +709,7 @@ export function registerPlatformAdminRoutes(app: Express): void {
     }
   });
 
-  app.post("/platform-admin/branding/upload-logo", requirePlatformAdmin, upload.single('logo'), async (req, res) => {
+  app.post("/platform-admin/branding/upload-logo", requirePlatformAdmin, logoUpload, async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({

@@ -18,8 +18,31 @@ const multerModule = await import('multer');
 const { stringify } = await import('csv-stringify/sync');
 const { parse } = await import('csv-parse/sync');
 
-// Configure multer for file uploads (in-memory storage)
-const upload = multerModule.default({ storage: multerModule.default.memoryStorage() });
+// Configure multer for file uploads — CSV only, 5 MB hard cap
+const upload = multerModule.default({
+  storage: multerModule.default.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req: any, file: any, cb: any) => {
+    const okMime = ['text/csv', 'application/csv', 'application/vnd.ms-excel', 'text/plain'];
+    const okExt = file.originalname.toLowerCase().endsWith('.csv');
+    if (okMime.includes(file.mimetype) && okExt) return cb(null, true);
+    cb(new Error('INVALID_FILE_TYPE'));
+  },
+});
+
+// Wrapper so multer errors (size limit, wrong type) return clean JSON instead of crashing
+function csvUpload(req: any, res: any, next: any) {
+  upload.single('file')(req, res, (err: any) => {
+    if (!err) return next();
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(413).json({ error: 'File too large. Maximum size is 5 MB.' });
+    }
+    if (err.message === 'INVALID_FILE_TYPE') {
+      return res.status(400).json({ error: 'Unsupported file type. Only CSV files are accepted.' });
+    }
+    return res.status(500).json({ error: 'File upload failed.' });
+  });
+}
 
 // Template download endpoints - Generate CSV templates with all required fields
 app.get("/api/import/template/staff", requireAuth, async (req, res) => {
@@ -158,7 +181,7 @@ app.get("/api/import/template/contractors", requireAuth, async (req, res) => {
 });
 
 // Import endpoints - Upload and process CSV files
-app.post("/api/import/staff", requireAuth, upload.single('file'), async (req, res) => {
+app.post("/api/import/staff", requireAuth, csvUpload, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -233,7 +256,7 @@ app.post("/api/import/staff", requireAuth, upload.single('file'), async (req, re
   }
 });
 
-app.post("/api/import/visitors", requireAuth, upload.single('file'), async (req, res) => {
+app.post("/api/import/visitors", requireAuth, csvUpload, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -322,7 +345,7 @@ app.post("/api/import/visitors", requireAuth, upload.single('file'), async (req,
   }
 });
 
-app.post("/api/import/contractors", requireAuth, upload.single('file'), async (req, res) => {
+app.post("/api/import/contractors", requireAuth, csvUpload, async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -462,7 +485,7 @@ app.get("/api/import/template/members", requireAuth, async (req, res) => {
 });
 
 // Members import - upload and process CSV
-app.post("/api/import/members", requireAuth, upload.single('file'), async (req, res) => {
+app.post("/api/import/members", requireAuth, csvUpload, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
     if (!req.customerId) return res.status(401).json({ error: 'Not authenticated' });
