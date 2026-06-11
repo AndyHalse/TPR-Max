@@ -626,10 +626,15 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                       <p className="text-xs text-purple-600 dark:text-purple-400 truncate">{currentCustomVideoUrl.split('/').pop()}</p>
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={handleRemoveVideo} disabled={isDeletingVideo} className="shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950">
-                    {isDeletingVideo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
-                    <span className="ml-1 text-xs">Remove</span>
-                  </Button>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button variant="outline" size="sm" onClick={() => window.open(`/induction-preview/${roleType}`, '_blank')} className="gap-1 text-xs">
+                      <Eye className="h-3 w-3" />Preview
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleRemoveVideo} disabled={isDeletingVideo} className="shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950">
+                      {isDeletingVideo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Trash2 className="h-3 w-3" />}
+                      <span className="ml-1 text-xs">Remove</span>
+                    </Button>
+                  </div>
                 </div>
                 <p className="text-xs text-amber-700 dark:text-amber-400 mt-2 flex items-center gap-1"><AlertTriangle className="h-3 w-3 shrink-0" />Uploading a new video will replace the existing one</p>
               </div>
