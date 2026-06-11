@@ -35,6 +35,7 @@ import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal"
 import { ContractorEditModal } from "@/components/ContractorEditModal";
 import ContractorWorkerDbsTab from "@/components/ContractorWorkerDbsTab";
 import WorkerCertificatesTab from "@/components/WorkerCertificatesTab";
+import ContractorEquipmentTab from "@/components/ContractorEquipmentTab";
 // Removed ContractorHSModal - H&S acceptance now happens via e-pass link
 
 // Helper function to get safety rating colors
@@ -1160,6 +1161,7 @@ export default function ContractorDetails() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4" data-testid="contractor-tabs">
         <TabsList className="flex w-full overflow-x-auto gap-1 h-auto p-1 justify-start">
           <TabsTrigger value="workers" data-testid="tab-workers">Workers</TabsTrigger>
+          <TabsTrigger value="equipment" data-testid="tab-equipment">Equipment</TabsTrigger>
           <TabsTrigger value="documents" data-testid="tab-documents">Documents</TabsTrigger>
           <TabsTrigger value="safety" data-testid="tab-safety">Safety</TabsTrigger>
           <TabsTrigger value="compliance" data-testid="tab-compliance">Compliance</TabsTrigger>
@@ -1652,6 +1654,17 @@ export default function ContractorDetails() {
                   </div>
                 );
               })()}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Equipment Register tab */}
+        <TabsContent value="equipment" className="space-y-4" data-testid="equipment-tab-content">
+          <Card>
+            <CardContent className="p-6">
+              {contractorData && (
+                <ContractorEquipmentTab companyId={contractorData.company.id} />
+              )}
             </CardContent>
           </Card>
         </TabsContent>

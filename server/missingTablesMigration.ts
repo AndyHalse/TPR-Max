@@ -776,6 +776,71 @@ const createContractorWorkerDbsTableMigration: Migration = {
   }
 };
 
+const createContractorEquipmentMigration: Migration = {
+  version: '20260611_003_contractor_equipment',
+  description: 'Create contractor_equipment table, equipment_certification_types catalogue, and add equipment_id column to contractor_documents',
+  async up(db: any) {
+    try {
+      // 1. contractor_equipment table
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS contractor_equipment (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          company_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          category TEXT NOT NULL,
+          make_model TEXT,
+          serial_or_reg TEXT,
+          notes TEXT,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+
+      // 2. equipment_certification_types catalogue
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS equipment_certification_types (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          key TEXT NOT NULL UNIQUE,
+          name TEXT NOT NULL,
+          legal_basis TEXT,
+          category TEXT NOT NULL,
+          requires_expiry BOOLEAN NOT NULL DEFAULT TRUE,
+          requires_number BOOLEAN NOT NULL DEFAULT FALSE,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      await db.execute(`
+        INSERT INTO equipment_certification_types
+          (key, name, legal_basis, category, requires_expiry, requires_number)
+        VALUES
+          ('loler_examination', 'LOLER Thorough Examination',   'Lifting Operations & Lifting Equipment Regs 1998', 'inspection', TRUE,  FALSE),
+          ('puwer_inspection',  'PUWER Inspection',             'Provision & Use of Work Equipment Regs 1998',      'inspection', TRUE,  FALSE),
+          ('pat_test',          'PAT Test',                     'Electricity at Work Regulations 1989',             'inspection', TRUE,  FALSE),
+          ('plant_insurance',   'Plant & Tool Insurance',       'Employer obligation / contract requirement',        'legal',      TRUE,  FALSE),
+          ('mot',               'MOT Certificate',              'Road Traffic Act 1988',                            'legal',      TRUE,  FALSE),
+          ('road_tax_insurance','Road Tax & Vehicle Insurance', 'Road Traffic Act 1988',                            'legal',      TRUE,  FALSE)
+        ON CONFLICT (key) DO NOTHING
+      `);
+
+      // 3. equipment_id nullable column on contractor_documents
+      await db.execute(`
+        ALTER TABLE contractor_documents ADD COLUMN IF NOT EXISTS equipment_id TEXT
+      `);
+
+      logger.info('✅ contractor_equipment migration completed');
+    } catch (error: any) {
+      const msg = error?.message || '';
+      if (msg.includes('already exists') || error?.code === '23505') {
+        logger.info('ℹ️ contractor_equipment tables already exist, skipping');
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -789,4 +854,5 @@ export const missingTablesMigrations = [
   addDbsSoftDeleteMigration,
   createContractorWorkerDbsTableMigration,
   createWorkerCertificationTypesTableMigration,
+  createContractorEquipmentMigration,
 ];
