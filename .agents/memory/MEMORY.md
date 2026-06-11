@@ -7,3 +7,4 @@
 - [Contractor Portal auth & routing](contractor-portal.md) — JWT Bearer + isContractorPortalRoute in App.tsx; feature flag featureContractorPortal; portal users in isolated schema only.
 - [getCustomerDatabase returns drizzle instance directly](customer-db-destructuring.md) — never destructure { db } from getCustomerDatabase(); it returns the drizzle instance directly; use const db = await getCustomerDatabase().
 - [Induction Builder prompt conflict](induction-builder-prompt.md) — cdmMandatoryBlock must say "cover topics across scenes", NOT "each needs its own slide"; Welcome-first server guard enforces scene[0] order.
+- [Induction video serving mode](induction-video-serving.md) — mode is derived from customVideoUrl (no videoSource column); render/serve/preview must check customVideoUrl BEFORE generatedHtml or uploaded MP4s show AI slides.

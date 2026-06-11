@@ -580,6 +580,65 @@ export function registerInductionRoutes(app: Express): void {
     }
   });
 
+  // GET /api/induction/custom-video-admin/:roleType
+  // Session-authenticated streaming for the admin preview iframe (no token).
+  // Streams the customer-uploaded MP4 with Range support for seeking.
+  app.get('/api/induction/custom-video-admin/:roleType', async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      const sessionCustomerId = req.session?.customerId || (req as any).customerId;
+      if (!req.session?.userId || !sessionCustomerId) {
+        return res.status(401).json({ error: 'Authentication required' });
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(sessionCustomerId);
+      const [row] = await custDb
+        .select({ customVideoUrl: isolatedSchema.inductionSettings.customVideoUrl })
+        .from(isolatedSchema.inductionSettings)
+        .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+      const storedPath = row?.customVideoUrl ?? null;
+      if (!storedPath) return res.status(404).json({ error: 'No custom video uploaded for this induction type' });
+
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const fullPath = `${privateObjectDir}${storedPath}`;
+      const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+      const file = objectStorageClient.bucket(bucketName).file(objectName);
+
+      const [meta] = await file.getMetadata();
+      const totalSize = Number(meta.size);
+      const contentType = meta.contentType || 'video/mp4';
+
+      const rangeHeader = req.headers['range'];
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 1024 * 1024 - 1, totalSize - 1);
+        const chunkSize = end - start + 1;
+
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunkSize,
+          'Content-Type': contentType,
+          'Cache-Control': 'private, max-age=0',
+        });
+        file.createReadStream({ start, end }).pipe(res);
+      } else {
+        res.writeHead(200, {
+          'Content-Length': totalSize,
+          'Content-Type': contentType,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'private, max-age=0',
+        });
+        file.createReadStream().pipe(res);
+      }
+    } catch (error) {
+      logger.error('Error streaming admin custom induction video:', error);
+      if (!res.headersSent) res.status(500).json({ error: 'Failed to stream video' });
+    }
+  });
+
   // Public when called with a ?token= param (external induction links).
   // Auth-gated when called without token (admin/settings use).
   app.get('/api/induction/questions', async (req, res) => {
@@ -4626,6 +4685,34 @@ export function registerInductionRoutes(app: Express): void {
 
           if (custRows.length > 0) {
             const setting = custRows[0] as any;
+            // If a custom MP4 has been uploaded, this induction is in "custom_upload"
+            // mode — serve a video player that streams the uploaded file, NOT the
+            // AI-generated slides. This ensures the admin preview matches what the
+            // inductee actually sees.
+            if (setting.customVideoUrl) {
+              logger.info(`🎬 Serving custom uploaded MP4 player for ${roleType} (${sessionCustomerId})`);
+              res.setHeader('Content-Type', 'text/html; charset=utf-8');
+              res.setHeader('Cache-Control', 'no-cache');
+              res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Induction Video</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b1020; }
+    .stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
+    video { max-width: 100%; max-height: 100%; outline: none; background: #000; }
+  </style>
+</head>
+<body>
+  <div class="stage">
+    <video src="/api/induction/custom-video-admin/${encodeURIComponent(roleType)}" controls autoplay playsinline></video>
+  </div>
+</body>
+</html>`);
+              return;
+            }
             // Prefer DB generatedHtml for the admin preview: always up-to-date,
             // no CDN caching, and patchInductionHtml is applied for correct slide rendering.
             // Object storage is used for token-based public delivery (by-token endpoint).

@@ -10,7 +10,8 @@ export default function InductionPreview() {
   const [hasError, setHasError] = useState(false);
   
   const roleType = params?.roleType || 'visitor';
-  const videoUrl = `/api/induction/video/${roleType}`;
+  const [cacheBust] = useState(() => Date.now());
+  const videoUrl = `/api/induction/video/${roleType}?t=${cacheBust}`;
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 1000);
