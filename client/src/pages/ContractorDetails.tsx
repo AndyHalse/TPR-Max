@@ -1801,11 +1801,6 @@ export default function ContractorDetails() {
                   
                   <div className="space-y-3">
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-                      <p className="text-sm">{viewingWorker.firstName} {viewingWorker.lastName}</p>
-                    </div>
-                    
-                    <div>
                       <label className="text-sm font-medium text-muted-foreground">Email</label>
                       <p className="text-sm">{viewingWorker.email || 'Not provided'}</p>
                     </div>
