@@ -8,15 +8,33 @@ export default function InductionPreview() {
   const [, setLocation] = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  
+  const [htmlContent, setHtmlContent] = useState<string>("");
+
   const roleType = params?.roleType || 'visitor';
-  const [cacheBust] = useState(() => Date.now());
-  const videoUrl = `/api/induction/video/${roleType}?t=${cacheBust}`;
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1000);
-    return () => clearTimeout(timer);
-  }, []);
+    setIsLoading(true);
+    setHasError(false);
+    setHtmlContent("");
+
+    fetch(`/api/induction/video/${roleType}`, {
+      credentials: "include",
+      cache: "no-store",
+      headers: { "Cache-Control": "no-store, no-cache" },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.text();
+      })
+      .then((html) => {
+        setHtmlContent(html);
+        setIsLoading(false);
+      })
+      .catch(() => {
+        setIsLoading(false);
+        setHasError(true);
+      });
+  }, [roleType]);
 
   const handleBack = () => {
     setLocation('/induction-settings');
@@ -75,19 +93,17 @@ export default function InductionPreview() {
         </div>
       )}
 
-      {/* Full-Screen Video Iframe */}
-      <iframe
-        src={videoUrl}
-        className="w-full h-full border-0"
-        title={`${roleType} Induction Video`}
-        onLoad={() => setIsLoading(false)}
-        onError={() => {
-          setIsLoading(false);
-          setHasError(true);
-        }}
-        allow="autoplay; fullscreen"
-        data-testid="iframe-induction-video"
-      />
+      {/* Full-Screen Induction Iframe — uses srcdoc so content is always fresh */}
+      {!isLoading && !hasError && htmlContent && (
+        <iframe
+          srcDoc={htmlContent}
+          className="w-full h-full border-0"
+          title={`${roleType} Induction Video`}
+          allow="autoplay; fullscreen"
+          sandbox="allow-scripts allow-same-origin"
+          data-testid="iframe-induction-video"
+        />
+      )}
     </div>
   );
 }

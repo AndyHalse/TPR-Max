@@ -77,32 +77,15 @@ const inductionGenerationStatus = new Map<string, {
 // Injected into every served induction HTML to fix CSP-blocked inline onclick
 // handlers on the Previous/Next/Pause buttons. Removes the Pause button and
 // rewires navigation via addEventListener (allowed by script-src-attr 'none').
-const BUTTON_FIX_PATCH = `<script id="tpr-btn-fix">
+const BTN_WIRE_SCRIPT = `<script id="tpr-btn-fix">
 (function(){
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded',fix);
-  } else { fix(); }
-  function fix(){
-    // Remove pause button (id or position in .controls)
-    var pause=document.getElementById('play-pause-btn');
-    if(pause) pause.remove();
-    // Wire prev/next by matching button text (works for both old & new templates)
-    var btns=document.querySelectorAll('.controls .btn,[class*="controls"] button');
-    btns.forEach(function(btn){
-      var t=(btn.textContent||'').trim();
-      if(t.indexOf('Previous')!==-1||t.indexOf('←')!==-1){
-        btn.removeAttribute('onclick');
-        btn.addEventListener('click',function(){
-          if(typeof previousScene==='function') previousScene();
-        });
-      } else if(t.indexOf('Next')!==-1||t.indexOf('→')!==-1){
-        btn.removeAttribute('onclick');
-        btn.addEventListener('click',function(){
-          if(typeof nextScene==='function') nextScene();
-        });
-      }
-    });
+  function wire(){
+    var p=document.getElementById('btn-prev');
+    var n=document.getElementById('btn-next');
+    if(p) p.addEventListener('click',function(){ if(typeof previousScene==='function') previousScene(); });
+    if(n) n.addEventListener('click',function(){ if(typeof nextScene==='function') nextScene(); });
   }
+  if(document.readyState==='loading'){ document.addEventListener('DOMContentLoaded',wire); } else { wire(); }
 })();
 </script>`;
 
@@ -133,25 +116,43 @@ const SLIDE_PERF_PATCH = `<style id="tpr-slide-perf-patch">
 </style>`;
 function patchInductionHtml(html: string): string {
   let out = html;
-  // Inject slide-perf CSS patch into <head>
+
+  // ── 1. Perf + mobile CSS in <head> ──────────────────────────────────────
   if (!out.includes('id="tpr-slide-perf-patch"')) {
     const headClose = out.indexOf('</head>');
     if (headClose !== -1) {
       out = out.slice(0, headClose) + SLIDE_PERF_PATCH + out.slice(headClose);
     } else {
-      out = out + SLIDE_PERF_PATCH;
+      out += SLIDE_PERF_PATCH;
     }
   }
-  // Inject button-fix script before </body> so it runs after the existing
-  // slide scripts have defined previousScene / nextScene.
+
+  // ── 2. String-replace: remove Pause button entirely ─────────────────────
+  // Matches both id-based and text-based patterns left by old templates
+  out = out.replace(/<button[^>]*id="play-pause-btn"[^>]*>[\s\S]*?<\/button>/g, '');
+  out = out.replace(/<button[^>]*>[\s\S]*?(?:Pause|⏸)[\s\S]*?<\/button>/g, '');
+
+  // ── 3. String-replace: swap onclick for id on Prev / Next ────────────────
+  // Old stored HTML uses exactly: onclick="previousScene()" / onclick="nextScene()"
+  out = out.replace(
+    /(<button[^>]*)onclick="previousScene\(\)"([^>]*>)/g,
+    '$1id="btn-prev"$2'
+  );
+  out = out.replace(
+    /(<button[^>]*)onclick="nextScene\(\)"([^>]*>)/g,
+    '$1id="btn-next"$2'
+  );
+
+  // ── 4. Wire the IDs via addEventListener (runs after original scripts) ───
   if (!out.includes('id="tpr-btn-fix"')) {
     const bodyClose = out.indexOf('</body>');
     if (bodyClose !== -1) {
-      out = out.slice(0, bodyClose) + BUTTON_FIX_PATCH + out.slice(bodyClose);
+      out = out.slice(0, bodyClose) + BTN_WIRE_SCRIPT + out.slice(bodyClose);
     } else {
-      out = out + BUTTON_FIX_PATCH;
+      out += BTN_WIRE_SCRIPT;
     }
   }
+
   return out;
 }
 // ─────────────────────────────────────────────────────────────────────────────
