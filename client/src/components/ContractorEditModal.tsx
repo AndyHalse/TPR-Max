@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
-import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck, Sparkles } from 'lucide-react';
+import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck, Sparkles, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -685,111 +685,21 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   </div>
                 </div>
 
-                {/* Right to Work & Competence Cards */}
+                {/* Right to Work & Competence Cards — now managed via Certificates panel */}
                 <div className="space-y-3">
                   <h3 className="font-semibold text-fixed flex items-center gap-2">
                     <ShieldCheck className="w-4 h-4 text-blue-600" />
                     Right to Work &amp; Competence Cards
                   </h3>
-
-                  {/* Right to Work */}
-                  <div className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Lock className="w-3.5 h-3.5 text-red-600" />
-                        </div>
-                        <span className="font-medium text-sm text-fixed">Right to Work</span>
-                      </div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wide bg-red-100 text-red-700 px-2 py-0.5 rounded">
-                        Legally Required
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 -mt-1 ml-8">UK Immigration Act 2014 — must be verified before work commences</p>
-                    <div className="ml-8">
-                      <select
-                        value={formData.rightToWork}
-                        onChange={(e) => handleInputChange('rightToWork', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        data-testid="select-right-to-work"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="valid">Valid</option>
-                        <option value="expired">Expired</option>
-                        <option value="missing">Missing</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* CSCS Card */}
-                  <div className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Shield className="w-3.5 h-3.5 text-amber-600" />
-                        </div>
-                        <span className="font-medium text-sm text-fixed">CSCS Card</span>
-                      </div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
-                        Site Required
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 -mt-1 ml-8">CDM 2015 / site policy — required on most construction sites</p>
-                    <div className="ml-8 grid grid-cols-2 gap-3">
-                      <div>
-                        <Label className="text-xs mb-1 block">Card Number</Label>
-                        <Input
-                          value={formData.cscsCard}
-                          onChange={(e) => handleInputChange('cscsCard', e.target.value)}
-                          placeholder="e.g. 12345678"
-                          className="text-sm"
-                          data-testid="input-contractor-cscs"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs mb-1 block">Status</Label>
-                        <select
-                          value={formData.cscsStatus}
-                          onChange={(e) => handleInputChange('cscsStatus', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                          data-testid="select-cscs-status"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="valid">Valid</option>
-                          <option value="expired">Expired</option>
-                          <option value="none">None</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* IPAF */}
-                  <div className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-6 h-6 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                          <Shield className="w-3.5 h-3.5 text-amber-600" />
-                        </div>
-                        <span className="font-medium text-sm text-fixed">IPAF Card</span>
-                      </div>
-                      <span className="text-[10px] font-semibold uppercase tracking-wide bg-amber-100 text-amber-700 px-2 py-0.5 rounded">
-                        Site Required
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-500 -mt-1 ml-8">PUWER / WAHR 2005 — required for MEWP operation at height</p>
-                    <div className="ml-8">
-                      <select
-                        value={formData.ipafStatus}
-                        onChange={(e) => handleInputChange('ipafStatus', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        data-testid="select-ipaf-status"
-                      >
-                        <option value="none">Not Applicable</option>
-                        <option value="3a">3a — Scissor Lifts</option>
-                        <option value="3b">3b — Boom Lifts</option>
-                        <option value="1+">1+ — All MEWPs</option>
-                        <option value="expired">Expired</option>
-                      </select>
+                  <div className="flex items-start gap-3 p-4 border border-blue-200 rounded-lg bg-blue-50/50">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-900">Managed in the worker profile</p>
+                      <p className="text-xs text-blue-700 mt-0.5">
+                        Right to Work, CSCS card, IPAF card, and all other qualifications are now uploaded
+                        with file evidence in the <strong>Certificates &amp; Qualifications</strong> section
+                        of the full worker profile. Status and expiry are tracked automatically from the uploaded documents.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -800,31 +710,14 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                     <FileText className="w-4 h-4 text-blue-600" />
                     Training Certificates
                   </h3>
-
-                  {[
-                    { field: 'asbestosAwareness', label: 'Asbestos Awareness', desc: 'CAR 2012 — required for most construction and refurbishment work' },
-                    { field: 'manualHandling', label: 'Manual Handling', desc: 'MHOR 1992 — required for all roles involving lifting or carrying' },
-                  ].map(({ field, label, desc }) => (
-                    <label
-                      key={field}
-                      className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                        (formData as any)[field]
-                          ? 'border-blue-300 bg-blue-50/60'
-                          : 'border-gray-200 bg-white/50 hover:bg-white/80'
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={(formData as any)[field]}
-                        onChange={(e) => handleInputChange(field, e.target.checked)}
-                        className="mt-0.5 h-4 w-4 accent-blue-600 flex-shrink-0"
-                      />
-                      <div>
-                        <div className={`text-sm font-medium ${(formData as any)[field] ? 'text-blue-700' : 'text-fixed'}`}>{label}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{desc}</div>
-                      </div>
-                    </label>
-                  ))}
+                  <div className="flex items-start gap-3 p-3 border border-blue-200 rounded-lg bg-blue-50/50">
+                    <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-blue-800">
+                      Training certificates (Asbestos Awareness, Manual Handling, etc.) are now uploaded
+                      with file evidence in the <strong>Certificates &amp; Qualifications</strong> section
+                      of the full worker profile.
+                    </p>
+                  </div>
 
                   {/* Site Induction row with Send Link button */}
                   <div className={`flex items-start gap-3 p-3 border rounded-lg transition-colors ${
@@ -882,20 +775,12 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   </h3>
                   <div className="border rounded-lg divide-y divide-gray-100 overflow-hidden">
                     {[
-                      { label: 'Right to Work', value: formData.rightToWork },
-                      { label: 'CSCS Card', value: formData.cscsStatus },
-                      { label: 'IPAF', value: formData.ipafStatus === 'none' ? 'not_applicable' : formData.ipafStatus },
-                      { label: 'Asbestos Awareness', value: formData.asbestosAwareness ? 'held' : 'not_recorded' },
-                      { label: 'Manual Handling', value: formData.manualHandling ? 'held' : 'not_recorded' },
                       { label: 'Site Induction', value: formData.inductionCompleted ? 'completed' : 'not_completed' },
                       { label: 'H&S Rules', value: worker.hsRulesAccepted ? 'accepted' : 'not_accepted' },
                     ].map(({ label, value }) => {
                       const badge = (() => {
-                        if (value === 'valid' || value === 'held' || value === 'completed' || value === 'accepted') return { text: value === 'accepted' ? 'Accepted' : value === 'completed' ? 'Completed' : value === 'held' ? 'Held' : 'Valid', cls: 'bg-green-100 text-green-800', icon: '✅' };
-                        if (value === 'pending') return { text: 'Pending', cls: 'bg-blue-100 text-blue-700', icon: '⏳' };
-                        if (value === 'expired') return { text: 'Expired', cls: 'bg-red-100 text-red-700', icon: '❌' };
-                        if (value === 'not_applicable') return { text: 'Not applicable', cls: 'bg-gray-100 text-gray-500', icon: '—' };
-                        return { text: value === 'not_recorded' ? 'Not recorded' : value === 'not_completed' ? 'Not completed' : value === 'not_accepted' ? 'Not accepted' : value === 'missing' ? 'Missing' : 'None', cls: 'bg-gray-100 text-gray-500', icon: '—' };
+                        if (value === 'completed' || value === 'accepted') return { text: value === 'accepted' ? 'Accepted' : 'Completed', cls: 'bg-green-100 text-green-800', icon: '✅' };
+                        return { text: value === 'not_completed' ? 'Not completed' : 'Not accepted', cls: 'bg-gray-100 text-gray-500', icon: '—' };
                       })();
                       return (
                         <div key={label} className="flex items-center justify-between px-4 py-2.5 text-sm">
@@ -906,6 +791,11 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         </div>
                       );
                     })}
+                    <div className="flex items-center gap-2 px-4 py-2.5 text-xs text-blue-700 bg-blue-50/40">
+                      <Info className="w-3 h-3 shrink-0" />
+                      Certificate compliance (Right to Work, CSCS, IPAF, training) is tracked in the worker's
+                      Certificates &amp; Qualifications panel.
+                    </div>
                   </div>
                 </div>
 
