@@ -717,9 +717,13 @@ export function registerSettingsRoutes(
       if (!hasStaffSession) {
         const authHeader = req.headers['authorization'];
         const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
-        const hasPortalToken = token ? verifyPortalToken(token) !== null : false;
-        if (!hasPortalToken) {
+        const payload = token ? verifyPortalToken(token) : null;
+        if (!payload) {
           return res.status(401).json({ error: 'Authentication required to access this file.' });
+        }
+        // Portal tokens may only read contractor-portal documents, never staff/uploads objects.
+        if (!req.path.includes('/contractor-portal/')) {
+          return res.status(403).json({ error: 'Not permitted.' });
         }
       }
 
