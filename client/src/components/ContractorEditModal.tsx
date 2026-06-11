@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'wouter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
-import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck, Sparkles, Info } from 'lucide-react';
+import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck, Sparkles, Info, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -42,6 +43,7 @@ interface HSDocumentAssignment {
 
 export function ContractorEditModal({ worker, companyName, open, onOpenChange }: ContractorEditModalProps) {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const [showHSModal, setShowHSModal] = useState(false);
   const [showHostSelection, setShowHostSelection] = useState(false);
@@ -693,13 +695,23 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   </h3>
                   <div className="flex items-start gap-3 p-4 border border-blue-200 rounded-lg bg-blue-50/50">
                     <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-blue-900">Managed in the worker profile</p>
                       <p className="text-xs text-blue-700 mt-0.5">
                         Right to Work, CSCS card, IPAF card, and all other qualifications are now uploaded
                         with file evidence in the <strong>Certificates &amp; Qualifications</strong> section
                         of the full worker profile. Status and expiry are tracked automatically from the uploaded documents.
                       </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                        onClick={() => { onOpenChange(false); setLocation(`/contractors/${formData.companyId}?tab=workers`); }}
+                      >
+                        <ExternalLink className="w-3 h-3 mr-1.5" />
+                        View Certificates &amp; Qualifications
+                      </Button>
                     </div>
                   </div>
                 </div>
@@ -712,11 +724,23 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                   </h3>
                   <div className="flex items-start gap-3 p-3 border border-blue-200 rounded-lg bg-blue-50/50">
                     <Info className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                    <p className="text-xs text-blue-800">
-                      Training certificates (Asbestos Awareness, Manual Handling, etc.) are now uploaded
-                      with file evidence in the <strong>Certificates &amp; Qualifications</strong> section
-                      of the full worker profile.
-                    </p>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs text-blue-800">
+                        Training certificates (Asbestos Awareness, Manual Handling, etc.) are now uploaded
+                        with file evidence in the <strong>Certificates &amp; Qualifications</strong> section
+                        of the full worker profile.
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-2 h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
+                        onClick={() => { onOpenChange(false); setLocation(`/contractors/${formData.companyId}?tab=workers`); }}
+                      >
+                        <ExternalLink className="w-3 h-3 mr-1.5" />
+                        View Certificates &amp; Qualifications
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Site Induction row with Send Link button */}
