@@ -417,18 +417,17 @@ Every slide must reference ${siteContext.companyName} specifically. Do not produ
     // CDM 2015 / HSE mandatory topics block — injected into EVERY role prompt
     const cdmMandatoryBlock = `
 LEGAL COMPLIANCE REQUIREMENT — CDM 2015 & HSE:
-The induction MUST include a dedicated slide/section on EACH of the following ten topics.
-Do NOT omit, combine, or summarise any of them — each requires its own clearly labelled section:
+The following ten topics MUST be covered somewhere across your 6–8 scenes. They do NOT each need their own dedicated slide — group them logically within the scene structure below. IMPORTANT: scene 1 MUST always be a Welcome & Site Overview scene regardless of role type.
   1. Site hazards and risks specific to this site
   2. PPE requirements (what PPE is required, where to obtain it, and when it must be worn)
   3. Emergency procedures and fire evacuation routes
   4. Emergency assembly point location
-  5. First aid arrangements (exact location and name/role of the first aider)
+  5. First aid arrangements (location and name/role of the first aider)
   6. Accident and near-miss reporting procedure
   7. Welfare facilities (toilets, rest area, canteen/mess room)
-  8. Site rules (no-go areas, speed limits, permit to work system, smoking policy, mobile phone policy)
+  8. Site rules (no-go areas, permit to work system, smoking policy, mobile phone policy)
   9. Environmental responsibilities (waste segregation, spill response, noise control)
-  10. Who to contact with health and safety concerns (name and job title)
+  10. Who to contact with health and safety concerns
 Use the site-specific details provided above wherever available; use sensible UK construction-site defaults only where a specific detail is absent.
 `;
 
@@ -576,16 +575,19 @@ Use the site-specific details provided above wherever available; use sensible UK
             - Include specific examples relevant to the company's industry and operations
             - Maintain professional yet approachable tone throughout
             
-            Step 3: Scene Structure (6-8 scenes, 2-3 minutes each)
-            Required scenes with industry-specific adaptations:
-            1. Welcome & Company Introduction (incorporate company culture and values)
-            2. Legal Framework & Responsibilities (UK HSE requirements + industry-specific regulations)
-            3. PPE Requirements (role and environment-specific equipment)
-            4. Hazard Identification (company-specific workplace hazards)
-            5. Emergency Procedures (facility-specific protocols and assembly points)
-            6. Safe Work Practices (industry and role-specific procedures)
-            7. Environmental & Health Considerations (company sustainability and wellness policies)
-            8. Assessment & Continuous Learning (company training requirements and feedback mechanisms)
+            Step 3: Scene Structure — MANDATORY ORDER (6-8 scenes, 2-3 minutes each)
+            SCENE 1 MUST ALWAYS BE WELCOME. Do NOT start with CDM, legal, or regulatory content.
+            Required scene order with industry-specific adaptations:
+            1. Welcome & Site Overview — MANDATORY FIRST SCENE (welcome to the company, purpose of this induction, what to expect today)
+            2. Site Hazards & PPE Requirements (site-specific hazards + what PPE is required, where to get it, when to wear it)
+            3. Emergency Procedures & Assembly Points (fire evacuation, assembly point location, first aid location, emergency contacts)
+            4. Accident Reporting & Welfare (near-miss reporting, RIDDOR, welfare facilities, who to contact with H&S concerns)
+            5. Site Rules & Permit to Work (no-go areas, speed limits, permit to work, smoking/phone policy)
+            6. Safe Work Practices (role-specific safe systems of work, method statements, risk assessments)
+            7. Environmental Responsibilities (waste segregation, spill response, noise, sustainability)
+            8. Summary & Assessment (recap key points, sign-off requirements, next steps)
+            
+            IMPORTANT: The CDM topics listed above are CONTENT REQUIREMENTS to weave into scenes 2–7, not additional slides to add.
             
             Step 4: Visual Content Planning
             - Each scene requires an "imagePrompt" for AI image generation
@@ -596,26 +598,27 @@ Use the site-specific details provided above wherever available; use sensible UK
             CRITICAL OUTPUT REQUIREMENTS:
             Respond with ONLY valid JSON in this exact structure (no additional text).
             You MUST return between 6 and 8 scene objects in the "scenes" array.
+            Scene 1 MUST have title starting with "Welcome" — any response where scene[0].title does not start with "Welcome" is INVALID.
             A response with fewer than 6 scenes is INVALID — do not return fewer under any circumstances.
             {
               "script": "Complete narration script incorporating company context and industry-specific safety requirements...",
               "scenes": [
                 {
-                  "title": "Welcome & Company Introduction",
-                  "content": "Detailed scene narration (100-150 words describing the welcome, company culture, and what the induction covers)",
+                  "title": "Welcome to ACS Safety & Security Ltd",
+                  "content": "Welcome to your site induction. Today we will cover everything you need to know to work safely on our site. ACS Safety & Security Ltd is committed to the highest standards of health and safety... (100-150 words)",
                   "duration": 180,
-                  "imagePrompt": "Professional reception area with friendly staff welcoming a new worker, modern workplace, diverse representation, no text or logos"
+                  "imagePrompt": "Professional reception area with friendly staff welcoming a new contractor, modern UK workplace, hi-vis vests, diverse representation, photorealistic, no text or logos"
                 },
                 {
-                  "title": "Legal Framework & Responsibilities",
-                  "content": "Detailed scene narration (100-150 words covering UK Health and Safety at Work Act 1974, employer and worker duties)",
+                  "title": "Site Hazards & PPE Requirements",
+                  "content": "Detailed scene narration covering the specific hazards present on this site and what PPE is required, where to obtain it, and when it must be worn... (100-150 words)",
                   "duration": 180,
-                  "imagePrompt": "Professional health and safety briefing room, UK workplace, people reviewing safety documents, photorealistic, no text or logos"
+                  "imagePrompt": "Worker putting on PPE — hard hat, hi-vis vest, safety boots — on a UK construction site, natural daylight, photorealistic, no text or logos"
                 }
               ],
               "totalDuration": 1200
             }
-            NOTE: The example above shows only 2 scenes for illustration. Your response must include 6–8 complete scene objects total.
+            NOTE: The example above shows only 2 scenes for illustration. Your response must include 6–8 complete scene objects total, with scene 1 always being the Welcome scene.
             
             Quality Standards:
             - Script must be informative, engaging, and legally compliant
@@ -667,12 +670,20 @@ Use the site-specific details provided above wherever available; use sensible UK
           logger.info(`🔄 Retrying with simplified prompt (attempt 2)...`);
           const simplifiedPrompt = `You are a UK Health & Safety expert. Generate a safety induction script for ${roleType}s at ${companyName} (${industryContext}).
 
-Create EXACTLY 6 scenes covering: Welcome, Legal Framework, PPE, Hazard Identification, Emergency Procedures, Safe Working.
+Create EXACTLY 6 scenes. SCENE 1 MUST be Welcome — do NOT start with CDM or legal content.
+Scene order: 1. Welcome & Site Overview, 2. Site Hazards & PPE, 3. Emergency Procedures, 4. Accident Reporting & Welfare, 5. Site Rules & Safe Working, 6. Summary & Sign-Off.
 
 Respond with valid JSON:
 {
   "script": "narration script 600+ words",
-  "scenes": [{"title":"string","content":"string 80-120 words","duration":150,"imagePrompt":"professional workplace safety image description"}],
+  "scenes": [
+    {"title":"Welcome to ${companyName}","content":"80-120 words welcoming the ${roleType} and outlining what the induction covers","duration":150,"imagePrompt":"professional UK workplace reception, safety officer welcoming new worker, hi-vis, no text"},
+    {"title":"Site Hazards & PPE Requirements","content":"80-120 words on site hazards and PPE","duration":150,"imagePrompt":"worker donning PPE on UK site, hard hat, hi-vis, boots, no text"},
+    {"title":"Emergency Procedures & Assembly Points","content":"80-120 words on fire evacuation, assembly point, first aid","duration":150,"imagePrompt":"fire exit signs, assembly point marker, UK workplace, no text"},
+    {"title":"Accident Reporting & Welfare","content":"80-120 words on RIDDOR, near-miss reporting, welfare facilities","duration":150,"imagePrompt":"safety notice board, accident report form, UK workplace, no text"},
+    {"title":"Site Rules & Safe Working Practices","content":"80-120 words on site rules, permit to work, method statements","duration":150,"imagePrompt":"workers following safe working procedures on UK site, no text"},
+    {"title":"Summary & Sign-Off","content":"80-120 words summarising key points and confirming understanding","duration":150,"imagePrompt":"group safety briefing, UK workplace, diverse team, no text"}
+  ],
   "totalDuration": 900
 }`;
           const retryMessages = [{ role: "user", content: simplifiedPrompt }];
@@ -774,6 +785,34 @@ Respond with valid JSON:
         };
       }
       
+      // ── Welcome-first enforcement ──────────────────────────────────────────
+      // If the AI put regulatory/CDM content first, reorder so the Welcome scene
+      // is always scene[0]. If there is no Welcome scene, inject a basic one.
+      if (content.scenes && content.scenes.length > 0) {
+        const firstTitle: string = (content.scenes[0]?.title || '').toLowerCase();
+        const hasWelcomeFirst = firstTitle.startsWith('welcome');
+        if (!hasWelcomeFirst) {
+          const welcomeIdx = content.scenes.findIndex((s: any) =>
+            (s.title || '').toLowerCase().startsWith('welcome')
+          );
+          if (welcomeIdx > 0) {
+            // Move the Welcome scene to the front
+            const [welcomeScene] = content.scenes.splice(welcomeIdx, 1);
+            content.scenes.unshift(welcomeScene);
+            logger.info(`🔧 Reordered scenes: moved Welcome from position ${welcomeIdx + 1} to position 1`);
+          } else {
+            // No Welcome scene at all — inject a basic one
+            logger.warn(`⚠️ AI produced no Welcome scene — injecting default Welcome as scene 1`);
+            content.scenes.unshift({
+              title: `Welcome to ${companyName}`,
+              content: `Welcome to your ${roleType} safety induction at ${companyName}. This presentation covers everything you need to know to work safely on our site — from PPE and hazard awareness through to emergency procedures and site rules. Please pay close attention as this induction is a legal requirement under UK health and safety law.`,
+              duration: 150,
+              imagePrompt: `Professional UK workplace reception area, friendly safety officer welcoming a new ${roleType}, hi-vis vests, hard hats visible, diverse workforce, photorealistic, no text or logos`
+            });
+          }
+        }
+      }
+
       const result = {
         script: content.script || '',
         scenes: content.scenes || [],
@@ -2431,8 +2470,8 @@ Respond with valid JSON:
     const formatMultiplier = formatComplexity[videoFormat as keyof typeof formatComplexity] || 1.0;
     baseTokens = Math.floor(baseTokens * formatMultiplier);
     
-    // Cap at reasonable limits to avoid excessive costs
-    return Math.min(6000, Math.max(2000, baseTokens));
+    // Cap at model output limit — Claude and GPT-4o both support 8192 output tokens
+    return Math.min(8192, Math.max(2000, baseTokens));
   }
 
   // Emergency fallback method when all AI models fail

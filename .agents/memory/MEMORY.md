@@ -2,7 +2,8 @@
 - [Drag-drop line manager fix](line-manager-id-raw-sql.md) — topic file updated; use PATCH /api/staff/:id/line-manager for org chart drag; never PUT with lineManagerId through Zod.
 - [apiRequest returns Response not JSON](apirequest-response-pattern.md) — apiRequest() returns a raw Response object; always call .json() explicitly to get parsed data.
 - [Sidebar navigation patterns](sidebar-nav-patterns.md) — single TooltipProvider for entire sidebar; Link from wouter styled directly, never wrap button inside Link.
-- [multer v2 body reset bug](multer-v2-body-reset.md) — multer v2 resets req.body={} for non-multipart requests; never add upload.single() to a JSON-capable route.
+- [multer v2 body reset bug](multer-v2-body-reset.md) — multer v2 resets req.body={} for non-multipart requests; never add upload.single() to a JSON-compatible route.
 - [Object storage upload pattern](object-storage-upload-pattern.md) — ObjectStorageService has no uploadObject(); use objectStorageClient.bucket().file().save() directly.
 - [Contractor Portal auth & routing](contractor-portal.md) — JWT Bearer + isContractorPortalRoute in App.tsx; feature flag featureContractorPortal; portal users in isolated schema only.
 - [getCustomerDatabase returns drizzle instance directly](customer-db-destructuring.md) — never destructure { db } from getCustomerDatabase(); it returns the drizzle instance directly; use const db = await getCustomerDatabase().
+- [Induction Builder prompt conflict](induction-builder-prompt.md) — cdmMandatoryBlock must say "cover topics across scenes", NOT "each needs its own slide"; Welcome-first server guard enforces scene[0] order.
