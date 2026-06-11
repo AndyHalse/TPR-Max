@@ -2613,14 +2613,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       const ext = (req.file.originalname || '').split('.').pop()?.toLowerCase() || 'bin';
       const objectId = randomUUID();
-      const fullPath = `${privateObjectDir}/uploads/${objectId}.${ext}`;
+      const docCustomerId = request.customerId;
+      const fullPath = `${privateObjectDir}/${docCustomerId}/uploads/${objectId}.${ext}`;
       const { bucketName, objectName } = parseObjectPath(fullPath);
 
       await objectStorageClient.bucket(bucketName).file(objectName).save(req.file.buffer, {
         contentType: req.file.mimetype || 'application/octet-stream',
       });
 
-      const objectUrl = `/objects/uploads/${objectId}.${ext}`;
+      const objectUrl = `/objects/${docCustomerId}/uploads/${objectId}.${ext}`;
       res.json({ objectUrl });
     } catch (error) {
       logger.error('Error proxying file upload for doc-request:', error);
@@ -2645,14 +2646,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
       const ext = (req.file.originalname || '').split('.').pop()?.toLowerCase() || 'bin';
       const objectId = randomUUID();
-      const fullPath = `${privateObjectDir}/uploads/${objectId}.${ext}`;
+      const workerDocCustomerId = request.customerId;
+      const fullPath = `${privateObjectDir}/${workerDocCustomerId}/uploads/${objectId}.${ext}`;
       const { bucketName, objectName } = parseObjectPath(fullPath);
 
       await objectStorageClient.bucket(bucketName).file(objectName).save(req.file.buffer, {
         contentType: req.file.mimetype || 'application/octet-stream',
       });
 
-      const objectUrl = `/objects/uploads/${objectId}.${ext}`;
+      const objectUrl = `/objects/${workerDocCustomerId}/uploads/${objectId}.${ext}`;
       res.json({ objectUrl });
     } catch (error) {
       logger.error('Error proxying file upload for worker-doc-request:', error);

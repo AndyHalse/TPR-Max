@@ -691,7 +691,8 @@ export function registerSettingsRoutes(
       const objectStorageService = new ObjectStorageService();
       const privateObjectDir = objectStorageService.getPrivateObjectDir();
       const objectId = randomUUID();
-      const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+      const uploadCustomerId = req.customerId!;
+      const fullPath = `${privateObjectDir}/${uploadCustomerId}/uploads/${objectId}`;
       const parts = fullPath.slice(1).split("/");
       const bucketName = parts[0];
       const objectName = parts.slice(1).join("/");
@@ -699,7 +700,7 @@ export function registerSettingsRoutes(
       const bucket = objectStorageClient.bucket(bucketName);
       const file = bucket.file(objectName);
       await file.save(buffer, { contentType: mimeType, resumable: false });
-      const objectPath = `/objects/uploads/${objectId}`;
+      const objectPath = `/objects/${uploadCustomerId}/uploads/${objectId}`;
       logger.info(`[UPLOAD] Success: objectPath=${objectPath}`);
       return res.json({ objectPath });
     } catch (error) {
@@ -713,8 +714,23 @@ export function registerSettingsRoutes(
       // Require either a staff session or a valid contractor-portal Bearer token.
       // Logos and branding images are served through /api/public-logo/:token instead,
       // so this route only needs to serve authenticated callers.
+      // Determine whether the path is customer-namespaced (new) or legacy (un-namespaced).
+      // New format:    /objects/<customerId>/uploads/<uuid>
+      //                /objects/<customerId>/contractor-portal/<uuid>.ext
+      // Legacy format: /objects/uploads/<uuid>
+      //                /objects/contractor-portal/<uuid>.ext
+      const pathSegments = (req.params as any).objectPath?.split('/') ?? [];
+      const firstSegment = pathSegments[0] ?? '';
+      const isLegacyPath = firstSegment === 'uploads' || firstSegment === 'contractor-portal';
+      const pathCustomerId = isLegacyPath ? null : firstSegment;
+
       const hasStaffSession = !!(req.session?.userId && req.session?.customerId);
-      if (!hasStaffSession) {
+      if (hasStaffSession) {
+        // For new namespaced paths, the path's customerId must match the session's customer.
+        if (pathCustomerId && pathCustomerId !== req.session.customerId) {
+          return res.status(403).json({ error: 'Not permitted.' });
+        }
+      } else {
         const authHeader = req.headers['authorization'];
         const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
         const payload = token ? verifyPortalToken(token) : null;
@@ -723,6 +739,10 @@ export function registerSettingsRoutes(
         }
         // Portal tokens may only read contractor-portal documents, never staff/uploads objects.
         if (!req.path.includes('/contractor-portal/')) {
+          return res.status(403).json({ error: 'Not permitted.' });
+        }
+        // For new namespaced paths, the path's customerId must match the token's customer.
+        if (pathCustomerId && pathCustomerId !== payload.customerId) {
           return res.status(403).json({ error: 'Not permitted.' });
         }
       }

@@ -372,7 +372,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
           const privateDir = objService.getPrivateObjectDir();
           const objectId = randomUUID();
           const ext = (req.file.originalname.split('.').pop() ?? 'bin').toLowerCase();
-          const fullPath = `${privateDir}/contractor-portal/${objectId}.${ext}`;
+          const fullPath = `${privateDir}/${pu.customerId}/contractor-portal/${objectId}.${ext}`;
           const parts = fullPath.slice(1).split('/');
           const bucketName = parts[0];
           const objectName = parts.slice(1).join('/');
@@ -381,7 +381,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
             contentType: req.file.mimetype,
             resumable: false,
           });
-          documentUrl = `/objects/contractor-portal/${objectId}.${ext}`;
+          documentUrl = `/objects/${pu.customerId}/contractor-portal/${objectId}.${ext}`;
         } catch (storageErr: any) {
           logger.error('[portal-upload] Object storage save failed:', storageErr?.message);
           return res.status(502).json({

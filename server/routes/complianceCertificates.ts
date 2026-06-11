@@ -314,14 +314,15 @@ export function registerComplianceCertificateRoutes(app: Express): void {
         fileName = req.file.originalname;
         const privateDir = objectStorage.getPrivateObjectDir();
         const objectId = randomUUID();
-        const fullPath = `${privateDir}/uploads/${objectId}`;
+        const certCustomerId = req.customerId!;
+        const fullPath = `${privateDir}/${certCustomerId}/uploads/${objectId}`;
         const parts = fullPath.slice(1).split('/');
         const bucketName = parts[0];
         const objectName = parts.slice(1).join('/');
         const bucket = objectStorageClient.bucket(bucketName);
         const fileObj = bucket.file(objectName);
         await fileObj.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
-        fileUrl = `/objects/uploads/${objectId}`;
+        fileUrl = `/objects/${certCustomerId}/uploads/${objectId}`;
       } else if (req.body.fileUrl) {
         fileUrl = req.body.fileUrl;
         fileName = req.body.fileName || fileName;

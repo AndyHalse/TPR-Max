@@ -233,14 +233,15 @@ export function registerPermitToWorkRoutes(app: Express): void {
         fileName = req.file.originalname;
         const privateDir = objectStorage.getPrivateObjectDir();
         const objectId = randomUUID();
-        const fullPath = `${privateDir}/uploads/${objectId}`;
+        const ptwCustomerId = req.customerId!;
+        const fullPath = `${privateDir}/${ptwCustomerId}/uploads/${objectId}`;
         const parts = fullPath.slice(1).split('/');
         const bucketName = parts[0];
         const objectName = parts.slice(1).join('/');
         const bucket = objectStorageClient.bucket(bucketName);
         const fileObj = bucket.file(objectName);
         await fileObj.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
-        fileUrl = `/objects/uploads/${objectId}`;
+        fileUrl = `/objects/${ptwCustomerId}/uploads/${objectId}`;
       }
       if (!fileUrl || !fileName) return res.status(400).json({ error: 'File is required.' });
 
@@ -277,14 +278,15 @@ export function registerPermitToWorkRoutes(app: Express): void {
         fileName = req.file.originalname;
         const privateDir = objectStorage.getPrivateObjectDir();
         const objectId = randomUUID();
-        const fullPath = `${privateDir}/uploads/${objectId}`;
+        const ptwReplaceCustomerId = req.customerId!;
+        const fullPath = `${privateDir}/${ptwReplaceCustomerId}/uploads/${objectId}`;
         const parts = fullPath.slice(1).split('/');
         const bucketName = parts[0];
         const objectName = parts.slice(1).join('/');
         const bucket = objectStorageClient.bucket(bucketName);
         const fileObj = bucket.file(objectName);
         await fileObj.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
-        fileUrl = `/objects/uploads/${objectId}`;
+        fileUrl = `/objects/${ptwReplaceCustomerId}/uploads/${objectId}`;
       }
 
       const uploadedByName = `${req.user!.firstName || ''} ${req.user!.lastName || ''}`.trim() || req.user!.username;
@@ -682,14 +684,15 @@ export function registerPermitToWorkRoutes(app: Express): void {
         fileName = req.file.originalname;
         const objectId = randomUUID();
         const privateObjectDir = objectStorage.getPrivateObjectDir();
-        const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+        const ptwAttachCustomerId = req.customerId!;
+        const fullPath = `${privateObjectDir}/${ptwAttachCustomerId}/uploads/${objectId}`;
         const parts = fullPath.slice(1).split('/');
         const bucketName = parts[0];
         const objectName = parts.slice(1).join('/');
         const bucket = objectStorageClient.bucket(bucketName);
         const fileObj = bucket.file(objectName);
         await fileObj.save(req.file.buffer, { contentType: req.file.mimetype, resumable: false });
-        fileUrl = `/objects/uploads/${objectId}`;
+        fileUrl = `/objects/${ptwAttachCustomerId}/uploads/${objectId}`;
       }
       if (!fileUrl || !fileName) return res.status(400).json({ error: 'File URL and name are required.' });
 

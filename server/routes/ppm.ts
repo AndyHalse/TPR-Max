@@ -2626,14 +2626,14 @@ app.post("/api/ppm/work-order/public/:token/files", ppmPublicRateLimit, async (r
           const objectStorageService = new ObjectStorageService();
           const privateObjectDir = objectStorageService.getPrivateObjectDir();
           const objectId = randomUUID();
-          const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+          const fullPath = `${privateObjectDir}/${customer.id}/uploads/${objectId}`;
           const parts = fullPath.slice(1).split("/");
           const bucketName = parts[0];
           const objectName = parts.slice(1).join("/");
           const bucket = objectStorageClient.bucket(bucketName);
           const fileObj = bucket.file(objectName);
           await fileObj.save(buffer, { contentType: mimeType, resumable: false });
-          const objectPath = `/objects/uploads/${objectId}`;
+          const objectPath = `/objects/${customer.id}/uploads/${objectId}`;
 
           // Atomically create document record (scannedAt left null — AI scan fires async below)
           const resolvedFileType = fileType || "other";
