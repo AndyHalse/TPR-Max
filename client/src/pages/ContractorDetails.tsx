@@ -1663,7 +1663,7 @@ export default function ContractorDetails() {
           <Card>
             <CardContent className="p-6">
               {contractorData && (
-                <ContractorEquipmentTab companyId={contractorData.company.id} />
+                <ContractorEquipmentTab companyId={contractorData.id} />
               )}
             </CardContent>
           </Card>
