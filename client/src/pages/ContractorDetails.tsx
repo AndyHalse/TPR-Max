@@ -122,18 +122,6 @@ export default function ContractorDetails() {
   const [workerWizardSavedName, setWorkerWizardSavedName] = useState("");
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
   const [viewingWorkerDbsRequired, setViewingWorkerDbsRequired] = useState(false);
-
-  // Auto-open a specific worker's dialog when ?workerId= is in the URL (e.g. from "View Certificates" button in edit modal)
-  useEffect(() => {
-    if (!autoOpenWorkerId || !contractor) return;
-    const workers: ContractorWorker[] = (contractor as any).workers || [];
-    const target = workers.find((w) => w.id === autoOpenWorkerId);
-    if (target) {
-      setViewingWorker(target);
-      setViewingWorkerDbsRequired(!!(target as any).dbsRequired);
-    }
-  }, [autoOpenWorkerId, contractor]);
-
   const [qrPassWorker, setQrPassWorker] = useState<ContractorWorker | null>(null);
   const [qrPassData, setQrPassData] = useState<{ qrCode: string; workerName: string } | null>(null);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
@@ -163,6 +151,17 @@ export default function ContractorDetails() {
     staleTime: 0, // Always fetch fresh data for dynamic ratings
     cacheTime: 0, // Don't cache since ratings are dynamic
   });
+
+  // Auto-open a specific worker's dialog when ?workerId= is in the URL (e.g. from "View Certificates" button in edit modal)
+  useEffect(() => {
+    if (!autoOpenWorkerId || !contractor) return;
+    const workers: ContractorWorker[] = (contractor as any).workers || [];
+    const target = workers.find((w) => w.id === autoOpenWorkerId);
+    if (target) {
+      setViewingWorker(target);
+      setViewingWorkerDbsRequired(!!(target as any).dbsRequired);
+    }
+  }, [autoOpenWorkerId, contractor]);
 
   // Fetch card offences for card issue form
   const { data: cardOffences = [] } = useQuery<CardOffence[]>({
