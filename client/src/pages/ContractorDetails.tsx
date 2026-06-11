@@ -58,6 +58,8 @@ export default function ContractorDetails() {
   const [filterMissing, setFilterMissing] = useState(
     new URLSearchParams(window.location.search).get("filter") === "missing"
   );
+  // Capture ?workerId= once on mount so we can auto-open that worker's dialog
+  const [autoOpenWorkerId] = useState(() => new URLSearchParams(window.location.search).get("workerId"));
 
   // Keep the URL in sync with tab + filter state so switching tabs preserves the filter
   useEffect(() => {
@@ -68,6 +70,7 @@ export default function ContractorDetails() {
     } else {
       params.delete("filter");
     }
+    params.delete("workerId"); // consumed on mount — strip from URL
     const newSearch = `?${params.toString()}`;
     if (window.location.search !== newSearch) {
       setLocation(`/contractors/${id}${newSearch}`);
@@ -119,6 +122,18 @@ export default function ContractorDetails() {
   const [workerWizardSavedName, setWorkerWizardSavedName] = useState("");
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
   const [viewingWorkerDbsRequired, setViewingWorkerDbsRequired] = useState(false);
+
+  // Auto-open a specific worker's dialog when ?workerId= is in the URL (e.g. from "View Certificates" button in edit modal)
+  useEffect(() => {
+    if (!autoOpenWorkerId || !contractor) return;
+    const workers: ContractorWorker[] = (contractor as any).workers || [];
+    const target = workers.find((w) => w.id === autoOpenWorkerId);
+    if (target) {
+      setViewingWorker(target);
+      setViewingWorkerDbsRequired(!!(target as any).dbsRequired);
+    }
+  }, [autoOpenWorkerId, contractor]);
+
   const [qrPassWorker, setQrPassWorker] = useState<ContractorWorker | null>(null);
   const [qrPassData, setQrPassData] = useState<{ qrCode: string; workerName: string } | null>(null);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);

@@ -707,7 +707,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         variant="outline"
                         size="sm"
                         className="mt-2 h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
-                        onClick={() => { onOpenChange(false); setLocation(`/contractors/${formData.companyId}?tab=workers`); }}
+                        onClick={() => { onOpenChange(false); setLocation(`/contractors/${formData.companyId}?tab=workers&workerId=${worker.id}`); }}
                       >
                         <ExternalLink className="w-3 h-3 mr-1.5" />
                         View Certificates &amp; Qualifications
@@ -735,7 +735,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         variant="outline"
                         size="sm"
                         className="mt-2 h-7 text-xs border-blue-300 text-blue-700 hover:bg-blue-100"
-                        onClick={() => { onOpenChange(false); setLocation(`/contractors/${formData.companyId}?tab=workers`); }}
+                        onClick={() => { onOpenChange(false); setLocation(`/contractors/${formData.companyId}?tab=workers&workerId=${worker.id}`); }}
                       >
                         <ExternalLink className="w-3 h-3 mr-1.5" />
                         View Certificates &amp; Qualifications
