@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
@@ -24,11 +25,13 @@ import {
   BookOpen, Shield, Flame, HardHat, ClipboardList, Send, Monitor,
   ChevronDown, ChevronUp, Settings, Mail, Loader2, Upload, Film,
   AlertTriangle, Lock, RotateCcw, MapPin, Layers, QrCode, Plus,
-  Edit2, Check, X, ImageIcon, Info,
+  Edit2, Check, X, ImageIcon, Info, Brain,
 } from "lucide-react";
 import type { InductionQuestion, CompanySettings } from "@shared/schema";
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
+
+interface AiKeysResponse { openai: { hasKey: boolean; isActive: boolean; status: string; last4?: string }; gemini: { hasKey: boolean; isActive: boolean; status: string; last4?: string }; claude: { hasKey: boolean; isActive: boolean; status: string; last4?: string }; }
 
 interface InductionSettingRow {
   id: string;
@@ -1301,13 +1304,21 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
               </div>
               {(() => {
                 const m = companySettings?.openaiModel || settings?.modelType || '';
-                const missingKey = m.startsWith('claude-') && aiKeys !== undefined && !aiKeys.claude.hasKey;
-                return missingKey ? (
+                const missingClaude = m.startsWith('claude-') && aiKeys !== undefined && !aiKeys.claude.hasKey;
+                const missingGemini = m.startsWith('gemini-') && aiKeys !== undefined && !aiKeys.gemini.hasKey;
+                if (missingClaude) return (
                   <div className="flex items-start gap-1.5 p-2 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-md text-yellow-800 dark:text-yellow-300">
                     <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-yellow-600" />
-                    <span>Claude is selected but no Anthropic API key is configured. Add one in <strong>Settings → Integrations</strong>.</span>
+                    <span>Claude is selected but no Anthropic API key is configured. Add one in <strong>Settings → AI</strong>.</span>
                   </div>
-                ) : null;
+                );
+                if (missingGemini) return (
+                  <div className="flex items-start gap-1.5 p-2 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-md text-yellow-800 dark:text-yellow-300">
+                    <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-yellow-600" />
+                    <span>Gemini is selected but no Google API key is configured. Add one in <strong>Settings → AI</strong>.</span>
+                  </div>
+                );
+                return null;
               })()}
             </div>
             <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-100 dark:border-green-800 rounded-lg text-xs space-y-1.5">
@@ -1421,6 +1432,7 @@ export default function InductionSettings() {
   };
 
   const { data: companySettings } = useQuery<CompanySettings>({ queryKey: ['/api/settings'] });
+  const { data: aiKeys } = useQuery<AiKeysResponse>({ queryKey: ['/api/settings/ai-keys'], staleTime: 60000 });
 
   const { data: allSettings = [] } = useQuery<InductionSettingRow[]>({
     queryKey: ['/api/induction/settings'],
@@ -1624,6 +1636,59 @@ export default function InductionSettings() {
             )}
           </div>
         )}
+
+        {/* ── AI Model Selector ── */}
+        <GlassCard>
+          <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              <Brain className="h-5 w-5 text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+              <div>
+                <h2 className="text-base font-semibold text-fixed">AI Model</h2>
+                <p className="text-xs text-variable mt-0.5">Choose which AI model generates the induction slides and quiz questions for all roles.</p>
+              </div>
+            </div>
+            <div className="w-full sm:w-80 shrink-0 space-y-2">
+              <Select
+                value={currentSettings?.openaiModel || 'claude-sonnet-4-6'}
+                onValueChange={(v) => handleInputChange('openaiModel', v)}
+              >
+                <SelectTrigger className="w-full px-4 py-3 rounded-xl border border-white/30 dark:border-slate-700/30 bg-white/50 dark:bg-slate-800/50">
+                  <SelectValue placeholder="Select AI model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="_openai_header" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-default pointer-events-none">── OpenAI ──</SelectItem>
+                  <SelectItem value="gpt-4">GPT-4 (Standard)</SelectItem>
+                  <SelectItem value="gpt-4o">GPT-4o (Optimised)</SelectItem>
+                  <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
+                  <SelectItem value="gpt-5">GPT-5 (Latest)</SelectItem>
+                  <SelectItem value="_claude_header" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-default pointer-events-none">── Anthropic (Claude) ──</SelectItem>
+                  <SelectItem value="claude-3-haiku-20240307">Claude 3 Haiku — Fast</SelectItem>
+                  <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku — Fast</SelectItem>
+                  <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+                  <SelectItem value="claude-sonnet-4-6">Claude Sonnet 4 ✦ Recommended</SelectItem>
+                  <SelectItem value="claude-opus-4-5">Claude Opus 4 — Most Capable</SelectItem>
+                  <SelectItem value="_gemini_header" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-default pointer-events-none">── Google (Gemini) ──</SelectItem>
+                  <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+                  <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+                  <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
+                </SelectContent>
+              </Select>
+              {(currentSettings?.openaiModel || 'claude-sonnet-4-6').startsWith('claude-') && aiKeys !== undefined && !aiKeys.claude.hasKey && (
+                <div className="flex items-start gap-2 p-2.5 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg text-xs text-yellow-800 dark:text-yellow-300">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-yellow-500" />
+                  <span>No Anthropic API key configured — add one in <strong>Settings → AI</strong> or generation will fail.</span>
+                </div>
+              )}
+              {(currentSettings?.openaiModel || '').startsWith('gemini-') && aiKeys !== undefined && !aiKeys.gemini.hasKey && (
+                <div className="flex items-start gap-2 p-2.5 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg text-xs text-yellow-800 dark:text-yellow-300">
+                  <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0 text-yellow-500" />
+                  <span>No Google Gemini API key configured — add one in <strong>Settings → AI</strong> or generation will fail.</span>
+                </div>
+              )}
+              <p className="text-xs text-variable">Changes auto-save. GPT models use Replit AI credits. Claude and Gemini models use your own API keys.</p>
+            </div>
+          </div>
+        </GlassCard>
 
         {/* ── Step 1: Site Details (global) ── */}
         <GlassCard className="p-0 overflow-hidden">
