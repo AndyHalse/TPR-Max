@@ -2097,12 +2097,14 @@ Respond with valid JSON:
         <span style="font-size: 0.8rem; font-weight: 600; color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${companyName}</span>
     </div>
 
+    <!-- Scene counter lives outside .scene divs — one element, no duplicate IDs -->
+    <div class="scene-counter">
+        <span id="current-scene">1</span> / <span id="total-scenes">${scenes.length}</span>
+    </div>
+
     <div class="presentation-container">
         ${scenes.map((scene, index) => `
             <div class="scene ${index === 0 ? 'active' : ''}" data-duration="${scene.duration}">
-                <div class="scene-counter">
-                    <span id="current-scene">${index + 1}</span> / <span id="total-scenes">${scenes.length}</span>
-                </div>
                 <h1 style="margin-top: 48px;">${scene.title}</h1>
                 ${sceneImages[index] ? `
                     <div class="scene-image" style="position: relative;">
@@ -2164,7 +2166,7 @@ Respond with valid JSON:
             if (audioEnabled) {
                 const audio = document.getElementById(\`audio-\${currentScene}\`);
                 if (audio) {
-                    audio.play().catch(e => logger.info('Audio playback prevented:', e));
+                    audio.play().catch(e => console.log('Audio playback prevented:', e));
                 }
             } else {
                 // Stop all audio
@@ -2184,17 +2186,15 @@ Respond with valid JSON:
             // Switch scenes
             document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.scene')[index].classList.add('active');
-            // Update all scene counters since each scene now has its own counter
-            document.querySelectorAll('.scene-counter span[id="current-scene"]').forEach(el => {
-                el.textContent = index + 1;
-            });
+            // Update the single scene counter
+            document.getElementById('current-scene').textContent = index + 1;
             updateProgressBar();
             
             // Play audio for new scene if audio is enabled
             if (audioEnabled) {
                 const audio = document.getElementById(\`audio-\${index}\`);
                 if (audio) {
-                    audio.play().catch(e => logger.info('Audio playback prevented:', e));
+                    audio.play().catch(e => console.log('Audio playback prevented:', e));
                 }
             }
         }

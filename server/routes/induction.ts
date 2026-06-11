@@ -4549,23 +4549,34 @@ export function registerInductionRoutes(app: Express): void {
 
           if (custRows.length > 0) {
             const setting = custRows[0] as any;
-            // Prefer object storage path (fast stream, gzip on delivery)
-            if (setting.videoUrl && setting.videoUrl !== 'generated' && !setting.videoUrl.startsWith('http') && !setting.videoUrl.startsWith('data:')) {
-              try {
-                const { bucketName, objectName } = parseObjectStoragePath(setting.videoUrl);
-                const file = objectStorageClient.bucket(bucketName).file(objectName);
-                res.setHeader('Content-Type', 'text/html; charset=utf-8');
-                res.setHeader('Cache-Control', 'public, max-age=3600');
-                file.createReadStream().pipe(res);
-                return;
-              } catch (_streamErr) { /* fall through to generatedHtml */ }
-            }
+            // Prefer DB generatedHtml for the admin preview: always up-to-date,
+            // no CDN caching, and patchInductionHtml is applied for correct slide rendering.
+            // Object storage is used for token-based public delivery (by-token endpoint).
             if (setting.generatedHtml) {
               logger.info(`📄 Serving customer-isolated generatedHtml for ${roleType} (${req.customerId})`);
               res.setHeader('Content-Type', 'text/html; charset=utf-8');
               res.setHeader('Cache-Control', 'no-cache');
               res.send(patchInductionHtml(setting.generatedHtml));
               return;
+            }
+            // Fallback: stream from object storage if generatedHtml column is empty
+            if (setting.videoUrl && setting.videoUrl !== 'generated' && !setting.videoUrl.startsWith('http') && !setting.videoUrl.startsWith('data:')) {
+              try {
+                const { bucketName, objectName } = parseObjectStoragePath(setting.videoUrl);
+                const file = objectStorageClient.bucket(bucketName).file(objectName);
+                const chunks: Buffer[] = [];
+                await new Promise<void>((resolve, reject) => {
+                  file.createReadStream()
+                    .on('data', (c: Buffer) => chunks.push(c))
+                    .on('end', resolve)
+                    .on('error', reject);
+                });
+                const html = Buffer.concat(chunks).toString('utf-8');
+                res.setHeader('Content-Type', 'text/html; charset=utf-8');
+                res.setHeader('Cache-Control', 'no-cache');
+                res.send(patchInductionHtml(html));
+                return;
+              } catch (_streamErr) { /* fall through */ }
             }
           }
         } catch (_custErr) {
