@@ -1276,6 +1276,7 @@ export class CustomerDatabaseService {
         ON "${schemaName}".contractor_portal_users (email, contractor_company_id)
       `);
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_contractor_portal BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS dbs_required BOOLEAN DEFAULT false`);
       logger.info(`✅ Contractor portal migration ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Contractor portal migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);

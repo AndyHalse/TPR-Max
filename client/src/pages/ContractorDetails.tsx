@@ -33,6 +33,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
 import { ContractorEditModal } from "@/components/ContractorEditModal";
+import ContractorWorkerDbsTab from "@/components/ContractorWorkerDbsTab";
 // Removed ContractorHSModal - H&S acceptance now happens via e-pass link
 
 // Helper function to get safety rating colors
@@ -116,6 +117,7 @@ export default function ContractorDetails() {
   const [workerWizardStep, setWorkerWizardStep] = useState(1);
   const [workerWizardSavedName, setWorkerWizardSavedName] = useState("");
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
+  const [viewingWorkerDbsRequired, setViewingWorkerDbsRequired] = useState(false);
   const [qrPassWorker, setQrPassWorker] = useState<ContractorWorker | null>(null);
   const [qrPassData, setQrPassData] = useState<{ qrCode: string; workerName: string } | null>(null);
   const [selectedWorkerForEdit, setSelectedWorkerForEdit] = useState<ContractorWorker | null>(null);
@@ -1175,6 +1177,7 @@ export default function ContractorDetails() {
                   }}
                   onViewDetails={(worker) => {
                     setViewingWorker(worker);
+                    setViewingWorkerDbsRequired(!!(worker as any).dbsRequired);
                   }}
                   canManageCards={true}
                 />
@@ -1957,6 +1960,15 @@ export default function ContractorDetails() {
                     <p className="text-sm text-muted-foreground col-span-2">No certifications recorded</p>
                   )}
                 </div>
+              </div>
+
+              {/* DBS Certificates & Safeguarding */}
+              <div className="border-t pt-4">
+                <ContractorWorkerDbsTab
+                  workerId={viewingWorker.id}
+                  dbsRequired={viewingWorkerDbsRequired}
+                  onDbsRequiredChange={setViewingWorkerDbsRequired}
+                />
               </div>
 
               {isWorkerClearForWork(viewingWorker) && (

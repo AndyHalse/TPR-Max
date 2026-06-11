@@ -1,5 +1,6 @@
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import * as isolatedSchema from "../isolatedSchema";
+import { customerDbService } from "../customerDatabase";
 
 export type ComplianceResult = {
   compliant: boolean;
@@ -38,7 +39,8 @@ export async function getCompanyComplianceStatus(
 
 export async function getWorkerClearanceStatus(
   custDb: any,
-  workerId: string
+  workerId: string,
+  customerId?: string
 ): Promise<ComplianceResult> {
   const [worker] = await custDb
     .select()
@@ -60,6 +62,32 @@ export async function getWorkerClearanceStatus(
     (worker as any).inductionCompleted ?? (worker as any).siteInductionCompleted;
   if (!inducted) {
     reasons.push("Site induction not completed");
+  }
+
+  // DBS — only checked when the worker has been explicitly flagged as requiring it
+  if ((worker as any).dbsRequired === true && customerId) {
+    try {
+      const schemaName = customerDbService.generateSchemaName(customerId);
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      if (pool && schemaName) {
+        const result = await pool.query(
+          `SELECT policy_expiry_date FROM "${schemaName}".contractor_worker_dbs
+           WHERE worker_id = $1 AND is_current = TRUE AND deleted_at IS NULL
+           LIMIT 1`,
+          [workerId]
+        );
+        if (result.rows.length === 0) {
+          reasons.push("DBS check required but not on record");
+        } else {
+          const expiry = result.rows[0].policy_expiry_date;
+          if (expiry && new Date(expiry) < new Date()) {
+            reasons.push("DBS check expired");
+          }
+        }
+      }
+    } catch {
+      // Non-fatal: if the table doesn't exist yet (e.g. migration pending), skip DBS check
+    }
   }
 
   return { compliant: reasons.length === 0, reasons };

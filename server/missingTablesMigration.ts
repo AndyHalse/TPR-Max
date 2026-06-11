@@ -689,6 +689,49 @@ const addDbsSoftDeleteMigration = {
   }
 };
 
+const createContractorWorkerDbsTableMigration: Migration = {
+  version: '20260611_001_contractor_worker_dbs',
+  description: 'Create contractor_worker_dbs table for safeguarding DBS management per contractor worker',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS contractor_worker_dbs (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          worker_id TEXT NOT NULL,
+          dbs_level TEXT NOT NULL,
+          certificate_number TEXT,
+          application_reference TEXT,
+          issue_date DATE,
+          policy_expiry_date DATE,
+          requested_by TEXT,
+          verified_by TEXT NOT NULL,
+          verified_date DATE NOT NULL,
+          is_current BOOLEAN NOT NULL DEFAULT TRUE,
+          notes TEXT,
+          document_url TEXT,
+          document_name TEXT,
+          reminder_sent_at TIMESTAMP,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+          deleted_at TIMESTAMP
+        )
+      `);
+      logger.info('✅ contractor_worker_dbs table created/verified');
+    } catch (error: any) {
+      const msg = error?.message || '';
+      if (
+        msg.includes('already exists') ||
+        msg.includes('pg_type_typname_nsp_index') ||
+        error?.code === '23505'
+      ) {
+        logger.info('ℹ️ contractor_worker_dbs table already exists, skipping');
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -699,5 +742,6 @@ export const missingTablesMigrations = [
   addStaffQrCodeColumnMigration,
   createStaffDbsTableMigration,
   addHrDocumentAttachmentsMigration,
-  addDbsSoftDeleteMigration
+  addDbsSoftDeleteMigration,
+  createContractorWorkerDbsTableMigration,
 ];
