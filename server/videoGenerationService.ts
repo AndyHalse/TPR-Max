@@ -658,30 +658,70 @@ Use the site-specific details provided above wherever available; use sensible UK
             - Include specific safety equipment, workplace settings, and diverse representation
             - Avoid text/logos in image descriptions (pure visual content)
             
-            CRITICAL OUTPUT REQUIREMENTS:
-            Respond with ONLY valid JSON in this exact structure (no additional text).
-            You MUST return between 6 and 8 scene objects in the "scenes" array.
-            Scene 1 MUST have title starting with "Welcome" — any response where scene[0].title does not start with "Welcome" is INVALID.
-            A response with fewer than 6 scenes is INVALID — do not return fewer under any circumstances.
+            ══════════════════════════════════════════════════════════
+            CRITICAL OUTPUT REQUIREMENTS — READ BEFORE GENERATING:
+            ══════════════════════════════════════════════════════════
+            You MUST produce EXACTLY 8 scene objects — no fewer, no more.
+            A response with fewer than 8 scenes is INVALID and will be rejected.
+            Scene 1 MUST have a title starting with "Welcome" — any other first scene is INVALID.
+            Respond with ONLY valid JSON — no preamble, no trailing text, no markdown fences.
+
+            The complete JSON structure you must return (all 8 scenes, no shortcuts):
             {
               "script": "Complete narration script incorporating company context and industry-specific safety requirements...",
               "scenes": [
                 {
                   "title": "Welcome to ACS Safety & Security Ltd",
-                  "content": "Welcome to your site induction. Today we will cover everything you need to know to work safely on our site. ACS Safety & Security Ltd is committed to the highest standards of health and safety... (100-150 words)",
+                  "content": "Welcome to your site induction. Today we will cover everything you need to know to work safely on our site. ACS Safety & Security Ltd is committed to the highest standards of health and safety, and this induction ensures you have all the knowledge to protect yourself and your colleagues. Please pay close attention throughout — your safety, and the safety of everyone around you, depends on it.",
                   "duration": 180,
-                  "imagePrompt": "Professional reception area with friendly staff welcoming a new contractor, modern UK workplace, hi-vis vests, diverse representation, photorealistic, no text or logos"
+                  "imagePrompt": "Professional reception area with friendly safety officer welcoming a new contractor, modern UK workplace, hi-vis vests, diverse representation, photorealistic, no text or logos"
                 },
                 {
                   "title": "Site Hazards & PPE Requirements",
-                  "content": "Detailed scene narration covering the specific hazards present on this site and what PPE is required, where to obtain it, and when it must be worn... (100-150 words)",
+                  "content": "Every site has its own specific hazards, and ours is no exception. On this site you may encounter moving vehicles, heavy plant machinery, uneven surfaces, and working at height. Personal Protective Equipment is mandatory at all times in operational areas. You must wear a hard hat, hi-vis vest, and safety boots as a minimum. Additional PPE — including gloves, eye protection, and ear defenders — is required in designated zones. PPE is available from the site office. Failure to wear the correct PPE will result in you being removed from site immediately.",
                   "duration": 180,
                   "imagePrompt": "Worker putting on PPE — hard hat, hi-vis vest, safety boots — on a UK construction site, natural daylight, photorealistic, no text or logos"
+                },
+                {
+                  "title": "Emergency Procedures & Assembly Points",
+                  "content": "In the event of a fire or other emergency, you must stop work immediately and make your way to the designated assembly point, which is located at the main car park near the site entrance. Do not use lifts. Do not attempt to collect personal belongings. The fire alarm is a continuous bell — when you hear it, evacuate immediately. First aid kits are located in the site office and welfare cabin. Our trained first aiders are identified by green crosses on their hard hats. Emergency services should be contacted by calling 999. Remain at the assembly point until the site manager confirms it is safe to return.",
+                  "duration": 180,
+                  "imagePrompt": "Fire exit signs and assembly point marker outside a UK workplace building, workers evacuating calmly, daylight, photorealistic, no text or logos"
+                },
+                {
+                  "title": "Accident Reporting & Welfare",
+                  "content": "All accidents, incidents, and near misses MUST be reported immediately, no matter how minor they may seem. Reporting near misses is particularly important — it allows us to prevent serious accidents before they occur. Under RIDDOR 2013, certain injuries and dangerous occurrences must be reported to the HSE. Our accident book is located in the site office. If you sustain an injury, inform your supervisor immediately and seek first aid. Welfare facilities — including toilets, washing facilities, a rest area, and drinking water — are available in the welfare cabin. Do not hesitate to raise any health and safety concerns with your supervisor or the site manager.",
+                  "duration": 180,
+                  "imagePrompt": "Safety officer reviewing an accident report form at a desk, UK workplace, professional, photorealistic, no text or logos"
+                },
+                {
+                  "title": "Site Rules & Permit to Work",
+                  "content": "This site operates under strict rules that all personnel must follow at all times. Speed limits of 5 mph apply in all vehicle areas — pedestrians always have right of way. Mobile phones must not be used while operating machinery or working in hazardous areas. Smoking is only permitted in the designated smoking area. Certain high-risk activities require a Permit to Work before commencing — this includes hot works, confined space entry, and working at height beyond two metres. Never begin a Permit to Work activity without an authorised, signed permit. Unauthorised entry to restricted or no-go areas is strictly forbidden and will result in immediate removal from site.",
+                  "duration": 180,
+                  "imagePrompt": "Site safety rules notice board with workers discussing permit to work paperwork on a UK construction site, photorealistic, no text or logos"
+                },
+                {
+                  "title": "Safe Work Practices",
+                  "content": "Safe systems of work protect you and everyone around you. Before starting any task, review the relevant method statement and risk assessment. If you are unsure about how to carry out a task safely, stop and speak to your supervisor — never proceed with work you are not confident about. Manual handling injuries are among the most common on site. Always use mechanical aids where available, and apply correct manual handling techniques: bend your knees, keep your back straight, and hold the load close to your body. Tool box talks are held each morning — attendance is mandatory. If you identify an unsafe condition, report it immediately and, where safe to do so, make the area secure.",
+                  "duration": 180,
+                  "imagePrompt": "Workers conducting a toolbox talk in a circle on a UK construction site, safety officer leading, hi-vis and hard hats, photorealistic, no text or logos"
+                },
+                {
+                  "title": "Environmental Responsibilities",
+                  "content": "We have a legal and moral duty to protect the environment in which we operate. Waste must be segregated correctly: general waste, recyclables, and hazardous materials all have separate, clearly labelled skips. Never pour liquids, chemicals, or cement wash into drains or watercourses — this is a criminal offence under the Environmental Protection Act 1990. In the event of a spill, use the spill kits located throughout the site and report the incident immediately. Noise levels must be controlled — notify the site manager if plant or equipment is excessively loud. Burning waste on site is strictly prohibited. Your efforts help us maintain our environmental accreditations and protect the local community.",
+                  "duration": 180,
+                  "imagePrompt": "Worker correctly segregating waste into labelled skips on a UK construction site, recycling bins visible, photorealistic, no text or logos"
+                },
+                {
+                  "title": "Summary & Sign-Off",
+                  "content": "Congratulations — you have now completed your site induction. To recap the key points: always wear your PPE; know your emergency assembly point; report all accidents and near misses; follow the Permit to Work system; apply safe manual handling; and protect the environment. Your safety is our highest priority, and we rely on every individual on this site to uphold these standards every single day. You will now be asked to sign the induction register to confirm you have understood and agreed to comply with all site rules. If you have any questions at any time, please speak to your supervisor or the site manager. Welcome to the team — stay safe.",
+                  "duration": 180,
+                  "imagePrompt": "Diverse group of workers and safety manager shaking hands and smiling after a briefing on a UK construction site, hi-vis vests, photorealistic, no text or logos"
                 }
               ],
-              "totalDuration": 1200
+              "totalDuration": 1440
             }
-            NOTE: The example above shows only 2 scenes for illustration. Your response must include 6–8 complete scene objects total, with scene 1 always being the Welcome scene.
+            REMINDER: You MUST produce EXACTLY 8 scene objects tailored to the specific company, industry, and role provided above. Do NOT return the example text verbatim — generate original content based on the company context. Do NOT stop after fewer than 8 scenes.
             
             Quality Standards:
             - Script must be informative, engaging, and legally compliant
@@ -733,22 +773,35 @@ Use the site-specific details provided above wherever available; use sensible UK
           logger.info(`🔄 Retrying with simplified prompt (attempt 2)...`);
           const simplifiedPrompt = `You are a UK Health & Safety expert. Generate a safety induction script for ${roleType}s at ${companyName} (${industryContext}).
 
-Create EXACTLY 6 scenes. SCENE 1 MUST be Welcome — do NOT start with CDM or legal content.
-Scene order: 1. Welcome & Site Overview, 2. Site Hazards & PPE, 3. Emergency Procedures, 4. Accident Reporting & Welfare, 5. Site Rules & Safe Working, 6. Summary & Sign-Off.
+══════════════════════════════════════════════
+YOU MUST PRODUCE EXACTLY 6 SCENE OBJECTS — NO FEWER, NO MORE.
+A response with fewer than 6 scenes is INVALID and will be rejected.
+SCENE 1 MUST start with "Welcome" — do NOT start with CDM or legal content.
+Return ONLY valid JSON — no preamble, no trailing text.
+══════════════════════════════════════════════
 
-Respond with valid JSON:
+Scene order (all 6 are required):
+1. Welcome & Site Overview
+2. Site Hazards & PPE Requirements
+3. Emergency Procedures & Assembly Points
+4. Accident Reporting & Welfare
+5. Site Rules & Safe Working Practices
+6. Summary & Sign-Off
+
+Respond with this exact JSON structure containing all 6 scenes:
 {
   "script": "narration script 600+ words",
   "scenes": [
-    {"title":"Welcome to ${companyName}","content":"80-120 words welcoming the ${roleType} and outlining what the induction covers","duration":150,"imagePrompt":"professional UK workplace reception, safety officer welcoming new worker, hi-vis, no text"},
-    {"title":"Site Hazards & PPE Requirements","content":"80-120 words on site hazards and PPE","duration":150,"imagePrompt":"worker donning PPE on UK site, hard hat, hi-vis, boots, no text"},
-    {"title":"Emergency Procedures & Assembly Points","content":"80-120 words on fire evacuation, assembly point, first aid","duration":150,"imagePrompt":"fire exit signs, assembly point marker, UK workplace, no text"},
-    {"title":"Accident Reporting & Welfare","content":"80-120 words on RIDDOR, near-miss reporting, welfare facilities","duration":150,"imagePrompt":"safety notice board, accident report form, UK workplace, no text"},
-    {"title":"Site Rules & Safe Working Practices","content":"80-120 words on site rules, permit to work, method statements","duration":150,"imagePrompt":"workers following safe working procedures on UK site, no text"},
-    {"title":"Summary & Sign-Off","content":"80-120 words summarising key points and confirming understanding","duration":150,"imagePrompt":"group safety briefing, UK workplace, diverse team, no text"}
+    {"title":"Welcome to ${companyName}","content":"80-120 words welcoming the ${roleType} and outlining what the induction covers today","duration":150,"imagePrompt":"professional UK workplace reception, safety officer welcoming new worker, hi-vis, no text"},
+    {"title":"Site Hazards & PPE Requirements","content":"80-120 words on the specific site hazards present and PPE that must be worn, where to obtain it, and consequences of non-compliance","duration":150,"imagePrompt":"worker donning PPE on UK site, hard hat, hi-vis, safety boots, no text"},
+    {"title":"Emergency Procedures & Assembly Points","content":"80-120 words on fire evacuation procedure, assembly point location, first aid locations, and contacting emergency services","duration":150,"imagePrompt":"fire exit signs and assembly point marker outside UK workplace, workers evacuating, no text"},
+    {"title":"Accident Reporting & Welfare","content":"80-120 words on RIDDOR obligations, near-miss reporting, accident book location, and welfare facilities available on site","duration":150,"imagePrompt":"safety officer reviewing accident report form, UK workplace, professional, no text"},
+    {"title":"Site Rules & Safe Working Practices","content":"80-120 words on site rules, permit to work system, speed limits, mobile phone policy, and safe manual handling","duration":150,"imagePrompt":"workers following safe working procedures on UK site, toolbox talk, hi-vis, no text"},
+    {"title":"Summary & Sign-Off","content":"80-120 words summarising all key safety points covered and confirming the worker understands and will comply with site rules","duration":150,"imagePrompt":"diverse group of workers and safety manager after briefing, UK construction site, hi-vis, no text"}
   ],
   "totalDuration": 900
-}`;
+}
+REMINDER: Return all 6 scenes above, tailored to ${companyName} and the ${roleType} role. Do NOT omit any scenes.`;
           const retryMessages = [{ role: "user", content: simplifiedPrompt }];
           const isNewGenRetry = selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7');
           const retryOptions = {
