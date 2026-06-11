@@ -89,7 +89,7 @@ export default function AiSettings() {
           <Label className="text-sm font-medium text-fixed">AI Model</Label>
           <Tooltip>
             <TooltipTrigger asChild><Info size={14} className="text-variable cursor-help" /></TooltipTrigger>
-            <TooltipContent className="max-w-xs">Controls which AI model generates induction scripts and safety content. GPT-4o is the best balance of quality and speed. GPT-5 is the most capable. Claude models require an Anthropic API key configured in AI Settings.</TooltipContent>
+            <TooltipContent className="max-w-xs">Controls which AI model generates induction scripts and safety content. Claude Sonnet 4 is recommended — best quality for multi-scene scripts. Claude and Gemini models require their respective API keys configured below. GPT models use Replit AI credits.</TooltipContent>
           </Tooltip>
         </div>
         <Select
@@ -100,20 +100,33 @@ export default function AiSettings() {
             <SelectValue placeholder="Select AI model" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="_openai_header" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-default pointer-events-none">── OpenAI ──</SelectItem>
             <SelectItem value="gpt-4">GPT-4 (Standard)</SelectItem>
-            <SelectItem value="gpt-4o">GPT-4o (Optimized)</SelectItem>
+            <SelectItem value="gpt-4o">GPT-4o (Optimised)</SelectItem>
+            <SelectItem value="gpt-4.1">GPT-4.1</SelectItem>
             <SelectItem value="gpt-5">GPT-5 (Latest)</SelectItem>
-            <SelectItem value="claude-3-5-sonnet">Claude 3.5 Sonnet (Anthropic)</SelectItem>
-            <SelectItem value="claude-3-opus">Claude 3 Opus (Anthropic)</SelectItem>
-            <SelectItem value="claude-3-haiku">Claude 3 Haiku — Fast (Anthropic)</SelectItem>
-            <SelectItem value="gemini-pro">Gemini Pro (Google)</SelectItem>
-            <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash (Google)</SelectItem>
+            <SelectItem value="_claude_header" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-default pointer-events-none">── Anthropic (Claude) ──</SelectItem>
+            <SelectItem value="claude-3-haiku-20240307">Claude 3 Haiku — Fast</SelectItem>
+            <SelectItem value="claude-3-5-haiku-20241022">Claude 3.5 Haiku — Fast</SelectItem>
+            <SelectItem value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</SelectItem>
+            <SelectItem value="claude-sonnet-4-6">Claude Sonnet 4 ✦ Recommended</SelectItem>
+            <SelectItem value="claude-opus-4-5">Claude Opus 4 — Most Capable</SelectItem>
+            <SelectItem value="_gemini_header" disabled className="text-xs font-semibold text-muted-foreground uppercase tracking-wide cursor-default pointer-events-none">── Google (Gemini) ──</SelectItem>
+            <SelectItem value="gemini-2.0-flash">Gemini 2.0 Flash</SelectItem>
+            <SelectItem value="gemini-2.5-flash">Gemini 2.5 Flash</SelectItem>
+            <SelectItem value="gemini-2.5-pro">Gemini 2.5 Pro</SelectItem>
           </SelectContent>
         </Select>
         {(currentSettings?.openaiModel || "gpt-4o").startsWith("claude-") && aiKeyStatus !== undefined && !aiKeyStatus.claude.hasKey && (
           <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-xl text-sm text-yellow-800 dark:text-yellow-300">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-yellow-600 dark:text-yellow-400" />
-            <span>Claude is selected but no Anthropic API key is configured. Add one in <strong>Settings → Integrations</strong>.</span>
+            <span>A Claude model is selected but no Anthropic API key is configured. Add one below in <strong>AI Provider API Keys</strong>.</span>
+          </div>
+        )}
+        {(currentSettings?.openaiModel || "gpt-4o").startsWith("gemini-") && aiKeyStatus !== undefined && !aiKeyStatus.gemini.hasKey && (
+          <div className="flex items-start gap-2 p-3 bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-xl text-sm text-yellow-800 dark:text-yellow-300">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-yellow-600 dark:text-yellow-400" />
+            <span>A Gemini model is selected but no Google API key is configured. Add one below in <strong>AI Provider API Keys</strong>.</span>
           </div>
         )}
       </div>

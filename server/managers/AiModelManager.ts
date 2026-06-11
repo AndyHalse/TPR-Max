@@ -26,8 +26,14 @@ const defaultAnthropic = process.env.ANTHROPIC_API_KEY
   ? new Anthropic(anthropicConfig)
   : null;
 
-// Claude model names for routing detection
-const CLAUDE_MODELS = ['claude-sonnet-4-6', 'claude-3-5-sonnet', 'claude-3-opus', 'claude-3-haiku', 'claude-3-sonnet', 'claude-2'];
+// Claude model names for routing detection (startsWith('claude-') is the primary check but this list aids logging)
+const CLAUDE_MODELS = [
+  'claude-opus-4-5', 'claude-sonnet-4-6',
+  'claude-3-5-sonnet-20241022', 'claude-3-5-haiku-20241022',
+  'claude-3-haiku-20240307', 'claude-3-opus-20240229',
+  // legacy short aliases
+  'claude-3-5-sonnet', 'claude-3-opus', 'claude-3-haiku', 'claude-3-sonnet', 'claude-2',
+];
 
 // OpenAI configured - detailed logging disabled for security
 
@@ -65,7 +71,28 @@ export class AiModelManager implements IAiChatClient {
 
   private readonly claudeModelConfigs: ModelConfig[] = [
     {
+      name: "claude-opus-4-5",
+      maxTokens: 8192,
+      temperature: 0.7,
+      timeoutMs: 120000,
+      retryAttempts: 2
+    },
+    {
       name: "claude-sonnet-4-6",
+      maxTokens: 8192,
+      temperature: 0.7,
+      timeoutMs: 90000,
+      retryAttempts: 2
+    },
+    {
+      name: "claude-3-5-haiku-20241022",
+      maxTokens: 8192,
+      temperature: 0.7,
+      timeoutMs: 45000,
+      retryAttempts: 2
+    },
+    {
+      name: "claude-3-5-sonnet-20241022",
       maxTokens: 8192,
       temperature: 0.7,
       timeoutMs: 90000,

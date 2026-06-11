@@ -43,13 +43,22 @@ function resolveInductionModel(
   aiModel?: string | null,
   fallback?: string
 ): string {
-  const raw = openaiModel || aiModel || fallback || 'claude-3-5-sonnet-20241022';
+  const raw = openaiModel || aiModel || fallback || 'claude-sonnet-4-6';
   const UI_TO_API: Record<string, string> = {
-    'Claude 3.5 Sonnet (Anthropic)': 'claude-3-5-sonnet-20241022',
-    'Claude 3 Opus (Anthropic)':     'claude-3-opus-20240229',
-    'Claude 3 Haiku (Anthropic)':    'claude-3-haiku-20240307',
-    'GPT-4':                          'gpt-4',
-    'GPT-4o':                         'gpt-4o',
+    // Legacy UI labels
+    'Claude Sonnet 4 (Anthropic)':       'claude-sonnet-4-6',
+    'Claude 3.5 Sonnet (Anthropic)':     'claude-3-5-sonnet-20241022',
+    'Claude 3 Opus (Anthropic)':         'claude-3-opus-20240229',
+    'Claude 3 Haiku (Anthropic)':        'claude-3-haiku-20240307',
+    'GPT-4':                              'gpt-4',
+    'GPT-4o':                             'gpt-4o',
+    'Gemini Pro (Google)':                'gemini-2.5-flash',
+    'Gemini 2.5 Flash (Google)':          'gemini-2.5-flash',
+    // Short IDs from old dropdown values
+    'claude-3-5-sonnet':                  'claude-3-5-sonnet-20241022',
+    'claude-3-opus':                      'claude-3-opus-20240229',
+    'claude-3-haiku':                     'claude-3-haiku-20240307',
+    'gemini-pro':                         'gemini-2.5-flash',
   };
   return UI_TO_API[raw] ?? raw;
 }

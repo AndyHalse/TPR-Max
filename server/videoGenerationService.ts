@@ -96,10 +96,13 @@ export class VideoGenerationService {
     if (selectedModel.startsWith('claude-')) {
       return this.aiJsonFromMessagesViaClaude<T>(messages, schemaHints, options);
     }
+    if (selectedModel.startsWith('gemini-')) {
+      return this.aiJsonFromMessagesViaGemini<T>(messages, schemaHints, options);
+    }
 
     try {
       const response = await openai.chat.completions.create({
-        model: "gpt-5",
+        model: selectedModel || "gpt-5",
         messages: messages as any,
         response_format: { type: "json_object" },
         ...options
@@ -107,12 +110,63 @@ export class VideoGenerationService {
 
       const rawJson = response.choices[0].message.content;
       if (!rawJson) {
-        throw new Error("Empty response from GPT-5");
+        throw new Error(`Empty response from ${selectedModel}`);
       }
 
       return JSON.parse(rawJson);
     } catch (error: any) {
       throw new Error(`OpenAI JSON completion failed: ${error.message}`);
+    }
+  }
+
+  private async aiJsonFromMessagesViaGemini<T>(messages: Array<{role: string, content: string}>, _schemaHints?: string, options: any = {}): Promise<T> {
+    const { GoogleGenAI } = await import('@google/genai');
+    const { decryptData } = await import('./utils/encryption');
+    const { databaseService } = await import('./databaseService');
+
+    const customerId = this.customerId;
+    if (!customerId) throw new Error('No customer context for Gemini key lookup');
+
+    const apiKeys = await databaseService.getCustomerApiKeys({ customerId });
+    const geminiKeyRow = apiKeys.find((k: any) => k.serviceType === 'gemini' && k.status === 'active');
+    if (!geminiKeyRow) {
+      throw new Error('No active Google Gemini API key found. Please add a Gemini API key in Settings → AI to use Gemini models.');
+    }
+    const geminiApiKey = decryptData(geminiKeyRow.encryptedKey, geminiKeyRow.initializationVector, geminiKeyRow.authTag || '');
+
+    const modelName = options.model || 'gemini-2.5-flash';
+    const maxTokens = options.max_tokens || options.max_completion_tokens || 8192;
+
+    // Gemini uses systemInstruction for system prompts and role:"model" instead of "assistant"
+    const systemMsg = messages.find(m => m.role === 'system');
+    const userMessages = messages.filter(m => m.role !== 'system');
+    const contents = userMessages.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }));
+
+    const ai = new GoogleGenAI({ apiKey: geminiApiKey });
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents,
+      config: {
+        responseMimeType: 'application/json',
+        maxOutputTokens: maxTokens,
+        ...(systemMsg ? { systemInstruction: systemMsg.content } : {}),
+      } as any
+    });
+
+    const text: string = (response as any).candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (!text) throw new Error(`Empty response from Gemini model ${modelName}`);
+
+    // Strip markdown fences if present
+    const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+    try {
+      return JSON.parse(stripped);
+    } catch (_e) {
+      const jsonMatch = stripped.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error('Gemini did not return valid JSON content');
+      return JSON.parse(jsonMatch[0]);
     }
   }
 
@@ -516,18 +570,27 @@ Use the site-specific details provided above wherever available; use sensible UK
       // Read both openaiModel (induction field) and aiModel (Settings UI field) and
       // normalise any human-readable UI label to the actual API model identifier.
       const UI_TO_API: Record<string, string> = {
-        'Claude Sonnet 4 (Anthropic)':   'claude-sonnet-4-6',
-        'Claude 3.5 Sonnet (Anthropic)': 'claude-3-5-sonnet-20241022',
-        'Claude 3 Opus (Anthropic)':     'claude-3-opus-20240229',
-        'Claude 3 Haiku (Anthropic)':    'claude-3-haiku-20240307',
-        'GPT-4':                          'gpt-4',
-        'GPT-4o':                         'gpt-4o',
+        // Legacy UI labels (kept for backwards compatibility)
+        'Claude Sonnet 4 (Anthropic)':          'claude-sonnet-4-6',
+        'Claude 3.5 Sonnet (Anthropic)':        'claude-3-5-sonnet-20241022',
+        'Claude 3 Opus (Anthropic)':            'claude-3-opus-20240229',
+        'Claude 3 Haiku (Anthropic)':           'claude-3-haiku-20240307',
+        'GPT-4':                                 'gpt-4',
+        'GPT-4o':                                'gpt-4o',
+        'Gemini Pro (Google)':                   'gemini-2.5-flash',
+        'Gemini 2.5 Flash (Google)':             'gemini-2.5-flash',
+        // Short IDs from old dropdown values → full canonical IDs
+        'claude-3-5-sonnet':                     'claude-3-5-sonnet-20241022',
+        'claude-3-opus':                         'claude-3-opus-20240229',
+        'claude-3-haiku':                        'claude-3-haiku-20240307',
+        'gemini-pro':                            'gemini-2.5-flash',
       };
       // Default to claude-sonnet-4-6 — stronger at multi-scene JSON and has 8192 output budget
       const rawModel = this.companySettings?.openaiModel || (this.companySettings as any)?.aiModel || modelType || 'claude-sonnet-4-6';
       let selectedModel = UI_TO_API[rawModel] ?? rawModel;
 
-      if (!selectedModel.startsWith('claude-') && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
+      // Only require the Replit AI Integrations OpenAI key for OpenAI (GPT) models
+      if (!selectedModel.startsWith('claude-') && !selectedModel.startsWith('gemini-') && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
         throw new Error('CRITICAL: Replit AI Integrations OpenAI key not configured (AI_INTEGRATIONS_OPENAI_API_KEY)');
       }
       
