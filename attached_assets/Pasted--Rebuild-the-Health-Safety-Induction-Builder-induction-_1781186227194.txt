@@ -1,0 +1,110 @@
+# Rebuild the Health & Safety Induction Builder (/induction-settings) — simpler, reliable, branded
+
+## Goal
+The induction builder works badly and feels overwhelming. REDESIGN the admin screen at
+/induction-settings to be clean and easy to use, but KEEP the existing backend engine
+(AI generation, quiz, QR checkpoints, kiosk, sent-links) — do not rip out working code.
+This must work for a typical UK company inducting Contractors, Visitors and Staff.
+
+Files in play:
+- client/src/pages/InductionSettings.tsx — the routed builder page (redesign this)
+- client/src/pages/InductionPreview.tsx — the preview screen
+- server/videoGenerationService.ts — AI script + slide HTML builder (the real bug is here)
+- server/routes/induction.ts — generate-video route (~4216), serve-video route (~4535), scenes endpoints (~4890–4960)
+- server/managers/AiModelManager.ts — callClaude (~211), model map (~290), per-model maxTokens
+- Do NOT touch the orphaned client/src/pages/settings/InductionSettings.tsx.
+
+Read the whole flow first. Run the app and verify each section before moving on.
+Additive and backwards-compatible. British spelling in all UI copy. No glassmorphism on
+inductee-facing/kiosk screens — keep those plain and calm.
+
+## BUG 1 — "It says 7 slides but the preview shows only 1" (top priority)
+The slide HTML builder (createEnhancedHTMLPresentation, ~line 2106) loops over every slide
+correctly. So when only one slide shows, the SAVED scenes array only contains one slide.
+Root causes — fix ALL of them:
+
+1. The AI response is being truncated. Output is capped at 4000 tokens
+   (AiModelManager.ts per-model maxTokens ~line 76; aiJsonFromMessagesViaClaude ~line 157;
+   generateInductionScript does Math.min(4000, ...) ~line 615). A 7-slide induction plus its
+   script exceeds 4000 tokens, so the answer is cut off mid-data and can't be read back.
+   → Raise the induction generation ceiling to 8000 output tokens. Plumb a real maxTokens
+     value through generateInductionScript → aiJsonFromMessagesViaClaude → callClaude and stop
+     clamping it down to 4000.
+
+2. No minimum-slide check. The code only rejects a result with ZERO slides (~line 682), so a
+   1-slide (truncated) result is saved and shown.
+   → After parsing, require scenes.length >= 5. If fewer come back, do NOT save it — re-request
+     the missing slides once, then fall back to the built-in 6–8 slide set. Never persist a
+     sub-5-slide induction. Log a loud warning with the actual count and the raw AI response.
+
+3. Fragile JSON reading. aiJsonFromMessagesViaClaude does text.match(/\{[\s\S]*\}/) then a bare
+   JSON.parse (~line 179). A truncated answer has no closing brace, so it throws and silently
+   drops to fallback.
+   → Strip markdown code fences first; if JSON.parse fails, attempt one structured repair
+     (close an unterminated array/object) before giving up; log the raw text if it still fails.
+
+4. Old model. Default is claude-3-5-sonnet-20241022 (~line 500). The codebase already supports
+   claude-sonnet-4-6 (AiModelManager.ts ~line 30).
+   → Default induction generation to claude-sonnet-4-6 unless the customer chose another model
+     in AI Settings. Ensure the model map and a maxTokens entry exist for it.
+
+5. The prompt's JSON example shows ONE slide object (~line 572), which a weak/truncated response
+   copies literally.
+   → State explicitly near the end of the prompt: "Return between 6 and 8 slide objects. A
+     response with fewer than 6 is invalid." Show TWO example slide objects, not one.
+
+ACCEPTANCE: Generate for Visitor, Staff and Contractor. Each must produce 6–8 slides EVERY time
+across 5 consecutive generations, all visible in the preview with working Previous/Next. Paste
+the server-log slide counts as proof.
+
+## BUG 2 — Two confusing preview buttons
+The page currently shows both "Preview" (new tab) and "In-page" (~lines 648–654).
+→ Replace with ONE clear "Preview induction" button that opens exactly what the inductee sees
+  (the real generated slides or the uploaded MP4 for that role). One button, no jargon.
+
+## FEATURE — MP4 vs AI: a clear per-role switch, MP4 wins if uploaded
+Each role (Visitor / Staff / Contractor) gets a simple toggle: "AI-generated slides" OR
+"Your own MP4 video".
+- Uploading an MP4 auto-selects MP4 for that role, but the admin can switch back to AI anytime.
+- Both can exist behind the scenes; only the chosen one is shown to inductees and in the preview.
+- Fix the existing bug where a custom MP4 reads as "Not Generated": hasVideo must be true when
+  EITHER AI slides exist (generatedAt != null) OR an MP4 exists (customVideoUrl set). The "Ready"
+  badge and the kiosk toggle must both respect this.
+
+## FEATURE — Manual quiz editor for MP4 inductions
+When a role uses an MP4 there's no AI script to build a quiz from. Add a simple question editor
+for that case (reuse the inductionQuestions table and the existing question display):
+- Add / edit / delete a question, set its four options, mark the correct answer, add a
+  wrong-answer explanation.
+- Keep the 80% pass mark and the explanations-on-wrong-answer behaviour.
+- AI-generated inductions keep auto-generating their quiz as now.
+
+## REQUIREMENT — Use the company's branding
+The generated induction must look like it belongs to that customer, pulling from company settings:
+- Company logo and company name (the HTML builder already references companyLogoUrl/companyName
+  ~line 2096 — confirm it's actually populated from settings for the customer context).
+- The company's brand colour(s) from settings should drive the slide theme (background/accent),
+  not a hardcoded purple/blue. Wire the brand colour through to the slide HTML and the SVG
+  fallback images (~line 950).
+
+## SIMPLIFY — make it easy for a typical UK company
+- Lay the page out as a clear, numbered flow per role: 1) Site details → 2) Induction content
+  (AI or MP4 switch) → 3) Quiz → 4) Optional QR walk-around → 5) Delivery (kiosk / send link / records).
+- Sensible UK defaults out of the box so a non-technical admin can generate a compliant induction
+  for Contractors, Visitors and Staff with minimal input.
+- Plain-English helper text on each step. No clutter, no duplicate buttons, no dead options.
+
+## Constraints
+- Don't break: AI generation, the quiz, QR checkpoints, kiosk check-in, send-link, sent-links log,
+  or the preview route.
+- Inductee/kiosk screens stay plain (no glassmorphism). British spelling throughout.
+- Provide Drizzle migrations for any new/changed columns.
+
+## Deliverable — report back with:
+1. Every file changed.
+2. Proof of the 1-slide fix: server-log slide counts from 5 consecutive generations across all
+   three roles (must be 6–8 each).
+3. Confirmation that: the MP4/AI switch works per role and MP4 auto-selects on upload; manual
+   quiz questions can be added for an MP4 induction; the preview button shows the real induction;
+   the generated slides carry the company logo and brand colour.
+4. A short manual test script Andy can follow to demo the whole thing.
