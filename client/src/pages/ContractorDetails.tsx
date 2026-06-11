@@ -34,6 +34,7 @@ import { WorkerCard } from "@/components/WorkerCard";
 import ContractorPassPreviewModal from "@/components/ContractorPassPreviewModal";
 import { ContractorEditModal } from "@/components/ContractorEditModal";
 import ContractorWorkerDbsTab from "@/components/ContractorWorkerDbsTab";
+import WorkerCertificatesTab from "@/components/WorkerCertificatesTab";
 // Removed ContractorHSModal - H&S acceptance now happens via e-pass link
 
 // Helper function to get safety rating colors
@@ -1900,67 +1901,8 @@ export default function ContractorDetails() {
                 </div>
               </div>
 
-              {/* Safety Training & Compliance */}
-              <div className="space-y-4">
-                <h3 className="font-semibold">Safety Training & Compliance</h3>
-                
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Asbestos Awareness</span>
-                    <Badge variant={viewingWorker.asbestosAwareness ? "default" : "outline"}>
-                      {viewingWorker.asbestosAwareness ? 'Completed' : 'Not Completed'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Manual Handling</span>
-                    <Badge variant={viewingWorker.manualHandling ? "default" : "outline"}>
-                      {viewingWorker.manualHandling ? 'Completed' : 'Not Completed'}
-                    </Badge>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm">Working at Height</span>
-                    <Badge variant={viewingWorker.workingAtHeight ? "default" : "outline"}>
-                      {viewingWorker.workingAtHeight ? 'Completed' : 'Not Completed'}
-                    </Badge>
-                  </div>
-                </div>
-              </div>
-
-              {/* Certifications & Training */}
-              <div className="space-y-4">
-                <h3 className="font-semibold">Certifications & Training</h3>
-                
-                <div className="grid md:grid-cols-2 gap-4">
-                  {/* Enhanced Certifications */}
-                  {viewingWorker.certifications && Array.isArray(viewingWorker.certifications) && viewingWorker.certifications.length > 0 ? (
-                    viewingWorker.certifications.map((cert: any, index: number) => (
-                      <div key={index} className="border rounded-lg p-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-medium text-sm">{cert.certificationType}</h4>
-                          <Badge 
-                            variant={cert.status === 'valid' ? 'default' : cert.status === 'expired' ? 'destructive' : 'secondary'}
-                            className="text-xs"
-                          >
-                            {cert.status}
-                          </Badge>
-                        </div>
-                        {cert.certificationNumber && (
-                          <p className="text-xs text-muted-foreground">#{cert.certificationNumber}</p>
-                        )}
-                        {cert.expiryDate && (
-                          <p className="text-xs text-muted-foreground">
-                            Expires: {new Date(cert.expiryDate).toLocaleDateString()}
-                          </p>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-muted-foreground col-span-2">No certifications recorded</p>
-                  )}
-                </div>
-              </div>
+              {/* Certificates & Qualifications — catalogue-driven evidenced certs */}
+              <WorkerCertificatesTab workerId={viewingWorker.id} />
 
               {/* DBS Certificates & Safeguarding */}
               <div className="border-t pt-4">

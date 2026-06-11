@@ -11,6 +11,7 @@ import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
+import { generateLogoToken } from '../utils/logoToken';
 
 export async function registerContractorPortalRoutes(app: Express): Promise<void> {
   const multerModule = await import('multer');
@@ -138,9 +139,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
 
       const s = settings[0];
       const rawLogo = s?.logoUrl ?? '';
-      const logoUrl = rawLogo
-        ? rawLogo.startsWith('/uploads/') ? `/objects${rawLogo}` : rawLogo
-        : '';
+      const logoUrl = rawLogo ? `/api/public-logo/${generateLogoToken(cid)}` : '';
 
       return res.json({ companyName: s?.companyName ?? '', logoUrl });
     } catch (err: any) {
@@ -177,9 +176,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
 
       const s = settingsResult[0];
       const rawLogo = s?.logoUrl ?? '';
-      const logoUrl = rawLogo
-        ? rawLogo.startsWith('/uploads/') ? `/objects${rawLogo}` : rawLogo
-        : '';
+      const logoUrl = rawLogo ? `/api/public-logo/${generateLogoToken(cid)}` : '';
 
       return res.json({
         email: user.email,
@@ -304,9 +301,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
         .from(isolatedSchema.companySettings)
         .limit(1);
       const rawLogo = settingsRows[0]?.logoUrl ?? '';
-      const logoUrl = rawLogo
-        ? rawLogo.startsWith('/uploads/') ? `/objects${rawLogo}` : rawLogo
-        : '';
+      const logoUrl = rawLogo ? `/api/public-logo/${generateLogoToken(pu.customerId)}` : '';
 
       return res.json({
         id: user.id,

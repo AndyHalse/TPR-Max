@@ -689,6 +689,50 @@ const addDbsSoftDeleteMigration = {
   }
 };
 
+const createWorkerCertificationTypesTableMigration: Migration = {
+  version: '20260611_002_worker_certification_types',
+  description: 'Create worker_certification_types catalogue table and seed standard UK certificates',
+  async up(db: any) {
+    try {
+      await db.execute(`
+        CREATE TABLE IF NOT EXISTS worker_certification_types (
+          id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+          key TEXT NOT NULL UNIQUE,
+          name TEXT NOT NULL,
+          legal_basis TEXT,
+          category TEXT NOT NULL,
+          requires_expiry BOOLEAN NOT NULL DEFAULT TRUE,
+          requires_number BOOLEAN NOT NULL DEFAULT FALSE,
+          is_active BOOLEAN NOT NULL DEFAULT TRUE,
+          created_at TIMESTAMP NOT NULL DEFAULT NOW()
+        )
+      `);
+      await db.execute(`
+        INSERT INTO worker_certification_types
+          (key, name, legal_basis, category, requires_expiry, requires_number)
+        VALUES
+          ('right_to_work',       'Right to Work',                 'Immigration, Asylum & Nationality Act 2006',      'legal',    TRUE,  FALSE),
+          ('public_liability',    'Public Liability Insurance',    'Common law duty of care',                         'legal',    TRUE,  FALSE),
+          ('employers_liability', 'Employers'' Liability Insurance', 'Employers'' Liability Act 1969',                'legal',    TRUE,  FALSE),
+          ('cscs_card',           'CSCS Card',                     'Construction Skills Certification Scheme',        'site',     TRUE,  TRUE),
+          ('ipaf_card',           'IPAF Card',                     'Working at Height Regulations 2005',              'site',     TRUE,  TRUE),
+          ('health_safety_policy','Health & Safety Policy',        'Health & Safety at Work Act 1974',                'site',     FALSE, FALSE),
+          ('training',            'Training Certificate',          'Client / site requirement',                       'training', TRUE,  FALSE),
+          ('certification',       'Other Certification',           'Client / professional body requirement',          'training', TRUE,  TRUE)
+        ON CONFLICT (key) DO NOTHING
+      `);
+      logger.info('✅ worker_certification_types table created/verified and seeded');
+    } catch (error: any) {
+      const msg = error?.message || '';
+      if (msg.includes('already exists') || error?.code === '23505') {
+        logger.info('ℹ️ worker_certification_types table already exists, skipping');
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 const createContractorWorkerDbsTableMigration: Migration = {
   version: '20260611_001_contractor_worker_dbs',
   description: 'Create contractor_worker_dbs table for safeguarding DBS management per contractor worker',
@@ -744,4 +788,5 @@ export const missingTablesMigrations = [
   addHrDocumentAttachmentsMigration,
   addDbsSoftDeleteMigration,
   createContractorWorkerDbsTableMigration,
+  createWorkerCertificationTypesTableMigration,
 ];

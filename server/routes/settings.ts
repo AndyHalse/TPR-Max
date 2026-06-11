@@ -12,40 +12,11 @@ import * as sharedSchema from '@shared/schema';
 import { db } from '../db';
 import { ObjectStorageService, ObjectNotFoundError, objectStorageClient } from '../objectStorage';
 import { randomUUID } from 'crypto';
-import crypto from 'crypto';
 import { z } from 'zod';
 import { eq, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
-
-// ─── Logo token helpers ───────────────────────────────────────────────────────
-
-const LOGO_TOKEN_SECRET = process.env.LOGO_TOKEN_SECRET;
-if (!LOGO_TOKEN_SECRET) throw new Error('LOGO_TOKEN_SECRET environment variable is required');
-
-function generateLogoToken(customerId: string): string {
-  const expiry = Date.now() + 24 * 60 * 60 * 1000;
-  const payload = `${customerId}:${expiry}`;
-  const hmac = crypto.createHmac('sha256', LOGO_TOKEN_SECRET).update(payload).digest('hex').substring(0, 16);
-  return Buffer.from(`${payload}:${hmac}`).toString('base64url');
-}
-
-function validateLogoToken(token: string): string | null {
-  try {
-    const decoded = Buffer.from(token, 'base64url').toString();
-    const parts = decoded.split(':');
-    if (parts.length !== 3) return null;
-    const [customerId, expiryStr, providedHmac] = parts;
-    const expiry = parseInt(expiryStr, 10);
-    if (Date.now() > expiry) return null;
-    const expectedHmac = crypto.createHmac('sha256', LOGO_TOKEN_SECRET).update(`${customerId}:${expiryStr}`).digest('hex').substring(0, 16);
-    if (providedHmac !== expectedHmac) return null;
-    return customerId;
-  } catch {
-    return null;
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
+import { generateLogoToken, validateLogoToken } from '../utils/logoToken';
+import { verifyPortalToken } from '../utils/contractorPortalAuth';
 
 export function registerSettingsRoutes(
   app: Express,
@@ -739,6 +710,19 @@ export function registerSettingsRoutes(
 
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
+      // Require either a staff session or a valid contractor-portal Bearer token.
+      // Logos and branding images are served through /api/public-logo/:token instead,
+      // so this route only needs to serve authenticated callers.
+      const hasStaffSession = !!(req.session?.userId && req.session?.customerId);
+      if (!hasStaffSession) {
+        const authHeader = req.headers['authorization'];
+        const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : null;
+        const hasPortalToken = token ? verifyPortalToken(token) !== null : false;
+        if (!hasPortalToken) {
+          return res.status(401).json({ error: 'Authentication required to access this file.' });
+        }
+      }
+
       logger.info(`[OBJECTS] Serving object: ${req.path}`);
       const objectStorageService = new ObjectStorageService();
       const objectFile = await objectStorageService.getObjectEntityFile(req.path);

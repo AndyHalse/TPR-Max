@@ -48,6 +48,7 @@ import { registerTeamsIntegrationRoutes } from './teamsIntegration';
 import { registerCalendarIntegrationRoutes } from './calendarIntegration';
 import { registerContractorPortalRoutes } from './contractorPortal';
 import { registerContractorWorkerDbsRoutes } from './contractorWorkerDbs';
+import { registerContractorWorkerCertsRoutes } from './contractorWorkerCerts';
 
 export async function registerSplitRoutes(
   app: Express,
@@ -101,5 +102,6 @@ export async function registerSplitRoutes(
   registerCalendarIntegrationRoutes(app);
   await registerContractorPortalRoutes(app);
   registerContractorWorkerDbsRoutes(app);
+  registerContractorWorkerCertsRoutes(app);
   await registerRemainingRoutes(app, server);
 }
