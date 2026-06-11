@@ -586,16 +586,9 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             <h3 className="text-base font-semibold text-fixed">Induction Content</h3>
             <p className="text-xs text-variable mt-0.5">Choose how inductees receive the safety content — AI-generated slides or your own MP4 video. Fill in the Site Details above before generating.</p>
           </div>
-          <div className="flex gap-2 shrink-0">
-            {hasVideo && (
-              <Button variant="outline" size="sm" onClick={() => window.open(`/induction-preview/${roleType}`, '_blank')} className="gap-1.5 hidden sm:flex">
-                <Eye className="h-3.5 w-3.5" />Preview
-              </Button>
-            )}
-            <Badge className={hasVideo ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300'}>
-              {hasVideo ? <><CheckCircle className="h-3 w-3 mr-1" />Ready</> : 'Not Generated'}
-            </Badge>
-          </div>
+          <Badge className={hasVideo ? 'bg-green-600 text-white shrink-0' : 'bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 shrink-0'}>
+            {hasVideo ? <><CheckCircle className="h-3 w-3 mr-1" />Ready</> : 'Not Generated'}
+          </Badge>
         </div>
 
         {/* Video Source Toggle */}
@@ -736,11 +729,6 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                 </TooltipTrigger>
                 <TooltipContent side="bottom" className="max-w-xs text-xs">{hasVideo ? 'Rewrites the slides and quiz using the latest Site Details. Your existing slide edits and site photos will be replaced — export a PDF first if you want to keep them.' : 'Generates a full set of interactive slides and a knowledge quiz for this role type, using the Site Details filled in above. Takes 1–2 minutes.'}</TooltipContent>
               </Tooltip>
-              {hasVideo && (
-                <Button variant="outline" onClick={() => window.open(`/induction-preview/${roleType}`, '_blank')} className="flex items-center gap-2 sm:hidden">
-                  <Eye className="h-4 w-4" />Preview
-                </Button>
-              )}
             </div>
           </div>
         )}

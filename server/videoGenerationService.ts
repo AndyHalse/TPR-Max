@@ -222,7 +222,7 @@ export class VideoGenerationService {
           ...options,
           model: 'gpt-5',
           response_format: { type: 'json_object' },
-          max_completion_tokens: options.max_tokens || options.max_completion_tokens || 4000,
+          max_completion_tokens: options.max_tokens || options.max_completion_tokens || 8192,
         };
         return this.aiJsonFromMessages<T>(messages, _schemaHints, openAiOptions);
       }
@@ -711,11 +711,11 @@ Use the site-specific details provided above wherever available; use sensible UK
           // Dynamic token allocation based on complexity and model capabilities
           ...(isNewGenModel
             ? { 
-              max_completion_tokens: this.calculateOptimalTokens(prompt.length, roleType, videoFormat),
+              max_completion_tokens: 8192,
               stream: false
             }
             : { 
-              max_tokens: Math.min(8192, this.calculateOptimalTokens(prompt.length, roleType, videoFormat))
+              max_tokens: 8192
             })
         };
         
@@ -792,10 +792,34 @@ Respond with valid JSON:
       // Validate content structure — never accept fewer than 5 scenes
       const MIN_SCENES = 6;
       if (content.scenes && content.scenes.length > 0 && content.scenes.length < MIN_SCENES) {
-        logger.error(`🚨 SCENE COUNT TOO LOW: AI returned only ${content.scenes.length} scene(s) — minimum is ${MIN_SCENES}. This is almost certainly a truncated or lazy response.`);
+        const received = content.scenes.length;
+        logger.error(`🚨 SCENE COUNT TOO LOW: AI returned only ${received} scene(s) — minimum is ${MIN_SCENES}. Attempting targeted count-correction retry.`);
         logger.error(`🚨 Scene titles received: ${content.scenes.map((s: any) => s.title).join(' | ')}`);
-        // Treat as if no scenes were returned — the fallback below will fire
-        content.scenes = [];
+        // Targeted correction retry: explicitly tell the model how many scenes it returned and demand 8
+        try {
+          const correctionPrompt = `You just returned only ${received} scene(s) but the requirement is exactly 8. You MUST return a JSON object with a "scenes" array containing EXACTLY 8 scene objects — no fewer, no more. Each scene must have title, content (80–120 words), duration (integer seconds), and imagePrompt. Do NOT repeat the system preamble; just return valid JSON.
+${received > 0 ? `You may keep the ${received} scene(s) you already wrote and add ${8 - received} more to reach exactly 8.` : ''}
+Company: ${companyName}, Role: ${roleType}s.
+Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content":"...","duration":150,"imagePrompt":"..."},...],"totalDuration":1200}`;
+          const correctionMessages = [{ role: "user", content: correctionPrompt }];
+          const isNewGenCorrection = selectedModel === 'gpt-5' || selectedModel?.includes('gpt-6') || selectedModel?.includes('gpt-7');
+          const correctionOptions = {
+            model: selectedModel,
+            response_format: { type: "json_object" },
+            ...(isNewGenCorrection ? { max_completion_tokens: 8192 } : { max_tokens: 8192, temperature: 0.7 })
+          };
+          const corrected = await this.aiJsonFromMessages(correctionMessages, undefined, correctionOptions);
+          if (corrected?.scenes && corrected.scenes.length >= MIN_SCENES) {
+            logger.info(`✅ Count-correction retry succeeded — ${corrected.scenes.length} scenes returned`);
+            content = corrected;
+          } else {
+            logger.error(`🚨 Count-correction retry still returned too few scenes (${corrected?.scenes?.length ?? 0}) — falling through to static fallback`);
+            content.scenes = [];
+          }
+        } catch (corrErr: any) {
+          logger.error(`🚨 Count-correction retry failed: ${corrErr.message} — falling through to static fallback`);
+          content.scenes = [];
+        }
       }
 
       if (!content.scenes || content.scenes.length === 0) {
@@ -2227,7 +2251,7 @@ Respond with valid JSON:
             justify-content: center;
             font-size: 1.8rem;
             font-weight: bold;
-            color: #4338ca;
+            color: ${brandAccent};
             border: 3px solid rgba(255,255,255,0.3);
             box-shadow: 0 5px 20px rgba(0,0,0,0.3);
         }
@@ -2254,7 +2278,7 @@ Respond with valid JSON:
     
     <!-- Company branding bar (top-left, fixed) -->
     <div style="position: fixed; top: 12px; left: 16px; z-index: 1000; display: flex; align-items: center; gap: 10px; background: rgba(0,0,0,0.55); padding: 8px 16px 8px 10px; border-radius: 30px; backdrop-filter: blur(12px); border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 4px 16px rgba(0,0,0,0.4); max-width: 280px;">
-        ${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="${companyName}" style="height: 32px; width: 32px; border-radius: 50%; object-fit: contain; background: white; padding: 3px; flex-shrink: 0;" onerror="this.style.display='none';" />` : `<div style="height: 32px; width: 32px; border-radius: 50%; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; font-weight: bold; color: #4338ca; font-size: 14px; flex-shrink: 0;">${companyName.charAt(0)}</div>`}
+        ${companyLogoUrl ? `<img src="${companyLogoUrl}" alt="${companyName}" style="height: 32px; width: 32px; border-radius: 50%; object-fit: contain; background: white; padding: 3px; flex-shrink: 0;" onerror="this.style.display='none';" />` : `<div style="height: 32px; width: 32px; border-radius: 50%; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; font-weight: bold; color: ${brandAccent}; font-size: 14px; flex-shrink: 0;">${companyName.charAt(0)}</div>`}
         <span style="font-size: 0.8rem; font-weight: 600; color: white; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${companyName}</span>
     </div>
 
@@ -2295,7 +2319,7 @@ Respond with valid JSON:
     
     <!-- Audio controls -->
     <div style="position: fixed; top: 10px; right: 10px; background: rgba(255,255,255,0.9); padding: 10px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.2);">
-        <button id="audio-toggle" style="background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
+        <button id="audio-toggle" style="background: ${brandAccent}; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px;">
             🔊 Audio ON
         </button>
     </div>
