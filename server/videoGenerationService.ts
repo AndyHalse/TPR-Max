@@ -1677,22 +1677,18 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
     </div>
     
     <div class="controls">
-        <button class="btn" onclick="previousScene()">← Previous</button>
-        <button class="btn" id="play-pause-btn" onclick="togglePlayPause()">⏸️ Pause</button>
-        <button class="btn" onclick="nextScene()">Next →</button>
+        <button class="btn" id="btn-prev">← Previous</button>
+        <button class="btn" id="btn-next">Next →</button>
     </div>
     
     <div class="progress-bar" id="progress-bar"></div>
     
     <script>
         let currentScene = 0;
-        let isPlaying = true;
-        let sceneTimer = null;
         const scenes = ${JSON.stringify(scenes)};
         const totalScenes = ${scenes.length};
         const sceneImages = ${JSON.stringify(sceneImages || [])};
         
-        // Update total scenes display immediately
         document.getElementById('total-scenes').textContent = totalScenes;
         
         function showScene(index) {
@@ -1700,10 +1696,6 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
             document.querySelectorAll('.scene')[index].classList.add('active');
             document.getElementById('current-scene').textContent = index + 1;
             updateProgressBar();
-            
-            if (isPlaying) {
-                startSceneTimer();
-            }
         }
         
         function nextScene() {
@@ -1720,44 +1712,16 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
             }
         }
         
-        function togglePlayPause() {
-            isPlaying = !isPlaying;
-            const btn = document.getElementById('play-pause-btn');
-            
-            if (isPlaying) {
-                btn.textContent = '⏸️ Pause';
-                startSceneTimer();
-            } else {
-                btn.textContent = '▶️ Play';
-                clearTimeout(sceneTimer);
-            }
-        }
-        
-        function startSceneTimer() {
-            clearTimeout(sceneTimer);
-            const duration = scenes[currentScene].duration * 1000;
-            
-            sceneTimer = setTimeout(() => {
-                if (currentScene < totalScenes - 1) {
-                    nextScene();
-                } else {
-                    // End of presentation
-                    togglePlayPause();
-                    alert('Induction complete! You will now be redirected to the quiz.');
-                }
-            }, duration);
-        }
-        
         function updateProgressBar() {
             const progress = ((currentScene + 1) / totalScenes) * 100;
             document.getElementById('progress-bar').style.width = progress + '%';
         }
         
+        document.getElementById('btn-prev').addEventListener('click', previousScene);
+        document.getElementById('btn-next').addEventListener('click', nextScene);
+        
         // Initialize
         updateProgressBar();
-        if (isPlaying) {
-            startSceneTimer();
-        }
         
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
@@ -1770,10 +1734,6 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
                 case 'ArrowLeft':
                     e.preventDefault();
                     previousScene();
-                    break;
-                case 'p':
-                case 'P':
-                    togglePlayPause();
                     break;
             }
         });
@@ -2378,17 +2338,14 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
     </div>
     
     <div class="controls">
-        <button class="btn" onclick="previousScene()">← Previous</button>
-        <button class="btn" id="play-pause-btn" onclick="togglePlayPause()">⏸️ Pause</button>
-        <button class="btn" onclick="nextScene()">Next →</button>
+        <button class="btn" id="btn-prev">← Previous</button>
+        <button class="btn" id="btn-next">Next →</button>
     </div>
     
     <div class="progress-bar" id="progress-bar"></div>
     
     <script>
         let currentScene = 0;
-        let isPlaying = true;
-        let sceneTimer = null;
         let audioEnabled = true;
         const scenes = ${JSON.stringify(scenes)};
         const totalScenes = ${scenes.length};
@@ -2400,14 +2357,12 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
             audioEnabled = !audioEnabled;
             this.textContent = audioEnabled ? '🔊 Audio ON' : '🔇 Audio OFF';
             
-            // If audio was enabled, play current scene's audio
             if (audioEnabled) {
                 const audio = document.getElementById(\`audio-\${currentScene}\`);
                 if (audio) {
                     audio.play().catch(e => console.log('Audio playback prevented:', e));
                 }
             } else {
-                // Stop all audio
                 document.querySelectorAll('audio').forEach(audio => {
                     audio.pause();
                 });
@@ -2415,20 +2370,16 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
         });
         
         function showScene(index) {
-            // Stop any currently playing audio
             document.querySelectorAll('audio').forEach(audio => {
                 audio.pause();
                 audio.currentTime = 0;
             });
             
-            // Switch scenes
             document.querySelectorAll('.scene').forEach(s => s.classList.remove('active'));
             document.querySelectorAll('.scene')[index].classList.add('active');
-            // Update the single scene counter
             document.getElementById('current-scene').textContent = index + 1;
             updateProgressBar();
             
-            // Play audio for new scene if audio is enabled
             if (audioEnabled) {
                 const audio = document.getElementById(\`audio-\${index}\`);
                 if (audio) {
@@ -2441,7 +2392,6 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
             if (currentScene < totalScenes - 1) {
                 currentScene++;
                 showScene(currentScene);
-                if (isPlaying) startSceneTimer();
             }
         }
         
@@ -2449,38 +2399,16 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
             if (currentScene > 0) {
                 currentScene--;
                 showScene(currentScene);
-                if (isPlaying) startSceneTimer();
             }
-        }
-        
-        function togglePlayPause() {
-            isPlaying = !isPlaying;
-            const btn = document.getElementById('play-pause-btn');
-            if (isPlaying) {
-                btn.textContent = '⏸️ Pause';
-                startSceneTimer();
-            } else {
-                btn.textContent = '▶️ Play';
-                if (sceneTimer) clearTimeout(sceneTimer);
-            }
-        }
-        
-        function startSceneTimer() {
-            if (sceneTimer) clearTimeout(sceneTimer);
-            const duration = scenes[currentScene]?.duration || 5;
-            sceneTimer = setTimeout(() => {
-                if (isPlaying && currentScene < totalScenes - 1) {
-                    nextScene();
-                } else if (currentScene >= totalScenes - 1) {
-                    togglePlayPause();
-                }
-            }, duration * 1000);
         }
         
         function updateProgressBar() {
             const progress = ((currentScene + 1) / totalScenes) * 100;
             document.getElementById('progress-bar').style.width = progress + '%';
         }
+        
+        document.getElementById('btn-prev').addEventListener('click', previousScene);
+        document.getElementById('btn-next').addEventListener('click', nextScene);
         
         // Keyboard controls
         document.addEventListener('keydown', (e) => {
@@ -2493,15 +2421,10 @@ Respond with valid JSON like: {"script":"...","scenes":[{"title":"...","content"
                     e.preventDefault();
                     nextScene();
                     break;
-                case 'Escape':
-                    togglePlayPause();
-                    break;
             }
         });
         
-        // Auto-start presentation
         updateProgressBar();
-        if (isPlaying) startSceneTimer();
     </script>
 </body>
 </html>`;

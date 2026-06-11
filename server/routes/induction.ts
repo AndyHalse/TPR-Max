@@ -74,6 +74,38 @@ const inductionGenerationStatus = new Map<string, {
   error?: string;
 }>();
 
+// Injected into every served induction HTML to fix CSP-blocked inline onclick
+// handlers on the Previous/Next/Pause buttons. Removes the Pause button and
+// rewires navigation via addEventListener (allowed by script-src-attr 'none').
+const BUTTON_FIX_PATCH = `<script id="tpr-btn-fix">
+(function(){
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded',fix);
+  } else { fix(); }
+  function fix(){
+    // Remove pause button (id or position in .controls)
+    var pause=document.getElementById('play-pause-btn');
+    if(pause) pause.remove();
+    // Wire prev/next by matching button text (works for both old & new templates)
+    var btns=document.querySelectorAll('.controls .btn,[class*="controls"] button');
+    btns.forEach(function(btn){
+      var t=(btn.textContent||'').trim();
+      if(t.indexOf('Previous')!==-1||t.indexOf('←')!==-1){
+        btn.removeAttribute('onclick');
+        btn.addEventListener('click',function(){
+          if(typeof previousScene==='function') previousScene();
+        });
+      } else if(t.indexOf('Next')!==-1||t.indexOf('→')!==-1){
+        btn.removeAttribute('onclick');
+        btn.addEventListener('click',function(){
+          if(typeof nextScene==='function') nextScene();
+        });
+      }
+    });
+  }
+})();
+</script>`;
+
 const SLIDE_PERF_PATCH = `<style id="tpr-slide-perf-patch">
 .scene{visibility:hidden!important;pointer-events:none!important;position:absolute!important;top:0;left:0;width:100%;opacity:0!important;transition:opacity 0.25s ease!important;}
 .scene.active{visibility:visible!important;pointer-events:auto!important;position:relative!important;opacity:1!important;display:block!important;animation:tprSlideIn 0.3s ease!important;}
@@ -100,10 +132,27 @@ const SLIDE_PERF_PATCH = `<style id="tpr-slide-perf-patch">
 }
 </style>`;
 function patchInductionHtml(html: string): string {
-  if (html.includes('id="tpr-slide-perf-patch"')) return html;
-  const idx = html.indexOf('</head>');
-  if (idx !== -1) return html.slice(0, idx) + SLIDE_PERF_PATCH + html.slice(idx);
-  return html + SLIDE_PERF_PATCH;
+  let out = html;
+  // Inject slide-perf CSS patch into <head>
+  if (!out.includes('id="tpr-slide-perf-patch"')) {
+    const headClose = out.indexOf('</head>');
+    if (headClose !== -1) {
+      out = out.slice(0, headClose) + SLIDE_PERF_PATCH + out.slice(headClose);
+    } else {
+      out = out + SLIDE_PERF_PATCH;
+    }
+  }
+  // Inject button-fix script before </body> so it runs after the existing
+  // slide scripts have defined previousScene / nextScene.
+  if (!out.includes('id="tpr-btn-fix"')) {
+    const bodyClose = out.indexOf('</body>');
+    if (bodyClose !== -1) {
+      out = out.slice(0, bodyClose) + BUTTON_FIX_PATCH + out.slice(bodyClose);
+    } else {
+      out = out + BUTTON_FIX_PATCH;
+    }
+  }
+  return out;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
