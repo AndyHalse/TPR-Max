@@ -151,10 +151,10 @@ export class VideoGenerationService {
       return m.content;
     }).join('\n\n');
 
-    const modelName = options.model || 'claude-3-5-sonnet';
+    const modelName = options.model || 'claude-sonnet-4-6';
     const claudeOptions: AiModelOptions = {
       claudeApiKey,
-      maxTokens: options.max_tokens || options.max_completion_tokens || 4000,
+      maxTokens: options.max_tokens || options.max_completion_tokens || 8192,
       temperature: options.temperature,
     };
     const result = await manager.callClaude(combinedPrompt, modelName, claudeOptions);
@@ -176,12 +176,38 @@ export class VideoGenerationService {
     }
 
     const text = result.data;
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    // Strip markdown code fences if present (```json ... ``` or ``` ... ```)
+    const stripped = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+    const jsonMatch = stripped.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+      logger.error(`🚨 Claude response did not contain a JSON object. Raw response (first 500 chars): ${stripped.slice(0, 500)}`);
       throw new Error('Claude did not return valid JSON content');
     }
-
-    return JSON.parse(jsonMatch[0]);
+    let raw = jsonMatch[0];
+    try {
+      return JSON.parse(raw);
+    } catch (_parseErr) {
+      // Attempt repair: close unclosed arrays and objects so we at least get partial scenes
+      logger.warn(`⚠️ JSON.parse failed on Claude response — attempting repair. Raw (first 500): ${raw.slice(0, 500)}`);
+      try {
+        // Count open/close brackets to close any dangling structures
+        let opens = 0, arrOpens = 0;
+        for (const ch of raw) {
+          if (ch === '{') opens++;
+          else if (ch === '}') opens--;
+          else if (ch === '[') arrOpens++;
+          else if (ch === ']') arrOpens--;
+        }
+        // Trim trailing comma or partial value before closing
+        raw = raw.replace(/,\s*$/, '').replace(/,\s*\]$/, ']').replace(/,\s*\}$/, '}');
+        while (arrOpens-- > 0) raw += ']';
+        while (opens-- > 0) raw += '}';
+        return JSON.parse(raw);
+      } catch (repairErr) {
+        logger.error(`🚨 JSON repair also failed. Giving up. Raw (first 1000): ${raw.slice(0, 1000)}`);
+        throw new Error('Claude returned malformed JSON that could not be repaired');
+      }
+    }
   }
 
   private isTerminalConfigError(message: string): boolean {
@@ -491,13 +517,15 @@ Use the site-specific details provided above wherever available; use sensible UK
       // Read both openaiModel (induction field) and aiModel (Settings UI field) and
       // normalise any human-readable UI label to the actual API model identifier.
       const UI_TO_API: Record<string, string> = {
+        'Claude Sonnet 4 (Anthropic)':   'claude-sonnet-4-6',
         'Claude 3.5 Sonnet (Anthropic)': 'claude-3-5-sonnet-20241022',
         'Claude 3 Opus (Anthropic)':     'claude-3-opus-20240229',
         'Claude 3 Haiku (Anthropic)':    'claude-3-haiku-20240307',
         'GPT-4':                          'gpt-4',
         'GPT-4o':                         'gpt-4o',
       };
-      const rawModel = this.companySettings?.openaiModel || (this.companySettings as any)?.aiModel || modelType || 'claude-3-5-sonnet-20241022';
+      // Default to claude-sonnet-4-6 — stronger at multi-scene JSON and has 8192 output budget
+      const rawModel = this.companySettings?.openaiModel || (this.companySettings as any)?.aiModel || modelType || 'claude-sonnet-4-6';
       let selectedModel = UI_TO_API[rawModel] ?? rawModel;
 
       if (!selectedModel.startsWith('claude-') && !process.env.AI_INTEGRATIONS_OPENAI_API_KEY) {
@@ -566,19 +594,28 @@ Use the site-specific details provided above wherever available; use sensible UK
             - Avoid text/logos in image descriptions (pure visual content)
             
             CRITICAL OUTPUT REQUIREMENTS:
-            Respond with ONLY valid JSON in this exact structure (no additional text):
+            Respond with ONLY valid JSON in this exact structure (no additional text).
+            You MUST return between 6 and 8 scene objects in the "scenes" array.
+            A response with fewer than 6 scenes is INVALID — do not return fewer under any circumstances.
             {
               "script": "Complete narration script incorporating company context and industry-specific safety requirements...",
               "scenes": [
                 {
-                  "title": "Descriptive scene title",
-                  "content": "Detailed scene narration (100-150 words)",
+                  "title": "Welcome & Company Introduction",
+                  "content": "Detailed scene narration (100-150 words describing the welcome, company culture, and what the induction covers)",
                   "duration": 180,
-                  "imagePrompt": "Detailed visual description for AI image generation, photorealistic, professional workplace setting, diverse representation, no text or logos"
+                  "imagePrompt": "Professional reception area with friendly staff welcoming a new worker, modern workplace, diverse representation, no text or logos"
+                },
+                {
+                  "title": "Legal Framework & Responsibilities",
+                  "content": "Detailed scene narration (100-150 words covering UK Health and Safety at Work Act 1974, employer and worker duties)",
+                  "duration": 180,
+                  "imagePrompt": "Professional health and safety briefing room, UK workplace, people reviewing safety documents, photorealistic, no text or logos"
                 }
               ],
               "totalDuration": 1200
             }
+            NOTE: The example above shows only 2 scenes for illustration. Your response must include 6–8 complete scene objects total.
             
             Quality Standards:
             - Script must be informative, engaging, and legally compliant
@@ -612,7 +649,7 @@ Use the site-specific details provided above wherever available; use sensible UK
               stream: false
             }
             : { 
-              max_tokens: Math.min(4000, this.calculateOptimalTokens(prompt.length, roleType, videoFormat))
+              max_tokens: Math.min(8192, this.calculateOptimalTokens(prompt.length, roleType, videoFormat))
             })
         };
         
@@ -678,9 +715,17 @@ Respond with valid JSON:
       logger.info(`📥 AI response script length: ${content.script?.length || 0} characters`);
       logger.info(`📥 AI response scenes count: ${content.scenes?.length || 0}`);
       
-      // Validate content structure
+      // Validate content structure — never accept fewer than 5 scenes
+      const MIN_SCENES = 5;
+      if (content.scenes && content.scenes.length > 0 && content.scenes.length < MIN_SCENES) {
+        logger.error(`🚨 SCENE COUNT TOO LOW: AI returned only ${content.scenes.length} scene(s) — minimum is ${MIN_SCENES}. This is almost certainly a truncated or lazy response.`);
+        logger.error(`🚨 Scene titles received: ${content.scenes.map((s: any) => s.title).join(' | ')}`);
+        // Treat as if no scenes were returned — the fallback below will fire
+        content.scenes = [];
+      }
+
       if (!content.scenes || content.scenes.length === 0) {
-        logger.error('🚨 CRITICAL: AI returned response but NO SCENES!');
+        logger.error('🚨 CRITICAL: AI returned response but NO SCENES (or too few — see above)!');
         logger.error('🚨 Response structure:', JSON.stringify(content, null, 2));
         
         // Use fallback scenes if AI didn't provide proper scenes

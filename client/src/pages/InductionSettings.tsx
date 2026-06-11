@@ -245,6 +245,15 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
   const [editingCp, setEditingCp] = useState<Checkpoint | null>(null);
   const [editCpForm, setEditCpForm] = useState({ label: '', content: '' });
   const [showQrFor, setShowQrFor] = useState<string | null>(null);
+  const [uploadingCpPhotoId, setUploadingCpPhotoId] = useState<string | null>(null);
+  const cpPhotoInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  // ── Manual question editor state ──
+  const CORRECT_OPTIONS = ['A', 'B', 'C', 'D'] as const;
+  const [showAddQuestion, setShowAddQuestion] = useState(false);
+  const [qForm, setQForm] = useState({ questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'A' as typeof CORRECT_OPTIONS[number], explanation: '', category: 'General Safety' });
+  const [editingQId, setEditingQId] = useState<string | null>(null);
+  const [editQForm, setEditQForm] = useState({ questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'A' as typeof CORRECT_OPTIONS[number], explanation: '', category: 'General Safety' });
 
   // ── Effects ──
   useEffect(() => {
@@ -321,6 +330,63 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     },
     onSuccess: () => { toast({ title: 'Checkpoint updated' }); setEditingCp(null); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); },
     onError: () => toast({ title: 'Error updating checkpoint', variant: 'destructive' }),
+  });
+
+  const uploadCpPhotoMutation = useMutation({
+    mutationFn: async ({ id, file }: { id: string; file: File }) => {
+      const fd = new FormData(); fd.append('photo', file);
+      const r = await fetch(`/api/induction/checkpoints/${id}/photo`, { method: 'POST', body: fd, credentials: 'include' });
+      if (!r.ok) throw new Error('Upload failed');
+      return r.json() as Promise<{ url: string }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] });
+      toast({ title: 'Photo saved', description: 'Checkpoint photo updated.' });
+      setUploadingCpPhotoId(null);
+    },
+    onError: () => { toast({ title: 'Photo upload failed', variant: 'destructive' }); setUploadingCpPhotoId(null); },
+  });
+
+  const addQuestionMutation = useMutation({
+    mutationFn: async () => {
+      const r = await apiRequest('POST', '/api/induction/questions', { ...qForm, roleType });
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Question added' });
+      setQForm({ questionText: '', optionA: '', optionB: '', optionC: '', optionD: '', correctAnswer: 'A', explanation: '', category: 'General Safety' });
+      setShowAddQuestion(false);
+      queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
+      onQuestionsRefetch();
+    },
+    onError: () => toast({ title: 'Failed to add question', variant: 'destructive' }),
+  });
+
+  const updateQuestionMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingQId) return;
+      const r = await apiRequest('PATCH', `/api/induction/questions/${editingQId}`, editQForm);
+      return r.json();
+    },
+    onSuccess: () => {
+      toast({ title: 'Question updated' });
+      setEditingQId(null);
+      queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
+      onQuestionsRefetch();
+    },
+    onError: () => toast({ title: 'Failed to update question', variant: 'destructive' }),
+  });
+
+  const deleteQuestionMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const r = await apiRequest('DELETE', `/api/induction/questions/${id}`);
+      return r.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/induction/questions', roleType] });
+      onQuestionsRefetch();
+    },
+    onError: () => toast({ title: 'Failed to delete question', variant: 'destructive' }),
   });
 
   const toggleCpMutation = useMutation({
@@ -692,6 +758,14 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                 <Check className="w-3.5 h-3.5 mr-1.5" />{saveScenesMutation.isPending ? 'Saving…' : 'Save Slides'}
               </Button>
             </div>
+            {/* Hazard photos callout — helps Andy find the per-slide upload feature */}
+            <div className="mb-4 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg flex items-start gap-2">
+              <ImageIcon className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-xs font-medium text-amber-800 dark:text-amber-200">Make it specific to your site</p>
+                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">Add photos of real hazards on your site — a low beam, a loading bay, a chemical store, a slippery floor. Expand any slide below, click <strong>Upload Photo</strong>, and your real photo replaces the AI-generated image. This makes the induction genuine to your workplace, not generic.</p>
+              </div>
+            </div>
             {slidesLoading && <div className="text-center py-6 text-sm text-variable">Loading slides…</div>}
             {!slidesLoading && editedScenes.length === 0 && (
               <div className="text-center py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
@@ -773,6 +847,14 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs text-xs">{questions.length > 0 ? 'Replaces all existing questions with a fresh set generated from the current induction slides. Any manual edits to questions will be lost.' : 'Creates a set of scenario-based multiple-choice questions from the induction slides. Requires slides to be generated first.'}</TooltipContent>
           </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1 text-xs" onClick={() => setShowAddQuestion(v => !v)}>
+                <Plus className="h-3 w-3" />Add Question Manually
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs text-xs">Write your own question to match a specific hazard, your uploaded video, or any site-specific requirement. Questions are saved immediately and appear in the quiz.</TooltipContent>
+          </Tooltip>
           {questions.length > 0 && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -785,11 +867,52 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
           )}
         </div>
 
+        {/* ── Manual question form (add/edit) ── */}
+        {showAddQuestion && (
+          <div className="mb-5 p-4 border border-blue-200 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/30 rounded-xl space-y-3">
+            <p className="text-sm font-semibold text-fixed flex items-center gap-2"><Plus className="h-4 w-4 text-blue-600" />New Question</p>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-variable">Question *</Label>
+              <Textarea value={qForm.questionText} onChange={e => setQForm(f => ({ ...f, questionText: e.target.value }))} placeholder="e.g. What should you do if you spot a chemical spill?" rows={2} className="text-sm" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {(['A', 'B', 'C', 'D'] as const).map(opt => (
+                <div key={opt} className="space-y-1">
+                  <Label className="text-xs font-medium text-variable">Option {opt}{opt === 'A' || opt === 'B' ? ' *' : ''}</Label>
+                  <Input value={qForm[`option${opt}` as keyof typeof qForm] as string} onChange={e => setQForm(f => ({ ...f, [`option${opt}`]: e.target.value }))} placeholder={`Answer option ${opt}`} className="text-sm" />
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-variable">Correct Answer *</Label>
+                <select value={qForm.correctAnswer} onChange={e => setQForm(f => ({ ...f, correctAnswer: e.target.value as any }))} className="w-full text-sm border rounded-md px-3 py-2 bg-background">
+                  {['A', 'B', 'C', 'D'].map(o => <option key={o} value={o}>Option {o}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-medium text-variable">Category</Label>
+                <Input value={qForm.category} onChange={e => setQForm(f => ({ ...f, category: e.target.value }))} placeholder="e.g. Emergency Procedures" className="text-sm" />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-medium text-variable">Wrong-answer explanation (shown to inductee if they get it wrong)</Label>
+              <Input value={qForm.explanation} onChange={e => setQForm(f => ({ ...f, explanation: e.target.value }))} placeholder="e.g. Chemical spills must be reported to the site manager immediately." className="text-sm" />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => addQuestionMutation.mutate()} disabled={addQuestionMutation.isPending || !qForm.questionText.trim() || !qForm.optionA.trim() || !qForm.optionB.trim()}>
+                {addQuestionMutation.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Check className="h-3.5 w-3.5 mr-1.5" />}Save Question
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setShowAddQuestion(false)}><X className="h-3.5 w-3.5 mr-1.5" />Cancel</Button>
+            </div>
+          </div>
+        )}
+
         {questions.length === 0 ? (
           <div className="py-8 text-center border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
             <FileQuestion className="h-8 w-8 mx-auto mb-2 opacity-40" />
             <p className="text-sm font-medium text-variable">No questions yet</p>
-            <p className="text-xs text-variable mt-1">Generate an induction or click "Generate Questions" above to create quiz questions.</p>
+            <p className="text-xs text-variable mt-1">{videoSource === 'custom_upload' ? 'Add questions manually using the button above, or generate them from AI slides.' : 'Generate an induction or click "Generate Questions" above to create quiz questions.'}</p>
           </div>
         ) : (
           <div className="space-y-5">
@@ -805,32 +928,62 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                   <div className="space-y-2">
                     {catQuestions.map((q, index) => (
                       <div key={q.id} className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border dark:border-gray-700">
-                        <div className="flex items-start gap-2">
-                          <Badge variant="outline" className="shrink-0 text-xs mt-0.5">Q{index + 1}</Badge>
-                          <div className="space-y-2 flex-1">
-                            <p className="font-medium text-sm">{q.questionText}</p>
-                            <div className="grid gap-1 text-xs">
-                              {(['A', 'B', 'C', 'D'] as const).map((opt) => {
-                                const optKey = `option${opt}` as keyof typeof q;
-                                const optionText = q[optKey];
-                                if (!optionText) return null;
-                                const isCorrect = q.correctAnswer === opt;
-                                return (
-                                  <div key={opt} className={`p-2 rounded flex items-start gap-2 ${isCorrect ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800' : 'bg-white dark:bg-gray-900 border dark:border-gray-700'}`}>
-                                    <span className={`font-semibold shrink-0 ${isCorrect ? 'text-green-700 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>{opt}.</span>
-                                    <span className={isCorrect ? 'text-green-800 dark:text-green-300' : ''}>{String(optionText)}</span>
-                                    {isCorrect && <CheckCircle className="h-3 w-3 ml-auto shrink-0 text-green-600 dark:text-green-400 mt-0.5" />}
-                                  </div>
-                                );
-                              })}
+                        {editingQId === q.id ? (
+                          <div className="space-y-2">
+                            <Textarea value={editQForm.questionText} onChange={e => setEditQForm(f => ({ ...f, questionText: e.target.value }))} rows={2} className="text-sm" />
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {(['A', 'B', 'C', 'D'] as const).map(opt => (
+                                <Input key={opt} value={editQForm[`option${opt}` as keyof typeof editQForm] as string} onChange={e => setEditQForm(f => ({ ...f, [`option${opt}`]: e.target.value }))} placeholder={`Option ${opt}`} className="text-xs" />
+                              ))}
                             </div>
-                            {q.explanation && (
-                              <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950 p-2 rounded border-l-2 border-blue-300 dark:border-blue-700 italic">
-                                💡 {q.explanation}
-                              </p>
-                            )}
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs text-variable shrink-0">Correct:</span>
+                              <select value={editQForm.correctAnswer} onChange={e => setEditQForm(f => ({ ...f, correctAnswer: e.target.value as any }))} className="text-xs border rounded px-2 py-1 bg-background">
+                                {['A', 'B', 'C', 'D'].map(o => <option key={o} value={o}>{o}</option>)}
+                              </select>
+                              <Input value={editQForm.explanation} onChange={e => setEditQForm(f => ({ ...f, explanation: e.target.value }))} placeholder="Explanation (optional)" className="text-xs flex-1" />
+                            </div>
+                            <div className="flex gap-1.5">
+                              <Button size="sm" className="text-xs h-7 px-2" onClick={() => updateQuestionMutation.mutate()} disabled={updateQuestionMutation.isPending}><Check className="w-3 h-3 mr-1" />Save</Button>
+                              <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => setEditingQId(null)}><X className="w-3 h-3 mr-1" />Cancel</Button>
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="flex items-start gap-2">
+                            <Badge variant="outline" className="shrink-0 text-xs mt-0.5">Q{index + 1}</Badge>
+                            <div className="space-y-2 flex-1 min-w-0">
+                              <p className="font-medium text-sm">{q.questionText}</p>
+                              <div className="grid gap-1 text-xs">
+                                {(['A', 'B', 'C', 'D'] as const).map((opt) => {
+                                  const optKey = `option${opt}` as keyof typeof q;
+                                  const optionText = q[optKey];
+                                  if (!optionText) return null;
+                                  const isCorrect = q.correctAnswer === opt;
+                                  return (
+                                    <div key={opt} className={`p-2 rounded flex items-start gap-2 ${isCorrect ? 'bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800' : 'bg-white dark:bg-gray-900 border dark:border-gray-700'}`}>
+                                      <span className={`font-semibold shrink-0 ${isCorrect ? 'text-green-700 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'}`}>{opt}.</span>
+                                      <span className={isCorrect ? 'text-green-800 dark:text-green-300' : ''}>{String(optionText)}</span>
+                                      {isCorrect && <CheckCircle className="h-3 w-3 ml-auto shrink-0 text-green-600 dark:text-green-400 mt-0.5" />}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              {q.explanation && (
+                                <p className="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950 p-2 rounded border-l-2 border-blue-300 dark:border-blue-700 italic">
+                                  💡 {q.explanation}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setEditingQId(q.id); setEditQForm({ questionText: q.questionText, optionA: q.optionA || '', optionB: q.optionB || '', optionC: (q as any).optionC || '', optionD: (q as any).optionD || '', correctAnswer: (q.correctAnswer as any) || 'A', explanation: q.explanation || '', category: q.category || 'General Safety' }); }}>
+                                <Edit2 className="w-3 h-3" />
+                              </Button>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950" onClick={() => { if (confirm('Delete this question?')) deleteQuestionMutation.mutate(q.id); }}>
+                                <Trash2 className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -852,6 +1005,10 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
           <Badge variant="outline" className="shrink-0 text-xs border-green-400 text-green-700 dark:text-green-400">Optional</Badge>
         </div>
 
+        <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg mb-4 flex items-start gap-2">
+          <ImageIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+          <p className="text-xs text-blue-700 dark:text-blue-400">Each checkpoint can have a <strong>photo of the actual location</strong> — a fire exit, an assembly point, a first aid station. The photo is shown when the inductee scans the QR code. Upload it from the checkpoint row once created.</p>
+        </div>
         <div className="border border-dashed border-blue-300 dark:border-blue-700 rounded-xl p-4 mb-4 space-y-3">
           <p className="text-sm font-medium text-fixed">Add New Checkpoint</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -890,47 +1047,74 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
-                        <p className="font-semibold text-fixed text-sm">{cp.label}</p>
-                        <Badge variant={cp.isActive ? 'default' : 'secondary'} className="text-xs">{cp.isActive ? 'Active' : 'Inactive'}</Badge>
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-xs font-bold flex items-center justify-center shrink-0">{idx + 1}</span>
+                          <p className="font-semibold text-fixed text-sm">{cp.label}</p>
+                          <Badge variant={cp.isActive ? 'default' : 'secondary'} className="text-xs">{cp.isActive ? 'Active' : 'Inactive'}</Badge>
+                          {cp.imageUrl && <Badge variant="secondary" className="text-xs gap-1"><ImageIcon className="w-3 h-3" />Photo</Badge>}
+                        </div>
+                        {cp.content && <p className="text-xs text-variable ml-8">{cp.content}</p>}
                       </div>
-                      {cp.content && <p className="text-xs text-variable ml-8">{cp.content}</p>}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => setShowQrFor(showQrFor === cp.id ? null : cp.id)}>
+                              <QrCode className="w-3 h-3 mr-1" />QR
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">Show the QR code to print and affix at this location on site</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => { setEditingCp(cp); setEditCpForm({ label: cp.label, content: cp.content }); }}><Edit2 className="w-3 h-3" /></Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">Edit label and information text for this checkpoint</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => toggleCpMutation.mutate({ id: cp.id, isActive: !cp.isActive })}>
+                              {cp.isActive ? <X className="w-3 h-3" /> : <Check className="w-3 h-3" />}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">{cp.isActive ? 'Deactivate — inductees will no longer be required to scan this checkpoint' : 'Activate — this checkpoint will appear in the walk-around for inductees'}</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-7 w-7 p-0 text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950"
+                              onClick={() => { if (confirm(`Delete checkpoint "${cp.label}"?`)) deleteCpMutation.mutate(cp.id); }}>
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">Permanently delete this checkpoint and its QR code</TooltipContent>
+                        </Tooltip>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button size="sm" variant="outline" className="text-xs h-7 px-2" onClick={() => setShowQrFor(showQrFor === cp.id ? null : cp.id)}>
-                            <QrCode className="w-3 h-3 mr-1" />QR
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Show the QR code to print and affix at this location on site</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => { setEditingCp(cp); setEditCpForm({ label: cp.label, content: cp.content }); }}><Edit2 className="w-3 h-3" /></Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Edit label and information text for this checkpoint</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => toggleCpMutation.mutate({ id: cp.id, isActive: !cp.isActive })}>
-                            {cp.isActive ? <X className="w-3 h-3" /> : <Check className="w-3 h-3" />}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">{cp.isActive ? 'Deactivate — inductees will no longer be required to scan this checkpoint' : 'Activate — this checkpoint will appear in the walk-around for inductees'}</TooltipContent>
-                      </Tooltip>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button size="sm" variant="outline" className="h-7 w-7 p-0 text-red-600 border-red-200 hover:bg-red-50 dark:hover:bg-red-950"
-                            onClick={() => { if (confirm(`Delete checkpoint "${cp.label}"?`)) deleteCpMutation.mutate(cp.id); }}>
-                            <Trash2 className="w-3 h-3" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">Permanently delete this checkpoint and its QR code</TooltipContent>
-                      </Tooltip>
+                    {/* Checkpoint photo upload */}
+                    <div className="ml-8 flex items-center gap-3">
+                      {cp.imageUrl ? (
+                        <div className="flex items-center gap-2">
+                          <img src={`/objects${cp.imageUrl}`} alt={cp.label} className="w-20 h-14 object-cover rounded border" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          <div className="space-y-1">
+                            <Button variant="outline" size="sm" className="text-xs h-7 px-2" onClick={() => cpPhotoInputRefs.current[cp.id]?.click()}>
+                              <Upload className="w-3 h-3 mr-1" />Replace Photo
+                            </Button>
+                            <Button variant="outline" size="sm" className="text-xs h-7 px-2 text-red-600 border-red-200" onClick={async () => { await apiRequest('PUT', `/api/induction/checkpoints/${cp.id}`, { imageUrl: null }); queryClient.invalidateQueries({ queryKey: ['/api/induction/checkpoints'] }); }}>
+                              <X className="w-3 h-3 mr-1" />Remove
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <Button variant="outline" size="sm" className="text-xs h-7 px-2 gap-1" onClick={() => cpPhotoInputRefs.current[cp.id]?.click()} disabled={uploadingCpPhotoId === cp.id}>
+                          {uploadingCpPhotoId === cp.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
+                          Add Site Photo
+                        </Button>
+                      )}
+                      <input ref={el => { cpPhotoInputRefs.current[cp.id] = el; }} type="file" accept="image/*" className="hidden"
+                        onChange={e => { const file = e.target.files?.[0]; if (file) { setUploadingCpPhotoId(cp.id); uploadCpPhotoMutation.mutate({ id: cp.id, file }); } e.target.value = ''; }} />
+                      {!cp.imageUrl && <p className="text-xs text-variable">Photo shows on the scan page (optional)</p>}
                     </div>
                   </div>
                 )}

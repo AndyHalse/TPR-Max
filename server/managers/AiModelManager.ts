@@ -66,30 +66,30 @@ export class AiModelManager implements IAiChatClient {
   private readonly claudeModelConfigs: ModelConfig[] = [
     {
       name: "claude-sonnet-4-6",
-      maxTokens: 4000,
+      maxTokens: 8192,
       temperature: 0.7,
-      timeoutMs: 30000,
+      timeoutMs: 90000,
       retryAttempts: 2
     },
     {
       name: "claude-3-5-sonnet",
-      maxTokens: 4000,
+      maxTokens: 8192,
       temperature: 0.7,
-      timeoutMs: 30000,
+      timeoutMs: 90000,
       retryAttempts: 2
     },
     {
       name: "claude-3-opus",
-      maxTokens: 4000,
+      maxTokens: 8192,
       temperature: 0.7,
-      timeoutMs: 60000,
+      timeoutMs: 90000,
       retryAttempts: 2
     },
     {
       name: "claude-3-haiku",
-      maxTokens: 4000,
+      maxTokens: 4096,
       temperature: 0.7,
-      timeoutMs: 20000,
+      timeoutMs: 30000,
       retryAttempts: 2
     }
   ];

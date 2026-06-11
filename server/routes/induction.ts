@@ -638,6 +638,74 @@ export function registerInductionRoutes(app: Express): void {
     }
   });
 
+  // POST /api/induction/questions — admin, create a single question manually
+  app.post('/api/induction/questions', requireAuth, async (req, res) => {
+    try {
+      const customerId = req.customerId || 'default';
+      const { roleType, questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation, category } = req.body;
+      if (!roleType || !questionText?.trim() || !optionA?.trim() || !optionB?.trim() || !correctAnswer) {
+        return res.status(400).json({ error: 'roleType, questionText, optionA, optionB, and correctAnswer are required' });
+      }
+      const customerVideoId = `${customerId}-${roleType}`;
+      const [question] = await db
+        .insert(inductionQuestions)
+        .values({
+          videoId: customerVideoId,
+          questionText: questionText.trim(),
+          questionType: 'multiple_choice',
+          optionA: optionA.trim(),
+          optionB: optionB.trim(),
+          optionC: optionC?.trim() || null,
+          optionD: optionD?.trim() || null,
+          correctAnswer,
+          explanation: explanation?.trim() || null,
+          category: category?.trim() || 'General Safety',
+          roleType,
+          isActive: true,
+          orderIndex: 999,
+        })
+        .returning();
+      return res.json({ question });
+    } catch (error) {
+      logger.error('Error creating question:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // PATCH /api/induction/questions/:id — admin, update a single question
+  app.patch('/api/induction/questions/:id', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { questionText, optionA, optionB, optionC, optionD, correctAnswer, explanation, category } = req.body;
+      const updateData: Record<string, any> = {};
+      if (questionText !== undefined) updateData.questionText = questionText.trim();
+      if (optionA !== undefined) updateData.optionA = optionA.trim();
+      if (optionB !== undefined) updateData.optionB = optionB.trim();
+      if (optionC !== undefined) updateData.optionC = optionC?.trim() || null;
+      if (optionD !== undefined) updateData.optionD = optionD?.trim() || null;
+      if (correctAnswer !== undefined) updateData.correctAnswer = correctAnswer;
+      if (explanation !== undefined) updateData.explanation = explanation?.trim() || null;
+      if (category !== undefined) updateData.category = category?.trim() || 'General Safety';
+      await db.update(inductionQuestions).set(updateData).where(eq(inductionQuestions.id, id));
+      return res.json({ success: true });
+    } catch (error) {
+      logger.error('Error updating question:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // DELETE /api/induction/questions/:id — admin, delete a single question
+  app.delete('/api/induction/questions/:id', requireAuth, async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(inductionQuestions).where(eq(inductionQuestions.id, id));
+      return res.json({ success: true });
+    } catch (error) {
+      logger.error('Error deleting question:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
   // Cleanup questions for a role type
   // Default: removes all inactive + legacy duplicates
   // With ?nuclear=true: deletes ALL questions for this customer+roleType (fresh start)
@@ -5107,6 +5175,50 @@ export function registerInductionRoutes(app: Express): void {
     } catch (error) {
       logger.error('Error updating checkpoint:', error);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  // POST /api/induction/checkpoints/:id/photo — admin, upload a site photo for a checkpoint
+  const checkpointPhotoUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) cb(null, true);
+      else cb(new Error('Only image files are allowed'));
+    },
+  });
+
+  app.post('/api/induction/checkpoints/:id/photo', requireAuth, checkpointPhotoUpload.single('photo'), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No photo file provided' });
+      const customerId = req.customerId;
+      if (!customerId) return res.status(403).json({ error: 'No customer context' });
+      const { id } = req.params;
+      const ext = req.file.originalname.split('.').pop()?.toLowerCase() || 'jpg';
+      const mimeType = req.file.mimetype || 'image/jpeg';
+      const objectId = randomUUID();
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const fullPath = `${privateObjectDir}/induction-checkpoints/${customerId}/${objectId}.${ext}`;
+      const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+      const bucket = objectStorageClient.bucket(bucketName);
+      const file = bucket.file(objectName);
+      await file.save(req.file.buffer, { contentType: mimeType });
+      const storedPath = `/induction-checkpoints/${customerId}/${objectId}.${ext}`;
+      // Update the checkpoint record
+      const custDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(customerId);
+      await custDb
+        .update(isolatedSchema.inductionCheckpoints)
+        .set({ imageUrl: storedPath, updatedAt: new Date() })
+        .where(and(
+          eq(isolatedSchema.inductionCheckpoints.id, id),
+          eq(isolatedSchema.inductionCheckpoints.customerId, customerId)
+        ));
+      logger.info(`🖼️ Checkpoint photo saved: ${storedPath}`);
+      return res.json({ success: true, url: storedPath });
+    } catch (error: any) {
+      logger.error('Error uploading checkpoint photo:', error);
+      res.status(500).json({ error: error.message || 'Failed to upload photo' });
     }
   });
 
