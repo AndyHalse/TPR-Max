@@ -754,7 +754,7 @@ Respond with valid JSON:
           const retryOptions = {
             model: selectedModel,
             response_format: { type: "json_object" },
-            ...(isNewGenRetry ? { max_completion_tokens: 3000 } : { max_tokens: 3000, temperature: 0.7 })
+            ...(isNewGenRetry ? { max_completion_tokens: 5000 } : { max_tokens: 5000, temperature: 0.7 })
           };
           content = await this.aiJsonFromMessages(retryMessages, undefined, retryOptions);
           logger.info(`✅ Retry succeeded`);
@@ -790,7 +790,7 @@ Respond with valid JSON:
       logger.info(`📥 AI response scenes count: ${content.scenes?.length || 0}`);
       
       // Validate content structure — never accept fewer than 5 scenes
-      const MIN_SCENES = 5;
+      const MIN_SCENES = 6;
       if (content.scenes && content.scenes.length > 0 && content.scenes.length < MIN_SCENES) {
         logger.error(`🚨 SCENE COUNT TOO LOW: AI returned only ${content.scenes.length} scene(s) — minimum is ${MIN_SCENES}. This is almost certainly a truncated or lazy response.`);
         logger.error(`🚨 Scene titles received: ${content.scenes.map((s: any) => s.title).join(' | ')}`);
@@ -1058,8 +1058,8 @@ Respond with valid JSON:
     
     // Determine the safety theme based on prompt content
     let theme = 'general';
-    let bgColor = '#1a365d'; // Professional blue
-    let accentColor = '#ed8936'; // Safety orange
+    let bgColor = this.companySettings?.backgroundColor || '#1a365d';
+    let accentColor = this.companySettings?.accentColor || '#ed8936';
     let icon = '🛡️';
     let title = 'Safety First';
     
@@ -1999,7 +1999,21 @@ Respond with valid JSON:
     // Get company name and logo for branding
     const companyName = this.companySettings?.companyName || "TPR";
     const companyLogoUrl = this.companySettings?.logoUrl || this.companySettings?.bannerUrl || null;
-    
+
+    // Resolve brand colours — use company settings with professional defaults
+    const brandAccent = this.companySettings?.accentColor || '#2460a9';
+    const brandBg     = this.companySettings?.backgroundColor || '#1a2e4a';
+    const hexLuminance = (hex: string): number => {
+      try {
+        const r = parseInt(hex.slice(1,3),16)/255, g = parseInt(hex.slice(3,5),16)/255, b = parseInt(hex.slice(5,7),16)/255;
+        const lin = (c: number) => c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4);
+        return 0.2126*lin(r) + 0.7152*lin(g) + 0.0722*lin(b);
+      } catch { return 0.1; }
+    };
+    const slideBg1 = hexLuminance(brandBg) > 0.4 ? brandAccent : brandBg;
+    const slideBg2 = this.darkenColor(slideBg1, 18);
+    const slideBg3 = this.darkenColor(slideBg1, 35);
+
     // Use pre-generated AI images and audio if available
     let sceneImages: string[] = preGeneratedImages;
     let sceneAudio: string[] = preGeneratedAudio;
@@ -2047,7 +2061,7 @@ Respond with valid JSON:
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 50%, #1e1b4b 100%);
+            background: linear-gradient(135deg, ${slideBg1} 0%, ${slideBg2} 50%, ${slideBg3} 100%);
             background-size: 400% 400%;
             animation: gradientShift 10s ease infinite;
             color: white;

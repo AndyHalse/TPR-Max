@@ -21,7 +21,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import {
   Users, Video, FileQuestion, Eye, Sparkles, CheckCircle, XCircle,
-  Maximize2, RefreshCw, Trash2, AlertCircle, Clock, ChevronRight,
+  RefreshCw, Trash2, AlertCircle, Clock, ChevronRight,
   BookOpen, Shield, Flame, HardHat, ClipboardList, Send, Monitor,
   ChevronDown, ChevronUp, Settings, Mail, Loader2, Upload, Film,
   AlertTriangle, Lock, RotateCcw, MapPin, Layers, QrCode, Plus,
@@ -486,6 +486,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
       if (xhr.status >= 200 && xhr.status < 300) {
         const data = JSON.parse(xhr.responseText);
         setCurrentCustomVideoUrl(data.url);
+        setVideoSource('custom_upload');
         queryClient.invalidateQueries({ queryKey: ['/api/induction/settings'] });
         toast({ title: 'Video uploaded', description: 'Your custom induction video has been saved.' });
       } else {
@@ -716,9 +717,6 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                   <div className="flex flex-col gap-1 items-end">
                     <Button variant="outline" size="sm" onClick={() => window.open(`/induction-preview/${roleType}`, '_blank')} className="gap-1">
                       <Eye className="h-3 w-3" />Preview
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setLocation(`/induction-preview/${roleType}`)} className="gap-1 text-xs h-7">
-                      <Maximize2 className="h-3 w-3" />In-page
                     </Button>
                   </div>
                 </div>
