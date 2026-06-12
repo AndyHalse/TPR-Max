@@ -178,6 +178,7 @@ export function registerAuthRoutes(app: Express): void {
               role: user.role,
               allowedMenuItems: user.allowedMenuItems ?? null,
               defaultLandingPage: user.defaultLandingPage ?? null,
+              navStyle: (user as any).navStyle ?? 'sidebar',
             },
             customer: {
               id: customer.id,

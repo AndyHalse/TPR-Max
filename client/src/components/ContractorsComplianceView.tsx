@@ -65,8 +65,7 @@ export default function ContractorsComplianceView({
   // Get current user for customer isolation with fallback handling
   const { data: currentUser, isError: authError } = useQuery<{ id: string; username: string; customerId: string }>({
     queryKey: ["/api/auth/me"],
-    retry: false, // Don't retry if auth fails
-    staleTime: 5000,
+    retry: false,
   });
 
   // Secure customer ID - no fallback for production security

@@ -45,7 +45,6 @@ export function useContractorManagement() {
   const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role?: string }>({
     queryKey: ["/api/auth/me"],
     retry: false,
-    staleTime: 5000,
   });
 
   const customerId = currentUser?.customerId;
