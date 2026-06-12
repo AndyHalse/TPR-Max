@@ -121,7 +121,11 @@ export default function ContractorPortalDocuments() {
 
   const { data: docs = [], isLoading } = useQuery<PortalDocument[]>({
     queryKey: ["portal-documents"],
-    queryFn: () => portalFetch("/api/contractor-portal/documents").then((r) => r.json()),
+    queryFn: async () => {
+      const r = await portalFetch("/api/contractor-portal/documents");
+      if (!r.ok) throw new Error("docs");
+      return r.json();
+    },
     enabled: !!getPortalToken(),
   });
 

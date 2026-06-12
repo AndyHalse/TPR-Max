@@ -46,24 +46,36 @@ export default function ContractorPortalDashboard() {
 
   const { data: user } = useQuery<PortalUser>({
     queryKey: ["portal-me"],
-    queryFn: () => portalFetch("/api/contractor-portal/me").then((r) => r.json()),
+    queryFn: async () => {
+      const r = await portalFetch("/api/contractor-portal/me");
+      if (!r.ok) throw new Error("auth");
+      return r.json();
+    },
     enabled: !!getPortalToken(),
     staleTime: 5 * 60 * 1000,
   });
 
   const { data: stats } = useQuery<DocStats>({
     queryKey: ["portal-doc-stats"],
-    queryFn: () =>
-      portalFetch("/api/contractor-portal/document-stats").then((r) => r.json()),
+    queryFn: async () => {
+      const r = await portalFetch("/api/contractor-portal/document-stats");
+      if (!r.ok) throw new Error("stats");
+      return r.json();
+    },
     enabled: !!getPortalToken(),
   });
 
-  const { data: docs = [] } = useQuery<Document[]>({
+  const { data: rawDocs } = useQuery<Document[]>({
     queryKey: ["portal-documents"],
-    queryFn: () => portalFetch("/api/contractor-portal/documents").then((r) => r.json()),
+    queryFn: async () => {
+      const r = await portalFetch("/api/contractor-portal/documents");
+      if (!r.ok) throw new Error("docs");
+      return r.json();
+    },
     enabled: !!getPortalToken(),
   });
 
+  const docs = Array.isArray(rawDocs) ? rawDocs : [];
   const recentDocs = docs.slice(0, 5);
 
   const statCards = [

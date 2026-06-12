@@ -39,7 +39,11 @@ export default function ContractorPortalWorkers() {
 
   const { data: workers = [], isLoading } = useQuery<Worker[]>({
     queryKey: ["portal-workers"],
-    queryFn: () => portalFetch("/api/contractor-portal/workers").then((r) => r.json()),
+    queryFn: async () => {
+      const r = await portalFetch("/api/contractor-portal/workers");
+      if (!r.ok) throw new Error("workers");
+      return r.json();
+    },
     enabled: !!getPortalToken(),
   });
 
