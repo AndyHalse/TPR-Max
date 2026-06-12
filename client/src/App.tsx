@@ -1,5 +1,5 @@
 import { Switch, Route, useLocation } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, setSessionToken, getSessionToken } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { ErrorBoundary, EmergencyFallback } from "@/components/ErrorBoundary";
 import { lazy, Suspense, useEffect } from "react";
@@ -106,8 +106,14 @@ function Router() {
     queryFn: async () => {
       console.info("🔍 [AUTH QUERY] Executing /api/auth/me query...");
       try {
+        const fetchHeaders: Record<string, string> = {};
+        const existingToken = getSessionToken();
+        if (existingToken) {
+          fetchHeaders['Authorization'] = `Bearer ${existingToken}`;
+        }
         const res = await fetch("/api/auth/me", {
           credentials: "include",
+          headers: fetchHeaders,
         });
         console.info("📥 [AUTH QUERY] Response status:", res.status);
         
@@ -119,6 +125,10 @@ function Router() {
           throw new Error(`${res.status}: ${res.statusText}`);
         }
         const userData = await res.json();
+        // Store per-tab session token — covers SSO login (redirect flow) and page refreshes
+        if (userData.sessionToken && !existingToken) {
+          setSessionToken(userData.sessionToken);
+        }
         console.info("✅ [AUTH QUERY] Successfully authenticated user:", userData.username);
         return userData;
       } catch (error) {

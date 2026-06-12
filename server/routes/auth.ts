@@ -10,6 +10,8 @@ import {
   isDevAuthBypass,
   getDevUser,
   isValidDevCredentials,
+  signSessionToken,
+  verifySessionToken,
 } from '../auth';
 import { CustomerDatabaseService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
@@ -165,6 +167,7 @@ export function registerAuthRoutes(app: Express): void {
           }
 
           const logoToken = generateLogoToken(customer.id);
+          const sessionToken = signSessionToken(user.id, customer.id);
 
           res.json({
             success: true,
@@ -183,6 +186,7 @@ export function registerAuthRoutes(app: Express): void {
             },
             settings: companySettings,
             logoToken,
+            sessionToken,
           });
 
           resolve();
@@ -288,6 +292,7 @@ export function registerAuthRoutes(app: Express): void {
             }
 
             const devLogoToken = generateLogoToken(authResult.customer.id);
+            const devSessionToken = signSessionToken(authResult.user.id, authResult.customer.id);
             return res.json({
               success: true,
               message: 'Login successful',
@@ -302,6 +307,7 @@ export function registerAuthRoutes(app: Express): void {
               },
               settings: companySettings,
               logoToken: devLogoToken,
+              sessionToken: devSessionToken,
             });
           });
         });
@@ -516,6 +522,62 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   app.get('/api/auth/me', async (req, res) => {
+    // ── Bearer token path (per-tab session isolation) ─────────────────────
+    // When a per-tab JWT is present, validate it and use its payload directly.
+    // This ensures that page refreshes in window 1 still see customer A even
+    // if window 2 has since regenerated the shared session cookie for customer B.
+    const authHeader = req.headers['authorization'];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.slice(7);
+      try {
+        const { userId, customerId } = verifySessionToken(token);
+
+        // DEV bypass: if dev mode and token matches dev user, short-circuit
+        if (isDevAuthBypass()) {
+          const devUser = getDevUser();
+          if (userId === devUser.id && customerId === devUser.customerId) {
+            logger.info(`🚀 AUTH_ME_BYPASS (Bearer): Returning dev user data`);
+            return res.json({
+              id: devUser.id,
+              username: devUser.username,
+              customerId: devUser.customerId,
+              role: 'admin',
+              sessionToken: signSessionToken(devUser.id, devUser.customerId),
+            });
+          }
+        }
+
+        const customerDbService = CustomerDatabaseService.getInstance();
+        const customerDb = await customerDbService.getCustomerDatabase(customerId);
+        const users = await customerDb
+          .select()
+          .from(isolatedSchema.users)
+          .where(eq(isolatedSchema.users.id, userId))
+          .limit(1);
+        const user = users[0];
+        if (!user) {
+          return res.status(401).json({ error: 'User not found' });
+        }
+        logger.info(`✅ /api/auth/me authenticated via Bearer token: ${user.username}`);
+        return res.json({
+          id: user.id,
+          username: user.username,
+          customerId,
+          role: user.role,
+          allowedMenuItems: user.allowedMenuItems ?? null,
+          defaultLandingPage: user.defaultLandingPage ?? null,
+          navStyle: (user as any).navStyle ?? 'sidebar',
+          firstName: user.firstName ?? null,
+          lastName: user.lastName ?? null,
+          sessionToken: signSessionToken(user.id, customerId),
+        });
+      } catch (err) {
+        logger.info('🚨 /api/auth/me: Invalid Bearer token:', err);
+        return res.status(401).json({ error: 'Session token invalid or expired' });
+      }
+    }
+
+    // ── Session cookie fallback ────────────────────────────────────────────
     logger.info(
       `🔍 /api/auth/me called - session.userId: ${req.session?.userId}, customerId: ${req.session?.customerId}`
     );
@@ -536,6 +598,7 @@ export function registerAuthRoutes(app: Express): void {
         username: devUser.username,
         customerId: devUser.customerId,
         role: 'admin',
+        sessionToken: signSessionToken(devUser.id, devUser.customerId),
       });
     }
 
@@ -578,6 +641,7 @@ export function registerAuthRoutes(app: Express): void {
         navStyle: (user as any).navStyle ?? 'sidebar',
         firstName: user.firstName ?? null,
         lastName: user.lastName ?? null,
+        sessionToken: signSessionToken(user.id, req.session.customerId),
       });
     } catch (error) {
       logger.error('Error in /api/auth/me:', error);

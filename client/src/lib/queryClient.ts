@@ -35,6 +35,30 @@ async function fetchFreshCsrfToken(): Promise<string | null> {
   }
 }
 
+export function getSessionToken(): string | null {
+  try {
+    return sessionStorage.getItem('session_token');
+  } catch {
+    return null;
+  }
+}
+
+export function setSessionToken(token: string): void {
+  try {
+    sessionStorage.setItem('session_token', token);
+  } catch {
+    // ignore — sessionStorage unavailable (e.g. private browsing restrictions)
+  }
+}
+
+export function clearSessionToken(): void {
+  try {
+    sessionStorage.removeItem('session_token');
+  } catch {
+    // ignore
+  }
+}
+
 export async function apiRequest(
   method: string,
   url: string,
@@ -43,6 +67,12 @@ export async function apiRequest(
   try {
     const isMutating = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method.toUpperCase());
     const headers: Record<string, string> = data ? { "Content-Type": "application/json" } : {};
+
+    // Add per-tab session token (multi-window customer isolation)
+    const sessionToken = getSessionToken();
+    if (sessionToken) {
+      headers['Authorization'] = `Bearer ${sessionToken}`;
+    }
     
     // Add CSRF token for non-safe methods
     if (isMutating) {
@@ -101,8 +131,14 @@ export const getQueryFn: <T>(options: {
       // Extract just the first element (the actual API endpoint URL) from queryKey
       // All subsequent elements are for cache partitioning only
       const url = queryKey[0] as string;
+      const fetchHeaders: Record<string, string> = {};
+      const sessionToken = getSessionToken();
+      if (sessionToken) {
+        fetchHeaders['Authorization'] = `Bearer ${sessionToken}`;
+      }
       const res = await fetch(url, {
         credentials: "include",
+        headers: fetchHeaders,
       });
 
       if (res.status === 401) {

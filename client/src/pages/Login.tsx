@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, setSessionToken } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -184,6 +184,11 @@ export default function Login() {
 
   // Shared post-login handler — called after session is established
   const finishLogin = async (data: any) => {
+    // Store per-tab session token in sessionStorage for multi-window customer isolation
+    if (data.sessionToken) {
+      setSessionToken(data.sessionToken);
+    }
+
     try {
       if (rememberMe) {
         localStorage.setItem('tprmax-remember-me', 'true');

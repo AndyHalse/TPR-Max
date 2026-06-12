@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, clearSessionToken } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -18,6 +18,7 @@ export default function LogoutButton({ bannerInvert }: LogoutButtonProps) {
       return response.json();
     },
     onSuccess: () => {
+      clearSessionToken();
       localStorage.removeItem('visigate_user');
       localStorage.removeItem('tprmax-logo-token');
       // Only wipe saved credentials if the user has not opted in to remember-me.

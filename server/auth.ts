@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import type { Request, Response, NextFunction } from 'express';
 import type { User, Customer } from '@shared/schema';
 import { storage } from './storage';
@@ -9,6 +10,52 @@ import { eq, sql } from 'drizzle-orm';
 import * as schema from '@shared/schema';
 import * as isolatedSchema from './isolatedSchema';
 import { logger } from './utils/logger';
+
+// ---------------------------------------------------------------------------
+// Per-tab session JWT helpers — used for multi-window customer isolation.
+// Each browser tab stores this token in sessionStorage and sends it as
+// Authorization: Bearer <token>. The middleware validates it before falling
+// back to the session cookie, so two windows can hold different customers.
+// ---------------------------------------------------------------------------
+
+function b64urlEncode(buf: Buffer): string {
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function b64urlDecode(str: string): Buffer {
+  const padded = str + '==='.slice((str.length + 3) % 4);
+  return Buffer.from(padded.replace(/-/g, '+').replace(/_/g, '/'), 'base64');
+}
+
+const JWT_HEADER = b64urlEncode(Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+const SESSION_TOKEN_TTL = 24 * 60 * 60; // 24 hours in seconds
+
+export function signSessionToken(userId: string, customerId: string): string {
+  const secret = process.env.SESSION_SECRET || 'dev-secret';
+  const payload = b64urlEncode(Buffer.from(JSON.stringify({
+    userId,
+    customerId,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + SESSION_TOKEN_TTL,
+  })));
+  const sigInput = `${JWT_HEADER}.${payload}`;
+  const sig = b64urlEncode(crypto.createHmac('sha256', secret).update(sigInput).digest());
+  return `${sigInput}.${sig}`;
+}
+
+export function verifySessionToken(token: string): { userId: string; customerId: string } {
+  const parts = token.split('.');
+  if (parts.length !== 3) throw new Error('Invalid token format');
+  const [header, payload, sig] = parts;
+  const secret = process.env.SESSION_SECRET || 'dev-secret';
+  const expectedSig = b64urlEncode(
+    crypto.createHmac('sha256', secret).update(`${header}.${payload}`).digest()
+  );
+  if (sig !== expectedSig) throw new Error('Invalid token signature');
+  const data = JSON.parse(b64urlDecode(payload).toString());
+  if (data.exp < Math.floor(Date.now() / 1000)) throw new Error('Token expired');
+  return { userId: data.userId, customerId: data.customerId };
+}
 
 // Dev Auth Bypass - centralized development authentication
 export function isDevAuthBypass(): boolean {
@@ -755,8 +802,29 @@ export class AuthService {
 /**
  * Middleware to check if user is authenticated with proper tenant context
  * PRODUCTION SECURITY: Enforces BOTH userId AND customerId for complete SaaS isolation
+ *
+ * Checks Authorization: Bearer <token> first (per-tab JWT stored in sessionStorage),
+ * which allows multiple windows to each hold a different customer context independently.
+ * Falls back to session cookie for backward compatibility with existing open tabs.
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  // ── Bearer token path (per-tab session isolation) ────────────────────────
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    try {
+      const { userId, customerId } = verifySessionToken(token);
+      req.customerId = customerId;
+      (req as any).userId = userId;
+      logger.info('✅ SECURITY: requireAuth passed via Bearer token:', { userId, customerId });
+      return next();
+    } catch (err) {
+      logger.info('🚨 SECURITY: Invalid/expired Bearer token — rejecting:', err);
+      return res.status(401).json({ error: 'Session token invalid or expired — please log in again' });
+    }
+  }
+
+  // ── Session cookie fallback ───────────────────────────────────────────────
   if (!req.session || !req.session.userId || !req.session.customerId) {
     logger.info('🚨 SECURITY: requireAuth failed - missing tenant context:', {
       hasSession: !!req.session,
@@ -771,7 +839,7 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   req.customerId = req.session.customerId;
   
   // Log successful authentication with tenant context
-  logger.info('✅ SECURITY: requireAuth passed - tenant context verified:', {
+  logger.info('✅ SECURITY: requireAuth passed via session cookie:', {
     userId: req.session.userId,
     customerId: req.session.customerId,
     sessionId: req.sessionID
