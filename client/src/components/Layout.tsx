@@ -87,13 +87,15 @@ export default function Layout({ children }: LayoutProps) {
   const getLogoSrc = useCallback(() => {
     if (logoError || !settings?.logoUrl) return null;
     const logoToken = sessionStorage.getItem('tprmax-logo-token');
-    if (logoFallbackStage === 0 && logoToken) return `/api/public-logo/${logoToken}`;
-    if (logoFallbackStage === 1) return `/api/company-logo`;
-    if (logoFallbackStage === 2) {
+    // Stage 0: prefer public-logo token; if no token (session-cookie login), fall through to stage 1
+    const effectiveStage = (logoFallbackStage === 0 && !logoToken) ? 1 : logoFallbackStage;
+    if (effectiveStage === 0) return `/api/public-logo/${logoToken}`;
+    if (effectiveStage === 1) return `/api/company-logo`;
+    if (effectiveStage === 2) {
       const normalizedUrl = settings.logoUrl.replace(/^\/objects/, '');
       return `/objects${normalizedUrl}`;
     }
-    if (logoFallbackStage === 3) {
+    if (effectiveStage === 3) {
       const fileName = settings.logoUrl.replace(/^\/?(uploads\/)?/, '');
       return `/public-objects/${fileName}`;
     }
