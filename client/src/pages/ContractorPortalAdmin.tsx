@@ -127,6 +127,21 @@ export default function ContractorPortalAdmin() {
     },
   });
 
+  const resendLoginMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiRequest("POST", `/api/contractors/portal-users/${userId}/resend-login`, {});
+      if (!res.ok) { const b = await res.json(); throw new Error(b?.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: (_data, userId) => {
+      const u = allPortalUsers.find((p: any) => p.id === userId);
+      toast({ title: "Login details sent", description: `Portal URL and username emailed to ${u?.email ?? "the user"}.` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to resend login details", description: err?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
   const revokeMutation = useMutation({
     mutationFn: async (userId: string) => {
       const res = await apiRequest("PATCH", `/api/contractors/portal-users/${userId}/revoke`, {});
@@ -203,8 +218,8 @@ export default function ContractorPortalAdmin() {
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <Tooltip>
-          <TooltipTrigger asChild>
-            <GlassCard className="p-4 cursor-default">
+          <TooltipTrigger className="text-left w-full block">
+            <GlassCard className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-green-100 rounded-lg"><CheckCircle2 className="w-5 h-5 text-green-600" /></div>
                 <div>
@@ -217,8 +232,8 @@ export default function ContractorPortalAdmin() {
           <TooltipContent side="top" className="text-xs">Contractors who have accepted their invite and can log in to upload documents</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <GlassCard className="p-4 cursor-default">
+          <TooltipTrigger className="text-left w-full block">
+            <GlassCard className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-amber-100 rounded-lg"><Clock className="w-5 h-5 text-amber-600" /></div>
                 <div>
@@ -231,8 +246,8 @@ export default function ContractorPortalAdmin() {
           <TooltipContent side="top" className="text-xs">Invitations sent but not yet accepted — use Resend if they've missed the email</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <GlassCard className="p-4 cursor-default">
+          <TooltipTrigger className="text-left w-full block">
+            <GlassCard className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-blue-100 rounded-lg"><Building2 className="w-5 h-5 text-blue-600" /></div>
                 <div>
@@ -245,8 +260,8 @@ export default function ContractorPortalAdmin() {
           <TooltipContent side="top" className="text-xs">Distinct contractor companies that have at least one portal user</TooltipContent>
         </Tooltip>
         <Tooltip>
-          <TooltipTrigger asChild>
-            <GlassCard className="p-4 cursor-default">
+          <TooltipTrigger className="text-left w-full block">
+            <GlassCard className="p-4">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-orange-100 rounded-lg"><FileText className="w-5 h-5 text-orange-600" /></div>
                 <div>
@@ -323,14 +338,25 @@ export default function ContractorPortalAdmin() {
                           </Tooltip>
                         )}
                         {u.isActive && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:text-red-700 hover:border-red-300" onClick={() => setRevokeTarget({ id: u.id, email: u.email })} disabled={revokeMutation.isPending}>
-                                <ShieldOff className="w-3 h-3 mr-1" /> Revoke
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">Immediately block this user from logging into the portal</TooltipContent>
-                          </Tooltip>
+                          <>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => resendLoginMutation.mutate(u.id)} disabled={resendLoginMutation.isPending}>
+                                  {resendLoginMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <MailCheck className="w-3 h-3 mr-1" />}
+                                  Resend Link
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">Email them the portal URL, username and access code (no password)</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:text-red-700 hover:border-red-300" onClick={() => setRevokeTarget({ id: u.id, email: u.email })} disabled={revokeMutation.isPending}>
+                                  <ShieldOff className="w-3 h-3 mr-1" /> Revoke
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">Immediately block this user from logging into the portal</TooltipContent>
+                            </Tooltip>
+                          </>
                         )}
                         <Tooltip>
                           <TooltipTrigger asChild>

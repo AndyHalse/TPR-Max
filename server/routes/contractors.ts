@@ -4917,6 +4917,80 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     }
   });
 
+  // ── Contractor Portal: Resend login details to an active portal user ────────
+  app.post('/api/contractors/portal-users/:userId/resend-login', requireAuth, async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+
+      const users = await db
+        .select()
+        .from(isolatedSchema.contractorPortalUsers)
+        .where(eq(isolatedSchema.contractorPortalUsers.id, userId))
+        .limit(1);
+
+      const user = users[0];
+      if (!user) return res.status(404).json({ error: 'Portal user not found.' });
+      if (!user.isActive) {
+        return res.status(400).json({ error: 'User has not yet accepted their invite. Use Resend Invite instead.' });
+      }
+
+      const settings = await db
+        .select({ companyName: isolatedSchema.companySettings.companyName })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+      const siteCompanyName = settings[0]?.companyName ?? 'your client';
+
+      const protocol = req.protocol;
+      const host = req.get('host') ?? '';
+      const portalUrl = `${protocol}://${host}/contractor-portal/login`;
+      const firstName = user.firstName ?? '';
+
+      try {
+        const emailSvc = new EmailService(customerId);
+        await emailSvc.sendEmail({
+          to: user.email,
+          subject: `Your Contractor Portal login details — ${siteCompanyName}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+              <h2 style="color:#1e293b">Contractor Portal — Login Details</h2>
+              <p>Hello${firstName ? ` ${firstName}` : ''},</p>
+              <p>Here are your login details for the <strong>${siteCompanyName}</strong> contractor portal.</p>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin:24px 0">
+                <p style="margin:0 0 12px;font-weight:bold;color:#0f172a">Your login details</p>
+                <table style="width:100%;border-collapse:collapse">
+                  <tr>
+                    <td style="padding:6px 0;color:#64748b;font-size:14px;width:140px">Portal URL</td>
+                    <td style="padding:6px 0;font-size:14px"><a href="${portalUrl}" style="color:#2563eb">${portalUrl}</a></td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#64748b;font-size:14px">Email (username)</td>
+                    <td style="padding:6px 0;font-size:14px;font-weight:bold">${user.email}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#64748b;font-size:14px">Company access code</td>
+                    <td style="padding:6px 0;font-size:14px;font-family:monospace;font-weight:bold;background:#f1f5f9;padding:4px 8px;border-radius:4px">${customerId}</td>
+                  </tr>
+                </table>
+              </div>
+              <p style="color:#64748b;font-size:13px">Forgotten your password? Use the <strong>Forgot password?</strong> link on the login page to reset it.</p>
+            </div>
+          `,
+          text: `Contractor Portal — Login Details\n\nHello${firstName ? ` ${firstName}` : ''},\n\nYour login details for ${siteCompanyName}:\n  Portal: ${portalUrl}\n  Email: ${user.email}\n  Company access code: ${customerId}\n\nForgotten your password? Use the "Forgot password?" link on the login page.`,
+        });
+      } catch (emailErr: any) {
+        logger.warn('[portal-resend-login] Email failed:', emailErr.message?.substring(0, 80));
+        return res.status(500).json({ error: 'Failed to send email.' });
+      }
+
+      return res.json({ success: true });
+    } catch (error: any) {
+      logger.error('Error resending login details:', error);
+      return res.status(500).json({ error: 'Failed to resend login details.' });
+    }
+  });
+
   // ── Contractor Portal: Review a document (approve/reject) ─────────────────
   app.put('/api/contractors/documents/:docId/review', requireAuth, async (req, res) => {
     try {

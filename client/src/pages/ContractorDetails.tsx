@@ -216,6 +216,22 @@ export default function ContractorDetails() {
     },
   });
 
+  // Resend login details to an already-active portal user
+  const resendLoginMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      const res = await apiRequest("POST", `/api/contractors/portal-users/${userId}/resend-login`, {});
+      if (!res.ok) { const b = await res.json(); throw new Error(b?.error || "Failed"); }
+      return res.json();
+    },
+    onSuccess: (_data, userId) => {
+      const u = (portalUsers as any[]).find((p: any) => p.id === userId);
+      toast({ title: "Login details sent", description: `Email with portal URL and username sent to ${u?.email ?? "the user"}.` });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to resend login details", description: err?.message || "Please try again.", variant: "destructive" });
+    },
+  });
+
   // Form for issuing card violations
   const cardIssueForm = useForm({
     resolver: zodResolver(z.object({
@@ -1700,16 +1716,45 @@ export default function ContractorDetails() {
                 ) : (
                   <div className="space-y-2">
                     {portalUsers.map((u: any) => (
-                      <div key={u.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                        <div>
-                          <p className="font-medium text-sm">{u.email}</p>
+                      <div key={u.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30 gap-3">
+                        <div className="min-w-0">
+                          {(u.firstName || u.lastName) && (
+                            <p className="font-medium text-sm">{`${u.firstName ?? ""} ${u.lastName ?? ""}`.trim()}</p>
+                          )}
+                          <p className={u.firstName || u.lastName ? "text-xs text-muted-foreground" : "font-medium text-sm"}>{u.email}</p>
                           <p className="text-xs text-muted-foreground">
                             Invited {u.invitedAt ? new Date(u.invitedAt).toLocaleDateString() : "—"}
                           </p>
                         </div>
-                        <Badge variant={u.inviteAccepted ? "default" : "secondary"}>
-                          {u.inviteAccepted ? "Active" : "Invite pending"}
-                        </Badge>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Badge variant={u.isActive ? "default" : "secondary"}>
+                            {u.isActive ? "Active" : "Invite pending"}
+                          </Badge>
+                          {u.isActive && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => resendLoginMutation.mutate(u.id)}
+                              disabled={resendLoginMutation.isPending}
+                            >
+                              {resendLoginMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Send className="w-3 h-3 mr-1" />}
+                              Resend Link
+                            </Button>
+                          )}
+                          {!u.isActive && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => sendPortalInviteMutation.mutate(u.email)}
+                              disabled={sendPortalInviteMutation.isPending}
+                            >
+                              {sendPortalInviteMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Send className="w-3 h-3 mr-1" />}
+                              Resend Invite
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
