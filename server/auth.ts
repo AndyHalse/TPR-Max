@@ -814,18 +814,12 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     const token = authHeader.slice(7);
     try {
       const { userId, customerId } = verifySessionToken(token);
-      // Set the canonical request-level fields used by route handlers
+      // req.user + req.customerId + (req as any).userId were already set by
+      // loadUser (which runs earlier in the middleware chain and is now
+      // Bearer-aware). Just confirm the token is valid and move on — no
+      // req.session mutation here so the shared session cookie is never dirtied.
       req.customerId = customerId;
       (req as any).userId = userId;
-      // Mirror into req.session so legacy handlers that read req.session.customerId
-      // and req.session.userId see the correct per-tab tenant context without
-      // needing individual handler updates. These assignments are in-memory only
-      // for this request — session.save() is never called here, so they do NOT
-      // persist back to the session store.
-      if (req.session) {
-        req.session.customerId = customerId;
-        (req.session as any).userId = userId;
-      }
       logger.info('✅ SECURITY: requireAuth passed via Bearer token:', { userId, customerId });
       return next();
     } catch (err) {
@@ -906,6 +900,48 @@ export async function requireAuthOrFireMarshal(req: Request, res: Response, next
  * Middleware to load user from session using customer-specific database
  */
 export async function loadUser(req: Request, res: Response, next: NextFunction) {
+  // ── Bearer token path (per-tab session isolation) ──────────────────────────
+  // When a valid Bearer token is present, hydrate req.user from THAT token's
+  // customer context — not from the shared session cookie. This ensures req.user
+  // is always consistent with the per-tab authenticated identity, even when
+  // another window has switched the cookie to a different customer.
+  const authHeader = req.headers['authorization'];
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    try {
+      const { userId, customerId } = verifySessionToken(token);
+      req.customerId = customerId;
+      (req as any).userId = userId;
+
+      if (isDevAuthBypass() && userId === 'dev-user-andy' && customerId === 'dev-customer-001') {
+        logger.info('🚀 LOADUSER_BYPASS: Skipping database user loading in dev mode (Bearer)');
+        const devUser = getDevUser();
+        req.user = { id: devUser.id, username: devUser.username, role: 'admin' } as any;
+        return next();
+      }
+
+      try {
+        const customerDbService = CustomerDatabaseService.getInstance();
+        const customerDb = await customerDbService.getCustomerDatabase(customerId);
+        const users = await customerDb
+          .select()
+          .from(isolatedSchema.users)
+          .where(eq(isolatedSchema.users.id, userId))
+          .limit(1);
+        if (users[0]) {
+          req.user = users[0] as any;
+        }
+      } catch (error) {
+        logger.error('Failed to load user from Bearer token context:', error);
+      }
+      return next();
+    } catch {
+      // Invalid/expired token — fall through to session cookie path.
+      // requireAuth will reject the request properly if auth is required.
+    }
+  }
+
+  // ── Session cookie path ────────────────────────────────────────────────────
   if (req.session && req.session.userId && req.session.customerId) {
     // DEV AUTH BYPASS: Skip database loading in dev mode
     if (isDevAuthBypass() && req.session.userId === 'dev-user-andy' && req.session.customerId === 'dev-customer-001') {
@@ -935,6 +971,7 @@ export async function loadUser(req: Request, res: Response, next: NextFunction) 
       if (users[0]) {
         req.user = users[0] as any;
         req.customerId = req.session.customerId;
+        (req as any).userId = req.session.userId;
       }
     } catch (error) {
       logger.error('Failed to load user from customer-specific session:', error);

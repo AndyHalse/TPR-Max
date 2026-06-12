@@ -211,7 +211,7 @@ export function registerRamsRoutes(app: Express): void {
 
   app.get("/api/martyn-law", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId!;
+      const customerId = req.customerId!;
       const custDb = await customerDbService.getCustomerDatabase(customerId);
       const rows = await custDb.select().from(isolatedSchema.martynLawConfig).where(eq(isolatedSchema.martynLawConfig.customerId, customerId)).limit(1);
       if (!rows.length) {
@@ -232,7 +232,7 @@ export function registerRamsRoutes(app: Express): void {
 
   app.put("/api/martyn-law", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId!;
+      const customerId = req.customerId!;
       const custDb = await customerDbService.getCustomerDatabase(customerId);
 
       const {
@@ -349,7 +349,7 @@ export function registerRamsRoutes(app: Express): void {
 
   app.get("/api/compliance/summary", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId!;
+      const customerId = req.customerId!;
       const custDb = await customerDbService.getCustomerDatabase(customerId);
       const { requirements, companyName, activeCount, totalCount, compliancePercent } = await buildComplianceRequirements(customerId, custDb);
 
@@ -375,7 +375,7 @@ export function registerRamsRoutes(app: Express): void {
 
   app.get("/api/compliance/report", requireAuth, async (req, res) => {
     try {
-      const customerId = req.session.customerId!;
+      const customerId = req.customerId!;
       const custDb = await customerDbService.getCustomerDatabase(customerId);
       const { requirements, companyName, activeCount, totalCount, compliancePercent, esc } = await buildComplianceRequirements(customerId, custDb);
 

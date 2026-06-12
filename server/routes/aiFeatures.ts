@@ -20,7 +20,7 @@ export function registerAiFeatureRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Generate the image using AI service with customer context
       const { imageUrl, dallePrompt } = await aiService.generateSafetyImage(context, slideType, title, description);
@@ -59,7 +59,7 @@ export function registerAiFeatureRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Get images from customer-isolated database
       const images = await databaseService.getAiGeneratedImages(context, slideType as string);
@@ -79,7 +79,7 @@ export function registerAiFeatureRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Get image from customer-isolated database
       const image = await databaseService.getAiGeneratedImageById(context, id);
@@ -104,7 +104,7 @@ export function registerAiFeatureRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Get image from customer-isolated database
       const image = await databaseService.getAiGeneratedImageBySlideType(context, slideType);

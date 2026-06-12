@@ -1881,7 +1881,7 @@ export function registerInductionRoutes(app: Express): void {
       if (!result.success && req.session?.customerId) {
         try {
           const { decryptData } = await import('../utils/encryption');
-          const context = { customerId: req.session.customerId };
+          const context = { customerId: req.customerId };
           const apiKeys = await databaseService.getCustomerApiKeys(context);
           const claudeKeyRow = apiKeys.find((k: any) => k.serviceType === 'claude' && k.status === 'active');
 

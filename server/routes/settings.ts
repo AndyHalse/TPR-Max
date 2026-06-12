@@ -290,10 +290,10 @@ export function registerSettingsRoutes(
   // AI Settings API Endpoints for secure API key management
   app.get("/api/settings/ai-keys", requireAuth, async (req, res) => {
     try {
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       const { decryptData } = await import("../utils/encryption");
       
@@ -340,10 +340,10 @@ export function registerSettingsRoutes(
     try {
       const { openaiKey, geminiKey, claudeKey } = req.body;
       
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       const { 
         encryptData, 
@@ -479,10 +479,10 @@ export function registerSettingsRoutes(
         return res.status(400).json({ error: "Invalid service type" });
       }
       
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       let testKey = tempKey;
       
@@ -614,10 +614,10 @@ export function registerSettingsRoutes(
         return res.status(400).json({ error: "Invalid service type" });
       }
       
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       const success = await databaseService.revokeCustomerApiKey(context, serviceType, {
         revokedBy: req.user?.id,
@@ -724,10 +724,10 @@ export function registerSettingsRoutes(
       const isLegacyPath = firstSegment === 'uploads' || firstSegment === 'contractor-portal';
       const pathCustomerId = isLegacyPath ? null : firstSegment;
 
-      const hasStaffSession = !!(req.session?.userId && req.session?.customerId);
+      const hasStaffSession = !!((req as any).userId && req.customerId);
       if (hasStaffSession) {
         // For new namespaced paths, the path's customerId must match the session's customer.
-        if (pathCustomerId && pathCustomerId !== req.session.customerId) {
+        if (pathCustomerId && pathCustomerId !== req.customerId) {
           return res.status(403).json({ error: 'Not permitted.' });
         }
       } else {
@@ -795,7 +795,7 @@ export function registerSettingsRoutes(
         return res.status(400).json({ error: "A user already exists with this email address" });
       }
 
-      const currentUser = await databaseService.getUser(invContext, req.session.userId!);
+      const currentUser = await databaseService.getUser(invContext, (req as any).userId!);
       if (!currentUser) {
         return res.status(401).json({ error: "Unauthorized" });
       }
@@ -926,10 +926,10 @@ export function registerSettingsRoutes(
 
   app.delete("/api/invitations/:id", requireAuth, async (req, res) => {
     try {
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       const { id } = req.params;
       const success = await databaseService.deleteInvitation(context, id);
       if (!success) {
@@ -946,14 +946,14 @@ export function registerSettingsRoutes(
 
   app.get("/api/users", requireAuth, async (req, res) => {
     try {
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
 
       const users = await databaseService.getAllUsers(context);
       
-      const sessionUserId = req.session?.userId;
+      const sessionUserId = (req as any).userId;
       const safeUsers = users.map(user => ({
         id: user.id,
         username: user.username,
@@ -996,10 +996,10 @@ export function registerSettingsRoutes(
         return res.status(400).json({ error: "Username, email, password, and role are required" });
       }
 
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
 
       const existingUserByUsername = await databaseService.getUserByUsername(context, username);
       if (existingUserByUsername) {
@@ -1043,18 +1043,18 @@ export function registerSettingsRoutes(
 
   app.patch("/api/users/me/nav-style", requireAuth, async (req, res) => {
     try {
-      if (!req.session?.customerId || !req.session?.userId) {
+      if (!req.customerId || !(req as any).userId) {
         return res.status(401).json({ error: "Not authenticated" });
       }
       const { navStyle } = req.body;
       if (navStyle !== 'classic' && navStyle !== 'sidebar') {
         return res.status(400).json({ error: "navStyle must be 'classic' or 'sidebar'" });
       }
-      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.session.customerId);
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
       await customerDb
         .update(isolatedSchema.users)
         .set({ navStyle } as any)
-        .where(eq(isolatedSchema.users.id, req.session.userId));
+        .where(eq(isolatedSchema.users.id, (req as any).userId));
       res.json({ success: true, navStyle });
     } catch (error) {
       logger.error("Failed to update nav style:", error);
@@ -1064,19 +1064,19 @@ export function registerSettingsRoutes(
 
   app.put("/api/users/:id", requireAuth, async (req, res) => {
     try {
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       const { id } = req.params;
       const { username, email, firstName, lastName, role, password, allowedMenuItems, defaultLandingPage } = req.body;
       
-      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.session.customerId);
+      const customerDb = await CustomerDatabaseService.getInstance().getCustomerDatabase(req.customerId);
       const currentUsers = await customerDb
         .select()
         .from(isolatedSchema.users)
-        .where(eq(isolatedSchema.users.id, req.session.userId))
+        .where(eq(isolatedSchema.users.id, (req as any).userId))
         .limit(1);
       
       const currentUser = currentUsers[0];
@@ -1131,13 +1131,13 @@ export function registerSettingsRoutes(
 
   app.delete("/api/users/:id", requireAuth, async (req, res) => {
     try {
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Missing customer context" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       const { id } = req.params;
       
-      if (id === req.session.userId) {
+      if (id === (req as any).userId) {
         return res.status(400).json({ error: "You cannot delete your own account" });
       }
 

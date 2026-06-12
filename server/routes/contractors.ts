@@ -1156,7 +1156,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Get company settings for address
       const companySettings = await simpleDatabaseService.getCompanySettings(context);
@@ -1202,7 +1202,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
 
       // Get company settings (which contains the address)
       const companySettings = await databaseService.getCompanySettings(context);
@@ -1282,7 +1282,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
 
       const summary = await co2Calculator.getCompanyCO2Summary(context.customerId, companyId);
 
@@ -1305,7 +1305,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
 
       const co2Data = await databaseService.getCO2EmissionsByWorker(context.customerId, workerId);
       const suggestions = await co2Calculator.getReductionSuggestions(context.customerId, workerId);
@@ -1333,7 +1333,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
 
       const report = await co2Calculator.generateSustainabilityReport(
         context.customerId,
@@ -1361,7 +1361,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
 
       const reports = await databaseService.getSustainabilityReports(context.customerId, companyId);
 
@@ -1403,7 +1403,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
 
       const reports = await databaseService.getSustainabilityReports(context.customerId);
       const report = reports.find(r => r.id === reportId);
@@ -1450,7 +1450,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
 
       const summary = await databaseService.getMonthlySummary(
         context.customerId,
@@ -1479,7 +1479,7 @@ export function registerContractorRoutes(app: Express): void {
       if (!req.session?.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
-      const context = { customerId: req.session.customerId };
+      const context = { customerId: req.customerId };
       
       // Update worker postcode if provided
       if (postcode) {
