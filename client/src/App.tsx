@@ -82,6 +82,8 @@ import AppraisalsDue from "@/pages/hr/AppraisalsDue";
 import PayrollExport from "@/pages/hr/PayrollExport";
 import ContractorPortalLogin from "@/pages/contractor-portal/ContractorPortalLogin";
 import ContractorPortalAcceptInvite from "@/pages/contractor-portal/ContractorPortalAcceptInvite";
+import ContractorPortalForgotPassword from "@/pages/contractor-portal/ContractorPortalForgotPassword";
+import ContractorPortalResetPassword from "@/pages/contractor-portal/ContractorPortalResetPassword";
 import ContractorPortalDashboard from "@/pages/contractor-portal/ContractorPortalDashboard";
 import ContractorPortalDocuments from "@/pages/contractor-portal/ContractorPortalDocuments";
 import ContractorPortalWorkers from "@/pages/contractor-portal/ContractorPortalWorkers";
@@ -414,6 +416,8 @@ function Router() {
   // Contractor self-service portal — separate JWT-auth flow, no main Layout
   if (isContractorPortalRoute) {
     if (location === '/contractor-portal/accept-invite') return <ContractorPortalAcceptInvite />;
+    if (location === '/contractor-portal/forgot-password') return <ContractorPortalForgotPassword />;
+    if (location === '/contractor-portal/reset-password') return <ContractorPortalResetPassword />;
     if (location === '/contractor-portal/documents') return <ContractorPortalDocuments />;
     if (location === '/contractor-portal/workers') return <ContractorPortalWorkers />;
     if (location === '/contractor-portal/login') return <ContractorPortalLogin />;

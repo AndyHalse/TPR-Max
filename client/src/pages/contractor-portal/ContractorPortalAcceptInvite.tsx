@@ -19,6 +19,7 @@ export default function ContractorPortalAcceptInvite() {
   const [prefillLoading, setPrefillLoading] = useState(true);
   const [logoUrl, setLogoUrl] = useState("");
   const [companyName, setCompanyName] = useState("");
+  const [email, setEmail] = useState("");
   const [copied, setCopied] = useState(false);
 
   const params = new URLSearchParams(window.location.search);
@@ -41,6 +42,7 @@ export default function ContractorPortalAcceptInvite() {
           if (data.lastName)  setLastName(data.lastName);
           if (data.logoUrl)   setLogoUrl(data.logoUrl);
           if (data.companyName) setCompanyName(data.companyName);
+          if (data.email)     setEmail(data.email);
         }
       })
       .catch(() => {})
@@ -109,20 +111,26 @@ export default function ContractorPortalAcceptInvite() {
               <div>
                 <h2 className="text-xl font-bold text-slate-900">Account created!</h2>
                 <p className="text-slate-500 text-sm mt-1">
-                  Your account is ready. Save your company access code — you'll need it each time you sign in.
+                  A confirmation email with your login details has been sent to <strong>{email}</strong>.
                 </p>
               </div>
 
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left">
-                <p className="text-xs text-slate-500 font-medium mb-1">Company access code</p>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 text-sm font-mono text-slate-800 break-all">{customerId}</code>
-                  <Button size="sm" variant="outline" onClick={handleCopy} className="shrink-0">
-                    {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
-                  </Button>
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-left space-y-3">
+                <div>
+                  <p className="text-xs text-slate-500 font-medium mb-1">Your login email</p>
+                  <p className="text-sm font-mono text-slate-800 break-all">{email}</p>
                 </div>
-                <p className="text-xs text-slate-400 mt-2">
-                  You'll need this every time you log in from a new device.
+                <div>
+                  <p className="text-xs text-slate-500 font-medium mb-1">Company access code</p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-sm font-mono text-slate-800 break-all">{customerId}</code>
+                    <Button size="sm" variant="outline" onClick={handleCopy} className="shrink-0">
+                      {copied ? <Check className="h-3.5 w-3.5 text-green-600" /> : <Copy className="h-3.5 w-3.5" />}
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-xs text-slate-400">
+                  You'll need your email, your password, and this access code each time you sign in.
                 </p>
               </div>
 

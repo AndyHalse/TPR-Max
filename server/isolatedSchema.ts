@@ -623,6 +623,8 @@ export const contractorPortalUsers = pgTable("contractor_portal_users", {
   inviteExpiresAt: timestamp("invite_expires_at"),
   invitedAt: timestamp("invited_at").defaultNow(),
   lastLoginAt: timestamp("last_login_at"),
+  passwordResetToken: text("password_reset_token"),
+  passwordResetExpiresAt: timestamp("password_reset_expires_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

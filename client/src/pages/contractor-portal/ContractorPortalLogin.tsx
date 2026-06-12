@@ -176,15 +176,25 @@ export default function ContractorPortalLogin() {
               </Button>
             </form>
 
-            <p className="text-center text-sm text-slate-500 mt-4">
-              Have an invitation email?{" "}
-              <a
-                href="/contractor-portal/accept-invite"
-                className="text-blue-600 hover:underline font-medium"
-              >
-                Set up your account
-              </a>
-            </p>
+            <div className="space-y-2 mt-4">
+              <p className="text-center text-sm text-slate-500">
+                <a
+                  href="/contractor-portal/forgot-password"
+                  className="text-blue-600 hover:underline font-medium"
+                >
+                  Forgot password?
+                </a>
+              </p>
+              <p className="text-center text-sm text-slate-500">
+                Have an invitation email?{" "}
+                <a
+                  href="/contractor-portal/accept-invite"
+                  className="text-blue-600 hover:underline font-medium"
+                >
+                  Set up your account
+                </a>
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

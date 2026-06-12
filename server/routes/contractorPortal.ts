@@ -12,6 +12,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
 import { generateLogoToken } from '../utils/logoToken';
+import { EmailService } from '../emailService';
 
 export async function registerContractorPortalRoutes(app: Express): Promise<void> {
   const multerModule = await import('multer');
@@ -254,6 +255,53 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
         role: user.role,
       });
 
+      // Send welcome/login-details email so contractor has their credentials saved
+      try {
+        const resolvedFirst = firstName?.trim() || user.firstName;
+        const companyDisplayName = companies[0]?.companyName ?? '';
+        const emailSvc = new EmailService(customerId);
+        const settings = await db.select({ companyName: isolatedSchema.companySettings.companyName }).from(isolatedSchema.companySettings).limit(1);
+        const siteCompanyName = settings[0]?.companyName ?? companyDisplayName;
+        await emailSvc.sendEmail({
+          to: user.email,
+          subject: `Your Contractor Portal login details — ${siteCompanyName}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+              <h2 style="color:#1e293b">Contractor Portal — Account Activated</h2>
+              <p>Hello${resolvedFirst ? ` ${resolvedFirst}` : ''},</p>
+              <p>Your contractor portal account for <strong>${siteCompanyName}</strong> has been activated. Please save this email — it contains the details you'll need every time you log in.</p>
+              <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:20px;margin:24px 0">
+                <p style="margin:0 0 12px;font-weight:bold;color:#0f172a">Your login details</p>
+                <table style="width:100%;border-collapse:collapse">
+                  <tr>
+                    <td style="padding:6px 0;color:#64748b;font-size:14px;width:140px">Portal URL</td>
+                    <td style="padding:6px 0;font-size:14px"><a href="/contractor-portal/login" style="color:#2563eb">/contractor-portal/login</a></td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#64748b;font-size:14px">Email (username)</td>
+                    <td style="padding:6px 0;font-size:14px;font-weight:bold">${user.email}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#64748b;font-size:14px">Password</td>
+                    <td style="padding:6px 0;font-size:14px;color:#64748b">The password you just set</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 0;color:#64748b;font-size:14px">Company access code</td>
+                    <td style="padding:6px 0;font-size:14px;font-family:monospace;font-weight:bold;background:#f1f5f9;padding:4px 8px;border-radius:4px">${customerId}</td>
+                  </tr>
+                </table>
+              </div>
+              <p style="color:#64748b;font-size:13px">You'll need all three — your email, your password, and the company access code — each time you sign in on a new device.</p>
+              <p style="color:#64748b;font-size:13px">If you ever forget your password, use the <strong>Forgot password?</strong> link on the login page to reset it.</p>
+              <p style="color:#94a3b8;font-size:12px;margin-top:24px">If you did not create this account, please contact ${siteCompanyName} immediately.</p>
+            </div>
+          `,
+          text: `Contractor Portal — Account Activated\n\nHello${resolvedFirst ? ` ${resolvedFirst}` : ''},\n\nYour contractor portal account for ${siteCompanyName} is now active.\n\nYour login details:\n  Portal: /contractor-portal/login\n  Email: ${user.email}\n  Password: the password you just set\n  Company access code: ${customerId}\n\nKeep this email safe — you'll need these details each time you sign in.`,
+        });
+      } catch (emailErr: any) {
+        logger.warn('[portal-accept-invite] Welcome email failed:', emailErr.message?.substring(0, 80));
+      }
+
       return res.json({
         token,
         user: {
@@ -270,6 +318,132 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
     } catch (err: any) {
       logger.error('[portal-accept-invite]', err);
       return res.status(500).json({ error: 'Failed to accept invitation. Please try again.' });
+    }
+  });
+
+  // ── Public: Forgot Password ───────────────────────────────────────────────
+  app.post('/api/contractor-portal/forgot-password', async (req, res) => {
+    try {
+      const { email, customerId } = req.body as Record<string, string>;
+      if (!email || !customerId) {
+        return res.status(400).json({ error: 'Email and company access code are required.' });
+      }
+
+      let db: any;
+      try {
+        db = await customerDbService.getCustomerDatabase(customerId);
+      } catch {
+        // Don't reveal if company ID is invalid
+        return res.json({ success: true });
+      }
+
+      const users = await db
+        .select()
+        .from(isolatedSchema.contractorPortalUsers)
+        .where(
+          and(
+            eq(isolatedSchema.contractorPortalUsers.email, email.toLowerCase().trim()),
+            eq(isolatedSchema.contractorPortalUsers.isActive, true)
+          )
+        )
+        .limit(1);
+
+      // Always return success to prevent email enumeration
+      if (!users.length) return res.json({ success: true });
+
+      const user = users[0];
+      const resetToken = randomUUID();
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+      await db
+        .update(isolatedSchema.contractorPortalUsers)
+        .set({ passwordResetToken: resetToken, passwordResetExpiresAt: expiresAt })
+        .where(eq(isolatedSchema.contractorPortalUsers.id, user.id));
+
+      const settings = await db
+        .select({ companyName: isolatedSchema.companySettings.companyName })
+        .from(isolatedSchema.companySettings)
+        .limit(1);
+      const siteCompanyName = settings[0]?.companyName ?? '';
+
+      const resetUrl = `/contractor-portal/reset-password?token=${resetToken}&cid=${customerId}`;
+
+      try {
+        const emailSvc = new EmailService(customerId);
+        await emailSvc.sendEmail({
+          to: user.email,
+          subject: `Reset your Contractor Portal password — ${siteCompanyName}`,
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+              <h2 style="color:#1e293b">Password Reset Request</h2>
+              <p>Hello${user.firstName ? ` ${user.firstName}` : ''},</p>
+              <p>We received a request to reset the password for your contractor portal account at <strong>${siteCompanyName}</strong>.</p>
+              <p>Click the button below to choose a new password. This link expires in <strong>1 hour</strong>.</p>
+              <p style="text-align:center;margin:32px 0">
+                <a href="${resetUrl}" style="background:#2563eb;color:white;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:bold;display:inline-block">
+                  Reset My Password
+                </a>
+              </p>
+              <p style="color:#64748b;font-size:13px">If you didn't request a password reset, you can safely ignore this email — your password will not change.</p>
+              <p style="color:#64748b;font-size:13px">Your company access code is: <strong>${customerId}</strong></p>
+            </div>
+          `,
+          text: `Password Reset Request\n\nHello${user.firstName ? ` ${user.firstName}` : ''},\n\nClick the link below to reset your contractor portal password (expires in 1 hour):\n${resetUrl}\n\nIf you didn't request this, ignore this email.`,
+        });
+      } catch (emailErr: any) {
+        logger.warn('[portal-forgot-password] Email failed:', emailErr.message?.substring(0, 80));
+      }
+
+      return res.json({ success: true });
+    } catch (err: any) {
+      logger.error('[portal-forgot-password]', err);
+      return res.status(500).json({ error: 'Failed to process request. Please try again.' });
+    }
+  });
+
+  // ── Public: Reset Password ────────────────────────────────────────────────
+  app.post('/api/contractor-portal/reset-password', async (req, res) => {
+    try {
+      const { resetToken, customerId, password } = req.body as Record<string, string>;
+      if (!resetToken || !customerId || !password) {
+        return res.status(400).json({ error: 'Reset token, company access code, and new password are required.' });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+      }
+
+      let db: any;
+      try {
+        db = await customerDbService.getCustomerDatabase(customerId);
+      } catch {
+        return res.status(400).json({ error: 'Invalid company access code.' });
+      }
+
+      const users = await db
+        .select()
+        .from(isolatedSchema.contractorPortalUsers)
+        .where(eq(isolatedSchema.contractorPortalUsers.passwordResetToken, resetToken))
+        .limit(1);
+
+      if (!users.length) {
+        return res.status(400).json({ error: 'Invalid or expired reset link. Please request a new one.' });
+      }
+
+      const user = users[0];
+      if (!user.passwordResetExpiresAt || new Date(user.passwordResetExpiresAt) < new Date()) {
+        return res.status(400).json({ error: 'This reset link has expired. Please request a new one.' });
+      }
+
+      const hash = await bcrypt.hash(password, 12);
+      await db
+        .update(isolatedSchema.contractorPortalUsers)
+        .set({ passwordHash: hash, passwordResetToken: null, passwordResetExpiresAt: null })
+        .where(eq(isolatedSchema.contractorPortalUsers.id, user.id));
+
+      return res.json({ success: true });
+    } catch (err: any) {
+      logger.error('[portal-reset-password]', err);
+      return res.status(500).json({ error: 'Failed to reset password. Please try again.' });
     }
   });
 

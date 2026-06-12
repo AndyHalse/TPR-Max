@@ -1277,6 +1277,8 @@ export class CustomerDatabaseService {
       `);
       await pool.query(`ALTER TABLE "${schemaName}".company_settings ADD COLUMN IF NOT EXISTS feature_contractor_portal BOOLEAN DEFAULT false`);
       await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS dbs_required BOOLEAN DEFAULT false`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_portal_users ADD COLUMN IF NOT EXISTS password_reset_token TEXT`);
+      await pool.query(`ALTER TABLE "${schemaName}".contractor_portal_users ADD COLUMN IF NOT EXISTS password_reset_expires_at TIMESTAMPTZ`);
       logger.info(`✅ Contractor portal migration ensured for ${schemaName}`);
     } catch (err: any) {
       logger.warn(`⚠️ Contractor portal migration failed for ${schemaName}: ${err.message?.substring(0, 100)}`);
