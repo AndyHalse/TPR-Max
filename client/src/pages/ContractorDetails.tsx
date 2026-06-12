@@ -121,6 +121,7 @@ export default function ContractorDetails() {
   const [portalInviteEmail, setPortalInviteEmail] = useState("");
   const [workerWizardStep, setWorkerWizardStep] = useState(1);
   const [workerWizardSavedName, setWorkerWizardSavedName] = useState("");
+  const [workerWizardLastValues, setWorkerWizardLastValues] = useState<any>(null);
   const [viewingWorker, setViewingWorker] = useState<ContractorWorker | null>(null);
   const [viewingWorkerDbsRequired, setViewingWorkerDbsRequired] = useState(false);
   const [qrPassWorker, setQrPassWorker] = useState<ContractorWorker | null>(null);
@@ -141,10 +142,12 @@ export default function ContractorDetails() {
   const [preBookNotes, setPreBookNotes] = useState("");
 
   // Fetch current user to get customerId (needed for list-level cache invalidation)
-  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string }>({
+  const { data: currentUser } = useQuery<{ id: string; username: string; customerId: string; role: string }>({
     queryKey: ['/api/auth/me'],
   });
   const customerId = currentUser?.customerId;
+  const currentUserRole = currentUser?.role || '';
+  const canConfirmInduction = ['admin', 'manager'].includes(currentUserRole);
 
   // Fetch contractor details
   const { data: contractor, isLoading } = useQuery({
@@ -275,9 +278,9 @@ export default function ContractorDetails() {
     resolver: zodResolver(z.object({
       firstName: z.string().min(1, "First name is required"),
       lastName: z.string().min(1, "Last name is required"),
-      email: z.string().email("Valid email is required").optional(),
+      email: z.string().min(1, "Email is required").email("Valid email address required"),
       phone: z.string().min(1, "Phone number is required"),
-      postcode: z.string().min(1, "Postcode is required"),
+      postcode: z.string().optional(),
       transportMethod: z.enum(["car_diesel", "car_petrol", "electric_car", "public_transport", "motorcycle"]),
       rightToWork: z.string().min(1, "Right to work status is required"),
       rightToWorkExpiryDate: z.string().optional(),
@@ -289,6 +292,10 @@ export default function ContractorDetails() {
       workingAtHeight: z.boolean(),
       inductionCompleted: z.boolean(),
       isActive: z.boolean(),
+    }).superRefine((data, ctx) => {
+      if (data.rightToWork === 'valid' && !data.rightToWorkExpiryDate) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['rightToWorkExpiryDate'], message: 'Expiry date is required when Right to Work is valid' });
+      }
     })),
     defaultValues: {
       firstName: "",
@@ -297,10 +304,10 @@ export default function ContractorDetails() {
       phone: "",
       postcode: "",
       transportMethod: "car_diesel" as const,
-      rightToWork: "valid",
+      rightToWork: "pending",
       rightToWorkExpiryDate: "",
       cscsCard: "",
-      cscsStatus: "valid" as const,
+      cscsStatus: "none" as const,
       ipafStatus: "none" as const,
       asbestosAwareness: false,
       manualHandling: false,
@@ -352,6 +359,7 @@ export default function ContractorDetails() {
     onSuccess: (_data: any, variables: any) => {
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
       setWorkerWizardSavedName(`${variables.firstName} ${variables.lastName}`);
+      setWorkerWizardLastValues(variables);
       setWorkerWizardStep(4);
     },
     onError: (error: any) => {
@@ -2223,7 +2231,7 @@ export default function ContractorDetails() {
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField control={workerForm.control} name="email" render={({ field }) => (
-                      <FormItem><FormLabel>Email</FormLabel><FormControl><Input type="email" {...field} data-testid="input-worker-email" /></FormControl><FormMessage /></FormItem>
+                      <FormItem><FormLabel>Email Address *</FormLabel><FormControl><Input type="email" {...field} placeholder="e.g. worker@company.com" data-testid="input-worker-email" /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={workerForm.control} name="phone" render={({ field }) => (
                       <FormItem><FormLabel>Phone *</FormLabel><FormControl><Input {...field} placeholder="e.g. 07700 900000" data-testid="input-worker-phone" /></FormControl><FormMessage /></FormItem>
@@ -2278,8 +2286,8 @@ export default function ContractorDetails() {
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl><SelectTrigger data-testid="input-worker-right-to-work"><SelectValue placeholder="Select status" /></SelectTrigger></FormControl>
                           <SelectContent>
-                            <SelectItem value="valid">✅ Valid — check complete</SelectItem>
                             <SelectItem value="pending">⏳ Pending — check in progress</SelectItem>
+                            <SelectItem value="valid">✅ Valid — check complete</SelectItem>
                             <SelectItem value="expired">❌ Expired — requires re-check</SelectItem>
                           </SelectContent>
                         </Select>
@@ -2290,7 +2298,7 @@ export default function ContractorDetails() {
                       <FormField control={workerForm.control} name="rightToWorkExpiryDate" render={({ field }) => (
                         <FormItem>
                           <FormLabel className="text-xs text-gray-600">
-                            {workerForm.watch('rightToWork') === 'expired' ? 'Expiry Date (when it expired)' : 'Expiry Date'}
+                            {workerForm.watch('rightToWork') === 'expired' ? 'Expiry Date (when it expired)' : 'Expiry Date *'}
                           </FormLabel>
                           <FormControl>
                             <Input type="date" {...field} data-testid="input-worker-rtw-expiry" />
@@ -2302,6 +2310,12 @@ export default function ContractorDetails() {
                     {workerForm.watch('rightToWork') === 'pending' && (
                       <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-xs text-amber-800">
                         Worker cannot be permitted on site unsupervised until Right to Work is confirmed.
+                      </div>
+                    )}
+                    {workerForm.watch('rightToWork') === 'valid' && (
+                      <div className="bg-blue-50 border border-blue-200 rounded px-3 py-2 flex items-start gap-2">
+                        <Upload className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-blue-800"><span className="font-semibold">Document evidence required.</span> After saving, upload a copy of the Right to Work document (passport, visa, share code) in the worker's H&S Documents tab.</p>
                       </div>
                     )}
                   </div>
@@ -2331,16 +2345,22 @@ export default function ContractorDetails() {
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl><SelectTrigger data-testid="select-worker-cscs-status"><SelectValue /></SelectTrigger></FormControl>
                             <SelectContent>
+                              <SelectItem value="none">Not held / not applicable</SelectItem>
+                              <SelectItem value="pending">Pending — awaiting verification</SelectItem>
                               <SelectItem value="valid">Valid</SelectItem>
-                              <SelectItem value="pending">Pending</SelectItem>
                               <SelectItem value="expired">Expired</SelectItem>
-                              <SelectItem value="none">Not held</SelectItem>
                             </SelectContent>
                           </Select>
                           <FormMessage />
                         </FormItem>
                       )} />
                     </div>
+                    {workerForm.watch('cscsStatus') === 'valid' && (
+                      <div className="bg-blue-50 border border-blue-200 rounded px-3 py-2 flex items-start gap-2">
+                        <Upload className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
+                        <p className="text-xs text-blue-800"><span className="font-semibold">Card copy required.</span> After saving, upload a scan of the CSCS card in the worker's H&S Documents tab.</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* IPAF */}
@@ -2377,31 +2397,48 @@ export default function ContractorDetails() {
                 <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-5">
                   {/* Training certificates */}
                   <div>
-                    <h4 className="font-semibold text-gray-900 text-sm mb-3">Training Certificates</h4>
+                    <h4 className="font-semibold text-gray-900 text-sm mb-1">Training Certificates</h4>
+                    <p className="text-xs text-gray-500 mb-3">Tick only if the worker holds a valid certificate. Upload a copy in the H&S Documents tab after saving.</p>
                     <div className="space-y-2">
                       <FormField control={workerForm.control} name="asbestosAwareness" render={({ field }) => (
-                        <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                          <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-asbestos" />
-                          <div><p className="font-medium text-sm">Asbestos Awareness</p><p className="text-xs text-gray-500">CAR 2012 — required for most construction/refurbishment work</p></div>
-                        </label>
+                        <div className="border rounded-lg overflow-hidden">
+                          <label className="flex items-start gap-3 p-3 cursor-pointer hover:bg-gray-50">
+                            <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-asbestos" />
+                            <div><p className="font-medium text-sm">Asbestos Awareness</p><p className="text-xs text-gray-500">CAR 2012 — required for most construction/refurbishment work</p></div>
+                          </label>
+                          {field.value && <div className="bg-blue-50 border-t border-blue-100 px-3 py-2 flex items-center gap-2"><Upload className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" /><p className="text-xs text-blue-800">Upload the supporting certificate in the <span className="font-semibold">H&S Documents</span> tab after saving.</p></div>}
+                        </div>
                       )} />
                       <FormField control={workerForm.control} name="manualHandling" render={({ field }) => (
-                        <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                          <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-manual-handling" />
-                          <div><p className="font-medium text-sm">Manual Handling</p><p className="text-xs text-gray-500">MHOR 1992 — required for roles involving lifting or carrying</p></div>
-                        </label>
+                        <div className="border rounded-lg overflow-hidden">
+                          <label className="flex items-start gap-3 p-3 cursor-pointer hover:bg-gray-50">
+                            <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-manual-handling" />
+                            <div><p className="font-medium text-sm">Manual Handling</p><p className="text-xs text-gray-500">MHOR 1992 — required for roles involving lifting or carrying</p></div>
+                          </label>
+                          {field.value && <div className="bg-blue-50 border-t border-blue-100 px-3 py-2 flex items-center gap-2"><Upload className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" /><p className="text-xs text-blue-800">Upload the supporting certificate in the <span className="font-semibold">H&S Documents</span> tab after saving.</p></div>}
+                        </div>
                       )} />
                       <FormField control={workerForm.control} name="workingAtHeight" render={({ field }) => (
-                        <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                          <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-working-height" />
-                          <div><p className="font-medium text-sm">Working at Height</p><p className="text-xs text-gray-500">WAHR 2005 — required when using ladders, scaffolding, or MEWPs</p></div>
-                        </label>
+                        <div className="border rounded-lg overflow-hidden">
+                          <label className="flex items-start gap-3 p-3 cursor-pointer hover:bg-gray-50">
+                            <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-working-height" />
+                            <div><p className="font-medium text-sm">Working at Height</p><p className="text-xs text-gray-500">WAHR 2005 — required when using ladders, scaffolding, or MEWPs</p></div>
+                          </label>
+                          {field.value && <div className="bg-blue-50 border-t border-blue-100 px-3 py-2 flex items-center gap-2"><Upload className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" /><p className="text-xs text-blue-800">Upload the supporting certificate in the <span className="font-semibold">H&S Documents</span> tab after saving.</p></div>}
+                        </div>
                       )} />
                       <FormField control={workerForm.control} name="inductionCompleted" render={({ field }) => (
-                        <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                          <input type="checkbox" checked={field.value} onChange={field.onChange} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-induction" />
-                          <div><p className="font-medium text-sm">Site Induction Completed</p><p className="text-xs text-gray-500">Site-specific H&S briefing completed</p></div>
-                        </label>
+                        <div className={`border rounded-lg overflow-hidden ${!canConfirmInduction ? 'opacity-60' : ''}`}>
+                          <label className={`flex items-start gap-3 p-3 ${canConfirmInduction ? 'cursor-pointer hover:bg-gray-50' : 'cursor-not-allowed'}`}>
+                            <input type="checkbox" checked={field.value} onChange={canConfirmInduction ? field.onChange : undefined} disabled={!canConfirmInduction} className="mt-0.5 w-4 h-4 accent-green-600" data-testid="checkbox-worker-induction" />
+                            <div>
+                              <p className="font-medium text-sm flex items-center gap-1.5">Site Induction Completed <span className="text-xs font-normal bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">Manager / Admin only</span></p>
+                              <p className="text-xs text-gray-500">Site-specific H&S briefing completed — confirmation logged with your name, date and time</p>
+                              {!canConfirmInduction && <p className="text-xs text-red-600 mt-0.5">Only managers and administrators can confirm site induction.</p>}
+                            </div>
+                          </label>
+                          {field.value && <div className="bg-green-50 border-t border-green-100 px-3 py-2 text-xs text-green-800">✅ Will be logged to worker notes: confirmed by <span className="font-semibold">{currentUser?.username}</span></div>}
+                        </div>
                       )} />
                     </div>
                   </div>
@@ -2437,7 +2474,7 @@ export default function ContractorDetails() {
 
               {/* Step 4 — Success */}
               {workerWizardStep === 4 && (
-                <div className="overflow-y-auto flex-1 min-h-0 px-6 py-10 flex flex-col items-center justify-center gap-5 text-center">
+                <div className="overflow-y-auto flex-1 min-h-0 px-6 py-8 flex flex-col items-center justify-center gap-5 text-center">
                   <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
                     <CheckCircle2 className="w-9 h-9 text-green-600" />
                   </div>
@@ -2447,11 +2484,25 @@ export default function ContractorDetails() {
                       <span className="font-medium text-gray-800">{workerWizardSavedName}</span> has been registered to {contractorData?.name}.
                     </p>
                   </div>
+                  {/* Document checklist reminder */}
+                  {(workerWizardLastValues?.rightToWork === 'valid' || workerWizardLastValues?.cscsStatus === 'valid' || workerWizardLastValues?.asbestosAwareness || workerWizardLastValues?.manualHandling || workerWizardLastValues?.workingAtHeight) && (
+                    <div className="w-full max-w-sm bg-amber-50 border border-amber-200 rounded-lg p-4 text-left">
+                      <p className="text-sm font-semibold text-amber-800 mb-2 flex items-center gap-1.5"><Upload className="w-4 h-4" /> Documents still required</p>
+                      <ul className="space-y-1">
+                        {workerWizardLastValues?.rightToWork === 'valid' && <li className="text-xs text-amber-700">• Right to Work — upload passport / visa / share code</li>}
+                        {workerWizardLastValues?.cscsStatus === 'valid' && <li className="text-xs text-amber-700">• CSCS Card — upload front &amp; back scan</li>}
+                        {workerWizardLastValues?.asbestosAwareness && <li className="text-xs text-amber-700">• Asbestos Awareness certificate</li>}
+                        {workerWizardLastValues?.manualHandling && <li className="text-xs text-amber-700">• Manual Handling certificate</li>}
+                        {workerWizardLastValues?.workingAtHeight && <li className="text-xs text-amber-700">• Working at Height certificate</li>}
+                      </ul>
+                      <p className="text-xs text-amber-600 mt-2">Open the worker's profile → <span className="font-semibold">H&S Documents</span> tab to upload.</p>
+                    </div>
+                  )}
                   <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
-                    <Button variant="outline" className="flex-1" onClick={() => { setAddingWorker(false); setWorkerWizardStep(1); setWorkerWizardSavedName(""); workerForm.reset(); }}>
+                    <Button variant="outline" className="flex-1" onClick={() => { setAddingWorker(false); setWorkerWizardStep(1); setWorkerWizardSavedName(""); setWorkerWizardLastValues(null); workerForm.reset(); }}>
                       Done
                     </Button>
-                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => { setWorkerWizardStep(1); setWorkerWizardSavedName(""); workerForm.reset(); }}>
+                    <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => { setWorkerWizardStep(1); setWorkerWizardSavedName(""); setWorkerWizardLastValues(null); workerForm.reset(); }}>
                       Add Another Worker →
                     </Button>
                   </div>
@@ -2465,7 +2516,10 @@ export default function ContractorDetails() {
                   {workerWizardStep > 1 ? '← Back' : 'Cancel'}
                 </Button>
                 {workerWizardStep < 3 ? (
-                  <Button type="button" onClick={() => setWorkerWizardStep(workerWizardStep + 1)} disabled={workerWizardStep === 1 && (!workerForm.watch('firstName') || !workerForm.watch('lastName') || !workerForm.watch('phone'))} className="bg-blue-600 hover:bg-blue-700">
+                  <Button type="button" onClick={() => setWorkerWizardStep(workerWizardStep + 1)} disabled={
+                    (workerWizardStep === 1 && (!workerForm.watch('firstName') || !workerForm.watch('lastName') || !workerForm.watch('email') || !workerForm.watch('phone'))) ||
+                    (workerWizardStep === 2 && workerForm.watch('rightToWork') === 'valid' && !workerForm.watch('rightToWorkExpiryDate'))
+                  } className="bg-blue-600 hover:bg-blue-700">
                     Next →
                   </Button>
                 ) : (

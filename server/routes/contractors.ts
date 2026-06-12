@@ -1665,6 +1665,15 @@ export function registerContractorRoutes(app: Express): void {
           notes: `Worker "${workerData.firstName} ${workerData.lastName}" added by ${username} on ${auditTs}`,
           changedBy: username,
         });
+        // If induction was marked complete at creation, add a dedicated audit note
+        if (workerData.siteInductionCompleted) {
+          await auditDb.insert(isolatedSchema.workerNotes).values({
+            workerId: worker.id,
+            changeType: 'induction_confirmed',
+            notes: `Site induction confirmed by ${username} on ${auditTs}`,
+            changedBy: username,
+          });
+        }
       } catch (auditErr) {
         logger.error('Failed to create worker audit note (continuing):', auditErr);
       }
