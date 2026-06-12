@@ -4762,8 +4762,78 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     }
   });
 
+  // ── Portal-admin middleware ───────────────────────────────────────────────
+  function requirePortalAdmin(req: any, res: any, next: any) {
+    if (!['admin', 'tenant_admin'].includes(req.user?.role || '')) {
+      return res.status(403).json({ error: 'Admin role required' });
+    }
+    next();
+  }
+
+  // ── Contractor Portal: Admin overview (replaces N+1 per-company fan-out) ──
+  app.get('/api/contractor-portal/admin-overview', requireAuth, requirePortalAdmin, async (req, res) => {
+    try {
+      const customerId = req.customerId!;
+      const db = await customerDbService.getCustomerDatabase(customerId);
+
+      const portalUsers = await db
+        .select({
+          id: isolatedSchema.contractorPortalUsers.id,
+          email: isolatedSchema.contractorPortalUsers.email,
+          firstName: isolatedSchema.contractorPortalUsers.firstName,
+          lastName: isolatedSchema.contractorPortalUsers.lastName,
+          role: isolatedSchema.contractorPortalUsers.role,
+          isActive: isolatedSchema.contractorPortalUsers.isActive,
+          hasPassword: sql<boolean>`(${isolatedSchema.contractorPortalUsers.passwordHash} IS NOT NULL)`,
+          inviteExpiresAt: isolatedSchema.contractorPortalUsers.inviteExpiresAt,
+          lastLoginAt: isolatedSchema.contractorPortalUsers.lastLoginAt,
+          invitedAt: isolatedSchema.contractorPortalUsers.invitedAt,
+          companyId: isolatedSchema.contractorPortalUsers.contractorCompanyId,
+          companyName: isolatedSchema.contractorCompanies.companyName,
+        })
+        .from(isolatedSchema.contractorPortalUsers)
+        .leftJoin(
+          isolatedSchema.contractorCompanies,
+          eq(isolatedSchema.contractorPortalUsers.contractorCompanyId, isolatedSchema.contractorCompanies.id)
+        )
+        .orderBy(desc(isolatedSchema.contractorPortalUsers.invitedAt));
+
+      const pendingDocs = await db
+        .select({
+          id: isolatedSchema.contractorDocuments.id,
+          documentName: isolatedSchema.contractorDocuments.documentName,
+          documentType: isolatedSchema.contractorDocuments.documentType,
+          documentUrl: isolatedSchema.contractorDocuments.documentUrl,
+          expiryDate: isolatedSchema.contractorDocuments.expiryDate,
+          uploadedAt: isolatedSchema.contractorDocuments.uploadedAt,
+          uploadedBy: isolatedSchema.contractorDocuments.uploadedBy,
+          status: isolatedSchema.contractorDocuments.status,
+          companyId: isolatedSchema.contractorDocuments.companyId,
+          companyName: isolatedSchema.contractorCompanies.companyName,
+        })
+        .from(isolatedSchema.contractorDocuments)
+        .leftJoin(
+          isolatedSchema.contractorCompanies,
+          eq(isolatedSchema.contractorDocuments.companyId, isolatedSchema.contractorCompanies.id)
+        )
+        .where(
+          and(
+            eq(isolatedSchema.contractorDocuments.status, 'pending'),
+            eq(isolatedSchema.contractorDocuments.isActive, true),
+            like(isolatedSchema.contractorDocuments.uploadedBy, 'portal:%')
+          )
+        )
+        .orderBy(desc(isolatedSchema.contractorDocuments.uploadedAt));
+
+      return res.json({ portalUsers, pendingDocs });
+    } catch (error: any) {
+      logger.error('Error loading portal admin overview:', error);
+      return res.status(500).json({ error: 'Failed to load portal overview.' });
+    }
+  });
+
   // ── Contractor Portal: Invite a user ──────────────────────────────────────
-  app.post('/api/contractors/:companyId/portal-invite', requireAuth, async (req, res) => {
+  app.post('/api/contractors/:companyId/portal-invite', requireAuth, requirePortalAdmin, async (req, res) => {
     try {
       const { companyId } = req.params;
       const customerId = req.customerId!;
@@ -4864,7 +4934,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: List portal users for a company ────────────────────
-  app.get('/api/contractors/:companyId/portal-users', requireAuth, async (req, res) => {
+  app.get('/api/contractors/:companyId/portal-users', requireAuth, requirePortalAdmin, async (req, res) => {
     try {
       const { companyId } = req.params;
       const customerId = req.customerId!;
@@ -4897,7 +4967,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Revoke / re-invite a portal user ──────────────────
-  app.patch('/api/contractors/portal-users/:userId/revoke', requireAuth, async (req, res) => {
+  app.patch('/api/contractors/portal-users/:userId/revoke', requireAuth, requirePortalAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       const customerId = req.customerId!;
@@ -4918,7 +4988,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Resend login details to an active portal user ────────
-  app.post('/api/contractors/portal-users/:userId/resend-login', requireAuth, async (req, res) => {
+  app.post('/api/contractors/portal-users/:userId/resend-login', requireAuth, requirePortalAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       const customerId = req.customerId!;
@@ -4992,7 +5062,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Review a document (approve/reject) ─────────────────
-  app.put('/api/contractors/documents/:docId/review', requireAuth, async (req, res) => {
+  app.put('/api/contractors/documents/:docId/review', requireAuth, requirePortalAdmin, async (req, res) => {
     try {
       const { docId } = req.params;
       const customerId = req.customerId!;
@@ -5003,11 +5073,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       }
 
       const db = await customerDbService.getCustomerDatabase(customerId);
+      const reviewerId = (req as any).userId as string;
 
       const [updated] = await db
         .update(isolatedSchema.contractorDocuments)
         .set({
           status,
+          approvedBy: reviewerId,
           approvedAt: status === 'approved' ? new Date() : null,
           rejectedReason: status === 'rejected' ? (rejectedReason || 'Document rejected') : null,
           updatedAt: new Date(),
@@ -5019,6 +5091,64 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         return res.status(404).json({ error: 'Document not found.' });
       }
 
+      if (status === 'rejected') {
+        try {
+          const uploadedBy: string = (updated as any).uploadedBy ?? '';
+          const portalUserId = uploadedBy.startsWith('portal:') ? uploadedBy.slice(7) : null;
+
+          let recipientEmail: string | null = null;
+          let recipientFirstName = '';
+
+          if (portalUserId) {
+            const portalUsers = await db
+              .select({ email: isolatedSchema.contractorPortalUsers.email, firstName: isolatedSchema.contractorPortalUsers.firstName })
+              .from(isolatedSchema.contractorPortalUsers)
+              .where(eq(isolatedSchema.contractorPortalUsers.id, portalUserId))
+              .limit(1);
+            if (portalUsers[0]) {
+              recipientEmail = portalUsers[0].email;
+              recipientFirstName = portalUsers[0].firstName ?? '';
+            }
+          }
+
+          if (!recipientEmail && (updated as any).companyId) {
+            const companies = await db
+              .select({ email: (isolatedSchema.contractorCompanies as any).email, contactFirstName: isolatedSchema.contractorCompanies.contactFirstName })
+              .from(isolatedSchema.contractorCompanies)
+              .where(eq(isolatedSchema.contractorCompanies.id, (updated as any).companyId))
+              .limit(1);
+            if (companies[0]?.email) {
+              recipientEmail = companies[0].email;
+              recipientFirstName = companies[0].contactFirstName ?? '';
+            }
+          }
+
+          if (recipientEmail) {
+            const docName = (updated as any).documentName ?? 'your document';
+            const reason = rejectedReason || 'Document rejected';
+            const emailSvc = new EmailService(customerId);
+            await emailSvc.sendEmail({
+              to: recipientEmail,
+              subject: `Document rejected — ${docName}`,
+              html: `
+                <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#1e293b">
+                  <h2 style="color:#dc2626">Document Rejected</h2>
+                  <p>Hello${recipientFirstName ? ` ${recipientFirstName}` : ''},</p>
+                  <p>Unfortunately, the following document has been rejected:</p>
+                  <p style="font-weight:bold;padding:12px 16px;background:#fef2f2;border-left:4px solid #dc2626;border-radius:4px">${docName}</p>
+                  <p><strong>Reason:</strong> ${reason}</p>
+                  <p>Please log in to the contractor portal to re-upload the corrected document.</p>
+                  <p style="color:#64748b;font-size:13px">If you believe this rejection is in error, please contact the site manager directly.</p>
+                </div>
+              `,
+              text: `Document Rejected\n\nHello${recipientFirstName ? ` ${recipientFirstName}` : ''},\n\nYour document "${docName}" has been rejected.\n\nReason: ${reason}\n\nPlease log in to the contractor portal to re-upload the corrected document.`,
+            });
+          }
+        } catch (emailErr: any) {
+          logger.warn('[portal-review] Rejection email failed:', emailErr.message?.substring(0, 80));
+        }
+      }
+
       return res.json(updated);
     } catch (error: any) {
       logger.error('Error reviewing document:', error);
@@ -5027,7 +5157,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: List pending documents for admin review ────────────
-  app.get('/api/contractors/:companyId/portal-documents', requireAuth, async (req, res) => {
+  app.get('/api/contractors/:companyId/portal-documents', requireAuth, requirePortalAdmin, async (req, res) => {
     try {
       const { companyId } = req.params;
       const customerId = req.customerId!;

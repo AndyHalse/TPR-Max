@@ -20,6 +20,8 @@ import GlassCard from "@/components/GlassCard";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
 
+const OVERVIEW_KEY = ["/api/contractor-portal/admin-overview"];
+
 const EMPTY_CONTRACTOR = {
   name: "", email: "", contactFirstName: "", contactLastName: "",
   phone: "", address: "", postcode: "", website: "", description: "",
@@ -43,55 +45,27 @@ export default function ContractorPortalAdmin() {
   const [inviteCompanyId, setInviteCompanyId] = useState("");
 
   const [revokeTarget, setRevokeTarget] = useState<{ id: string; email: string } | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<{ docId: string; documentName: string; companyName: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const { data: companies = [] } = useQuery<any[]>({ queryKey: ["/api/contractors"] });
 
-  const { data: allPortalUsers = [], refetch: refetchPortalUsers } = useQuery<any[]>({
-    queryKey: ["/api/contractor-portal/all-users"],
-    queryFn: async () => {
-      const results: any[] = [];
-      for (const company of companies) {
-        try {
-          const res = await fetch(`/api/contractors/${company.id}/portal-users`, { credentials: "include" });
-          if (res.ok) {
-            const users = await res.json();
-            users.forEach((u: any) => results.push({ ...u, companyName: company.companyName, companyId: company.id }));
-          }
-        } catch {}
-      }
-      return results;
-    },
-    enabled: companies.length > 0,
+  const {
+    data: overview,
+    isLoading: overviewLoading,
+    isError: overviewError,
+    refetch: refetchOverview,
+  } = useQuery<{ portalUsers: any[]; pendingDocs: any[] }>({
+    queryKey: OVERVIEW_KEY,
   });
 
-  const { data: allPendingDocs = [], refetch: refetchDocs } = useQuery<any[]>({
-    queryKey: ["/api/contractor-portal/all-pending-docs"],
-    queryFn: async () => {
-      const companyIds = [...new Set(allPortalUsers.map((u: any) => u.companyId as string))];
-      const results: any[] = [];
-      for (const cid of companyIds) {
-        try {
-          const res = await fetch(`/api/contractors/${cid}/portal-documents`, { credentials: "include" });
-          if (res.ok) {
-            const docs = await res.json();
-            const company = companies.find((c: any) => c.id === cid);
-            docs
-              .filter((d: any) => d.status === "pending" && d.uploadedBy?.startsWith("portal:"))
-              .forEach((d: any) => results.push({ ...d, companyName: company?.companyName ?? cid }));
-          }
-        } catch {}
-      }
-      return results;
-    },
-    enabled: allPortalUsers.length > 0,
-  });
+  const allPortalUsers: any[] = overview?.portalUsers ?? [];
+  const allPendingDocs: any[] = overview?.pendingDocs ?? [];
 
   const createContractorMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/contractors", data);
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || "Failed to create contractor");
-      return body;
+      return res.json();
     },
     onSuccess: (created: any) => {
       toast({ title: "Contractor added", description: `${contractorForm.name} has been created.` });
@@ -120,7 +94,7 @@ export default function ContractorPortalAdmin() {
       toast({ title: "Invitation sent", description: `Portal invite sent to ${inviteEmail || postCreateEmail}.` });
       setInviteEmail(""); setInviteCompanyId(""); setInviteOpen(false);
       setPostCreateInviteOpen(false);
-      refetchPortalUsers();
+      qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
     },
     onError: (err: any) => {
       toast({ title: "Failed to send invite", description: err?.message || "Please try again.", variant: "destructive" });
@@ -130,7 +104,6 @@ export default function ContractorPortalAdmin() {
   const resendLoginMutation = useMutation({
     mutationFn: async (userId: string) => {
       const res = await apiRequest("POST", `/api/contractors/portal-users/${userId}/resend-login`, {});
-      if (!res.ok) { const b = await res.json(); throw new Error(b?.error || "Failed"); }
       return res.json();
     },
     onSuccess: (_data, userId) => {
@@ -150,7 +123,7 @@ export default function ContractorPortalAdmin() {
     onSuccess: () => {
       toast({ title: "Access revoked", description: `${revokeTarget?.email} can no longer log in.` });
       setRevokeTarget(null);
-      refetchPortalUsers();
+      qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
     },
     onError: (err: any) => {
       toast({ title: "Failed to revoke access", description: err?.message || "Please try again.", variant: "destructive" });
@@ -164,7 +137,9 @@ export default function ContractorPortalAdmin() {
     },
     onSuccess: () => {
       toast({ title: "Document updated" });
-      refetchDocs();
+      setRejectTarget(null);
+      setRejectReason("");
+      qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
       qc.invalidateQueries({ queryKey: ["/api/contractors"] });
       qc.invalidateQueries({ queryKey: ["/api/compliance-dashboard"] });
     },
@@ -294,7 +269,21 @@ export default function ContractorPortalAdmin() {
               <CardDescription>Contractor contacts with portal access. Active users can log in and upload documents; pending invites haven't accepted yet.</CardDescription>
             </CardHeader>
             <CardContent>
-              {allPortalUsers.length === 0 ? (
+              {overviewError ? (
+                <div className="text-center py-12 space-y-3">
+                  <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
+                  <p className="font-medium text-slate-700 dark:text-slate-300">Failed to load portal users</p>
+                  <p className="text-sm text-muted-foreground">There was an error fetching data from the server.</p>
+                  <Button variant="outline" onClick={() => refetchOverview()} className="gap-2">
+                    <RefreshCw className="w-4 h-4" /> Retry
+                  </Button>
+                </div>
+              ) : overviewLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Loading portal users…</span>
+                </div>
+              ) : allPortalUsers.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Globe className="w-10 h-10 mx-auto mb-3 opacity-30" />
                   <p className="font-medium">No portal users yet</p>
@@ -306,85 +295,90 @@ export default function ContractorPortalAdmin() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {allPortalUsers.map((u: any) => (
-                    <div key={u.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-full flex-shrink-0">
-                          <Users className="w-4 h-4 text-slate-500" />
+                  {allPortalUsers.map((u: any) => {
+                    const fullName = [u.firstName, u.lastName].filter(Boolean).join(' ');
+                    const resendBusy = resendLoginMutation.isPending && resendLoginMutation.variables === u.id;
+                    const resendInviteBusy = sendInviteMutation.isPending && (sendInviteMutation.variables as any)?.email === u.email;
+                    return (
+                      <div key={u.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-full flex-shrink-0">
+                            <Users className="w-4 h-4 text-slate-500" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{fullName || u.email}</p>
+                            {fullName && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
+                            <button className="text-xs text-blue-600 hover:underline text-left" onClick={() => setLocation(`/contractors/${u.companyId}?tab=portal`)}>
+                              {u.companyName}
+                            </button>
+                            {u.isActive && (() => {
+                              if (!u.lastLoginAt) return (
+                                <span className="flex items-center gap-1 text-xs text-amber-600 mt-0.5">
+                                  <AlertTriangle className="w-3 h-3" /> Never logged in
+                                </span>
+                              );
+                              const days = Math.floor((Date.now() - new Date(u.lastLoginAt).getTime()) / 86400000);
+                              const label = days === 0 ? "today" : days === 1 ? "yesterday" : `${days}d ago`;
+                              const stale = days > 30;
+                              return (
+                                <span className={`flex items-center gap-1 text-xs mt-0.5 ${stale ? "text-amber-600" : "text-muted-foreground"}`}>
+                                  {stale && <AlertTriangle className="w-3 h-3" />}
+                                  Last login: {label}
+                                </span>
+                              );
+                            })()}
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{u.firstName || u.lastName ? `${u.firstName} ${u.lastName}`.trim() : u.email}</p>
-                          {(u.firstName || u.lastName) && <p className="text-xs text-muted-foreground truncate">{u.email}</p>}
-                          <button className="text-xs text-blue-600 hover:underline text-left" onClick={() => setLocation(`/contractors/${u.companyId}?tab=portal`)}>
-                            {u.companyName}
-                          </button>
-                          {u.isActive && (() => {
-                            if (!u.lastLoginAt) return (
-                              <span className="flex items-center gap-1 text-xs text-amber-600 mt-0.5">
-                                <AlertTriangle className="w-3 h-3" /> Never logged in
-                              </span>
-                            );
-                            const days = Math.floor((Date.now() - new Date(u.lastLoginAt).getTime()) / 86400000);
-                            const label = days === 0 ? "today" : days === 1 ? "yesterday" : `${days}d ago`;
-                            const stale = days > 30;
-                            return (
-                              <span className={`flex items-center gap-1 text-xs mt-0.5 ${stale ? "text-amber-600" : "text-muted-foreground"}`}>
-                                {stale && <AlertTriangle className="w-3 h-3" />}
-                                Last login: {label}
-                              </span>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
-                        <span className="text-xs text-muted-foreground hidden sm:block">
-                          {u.invitedAt ? new Date(u.invitedAt).toLocaleDateString() : "—"}
-                        </span>
-                        <Badge variant={u.isActive ? "default" : "secondary"}>
-                          {u.isActive ? "Active" : "Invite pending"}
-                        </Badge>
-                        {!u.isActive && (
+                        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+                          <span className="text-xs text-muted-foreground hidden sm:block">
+                            {u.invitedAt ? new Date(u.invitedAt).toLocaleDateString() : "—"}
+                          </span>
+                          <Badge variant={u.isActive ? "default" : "secondary"}>
+                            {u.isActive ? "Active" : "Invite pending"}
+                          </Badge>
+                          {!u.isActive && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => sendInviteMutation.mutate({ companyId: u.companyId, email: u.email })} disabled={sendInviteMutation.isPending}>
+                                  {resendInviteBusy ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCw className="w-3 h-3 mr-1" />} Resend
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">Resend the invitation email to {u.email}</TooltipContent>
+                            </Tooltip>
+                          )}
+                          {u.isActive && (
+                            <>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => resendLoginMutation.mutate(u.id)} disabled={resendLoginMutation.isPending}>
+                                    {resendBusy ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <MailCheck className="w-3 h-3 mr-1" />}
+                                    Resend Link
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">Email them the portal URL, username and access code (no password)</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:text-red-700 hover:border-red-300" onClick={() => setRevokeTarget({ id: u.id, email: u.email })} disabled={revokeMutation.isPending}>
+                                    <ShieldOff className="w-3 h-3 mr-1" /> Revoke
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">Immediately block this user from logging into the portal</TooltipContent>
+                              </Tooltip>
+                            </>
+                          )}
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => sendInviteMutation.mutate({ companyId: u.companyId, email: u.email })} disabled={sendInviteMutation.isPending}>
-                                <RefreshCw className="w-3 h-3 mr-1" /> Resend
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setLocation(`/contractors/${u.companyId}`)}>
+                                <Eye className="w-3 h-3" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">Resend the invitation email to {u.email}</TooltipContent>
+                            <TooltipContent side="top" className="text-xs">View contractor details</TooltipContent>
                           </Tooltip>
-                        )}
-                        {u.isActive && (
-                          <>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => resendLoginMutation.mutate(u.id)} disabled={resendLoginMutation.isPending}>
-                                  {resendLoginMutation.isPending ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <MailCheck className="w-3 h-3 mr-1" />}
-                                  Resend Link
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs">Email them the portal URL, username and access code (no password)</TooltipContent>
-                            </Tooltip>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:text-red-700 hover:border-red-300" onClick={() => setRevokeTarget({ id: u.id, email: u.email })} disabled={revokeMutation.isPending}>
-                                  <ShieldOff className="w-3 h-3 mr-1" /> Revoke
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="text-xs">Immediately block this user from logging into the portal</TooltipContent>
-                            </Tooltip>
-                          </>
-                        )}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setLocation(`/contractors/${u.companyId}`)}>
-                              <Eye className="w-3 h-3" />
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">View contractor details</TooltipContent>
-                        </Tooltip>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -399,7 +393,21 @@ export default function ContractorPortalAdmin() {
               <CardDescription>Documents uploaded by contractors via the portal. Approving or rejecting them updates the contractor record and compliance dashboard.</CardDescription>
             </CardHeader>
             <CardContent>
-              {allPendingDocs.length === 0 ? (
+              {overviewError ? (
+                <div className="text-center py-12 space-y-3">
+                  <AlertTriangle className="w-10 h-10 mx-auto text-amber-500" />
+                  <p className="font-medium text-slate-700 dark:text-slate-300">Failed to load pending documents</p>
+                  <p className="text-sm text-muted-foreground">There was an error fetching data from the server.</p>
+                  <Button variant="outline" onClick={() => refetchOverview()} className="gap-2">
+                    <RefreshCw className="w-4 h-4" /> Retry
+                  </Button>
+                </div>
+              ) : overviewLoading ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Loading documents…</span>
+                </div>
+              ) : allPendingDocs.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <CheckCheck className="w-10 h-10 mx-auto mb-3 opacity-30" />
                   <p className="font-medium">All clear!</p>
@@ -407,53 +415,57 @@ export default function ContractorPortalAdmin() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {allPendingDocs.map((doc: any) => (
-                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-full flex-shrink-0">
-                          <FileText className="w-4 h-4 text-orange-600" />
+                  {allPendingDocs.map((doc: any) => {
+                    const approveBusy = reviewDocMutation.isPending && (reviewDocMutation.variables as any)?.docId === doc.id && (reviewDocMutation.variables as any)?.status === 'approved';
+                    const rejectBusy = reviewDocMutation.isPending && (reviewDocMutation.variables as any)?.docId === doc.id && (reviewDocMutation.variables as any)?.status === 'rejected';
+                    return (
+                      <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/30 transition-colors gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="p-2 bg-orange-50 dark:bg-orange-900/20 rounded-full flex-shrink-0">
+                            <FileText className="w-4 h-4 text-orange-600" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{doc.documentName}</p>
+                            <p className="text-xs text-muted-foreground">{doc.documentType} · {doc.companyName}</p>
+                            {doc.expiryDate && (
+                              <p className="text-xs text-muted-foreground">Expires: {new Date(doc.expiryDate).toLocaleDateString()}</p>
+                            )}
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm truncate">{doc.documentName}</p>
-                          <p className="text-xs text-muted-foreground">{doc.documentType} · {doc.companyName}</p>
-                          {doc.expiryDate && (
-                            <p className="text-xs text-muted-foreground">Expires: {new Date(doc.expiryDate).toLocaleDateString()}</p>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-xs text-muted-foreground hidden sm:block">
+                            {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "—"}
+                          </span>
+                          {doc.documentUrl && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(doc.documentUrl, "_blank")}>
+                                  <Eye className="w-3 h-3" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">Preview document in a new tab</TooltipContent>
+                            </Tooltip>
                           )}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs text-muted-foreground hidden sm:block">
-                          {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "—"}
-                        </span>
-                        {doc.documentUrl && (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(doc.documentUrl, "_blank")}>
-                                <Eye className="w-3 h-3" />
+                              <Button size="sm" variant="outline" className="h-7 text-xs text-green-700 border-green-300 hover:bg-green-50" onClick={() => reviewDocMutation.mutate({ docId: doc.id, status: "approved" })} disabled={reviewDocMutation.isPending}>
+                                {approveBusy ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <CheckCheck className="w-3 h-3 mr-1" />} Approve
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">Preview document in a new tab</TooltipContent>
+                            <TooltipContent side="top" className="text-xs">Mark as approved — updates contractor compliance status</TooltipContent>
                           </Tooltip>
-                        )}
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="sm" variant="outline" className="h-7 text-xs text-green-700 border-green-300 hover:bg-green-50" onClick={() => reviewDocMutation.mutate({ docId: doc.id, status: "approved" })} disabled={reviewDocMutation.isPending}>
-                              <CheckCheck className="w-3 h-3 mr-1" /> Approve
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">Mark as approved — updates contractor compliance status</TooltipContent>
-                        </Tooltip>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50" onClick={() => reviewDocMutation.mutate({ docId: doc.id, status: "rejected", rejectedReason: "Rejected by administrator" })} disabled={reviewDocMutation.isPending}>
-                              <XCircle className="w-3 h-3 mr-1" /> Reject
-                            </Button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">Reject this document — contractor can re-upload via the portal</TooltipContent>
-                        </Tooltip>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50" onClick={() => { setRejectTarget({ docId: doc.id, documentName: doc.documentName, companyName: doc.companyName }); setRejectReason(""); }} disabled={reviewDocMutation.isPending}>
+                                {rejectBusy ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <XCircle className="w-3 h-3 mr-1" />} Reject
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">Reject this document — contractor will be notified and can re-upload via the portal</TooltipContent>
+                          </Tooltip>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </CardContent>
@@ -615,6 +627,37 @@ export default function ContractorPortalAdmin() {
             <Button variant="outline" onClick={() => setRevokeTarget(null)}>Cancel</Button>
             <Button variant="destructive" onClick={() => revokeTarget && revokeMutation.mutate(revokeTarget.id)} disabled={revokeMutation.isPending}>
               {revokeMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Revoke Access
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Reject Document Dialog ───────────────────────────────────────────── */}
+      <Dialog open={!!rejectTarget} onOpenChange={(o) => { if (!o) { setRejectTarget(null); setRejectReason(""); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600"><XCircle className="w-5 h-5" />Reject Document</DialogTitle>
+            <DialogDescription>
+              Rejecting <strong>{rejectTarget?.documentName}</strong> from <strong>{rejectTarget?.companyName}</strong>. The contractor will be notified by email and can re-upload via the portal.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <Label>Reason for rejection *</Label>
+            <Textarea
+              placeholder="e.g. Document is expired, incorrect document type, illegible scan…"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={3}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setRejectTarget(null); setRejectReason(""); }}>Cancel</Button>
+            <Button
+              variant="destructive"
+              disabled={!rejectReason.trim() || reviewDocMutation.isPending}
+              onClick={() => rejectTarget && reviewDocMutation.mutate({ docId: rejectTarget.docId, status: "rejected", rejectedReason: rejectReason.trim() })}
+            >
+              {reviewDocMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}Reject Document
             </Button>
           </DialogFooter>
         </DialogContent>
