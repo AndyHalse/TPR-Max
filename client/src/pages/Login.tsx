@@ -205,7 +205,7 @@ export default function Login() {
     }
 
     if (data.logoToken) {
-      localStorage.setItem('tprmax-logo-token', data.logoToken);
+      sessionStorage.setItem('tprmax-logo-token', data.logoToken);
     }
 
     queryClient.setQueryData(['/api/auth/me'], data.user);

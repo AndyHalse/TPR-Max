@@ -289,7 +289,7 @@ function SidebarLogoutButton({ collapsed, textStyle }: { collapsed: boolean; tex
     onSuccess: () => {
       clearSessionToken();
       localStorage.removeItem('visigate_user');
-      localStorage.removeItem('tprmax-logo-token');
+      sessionStorage.removeItem('tprmax-logo-token');
       if (localStorage.getItem('tprmax-remember-me') !== 'true') {
         localStorage.removeItem('tprmax-last-login');
       }

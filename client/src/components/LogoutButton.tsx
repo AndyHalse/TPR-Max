@@ -20,7 +20,7 @@ export default function LogoutButton({ bannerInvert }: LogoutButtonProps) {
     onSuccess: () => {
       clearSessionToken();
       localStorage.removeItem('visigate_user');
-      localStorage.removeItem('tprmax-logo-token');
+      sessionStorage.removeItem('tprmax-logo-token');
       // Only wipe saved credentials if the user has not opted in to remember-me.
       // If they have, keep tprmax-last-login so the login form pre-fills on the next visit.
       if (localStorage.getItem('tprmax-remember-me') !== 'true') {

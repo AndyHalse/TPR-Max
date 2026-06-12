@@ -85,7 +85,7 @@ export default function Layout({ children }: LayoutProps) {
 
   const getLogoSrc = useCallback(() => {
     if (logoError || !settings?.logoUrl) return null;
-    const logoToken = localStorage.getItem('tprmax-logo-token');
+    const logoToken = sessionStorage.getItem('tprmax-logo-token');
     if (logoFallbackStage === 0 && logoToken) return `/api/public-logo/${logoToken}`;
     if (logoFallbackStage === 1) return `/api/company-logo`;
     if (logoFallbackStage === 2) {

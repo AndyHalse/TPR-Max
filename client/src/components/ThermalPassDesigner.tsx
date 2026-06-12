@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,6 +91,8 @@ const THERMAL_TEMPLATES: ThermalTemplate[] = [
 
 export function ThermalPassDesigner() {
   const { toast } = useToast();
+  const { data: authData } = useQuery<any>({ queryKey: ['/api/auth/me'] });
+  const customerId = authData?.customerId ?? 'default';
   const [selectedTemplate, setSelectedTemplate] = useState('visitor-minimal');
   const [passElements, setPassElements] = useState<ThermalElement[]>(THERMAL_TEMPLATES[0].elements);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
@@ -355,7 +358,7 @@ export function ThermalPassDesigner() {
   useEffect(() => {
     const autoSave = setTimeout(() => {
       if (passElements.length > 0) {
-        localStorage.setItem(`thermal-pass-design-${passType}`, JSON.stringify({
+        localStorage.setItem(`thermal-pass-design-${customerId}-${passType}`, JSON.stringify({
           elements: passElements,
           template: selectedTemplate,
           timestamp: Date.now()
@@ -367,9 +370,10 @@ export function ThermalPassDesigner() {
     return () => clearTimeout(autoSave);
   }, [passElements, selectedTemplate, passType]);
 
-  // Load saved design on component mount
+  // Load saved design on component mount or when customer/type changes
   useEffect(() => {
-    const savedDesign = localStorage.getItem(`thermal-pass-design-${passType}`);
+    if (customerId === 'default') return; // wait for auth to resolve
+    const savedDesign = localStorage.getItem(`thermal-pass-design-${customerId}-${passType}`);
     if (savedDesign) {
       try {
         const parsed = JSON.parse(savedDesign);
@@ -384,7 +388,7 @@ export function ThermalPassDesigner() {
         console.warn('Failed to load saved design:', error);
       }
     }
-  }, [passType]);
+  }, [passType, customerId]);
 
   const loadTemplate = (templateId: string) => {
     const template = THERMAL_TEMPLATES.find(t => t.id === templateId);

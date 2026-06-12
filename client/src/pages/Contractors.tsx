@@ -3,8 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import NdaModal from "@/components/NdaModal";
 import type { CompanySettings } from "@shared/schema";
 import { useLocation } from "wouter";
-import { queryClient } from "@/lib/queryClient";
-import { apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getSessionToken } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import { StaffSearchSelect } from "@/components/StaffSearchSelect";
 import { Button } from "@/components/ui/button";
@@ -429,13 +428,13 @@ export default function Contractors() {
         if (contractor.workersCount > 0) {
           try {
             const workersList = await fetch(`/api/contractors/${contractor.id}/workers`, {
-              headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}` }
+              headers: { 'Authorization': `Bearer ${getSessionToken() || ''}` }
             }).then(res => res.json()).catch(() => []);
             
             for (const worker of workersList) {
               try {
                 const workerAssignments = await fetch(`/api/uk-hs-documents/assignments/worker/${worker.id}`, {
-                  headers: { 'Authorization': `Bearer ${localStorage.getItem('auth-token') || ''}` }
+                  headers: { 'Authorization': `Bearer ${getSessionToken() || ''}` }
                 }).then(res => res.json()).catch(() => []);
                 
                 if (workerAssignments.length > 0) {
