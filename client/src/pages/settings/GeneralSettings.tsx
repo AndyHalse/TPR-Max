@@ -7,6 +7,42 @@ import { Label } from "@/components/ui/label";
 import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { Building2, Upload, Info } from "lucide-react";
+import { useState, useEffect } from "react";
+import { getSessionToken } from "@/lib/queryClient";
+
+function LogoPreview({ logoUrl }: { logoUrl: string }) {
+  const [blobSrc, setBlobSrc] = useState<string | null>(null);
+
+  useEffect(() => {
+    let revoked = false;
+    let objectUrl: string | null = null;
+
+    const token = getSessionToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+
+    fetch(`/api/company-logo?t=${encodeURIComponent(logoUrl)}`, { headers, credentials: "include" })
+      .then(r => r.ok ? r.blob() : null)
+      .then(blob => {
+        if (revoked || !blob) return;
+        objectUrl = URL.createObjectURL(blob);
+        setBlobSrc(objectUrl);
+      })
+      .catch(() => {});
+
+    return () => {
+      revoked = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [logoUrl]);
+
+  if (!blobSrc) return null;
+  return (
+    <div className="flex items-center justify-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
+      <img src={blobSrc} alt="Company Logo" className="max-h-20 max-w-40 object-contain" />
+    </div>
+  );
+}
 
 export default function GeneralSettings() {
   const { currentSettings, handleInputChange } = useSettingsAutoSave();
@@ -149,16 +185,7 @@ export default function GeneralSettings() {
         </div>
         <div className="space-y-4">
           {currentSettings?.logoUrl && (
-            <div className="flex items-center justify-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
-              <img 
-                src={`/api/company-logo?t=${encodeURIComponent(currentSettings.logoUrl)}`}
-                alt="Company Logo" 
-                className="max-h-20 max-w-40 object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
-            </div>
+            <LogoPreview logoUrl={currentSettings.logoUrl} />
           )}
           <ObjectUploader
             onUploadComplete={handleLogoUpload}
