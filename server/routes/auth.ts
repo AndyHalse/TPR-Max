@@ -650,8 +650,10 @@ export function registerAuthRoutes(app: Express): void {
   });
 
   // Update current user's profile (first name, last name)
-  app.patch('/api/auth/profile', async (req, res) => {
-    if (!req.session.userId || !req.session.customerId) {
+  app.patch('/api/auth/profile', requireAuth, async (req, res) => {
+    const customerId = req.customerId;
+    const userId = (req as any).userId;
+    if (!userId || !customerId) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
@@ -667,12 +669,12 @@ export function registerAuthRoutes(app: Express): void {
 
     try {
       const customerDbService = CustomerDatabaseService.getInstance();
-      const customerDb = await customerDbService.getCustomerDatabase(req.session.customerId);
+      const customerDb = await customerDbService.getCustomerDatabase(customerId);
 
       await customerDb
         .update(isolatedSchema.users)
         .set({ firstName: firstName.trim(), lastName: lastName.trim() })
-        .where(eq(isolatedSchema.users.id, req.session.userId));
+        .where(eq(isolatedSchema.users.id, userId));
 
       res.json({ success: true });
     } catch (error) {
