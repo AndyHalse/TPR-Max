@@ -1,0 +1,95 @@
+Extend the Compliance Dashboard (server/routes/complianceDashboard.ts and
+client/src/pages/ComplianceDashboard.tsx) to cover compliance data points that
+exist in the database but are not currently read. Follow the existing pattern
+exactly: each new category in its own try/catch that logs a warning and
+continues (non-fatal), feeding criticalIssues, warnings, expiryTimeline,
+contractorRiskMap and a per-category score (expired = critical, expiring
+within 30 days = warning, otherwise compliant; empty category = score 100).
+
+ADD THESE CATEGORIES:
+
+1. Extend "Contractor Insurance" (existing section): also check
+   professional_indemnity_expiry_date, health_safety_policy_expiry_date,
+   chas_expiry_date and safe_contractor_expiry_date on contractor_companies,
+   using the same checkInsurance helper with appropriate labels. Only count
+   CHAS/SafeContractor when the corresponding *_certified flag is true.
+
+2. NEW "Worker Right to Work": for active contractor_workers who have visited
+   in the last 12 months (reuse the activeWorkerIds set already built in the
+   inductions section), check right_to_work_status and
+   right_to_work_expiry_date. Expired date or status 'expired'/'invalid' =
+   critical; status 'pending' or expiring ≤30 days = warning. Link path
+   /contractors. Attribute issues to the worker's company in contractorRiskMap.
+
+3. NEW "Worker DBS": from contractor_worker_dbs (is_current = TRUE,
+   deleted_at IS NULL) joined to contractor_workers, check policy_expiry_date
+   (expired = critical, ≤30 days = warning). Also flag any active worker with
+   dbs_required = TRUE who has no current DBS record (warning). Link path
+   /contractors.
+
+4. NEW "Worker Certifications": from contractor_documents where worker_id IS
+   NOT NULL, is_active = TRUE and expiry_date IS NOT NULL, joined to
+   contractor_workers for the name. Expired = critical, ≤30 days = warning,
+   timeline category 'Worker Certifications'. Link path /contractors.
+   Attribute to the worker's company in contractorRiskMap.
+
+5. NEW "Equipment": from contractor_equipment (is_active = TRUE) joined to
+   contractor_documents via equipment_id for certificates (LOLER, PUWER, PAT,
+   MOT etc.). Expired certificate = critical, ≤30 days = warning. Also flag
+   active equipment with no certificate documents at all as a warning
+   ("no certification on record"). Link path /contractors (or the equipment
+   page route if one exists — check the client router).
+
+6. NEW "Staff DBS": from staff_dbs (is_current = TRUE, deleted_at IS NULL)
+   joined to staff (is_active = TRUE), check policy_expiry_date. Link path /hr.
+
+7. NEW "Staff Training": from staff_training_records joined to
+   training_requirements, mandatory training only, for active staff — mirror
+   the expiring/expired logic already used in server/routes/hrDashboard.ts.
+   Expired mandatory training = critical, expiring ≤30 days = warning.
+   Link path /hr.
+
+8. Extend "Audits": also flag audit_corrective_actions with status = 'open'
+   and due_date in the past as critical ("Corrective action overdue").
+
+9. NEW "Document Approvals": count contractor_documents with status =
+   'pending' and is_active = TRUE as warnings ("document awaiting approval")
+   — no score impact beyond the warning list is fine, but show the count.
+
+FIX THESE BUGS:
+
+10. In the inductions section, select site_induction_required and skip the
+    "not completed" warning when site_induction_required = FALSE.
+
+11. Missing-data blindness: contractor companies with NO public liability
+    and NO employers' liability expiry recorded currently score as compliant
+    by omission. Count active companies with neither PL nor EL expiry date as
+    a warning ("no insurance on record") and include them in insTotal as
+    non-compliant.
+
+SCORING:
+
+12. Rebalance the domain weights. Contractor domain: Insurance 25%, RAMS 15%,
+    Inductions 15%, Worker RTW 15%, Worker DBS 10%, Worker Certifications 10%,
+    Equipment 10%. Site domain: Compliance Certs 20%, Permits 15%, Risk
+    Assessments 15%, Audits 15%, PPM 10%, Fire Risk Assessment 10%, Staff RTW
+    10%, Staff DBS 2.5%, Staff Training 2.5%. Keep overall = 50/50. Move
+    Staff RTW from the contractor domain to the site domain since it is staff,
+    not contractors.
+
+FRONT-END:
+
+13. In ComplianceDashboard.tsx add the new categories to the ComplianceData
+    interface, CATEGORY_META (label, icon, link, stat formatter), the catKeys
+    array, contractorKeys/siteKeys arrays, and TIMELINE_CATEGORY_COLOURS.
+    Follow the existing card layout — no redesign.
+
+CONSTRAINTS:
+
+- Multi-tenant: every raw SQL query must be schema-qualified with
+  "${schemaName}". exactly like the existing queries. Never query public.
+- All new tables may not exist for older tenants — that is why each section
+  must stay in its own non-fatal try/catch.
+- Do not change the API shape of existing categories; only add new keys.
+- British spelling in all user-facing strings.
+- Do not touch the feature gate (featureComplianceDashboard).

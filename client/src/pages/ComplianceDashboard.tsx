@@ -6,6 +6,7 @@ import {
   ShieldCheck, AlertTriangle, XCircle, CheckCircle2, Clock, ChevronDown, ChevronUp,
   ArrowRight, RefreshCw, Building2, HardHat, FileText, Wrench, Flame, Users, ScrollText,
   Download, HelpCircle, ClipboardList, Shield, ClipboardCheck,
+  UserCheck, Fingerprint, Award, GraduationCap, Package, FileCheck,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -45,13 +46,20 @@ interface DashboardData {
     contractorInsurance: CategoryStat;
     rams: CategoryStat;
     inductions: CategoryStat;
+    workerRightToWork: CategoryStat;
+    workerDbs: CategoryStat;
+    workerCertifications: CategoryStat;
+    equipment: CategoryStat;
     staffRightToWork: CategoryStat;
+    staffDbs: CategoryStat;
+    staffTraining: CategoryStat;
     complianceCerts: CategoryStat;
     permits: CategoryStat;
     riskAssessments: CategoryStat;
     audits: CategoryStat;
     ppm: CategoryStat;
     fireRiskAssessment: CategoryStat;
+    documentApprovals: CategoryStat;
   };
   criticalIssues: CriticalIssue[];
   warnings: CriticalIssue[];
@@ -106,6 +114,34 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
   fireRiskAssessment: {
     label: "Fire Risk Assessment", icon: Flame, link: "/fire-risk-assessment",
     stat: c => c.total === 0 ? "None recorded" : c.overdue ? `${c.overdue} overdue` : c.reviewDue ? `${c.reviewDue} review due` : `${c.current} current`,
+  },
+  workerRightToWork: {
+    label: "Worker Right to Work", icon: UserCheck, link: "/contractors",
+    stat: c => (c.total ?? 0) === 0 ? "No workers tracked" : `${c.compliant} of ${c.total} compliant`,
+  },
+  workerDbs: {
+    label: "Worker DBS", icon: Fingerprint, link: "/contractors",
+    stat: c => (c.total ?? 0) === 0 ? "None on record" : `${c.compliant} of ${c.total} current`,
+  },
+  workerCertifications: {
+    label: "Worker Certifications", icon: Award, link: "/contractors",
+    stat: c => (c.total ?? 0) === 0 ? "No certifications" : `${c.compliant} of ${c.total} current`,
+  },
+  equipment: {
+    label: "Equipment", icon: Package, link: "/contractors",
+    stat: c => (c.total ?? 0) === 0 ? "No equipment tracked" : `${c.compliant} of ${c.total} certified`,
+  },
+  staffDbs: {
+    label: "Staff DBS", icon: Fingerprint, link: "/hr",
+    stat: c => (c.total ?? 0) === 0 ? "None on record" : `${c.compliant} of ${c.total} current`,
+  },
+  staffTraining: {
+    label: "Staff Training", icon: GraduationCap, link: "/hr",
+    stat: c => (c.total ?? 0) === 0 ? "No mandatory training" : `${c.compliant} of ${c.total} current`,
+  },
+  documentApprovals: {
+    label: "Document Approvals", icon: FileCheck, link: "/contractors",
+    stat: c => (c.total ?? 0) === 0 ? "No pending documents" : `${c.total} awaiting approval`,
   },
 };
 
@@ -260,16 +296,22 @@ function IssueItem({ issue }: { issue: CriticalIssue }) {
 }
 
 const TIMELINE_CATEGORY_COLOURS: Record<string, string> = {
-  "Contractor Insurance": "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-  "RAMS": "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+  "Contractor Insurance":  "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+  "RAMS":                  "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
   "Contractor Inductions": "bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300",
-  "Staff Right to Work": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+  "Worker Right to Work":  "bg-lime-100 text-lime-800 dark:bg-lime-900/30 dark:text-lime-300",
+  "Worker DBS":            "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-300",
+  "Worker Certifications": "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300",
+  "Equipment":             "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
+  "Staff Right to Work":   "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300",
+  "Staff DBS":             "bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300",
+  "Staff Training":        "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300",
   "Compliance Certificates": "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
-  "Permits to Work": "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
-  "Risk Assessments": "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
-  "Audits": "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300",
-  "PPM": "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
-  "Fire Risk Assessment": "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+  "Permits to Work":       "bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300",
+  "Risk Assessments":      "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+  "Audits":                "bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300",
+  "PPM":                   "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300",
+  "Fire Risk Assessment":  "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
 };
 
 function groupTimelineItems(items: TimelineItem[]) {
@@ -463,7 +505,11 @@ async function generateCompliancePDF(data: DashboardData) {
   // ── CATEGORY BREAKDOWN (2-column cards) ───────────────────────────────────
   sectionHeader("Category Breakdown");
 
-  const catKeys = ["contractorInsurance", "rams", "inductions", "complianceCerts", "ppm", "fireRiskAssessment", "staffRightToWork"] as const;
+  const catKeys = [
+    "contractorInsurance", "rams", "inductions", "workerRightToWork", "workerDbs", "workerCertifications", "equipment",
+    "complianceCerts", "permits", "riskAssessments", "audits", "ppm", "fireRiskAssessment",
+    "staffRightToWork", "staffDbs", "staffTraining",
+  ] as const;
   const cardW = (colW - 4) / 2;
   const cardH = 23;
   let col = 0;
@@ -713,7 +759,7 @@ async function generateCompliancePDF(data: DashboardData) {
   doc.setFontSize(7);
   doc.setTextColor(107, 114, 128);
   const noteLines = doc.splitTextToSize(
-    "The overall score is a weighted average of 7 compliance categories: Contractor Insurance (20%), RAMS Documents (15%), Contractor Inductions (15%), Compliance Certificates (15%), PPM / Maintenance (15%), Fire Risk Assessment (10%), and Staff Right to Work (10%). Categories with no tracked items score 100 (not applicable).",
+    "The overall score is the average of two domain scores (50% each). Contractor Compliance: Insurance (25%), RAMS (15%), Inductions (15%), Worker Right to Work (15%), Worker DBS (10%), Worker Certifications (10%), Equipment (10%). Site Compliance: Certificates (20%), Permits (15%), Risk Assessments (15%), Audits (15%), PPM (10%), Fire Risk Assessment (10%), Staff Right to Work (10%), Staff DBS (2.5%), Staff Training (2.5%). Categories with no tracked items score 100.",
     colW - 8
   );
   doc.text(noteLines, margin + 4, y + 12);
@@ -787,8 +833,8 @@ export default function ComplianceDashboard() {
   const visibleWarnings = showAllWarnings ? data.warnings : data.warnings.slice(0, MAX_VISIBLE);
   const timelineGroups = groupTimelineItems(data.expiryTimeline);
 
-  const contractorKeys = ["contractorInsurance", "rams", "inductions", "staffRightToWork"];
-  const siteKeys = ["complianceCerts", "permits", "riskAssessments", "audits", "ppm", "fireRiskAssessment"];
+  const contractorKeys = ["contractorInsurance", "rams", "inductions", "workerRightToWork", "workerDbs", "workerCertifications", "equipment"];
+  const siteKeys = ["complianceCerts", "permits", "riskAssessments", "audits", "ppm", "fireRiskAssessment", "staffRightToWork", "staffDbs", "staffTraining"];
 
   return (
     <div className="space-y-6 p-4 md:p-6 max-w-7xl mx-auto">
@@ -1051,11 +1097,11 @@ export default function ComplianceDashboard() {
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <p className="font-medium text-blue-700 dark:text-blue-400 mb-0.5">🟦 Contractor Compliance (50% of overall)</p>
-            <p>Contractor Insurance (35%) · RAMS Documents (25%) · Contractor Inductions (25%) · Staff Right to Work (15%)</p>
+            <p>Insurance (25%) · RAMS (15%) · Inductions (15%) · Worker Right to Work (15%) · Worker DBS (10%) · Worker Certifications (10%) · Equipment (10%)</p>
           </div>
           <div>
             <p className="font-medium text-amber-700 dark:text-amber-400 mb-0.5">🟧 Site Compliance (50% of overall)</p>
-            <p>Compliance Certificates (25%) · Permits to Work (20%) · Risk Assessments (20%) · Audits (15%) · PPM (10%) · Fire Risk Assessment (10%)</p>
+            <p>Compliance Certificates (20%) · Permits (15%) · Risk Assessments (15%) · Audits (15%) · PPM (10%) · Fire Risk Assessment (10%) · Staff Right to Work (10%) · Staff DBS (2.5%) · Staff Training (2.5%)</p>
           </div>
         </div>
         <p className="mt-2">Each category scores 0–100 based on compliant vs total tracked items. Categories with no tracked items score 100 (not applicable).</p>
