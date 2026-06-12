@@ -1153,7 +1153,7 @@ export function registerContractorRoutes(app: Express): void {
       const { postcode, transportMethod, workingDaysPerMonth } = req.body;
 
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -1199,7 +1199,7 @@ export function registerContractorRoutes(app: Express): void {
     try {
       const { companyId } = req.params;
 
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -1279,7 +1279,7 @@ export function registerContractorRoutes(app: Express): void {
       const { companyId } = req.params;
 
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -1302,7 +1302,7 @@ export function registerContractorRoutes(app: Express): void {
       const { workerId } = req.params;
 
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -1330,7 +1330,7 @@ export function registerContractorRoutes(app: Express): void {
       const { reportType = 'monthly' } = req.body;
 
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -1358,7 +1358,7 @@ export function registerContractorRoutes(app: Express): void {
       const { companyId } = req.params;
 
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -1400,7 +1400,7 @@ export function registerContractorRoutes(app: Express): void {
       const { reportId } = req.params;
 
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -1447,7 +1447,7 @@ export function registerContractorRoutes(app: Express): void {
       const { year, month, companyId } = req.query;
 
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -1476,7 +1476,7 @@ export function registerContractorRoutes(app: Express): void {
       const { transportMethod, postcode } = req.body;
 
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };

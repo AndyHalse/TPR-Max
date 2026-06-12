@@ -51,7 +51,11 @@ export function verifySessionToken(token: string): { userId: string; customerId:
   const expectedSig = b64urlEncode(
     crypto.createHmac('sha256', secret).update(`${header}.${payload}`).digest()
   );
-  if (sig !== expectedSig) throw new Error('Invalid token signature');
+  const sigBuf = Buffer.from(sig);
+  const expectedSigBuf = Buffer.from(expectedSig);
+  if (sigBuf.length !== expectedSigBuf.length || !crypto.timingSafeEqual(sigBuf, expectedSigBuf)) {
+    throw new Error('Invalid token signature');
+  }
   const data = JSON.parse(b64urlDecode(payload).toString());
   if (data.exp < Math.floor(Date.now() / 1000)) throw new Error('Token expired');
   return { userId: data.userId, customerId: data.customerId };

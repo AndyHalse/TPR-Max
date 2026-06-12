@@ -17,7 +17,7 @@ export function registerAiFeatureRoutes(app: Express): void {
       logger.info(`Generating AI safety image for ${slideType}: ${title}`);
       
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -56,7 +56,7 @@ export function registerAiFeatureRoutes(app: Express): void {
       const { slideType } = req.query;
       
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -76,7 +76,7 @@ export function registerAiFeatureRoutes(app: Express): void {
       const { id } = req.params;
       
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };
@@ -101,7 +101,7 @@ export function registerAiFeatureRoutes(app: Express): void {
       const { slideType } = req.params;
       
       // FIXED: Get customer context using authenticated session customerId
-      if (!req.session?.customerId) {
+      if (!req.customerId) {
         return res.status(401).json({ error: "Customer context not found in session" });
       }
       const context = { customerId: req.customerId };

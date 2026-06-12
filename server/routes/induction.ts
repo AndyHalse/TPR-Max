@@ -636,8 +636,8 @@ export function registerInductionRoutes(app: Express): void {
   app.get('/api/induction/custom-video-admin/:roleType', async (req, res) => {
     try {
       const { roleType } = req.params;
-      const sessionCustomerId = req.session?.customerId || (req as any).customerId;
-      if (!req.session?.userId || !sessionCustomerId) {
+      const sessionCustomerId = req.customerId;
+      if (!(req as any).userId || !sessionCustomerId) {
         return res.status(401).json({ error: 'Authentication required' });
       }
 
@@ -1878,7 +1878,7 @@ export function registerInductionRoutes(app: Express): void {
       }
 
       // If OpenAI fails, attempt Claude as fallback (if the customer has a Claude key configured)
-      if (!result.success && req.session?.customerId) {
+      if (!result.success && req.customerId) {
         try {
           const { decryptData } = await import('../utils/encryption');
           const context = { customerId: req.customerId };
@@ -4206,7 +4206,7 @@ export function registerInductionRoutes(app: Express): void {
   app.get('/api/induction/kiosk-status/:roleType', async (req, res) => {
     try {
       const { roleType } = req.params;
-      const customerId = req.session?.customerId || (req as any).customerId || 'default';
+      const customerId = req.customerId || 'default';
       let kioskEnabled = false;
       let hasVideo = false;
       try {
@@ -4723,8 +4723,8 @@ export function registerInductionRoutes(app: Express): void {
       const { roleType } = req.params;
 
       // Try customer-isolated database first (if authenticated)
-      const sessionCustomerId = req.session?.customerId || (req as any).customerId;
-      if (req.session?.userId && sessionCustomerId) {
+      const sessionCustomerId = req.customerId;
+      if ((req as any).userId && sessionCustomerId) {
         try {
           const custVideoDb = await customerDbService.getCustomerDatabase(sessionCustomerId);
           const custRows = await custVideoDb
