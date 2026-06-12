@@ -93,6 +93,23 @@ function Router() {
   const urlParams = new URLSearchParams(window.location.search);
   const emergencyToken = urlParams.get('token');
 
+  // On first mount: pick up the sso_jwt cookie the server sets after a successful
+  // SSO redirect. Moving it to sessionStorage replaces any stale tab token, so a
+  // same-tab SSO login that switched to a different customer is reflected immediately.
+  useEffect(() => {
+    const cookies = document.cookie.split(';');
+    const ssoJwtCookie = cookies.find(c => c.trim().startsWith('sso_jwt='));
+    if (ssoJwtCookie) {
+      const ssoToken = ssoJwtCookie.split('=').slice(1).join('=').trim();
+      if (ssoToken) {
+        setSessionToken(ssoToken);
+        // Expire the cookie immediately — it was a one-time handoff
+        document.cookie = 'sso_jwt=; path=/; max-age=0';
+        console.info('[SSO] Per-tab session token received from SSO cookie and stored');
+      }
+    }
+  }, []);
+
   // Route flags — computed before hooks so useQuery is always called unconditionally
   const isFireMarshalRoute = window.location.pathname.startsWith('/fire-marshal/');
   const isLoneWorkerOkRoute = window.location.pathname.startsWith('/lone-worker/ok/');
@@ -125,8 +142,10 @@ function Router() {
           throw new Error(`${res.status}: ${res.statusText}`);
         }
         const userData = await res.json();
-        // Store per-tab session token — covers SSO login (redirect flow) and page refreshes
-        if (userData.sessionToken && !existingToken) {
+        // Always update the stored token from /api/auth/me so that an SSO
+        // login in the same tab (which sets a fresh session cookie for a
+        // different customer) correctly overwrites the old tab token.
+        if (userData.sessionToken) {
           setSessionToken(userData.sessionToken);
         }
         console.info("✅ [AUTH QUERY] Successfully authenticated user:", userData.username);

@@ -2,7 +2,7 @@ import type { Express, Request, Response } from 'express';
 import crypto from 'crypto';
 import { eq } from 'drizzle-orm';
 import { logger } from '../utils/logger';
-import { requireAuth, AuthService } from '../auth';
+import { requireAuth, AuthService, signSessionToken } from '../auth';
 import * as SsoService from '../ssoService';
 import { CustomerDatabaseService } from '../customerDatabase';
 import * as isolatedSchema from '../isolatedSchema';
@@ -207,6 +207,16 @@ export function registerSsoRoutes(app: Express): void {
             return res.redirect('/login?error=sso_failed');
           }
           logger.info(`✅ SSO: Login successful — ${user.username} at ${customer.companyName}`);
+          // Set a short-lived JS-readable cookie so the frontend can pick up
+          // the per-tab session token and store it in sessionStorage. This is
+          // necessary because SSO uses a browser redirect (no JSON response body).
+          const ssoJwt = signSessionToken(user.id, customerId);
+          res.cookie('sso_jwt', ssoJwt, {
+            httpOnly: false,
+            sameSite: 'lax',
+            path: '/',
+            maxAge: 60 * 1000, // 60 second window — consumed immediately by the SPA
+          });
           return res.redirect('/');
         });
       });
