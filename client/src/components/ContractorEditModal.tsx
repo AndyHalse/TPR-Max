@@ -838,16 +838,24 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                         Check Out
                       </Button>
                     ) : (
-                      <Button
-                        type="button"
-                        onClick={() => setShowHostSelection(true)}
-                        disabled={checkInMutation.isPending}
-                        className="bg-green-600 hover:bg-green-700 text-white"
-                        data-testid="button-contractor-checkin"
-                      >
-                        <CheckCircle className="h-4 w-4 mr-2" />
-                        Check In
-                      </Button>
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          type="button"
+                          onClick={() => setShowHostSelection(true)}
+                          disabled={checkInMutation.isPending || !formData.inductionCompleted}
+                          className="bg-green-600 hover:bg-green-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                          data-testid="button-contractor-checkin"
+                          title={!formData.inductionCompleted ? 'Site induction must be completed before check-in' : undefined}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Check In
+                        </Button>
+                        {!formData.inductionCompleted && (
+                          <p className="text-xs text-amber-600 flex items-center gap-1">
+                            ⚠️ Site induction required before check-in
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                   

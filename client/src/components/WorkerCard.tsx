@@ -75,6 +75,9 @@ export function WorkerCard({
   const isClearForWork = !isRedCardBanned && worker.isActive && 
     (!worker.currentCardStatus || worker.currentCardStatus === 'clear' || worker.currentCardStatus === 'yellow');
 
+  const isInducted = worker.inductionCompleted || (worker as any).siteInductionCompleted;
+  const canCheckIn = isClearForWork && isInducted;
+
   return (
     <Card 
       className="relative w-full overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer border-0" 
@@ -135,16 +138,23 @@ export function WorkerCard({
 
         <div className="flex items-center gap-2">
           {!worker.isCheckedIn ? (
-            <Button
-              onClick={(e) => { e.stopPropagation(); onCheckIn?.(worker); }}
-              variant="outline"
-              size="sm"
-              className="flex-1 text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50"
-              data-testid={`button-checkin-${worker.id}`}
-            >
-              <LogIn className="mr-1.5 h-3.5 w-3.5" />
-              Check In
-            </Button>
+            <div className="flex-1 flex flex-col gap-0.5">
+              <Button
+                onClick={(e) => { e.stopPropagation(); if (canCheckIn) onCheckIn?.(worker); }}
+                variant="outline"
+                size="sm"
+                disabled={!canCheckIn}
+                className={`w-full ${canCheckIn ? 'text-green-600 hover:text-green-700 border-green-300 hover:border-green-400 hover:bg-green-50' : 'text-gray-400 border-gray-200 cursor-not-allowed opacity-60'}`}
+                data-testid={`button-checkin-${worker.id}`}
+                title={!isInducted ? 'Site induction must be completed before check-in' : !isClearForWork ? 'Worker is not cleared for site' : undefined}
+              >
+                <LogIn className="mr-1.5 h-3.5 w-3.5" />
+                Check In
+              </Button>
+              {!isInducted && (
+                <p className="text-xs text-amber-600 text-center leading-tight">No induction</p>
+              )}
+            </div>
           ) : (
             <Button
               onClick={(e) => { e.stopPropagation(); onCheckOut?.(worker.id); }}

@@ -2516,15 +2516,27 @@ export default function ContractorDetails() {
                   {workerWizardStep > 1 ? '← Back' : 'Cancel'}
                 </Button>
                 {workerWizardStep < 3 ? (
-                  <Button type="button" onClick={() => setWorkerWizardStep(workerWizardStep + 1)} disabled={
-                    (workerWizardStep === 1 && (!workerForm.watch('firstName') || !workerForm.watch('lastName') || !workerForm.watch('email') || !workerForm.watch('phone'))) ||
-                    (workerWizardStep === 2 && workerForm.watch('rightToWork') === 'valid' && !workerForm.watch('rightToWorkExpiryDate'))
-                  } className="bg-blue-600 hover:bg-blue-700">
+                  <Button
+                    type="button"
+                    onClick={() => setWorkerWizardStep(workerWizardStep + 1)}
+                    disabled={
+                      addWorkerMutation.isPending ||
+                      (workerWizardStep === 1 && (!workerForm.watch('firstName') || !workerForm.watch('lastName') || !workerForm.watch('email') || !workerForm.watch('phone'))) ||
+                      (workerWizardStep === 2 && workerForm.watch('rightToWork') === 'valid' && !workerForm.watch('rightToWorkExpiryDate'))
+                    }
+                    className="bg-blue-600 hover:bg-blue-700"
+                  >
                     Next →
                   </Button>
                 ) : (
-                  <Button type="submit" disabled={addWorkerMutation.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="button-submit-add-worker">
-                    {addWorkerMutation.isPending ? "Saving..." : "Save Worker"}
+                  <Button
+                    type="button"
+                    disabled={addWorkerMutation.isPending}
+                    className="bg-blue-600 hover:bg-blue-700"
+                    data-testid="button-submit-add-worker"
+                    onClick={() => workerForm.handleSubmit(handleAddWorker)()}
+                  >
+                    {addWorkerMutation.isPending ? "Saving…" : "Save Worker"}
                   </Button>
                 )}
               </div>

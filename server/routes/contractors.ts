@@ -1648,16 +1648,46 @@ export function registerContractorRoutes(app: Express): void {
       
       logger.info(`Created contractor worker: ID ${workerData.id} (ID: ${worker.id}) for customer ${context.customerId}`);
 
-      // Audit trail — worker created
+      // Audit trail — worker created with full step-by-step detail
       try {
         const auditDb = await customerDbService.getCustomerDatabase(context.customerId);
         const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
+
+        // Step 1 — Personal details
+        const transportLabels: Record<string, string> = {
+          car_diesel: 'Car (diesel)', car_petrol: 'Car (petrol)', electric_car: 'Electric car',
+          public_transport: 'Public transport', motorcycle: 'Motorcycle',
+        };
         await auditDb.insert(isolatedSchema.workerNotes).values({
           workerId: worker.id,
           changeType: 'worker_created',
-          notes: `Worker profile created by ${username} on ${auditTs}`,
+          notes: `Worker profile created by ${username} on ${auditTs}. Personal details recorded — Name: ${workerData.firstName} ${workerData.lastName}, Email: ${workerData.email || '—'}, Phone: ${workerData.phoneNumber || '—'}, Postcode: ${(body.postcode) || '—'}, Transport: ${transportLabels[body.transportMethod] || body.transportMethod || '—'}.`,
           changedBy: username,
         });
+
+        // Step 2 — Compliance (RTW, CSCS, IPAF)
+        const rtwLabel: Record<string, string> = { valid: 'Valid ✅', pending: 'Pending ⏳', expired: 'Expired ❌', not_required: 'Not required' };
+        const cardLabel: Record<string, string> = { valid: 'Valid ✅', pending: 'Pending ⏳', expired: 'Expired ❌', none: 'Not held' };
+        const rtwExpiry = workerData.rightToWorkExpiryDate ? ` (expiry: ${new Date(workerData.rightToWorkExpiryDate).toLocaleDateString('en-GB')})` : '';
+        await auditDb.insert(isolatedSchema.workerNotes).values({
+          workerId: worker.id,
+          changeType: 'compliance_recorded',
+          notes: `Compliance data recorded by ${username} on ${auditTs}. Right to Work: ${rtwLabel[workerData.rightToWork || ''] || workerData.rightToWork || '—'}${rtwExpiry}. CSCS: ${cardLabel[workerData.cscsStatus || ''] || workerData.cscsStatus || '—'}${workerData.cscsCard ? ` (card no. ${workerData.cscsCard})` : ''}. IPAF: ${cardLabel[workerData.ipafStatus || ''] || workerData.ipafStatus || '—'}.`,
+          changedBy: username,
+        });
+
+        // Step 3 — Training certs + induction
+        const certs: string[] = [];
+        if (workerData.asbestosAwareness) certs.push('Asbestos Awareness');
+        if (workerData.manualHandling) certs.push('Manual Handling');
+        if (workerData.workingAtHeight) certs.push('Working at Height');
+        await auditDb.insert(isolatedSchema.workerNotes).values({
+          workerId: worker.id,
+          changeType: 'training_recorded',
+          notes: `Training data recorded by ${username} on ${auditTs}. Certificates declared: ${certs.length > 0 ? certs.join(', ') : 'None'}. Site induction: ${workerData.siteInductionCompleted ? `Completed (confirmed by ${username})` : 'Not yet completed'}.`,
+          changedBy: username,
+        });
+
         // Also log on the company audit trail
         await auditDb.insert(isolatedSchema.companyNotes).values({
           companyId: companyId,
@@ -1665,7 +1695,8 @@ export function registerContractorRoutes(app: Express): void {
           notes: `Worker "${workerData.firstName} ${workerData.lastName}" added by ${username} on ${auditTs}`,
           changedBy: username,
         });
-        // If induction was marked complete at creation, add a dedicated audit note
+
+        // If induction was marked complete at creation, add a dedicated induction note
         if (workerData.siteInductionCompleted) {
           await auditDb.insert(isolatedSchema.workerNotes).values({
             workerId: worker.id,
