@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'wouter';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -63,6 +63,11 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   const [isScanningDoc, setIsScanningDoc] = useState(false);
   const [aiExtracted, setAiExtracted] = useState(false);
 
+  // Tracks whether the user has made any input change in the current modal open.
+  // Allows freshWorker to load and update the form UNTIL the user starts typing,
+  // at which point we freeze to prevent their edits being overwritten.
+  const userHasEditedRef = useRef(false);
+
   // Fetch FRESH worker data directly from API when modal opens
   // This ensures we always have the latest data, not stale parent state
   const { data: freshWorker } = useQuery<ContractorWorker>({
@@ -92,29 +97,41 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
     companyId: worker?.companyId || '',
   });
 
-  // Update form data when fresh worker data loads or modal opens
+  // Reset the "user has edited" guard whenever the modal closes.
   useEffect(() => {
-    if (activeWorker && open) {
-      const inductionVal = activeWorker.inductionCompleted === true || (activeWorker as any).siteInductionCompleted === true;
-      console.info('🔍 FORM INIT - inductionCompleted:', inductionVal, 'source:', freshWorker ? 'fresh API' : 'prop');
-      setFormData({
-        firstName: activeWorker.firstName || '',
-        lastName: activeWorker.lastName || '',
-        email: activeWorker.email || '',
-        phone: activeWorker.phoneNumber || '',
-        postcode: activeWorker.postcode || '',
-        transportMethod: activeWorker.transportMethod || 'car_diesel',
-        rightToWork: activeWorker.rightToWork || 'pending',
-        cscsCard: activeWorker.cscsCard || '',
-        cscsStatus: activeWorker.cscsStatus || 'pending',
-        ipafStatus: activeWorker.ipafStatus || 'none',
-        asbestosAwareness: activeWorker.asbestosAwareness || false,
-        manualHandling: activeWorker.manualHandling || false,
-        inductionCompleted: inductionVal,
-        companyId: activeWorker.companyId || '',
-      });
+    if (!open) {
+      userHasEditedRef.current = false;
     }
-  }, [activeWorker, open, freshWorker]);
+  }, [open]);
+
+  // Initialise (or re-initialise) form data from the best available data source.
+  // Runs whenever the modal opens OR when freshWorker arrives with updated values.
+  // Stops as soon as the user makes their first change so their edits are never lost.
+  useEffect(() => {
+    if (!open) return;
+    if (userHasEditedRef.current) return; // user has started editing — freeze
+    const target = freshWorker || activeWorker;
+    if (!target) return;
+
+    const inductionVal = target.inductionCompleted === true || (target as any).siteInductionCompleted === true;
+    console.info('🔍 FORM INIT - inductionCompleted:', inductionVal, 'source:', freshWorker ? 'fresh API' : 'prop');
+    setFormData({
+      firstName: target.firstName || '',
+      lastName: target.lastName || '',
+      email: target.email || '',
+      phone: (target as any).phoneNumber || (target as any).phone || '',
+      postcode: target.postcode || '',
+      transportMethod: target.transportMethod || 'car_diesel',
+      rightToWork: target.rightToWork || 'pending',
+      cscsCard: target.cscsCard || '',
+      cscsStatus: target.cscsStatus || 'pending',
+      ipafStatus: target.ipafStatus || 'none',
+      asbestosAwareness: target.asbestosAwareness || false,
+      manualHandling: target.manualHandling || false,
+      inductionCompleted: inductionVal,
+      companyId: target.companyId || '',
+    });
+  }, [open, freshWorker, activeWorker]);
 
   // Fetch contractor visit history
   const { data: workerHistory = [], refetch: refetchHistory } = useQuery<ContractorVisit[]>({
@@ -170,6 +187,11 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/notes`] });
       queryClient.invalidateQueries({ queryKey: ['/api/contractors/checked-in'] });
+      // Invalidate the specific contractor-by-ID query used by ContractorDetails so
+      // the worker card reflects updated phone / induction status immediately.
+      if (worker?.companyId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}`] });
+      }
       refetchNotes();
       toast({
         title: 'Success',
@@ -519,6 +541,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   };
 
   const handleInputChange = (field: string, value: any) => {
+    userHasEditedRef.current = true;
     console.info(`🔍 ContractorEditModal - Field "${field}" changed to:`, value);
     setFormData(prev => ({ ...prev, [field]: value }));
   };
