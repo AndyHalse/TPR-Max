@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bug, Camera, ExternalLink, ChevronDown } from "lucide-react";
+import { Bug, Camera, Download, Maximize2, ChevronDown, X } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,7 @@ export default function PlatformAdminBugReports() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailNotes, setDetailNotes] = useState("");
   const [detailStatus, setDetailStatus] = useState("");
+  const [zoomedScreenshot, setZoomedScreenshot] = useState<string | null>(null);
 
   const { data, isLoading, isError } = useQuery<{ reports: BugReport[] }>({
     queryKey: ["/platform-admin/bug-reports"],
@@ -259,21 +260,38 @@ export default function PlatformAdminBugReports() {
                 {/* Screenshot */}
                 {detail.screenshot && (
                   <div>
-                    <Label className="text-xs uppercase tracking-wide text-muted-foreground">Screenshot</Label>
-                    <div className="mt-1 relative group">
-                      <img
-                        src={detail.screenshot}
-                        alt="Bug report screenshot"
-                        className="w-full rounded border max-h-64 object-cover object-top cursor-pointer"
-                        onClick={() => window.open(detail.screenshot!, "_blank")}
-                      />
-                      <button
-                        onClick={() => window.open(detail.screenshot!, "_blank")}
-                        className="absolute top-2 right-2 bg-black/60 text-white rounded px-2 py-1 text-xs flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                      >
-                        <ExternalLink className="w-3 h-3" /> Full size
-                      </button>
+                    <div className="flex items-center justify-between mb-1">
+                      <Label className="text-xs uppercase tracking-wide text-muted-foreground">Screenshot</Label>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => {
+                            const a = document.createElement("a");
+                            a.href = detail.screenshot!;
+                            a.download = `${detail.reportNumber || "bug-report"}.jpg`;
+                            a.click();
+                          }}
+                          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                          title="Download screenshot"
+                        >
+                          <Download className="w-3 h-3" /> Download
+                        </button>
+                        <span className="text-muted-foreground/40 mx-1">·</span>
+                        <button
+                          onClick={() => setZoomedScreenshot(detail.screenshot!)}
+                          className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
+                          title="View full size"
+                        >
+                          <Maximize2 className="w-3 h-3" /> Full size
+                        </button>
+                      </div>
                     </div>
+                    <img
+                      src={detail.screenshot}
+                      alt="Bug report screenshot"
+                      className="w-full rounded border object-contain bg-slate-50 dark:bg-slate-900 cursor-zoom-in"
+                      onClick={() => setZoomedScreenshot(detail.screenshot!)}
+                      title="Click to view full size"
+                    />
                   </div>
                 )}
 
@@ -319,6 +337,40 @@ export default function PlatformAdminBugReports() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Screenshot lightbox */}
+      {zoomedScreenshot && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/90 flex items-center justify-center p-4"
+          onClick={() => setZoomedScreenshot(null)}
+        >
+          <button
+            className="absolute top-4 right-4 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+            onClick={() => setZoomedScreenshot(null)}
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <button
+            className="absolute top-4 right-16 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full p-2 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              const a = document.createElement("a");
+              a.href = zoomedScreenshot;
+              a.download = "bug-report-screenshot.jpg";
+              a.click();
+            }}
+            title="Download"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+          <img
+            src={zoomedScreenshot}
+            alt="Full size screenshot"
+            className="max-w-full max-h-full rounded shadow-2xl object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -180,9 +180,7 @@ export default function ReportProblemButton() {
                   <img
                     src={screenshot}
                     alt="Page screenshot preview"
-                    className="w-full rounded border max-h-40 object-cover object-top cursor-pointer hover:opacity-90 transition-opacity"
-                    onClick={() => window.open(screenshot, "_blank")}
-                    title="Click to view full size"
+                    className="w-full rounded border object-contain bg-slate-50 dark:bg-slate-900"
                   />
                   <p className="text-xs text-amber-700 dark:text-amber-400">
                     ⚠ Check the screenshot doesn't show anything you'd rather not share.
