@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
-  Globe, Send, Users, Building2, Loader2, ExternalLink,
+  Globe, Send, Users, Building2, Loader2,
   CheckCircle2, Clock, Plus, MailCheck, ShieldOff, FileText,
   CheckCheck, XCircle, Eye, RefreshCw,
 } from "lucide-react";
@@ -177,10 +177,6 @@ export default function ContractorPortalAdmin() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Button variant="outline" size="sm" onClick={() => window.open("/contractor-portal/login", "_blank")} className="flex items-center gap-2">
-            <ExternalLink className="w-4 h-4" />
-            <span className="hidden sm:inline">Open Portal</span>
-          </Button>
           <Button variant="outline" onClick={() => setInviteOpen(true)} className="flex items-center gap-2">
             <Send className="w-4 h-4" />
             Send Invite
