@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import GlassCard from "@/components/GlassCard";
 import { apiRequest } from "@/lib/queryClient";
 import { toast } from "@/hooks/use-toast";
@@ -166,6 +167,7 @@ export default function ContractorPortalAdmin() {
   const addDisabled = !cf.name || !cf.email || !cf.contactFirstName || !cf.contactLastName || !cf.phone || !cf.address || createContractorMutation.isPending;
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="p-3 sm:p-6 space-y-6 pb-24 sm:pb-6">
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -177,55 +179,85 @@ export default function ContractorPortalAdmin() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Button variant="outline" onClick={() => setInviteOpen(true)} className="flex items-center gap-2">
-            <Send className="w-4 h-4" />
-            Send Invite
-          </Button>
-          <Button onClick={() => setAddOpen(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
-            <Plus className="w-4 h-4" />
-            Add Contractor
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" onClick={() => setInviteOpen(true)} className="flex items-center gap-2">
+                <Send className="w-4 h-4" />
+                Send Invite
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Send a portal invite to an existing contractor's contact email</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button onClick={() => setAddOpen(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4" />
+                Add Contractor
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Register a new contractor company and optionally send a portal invite</TooltipContent>
+          </Tooltip>
         </div>
       </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <GlassCard className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-lg"><CheckCircle2 className="w-5 h-5 text-green-600" /></div>
-            <div>
-              <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{activeCount}</p>
-              <p className="text-xs text-muted-foreground">Active users</p>
-            </div>
-          </div>
-        </GlassCard>
-        <GlassCard className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-100 rounded-lg"><Clock className="w-5 h-5 text-amber-600" /></div>
-            <div>
-              <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{pendingCount}</p>
-              <p className="text-xs text-muted-foreground">Pending invites</p>
-            </div>
-          </div>
-        </GlassCard>
-        <GlassCard className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-lg"><Building2 className="w-5 h-5 text-blue-600" /></div>
-            <div>
-              <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{companiesWithPortal}</p>
-              <p className="text-xs text-muted-foreground">Companies</p>
-            </div>
-          </div>
-        </GlassCard>
-        <GlassCard className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-orange-100 rounded-lg"><FileText className="w-5 h-5 text-orange-600" /></div>
-            <div>
-              <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{pendingDocsCount}</p>
-              <p className="text-xs text-muted-foreground">Docs to review</p>
-            </div>
-          </div>
-        </GlassCard>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <GlassCard className="p-4 cursor-default">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 rounded-lg"><CheckCircle2 className="w-5 h-5 text-green-600" /></div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{activeCount}</p>
+                  <p className="text-xs text-muted-foreground">Active users</p>
+                </div>
+              </div>
+            </GlassCard>
+          </TooltipTrigger>
+          <TooltipContent>Contractors who have accepted their invite and can log in to upload documents</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <GlassCard className="p-4 cursor-default">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-lg"><Clock className="w-5 h-5 text-amber-600" /></div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{pendingCount}</p>
+                  <p className="text-xs text-muted-foreground">Pending invites</p>
+                </div>
+              </div>
+            </GlassCard>
+          </TooltipTrigger>
+          <TooltipContent>Invitations sent but not yet accepted — use Resend if they've missed the email</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <GlassCard className="p-4 cursor-default">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg"><Building2 className="w-5 h-5 text-blue-600" /></div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{companiesWithPortal}</p>
+                  <p className="text-xs text-muted-foreground">Companies</p>
+                </div>
+              </div>
+            </GlassCard>
+          </TooltipTrigger>
+          <TooltipContent>Distinct contractor companies that have at least one portal user</TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <GlassCard className="p-4 cursor-default">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-orange-100 rounded-lg"><FileText className="w-5 h-5 text-orange-600" /></div>
+                <div>
+                  <p className="text-2xl font-bold text-slate-800 dark:text-slate-100">{pendingDocsCount}</p>
+                  <p className="text-xs text-muted-foreground">Docs to review</p>
+                </div>
+              </div>
+            </GlassCard>
+          </TooltipTrigger>
+          <TooltipContent>Documents uploaded by contractors via the portal that are waiting for your approval</TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Tabs: Portal Users + Pending Documents */}
@@ -281,18 +313,33 @@ export default function ContractorPortalAdmin() {
                           {u.isActive ? "Active" : "Invite pending"}
                         </Badge>
                         {!u.isActive && (
-                          <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => sendInviteMutation.mutate({ companyId: u.companyId, email: u.email })} disabled={sendInviteMutation.isPending}>
-                            <RefreshCw className="w-3 h-3 mr-1" /> Resend
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => sendInviteMutation.mutate({ companyId: u.companyId, email: u.email })} disabled={sendInviteMutation.isPending}>
+                                <RefreshCw className="w-3 h-3 mr-1" /> Resend
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Resend the invitation email to {u.email}</TooltipContent>
+                          </Tooltip>
                         )}
                         {u.isActive && (
-                          <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:text-red-700 hover:border-red-300" onClick={() => setRevokeTarget({ id: u.id, email: u.email })} disabled={revokeMutation.isPending}>
-                            <ShieldOff className="w-3 h-3 mr-1" /> Revoke
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 hover:text-red-700 hover:border-red-300" onClick={() => setRevokeTarget({ id: u.id, email: u.email })} disabled={revokeMutation.isPending}>
+                                <ShieldOff className="w-3 h-3 mr-1" /> Revoke
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Immediately block this user from logging into the portal</TooltipContent>
+                          </Tooltip>
                         )}
-                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setLocation(`/contractors/${u.companyId}`)}>
-                          <Eye className="w-3 h-3" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => setLocation(`/contractors/${u.companyId}`)}>
+                              <Eye className="w-3 h-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>View contractor details</TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   ))}
@@ -337,16 +384,31 @@ export default function ContractorPortalAdmin() {
                           {doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString() : "—"}
                         </span>
                         {doc.documentUrl && (
-                          <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(doc.documentUrl, "_blank")}>
-                            <Eye className="w-3 h-3" />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => window.open(doc.documentUrl, "_blank")}>
+                                <Eye className="w-3 h-3" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Preview document in a new tab</TooltipContent>
+                          </Tooltip>
                         )}
-                        <Button size="sm" variant="outline" className="h-7 text-xs text-green-700 border-green-300 hover:bg-green-50" onClick={() => reviewDocMutation.mutate({ docId: doc.id, status: "approved" })} disabled={reviewDocMutation.isPending}>
-                          <CheckCheck className="w-3 h-3 mr-1" /> Approve
-                        </Button>
-                        <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50" onClick={() => reviewDocMutation.mutate({ docId: doc.id, status: "rejected", rejectedReason: "Rejected by administrator" })} disabled={reviewDocMutation.isPending}>
-                          <XCircle className="w-3 h-3 mr-1" /> Reject
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-7 text-xs text-green-700 border-green-300 hover:bg-green-50" onClick={() => reviewDocMutation.mutate({ docId: doc.id, status: "approved" })} disabled={reviewDocMutation.isPending}>
+                              <CheckCheck className="w-3 h-3 mr-1" /> Approve
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Mark as approved — updates contractor compliance status</TooltipContent>
+                        </Tooltip>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" variant="outline" className="h-7 text-xs text-red-600 border-red-300 hover:bg-red-50" onClick={() => reviewDocMutation.mutate({ docId: doc.id, status: "rejected", rejectedReason: "Rejected by administrator" })} disabled={reviewDocMutation.isPending}>
+                              <XCircle className="w-3 h-3 mr-1" /> Reject
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Reject this document — contractor can re-upload via the portal</TooltipContent>
+                        </Tooltip>
                       </div>
                     </div>
                   ))}
@@ -516,5 +578,6 @@ export default function ContractorPortalAdmin() {
         </DialogContent>
       </Dialog>
     </div>
+    </TooltipProvider>
   );
 }
