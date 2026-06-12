@@ -2659,3 +2659,45 @@ export const blogPosts = pgTable("blog_posts", {
 export const insertBlogPostSchema = createInsertSchema(blogPosts).omit({ id: true, createdAt: true, updatedAt: true });
 export type BlogPost = typeof blogPosts.$inferSelect;
 export type InsertBlogPost = z.infer<typeof insertBlogPostSchema>;
+
+// Bug Reports — in-app bug reporting, stored centrally (visible to platform admins across all tenants)
+export const bugReports = pgTable("bug_reports", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  reportNumber: text("report_number").notNull(),
+  customerId: varchar("customer_id"),
+  customerName: text("customer_name"),
+  reporterName: text("reporter_name"),
+  reporterEmail: text("reporter_email"),
+  description: text("description").notNull(),
+  pageUrl: text("page_url"),
+  browserInfo: text("browser_info"),
+  screenSize: text("screen_size"),
+  consoleErrors: text("console_errors"),
+  screenshot: text("screenshot"),
+  status: text("status").notNull().default("new"),
+  adminNotes: text("admin_notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+}, (table) => ({
+  bugStatusIdx: index("bug_reports_status_idx").on(table.status),
+  bugCustomerIdIdx: index("bug_reports_customer_id_idx").on(table.customerId),
+  bugCreatedAtIdx: index("bug_reports_created_at_idx").on(table.createdAt),
+}));
+
+export const insertBugReportSchema = createInsertSchema(bugReports).omit({
+  id: true,
+  reportNumber: true,
+  customerId: true,
+  customerName: true,
+  status: true,
+  adminNotes: true,
+  createdAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+}).extend({
+  description: z.string().min(1).max(5000),
+});
+
+export type BugReport = typeof bugReports.$inferSelect;
+export type InsertBugReport = z.infer<typeof insertBugReportSchema>;

@@ -6,13 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe } from "lucide-react";
+import { Shield, LogOut, Plus, Building2, Users, Calendar, CheckCircle2, XCircle, Settings, Edit, Palette, Trash2, AlertTriangle, UserPlus, BookOpen, FileText, Eye, EyeOff, Globe, Bug } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import PlatformAdminCustomerForm from "./PlatformAdminCustomerForm";
+import PlatformAdminBugReports from "./PlatformAdminBugReports";
 import { ShieldCheck } from "lucide-react";
 
 interface PlatformAdmin {
@@ -669,6 +670,9 @@ export default function PlatformAdminDashboard() {
             <TabsTrigger value="blog">
               <BookOpen className="w-4 h-4 mr-2" />Blog
             </TabsTrigger>
+            <TabsTrigger value="bug-reports">
+              <Bug className="w-4 h-4 mr-2" />Bug Reports
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="customers">
@@ -904,6 +908,10 @@ export default function PlatformAdminDashboard() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="bug-reports" className="mt-0">
+            <PlatformAdminBugReports />
           </TabsContent>
         </Tabs>
       </main>

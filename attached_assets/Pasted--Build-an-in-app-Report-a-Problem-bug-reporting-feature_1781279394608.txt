@@ -1,0 +1,125 @@
+# Build an in-app "Report a Problem" bug reporting feature
+
+## Context and goal
+TPR Max is a multi-tenant SaaS app (React + Vite client in `client/`, Express server in
+`server/`, Drizzle ORM). Each customer has their own isolated database; there is also a
+central/shared database defined in `shared/schema.ts` (used for `customers`,
+`platform_admins`, etc.).
+
+Build a bug reporting feature so any logged-in user in any customer tenant can report a
+software problem from any screen. Reports must be stored CENTRALLY (visible to platform
+admins across all customers), NOT in the customer's tenant database.
+
+IMPORTANT: Do NOT modify or reuse the existing Help Desk module (`helpdesk.ts`,
+`HelpDesk.tsx`, `help_desk_tickets`). That is the customer's own facilities ticket system
+and must stay completely separate from this feature.
+
+## 1. Database — central table in `shared/schema.ts`
+Add a `bug_reports` table (Drizzle pgTable) near `platformAdmins`:
+
+- `id` varchar primary key, default `gen_random_uuid()`
+- `reportNumber` text — e.g. "BR-001", auto-generated server-side on create
+- `customerId` varchar, `customerName` text — captured server-side from the session
+- `reporterName` text, `reporterEmail` text
+- `description` text NOT NULL
+- `pageUrl` text (route the user was on), `browserInfo` text (user agent),
+  `screenSize` text (e.g. "1920x1080")
+- `consoleErrors` text — recent client-side JS errors
+- `screenshot` text — JPEG data URL
+- `status` text NOT NULL default `'new'` — allowed: new | in_progress | fixed | closed
+- `adminNotes` text
+- `createdAt` / `updatedAt` timestamps defaultNow, `resolvedAt` timestamp nullable
+- Indexes on `status`, `customerId`, `createdAt`
+
+Create `insertBugReportSchema` with `createInsertSchema(bugReports)`, omitting
+id/reportNumber/customerId/customerName/status/adminNotes/createdAt/updatedAt/resolvedAt,
+and extend `description` with `z.string().min(1).max(5000)`. Export `InsertBugReport`
+and `BugReport` types. After the schema change, run `npm run db:push` so the table is
+created in the central database.
+
+## 2. Server — new file `server/routes/bugReports.ts`
+Register it from `server/routes/index.ts` like the other route modules
+(`registerBugReportRoutes(app)`).
+
+**POST `/api/bug-reports`** — tenant-facing, guarded by the existing `requireAuth`
+middleware, plus an `express-rate-limit` limiter (10 requests per 15 minutes).
+- Validate body with `insertBugReportSchema`.
+- If a screenshot is present: reject unless it starts with `data:image/`; reject if
+  longer than 4MB (the global JSON body limit is 5mb — stay under it).
+- Look up `customerName` from the central `customers` table using `req.customerId`
+  (set by `requireAuth`). The lookup failing must not fail the submission.
+- Generate `reportNumber` as `BR-` + zero-padded count+1 (same pattern as the Help
+  Desk's HD- numbering).
+- Insert into the CENTRAL db (`db` from `server/db.ts`), not the tenant database.
+- Send an email alert using the existing `sendEmail` from `server/emailService.ts` to
+  `process.env.BUG_REPORT_NOTIFY_EMAIL || 'andy@acsltd.eu'` with the report number,
+  customer, reporter, page, and description (HTML-escape the description). Email
+  failure must NOT fail the request — log and continue.
+- Respond 201 with `{ id, reportNumber }`.
+
+**Platform admin endpoints** — guarded by the existing `requirePlatformAdmin`:
+- `GET /platform-admin/bug-reports` — all reports newest first. Omit the screenshot
+  column for speed; include a boolean `hasScreenshot` instead.
+- `GET /platform-admin/bug-reports/:id` — full report including screenshot.
+- `PATCH /platform-admin/bug-reports/:id` — update `status` (validate against the four
+  allowed values) and/or `adminNotes`. When status becomes fixed/closed set
+  `resolvedAt = now`, otherwise null it. Always bump `updatedAt`.
+
+## 3. Client — error buffer
+New file `client/src/lib/errorBuffer.ts`: `installErrorBuffer()` listens to `window`
+`error` and `unhandledrejection` events and keeps a rolling buffer of the last 10 error
+messages (each truncated to 500 chars, timestamped). Export `getRecentErrors()`.
+Call `installErrorBuffer()` once in `client/src/main.tsx` before rendering.
+
+## 4. Client — `client/src/components/ReportProblemButton.tsx`
+A floating round button on every authenticated screen:
+- Amber (`bg-amber-500 hover:bg-amber-600`), lucide `Bug` icon, positioned
+  `fixed bottom-16 right-4 sm:bottom-24 sm:right-6 z-40` — i.e. stacked directly ABOVE
+  the existing blue HelpButton, matching its size/shadow/tooltip style. Tooltip:
+  "Report a Problem".
+- On click, capture the screenshot FIRST (so the dialog isn't in the shot) using the
+  already-installed `html2canvas` dependency against `document.body`, cropped to the
+  current viewport (`useCORS: true`). Scale down to max 1600px wide and export as JPEG
+  data URL at quality 0.7. Show a spinner on the button while capturing. If capture
+  throws, continue without a screenshot.
+- Then open a shadcn Dialog containing:
+  - Required textarea "What happened?" (max 5000 chars, friendly placeholder)
+  - A checkbox "Include screenshot of this page" (default on) with an image preview and
+    the caption "Check the screenshot doesn't show anything you'd rather not share."
+  - If no screenshot was captured, a small note that the report will still be sent.
+- On submit, POST to `/api/bug-reports` via the existing `apiRequest` helper with:
+  description, screenshot (or null if excluded), `window.location.pathname`,
+  `navigator.userAgent`, `${window.innerWidth}x${window.innerHeight}`, recent errors
+  from `getRecentErrors()` joined with newlines, and reporter name/email taken from the
+  cached `/api/auth/me` query (name = firstName+lastName else username; email = username
+  only if it contains "@").
+- Success: close, reset, toast "Report BR-xxx sent — Thanks, our support team has been
+  notified." Error: destructive toast.
+
+Render `<ReportProblemButton />` from `Layout.tsx` right before the existing
+`<HelpButton />`. Do NOT add it to kiosk, emergency, fire-marshal, or public
+(no-login) screens — Layout only wraps the authenticated app, which is correct.
+
+## 5. Platform admin UI
+New file `client/src/pages/PlatformAdminBugReports.tsx`, rendered as a third tab
+"Bug Reports" (lucide `Bug` icon) in the existing Tabs in
+`PlatformAdminDashboard.tsx`, after Customers and Blog.
+- List view: card per report showing report number, customer name, a camera icon if it
+  has a screenshot, created date, status badge (new=blue, in_progress=amber,
+  fixed=green, closed=grey), and the first line of the description. Status filter
+  dropdown (All + the four statuses). Header shows the open count (new + in_progress).
+  Fetch with the same `fetch(..., { credentials: "include" })` pattern the dashboard
+  already uses for `/platform-admin/customers`.
+- Clicking a report opens a detail dialog: full description, screenshot (click to open
+  full-size in a new tab), page URL, screen size, browser string, console errors in a
+  scrollable `<pre>`, a status dropdown that PATCHes immediately, and an "Internal
+  notes" textarea with a Save button.
+
+## 6. Verify
+- `npm run check` must pass with no new TypeScript errors.
+- Run `npm run db:push`.
+- Test: log into a tenant, click the bug button on a couple of different pages, submit
+  with and without the screenshot, confirm the toast shows a BR- number; then log into
+  `/platform-admin`, open the Bug Reports tab, view the report incl. screenshot, change
+  status to Fixed (resolvedAt should be set), and save a note. Confirm the Help Desk
+  module is untouched.

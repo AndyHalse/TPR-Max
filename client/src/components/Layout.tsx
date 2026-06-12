@@ -4,6 +4,7 @@ import { IdCard, ChartLine, Users, Dock, ListChecks, User, Settings, FileText, C
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import LogoutButton from "@/components/LogoutButton";
 import HelpButton from "@/components/HelpButton";
+import ReportProblemButton from "@/components/ReportProblemButton";
 import HelpPanel from "@/components/HelpPanel";
 import Sidebar, { SIDEBAR_COLLAPSED_KEY, SIDEBAR_EXPANDED_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from "@/components/Sidebar";
 import type { CompanySettings } from "@shared/schema";
@@ -492,7 +493,8 @@ export default function Layout({ children }: LayoutProps) {
         )}
       </div>
 
-      {/* Help System */}
+      {/* Bug Report & Help System */}
+      <ReportProblemButton />
       <HelpButton
         onClick={() => setIsHelpPanelOpen(!isHelpPanelOpen)}
         isHelpPanelOpen={isHelpPanelOpen}
