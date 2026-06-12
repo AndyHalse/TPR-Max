@@ -4,7 +4,7 @@ import { useLocation } from "wouter";
 import {
   Globe, Send, Users, Building2, Loader2,
   CheckCircle2, Clock, Plus, MailCheck, ShieldOff, FileText,
-  CheckCheck, XCircle, Eye, RefreshCw,
+  CheckCheck, XCircle, Eye, RefreshCw, AlertTriangle,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -318,6 +318,22 @@ export default function ContractorPortalAdmin() {
                           <button className="text-xs text-blue-600 hover:underline text-left" onClick={() => setLocation(`/contractors/${u.companyId}?tab=portal`)}>
                             {u.companyName}
                           </button>
+                          {u.isActive && (() => {
+                            if (!u.lastLoginAt) return (
+                              <span className="flex items-center gap-1 text-xs text-amber-600 mt-0.5">
+                                <AlertTriangle className="w-3 h-3" /> Never logged in
+                              </span>
+                            );
+                            const days = Math.floor((Date.now() - new Date(u.lastLoginAt).getTime()) / 86400000);
+                            const label = days === 0 ? "today" : days === 1 ? "yesterday" : `${days}d ago`;
+                            const stale = days > 30;
+                            return (
+                              <span className={`flex items-center gap-1 text-xs mt-0.5 ${stale ? "text-amber-600" : "text-muted-foreground"}`}>
+                                {stale && <AlertTriangle className="w-3 h-3" />}
+                                Last login: {label}
+                              </span>
+                            );
+                          })()}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">

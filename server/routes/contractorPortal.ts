@@ -262,6 +262,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
         const emailSvc = new EmailService(customerId);
         const settings = await db.select({ companyName: isolatedSchema.companySettings.companyName }).from(isolatedSchema.companySettings).limit(1);
         const siteCompanyName = settings[0]?.companyName ?? companyDisplayName;
+        const portalLoginUrl = `${req.protocol}://${req.get('host')}/contractor-portal/login`;
         await emailSvc.sendEmail({
           to: user.email,
           subject: `Your Contractor Portal login details — ${siteCompanyName}`,
@@ -275,7 +276,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
                 <table style="width:100%;border-collapse:collapse">
                   <tr>
                     <td style="padding:6px 0;color:#64748b;font-size:14px;width:140px">Portal URL</td>
-                    <td style="padding:6px 0;font-size:14px"><a href="/contractor-portal/login" style="color:#2563eb">/contractor-portal/login</a></td>
+                    <td style="padding:6px 0;font-size:14px"><a href="${portalLoginUrl}" style="color:#2563eb">${portalLoginUrl}</a></td>
                   </tr>
                   <tr>
                     <td style="padding:6px 0;color:#64748b;font-size:14px">Email (username)</td>
@@ -296,7 +297,7 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
               <p style="color:#94a3b8;font-size:12px;margin-top:24px">If you did not create this account, please contact ${siteCompanyName} immediately.</p>
             </div>
           `,
-          text: `Contractor Portal — Account Activated\n\nHello${resolvedFirst ? ` ${resolvedFirst}` : ''},\n\nYour contractor portal account for ${siteCompanyName} is now active.\n\nYour login details:\n  Portal: /contractor-portal/login\n  Email: ${user.email}\n  Password: the password you just set\n  Company access code: ${customerId}\n\nKeep this email safe — you'll need these details each time you sign in.`,
+          text: `Contractor Portal — Account Activated\n\nHello${resolvedFirst ? ` ${resolvedFirst}` : ''},\n\nYour contractor portal account for ${siteCompanyName} is now active.\n\nYour login details:\n  Portal: ${portalLoginUrl}\n  Email: ${user.email}\n  Password: the password you just set\n  Company access code: ${customerId}\n\nKeep this email safe — you'll need these details each time you sign in.`,
         });
       } catch (emailErr: any) {
         logger.warn('[portal-accept-invite] Welcome email failed:', emailErr.message?.substring(0, 80));

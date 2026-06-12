@@ -1725,6 +1725,22 @@ export default function ContractorDetails() {
                           <p className="text-xs text-muted-foreground">
                             Invited {u.invitedAt ? new Date(u.invitedAt).toLocaleDateString() : "—"}
                           </p>
+                          {u.isActive && (() => {
+                            if (!u.lastLoginAt) return (
+                              <span className="flex items-center gap-1 text-xs text-amber-600 mt-0.5">
+                                <AlertTriangle className="w-3 h-3" /> Never logged in
+                              </span>
+                            );
+                            const days = Math.floor((Date.now() - new Date(u.lastLoginAt).getTime()) / 86400000);
+                            const label = days === 0 ? "today" : days === 1 ? "yesterday" : `${days}d ago`;
+                            const stale = days > 30;
+                            return (
+                              <span className={`flex items-center gap-1 text-xs mt-0.5 ${stale ? "text-amber-600" : "text-muted-foreground"}`}>
+                                {stale && <AlertTriangle className="w-3 h-3" />}
+                                Last login: {label}
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <Badge variant={u.isActive ? "default" : "secondary"}>
