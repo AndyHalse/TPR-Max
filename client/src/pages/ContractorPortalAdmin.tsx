@@ -88,7 +88,9 @@ export default function ContractorPortalAdmin() {
   const createContractorMutation = useMutation({
     mutationFn: async (data: any) => {
       const res = await apiRequest("POST", "/api/contractors", data);
-      return res.json();
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || "Failed to create contractor");
+      return body;
     },
     onSuccess: (created: any) => {
       toast({ title: "Contractor added", description: `${contractorForm.name} has been created.` });

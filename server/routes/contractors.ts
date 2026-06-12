@@ -996,9 +996,11 @@ export function registerContractorRoutes(app: Express): void {
       }
 
       res.json(contractor);
-    } catch (error) {
+    } catch (error: any) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ error: "Invalid contractor data", details: error.errors });
+      } else if (error?.code === "23505" && error?.constraint?.includes("company_name")) {
+        res.status(409).json({ error: "A contractor company with that name already exists. Please use a different company name or find the existing record." });
       } else {
         logger.error("Error creating contractor:", error);
         res.status(500).json({ error: "Failed to create contractor" });

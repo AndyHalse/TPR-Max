@@ -68,7 +68,12 @@ export default function ContractorAddCompanyDialog({ open, onOpenChange, custome
   };
 
   const createContractorMutation = useMutation({
-    mutationFn: async (data: any) => { const res = await apiRequest("POST", "/api/contractors", data); return await res.json(); },
+    mutationFn: async (data: any) => {
+      const res = await apiRequest("POST", "/api/contractors", data);
+      const body = await res.json();
+      if (!res.ok) throw new Error(body?.error || "Failed to add contractor");
+      return body;
+    },
     onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       setJustCreated(data);
