@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 
 interface BugReport {
   id: string;
@@ -73,14 +74,8 @@ export default function PlatformAdminBugReports() {
 
   const patchMutation = useMutation({
     mutationFn: async ({ id, body }: { id: string; body: Record<string, any> }) => {
-      const r = await fetch(`/platform-admin/bug-reports/${id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (!r.ok) throw new Error("Failed to update report");
-      return r.json();
+      const res = await apiRequest("PATCH", `/platform-admin/bug-reports/${id}`, body);
+      return res.json();
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/platform-admin/bug-reports"] });
@@ -166,7 +161,7 @@ export default function PlatformAdminBugReports() {
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <span className="font-mono text-sm font-bold text-amber-600">{report.reportNumber}</span>
                       {report.hasScreenshot && (
-                        <Camera className="w-3.5 h-3.5 text-slate-400" title="Has screenshot" />
+                        <span title="Has screenshot"><Camera className="w-3.5 h-3.5 text-slate-400" /></span>
                       )}
                       <Badge className={`text-xs px-2 py-0 ${cfg.className}`}>{cfg.label}</Badge>
                       <span className="text-xs text-muted-foreground">
