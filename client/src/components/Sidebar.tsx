@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import { ChevronLeft, ChevronRight, X, ChartLine, Activity, User, HardHat, CalendarPlus, Users, UserCheck, Calendar, Clock, ListChecks, ScrollText, AlertTriangle, Flame, Wrench, ClipboardCheck, ShieldCheck, ClipboardList, FileEdit, Ticket, Shield, FileText, Video, Dock, Mail, Briefcase, Settings, LogOut, Globe } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, clearSessionToken } from "@/lib/queryClient";
 
 export const SIDEBAR_COLLAPSED_KEY = "tprmax-sidebar-collapsed";
 export const SIDEBAR_EXPANDED_WIDTH = 220;
@@ -287,6 +287,7 @@ function SidebarLogoutButton({ collapsed, textStyle }: { collapsed: boolean; tex
       return response.json();
     },
     onSuccess: () => {
+      clearSessionToken();
       localStorage.removeItem('visigate_user');
       localStorage.removeItem('tprmax-logo-token');
       if (localStorage.getItem('tprmax-remember-me') !== 'true') {

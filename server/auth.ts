@@ -814,8 +814,18 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     const token = authHeader.slice(7);
     try {
       const { userId, customerId } = verifySessionToken(token);
+      // Set the canonical request-level fields used by route handlers
       req.customerId = customerId;
       (req as any).userId = userId;
+      // Mirror into req.session so legacy handlers that read req.session.customerId
+      // and req.session.userId see the correct per-tab tenant context without
+      // needing individual handler updates. These assignments are in-memory only
+      // for this request — session.save() is never called here, so they do NOT
+      // persist back to the session store.
+      if (req.session) {
+        req.session.customerId = customerId;
+        (req.session as any).userId = userId;
+      }
       logger.info('✅ SECURITY: requireAuth passed via Bearer token:', { userId, customerId });
       return next();
     } catch (err) {
