@@ -186,7 +186,7 @@ export default function ContractorPortalAdmin() {
                 Send Invite
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Send a portal invite to an existing contractor's contact email</TooltipContent>
+            <TooltipContent side="top" className="text-xs">Send a portal invite to an existing contractor's contact email</TooltipContent>
           </Tooltip>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -195,7 +195,7 @@ export default function ContractorPortalAdmin() {
                 Add Contractor
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Register a new contractor company and optionally send a portal invite</TooltipContent>
+            <TooltipContent side="top" className="text-xs">Register a new contractor company and optionally send a portal invite</TooltipContent>
           </Tooltip>
         </div>
       </div>
@@ -214,7 +214,7 @@ export default function ContractorPortalAdmin() {
               </div>
             </GlassCard>
           </TooltipTrigger>
-          <TooltipContent>Contractors who have accepted their invite and can log in to upload documents</TooltipContent>
+          <TooltipContent side="top" className="text-xs">Contractors who have accepted their invite and can log in to upload documents</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -228,7 +228,7 @@ export default function ContractorPortalAdmin() {
               </div>
             </GlassCard>
           </TooltipTrigger>
-          <TooltipContent>Invitations sent but not yet accepted — use Resend if they've missed the email</TooltipContent>
+          <TooltipContent side="top" className="text-xs">Invitations sent but not yet accepted — use Resend if they've missed the email</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -242,7 +242,7 @@ export default function ContractorPortalAdmin() {
               </div>
             </GlassCard>
           </TooltipTrigger>
-          <TooltipContent>Distinct contractor companies that have at least one portal user</TooltipContent>
+          <TooltipContent side="top" className="text-xs">Distinct contractor companies that have at least one portal user</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -256,7 +256,7 @@ export default function ContractorPortalAdmin() {
               </div>
             </GlassCard>
           </TooltipTrigger>
-          <TooltipContent>Documents uploaded by contractors via the portal that are waiting for your approval</TooltipContent>
+          <TooltipContent side="top" className="text-xs">Documents uploaded by contractors via the portal that are waiting for your approval</TooltipContent>
         </Tooltip>
       </div>
 
@@ -319,7 +319,7 @@ export default function ContractorPortalAdmin() {
                                 <RefreshCw className="w-3 h-3 mr-1" /> Resend
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Resend the invitation email to {u.email}</TooltipContent>
+                            <TooltipContent side="top" className="text-xs">Resend the invitation email to {u.email}</TooltipContent>
                           </Tooltip>
                         )}
                         {u.isActive && (
@@ -329,7 +329,7 @@ export default function ContractorPortalAdmin() {
                                 <ShieldOff className="w-3 h-3 mr-1" /> Revoke
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Immediately block this user from logging into the portal</TooltipContent>
+                            <TooltipContent side="top" className="text-xs">Immediately block this user from logging into the portal</TooltipContent>
                           </Tooltip>
                         )}
                         <Tooltip>
@@ -338,7 +338,7 @@ export default function ContractorPortalAdmin() {
                               <Eye className="w-3 h-3" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>View contractor details</TooltipContent>
+                          <TooltipContent side="top" className="text-xs">View contractor details</TooltipContent>
                         </Tooltip>
                       </div>
                     </div>
@@ -390,7 +390,7 @@ export default function ContractorPortalAdmin() {
                                 <Eye className="w-3 h-3" />
                               </Button>
                             </TooltipTrigger>
-                            <TooltipContent>Preview document in a new tab</TooltipContent>
+                            <TooltipContent side="top" className="text-xs">Preview document in a new tab</TooltipContent>
                           </Tooltip>
                         )}
                         <Tooltip>
@@ -399,7 +399,7 @@ export default function ContractorPortalAdmin() {
                               <CheckCheck className="w-3 h-3 mr-1" /> Approve
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Mark as approved — updates contractor compliance status</TooltipContent>
+                          <TooltipContent side="top" className="text-xs">Mark as approved — updates contractor compliance status</TooltipContent>
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -407,7 +407,7 @@ export default function ContractorPortalAdmin() {
                               <XCircle className="w-3 h-3 mr-1" /> Reject
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Reject this document — contractor can re-upload via the portal</TooltipContent>
+                          <TooltipContent side="top" className="text-xs">Reject this document — contractor can re-upload via the portal</TooltipContent>
                         </Tooltip>
                       </div>
                     </div>
