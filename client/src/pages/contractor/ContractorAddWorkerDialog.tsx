@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { User, CheckCircle, Lock, Shield } from "lucide-react";
+import { User, CheckCircle, Lock, Shield, AlertTriangle, Upload } from "lucide-react";
 import type { ContractorCompany } from "@shared/schema";
 
-const BLANK_FORM = { companyId: "", firstName: "", lastName: "", email: "", phone: "", postcode: "", transportMethod: "car_diesel", rightToWork: "pending" as "valid" | "expired" | "pending", cscsCard: "", cscsStatus: "pending" as "valid" | "expired" | "pending", ipafStatus: "none" as "none" | "3a" | "3b" | "1+" | "expired", asbestosAwareness: false, manualHandling: false, workingAtHeight: false, inductionCompleted: false, isActive: true };
+const BLANK_FORM = { companyId: "", firstName: "", lastName: "", email: "", phone: "", postcode: "", transportMethod: "car_diesel", rightToWork: "pending" as "valid" | "expired" | "pending", cscsCard: "", cscsStatus: "not_held" as "valid" | "expired" | "pending" | "not_held", ipafStatus: "none" as "none" | "3a" | "3b" | "1+" | "expired", asbestosAwareness: false, manualHandling: false, workingAtHeight: false, inductionCompleted: false, isActive: true };
 
 interface Props {
   open: boolean;
@@ -50,6 +50,8 @@ export default function ContractorAddWorkerDialog({ open, onOpenChange, selected
     { value: "bicycle", label: "Bicycle" }, { value: "walking", label: "Walking" },
   ];
 
+  const step1Invalid = !form.firstName || !form.lastName || !form.email || !form.phone;
+
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="w-[95vw] sm:max-w-2xl max-h-[92vh] flex flex-col overflow-hidden p-0">
@@ -76,7 +78,7 @@ export default function ContractorAddWorkerDialog({ open, onOpenChange, selected
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2"><label className="text-sm font-medium text-slate-700 dark:text-slate-200">First Name *</label><Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} data-testid="input-worker-firstname" /></div>
               <div className="space-y-2"><label className="text-sm font-medium text-slate-700 dark:text-slate-200">Last Name *</label><Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} data-testid="input-worker-lastname" /></div>
-              <div className="space-y-2"><label className="text-sm font-medium text-slate-700 dark:text-slate-200">Email Address</label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="input-worker-email" /></div>
+              <div className="space-y-2"><label className="text-sm font-medium text-slate-700 dark:text-slate-200">Email Address *</label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} data-testid="input-worker-email" placeholder="e.g. worker@company.com" /></div>
               <div className="space-y-2"><label className="text-sm font-medium text-slate-700 dark:text-slate-200">Phone Number *</label><Input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} data-testid="input-worker-phone" placeholder="e.g. 07700 900000" /></div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-200">Home Postcode</label>
@@ -102,11 +104,18 @@ export default function ContractorAddWorkerDialog({ open, onOpenChange, selected
                 <div><h4 className="font-semibold text-gray-900 dark:text-white text-sm">Right to Work</h4><p className="text-xs text-gray-500 dark:text-gray-400">Immigration Act 2014 — <span className="font-semibold text-red-600">Legally required before work commences</span></p></div>
               </div>
               <select value={form.rightToWork} onChange={(e) => setForm({ ...form, rightToWork: e.target.value as "valid" | "expired" | "pending" })} data-testid="select-right-to-work" className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none">
-                <option value="valid">Valid — check complete</option>
                 <option value="pending">Pending — check in progress</option>
+                <option value="valid">Valid — check complete</option>
                 <option value="expired">Expired — requires re-check</option>
               </select>
               {form.rightToWork === 'pending' && <div className="bg-amber-50 border border-amber-200 rounded px-3 py-2 text-xs text-amber-800">Worker cannot be permitted to work unsupervised until Right to Work is confirmed.</div>}
+              {form.rightToWork === 'valid' && (
+                <div className="bg-blue-50 border border-blue-200 rounded px-3 py-2 flex items-start gap-2">
+                  <Upload className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-blue-800"><span className="font-semibold">Document evidence required.</span> After saving, upload a copy of the Right to Work document (e.g. passport, visa, share code confirmation) in the worker's H&S Documents tab.</p>
+                </div>
+              )}
+              {form.rightToWork === 'expired' && <div className="bg-red-50 border border-red-200 rounded px-3 py-2 text-xs text-red-800">Right to Work has expired. A re-check must be completed before this worker can continue working.</div>}
             </div>
             <div className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2">
@@ -117,11 +126,20 @@ export default function ContractorAddWorkerDialog({ open, onOpenChange, selected
                 <div className="space-y-1"><label className="text-xs font-medium text-slate-600 dark:text-slate-300">Card Number</label><Input value={form.cscsCard} onChange={(e) => setForm({ ...form, cscsCard: e.target.value })} placeholder="e.g. CS-1234567" data-testid="input-cscs-card" /></div>
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-600 dark:text-slate-300">Status</label>
-                  <select value={form.cscsStatus} onChange={(e) => setForm({ ...form, cscsStatus: e.target.value as "valid" | "expired" | "pending" })} data-testid="select-cscs-status" className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none">
-                    <option value="valid">Valid</option><option value="pending">Pending</option><option value="expired">Expired</option>
+                  <select value={form.cscsStatus} onChange={(e) => setForm({ ...form, cscsStatus: e.target.value as "valid" | "expired" | "pending" | "not_held" })} data-testid="select-cscs-status" className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none">
+                    <option value="not_held">Not held / not applicable</option>
+                    <option value="pending">Pending — awaiting verification</option>
+                    <option value="valid">Valid</option>
+                    <option value="expired">Expired</option>
                   </select>
                 </div>
               </div>
+              {form.cscsStatus === 'valid' && (
+                <div className="bg-blue-50 border border-blue-200 rounded px-3 py-2 flex items-start gap-2">
+                  <Upload className="w-3.5 h-3.5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-blue-800"><span className="font-semibold">Card copy required.</span> After saving, upload a scan of the CSCS card in the worker's H&S Documents tab.</p>
+                </div>
+              )}
             </div>
             <div className="border rounded-lg p-4 space-y-3">
               <div className="flex items-center gap-2">
@@ -142,17 +160,26 @@ export default function ContractorAddWorkerDialog({ open, onOpenChange, selected
         {step === 3 && (
           <div className="overflow-y-auto flex-1 min-h-0 px-6 py-4 space-y-5">
             <div>
-              <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-3">Training Certificates</h4>
+              <h4 className="font-semibold text-gray-900 dark:text-white text-sm mb-1">Training Certificates</h4>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">Tick only if the worker holds a valid certificate. You will be prompted to upload a copy after saving.</p>
               <div className="space-y-2">
                 {[{ key: "asbestosAwareness" as const, label: "Asbestos Awareness", detail: "CAR 2012 — required for most construction and refurbishment work", testId: "checkbox-asbestos" },
                   { key: "manualHandling" as const, label: "Manual Handling", detail: "MHOR 1992 — required for all roles involving lifting or carrying", testId: "checkbox-manual-handling" },
                   { key: "workingAtHeight" as const, label: "Working at Height", detail: "WAHR 2005 — required when using ladders, scaffolding, or MEWPs", testId: "checkbox-working-height" },
                   { key: "inductionCompleted" as const, label: "Site Induction Completed", detail: "Site-specific H&S briefing completed", testId: "checkbox-induction" },
                 ].map(({ key, label, detail, testId }) => (
-                  <label key={key} className="flex items-start gap-3 p-3 border dark:border-gray-700 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
-                    <input type="checkbox" checked={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600" data-testid={testId} />
-                    <div><p className="font-medium text-sm">{label}</p><p className="text-xs text-gray-500 dark:text-gray-400">{detail}</p></div>
-                  </label>
+                  <div key={key} className="border dark:border-gray-700 rounded-lg overflow-hidden">
+                    <label className="flex items-start gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800">
+                      <input type="checkbox" checked={form[key]} onChange={(e) => setForm({ ...form, [key]: e.target.checked })} className="mt-0.5 w-4 h-4 accent-green-600" data-testid={testId} />
+                      <div><p className="font-medium text-sm">{label}</p><p className="text-xs text-gray-500 dark:text-gray-400">{detail}</p></div>
+                    </label>
+                    {form[key] && (
+                      <div className="bg-blue-50 dark:bg-blue-950/30 border-t border-blue-100 dark:border-blue-900 px-3 py-2 flex items-center gap-2">
+                        <Upload className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />
+                        <p className="text-xs text-blue-800 dark:text-blue-300">Upload the supporting certificate in the <span className="font-semibold">H&S Documents</span> tab after saving.</p>
+                      </div>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -161,7 +188,7 @@ export default function ContractorAddWorkerDialog({ open, onOpenChange, selected
               <div className="space-y-1.5 text-sm">
                 {[
                   { label: "Right to Work", badge: form.rightToWork === 'valid' ? '✅ Valid' : form.rightToWork === 'expired' ? '❌ Expired' : '⏳ Pending', cls: form.rightToWork === 'valid' ? 'bg-green-100 text-green-700' : form.rightToWork === 'expired' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700' },
-                  { label: "CSCS Card", badge: form.cscsStatus === 'valid' ? '✅ Valid' : form.cscsStatus === 'expired' ? '❌ Expired' : form.cscsCard ? '⏳ Pending' : '— Not recorded', cls: form.cscsStatus === 'valid' ? 'bg-green-100 text-green-700' : form.cscsStatus === 'expired' ? 'bg-red-100 text-red-700' : form.cscsCard ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500' },
+                  { label: "CSCS Card", badge: form.cscsStatus === 'valid' ? '✅ Valid' : form.cscsStatus === 'expired' ? '❌ Expired' : form.cscsStatus === 'not_held' ? '— Not held' : form.cscsCard ? '⏳ Pending' : '— Not recorded', cls: form.cscsStatus === 'valid' ? 'bg-green-100 text-green-700' : form.cscsStatus === 'expired' ? 'bg-red-100 text-red-700' : form.cscsStatus === 'not_held' ? 'bg-gray-100 text-gray-500' : form.cscsCard ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500' },
                   { label: "IPAF", badge: form.ipafStatus === 'none' ? '— Not applicable' : form.ipafStatus === 'expired' ? '❌ Expired' : `✅ ${form.ipafStatus}`, cls: form.ipafStatus === 'none' ? 'bg-gray-100 text-gray-500' : form.ipafStatus === 'expired' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700' },
                   { label: "Asbestos Awareness", badge: form.asbestosAwareness ? '✅ Held' : '— Not recorded', cls: form.asbestosAwareness ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' },
                   { label: "Manual Handling", badge: form.manualHandling ? '✅ Held' : '— Not recorded', cls: form.manualHandling ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500' },
@@ -183,6 +210,17 @@ export default function ContractorAddWorkerDialog({ open, onOpenChange, selected
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">Worker Added</h3>
               <p className="text-sm text-gray-500 dark:text-gray-400"><span className="font-medium text-gray-800 dark:text-gray-100">{savedName}</span> has been registered to {selectedContractor?.name}.</p>
             </div>
+            {(form.rightToWork === 'valid' || form.cscsStatus === 'valid' || form.asbestosAwareness || form.manualHandling || form.workingAtHeight) && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 w-full max-w-sm text-left">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-blue-800 mb-1">Documents still required</p>
+                    <p className="text-xs text-blue-700">Open the worker profile and upload supporting documents in the <span className="font-semibold">H&S Documents</span> tab for any items marked as held or valid.</p>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm">
               <Button variant="outline" className="flex-1" onClick={() => { onOpenChange(false); reset(); }}>Done</Button>
               <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={() => reset()}>Add Another Worker →</Button>
@@ -195,9 +233,14 @@ export default function ContractorAddWorkerDialog({ open, onOpenChange, selected
             <Button variant="outline" onClick={() => step > 1 ? setStep(step - 1) : onOpenChange(false)}>{step > 1 ? '← Back' : 'Cancel'}</Button>
             <div className="flex items-center gap-2">
               {step < 3 ? (
-                <Button onClick={() => setStep(step + 1)} disabled={step === 1 && (!form.firstName || !form.lastName || !form.phone)} className="bg-blue-600 hover:bg-blue-700">Next →</Button>
+                <Button onClick={() => setStep(step + 1)} disabled={step === 1 && step1Invalid} className="bg-blue-600 hover:bg-blue-700">Next →</Button>
               ) : (
-                <Button onClick={() => createWorkerMutation.mutate({ ...form, companyId: selectedContractor?.id })} disabled={!form.firstName || !form.lastName || !form.phone || createWorkerMutation.isPending} className="bg-blue-600 hover:bg-blue-700" data-testid="button-save-worker">
+                <Button
+                  onClick={() => createWorkerMutation.mutate({ ...form, companyId: selectedContractor?.id })}
+                  disabled={step1Invalid || createWorkerMutation.isPending}
+                  className="bg-blue-600 hover:bg-blue-700"
+                  data-testid="button-save-worker"
+                >
                   {createWorkerMutation.isPending ? "Saving..." : "Save Worker"}
                 </Button>
               )}
