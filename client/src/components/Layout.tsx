@@ -8,7 +8,7 @@ import ReportProblemButton from "@/components/ReportProblemButton";
 import HelpPanel from "@/components/HelpPanel";
 import Sidebar, { SIDEBAR_COLLAPSED_KEY, SIDEBAR_EXPANDED_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from "@/components/Sidebar";
 import type { CompanySettings } from "@shared/schema";
-import { useState, useEffect, useCallback, type CSSProperties } from "react";
+import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
 import { getQueryFn } from "@/lib/queryClient";
 import { hasContractorComplianceGap, type ContractorWithComplianceStatus } from "@/lib/utils";
 
@@ -21,6 +21,18 @@ export default function Layout({ children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
+
+  // Reset logo error state whenever the configured logoUrl changes (e.g. after a new upload).
+  // Without this, a previous load failure permanently locks out the sidebar logo.
+  const prevLogoUrlRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const current = settings?.logoUrl ?? null;
+    if (prevLogoUrlRef.current !== undefined && prevLogoUrlRef.current !== current) {
+      setLogoFallbackStage(0);
+      setLogoError(false);
+    }
+    prevLogoUrlRef.current = current;
+  }, [settings?.logoUrl]);
 
   // Sidebar state (lifted so Layout can adjust content margin)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -90,7 +102,7 @@ export default function Layout({ children }: LayoutProps) {
     // Stage 0: prefer public-logo token; if no token (session-cookie login), fall through to stage 1
     const effectiveStage = (logoFallbackStage === 0 && !logoToken) ? 1 : logoFallbackStage;
     if (effectiveStage === 0) return `/api/public-logo/${logoToken}`;
-    if (effectiveStage === 1) return `/api/company-logo`;
+    if (effectiveStage === 1) return `/api/company-logo?t=${encodeURIComponent(settings.logoUrl)}`;
     if (effectiveStage === 2) {
       const normalizedUrl = settings.logoUrl.replace(/^\/objects/, '');
       return `/objects${normalizedUrl}`;

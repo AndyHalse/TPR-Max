@@ -148,14 +148,13 @@ export default function GeneralSettings() {
           </Tooltip>
         </div>
         <div className="space-y-4">
-          {currentSettings?.logoUrl && !currentSettings.logoUrl.includes('test') && (
+          {currentSettings?.logoUrl && (
             <div className="flex items-center justify-center p-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-white/30 dark:border-slate-700/30">
               <img 
-                src={`/objects${currentSettings.logoUrl}`}
+                src={`/api/company-logo?t=${encodeURIComponent(currentSettings.logoUrl)}`}
                 alt="Company Logo" 
                 className="max-h-20 max-w-40 object-contain"
                 onError={(e) => {
-                  console.error("Logo failed to load:", currentSettings.logoUrl);
                   e.currentTarget.style.display = 'none';
                 }}
               />
