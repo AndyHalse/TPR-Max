@@ -22,18 +22,6 @@ export default function Layout({ children }: LayoutProps) {
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
-  // Reset logo error state whenever the configured logoUrl changes (e.g. after a new upload).
-  // Without this, a previous load failure permanently locks out the sidebar logo.
-  const prevLogoUrlRef = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    const current = settings?.logoUrl ?? null;
-    if (prevLogoUrlRef.current !== undefined && prevLogoUrlRef.current !== current) {
-      setLogoFallbackStage(0);
-      setLogoError(false);
-    }
-    prevLogoUrlRef.current = current;
-  }, [settings?.logoUrl]);
-
   // Sidebar state (lifted so Layout can adjust content margin)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     try { return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "true"; } catch { return false; }
@@ -95,6 +83,18 @@ export default function Layout({ children }: LayoutProps) {
   });
 
   const [logoFallbackStage, setLogoFallbackStage] = useState(0);
+
+  // Reset logo error state whenever the configured logoUrl changes (e.g. after a new upload).
+  // Without this, a previous load failure permanently locks out the sidebar logo.
+  const prevLogoUrlRef = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    const current = settings?.logoUrl ?? null;
+    if (prevLogoUrlRef.current !== undefined && prevLogoUrlRef.current !== current) {
+      setLogoFallbackStage(0);
+      setLogoError(false);
+    }
+    prevLogoUrlRef.current = current;
+  }, [settings?.logoUrl]);
 
   const getLogoSrc = useCallback(() => {
     if (logoError || !settings?.logoUrl) return null;
