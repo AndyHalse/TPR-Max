@@ -942,7 +942,7 @@ export default function Contractors() {
       setCompanyUploadProgress(10);
 
       const urlResponse = await fetch(`/api/contractors/${selectedContractor.id}/documents/upload-url`, {
-        credentials: 'include',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('session_token')}` },
       });
       if (!urlResponse.ok) throw new Error('Failed to get upload URL');
       const { uploadURL } = await urlResponse.json();

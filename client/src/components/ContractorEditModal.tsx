@@ -449,7 +449,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       
       // Get upload URL
       const urlResponse = await fetch(`/api/contractors/workers/${worker.id}/documents/upload-url`, {
-        credentials: 'include',
+        headers: { Authorization: `Bearer ${sessionStorage.getItem('session_token')}` },
       });
       
       if (!urlResponse.ok) throw new Error('Failed to get upload URL');
