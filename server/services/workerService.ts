@@ -56,9 +56,12 @@ function nowLabel(): { dateStr: string; timeStr: string; ts: string } {
   return { dateStr, timeStr, ts: `${dateStr} at ${timeStr}` };
 }
 
-/** Normalise phone input: `phoneNumber` wins over `phone`; trims whitespace. */
+/** Normalise phone input: `phoneNumber` → `mobileNumber` → `phone`; trims whitespace. */
 function normalisePhone(body: Record<string, any>): string | undefined {
-  const raw = body.phoneNumber !== undefined ? body.phoneNumber : body.phone;
+  const raw =
+    body.phoneNumber !== undefined ? body.phoneNumber :
+    body.mobileNumber !== undefined ? body.mobileNumber :
+    body.phone;
   const trimmed = String(raw ?? '').trim();
   return trimmed || undefined;
 }
