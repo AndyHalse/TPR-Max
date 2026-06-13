@@ -417,49 +417,79 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       const workerDbsScore = workerDbsTotal === 0 ? 100 : Math.round((workerDbsCompliant / workerDbsTotal) * 100);
 
       // ── 6. Worker Certifications ──────────────────────────────────────────────
+      // Excludes right_to_work (has its own domain in Section 4 — would double-count).
+      // Only approved docs count as compliant; pending = warning; rejected = warning.
       let workerCertTotal = 0, workerCertCompliant = 0;
       try {
         const workerCertResult = await pool.query(
-          `SELECT cd.id, cd.expiry_date, cd.document_name,
+          `SELECT cd.id, cd.expiry_date, cd.document_name, cd.status, cd.document_type,
                   cw.id AS worker_id, cw.first_name, cw.last_name, cw.company_id
            FROM "${schemaName}".contractor_documents cd
            JOIN "${schemaName}".contractor_workers cw ON cw.id = cd.worker_id
-           WHERE cd.worker_id IS NOT NULL AND cd.is_active = TRUE AND cd.expiry_date IS NOT NULL`
+           WHERE cd.worker_id IS NOT NULL
+             AND cd.is_active = TRUE
+             AND cd.document_type <> 'right_to_work'`
         );
 
         for (const row of workerCertResult.rows) {
           workerCertTotal++;
           const workerName = `${row.first_name} ${row.last_name}`;
           const companyName = companies.find(c => c.id === row.company_id)?.company_name ?? '';
-          const days = daysUntil(row.expiry_date);
+          const docStatus: string = row.status ?? 'pending';
 
-          if (days !== null && days < 0) {
-            criticalIssues.push({
-              id: `wcert-expired-${row.id}`, category: 'Worker Certifications', severity: 'critical',
-              title: 'Worker certification expired',
-              detail: `${row.document_name} — ${workerName}, expired ${Math.abs(days)} days ago`,
-              daysOverdue: Math.abs(days), linkPath: '/contractors',
-            });
-            if (row.company_id && companyName) {
-              ensureContractorRisk(row.company_id, companyName);
-              contractorRiskMap[row.company_id].issues.push(`Cert expired: ${row.document_name}`);
-              contractorRiskMap[row.company_id].issueCount++;
-            }
-          } else if (days !== null && days <= 30) {
+          if (docStatus === 'rejected') {
             warnings.push({
-              id: `wcert-expiring-${row.id}`, category: 'Worker Certifications', severity: 'warning',
-              title: 'Worker certification expiring soon',
-              detail: `${row.document_name} — ${workerName}, expires in ${days} days`, linkPath: '/contractors',
+              id: `wcert-rejected-${row.id}`, category: 'Worker Certifications', severity: 'warning',
+              title: 'Worker certificate rejected — re-upload required',
+              detail: `${row.document_name} — ${workerName}`, linkPath: '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
-              contractorRiskMap[row.company_id].issues.push(`Cert expiring: ${row.document_name}`);
+              contractorRiskMap[row.company_id].issues.push(`Cert rejected: ${row.document_name}`);
               contractorRiskMap[row.company_id].issueCount++;
             }
-            addTimeline(row.expiry_date, 'Worker Certifications', `${row.document_name} — ${workerName}`);
+          } else if (docStatus === 'pending') {
+            warnings.push({
+              id: `wcert-pending-${row.id}`, category: 'Worker Certifications', severity: 'warning',
+              title: 'Worker certificate awaiting review',
+              detail: `${row.document_name} — ${workerName}`, linkPath: '/contractors',
+            });
+            if (row.company_id && companyName) {
+              ensureContractorRisk(row.company_id, companyName);
+              contractorRiskMap[row.company_id].issues.push(`Cert pending review: ${row.document_name}`);
+              contractorRiskMap[row.company_id].issueCount++;
+            }
           } else {
-            workerCertCompliant++;
-            addTimeline(row.expiry_date, 'Worker Certifications', `${row.document_name} — ${workerName}`);
+            // approved — use expiry date logic
+            const days = daysUntil(row.expiry_date);
+            if (days !== null && days < 0) {
+              criticalIssues.push({
+                id: `wcert-expired-${row.id}`, category: 'Worker Certifications', severity: 'critical',
+                title: 'Worker certification expired',
+                detail: `${row.document_name} — ${workerName}, expired ${Math.abs(days)} days ago`,
+                daysOverdue: Math.abs(days), linkPath: '/contractors',
+              });
+              if (row.company_id && companyName) {
+                ensureContractorRisk(row.company_id, companyName);
+                contractorRiskMap[row.company_id].issues.push(`Cert expired: ${row.document_name}`);
+                contractorRiskMap[row.company_id].issueCount++;
+              }
+            } else if (days !== null && days <= 30) {
+              warnings.push({
+                id: `wcert-expiring-${row.id}`, category: 'Worker Certifications', severity: 'warning',
+                title: 'Worker certification expiring soon',
+                detail: `${row.document_name} — ${workerName}, expires in ${days} days`, linkPath: '/contractors',
+              });
+              if (row.company_id && companyName) {
+                ensureContractorRisk(row.company_id, companyName);
+                contractorRiskMap[row.company_id].issues.push(`Cert expiring: ${row.document_name}`);
+                contractorRiskMap[row.company_id].issueCount++;
+              }
+              addTimeline(row.expiry_date, 'Worker Certifications', `${row.document_name} — ${workerName}`);
+            } else {
+              workerCertCompliant++;
+              if (row.expiry_date) addTimeline(row.expiry_date, 'Worker Certifications', `${row.document_name} — ${workerName}`);
+            }
           }
         }
       } catch (e: any) {
