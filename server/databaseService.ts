@@ -1435,10 +1435,15 @@ export class DatabaseService {
         .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
       
       
-      // Map each worker using the same logic as getContractorWorkerById
+      // Single query to find workers with active disciplinary card_issues
+      const activeCardRows1 = await db
+        .select({ workerId: isolatedSchema.cardIssues.workerId })
+        .from(isolatedSchema.cardIssues)
+        .where(eq(isolatedSchema.cardIssues.status, 'active'));
+      const activeCardWorkerIds1 = new Set(activeCardRows1.map((r: any) => r.workerId));
+
+      // Map each worker
       const mappedWorkers = workers.map(worker => {
-        
-        // FIXED: Properly map database fields to frontend format with correct field names
         const mappedWorker = {
           id: worker.id,
           companyId: worker.companyId,
@@ -1508,11 +1513,11 @@ export class DatabaseService {
           updatedAt: worker.updatedAt || new Date(),
           currentCardStatus: worker.currentCardStatus ?? 'clear',
           complianceStatus: this.calculateComplianceStatus(worker),
+          hasActiveDisciplinaryCard: activeCardWorkerIds1.has(worker.id),
           inductionCompleted: worker.siteInductionCompleted || false,
           phone: worker.phoneNumber,
           needsEvacuationAssistance: worker.needsEvacuationAssistance ?? false,
         } as ContractorWorker;
-        
         
         return mappedWorker;
       });
@@ -1761,10 +1766,17 @@ export class DatabaseService {
       .where(inArray(isolatedSchema.contractorWorkers.companyId, companyIds))
       .orderBy(asc(isolatedSchema.contractorWorkers.firstName));
 
+    const activeCardRows2 = await db
+      .select({ workerId: isolatedSchema.cardIssues.workerId })
+      .from(isolatedSchema.cardIssues)
+      .where(eq(isolatedSchema.cardIssues.status, 'active'));
+    const activeCardWorkerIds2 = new Set(activeCardRows2.map((r: any) => r.workerId));
+
     return workers.map(worker => ({
       ...worker,
       currentCardStatus: worker.currentCardStatus ?? 'clear',
       complianceStatus: this.calculateComplianceStatus(worker),
+      hasActiveDisciplinaryCard: activeCardWorkerIds2.has(worker.id),
       inductionCompleted: worker.siteInductionCompleted || false,
       phone: worker.phoneNumber,
       rightToWork: worker.rightToWork || 'pending',
@@ -1928,9 +1940,17 @@ export class DatabaseService {
         return undefined;
       }
       
-      // Debug: Log what fields are actually returned
+      // Check for active disciplinary card_issues for this worker
+      const activeCardCheck = await db
+        .select({ id: isolatedSchema.cardIssues.id })
+        .from(isolatedSchema.cardIssues)
+        .where(and(
+          eq(isolatedSchema.cardIssues.workerId, id),
+          eq(isolatedSchema.cardIssues.status, 'active')
+        ))
+        .limit(1);
+      const hasActiveDisciplinaryCard = activeCardCheck.length > 0;
       
-      // FIXED: Properly map database fields to frontend format with correct field names
       const mappedWorker = {
         id: worker.id,
         companyId: worker.companyId,
@@ -2000,6 +2020,7 @@ export class DatabaseService {
         updatedAt: worker.updatedAt || new Date(),
         currentCardStatus: worker.currentCardStatus ?? 'clear',
         complianceStatus: this.calculateComplianceStatus(worker),
+        hasActiveDisciplinaryCard,
         inductionCompleted: worker.siteInductionCompleted || false,
         phone: worker.phoneNumber,
         qrCode: worker.qrCode || null,
@@ -2327,10 +2348,15 @@ export class DatabaseService {
         .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
       
       
-      // Map each worker using the same logic as getContractorWorkerById
+      // Single query to find workers with active disciplinary card_issues
+      const activeCardRows3 = await db
+        .select({ workerId: isolatedSchema.cardIssues.workerId })
+        .from(isolatedSchema.cardIssues)
+        .where(eq(isolatedSchema.cardIssues.status, 'active'));
+      const activeCardWorkerIds3 = new Set(activeCardRows3.map((r: any) => r.workerId));
+
+      // Map each worker
       const mappedWorkers = workers.map(worker => {
-        
-        // FIXED: Properly map database fields to frontend format with correct field names
         const mappedWorker = {
           id: worker.id,
           companyId: worker.companyId,
@@ -2400,10 +2426,10 @@ export class DatabaseService {
           updatedAt: worker.updatedAt || new Date(),
           currentCardStatus: worker.currentCardStatus ?? 'clear',
           complianceStatus: this.calculateComplianceStatus(worker),
+          hasActiveDisciplinaryCard: activeCardWorkerIds3.has(worker.id),
           inductionCompleted: worker.siteInductionCompleted || false,
           phone: worker.phoneNumber,
         } as ContractorWorker;
-        
         
         return mappedWorker;
       });

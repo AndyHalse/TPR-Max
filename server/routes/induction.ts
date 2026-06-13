@@ -1335,9 +1335,9 @@ export function registerInductionRoutes(app: Express): void {
       let skipped = 0;
 
       for (const worker of staleWorkers) {
-        // Check for an active card_issues record
+        // Check for an active card_issues record that matches the worker's current status
         const activeIssues = await db
-          .select({ id: isolatedSchema.cardIssues.id })
+          .select({ id: isolatedSchema.cardIssues.id, cardType: isolatedSchema.cardIssues.cardType })
           .from(isolatedSchema.cardIssues)
           .where(
             and(
@@ -1347,8 +1347,8 @@ export function registerInductionRoutes(app: Express): void {
           )
           .limit(1);
 
-        if (activeIssues.length > 0) {
-          // Has a genuine admin-issued card — leave it alone
+        if (activeIssues.length > 0 && activeIssues[0].cardType === worker.currentCardStatus) {
+          // Has a genuine admin-issued card matching the current disciplinary status — leave it alone
           skipped++;
           continue;
         }

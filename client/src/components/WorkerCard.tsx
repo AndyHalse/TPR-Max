@@ -39,8 +39,9 @@ export function WorkerCard({
   canManageCards = false,
   hsAssignments = []
 }: WorkerCardProps) {
-  const isBanned = worker.currentCardStatus === 'red' && worker.redCardBanUntil && new Date(worker.redCardBanUntil) > new Date();
-  const isAuthorisedToWork = !isBanned && worker.isActive && (!worker.currentCardStatus || worker.currentCardStatus === 'clear' || worker.currentCardStatus === 'yellow');
+  const hasActiveDisciplinaryCard = (worker as any).hasActiveDisciplinaryCard === true;
+  const isBanned = hasActiveDisciplinaryCard && worker.currentCardStatus === 'red' && worker.redCardBanUntil && new Date(worker.redCardBanUntil) > new Date();
+  const isAuthorisedToWork = !isBanned && worker.isActive && (!hasActiveDisciplinaryCard || worker.currentCardStatus === 'yellow');
   const getCardStatusColor = (status: string) => {
     switch (status) {
       case 'red': return 'bg-red-500';
@@ -68,12 +69,13 @@ export function WorkerCard({
     }
   };
 
-  const isRedCardBanned = worker.currentCardStatus === 'red' && 
+  const isRedCardBanned = hasActiveDisciplinaryCard &&
+    worker.currentCardStatus === 'red' && 
     worker.redCardBanUntil && 
     new Date(worker.redCardBanUntil) > new Date();
 
   const isClearForWork = !isRedCardBanned && worker.isActive && 
-    (!worker.currentCardStatus || worker.currentCardStatus === 'clear' || worker.currentCardStatus === 'yellow');
+    (!hasActiveDisciplinaryCard || worker.currentCardStatus === 'yellow');
 
   const isInducted = worker.inductionCompleted || (worker as any).siteInductionCompleted;
   const canCheckIn = isClearForWork && isInducted;
@@ -84,11 +86,11 @@ export function WorkerCard({
       data-testid={`worker-card-${worker.id}`}
       onClick={() => onViewDetails?.(worker)}
     >
-      <div className={`${getCardStatusColor(worker.currentCardStatus)} px-4 py-3 text-center`}>
+      <div className={`${hasActiveDisciplinaryCard ? getCardStatusColor(worker.currentCardStatus) : 'bg-green-500'} px-4 py-3 text-center`}>
         <div className="flex items-center justify-center gap-2">
-          {getCardStatusIcon(worker.currentCardStatus)}
+          {hasActiveDisciplinaryCard ? getCardStatusIcon(worker.currentCardStatus) : <CheckCircle2 className="w-5 h-5 text-white" />}
           <span className="text-white font-bold text-sm tracking-wide">
-            {getCardStatusText(worker.currentCardStatus)}
+            {hasActiveDisciplinaryCard ? getCardStatusText(worker.currentCardStatus) : 'CLEAR - COMPLIANT'}
           </span>
         </div>
         {isRedCardBanned && (
@@ -211,7 +213,6 @@ export function WorkerCard({
         <div className="flex flex-wrap gap-1.5">
           {(() => {
             const isInducted = worker.inductionCompleted || (worker as any).siteInductionCompleted;
-            const complianceStatus = (worker as any).complianceStatus as 'compliant' | 'action_needed' | 'blocked' | undefined;
             const rtw = worker.rightToWork;
             const cscs = worker.cscsStatus;
             const ipaf = worker.ipafStatus;
