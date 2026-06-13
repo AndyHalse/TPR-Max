@@ -239,12 +239,6 @@ export default function Layout({ children }: LayoutProps) {
     }
   }, [settings?.backgroundColor, settings?.foregroundColor, settings?.variableTextColor, settings?.accentColor]);
 
-  useEffect(() => {
-    if (settings) {
-      setLogoError(false);
-      setLogoFallbackStage(0);
-    }
-  }, [settings?.logoUrl, settings?.companyName]);
 
   const allNavItems = [
     { path: "/", icon: ChartLine, label: "Dashboard", featureKey: "featureDashboard", defaultOn: true },
