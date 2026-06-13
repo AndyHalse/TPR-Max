@@ -68,7 +68,7 @@ export default function InductionSettings() {
     apiRequest("GET", `/api/induction/settings/${slideRoleType}`)
       .then(r => r.json())
       .then((d: any) => {
-        const url = d?.customVideoUrl ?? null;
+        const url = d?.setting?.customVideoUrl ?? null;
         setCurrentCustomVideoUrl(url);
         setVideoSource(url ? "custom_upload" : "ai_generated");
       })

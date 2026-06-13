@@ -51,6 +51,8 @@ interface InductionSettingRow {
   videoDurationMinutes?: number;
   updatedAt?: string;
   customVideoUrl?: string | null;
+  hasGeneratedHtml?: boolean;
+  hasScenes?: boolean;
 }
 
 interface GenerationStatus {
@@ -413,7 +415,12 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
     return Math.round((generationStatus.step / generationStatus.totalSteps) * 100);
   };
   const getQrUrl = (qrToken: string) => `${window.location.origin}/induction/checkpoint/${qrToken}`;
-  const hasVideo = settings?.generatedAt != null || !!currentCustomVideoUrl;
+  // "Has usable induction" — matches the same definition used by the worker player and kiosk:
+  // AI video (generatedAt set OR generatedHtml/scenesData present) OR custom-uploaded MP4
+  const hasVideo = settings?.generatedAt != null
+    || !!currentCustomVideoUrl
+    || !!settings?.hasGeneratedHtml
+    || !!settings?.hasScenes;
   const questionsByCategory = questions.reduce((acc, q) => {
     const cat = q.category || 'General Safety';
     if (!acc[cat]) acc[cat] = [];

@@ -3842,7 +3842,8 @@ export function registerInductionRoutes(app: Express): void {
       const customerId = req.customerId || 'default';
       const settingsDb = await customerDbService.getCustomerDatabase(customerId);
 
-      // Select only metadata columns — exclude generatedHtml and scenesData (can be 17MB+)
+      // Select metadata columns — exclude generatedHtml and scenesData blobs (can be 17MB+)
+      // but include customVideoUrl (short URL string) and lightweight boolean presence flags
       const rows = await settingsDb.select({
         id: isolatedSchema.inductionSettings.id,
         roleType: isolatedSchema.inductionSettings.roleType,
@@ -3860,6 +3861,9 @@ export function registerInductionRoutes(app: Express): void {
         questionsGenerated: isolatedSchema.inductionSettings.questionsGenerated,
         createdAt: isolatedSchema.inductionSettings.createdAt,
         updatedAt: isolatedSchema.inductionSettings.updatedAt,
+        customVideoUrl: isolatedSchema.inductionSettings.customVideoUrl,
+        hasGeneratedHtml: sql<boolean>`(generated_html IS NOT NULL)`,
+        hasScenes: sql<boolean>`(scenes_data IS NOT NULL)`,
       }).from(isolatedSchema.inductionSettings);
 
       // If isolated DB has rows, serve them
@@ -3867,7 +3871,7 @@ export function registerInductionRoutes(app: Express): void {
         return res.json({ settings: rows });
       }
 
-      // Isolated DB empty — fall back to global inductionSettings (also excluding large columns)
+      // Isolated DB empty — fall back to global inductionSettings (same shape)
       const globalRows = await db.select({
         id: inductionSettings.id,
         roleType: inductionSettings.roleType,
@@ -3885,6 +3889,9 @@ export function registerInductionRoutes(app: Express): void {
         questionsGenerated: inductionSettings.questionsGenerated,
         createdAt: inductionSettings.createdAt,
         updatedAt: inductionSettings.updatedAt,
+        customVideoUrl: inductionSettings.customVideoUrl,
+        hasGeneratedHtml: sql<boolean>`(generated_html IS NOT NULL)`,
+        hasScenes: sql<boolean>`(scenes_data IS NOT NULL)`,
       }).from(inductionSettings);
       res.json({ settings: globalRows });
     } catch (error) {
@@ -3896,13 +3903,16 @@ export function registerInductionRoutes(app: Express): void {
   app.get('/api/induction/settings/:roleType', requireAuth, async (req, res) => {
     try {
       const { roleType } = req.params;
-      const [setting] = await db.select().from(inductionSettings)
-        .where(eq(inductionSettings.roleType, roleType));
-      
+      const customerId = req.customerId || 'default';
+      const settingsDb = await customerDbService.getCustomerDatabase(customerId);
+      const [setting] = await settingsDb.select()
+        .from(isolatedSchema.inductionSettings)
+        .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+
       if (!setting) {
         return res.status(404).json({ error: 'Settings not found for this role type' });
       }
-      
+
       res.json({ setting });
     } catch (error) {
       logger.error('Error fetching role-specific induction settings:', error);
@@ -3982,7 +3992,9 @@ export function registerInductionRoutes(app: Express): void {
         if (rows.length > 0) {
           const s = rows[0] as any;
           kioskEnabled = Boolean(s.kioskEnabled);
-          hasVideo = Boolean(s.generatedAt);
+          // "Has usable induction" — any of: AI-generated (generatedAt set or generatedHtml present),
+          // custom-uploaded MP4 (customVideoUrl), or scenes content (scenesData)
+          hasVideo = Boolean(s.generatedAt) || Boolean(s.customVideoUrl) || Boolean(s.generatedHtml) || Boolean(s.scenesData);
         }
       } catch (_e) {}
       res.json({ roleType, kioskEnabled, hasVideo });
