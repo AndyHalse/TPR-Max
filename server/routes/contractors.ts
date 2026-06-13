@@ -6,6 +6,8 @@ import {
   unarchiveWorker as svcUnarchiveWorker,
   hardDeleteWorker as svcHardDeleteWorker,
   issueCard as svcIssueCard,
+  checkInWorker as svcCheckInWorker,
+  clearLoneWorkerState as svcClearLoneWorkerState,
   ServiceError,
   type WorkerServiceContext,
 } from '../services/workerService';
@@ -474,20 +476,17 @@ export function registerContractorRoutes(app: Express): void {
         const lastName = nameParts.slice(1).join(' ') || '';
         const workerId = randomUUID();
         
-        const [newWorker] = await customerDb.insert(isolatedSchema.contractorWorkers)
-          .values({
-            id: workerId,
-            companyId: company.id,
-            firstName,
-            lastName,
-            email: preBooking.workerEmail,
-            phone: preBooking.contactPhone,
-            rightToWork: 'pending',
-            isActive: true,
-            inductionCompleted: false,
-            safetyRating: 'N/A'
-          })
-          .returning();
+        const preSvcCtx: WorkerServiceContext = {
+          db: customerDb, customerId: context.customerId, actor: req.user!.username,
+        };
+        const newWorker = await svcCreateWorker(preSvcCtx, company.id, {
+          id: workerId,
+          firstName,
+          lastName,
+          email: preBooking.workerEmail,
+          phone: preBooking.contactPhone,
+          rightToWork: 'pending',
+        }, 'prebooking');
         worker = newWorker;
       }
       
@@ -531,13 +530,11 @@ export function registerContractorRoutes(app: Express): void {
         .set({ status: 'completed', updatedAt: new Date() })
         .where(eq(isolatedSchema.contractorPreBookings.id, preBooking.id));
       
-      // Update worker check-in status in customer database (do NOT overwrite qrCode — CPB- belongs to the visit, not the worker)
-      await customerDb.update(isolatedSchema.contractorWorkers)
-        .set({
-          isCheckedIn: true,
-          checkedInAt: new Date()
-        })
-        .where(eq(isolatedSchema.contractorWorkers.id, worker.id));
+      // Update worker check-in status via service (do NOT overwrite qrCode — CPB- belongs to the visit, not the worker)
+      const pbCheckInCtx: WorkerServiceContext = {
+        db: customerDb, customerId: context.customerId, actor: req.user!.username,
+      };
+      await svcCheckInWorker(pbCheckInCtx, worker.id, { isCheckedIn: true, checkedInAt: new Date() });
       
       // Create contractor visit record in customer database
       const visitId = randomUUID();
@@ -4311,18 +4308,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       const checkInTime = new Date();
       const contractorCheckinDb = await customerDbService.getCustomerDatabase(context.customerId);
       await contractorCheckinDb.transaction(async (tx) => {
-        await tx
-          .update(isolatedSchema.contractorWorkers)
-          .set({
+        // Pass the transaction as db so the update enrolls in the same atomic unit
+        await svcCheckInWorker(
+          { db: tx, customerId: context.customerId, actor: username },
+          workerId,
+          {
             qrCode: workerQrCode,
             isCheckedIn: true,
             checkedInAt: checkInTime,
             hsRulesAccepted: contractorHsAccepted,
             hsRulesAcceptedAt: contractorHsAcceptedAt,
             ...(cNdaBodyAccepted ? { ndaAccepted: true, ndaAcceptedAt: new Date() } : {}),
-            updatedAt: new Date(),
-          })
-          .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+          },
+        );
 
         await tx.insert(isolatedSchema.contractorVisits).values({
           workerId: workerId,
@@ -4641,9 +4639,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           await contractorLwDb.update(isolatedSchema.loneWorkerSessions)
             .set({ status: 'ended_ok', endedAt: new Date(), endedBy: 'checkout' })
             .where(sql`${isolatedSchema.loneWorkerSessions.id} = ${activeSession.id}`);
-          await contractorLwDb.update(isolatedSchema.contractorWorkers)
-            .set({ isLoneWorker: false, loneWorkerSince: null, loneWorkerDeadline: null, loneWorkerEscalationLevel: 0 })
-            .where(sql`${isolatedSchema.contractorWorkers.id} = ${workerId}`);
+          await svcClearLoneWorkerState(
+            { db: contractorLwDb, customerId: context.customerId, actor: username },
+            workerId,
+          );
           logger.info(`Auto-ended lone worker session for contractor ${workerId} on checkout`);
         }
       } catch (lwErr) {

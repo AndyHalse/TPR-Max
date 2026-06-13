@@ -68,14 +68,15 @@ function normalisePhone(body: Record<string, any>): string | undefined {
 /**
  * Create a contractor worker.
  *
- * `origin = 'admin'`  — full Zod validation, compliance fields, 3 audit notes.
- * `origin = 'portal'` — minimal insert (personal details only), 3 audit notes.
+ * `origin = 'admin'`     — full Zod validation, compliance fields, 3 audit notes.
+ * `origin = 'portal'`    — minimal insert (personal details only), 3 audit notes.
+ * `origin = 'prebooking'`— auto-create from pre-booking; only firstName/lastName required.
  */
 export async function createWorker(
   ctx: WorkerServiceContext,
   companyId: string,
   body: Record<string, any>,
-  origin: 'admin' | 'portal' = 'admin',
+  origin: 'admin' | 'portal' | 'prebooking' = 'admin',
 ): Promise<any> {
   // ── Mandatory field validation ────────────────────────────────────────────
   if (!body.firstName || !String(body.firstName).trim()) {
@@ -84,12 +85,38 @@ export async function createWorker(
   if (!body.lastName || !String(body.lastName).trim()) {
     throw new ServiceError(400, 'Last name is required.');
   }
-  if (!body.email || !String(body.email).trim()) {
-    throw new ServiceError(400, 'Email address is required.');
+
+  // Portal and admin paths also require email + phone
+  if (origin !== 'prebooking') {
+    if (!body.email || !String(body.email).trim()) {
+      throw new ServiceError(400, 'Email address is required.');
+    }
   }
+
   const normalisedPhone = normalisePhone(body);
-  if (!normalisedPhone) {
+  if (origin !== 'prebooking' && !normalisedPhone) {
     throw new ServiceError(400, 'Phone number is required.');
+  }
+
+  // ── Pre-booking auto-create path ─────────────────────────────────────────
+  if (origin === 'prebooking') {
+    const insertValues: Record<string, any> = {
+      companyId,
+      firstName: String(body.firstName).trim(),
+      lastName: String(body.lastName).trim(),
+      email: body.email || null,
+      phone: body.phone?.trim() || null,
+      rightToWork: body.rightToWork ?? 'pending',
+      isActive: true,
+      inductionCompleted: false,
+      safetyRating: body.safetyRating ?? 'N/A',
+    };
+    if (body.id) insertValues.id = body.id;
+    const [worker] = await ctx.db
+      .insert(isolatedSchema.contractorWorkers)
+      .values(insertValues)
+      .returning();
+    return worker;
   }
 
   // ── Portal path ───────────────────────────────────────────────────────────
@@ -109,7 +136,7 @@ export async function createWorker(
       })
       .returning();
 
-    await _writePortalCreateNotes(ctx, worker, body, normalisedPhone);
+    await _writePortalCreateNotes(ctx, worker, body, normalisedPhone!);
     return worker;
   }
 
@@ -501,6 +528,116 @@ export async function revokeCard(
     });
   } catch (noteErr) {
     logger.error('[workerService] Failed to write card-reset audit note:', noteErr);
+  }
+}
+
+// ─── 8. checkInWorker ────────────────────────────────────────────────────────
+
+/**
+ * Stamp check-in fields on a worker record.
+ *
+ * Designed to be called both standalone and from inside a drizzle transaction —
+ * pass the transaction object as `ctx.db` to enrol in the outer transaction.
+ */
+export async function checkInWorker(
+  ctx: WorkerServiceContext,
+  workerId: string,
+  data: {
+    isCheckedIn: boolean;
+    checkedInAt?: Date;
+    qrCode?: string;
+    hsRulesAccepted?: boolean;
+    hsRulesAcceptedAt?: Date | null;
+    ndaAccepted?: boolean;
+    ndaAcceptedAt?: Date | null;
+  },
+): Promise<void> {
+  const set: Record<string, any> = {
+    isCheckedIn: data.isCheckedIn,
+    checkedInAt: data.checkedInAt ?? new Date(),
+    updatedAt: new Date(),
+  };
+  if (data.qrCode !== undefined) set.qrCode = data.qrCode;
+  if (data.hsRulesAccepted !== undefined) set.hsRulesAccepted = data.hsRulesAccepted;
+  if (data.hsRulesAcceptedAt !== undefined) set.hsRulesAcceptedAt = data.hsRulesAcceptedAt;
+  if (data.ndaAccepted !== undefined) set.ndaAccepted = data.ndaAccepted;
+  if (data.ndaAcceptedAt !== undefined) set.ndaAcceptedAt = data.ndaAcceptedAt;
+
+  await ctx.db
+    .update(isolatedSchema.contractorWorkers)
+    .set(set)
+    .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+}
+
+// ─── 9. clearLoneWorkerState ─────────────────────────────────────────────────
+
+/**
+ * Clear lone-worker tracking fields on a worker record (called on check-out).
+ */
+export async function clearLoneWorkerState(
+  ctx: WorkerServiceContext,
+  workerId: string,
+): Promise<void> {
+  await ctx.db
+    .update(isolatedSchema.contractorWorkers)
+    .set({
+      isLoneWorker: false,
+      loneWorkerSince: null,
+      loneWorkerDeadline: null,
+      loneWorkerEscalationLevel: 0,
+      updatedAt: new Date(),
+    })
+    .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+}
+
+// ─── 10. markInductionCompleted ──────────────────────────────────────────────
+
+/**
+ * Mark a worker's site induction as completed.
+ *
+ * Designed to be called from inside a drizzle transaction — pass `tx` as
+ * `ctx.db` to enrol in the outer transaction.
+ */
+export async function markInductionCompleted(
+  ctx: WorkerServiceContext,
+  workerId: string,
+  completedAt?: Date,
+): Promise<void> {
+  const now = completedAt ?? new Date();
+  await ctx.db
+    .update(isolatedSchema.contractorWorkers)
+    .set({ inductionCompleted: true, inductionCompletedAt: now })
+    .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+}
+
+// ─── 11. correctCardStatus ───────────────────────────────────────────────────
+
+/**
+ * Directly set a worker's currentCardStatus (admin migration / correction).
+ * Writes an audit note recording the phantom-status correction.
+ */
+export async function correctCardStatus(
+  ctx: WorkerServiceContext,
+  workerId: string,
+  newStatus: string,
+  oldStatus: string,
+): Promise<void> {
+  await ctx.db
+    .update(isolatedSchema.contractorWorkers)
+    .set({ currentCardStatus: newStatus, updatedAt: new Date() })
+    .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+
+  try {
+    await ctx.db.insert(isolatedSchema.workerNotes).values({
+      workerId,
+      changeType: 'card_status_correction',
+      oldValue: oldStatus,
+      newValue: newStatus,
+      notes: `Automatic migration: phantom ${oldStatus} card reset to ${newStatus} (no active card_issues record found)`,
+      changedBy: ctx.actor || 'system',
+    });
+  } catch (noteErr) {
+    logger.error('[workerService] Failed to write card-correction audit note:', noteErr);
   }
 }
 

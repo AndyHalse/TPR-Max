@@ -28,6 +28,8 @@ import {
 import {
   updateWorker as svcUpdateWorker,
   revokeCard as svcRevokeCard,
+  markInductionCompleted as svcMarkInductionCompleted,
+  correctCardStatus as svcCorrectCardStatus,
   ServiceError,
   type WorkerServiceContext,
 } from '../services/workerService';
@@ -1031,10 +1033,12 @@ export function registerInductionRoutes(app: Express): void {
             if (results.passed) {
               const personType = token.personType || 'contractor';
               if (personType === 'contractor' && token.workerId) {
-                await tx
-                  .update(isolatedSchema.contractorWorkers)
-                  .set({ inductionCompleted: true, inductionCompletedAt: now })
-                  .where(eq(isolatedSchema.contractorWorkers.id, token.workerId));
+                // Pass tx as db so the update enrolls in the same atomic unit
+                await svcMarkInductionCompleted(
+                  { db: tx, customerId: token.customerId, actor: 'system' },
+                  token.workerId,
+                  now,
+                );
               } else if (personType === 'staff' && token.staffId) {
                 await tx
                   .update(isolatedSchema.staff)
@@ -1328,20 +1332,12 @@ export function registerInductionRoutes(app: Express): void {
         }
 
         // No active card_issues — this was a phantom auto-calculated status; reset to clear
-        await db
-          .update(isolatedSchema.contractorWorkers)
-          .set({ currentCardStatus: 'clear', updatedAt: new Date() })
-          .where(eq(isolatedSchema.contractorWorkers.id, worker.id));
-
-        // Insert correction note
-        await db.insert(isolatedSchema.workerNotes).values({
-          workerId: worker.id,
-          changeType: 'card_status_correction',
-          oldValue: worker.currentCardStatus ?? 'unknown',
-          newValue: 'clear',
-          notes: `Automatic migration: phantom ${worker.currentCardStatus} card reset to clear (no active card_issues record found)`,
-          changedBy: req.user!.username || 'system',
-        });
+        await svcCorrectCardStatus(
+          { db, customerId: context.customerId, actor: req.user!.username || 'system' },
+          worker.id,
+          'clear',
+          worker.currentCardStatus ?? 'unknown',
+        );
 
         fixed++;
       }
