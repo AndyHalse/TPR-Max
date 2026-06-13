@@ -620,7 +620,7 @@ export async function markInductionCompleted(
   const now = completedAt ?? new Date();
   await ctx.db
     .update(isolatedSchema.contractorWorkers)
-    .set({ inductionCompleted: true, inductionCompletedAt: now })
+    .set({ siteInductionCompleted: true, siteInductionCompletedAt: now })
     .where(eq(isolatedSchema.contractorWorkers.id, workerId));
 }
 
