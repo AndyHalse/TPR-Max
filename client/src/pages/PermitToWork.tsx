@@ -153,7 +153,7 @@ export default function PermitToWork() {
   const { data: permitDetail } = useQuery<PermitDetail>({
     queryKey: ['/api/ptw', viewPermitId],
     queryFn: async () => {
-      const res = await fetch(`/api/ptw/${viewPermitId}`, { credentials: 'include' });
+      const res = await apiRequest('GET', `/api/ptw/${viewPermitId}`);
       if (!res.ok) throw new Error('Failed to fetch permit');
       return res.json();
     },
