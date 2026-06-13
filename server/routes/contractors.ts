@@ -737,9 +737,21 @@ export function registerContractorRoutes(app: Express): void {
         const noteDb = await customerDbService.getCustomerDatabase(context.customerId);
         const { workerId: ciWorkerId, offenceId: ciOffenceId, cardType: ciCardType, description: ciDesc, location: ciLoc, witness: ciWit } = req.body;
         const ciCardLabel = ciCardType === 'red' ? '🔴 Red' : '🟡 Yellow';
+        // Look up offence name if offenceId provided
+        let ciOffenceName: string | null = null;
+        if (ciOffenceId) {
+          try {
+            const [offence] = await noteDb.select({ offence: isolatedSchema.cardOffences.offence })
+              .from(isolatedSchema.cardOffences)
+              .where(eq(isolatedSchema.cardOffences.id, ciOffenceId))
+              .limit(1);
+            if (offence) ciOffenceName = offence.offence;
+          } catch (_) {}
+        }
         const ciNoteText = [
-          `${ciCardLabel} card issued.`,
-          ciDesc ? `Offence: ${ciDesc}` : null,
+          `${ciCardLabel} card issued by ${req.user!.username}.`,
+          ciOffenceName ? `Offence: ${ciOffenceName}` : null,
+          ciDesc ? `Description: ${ciDesc}` : null,
           ciLoc ? `Location: ${ciLoc}` : null,
           ciWit ? `Witness: ${ciWit}` : null,
         ].filter(Boolean).join(' ');
@@ -1647,6 +1659,10 @@ export function registerContractorRoutes(app: Express): void {
 
   app.post("/api/contractors/:companyId/workers", requireAuth, async (req, res) => {
     try {
+      // Role check — only admin/manager can add workers
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        return res.status(403).json({ error: 'Only admins and managers can add workers.' });
+      }
       const { companyId } = req.params;
       
       // Get customer context for isolation based on logged-in user

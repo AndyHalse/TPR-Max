@@ -5391,6 +5391,10 @@ export function registerInductionRoutes(app: Express): void {
 export async function handleContractorWorkerUpdate(req: Request, res: Response): Promise<void> {
   let mappedData: any = {};
   try {
+    // Role check — only admin/manager can update worker profiles
+    if (!['admin', 'manager'].includes((req as any).user!.role)) {
+      res.status(403).json({ error: 'Only admins and managers can update worker profiles.' }); return;
+    }
     const workerId = req.params.id;
     logger.info('🔄 Updating contractor worker', workerId, 'with data:', req.body);
 

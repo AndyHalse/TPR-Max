@@ -641,15 +641,42 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
         })
         .returning();
 
+      // Audit trail — same structured notes as admin-created workers (changedBy = portal:<email>)
+      const portalActor = `portal:${pu.email}`;
+      const auditNow = new Date();
+      const auditTs = auditNow.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+        + ' ' + auditNow.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
       try {
+        // Step 1 — Personal details
         await db.insert(isolatedSchema.workerNotes).values({
           workerId: worker.id,
           changeType: 'worker_created',
-          notes: `Worker profile created via contractor portal. Name: ${firstName.trim()} ${lastName.trim()}, Email: ${email?.trim()}, Phone: ${phone}.`,
-          changedBy: `portal:${pu.email}`,
+          notes: `Worker profile created via contractor portal by ${pu.email} on ${auditTs}. Personal details recorded — Name: ${firstName.trim()} ${lastName.trim()}, Email: ${email?.trim() || '—'}, Phone: ${phone || '—'}${jobTitle ? `, Job title: ${jobTitle.trim()}` : ''}${trade ? `, Trade: ${trade.trim()}` : ''}.`,
+          changedBy: portalActor,
+        });
+        // Step 2 — Compliance (minimal defaults for portal workers)
+        await db.insert(isolatedSchema.workerNotes).values({
+          workerId: worker.id,
+          changeType: 'compliance_recorded',
+          notes: `Compliance data recorded via contractor portal on ${auditTs}. Right to Work: Pending ⏳. CSCS: Pending ⏳. IPAF: Not held. (To be verified by site admin.)`,
+          changedBy: portalActor,
+        });
+        // Step 3 — Training (none at portal creation)
+        await db.insert(isolatedSchema.workerNotes).values({
+          workerId: worker.id,
+          changeType: 'training_recorded',
+          notes: `Training data recorded via contractor portal on ${auditTs}. Certificates declared: None. Site induction: Not yet completed.`,
+          changedBy: portalActor,
+        });
+        // Company audit note
+        await db.insert(isolatedSchema.companyNotes).values({
+          companyId: pu.contractorCompanyId,
+          changeType: 'worker_added',
+          notes: `Worker "${firstName.trim()} ${lastName.trim()}" added via contractor portal by ${pu.email} on ${auditTs}`,
+          changedBy: portalActor,
         });
       } catch (noteErr) {
-        logger.error('[portal-add-worker] Failed to create audit note:', noteErr);
+        logger.error('[portal-add-worker] Failed to create audit notes:', noteErr);
       }
 
       return res.status(201).json(worker);
