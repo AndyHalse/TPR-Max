@@ -949,58 +949,50 @@ export default function Dashboard() {
         <div className="flex flex-col lg:flex-row gap-6">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 flex-1">
             <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('visitors')}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-variable text-sm font-medium">Visitors</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400 mt-1" data-testid="stat-current-visitors">
-                    {stats?.currentVisitors || 0}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
-                  <User className="text-blue-600 dark:text-blue-400" size={24} />
+              <p className="text-variable text-sm font-medium">Visitors</p>
+              <div className="flex items-center gap-3 mt-1">
+                <p className="text-2xl sm:text-3xl font-bold text-blue-600 dark:text-blue-400" data-testid="stat-current-visitors">
+                  {stats?.currentVisitors || 0}
+                </p>
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center shrink-0">
+                  <User className="text-blue-600 dark:text-blue-400" size={20} />
                 </div>
               </div>
             </GlassCard>
             
             <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('staff')}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-variable text-sm font-medium">Staff</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-staff-onsite">
-                    {stats?.staffOnSite || 0}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
-                  <Users className="text-purple-600 dark:text-purple-400" size={24} />
+              <p className="text-variable text-sm font-medium">Staff</p>
+              <div className="flex items-center gap-3 mt-1">
+                <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400" data-testid="stat-staff-onsite">
+                  {stats?.staffOnSite || 0}
+                </p>
+                <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
+                  <Users className="text-purple-600 dark:text-purple-400" size={20} />
                 </div>
               </div>
             </GlassCard>
             
             <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('contractors')}>
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-variable text-sm font-medium">Contractors</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400 mt-1" data-testid="stat-contractors-onsite">
-                    {stats?.contractorsOnSite || 0}
-                  </p>
-                </div>
-                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center shrink-0">
-                  <HardHat className="text-orange-600 dark:text-orange-400" size={24} />
+              <p className="text-variable text-sm font-medium">Contractors</p>
+              <div className="flex items-center gap-3 mt-1">
+                <p className="text-2xl sm:text-3xl font-bold text-orange-600 dark:text-orange-400" data-testid="stat-contractors-onsite">
+                  {stats?.contractorsOnSite || 0}
+                </p>
+                <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/30 rounded-xl flex items-center justify-center shrink-0">
+                  <HardHat className="text-orange-600 dark:text-orange-400" size={20} />
                 </div>
               </div>
             </GlassCard>
 
             {stats?.featureMembers && (
               <GlassCard hover className="cursor-pointer" onClick={() => setOpenModal('members')}>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="text-variable text-sm font-medium">Members</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400 mt-1" data-testid="stat-members-onsite">
-                      {stats?.membersOnSite || 0}
-                    </p>
-                  </div>
-                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
-                    <UserCheck className="text-purple-600 dark:text-purple-400" size={24} />
+                <p className="text-variable text-sm font-medium">Members</p>
+                <div className="flex items-center gap-3 mt-1">
+                  <p className="text-2xl sm:text-3xl font-bold text-purple-600 dark:text-purple-400" data-testid="stat-members-onsite">
+                    {stats?.membersOnSite || 0}
+                  </p>
+                  <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center shrink-0">
+                    <UserCheck className="text-purple-600 dark:text-purple-400" size={20} />
                   </div>
                 </div>
               </GlassCard>
@@ -1008,18 +1000,16 @@ export default function Dashboard() {
           </div>
 
           <GlassCard hover className="cursor-pointer bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-slate-200 dark:border-slate-800 lg:w-56 shrink-0" onClick={() => setOpenModal('total-people')}>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-emerald-700 dark:text-emerald-300 text-sm font-semibold">Total People</p>
-                <p className="text-4xl font-bold text-emerald-700 dark:text-emerald-300 mt-1" data-testid="stat-total-people-onsite">
-                  {stats?.totalPeopleOnSite || 0}
-                </p>
-                <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">On-Site Now</p>
-              </div>
-              <div className="w-12 h-12 bg-emerald-200 dark:bg-emerald-800/50 rounded-xl flex items-center justify-center shrink-0">
-                <Users className="text-emerald-700 dark:text-emerald-300" size={24} />
+            <p className="text-emerald-700 dark:text-emerald-300 text-sm font-semibold">Total People</p>
+            <div className="flex items-center gap-3 mt-1">
+              <p className="text-4xl font-bold text-emerald-700 dark:text-emerald-300" data-testid="stat-total-people-onsite">
+                {stats?.totalPeopleOnSite || 0}
+              </p>
+              <div className="w-10 h-10 bg-emerald-200 dark:bg-emerald-800/50 rounded-xl flex items-center justify-center shrink-0">
+                <Users className="text-emerald-700 dark:text-emerald-300" size={20} />
               </div>
             </div>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">On-Site Now</p>
           </GlassCard>
         </div>
       </div>
