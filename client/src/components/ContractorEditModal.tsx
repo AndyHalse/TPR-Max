@@ -1158,13 +1158,15 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           <SelectValue placeholder="Select document type" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="public_liability">Public Liability Insurance</SelectItem>
-                          <SelectItem value="employers_liability">Employers Liability Insurance</SelectItem>
-                          <SelectItem value="health_safety_policy">Health & Safety Policy</SelectItem>
                           <SelectItem value="right_to_work">Right to Work</SelectItem>
                           <SelectItem value="cscs_card">CSCS Card</SelectItem>
                           <SelectItem value="ipaf_card">IPAF Card</SelectItem>
-                          <SelectItem value="certification">Certification</SelectItem>
+                          <SelectItem value="cpcs_card">CPCS Card</SelectItem>
+                          <SelectItem value="asbestos_awareness">Asbestos Awareness</SelectItem>
+                          <SelectItem value="manual_handling">Manual Handling</SelectItem>
+                          <SelectItem value="working_at_height">Working at Height</SelectItem>
+                          <SelectItem value="first_aid">First Aid Certificate</SelectItem>
+                          <SelectItem value="certification">Other Certification</SelectItem>
                           <SelectItem value="training">Training Certificate</SelectItem>
                           <SelectItem value="other">Other</SelectItem>
                         </SelectContent>

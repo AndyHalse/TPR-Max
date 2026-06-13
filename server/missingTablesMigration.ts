@@ -712,11 +712,13 @@ const createWorkerCertificationTypesTableMigration: Migration = {
           (key, name, legal_basis, category, requires_expiry, requires_number)
         VALUES
           ('right_to_work',       'Right to Work',                 'Immigration, Asylum & Nationality Act 2006',      'legal',    TRUE,  FALSE),
-          ('public_liability',    'Public Liability Insurance',    'Common law duty of care',                         'legal',    TRUE,  FALSE),
-          ('employers_liability', 'Employers'' Liability Insurance', 'Employers'' Liability Act 1969',                'legal',    TRUE,  FALSE),
           ('cscs_card',           'CSCS Card',                     'Construction Skills Certification Scheme',        'site',     TRUE,  TRUE),
           ('ipaf_card',           'IPAF Card',                     'Working at Height Regulations 2005',              'site',     TRUE,  TRUE),
-          ('health_safety_policy','Health & Safety Policy',        'Health & Safety at Work Act 1974',                'site',     FALSE, FALSE),
+          ('cpcs_card',           'CPCS Card',                     'Plant operator competence (site requirement)',     'site',     TRUE,  TRUE),
+          ('asbestos_awareness',  'Asbestos Awareness',            'Control of Asbestos Regulations 2012',            'training', TRUE,  FALSE),
+          ('manual_handling',     'Manual Handling',               'Manual Handling Operations Regulations 1992',     'training', TRUE,  FALSE),
+          ('working_at_height',   'Working at Height',             'Work at Height Regulations 2005',                 'training', TRUE,  FALSE),
+          ('first_aid',           'First Aid Certificate',         'Health and Safety (First-Aid) Regulations 1981',  'training', TRUE,  FALSE),
           ('training',            'Training Certificate',          'Client / site requirement',                       'training', TRUE,  FALSE),
           ('certification',       'Other Certification',           'Client / professional body requirement',          'training', TRUE,  TRUE)
         ON CONFLICT (key) DO NOTHING
@@ -841,6 +843,75 @@ const createContractorEquipmentMigration: Migration = {
   }
 };
 
+const fixWorkerCertOwnershipMigration: Migration = {
+  version: '20260613_001_fix_worker_cert_ownership',
+  description: 'Deactivate company-level cert types from worker catalogue; add individual training types; soft-delete misclassified worker docs',
+  async up(db: any) {
+    try {
+      // 1. Deactivate the three company-level certificate types from the worker catalogue.
+      //    Using is_active=FALSE rather than DELETE preserves any FK-linked evidence rows.
+      await db.execute(`
+        UPDATE worker_certification_types
+        SET is_active = FALSE
+        WHERE key IN ('public_liability','employers_liability','health_safety_policy')
+      `);
+
+      // 2. Add the new individual training/site certificate types (ON CONFLICT handles re-runs).
+      await db.execute(`
+        INSERT INTO worker_certification_types
+          (key, name, legal_basis, category, requires_expiry, requires_number)
+        VALUES
+          ('cpcs_card',          'CPCS Card',             'Plant operator competence (site requirement)',     'site',     TRUE,  TRUE),
+          ('asbestos_awareness', 'Asbestos Awareness',    'Control of Asbestos Regulations 2012',            'training', TRUE,  FALSE),
+          ('manual_handling',    'Manual Handling',       'Manual Handling Operations Regulations 1992',     'training', TRUE,  FALSE),
+          ('working_at_height',  'Working at Height',     'Work at Height Regulations 2005',                 'training', TRUE,  FALSE),
+          ('first_aid',          'First Aid Certificate', 'Health and Safety (First-Aid) Regulations 1981',  'training', TRUE,  FALSE)
+        ON CONFLICT (key) DO UPDATE SET is_active = TRUE
+      `);
+
+      // 3. Soft-delete any contractor_documents that are worker-level copies of company docs.
+      //    worker_id IS NOT NULL distinguishes worker-level from company-level rows.
+      await db.execute(`
+        UPDATE contractor_documents
+        SET is_active = FALSE
+        WHERE document_type IN ('public_liability','employers_liability','health_safety_policy')
+          AND worker_id IS NOT NULL
+          AND is_active = TRUE
+      `);
+
+      // 4. One-off backfill report: log active workers with NULL phone_number so admins
+      //    know which records need the number manually re-entered (cannot be recovered).
+      try {
+        const nullPhoneResult = await db.execute(`
+          SELECT id, first_name, last_name, email FROM contractor_workers
+          WHERE is_active = TRUE AND (phone_number IS NULL OR phone_number = '')
+          ORDER BY last_name, first_name
+        `);
+        const affected = nullPhoneResult.rows ?? [];
+        if (affected.length > 0) {
+          logger.warn(
+            `[worker-phone-backfill] ${affected.length} active worker(s) have a missing phone_number — ` +
+            `admin action required to re-enter: ${affected.map((r: any) => `${r.first_name} ${r.last_name} (${r.email || r.id})`).join(', ')}`
+          );
+        } else {
+          logger.info('[worker-phone-backfill] No active workers have a missing phone_number — all good.');
+        }
+      } catch (reportErr) {
+        logger.warn('[worker-phone-backfill] Could not run null-phone report (non-fatal):', reportErr);
+      }
+
+      logger.info('✅ Worker cert ownership migration completed');
+    } catch (error: any) {
+      const msg = error?.message || '';
+      if (msg.includes('already exists') || error?.code === '23505') {
+        logger.info('ℹ️ Worker cert ownership migration already applied, skipping');
+      } else {
+        throw error;
+      }
+    }
+  }
+};
+
 export const missingTablesMigrations = [
   createVisitorHistoryTableMigration,
   ensureContractorTablesMigration,
@@ -855,4 +926,5 @@ export const missingTablesMigrations = [
   createContractorWorkerDbsTableMigration,
   createWorkerCertificationTypesTableMigration,
   createContractorEquipmentMigration,
+  fixWorkerCertOwnershipMigration,
 ];

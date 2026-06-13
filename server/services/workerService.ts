@@ -108,10 +108,10 @@ export async function createWorker(
       firstName: String(body.firstName).trim(),
       lastName: String(body.lastName).trim(),
       email: body.email || null,
-      phone: body.phone?.trim() || null,
+      phoneNumber: body.phoneNumber?.trim() || body.phone?.trim() || null, // isolated key
       rightToWork: body.rightToWork ?? 'pending',
       isActive: true,
-      inductionCompleted: false,
+      siteInductionCompleted: false, // isolated key (not `inductionCompleted`)
       safetyRating: body.safetyRating ?? 'N/A',
     };
     if (body.id) insertValues.id = body.id;
@@ -144,23 +144,34 @@ export async function createWorker(
   }
 
   // ── Admin path ────────────────────────────────────────────────────────────
+  // IMPORTANT: insertContractorWorkerSchema is generated from shared/schema.ts which diverges
+  // from isolatedSchema.ts on two fields:
+  //   shared JS key `phone`             (col: phone)       ≠  isolated JS key `phoneNumber` (col: phone_number)
+  //   shared JS key `inductionCompleted` (col: site_induction_completed) ≠ isolated `siteInductionCompleted`
+  // Zod strips unknown keys, so phoneNumber + siteInductionCompleted passed into .parse() are silently dropped.
+  // We MUST re-add them as isolated-table key names AFTER the parse call.
   const hsToken = randomBytes(16).toString('hex');
 
-  const workerData = insertContractorWorkerSchema.parse({
+  const workerData: any = insertContractorWorkerSchema.parse({
     ...body,
     companyId,
-    // phone → phoneNumber normalisation (single location)
-    phoneNumber: normalisedPhone,
     hsRulesAcceptanceToken: hsToken,
-    siteInductionCompleted:
-      body.inductionCompleted !== undefined ? Boolean(body.inductionCompleted) : false,
+    // These shared-schema JS keys survive Zod parse (same key name in both schemas):
     asbestosAwareness:
       body.asbestosAwareness !== undefined ? Boolean(body.asbestosAwareness) : false,
     manualHandling:
       body.manualHandling !== undefined ? Boolean(body.manualHandling) : false,
-    workingAtHeight:
-      body.workingAtHeight !== undefined ? Boolean(body.workingAtHeight) : false,
   });
+
+  // Bridge isolated-table field names that Zod stripped (shared ≠ isolated key names).
+  workerData.phoneNumber = normalisedPhone;                           // isolated: phoneNumber  (phone_number)
+  workerData.siteInductionCompleted =                                 // isolated: siteInductionCompleted (site_induction_completed)
+    body.inductionCompleted !== undefined ? Boolean(body.inductionCompleted) : false;
+  workerData.workingAtHeight =                                        // isolated: workingAtHeight (working_at_height)
+    body.workingAtHeight !== undefined ? Boolean(body.workingAtHeight) : false;
+  // Remove shared-schema-only keys so they don't shadow or confuse the isolated insert.
+  delete workerData.phone;
+  delete workerData.inductionCompleted;
 
   const context = simpleDatabaseService.createCustomerContext(ctx.actor, ctx.customerId);
   const worker = await databaseService.createContractorWorker(context, workerData);
