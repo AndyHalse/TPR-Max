@@ -612,6 +612,25 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
     }
   });
 
+  // ── Auth: Worker certification types (one-per-customer catalogue) ─────────
+  app.get('/api/contractor-portal/worker-cert-types', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const custDb = await customerDbService.getCustomerDatabase(pu.customerId);
+      const schemaName = customerDbService.generateSchemaName(pu.customerId);
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const result = await pool.query(
+        `SELECT * FROM "${schemaName}".worker_certification_types
+         WHERE is_active = TRUE
+         ORDER BY CASE category WHEN 'legal' THEN 1 WHEN 'site' THEN 2 WHEN 'training' THEN 3 ELSE 4 END, name`
+      );
+      return res.json(result.rows ?? []);
+    } catch (err: any) {
+      logger.error('[portal-cert-types]', err);
+      return res.status(500).json({ error: 'Failed to load certification types.' });
+    }
+  });
+
   // ── Auth: Add worker ──────────────────────────────────────────────────────
   app.post('/api/contractor-portal/workers', requireContractorPortalAuth, async (req, res) => {
     try {
@@ -629,6 +648,120 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
       return res.status(500).json({ error: 'Failed to add worker.' });
     }
   });
+
+  // ── Auth: List worker documents ────────────────────────────────────────────
+  app.get('/api/contractor-portal/workers/:workerId/documents', requireContractorPortalAuth, async (req, res) => {
+    try {
+      const pu = (req as any).portalUser as PortalTokenPayload;
+      const { workerId } = req.params;
+      const db = await customerDbService.getCustomerDatabase(pu.customerId);
+
+      const [worker] = await db
+        .select({ id: isolatedSchema.contractorWorkers.id })
+        .from(isolatedSchema.contractorWorkers)
+        .where(
+          and(
+            eq(isolatedSchema.contractorWorkers.id, workerId),
+            eq(isolatedSchema.contractorWorkers.companyId, pu.contractorCompanyId)
+          )
+        )
+        .limit(1);
+
+      if (!worker) return res.status(403).json({ error: 'Worker not found or access denied.' });
+
+      const docs = await db
+        .select()
+        .from(isolatedSchema.contractorDocuments)
+        .where(
+          and(
+            eq(isolatedSchema.contractorDocuments.workerId, workerId),
+            eq(isolatedSchema.contractorDocuments.isActive, true)
+          )
+        )
+        .orderBy(desc(isolatedSchema.contractorDocuments.uploadedAt));
+
+      return res.json(docs);
+    } catch (err: any) {
+      logger.error('[portal-worker-docs-list]', err);
+      return res.status(500).json({ error: 'Failed to load worker documents.' });
+    }
+  });
+
+  // ── Auth: Upload worker document ───────────────────────────────────────────
+  app.post(
+    '/api/contractor-portal/workers/:workerId/documents',
+    requireContractorPortalAuth,
+    portalUpload,
+    async (req: any, res: any) => {
+      try {
+        const pu = req.portalUser as PortalTokenPayload;
+        const { workerId } = req.params;
+        const db = await customerDbService.getCustomerDatabase(pu.customerId);
+
+        const [worker] = await db
+          .select({ id: isolatedSchema.contractorWorkers.id })
+          .from(isolatedSchema.contractorWorkers)
+          .where(
+            and(
+              eq(isolatedSchema.contractorWorkers.id, workerId),
+              eq(isolatedSchema.contractorWorkers.companyId, pu.contractorCompanyId)
+            )
+          )
+          .limit(1);
+
+        if (!worker) return res.status(403).json({ error: 'Worker not found or access denied.' });
+        if (!req.file) return res.status(400).json({ error: 'No file was uploaded.' });
+
+        const { documentType, documentName, expiryDate, issuedBy } =
+          req.body as Record<string, string>;
+        if (!documentType || !documentName) {
+          return res.status(400).json({ error: 'Document type and name are required.' });
+        }
+
+        let documentUrl: string;
+        try {
+          const objService = new ObjectStorageService();
+          const privateDir = objService.getPrivateObjectDir();
+          const objectId = randomUUID();
+          const ext = (req.file.originalname.split('.').pop() ?? 'bin').toLowerCase();
+          const fullPath = `${privateDir}/${pu.customerId}/contractor-portal/workers/${objectId}.${ext}`;
+          const parts = fullPath.slice(1).split('/');
+          const bucketName = parts[0];
+          const objectName = parts.slice(1).join('/');
+
+          await objectStorageClient.bucket(bucketName).file(objectName).save(req.file.buffer, {
+            contentType: req.file.mimetype,
+            resumable: false,
+          });
+          documentUrl = `/objects/${pu.customerId}/contractor-portal/workers/${objectId}.${ext}`;
+        } catch (storageErr: any) {
+          logger.error('[portal-worker-upload] Storage failed:', storageErr?.message);
+          return res.status(502).json({ error: 'Could not store file. Please try again.' });
+        }
+
+        const [doc] = await db
+          .insert(isolatedSchema.contractorDocuments)
+          .values({
+            companyId: pu.contractorCompanyId,
+            workerId,
+            documentName,
+            documentType,
+            documentUrl,
+            expiryDate: expiryDate ? new Date(expiryDate) : null,
+            issuedBy: issuedBy || null,
+            uploadedBy: `portal:${pu.portalUserId}`,
+            status: 'pending',
+            isActive: true,
+          })
+          .returning();
+
+        return res.status(201).json(doc);
+      } catch (err: any) {
+        logger.error('[portal-worker-upload]', err);
+        return res.status(500).json({ error: 'Failed to upload worker document.' });
+      }
+    }
+  );
 
   // ── Auth: Document stats summary ──────────────────────────────────────────
   app.get('/api/contractor-portal/document-stats', requireContractorPortalAuth, async (req, res) => {

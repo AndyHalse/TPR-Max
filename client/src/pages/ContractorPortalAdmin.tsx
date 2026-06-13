@@ -425,8 +425,17 @@ export default function ContractorPortalAdmin() {
                             <FileText className="w-4 h-4 text-orange-600" />
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-sm truncate">{doc.documentName}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-sm truncate">{doc.documentName}</p>
+                              {doc.workerId
+                                ? <Badge variant="outline" className="text-xs text-blue-600 border-blue-200">Worker doc</Badge>
+                                : <Badge variant="outline" className="text-xs text-slate-500 border-slate-200">Company doc</Badge>
+                              }
+                            </div>
                             <p className="text-xs text-muted-foreground">{doc.documentType} · {doc.companyName}</p>
+                            {doc.workerId && (doc.workerFirstName || doc.workerLastName) && (
+                              <p className="text-xs text-blue-600">Worker: {[doc.workerFirstName, doc.workerLastName].filter(Boolean).join(' ')}</p>
+                            )}
                             {doc.expiryDate && (
                               <p className="text-xs text-muted-foreground">Expires: {new Date(doc.expiryDate).toLocaleDateString()}</p>
                             )}

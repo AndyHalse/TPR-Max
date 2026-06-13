@@ -64,7 +64,6 @@ import {
   inArray,
   isNull,
   isNotNull,
-  like,
 } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
@@ -2464,11 +2463,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           eq(isolatedSchema.contractorDocuments.isActive, true)
         ));
 
+      // Fetch the active worker-level certification types from the customer schema
+      let certificationTypes: any[] = [];
+      try {
+        const schemaName = customerDbService.generateSchemaName(request.customerId);
+        const certPool = (custDb as any).$client ?? (custDb as any).session?.client;
+        const certResult = await certPool.query(
+          `SELECT * FROM "${schemaName}".worker_certification_types
+           WHERE is_active = TRUE
+           ORDER BY CASE category WHEN 'legal' THEN 1 WHEN 'site' THEN 2 WHEN 'training' THEN 3 ELSE 4 END, name`
+        );
+        certificationTypes = certResult.rows ?? [];
+      } catch (_certErr) {
+        // Non-fatal: fall back to empty list; the page still loads
+      }
+
       res.json({
         worker: { id: (worker as any).id, firstName: (worker as any).firstName, lastName: (worker as any).lastName },
         company: { companyName: (company as any)?.companyName },
         settings: { companyName: settings?.companyName, logoUrl: settings?.logoUrl, accentColor: settings?.accentColor, backgroundColor: settings?.backgroundColor },
         documents: existingDocs,
+        certificationTypes,
         expiresAt: request.expiresAt,
         customerId: request.customerId,
       });
@@ -4793,17 +4808,23 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           status: isolatedSchema.contractorDocuments.status,
           companyId: isolatedSchema.contractorDocuments.companyId,
           companyName: isolatedSchema.contractorCompanies.companyName,
+          workerId: isolatedSchema.contractorDocuments.workerId,
+          workerFirstName: isolatedSchema.contractorWorkers.firstName,
+          workerLastName: isolatedSchema.contractorWorkers.lastName,
         })
         .from(isolatedSchema.contractorDocuments)
         .leftJoin(
           isolatedSchema.contractorCompanies,
           eq(isolatedSchema.contractorDocuments.companyId, isolatedSchema.contractorCompanies.id)
         )
+        .leftJoin(
+          isolatedSchema.contractorWorkers,
+          eq(isolatedSchema.contractorDocuments.workerId, isolatedSchema.contractorWorkers.id)
+        )
         .where(
           and(
             eq(isolatedSchema.contractorDocuments.status, 'pending'),
-            eq(isolatedSchema.contractorDocuments.isActive, true),
-            like(isolatedSchema.contractorDocuments.uploadedBy, 'portal:%')
+            eq(isolatedSchema.contractorDocuments.isActive, true)
           )
         )
         .orderBy(desc(isolatedSchema.contractorDocuments.uploadedAt));
@@ -5129,6 +5150,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           }
         } catch (emailErr: any) {
           logger.warn('[portal-review] Rejection email failed:', emailErr.message?.substring(0, 80));
+        }
+      }
+
+      // Write a worker-notes audit entry when the document belongs to a specific worker
+      if ((updated as any).workerId) {
+        try {
+          const docLabel = (updated as any).documentName ?? (updated as any).documentType ?? 'document';
+          await db.insert(isolatedSchema.workerNotes).values({
+            workerId: (updated as any).workerId,
+            changeType: 'document_review',
+            oldValue: 'pending',
+            newValue: status,
+            notes: status === 'rejected'
+              ? `Document "${docLabel}" rejected by reviewer (${reviewerId}). Reason: ${rejectedReason || 'No reason given'}.`
+              : `Document "${docLabel}" approved by reviewer (${reviewerId}).`,
+            changedBy: reviewerId,
+          });
+        } catch (noteErr: any) {
+          logger.warn('[portal-review] Failed to write worker note (non-fatal):', noteErr.message?.substring(0, 80));
         }
       }
 

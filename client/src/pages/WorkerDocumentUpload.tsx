@@ -6,16 +6,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Upload, Clock, AlertTriangle, FileText, Loader2 } from "lucide-react";
 
-const WORKER_DOC_FRAMEWORK = [
-  { key: 'right_to_work', name: 'Right to Work', basis: 'Immigration, Asylum & Nationality Act 2006', note: 'Passport, driving licence, or biometric permit', category: 'legal', requiresExpiry: true },
-  { key: 'public_liability', name: 'Public Liability Insurance', basis: 'Common law duty of care', note: 'Minimum £2m', category: 'legal', requiresExpiry: true },
-  { key: 'employers_liability', name: "Employers' Liability Insurance", basis: "Employers' Liability Act 1969", note: 'Minimum £5m', category: 'legal', requiresExpiry: true },
-  { key: 'cscs_card', name: 'CSCS Card', basis: 'Industry standard — Construction Skills Certification Scheme', note: 'Required on most UK construction sites', category: 'site', requiresExpiry: true },
-  { key: 'ipaf_card', name: 'IPAF Card', basis: 'Working at Height Regulations 2005', note: 'Required for working at height / MEWPs', category: 'site', requiresExpiry: true },
-  { key: 'health_safety_policy', name: 'Health & Safety Policy', basis: 'H&S at Work Act 1974', note: 'Required before work commences', category: 'site', requiresExpiry: false },
-  { key: 'training', name: 'Training Certificate', basis: 'Client / site requirement', note: 'Manual handling, asbestos awareness, etc.', category: 'other', requiresExpiry: true },
-  { key: 'certification', name: 'Other Certification', basis: 'Client / professional body requirement', note: 'NVQ, CPCS, CIBT, or similar', category: 'other', requiresExpiry: true },
-];
+interface CertType {
+  key: string;
+  name: string;
+  legal_basis: string;
+  notes: string;
+  category: string;
+  requires_expiry: boolean;
+}
 
 interface UploadState {
   file: File | null;
@@ -53,12 +51,12 @@ export default function WorkerDocumentUpload({ token }: Props) {
   const getExistingDoc = (key: string) =>
     (data?.documents || []).find((d: any) => d.documentType === key);
 
-  const handleUpload = async (doc: typeof WORKER_DOC_FRAMEWORK[0]) => {
-    const state = getDocState(doc.key);
-    if (!state.file) { setDocState(doc.key, { error: 'Please select a file first' }); return; }
-    if (doc.requiresExpiry && !state.expiry) { setDocState(doc.key, { error: 'Please enter the expiry date' }); return; }
+  const handleUpload = async (cert: CertType) => {
+    const state = getDocState(cert.key);
+    if (!state.file) { setDocState(cert.key, { error: 'Please select a file first' }); return; }
+    if (cert.requires_expiry && !state.expiry) { setDocState(cert.key, { error: 'Please enter the expiry date' }); return; }
 
-    setDocState(doc.key, { uploading: true, error: '' });
+    setDocState(cert.key, { uploading: true, error: '' });
     try {
       const formData = new FormData();
       formData.append('file', state.file);
@@ -76,8 +74,8 @@ export default function WorkerDocumentUpload({ token }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          documentName: doc.name,
-          documentType: doc.key,
+          documentName: cert.name,
+          documentType: cert.key,
           documentUrl: objectUrl,
           expiryDate: state.expiry || null,
           issuedBy: state.issuedBy || null,
@@ -87,9 +85,9 @@ export default function WorkerDocumentUpload({ token }: Props) {
         const body = await uploadRes.json().catch(() => ({}));
         throw new Error(body.error || 'Upload failed');
       }
-      setDocState(doc.key, { uploading: false, done: true, error: '' });
+      setDocState(cert.key, { uploading: false, done: true, error: '' });
     } catch (err: any) {
-      setDocState(doc.key, { uploading: false, error: err.message || 'Upload failed' });
+      setDocState(cert.key, { uploading: false, error: err.message || 'Upload failed' });
     }
   };
 
@@ -119,24 +117,29 @@ export default function WorkerDocumentUpload({ token }: Props) {
     );
   }
 
-  const { worker, company, settings } = data;
+  const { worker, company, settings, certificationTypes = [] } = data;
   const accentColor = settings?.accentColor || '#2460a9';
   const logoUrl = settings?.logoUrl
     ? (settings.logoUrl.startsWith('/uploads/') ? `/objects${settings.logoUrl}` : settings.logoUrl)
     : null;
 
-  const uploadedCount = WORKER_DOC_FRAMEWORK.filter(d => {
+  const activeCerts: CertType[] = certificationTypes.length > 0
+    ? certificationTypes
+    : [];
+
+  const uploadedCount = activeCerts.filter(d => {
     const state = getDocState(d.key);
     return state.done || !!getExistingDoc(d.key);
   }).length;
 
-  const legalDocs = WORKER_DOC_FRAMEWORK.filter(d => d.category === 'legal');
-  const siteDocs = WORKER_DOC_FRAMEWORK.filter(d => d.category === 'site');
-  const otherDocs = WORKER_DOC_FRAMEWORK.filter(d => d.category === 'other');
+  const legalDocs = activeCerts.filter(d => d.category === 'legal');
+  const siteDocs = activeCerts.filter(d => d.category === 'site');
+  const trainingDocs = activeCerts.filter(d => d.category === 'training');
+  const otherDocs = activeCerts.filter(d => !['legal', 'site', 'training'].includes(d.category));
 
-  const DocCard = ({ doc }: { doc: typeof WORKER_DOC_FRAMEWORK[0] }) => {
-    const state = getDocState(doc.key);
-    const existing = getExistingDoc(doc.key);
+  const DocCard = ({ cert }: { cert: CertType }) => {
+    const state = getDocState(cert.key);
+    const existing = getExistingDoc(cert.key);
     const isDone = state.done || (existing && existing.status !== 'expired');
 
     return (
@@ -144,7 +147,7 @@ export default function WorkerDocumentUpload({ token }: Props) {
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <p className="font-medium text-sm text-slate-800">{doc.name}</p>
+              <p className="font-medium text-sm text-slate-800">{cert.name}</p>
               {isDone ? (
                 <Badge className="bg-green-100 text-green-700 text-xs border-0">
                   <CheckCircle className="w-3 h-3 mr-1" />
@@ -154,7 +157,7 @@ export default function WorkerDocumentUpload({ token }: Props) {
                 <Badge variant="outline" className="text-slate-400 border-slate-300 text-xs">Required</Badge>
               )}
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">{doc.basis} — {doc.note}</p>
+            <p className="text-xs text-slate-400 mt-0.5">{cert.legal_basis}{cert.notes ? ` — ${cert.notes}` : ''}</p>
             {existing?.expiryDate && !state.done && (
               <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
                 <Clock className="w-3 h-3" />Current expires: {new Date(existing.expiryDate).toLocaleDateString('en-GB')}
@@ -171,19 +174,19 @@ export default function WorkerDocumentUpload({ token }: Props) {
                 type="file"
                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
                 className="block w-full text-sm text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200 cursor-pointer"
-                onChange={e => setDocState(doc.key, { file: e.target.files?.[0] || null })}
+                onChange={e => setDocState(cert.key, { file: e.target.files?.[0] || null })}
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs text-slate-600 mb-1 block">
-                  Expiry date{doc.requiresExpiry ? '' : ' (optional)'}
+                  Expiry date{cert.requires_expiry ? '' : ' (optional)'}
                 </Label>
-                <Input type="date" className="h-8 text-sm" value={getDocState(doc.key).expiry} onChange={e => setDocState(doc.key, { expiry: e.target.value })} />
+                <Input type="date" className="h-8 text-sm" value={getDocState(cert.key).expiry} onChange={e => setDocState(cert.key, { expiry: e.target.value })} />
               </div>
               <div>
                 <Label className="text-xs text-slate-600 mb-1 block">Issued by (optional)</Label>
-                <Input type="text" placeholder="Insurer / body" className="h-8 text-sm" value={getDocState(doc.key).issuedBy} onChange={e => setDocState(doc.key, { issuedBy: e.target.value })} />
+                <Input type="text" placeholder="Insurer / body" className="h-8 text-sm" value={getDocState(cert.key).issuedBy} onChange={e => setDocState(cert.key, { issuedBy: e.target.value })} />
               </div>
             </div>
             {state.error && <p className="text-xs text-red-600">{state.error}</p>}
@@ -191,12 +194,12 @@ export default function WorkerDocumentUpload({ token }: Props) {
               size="sm"
               className="w-full text-white"
               style={{ backgroundColor: accentColor }}
-              onClick={() => handleUpload(doc)}
+              onClick={() => handleUpload(cert)}
               disabled={state.uploading}
             >
               {state.uploading
                 ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />Uploading…</>
-                : <><Upload className="w-3.5 h-3.5 mr-1.5" />Upload {doc.name.split(' ').slice(0, 3).join(' ')}</>
+                : <><Upload className="w-3.5 h-3.5 mr-1.5" />Upload {cert.name.split(' ').slice(0, 3).join(' ')}</>
               }
             </Button>
           </div>
@@ -205,15 +208,18 @@ export default function WorkerDocumentUpload({ token }: Props) {
     );
   };
 
-  const DocSection = ({ title, badge, items }: { title: string; badge: string; items: typeof WORKER_DOC_FRAMEWORK }) => (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <h3 className="font-semibold text-slate-700">{title}</h3>
-        <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: `${accentColor}20`, color: accentColor }}>{badge}</span>
+  const DocSection = ({ title, badge, items }: { title: string; badge: string; items: CertType[] }) => {
+    if (items.length === 0) return null;
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <h3 className="font-semibold text-slate-700">{title}</h3>
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: `${accentColor}20`, color: accentColor }}>{badge}</span>
+        </div>
+        {items.map(cert => <DocCard key={cert.key} cert={cert} />)}
       </div>
-      {items.map(doc => <DocCard key={doc.key} doc={doc} />)}
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -247,19 +253,32 @@ export default function WorkerDocumentUpload({ token }: Props) {
           )}
         </div>
 
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-slate-700">Upload Progress</p>
-            <span className="text-sm font-bold" style={{ color: accentColor }}>{uploadedCount} of {WORKER_DOC_FRAMEWORK.length}</span>
+        {activeCerts.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-medium text-slate-700">Upload Progress</p>
+              <span className="text-sm font-bold" style={{ color: accentColor }}>{uploadedCount} of {activeCerts.length}</span>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-2">
+              <div className="h-2 rounded-full transition-all" style={{ width: `${(uploadedCount / activeCerts.length) * 100}%`, backgroundColor: accentColor }} />
+            </div>
           </div>
-          <div className="w-full bg-slate-100 rounded-full h-2">
-            <div className="h-2 rounded-full transition-all" style={{ width: `${(uploadedCount / WORKER_DOC_FRAMEWORK.length) * 100}%`, backgroundColor: accentColor }} />
-          </div>
-        </div>
+        )}
 
-        <DocSection title="Legally Required" badge="UK Law" items={legalDocs} />
-        <DocSection title="Site Required" badge="Most sites" items={siteDocs} />
-        <DocSection title="Other Documents" badge="As required" items={otherDocs} />
+        {activeCerts.length === 0 ? (
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center text-slate-400">
+            <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+            <p className="font-medium">No documents required at this time.</p>
+            <p className="text-sm mt-1">Please contact your client if you believe this is incorrect.</p>
+          </div>
+        ) : (
+          <>
+            <DocSection title="Legally Required" badge="UK Law" items={legalDocs} />
+            <DocSection title="Site Required" badge="Most sites" items={siteDocs} />
+            <DocSection title="Training & Competence" badge="As required" items={trainingDocs} />
+            <DocSection title="Other Documents" badge="As required" items={otherDocs} />
+          </>
+        )}
 
         <div className="text-center text-xs text-slate-400 pb-8 space-y-1">
           <p>Documents are stored securely and reviewed by the {settings?.companyName || 'client'} compliance team.</p>
