@@ -636,7 +636,15 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
                     </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <Button variant="outline" size="sm" onClick={() => window.open(`/induction-preview/${roleType}`, '_blank')} className="gap-1 text-xs">
+                    <Button variant="outline" size="sm" onClick={async () => {
+                      try {
+                        const res = await apiRequest('POST', `/api/induction/preview-token/${roleType}`);
+                        const { token } = await res.json();
+                        window.open(`/induction-preview/${roleType}?pt=${token}`, '_blank');
+                      } catch {
+                        toast({ title: 'Could not open preview — please try again', variant: 'destructive' });
+                      }
+                    }} className="gap-1 text-xs">
                       <Eye className="h-3 w-3" />Preview
                     </Button>
                     <Button variant="ghost" size="sm" onClick={handleRemoveVideo} disabled={isDeletingVideo} className="shrink-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950">
