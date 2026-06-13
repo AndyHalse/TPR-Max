@@ -1506,9 +1506,8 @@ export class DatabaseService {
           isActive: worker.isActive ?? true,
           createdAt: worker.createdAt || new Date(),
           updatedAt: worker.updatedAt || new Date(),
-          // CRITICAL FIX: Calculate currentCardStatus if missing  
-          currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker),
-          // CRITICAL FIX: Map frontend compatibility fields
+          currentCardStatus: worker.currentCardStatus ?? 'clear',
+          complianceStatus: this.calculateComplianceStatus(worker),
           inductionCompleted: worker.siteInductionCompleted || false,
           phone: worker.phoneNumber,
           needsEvacuationAssistance: worker.needsEvacuationAssistance ?? false,
@@ -1764,7 +1763,8 @@ export class DatabaseService {
 
     return workers.map(worker => ({
       ...worker,
-      currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker),
+      currentCardStatus: worker.currentCardStatus ?? 'clear',
+      complianceStatus: this.calculateComplianceStatus(worker),
       inductionCompleted: worker.siteInductionCompleted || false,
       phone: worker.phoneNumber,
       rightToWork: worker.rightToWork || 'pending',
@@ -1998,11 +1998,11 @@ export class DatabaseService {
         isActive: worker.isActive ?? true,
         createdAt: worker.createdAt || new Date(),
         updatedAt: worker.updatedAt || new Date(),
-        // FIXED: Add frontend compatibility mappings
-        currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker), // Calculate if missing
-        inductionCompleted: worker.siteInductionCompleted || false, // Map DB field to frontend field
-        phone: worker.phoneNumber, // Add phone alias for compatibility
-        qrCode: worker.qrCode || null, // Include QR code so send-qr-pass doesn't regenerate it every time
+        currentCardStatus: worker.currentCardStatus ?? 'clear',
+        complianceStatus: this.calculateComplianceStatus(worker),
+        inductionCompleted: worker.siteInductionCompleted || false,
+        phone: worker.phoneNumber,
+        qrCode: worker.qrCode || null,
         needsEvacuationAssistance: worker.needsEvacuationAssistance ?? false,
       } as ContractorWorker;
       
@@ -2115,59 +2115,17 @@ export class DatabaseService {
         (updateData as any).qrCode = (updates as any).qrCode;
       }
       
-      // Handle special update flags
-      const bypassAutoCalculation = (updates as any)._bypassAutoCalculation;
-      if (bypassAutoCalculation) {
-        logger.info(`🔄 BYPASS: Skipping auto-calculation due to _bypassAutoCalculation flag`);
-        // Add direct card status from updates if provided
-        if (updates.currentCardStatus !== undefined) {
-          updateData.currentCardStatus = updates.currentCardStatus;
-        }
-        if (updates.redCardBanUntil !== undefined) {
-          updateData.bannedUntil = updates.redCardBanUntil;
-        }
+      // Card status is admin-only — pass through only when explicitly provided
+      if (updates.currentCardStatus !== undefined) {
+        updateData.currentCardStatus = updates.currentCardStatus;
       }
-
-      // AUTOMATIC CARD STATUS CALCULATION (skip if bypassing)
-      if (!bypassAutoCalculation) {
-        logger.info(`🔍 AUTO-CALC: Starting automatic card status calculation for worker ${id}`);
-        try {
-        // Get current worker data to check all compliance fields
-        logger.info(`🔍 AUTO-CALC: Fetching current worker data for ${id}`);
-        const currentWorker = await this.getContractorWorkerById(context, id);
-        logger.info(`🔍 AUTO-CALC: Current worker data:`, currentWorker ? 'FOUND' : 'NOT FOUND');
-        
-        if (currentWorker) {
-          logger.info(`🔍 AUTO-CALC: Worker compliance data:`, {
-            siteInductionCompleted: currentWorker.siteInductionCompleted,
-            rightToWork: currentWorker.rightToWork,
-            cscsStatus: currentWorker.cscsStatus,
-            bannedUntil: currentWorker.bannedUntil
-          });
-          
-          // Merge current worker data with updates
-          const mergedData = { ...currentWorker, ...updateData };
-          logger.info(`🔍 AUTO-CALC: Merged data for calculation:`, {
-            siteInductionCompleted: mergedData.siteInductionCompleted,
-            rightToWork: mergedData.rightToWork,
-            cscsStatus: mergedData.cscsStatus,
-            bannedUntil: mergedData.bannedUntil
-          });
-          
-          // Calculate card status based on compliance
-          const calculatedStatus = this.calculateWorkerCardStatus(mergedData);
-          
-          // Set the calculated status
-          updateData.currentCardStatus = calculatedStatus;
-          
-          logger.info(`✅ AUTO-CALCULATED: Worker ${id} card status = '${calculatedStatus}' based on compliance`);
-        } else {
-          logger.info(`❌ AUTO-CALC: Could not fetch current worker data for ${id}`);
-        }
-      } catch (error) {
-        logger.error(`❌ AUTO-CALC: Error during automatic card status calculation:`, error);
+      // bannedUntil can be passed as redCardBanUntil (frontend alias) or bannedUntil
+      if ((updates as any).redCardBanUntil !== undefined) {
+        updateData.bannedUntil = (updates as any).redCardBanUntil;
       }
-      } // End of auto-calculation bypass check
+      if ((updates as any).bannedUntil !== undefined) {
+        updateData.bannedUntil = (updates as any).bannedUntil;
+      }
       
       // No need to remove undefined since we only add defined values
       
@@ -2293,39 +2251,28 @@ export class DatabaseService {
   }
 
   /**
-   * WORKER CARD STATUS CALCULATION - Helper Method
+   * COMPLIANCE STATUS CALCULATION — computed field only, never persisted.
+   * Returns 'blocked' for critical non-compliance, 'action_needed' for warnings,
+   * 'compliant' when all checks pass. This is separate from the admin-issued
+   * disciplinary card status stored in currentCardStatus.
    */
-  private calculateWorkerCardStatus(workerData: any): 'red' | 'yellow' | 'clear' {
-    // Check for red card conditions (banned/critical non-compliance)
-    if (workerData.bannedUntil && new Date(workerData.bannedUntil) > new Date()) {
-      return 'red'; // Currently banned
-    }
-    
+  private calculateComplianceStatus(workerData: any): 'compliant' | 'action_needed' | 'blocked' {
+    // blocked: critical right-to-work failure
     if (workerData.rightToWork === 'expired' || workerData.rightToWork === 'missing') {
-      return 'red'; // Critical compliance failure
+      return 'blocked';
     }
-    
-    // Check for yellow card conditions (warnings/expiring)
-    if (workerData.rightToWork === 'expiring' || 
-        workerData.cscsStatus === 'expired' || 
-        workerData.ipafStatus === 'expired') {
-      return 'yellow'; // Warning - expiring credentials
+
+    // action_needed: non-blocking compliance gaps
+    if (
+      !workerData.siteInductionCompleted ||
+      workerData.rightToWork === 'expiring' ||
+      workerData.cscsStatus === 'expired' ||
+      workerData.ipafStatus === 'expired'
+    ) {
+      return 'action_needed';
     }
-    
-    // Check for missing induction (critical requirement)
-    if (!workerData.siteInductionCompleted) {
-      return 'yellow'; // Cannot check in without induction
-    }
-    
-    // All compliance checks passed - worker is clear to work
-    if (workerData.rightToWork === 'valid' && 
-        workerData.siteInductionCompleted === true &&
-        (workerData.cscsStatus === 'valid' || workerData.cscsStatus === 'pending')) {
-      return 'clear'; // Green card - compliant and ready to check in
-    }
-    
-    // Default to yellow if we can't determine status
-    return 'yellow';
+
+    return 'compliant';
   }
 
   /**
@@ -2451,9 +2398,8 @@ export class DatabaseService {
           isActive: worker.isActive ?? true,
           createdAt: worker.createdAt || new Date(),
           updatedAt: worker.updatedAt || new Date(),
-          // CRITICAL FIX: Calculate currentCardStatus if missing
-          currentCardStatus: worker.currentCardStatus || this.calculateWorkerCardStatus(worker),
-          // CRITICAL FIX: Map frontend compatibility fields
+          currentCardStatus: worker.currentCardStatus ?? 'clear',
+          complianceStatus: this.calculateComplianceStatus(worker),
           inductionCompleted: worker.siteInductionCompleted || false,
           phone: worker.phoneNumber,
         } as ContractorWorker;

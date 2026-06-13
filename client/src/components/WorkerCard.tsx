@@ -211,10 +211,26 @@ export function WorkerCard({
         <div className="flex flex-wrap gap-1.5">
           {(() => {
             const isInducted = worker.inductionCompleted || (worker as any).siteInductionCompleted;
-            return (
-              <Badge variant={isInducted ? "default" : "destructive"} className="text-xs">
-                {isInducted ? "Inducted" : "No Induction"}
-              </Badge>
+            const complianceStatus = (worker as any).complianceStatus as 'compliant' | 'action_needed' | 'blocked' | undefined;
+            const rtw = worker.rightToWork;
+            const cscs = worker.cscsStatus;
+            const ipaf = worker.ipafStatus;
+            const chips: { label: string; variant: 'destructive' | 'outline' | 'secondary' }[] = [];
+
+            if (!isInducted) chips.push({ label: 'Induction outstanding', variant: 'destructive' });
+            if (rtw === 'expired' || rtw === 'missing') chips.push({ label: 'Right-to-Work expired', variant: 'destructive' });
+            else if (rtw === 'expiring') chips.push({ label: 'Right-to-Work expiring', variant: 'outline' });
+            if (cscs === 'expired') chips.push({ label: 'CSCS expired', variant: 'destructive' });
+            if (ipaf === 'expired') chips.push({ label: 'IPAF expired', variant: 'outline' });
+
+            return chips.length > 0 ? (
+              <>
+                {chips.map(c => (
+                  <Badge key={c.label} variant={c.variant} className="text-xs">{c.label}</Badge>
+                ))}
+              </>
+            ) : (
+              <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-700">Compliant</Badge>
             );
           })()}
         </div>

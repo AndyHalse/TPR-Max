@@ -1273,12 +1273,11 @@ export function registerInductionRoutes(app: Express): void {
         return res.status(404).json({ error: 'Worker not found' });
       }
       
-      // Update worker status to yellow (bypass auto-calculation)
+      // Update worker status to yellow — currentCardStatus is admin-only, no bypass flag needed
       const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
         currentCardStatus: 'yellow',
-        redCardBanUntil: null, // Clear the ban
-        _bypassAutoCalculation: true // Prevent auto-calculation from overriding manual reset
-      });
+        redCardBanUntil: null,
+      } as any);
       
       // Create audit trail entry in workerNotes
       const noteData = {
@@ -1308,6 +1307,76 @@ export function registerInductionRoutes(app: Express): void {
     } catch (error) {
       logger.error('❌ Error resetting card to yellow:', error);
       res.status(500).json({ error: 'Failed to reset card status' });
+    }
+  });
+
+  // ── One-time card-status migration ───────────────────────────────────────────
+  // POST /api/admin/migrate-card-status
+  // Resets currentCardStatus to 'clear' for workers whose yellow/red has no
+  // matching active card_issues record (these were auto-calculated phantom cards).
+  // Safe to call multiple times — skips workers that already have active card_issues.
+  app.post('/api/admin/migrate-card-status', requireAuth, async (req, res) => {
+    if (req.user!.role !== 'admin') {
+      return res.status(403).json({ error: 'Admin only' });
+    }
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(context.customerId);
+
+      // Find workers whose currentCardStatus is yellow/red/pending (non-clear)
+      const staleWorkers = await db
+        .select({ id: isolatedSchema.contractorWorkers.id, currentCardStatus: isolatedSchema.contractorWorkers.currentCardStatus })
+        .from(isolatedSchema.contractorWorkers)
+        .where(
+          sql`${isolatedSchema.contractorWorkers.currentCardStatus} IN ('yellow', 'red', 'pending')`
+        );
+
+      let fixed = 0;
+      let skipped = 0;
+
+      for (const worker of staleWorkers) {
+        // Check for an active card_issues record
+        const activeIssues = await db
+          .select({ id: isolatedSchema.cardIssues.id })
+          .from(isolatedSchema.cardIssues)
+          .where(
+            and(
+              eq(isolatedSchema.cardIssues.workerId, worker.id),
+              eq(isolatedSchema.cardIssues.status, 'active')
+            )
+          )
+          .limit(1);
+
+        if (activeIssues.length > 0) {
+          // Has a genuine admin-issued card — leave it alone
+          skipped++;
+          continue;
+        }
+
+        // No active card_issues — this was a phantom auto-calculated status; reset to clear
+        await db
+          .update(isolatedSchema.contractorWorkers)
+          .set({ currentCardStatus: 'clear', updatedAt: new Date() })
+          .where(eq(isolatedSchema.contractorWorkers.id, worker.id));
+
+        // Insert correction note
+        await db.insert(isolatedSchema.workerNotes).values({
+          workerId: worker.id,
+          changeType: 'card_status_correction',
+          oldValue: worker.currentCardStatus ?? 'unknown',
+          newValue: 'clear',
+          notes: `Automatic migration: phantom ${worker.currentCardStatus} card reset to clear (no active card_issues record found)`,
+          changedBy: req.user!.username || 'system',
+        });
+
+        fixed++;
+      }
+
+      logger.info(`✅ Card status migration complete: ${fixed} fixed, ${skipped} skipped (had active card_issues)`);
+      res.json({ success: true, fixed, skipped, total: staleWorkers.length });
+    } catch (error) {
+      logger.error('❌ Error during card status migration:', error);
+      res.status(500).json({ error: 'Migration failed' });
     }
   });
 
