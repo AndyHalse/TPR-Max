@@ -8,7 +8,7 @@ import ReportProblemButton from "@/components/ReportProblemButton";
 import HelpPanel from "@/components/HelpPanel";
 import Sidebar, { SIDEBAR_COLLAPSED_KEY, SIDEBAR_EXPANDED_WIDTH, SIDEBAR_COLLAPSED_WIDTH } from "@/components/Sidebar";
 import type { CompanySettings } from "@shared/schema";
-import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { getQueryFn } from "@/lib/queryClient";
 
 interface LayoutProps {
@@ -20,6 +20,9 @@ export default function Layout({ children }: LayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isHelpPanelOpen, setIsHelpPanelOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
+  const [logoBlobUrl, setLogoBlobUrl] = useState<string | null>(null);
+  const [logoFetchKey, setLogoFetchKey] = useState(0);
+  const logoBlobUrlRef = useRef<string | null>(null);
 
   // Sidebar state (lifted so Layout can adjust content margin)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
@@ -81,55 +84,56 @@ export default function Layout({ children }: LayoutProps) {
     placeholderData: (previousData: CompanySettings | undefined) => previousData,
   });
 
-  const [logoFallbackStage, setLogoFallbackStage] = useState(0);
-
-  // Reset logo error state whenever the configured logoUrl changes (e.g. after a new upload).
-  // Without this, a previous load failure permanently locks out the sidebar logo.
-  const prevLogoUrlRef = useRef<string | null | undefined>(undefined);
+  // Fetch the logo via JavaScript so the Authorization Bearer token can be included.
+  // <img src="..."> is a native browser request that never sends custom headers,
+  // which causes 401s when the server uses Bearer-token-only auth (session has no userId).
   useEffect(() => {
-    const current = settings?.logoUrl ?? null;
-    if (prevLogoUrlRef.current !== undefined && prevLogoUrlRef.current !== current) {
-      setLogoFallbackStage(0);
+    if (!settings?.logoUrl) {
+      if (logoBlobUrlRef.current) { URL.revokeObjectURL(logoBlobUrlRef.current); logoBlobUrlRef.current = null; }
+      setLogoBlobUrl(null);
       setLogoError(false);
+      return;
     }
-    prevLogoUrlRef.current = current;
-  }, [settings?.logoUrl]);
 
-  // When all fallback stages fail (e.g. server restart briefly refusing connections),
-  // automatically retry after 5 seconds instead of permanently hiding the logo.
+    let cancelled = false;
+    setLogoError(false);
+
+    const fetchLogo = async () => {
+      const sessionToken = sessionStorage.getItem('session_token');
+      const headers: Record<string, string> = {};
+      if (sessionToken) headers['Authorization'] = `Bearer ${sessionToken}`;
+
+      try {
+        const res = await fetch(
+          `/api/company-logo?t=${encodeURIComponent(settings!.logoUrl!)}`,
+          { credentials: 'include', headers }
+        );
+        if (!res.ok) throw new Error(`Logo fetch ${res.status}`);
+        const blob = await res.blob();
+        if (cancelled) return;
+        const blobUrl = URL.createObjectURL(blob);
+        if (logoBlobUrlRef.current) URL.revokeObjectURL(logoBlobUrlRef.current);
+        logoBlobUrlRef.current = blobUrl;
+        setLogoBlobUrl(blobUrl);
+      } catch {
+        if (!cancelled) setLogoError(true);
+      }
+    };
+
+    fetchLogo();
+    return () => { cancelled = true; };
+  }, [settings?.logoUrl, logoFetchKey]);
+
+  // On error, retry after 5 seconds (handles transient server restarts)
   useEffect(() => {
     if (!logoError) return;
-    const timer = setTimeout(() => {
-      setLogoFallbackStage(0);
-      setLogoError(false);
-    }, 5000);
+    const timer = setTimeout(() => setLogoFetchKey(k => k + 1), 5000);
     return () => clearTimeout(timer);
   }, [logoError]);
 
-  const getLogoSrc = useCallback(() => {
-    if (logoError || !settings?.logoUrl) return null;
-    const logoToken = sessionStorage.getItem('tprmax-logo-token');
-    // Stage 0: prefer public-logo token; if no token (session-cookie login), fall through to stage 1
-    const effectiveStage = (logoFallbackStage === 0 && !logoToken) ? 1 : logoFallbackStage;
-    if (effectiveStage === 0) return `/api/public-logo/${logoToken}`;
-    if (effectiveStage === 1) return `/api/company-logo?t=${encodeURIComponent(settings.logoUrl)}`;
-    if (effectiveStage === 2) {
-      const normalizedUrl = settings.logoUrl.replace(/^\/objects/, '');
-      return `/objects${normalizedUrl}`;
-    }
-    if (effectiveStage === 3) {
-      const fileName = settings.logoUrl.replace(/^\/?(uploads\/)?/, '');
-      return `/public-objects/${fileName}`;
-    }
-    return null;
-  }, [settings?.logoUrl, logoError, logoFallbackStage]);
-
-  const handleLogoError = useCallback(() => {
-    setLogoFallbackStage(prev => {
-      const next = prev + 1;
-      if (next > 3) { setLogoError(true); return prev; }
-      return next;
-    });
+  // Revoke blob URL on unmount to avoid memory leaks
+  useEffect(() => {
+    return () => { if (logoBlobUrlRef.current) URL.revokeObjectURL(logoBlobUrlRef.current); };
   }, []);
 
   useEffect(() => {
@@ -292,7 +296,7 @@ export default function Layout({ children }: LayoutProps) {
     return true;
   });
 
-  const currentLogoSrc = getLogoSrc();
+  const currentLogoSrc = logoBlobUrl;
 
   const navBannerStyle: CSSProperties = settings?.navBannerColor
     ? { backgroundColor: settings.navBannerColor, boxShadow: '0 1px 3px rgba(0,0,0,0.12)' }
@@ -325,7 +329,6 @@ export default function Layout({ children }: LayoutProps) {
             companyName: settings.companyName,
           } : null}
           logoSrc={currentLogoSrc}
-          onLogoError={handleLogoError}
         />
       )}
 
@@ -342,7 +345,6 @@ export default function Layout({ children }: LayoutProps) {
                         src={currentLogoSrc}
                         alt="Company Logo"
                         className="w-full h-full object-contain rounded"
-                        onError={handleLogoError}
                       />
                     ) : (
                       <div className="w-[50px] h-[50px] sm:w-[70px] sm:h-[70px] rounded-lg bg-white/20 flex items-center justify-center text-lg font-bold" style={navInvert ? { color: '#ffffff' } : { color: settings?.accentColor || '#2460a9' }}>
