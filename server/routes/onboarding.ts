@@ -53,10 +53,47 @@ export function registerOnboardingRoutes(app: Express): void {
   });
 
   // Serve induction preview HTML page — serves the REAL generatedHtml, not a hardcoded template
+  // If ?pt=<token> is present, serves a video player for the custom MP4 instead.
   app.get('/induction-preview/:roleType', async (req, res) => {
     try {
       const { roleType } = req.params;
-      
+      const previewToken = (req.query.pt as string | undefined) || '';
+
+      // ── Custom video preview (token minted by admin in authenticated session) ──
+      if (previewToken) {
+        const roleLabel = roleType.charAt(0).toUpperCase() + roleType.slice(1);
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        res.setHeader('Cache-Control', 'no-cache, no-store');
+        return res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${roleLabel} Induction Video Preview</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{width:100%;height:100%;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:'Segoe UI',sans-serif}
+    video{max-width:100%;max-height:100vh;width:100%;outline:none}
+    .header{position:fixed;top:0;left:0;right:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);padding:10px 20px;display:flex;align-items:center;gap:12px;z-index:10}
+    .back{color:#fff;text-decoration:none;font-size:14px;opacity:0.85;border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:4px 12px}
+    .back:hover{opacity:1;background:rgba(255,255,255,0.1)}
+    .title{color:#fff;font-size:16px;font-weight:600}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <a class="back" href="javascript:history.back()">← Back</a>
+    <span class="title">${roleLabel} Induction Video</span>
+  </div>
+  <video controls autoplay playsinline style="margin-top:48px;max-height:calc(100vh - 48px)">
+    <source src="/api/induction/preview-video/${previewToken}" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
+</body>
+</html>`);
+      }
+
+      // ── AI slides preview ──
       // Use the session's customer context if available (user is logged in), else fall back to dev
       const sessionCustomerId = (req.session as any)?.customerId;
       const context = sessionCustomerId

@@ -1445,7 +1445,7 @@ export default function InductionSettings() {
   const { data: allSettings = [] } = useQuery<InductionSettingRow[]>({
     queryKey: ['/api/induction/settings'],
     queryFn: async () => {
-      const res = await fetch('/api/induction/settings', { credentials: 'include' });
+      const res = await apiRequest('GET', '/api/induction/settings');
       if (!res.ok) return [];
       const data = await res.json();
       return Array.isArray(data.settings) ? data.settings : [];
