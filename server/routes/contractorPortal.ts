@@ -11,6 +11,11 @@ import * as isolatedSchema from '../isolatedSchema';
 import { eq, and, desc } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { logger } from '../utils/logger';
+import {
+  createWorker as svcCreateWorker,
+  ServiceError,
+  type WorkerServiceContext,
+} from '../services/workerService';
 import { generateLogoToken } from '../utils/logoToken';
 import { EmailService } from '../emailService';
 
@@ -611,76 +616,15 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
   app.post('/api/contractor-portal/workers', requireContractorPortalAuth, async (req, res) => {
     try {
       const pu = (req as any).portalUser as PortalTokenPayload;
-      const { firstName, lastName, email, mobileNumber, phoneNumber, jobTitle, trade } =
-        req.body as Record<string, string>;
-
-      if (!firstName?.trim() || !lastName?.trim()) {
-        return res.status(400).json({ error: 'First name and last name are required.' });
-      }
-      if (!email?.trim()) {
-        return res.status(400).json({ error: 'Email address is required.' });
-      }
-      const phone = mobileNumber?.trim() || phoneNumber?.trim();
-      if (!phone) {
-        return res.status(400).json({ error: 'Phone number is required.' });
-      }
-
       const db = await customerDbService.getCustomerDatabase(pu.customerId);
-      const [worker] = await db
-        .insert(isolatedSchema.contractorWorkers)
-        .values({
-          companyId: pu.contractorCompanyId,
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          email: email?.trim() || null,
-          mobileNumber: mobileNumber?.trim() || null,
-          phoneNumber: phoneNumber?.trim() || null,
-          jobTitle: jobTitle?.trim() || null,
-          trade: trade?.trim() || null,
-          isActive: true,
-        })
-        .returning();
-
-      // Audit trail — same structured notes as admin-created workers (changedBy = portal:<email>)
-      const portalActor = `portal:${pu.email}`;
-      const auditNow = new Date();
-      const auditTs = auditNow.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-        + ' ' + auditNow.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      try {
-        // Step 1 — Personal details
-        await db.insert(isolatedSchema.workerNotes).values({
-          workerId: worker.id,
-          changeType: 'worker_created',
-          notes: `Worker profile created via contractor portal by ${pu.email} on ${auditTs}. Personal details recorded — Name: ${firstName.trim()} ${lastName.trim()}, Email: ${email?.trim() || '—'}, Phone: ${phone || '—'}${jobTitle ? `, Job title: ${jobTitle.trim()}` : ''}${trade ? `, Trade: ${trade.trim()}` : ''}.`,
-          changedBy: portalActor,
-        });
-        // Step 2 — Compliance (minimal defaults for portal workers)
-        await db.insert(isolatedSchema.workerNotes).values({
-          workerId: worker.id,
-          changeType: 'compliance_recorded',
-          notes: `Compliance data recorded via contractor portal on ${auditTs}. Right to Work: Pending ⏳. CSCS: Pending ⏳. IPAF: Not held. (To be verified by site admin.)`,
-          changedBy: portalActor,
-        });
-        // Step 3 — Training (none at portal creation)
-        await db.insert(isolatedSchema.workerNotes).values({
-          workerId: worker.id,
-          changeType: 'training_recorded',
-          notes: `Training data recorded via contractor portal on ${auditTs}. Certificates declared: None. Site induction: Not yet completed.`,
-          changedBy: portalActor,
-        });
-        // Company audit note
-        await db.insert(isolatedSchema.companyNotes).values({
-          companyId: pu.contractorCompanyId,
-          changeType: 'worker_added',
-          notes: `Worker "${firstName.trim()} ${lastName.trim()}" added via contractor portal by ${pu.email} on ${auditTs}`,
-          changedBy: portalActor,
-        });
-      } catch (noteErr) {
-        logger.error('[portal-add-worker] Failed to create audit notes:', noteErr);
-      }
-
+      // actor = the portal user's email (recorded in audit notes as portal:<email>)
+      const svcCtx: WorkerServiceContext = { db, customerId: pu.customerId, actor: pu.email };
+      const worker = await svcCreateWorker(svcCtx, pu.contractorCompanyId, req.body, 'portal');
       return res.status(201).json(worker);
     } catch (err: any) {
+      if (err instanceof ServiceError) {
+        return res.status(err.status).json({ error: err.message });
+      }
       logger.error('[portal-add-worker]', err);
       return res.status(500).json({ error: 'Failed to add worker.' });
     }

@@ -25,6 +25,12 @@ import {
   insertContractorWorkerSchema,
   customers,
 } from '@shared/schema';
+import {
+  updateWorker as svcUpdateWorker,
+  revokeCard as svcRevokeCard,
+  ServiceError,
+  type WorkerServiceContext,
+} from '../services/workerService';
 import { z } from 'zod';
 import { eq, and, sql, desc, or, not, ne, isNotNull } from 'drizzle-orm';
 import { db } from '../db';
@@ -1260,58 +1266,19 @@ export function registerInductionRoutes(app: Express): void {
   // Reset worker card to Yellow endpoint
   app.post('/api/contractors/workers/:id/reset-card', requireAuth, async (req, res) => {
     try {
-      // Role check — only admin/manager can reset disciplinary cards
       if (!['admin', 'manager'].includes(req.user!.role)) {
         return res.status(403).json({ error: 'Only admins and managers can reset disciplinary cards.' });
       }
       const workerId = req.params.id;
       logger.info('🟡 Resetting card to yellow for worker:', workerId);
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Get current worker data
-      const currentWorker = await databaseService.getContractorWorkerById(context, workerId);
-      if (!currentWorker) {
-        return res.status(404).json({ error: 'Worker not found' });
-      }
-      
-      // Update worker status to yellow — currentCardStatus is admin-only, no bypass flag needed
-      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
-        currentCardStatus: 'yellow',
-        redCardBanUntil: null,
-      } as any);
-      
-      // Create audit trail entry in workerNotes (aligned with card-issued format)
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      const noteData = {
-        workerId: workerId,
-        changeType: 'card_issued',
-        oldValue: currentWorker.currentCardStatus || 'unknown',
-        newValue: 'yellow',
-        notes: `🟡 Card status reset to Yellow by ${username} on ${dateStr} at ${timeStr}. Previous status: ${currentWorker.currentCardStatus || 'unknown'}. Red card ban lifted.`,
-        changedBy: username,
-      };
-      
-      // Insert the note - use direct database access since workerNotes might not be in databaseService yet
-      try {
-        const db = await customerDbService.getCustomerDatabase(context.customerId);
-        await db.insert(isolatedSchema.workerNotes).values(noteData);
-        logger.info('✅ Created audit trail note for card reset');
-      } catch (noteError) {
-        logger.error('⚠️ Failed to create audit note (continuing anyway):', noteError);
-      }
-      
-      res.json({ 
-        success: true, 
-        message: 'Card status reset to yellow successfully',
-        worker: updatedWorker 
-      });
-      
+      const db = await customerDbService.getCustomerDatabase(req.customerId);
+      const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
+      await svcRevokeCard(svcCtx, workerId, 'yellow');
+      res.json({ success: true, message: 'Card status reset to yellow successfully' });
     } catch (error) {
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ error: error.message });
+      }
       logger.error('❌ Error resetting card to yellow:', error);
       res.status(500).json({ error: 'Failed to reset card status' });
     }
@@ -3616,44 +3583,18 @@ export function registerInductionRoutes(app: Express): void {
       const { workerId } = req.params;
       const { newStatus = 'yellow' } = req.body;
 
-      // Role check — only admin/manager can reset disciplinary cards
       if (!['admin', 'manager'].includes(req.user!.role)) {
         return res.status(403).json({ error: 'Only admins and managers can reset disciplinary cards.' });
       }
 
-      const resetUsername = req.user!.username;
-      const resetCardContext = simpleDatabaseService.createCustomerContext(resetUsername, req.customerId);
-      const resetCardDb = await customerDbService.getCustomerDatabase(resetCardContext.customerId);
-
-      // Fetch current status for audit note
-      const [currentW] = await resetCardDb.select({ currentCardStatus: isolatedSchema.contractorWorkers.currentCardStatus })
-        .from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.id, workerId))
-        .limit(1);
-
-      await resetCardDb.update(isolatedSchema.contractorWorkers)
-        .set({ currentCardStatus: newStatus, updatedAt: new Date() })
-        .where(eq(isolatedSchema.contractorWorkers.id, workerId));
-
-      // Audit note aligned with card-issued format
-      try {
-        const auditNow = new Date();
-        const auditDate = auditNow.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        const auditTime = auditNow.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-        await resetCardDb.insert(isolatedSchema.workerNotes).values({
-          workerId,
-          changeType: 'card_issued',
-          oldValue: currentW?.currentCardStatus || 'unknown',
-          newValue: newStatus,
-          notes: `🟡 Card status reset to ${newStatus} by ${resetUsername} on ${auditDate} at ${auditTime}. Previous status: ${currentW?.currentCardStatus || 'unknown'}.`,
-          changedBy: resetUsername,
-        });
-      } catch (noteErr) {
-        logger.error('Failed to write card-reset audit note:', noteErr);
-      }
-
+      const db = await customerDbService.getCustomerDatabase(req.customerId);
+      const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
+      await svcRevokeCard(svcCtx, workerId, newStatus);
       res.json({ success: true, message: 'Card status reset successfully' });
     } catch (error) {
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ error: error.message });
+      }
       logger.error('Error resetting card status:', error);
       res.status(500).json({ error: 'Failed to reset card status' });
     }
@@ -5415,211 +5356,29 @@ export function registerInductionRoutes(app: Express): void {
 /**
  * Canonical handler for updating a contractor worker.
  * Exported so that PUT /api/workers/:id can delegate here without duplicating logic.
+ * All business logic lives in workerService.updateWorker.
  */
 export async function handleContractorWorkerUpdate(req: Request, res: Response): Promise<void> {
-  let mappedData: any = {};
   try {
-    // Role check — only admin/manager can update worker profiles
     if (!['admin', 'manager'].includes((req as any).user!.role)) {
       res.status(403).json({ error: 'Only admins and managers can update worker profiles.' }); return;
     }
     const workerId = req.params.id;
-    logger.info('🔄 Updating contractor worker', workerId, 'with data:', req.body);
+    logger.info('🔄 Updating contractor worker', workerId);
 
-    const username = (req as any).user!.username;
-    const context = simpleDatabaseService.createCustomerContext(username, (req as any).customerId);
-
-    const uiData = req.body;
-
-    // ── Mandatory field validation ─────────────────────────────────────────────
-    if (uiData.firstName !== undefined && !String(uiData.firstName).trim()) {
-      res.status(400).json({ error: 'First name cannot be empty.' }); return;
-    }
-    if (uiData.lastName !== undefined && !String(uiData.lastName).trim()) {
-      res.status(400).json({ error: 'Last name cannot be empty.' }); return;
-    }
-    if (uiData.email !== undefined && !String(uiData.email).trim()) {
-      res.status(400).json({ error: 'Email address cannot be empty.' }); return;
-    }
-
-    // ── Direct field mappings (phone handled separately below) ─────────────────
-    const directFieldMappings: Record<string, string> = {
-      companyId: 'companyId',
-      firstName: 'firstName',
-      lastName: 'lastName',
-      email: 'email',
-      homeAddress: 'homeAddress',
-      postcode: 'postcode',
-      jobTitle: 'jobTitle',
-      department: 'department',
-      emergencyContactName: 'emergencyContactName',
-      emergencyContactPhone: 'emergencyContactPhone',
-      emergencyContactRelationship: 'emergencyContactRelationship',
-      transportMethod: 'transportMethod',
-      rightToWork: 'rightToWork',
-      cscsCard: 'cscsCard',
-      photoUrl: 'photoUrl',
+    const db = await customerDbService.getCustomerDatabase((req as any).customerId);
+    const svcCtx: WorkerServiceContext = {
+      db,
+      customerId: (req as any).customerId,
+      actor: (req as any).user!.username,
     };
 
-    Object.entries(directFieldMappings).forEach(([uiField, dbField]) => {
-      if (uiData[uiField] !== undefined) {
-        mappedData[dbField] = uiData[uiField];
-      }
-    });
-
-    // ── Phone normalisation: phoneNumber takes precedence over phone ───────────
-    // Both field names are accepted from the UI; phoneNumber wins if both are present.
-    if (uiData.phoneNumber !== undefined || uiData.phone !== undefined) {
-      const raw = uiData.phoneNumber !== undefined ? uiData.phoneNumber : uiData.phone;
-      const trimmed = String(raw ?? '').trim();
-      if (!trimmed) {
-        res.status(400).json({ error: 'Phone number cannot be empty.' }); return;
-      }
-      mappedData.phoneNumber = trimmed;
-      logger.info(`🔄 Mapped phone → phoneNumber: '${trimmed}'`);
-    }
-
-    // ── Special field mappings with type conversions ───────────────────────────
-    if (uiData.cscsStatus !== undefined) {
-      mappedData.cscsStatus = uiData.cscsStatus;
-      logger.info(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}'`);
-    }
-    if (uiData.inductionCompleted !== undefined) {
-      mappedData.inductionCompleted = uiData.inductionCompleted;
-    }
-    if (uiData.ipafStatus !== undefined) {
-      mappedData.ipafStatus = uiData.ipafStatus;
-    }
-    if (uiData.asbestosAwareness !== undefined) {
-      mappedData.asbestosAwareness = Boolean(uiData.asbestosAwareness);
-    }
-    if (uiData.manualHandling !== undefined) {
-      mappedData.manualHandling = Boolean(uiData.manualHandling);
-    }
-    if (uiData.needsEvacuationAssistance !== undefined) {
-      mappedData.needsEvacuationAssistance = Boolean(uiData.needsEvacuationAssistance);
-    }
-    const booleanFields = ['workingAtHeight', 'isCheckedIn', 'hsRulesAccepted'];
-    booleanFields.forEach(field => {
-      if (uiData[field] !== undefined) mappedData[field] = uiData[field];
-    });
-
-    mappedData.updatedAt = new Date();
-
-    logger.info('🗃️ Final mapped data for database:', mappedData);
-
-    // ── Zod validation ─────────────────────────────────────────────────────────
-    const validatedData = insertContractorWorkerSchema.partial().parse(mappedData);
-
-    // Preserve fields that Zod may strip because they are not in the shared schema
-    const preserveFields = [
-      'inductionCompleted', 'ipafStatus', 'asbestosAwareness', 'manualHandling',
-      'transportMethod', 'needsEvacuationAssistance', 'phoneNumber', 'photoUrl',
-      'rightToWorkVerifiedBy', 'rightToWorkVerifiedAt',
-    ];
-    for (const f of preserveFields) {
-      if (mappedData[f] !== undefined) (validatedData as any)[f] = mappedData[f];
-    }
-
-    logger.info('🔍 ROUTE - Validated data keys:', Object.keys(validatedData));
-
-    // ── DB update ──────────────────────────────────────────────────────────────
-    const currentWorker = await databaseService.getContractorWorkerById(context, workerId);
-    if (!currentWorker) {
-      res.status(404).json({ error: 'Contractor worker not found' }); return;
-    }
-
-    // Auto-stamp Right to Work verification when rightToWork changes to 'valid'
-    const rtwVerified = (validatedData as any).rightToWork === 'valid' && currentWorker.rightToWork !== 'valid';
-    if (rtwVerified) {
-      (validatedData as any).rightToWorkVerifiedBy = username;
-      (validatedData as any).rightToWorkVerifiedAt = new Date();
-      logger.info(`✅ RTW verification stamped for worker ${workerId} by user ${username}`);
-    }
-
-    const updatedWorker = await databaseService.updateContractorWorker(context, workerId, validatedData);
-    if (!updatedWorker) {
-      res.status(404).json({ error: 'Contractor worker not found' }); return;
-    }
-
-    // ── Audit trail — ONE consolidated note per save ────────────────────────
-    // Friendly label map — covers all known fields; unknown fields fall back to the raw key.
-    const auditFieldLabels: Record<string, string> = {
-      firstName: 'First Name', lastName: 'Last Name', email: 'Email',
-      mobileNumber: 'Mobile Number', phoneNumber: 'Phone Number',
-      homeAddress: 'Home Address', postcode: 'Postcode',
-      jobTitle: 'Job Title', department: 'Department', trade: 'Trade',
-      transportMethod: 'Transport Method',
-      emergencyContactName: 'Emergency Contact Name',
-      emergencyContactPhone: 'Emergency Contact Phone',
-      emergencyContactRelationship: 'Emergency Contact Relationship',
-      companyId: 'Contractor Company', rightToWork: 'Right to Work Status',
-      rightToWorkExpiryDate: 'RTW Expiry Date',
-      rightToWorkVerifiedBy: 'RTW Verified By', rightToWorkVerifiedAt: 'RTW Verified At',
-      cscsCard: 'CSCS Card Number', cscsStatus: 'CSCS Status', ipafStatus: 'IPAF Status',
-      asbestosAwareness: 'Asbestos Awareness', manualHandling: 'Manual Handling',
-      inductionCompleted: 'Site Induction Completed', workingAtHeight: 'Working at Height',
-      isActive: 'Active Status', currentCardStatus: 'Card Status', hsRulesAccepted: 'H&S Rules Accepted',
-      needsEvacuationAssistance: 'Evacuation Assistance',
-      photoUrl: 'Profile Photo',
-    };
-    // Fields where true/false maps to a confirmation/removal message
-    const trainingConfirmFields = new Set([
-      'inductionCompleted', 'asbestosAwareness', 'manualHandling', 'workingAtHeight', 'hsRulesAccepted',
-      'needsEvacuationAssistance',
-    ]);
-    // Internal/system fields that should never appear in audit notes
-    const auditSkipFields = new Set([
-      'id', 'createdAt', 'updatedAt', 'hsRulesAcceptanceToken', 'inductionToken',
-      'redCardBanUntil', 'siteInductionCompleted',
-    ]);
-    const changeLines: string[] = [];
-    const db = await customerDbService.getCustomerDatabase(context.customerId);
-
-    // Build the full set of fields to check (ALL payload keys + rtwVerified extras)
-    const fieldsToCheck = { ...(validatedData as any) };
-    if (rtwVerified) {
-      fieldsToCheck.rightToWorkVerifiedBy = username;
-      fieldsToCheck.rightToWorkVerifiedAt = (validatedData as any).rightToWorkVerifiedAt;
-    }
-
-    // Iterate every key sent in the payload — not just the label whitelist
-    for (const field of Object.keys(fieldsToCheck)) {
-      if (auditSkipFields.has(field)) continue;
-      const oldVal = (currentWorker as any)[field];
-      const newVal = fieldsToCheck[field];
-      const oldStr = oldVal == null ? 'Not set' : String(oldVal);
-      const newStr = newVal == null ? 'Not set' : String(newVal);
-      if (oldStr !== newStr) {
-        const label = auditFieldLabels[field] ?? field; // fall back to raw field name
-        if (trainingConfirmFields.has(field) && (newStr === 'true' || newStr === 'false')) {
-          changeLines.push(newStr === 'true'
-            ? `✅ ${label} confirmed`
-            : `❌ ${label} record removed`);
-        } else {
-          changeLines.push(`${label}: "${oldStr}" → "${newStr}"`);
-        }
-      }
-    }
-
-    if (changeLines.length > 0) {
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-      const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      const noteText = `Profile updated by ${username} on ${dateStr} at ${timeStr}. Changes: ${changeLines.join('; ')}.`;
-      try {
-        await db.insert(isolatedSchema.workerNotes).values({
-          workerId, changeType: 'profile_update',
-          notes: noteText, changedBy: username,
-        });
-      } catch (noteErr) {
-        logger.error('Failed to create consolidated profile audit note:', noteErr);
-      }
-      logger.info(`📋 AUDIT: ${changeLines.length} change(s) by ${username}: ${changeLines.join(', ')}`);
-    }
-
-    res.json({ success: true, worker: { ...updatedWorker } });
+    const result = await svcUpdateWorker(svcCtx, workerId, req.body);
+    res.json({ success: true, ...result });
   } catch (error) {
+    if (error instanceof ServiceError) {
+      res.status(error.status).json({ error: error.message }); return;
+    }
     if (error instanceof z.ZodError) {
       logger.error('❌ Zod validation error for contractor worker update:', error.errors);
       res.status(400).json({ error: 'Invalid data', details: error.errors }); return;

@@ -1,5 +1,14 @@
 import type { Express } from 'express';
 import { handleContractorWorkerUpdate } from './induction';
+import {
+  createWorker as svcCreateWorker,
+  archiveWorker as svcArchiveWorker,
+  unarchiveWorker as svcUnarchiveWorker,
+  hardDeleteWorker as svcHardDeleteWorker,
+  issueCard as svcIssueCard,
+  ServiceError,
+  type WorkerServiceContext,
+} from '../services/workerService';
 import { requireAuth, isDevDataBypass, isDatabaseConnectionError, getMockCheckedInContractors } from '../auth';
 import { databaseService } from '../databaseService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
@@ -722,112 +731,47 @@ export function registerContractorRoutes(app: Express): void {
       if (!['admin', 'manager'].includes(req.user!.role)) {
         return res.status(403).json({ error: 'Only admins and managers can issue disciplinary cards.' });
       }
-      // Use customer database service with proper isolation
-      const context = simpleDatabaseService.createCustomerContext(req.user?.username || 'system', req.customerId);
-      
-      // Override issuedBy with the actual authenticated user ID to ensure FK constraint is met
+
+      const db = await customerDbService.getCustomerDatabase(req.customerId);
+      const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
+      // Override issuedBy with the authenticated user's ID to satisfy the FK constraint
       const cardData = { ...req.body, issuedBy: req.user?.id || req.body.issuedBy };
       logger.info(`Card issue - session user ID: ${req.user?.id}, body issuedBy: ${req.body.issuedBy}`);
-      const issue = await databaseService.createCardIssue(context, cardData);
-      
-      logger.info(`Card issue created successfully for customer ${context.customerId}:`, issue);
 
-      // Write audit note synchronously
-      try {
-        const noteDb = await customerDbService.getCustomerDatabase(context.customerId);
-        const { workerId: ciWorkerId, offenceId: ciOffenceId, cardType: ciCardType, description: ciDesc, location: ciLoc, witness: ciWit } = req.body;
-        const ciCardLabel = ciCardType === 'red' ? '🔴 Red' : '🟡 Yellow';
-        // Look up offence name if offenceId provided
-        let ciOffenceName: string | null = null;
-        if (ciOffenceId) {
-          try {
-            const [offence] = await noteDb.select({ offenceName: isolatedSchema.cardOffences.offenceName })
-              .from(isolatedSchema.cardOffences)
-              .where(eq(isolatedSchema.cardOffences.id, ciOffenceId))
-              .limit(1);
-            if (offence) ciOffenceName = offence.offenceName;
-          } catch (_) {}
-        }
-        const ciNoteText = [
-          `${ciCardLabel} card issued by ${req.user!.username}.`,
-          ciOffenceName ? `Offence: ${ciOffenceName}` : null,
-          ciDesc ? `Description: ${ciDesc}` : null,
-          ciLoc ? `Location: ${ciLoc}` : null,
-          ciWit ? `Witness: ${ciWit}` : null,
-        ].filter(Boolean).join(' ');
-        await noteDb.insert(isolatedSchema.workerNotes).values({
-          workerId: ciWorkerId,
-          changeType: 'card_issued',
-          oldValue: 'clear',
-          newValue: ciCardType,
-          notes: ciNoteText,
-          changedBy: req.user!.username,
-        });
-      } catch (noteErr) {
-        logger.error('Failed to write card-issue audit note (non-blocking):', noteErr);
-      }
+      const issue = await svcIssueCard(svcCtx, cardData);
+      logger.info(`Card issue created successfully for customer ${req.customerId}:`, issue);
 
-      // Send email notification (async - don't block the response)
+      // Send email notification (async, non-blocking — kept in the route)
       (async () => {
         try {
           const { workerId, offenceId, cardType, description, location, witness, issuedBy, contractorId } = req.body;
-          
-          // Get worker details
-          const customerDb = await customerDbService.getCustomerDatabase(context.customerId);
+          const customerDb = await customerDbService.getCustomerDatabase(req.customerId);
           const [worker] = await customerDb
             .select()
             .from(isolatedSchema.contractorWorkers)
             .where(eq(isolatedSchema.contractorWorkers.id, workerId));
-          
-          if (!worker) {
-            logger.info(`Card issue email skipped - worker not found: ${workerId}`);
-            return;
-          }
-          
-          // Get offence details
-          const [offence] = await customerDb
-            .select()
-            .from(isolatedSchema.cardOffences)
+          if (!worker) { logger.info(`Card issue email skipped - worker not found: ${workerId}`); return; }
+
+          const [offence] = await customerDb.select().from(isolatedSchema.cardOffences)
             .where(eq(isolatedSchema.cardOffences.id, offenceId));
-          
-          // Get contractor company details
-          const [contractorCompany] = await customerDb
-            .select()
-            .from(isolatedSchema.contractorCompanies)
+          const [contractorCompany] = await customerDb.select().from(isolatedSchema.contractorCompanies)
             .where(eq(isolatedSchema.contractorCompanies.id, worker.companyId || contractorId));
-          
-          // Get company settings for branding
-          const [companySettings] = await customerDb
-            .select()
-            .from(isolatedSchema.companySettings)
-            .limit(1);
-          
-          // Get issuer name
+          const [companySettings] = await customerDb.select().from(isolatedSchema.companySettings).limit(1);
+
           let issuedByName = 'Site Management';
           if (issuedBy) {
-            const [issuer] = await customerDb
-              .select()
-              .from(isolatedSchema.users)
+            const [issuer] = await customerDb.select().from(isolatedSchema.users)
               .where(eq(isolatedSchema.users.id, issuedBy));
-            if (issuer) {
-              issuedByName = issuer.username || 'Site Management';
-            }
+            if (issuer) issuedByName = issuer.username || 'Site Management';
           }
-          
-          // Count previous yellow cards for this worker
-          const previousCards = await customerDb
-            .select()
-            .from(isolatedSchema.cardIssues)
+
+          const previousCards = await customerDb.select().from(isolatedSchema.cardIssues)
             .where(eq(isolatedSchema.cardIssues.workerId, workerId));
           const previousYellowCards = previousCards.filter(c => c.cardType === 'yellow' && c.id !== issue.id).length;
-          
-          // Send the notification email
+
           const workerEmail = worker.workerEmail || worker.email;
-          if (!workerEmail) {
-            logger.info(`Card issue email skipped - no email for worker: ID ${worker.id}`);
-            return;
-          }
-          
+          if (!workerEmail) { logger.info(`Card issue email skipped - no email for worker: ID ${worker.id}`); return; }
+
           const result = await emailService.forCustomer(req.customerId).sendCardIssueNotification({
             workerEmail,
             workerName: `${worker.firstName} ${worker.lastName}`,
@@ -842,15 +786,14 @@ export function registerContractorRoutes(app: Express): void {
             companyName: companySettings?.companyName || 'Site Management',
             contractorCompanyName: contractorCompany?.name || 'Contractor',
             contractorCompanyEmail: contractorCompany?.contactEmail,
-            companySettings
+            companySettings,
           });
-          
           logger.info(`Card issue notification result:`, result);
         } catch (emailError) {
           logger.error('Failed to send card issue email (non-blocking):', emailError);
         }
       })();
-      
+
       res.status(201).json(issue);
     } catch (error) {
       logger.error("Error creating card issue:", error);
@@ -1664,119 +1607,21 @@ export function registerContractorRoutes(app: Express): void {
         return res.status(403).json({ error: 'Only admins and managers can add workers.' });
       }
       const { companyId } = req.params;
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const db = await customerDbService.getCustomerDatabase(req.customerId);
+      const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
 
-      const body = req.body;
-
-      // Mandatory field validation — reject blank required fields
-      if (!body.firstName || !String(body.firstName).trim()) {
-        return res.status(400).json({ error: 'First name is required.' });
-      }
-      if (!body.lastName || !String(body.lastName).trim()) {
-        return res.status(400).json({ error: 'Last name is required.' });
-      }
-      if (!body.email || !String(body.email).trim()) {
-        return res.status(400).json({ error: 'Email address is required.' });
-      }
-      const rawPhone = body.phoneNumber || body.phone;
-      if (!rawPhone || !String(rawPhone).trim()) {
-        return res.status(400).json({ error: 'Phone number is required.' });
-      }
-      
-      // Generate H&S acceptance token for new worker
-      const hsToken = randomBytes(16).toString('hex');
-      
-      const workerData = insertContractorWorkerSchema.parse({
-        ...body,
-        companyId,
-        // Map frontend 'phone' field to DB column 'phoneNumber'
-        phoneNumber: body.phoneNumber || body.phone || undefined,
-        hsRulesAcceptanceToken: hsToken,
-        siteInductionCompleted: body.inductionCompleted !== undefined 
-          ? Boolean(body.inductionCompleted) 
-          : false,
-        asbestosAwareness: body.asbestosAwareness !== undefined ? Boolean(body.asbestosAwareness) : false,
-        manualHandling: body.manualHandling !== undefined ? Boolean(body.manualHandling) : false,
-        workingAtHeight: body.workingAtHeight !== undefined ? Boolean(body.workingAtHeight) : false,
-      });
-      
-      // Use customer-isolated database service instead of old storage
-      const worker = await databaseService.createContractorWorker(context, workerData);
-      
-      logger.info(`Created contractor worker: ID ${workerData.id} (ID: ${worker.id}) for customer ${context.customerId}`);
-
-      // Audit trail — worker created with full step-by-step detail
-      try {
-        const auditDb = await customerDbService.getCustomerDatabase(context.customerId);
-        const auditTs = new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'medium' });
-
-        // Step 1 — Personal details
-        const transportLabels: Record<string, string> = {
-          car_diesel: 'Car (diesel)', car_petrol: 'Car (petrol)', electric_car: 'Electric car',
-          public_transport: 'Public transport', motorcycle: 'Motorcycle',
-        };
-        await auditDb.insert(isolatedSchema.workerNotes).values({
-          workerId: worker.id,
-          changeType: 'worker_created',
-          notes: `Worker profile created by ${username} on ${auditTs}. Personal details recorded — Name: ${workerData.firstName} ${workerData.lastName}, Email: ${workerData.email || '—'}, Phone: ${workerData.phoneNumber || '—'}, Postcode: ${(body.postcode) || '—'}, Transport: ${transportLabels[body.transportMethod] || body.transportMethod || '—'}.`,
-          changedBy: username,
-        });
-
-        // Step 2 — Compliance (RTW, CSCS, IPAF)
-        const rtwLabel: Record<string, string> = { valid: 'Valid ✅', pending: 'Pending ⏳', expired: 'Expired ❌', not_required: 'Not required' };
-        const cardLabel: Record<string, string> = { valid: 'Valid ✅', pending: 'Pending ⏳', expired: 'Expired ❌', none: 'Not held' };
-        const rtwExpiry = workerData.rightToWorkExpiryDate ? ` (expiry: ${new Date(workerData.rightToWorkExpiryDate).toLocaleDateString('en-GB')})` : '';
-        await auditDb.insert(isolatedSchema.workerNotes).values({
-          workerId: worker.id,
-          changeType: 'compliance_recorded',
-          notes: `Compliance data recorded by ${username} on ${auditTs}. Right to Work: ${rtwLabel[workerData.rightToWork || ''] || workerData.rightToWork || '—'}${rtwExpiry}. CSCS: ${cardLabel[workerData.cscsStatus || ''] || workerData.cscsStatus || '—'}${workerData.cscsCard ? ` (card no. ${workerData.cscsCard})` : ''}. IPAF: ${cardLabel[workerData.ipafStatus || ''] || workerData.ipafStatus || '—'}.`,
-          changedBy: username,
-        });
-
-        // Step 3 — Training certs + induction
-        const certs: string[] = [];
-        if (workerData.asbestosAwareness) certs.push('Asbestos Awareness');
-        if (workerData.manualHandling) certs.push('Manual Handling');
-        if (workerData.workingAtHeight) certs.push('Working at Height');
-        await auditDb.insert(isolatedSchema.workerNotes).values({
-          workerId: worker.id,
-          changeType: 'training_recorded',
-          notes: `Training data recorded by ${username} on ${auditTs}. Certificates declared: ${certs.length > 0 ? certs.join(', ') : 'None'}. Site induction: ${workerData.siteInductionCompleted ? `Completed (confirmed by ${username})` : 'Not yet completed'}.`,
-          changedBy: username,
-        });
-
-        // Also log on the company audit trail
-        await auditDb.insert(isolatedSchema.companyNotes).values({
-          companyId: companyId,
-          changeType: 'worker_added',
-          notes: `Worker "${workerData.firstName} ${workerData.lastName}" added by ${username} on ${auditTs}`,
-          changedBy: username,
-        });
-
-        // If induction was marked complete at creation, add a dedicated induction note
-        if (workerData.siteInductionCompleted) {
-          await auditDb.insert(isolatedSchema.workerNotes).values({
-            workerId: worker.id,
-            changeType: 'induction_confirmed',
-            notes: `Site induction confirmed by ${username} on ${auditTs}`,
-            changedBy: username,
-          });
-        }
-      } catch (auditErr) {
-        logger.error('Failed to create worker audit note (continuing):', auditErr);
-      }
-
+      const worker = await svcCreateWorker(svcCtx, companyId, req.body, 'admin');
+      logger.info(`Created contractor worker ${worker.id} for customer ${req.customerId}`);
       res.json(worker);
     } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ error: "Invalid worker data", details: error.errors });
-      } else {
-        logger.error("Error creating worker:", error);
-        res.status(500).json({ error: "Failed to create worker" });
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ error: error.message, ...error.extra });
       }
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid worker data", details: error.errors });
+      }
+      logger.error("Error creating worker:", error);
+      res.status(500).json({ error: "Failed to create worker" });
     }
   });
 
@@ -1785,58 +1630,17 @@ export function registerContractorRoutes(app: Express): void {
   // Archive a worker (soft-delete) — admin/manager only
   app.post("/api/contractors/workers/:id/archive", requireAuth, async (req, res) => {
     try {
-      const role = req.user!.role;
-      if (!['admin', 'manager'].includes(role)) {
+      if (!['admin', 'manager'].includes(req.user!.role)) {
         return res.status(403).json({ error: "Only admins and managers can archive workers." });
       }
-      const workerId = req.params.id;
-      const { reason } = req.body;
-      const username = req.user!.username;
-      const archCtx = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      const archDb = await customerDbService.getCustomerDatabase(archCtx.customerId);
-
-      // Ensure archive columns exist (lazy migration)
-      try {
-        const schemaName = customerDbService.generateSchemaName(archCtx.customerId);
-        const pool = (archDb as any).$client ?? (archDb as any).session?.client;
-        await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`);
-        await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS archived_by TEXT`);
-        await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS archive_reason TEXT`);
-      } catch (migErr) {
-        logger.warn('Archive migration warning (non-fatal):', migErr);
-      }
-
-      // Load worker
-      const [worker] = await archDb.select().from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.id, workerId)).limit(1);
-      if (!worker) return res.status(404).json({ error: "Worker not found" });
-      if (!worker.isActive) return res.status(400).json({ error: "Worker is already archived." });
-
-      // Soft-delete
-      await archDb.execute(sql`
-        UPDATE contractor_workers
-        SET is_active = false,
-            archived_at = NOW(),
-            archived_by = ${username},
-            archive_reason = ${reason || null},
-            updated_at = NOW()
-        WHERE id = ${workerId}
-      `);
-
-      // Audit note
-      try {
-        await archDb.insert(isolatedSchema.workerNotes).values({
-          workerId,
-          changeType: 'worker_archived',
-          notes: `Worker archived by ${username}.${reason ? ` Reason: ${reason}` : ''}`,
-          changedBy: username,
-        });
-      } catch (noteErr) {
-        logger.error('Failed to write archive audit note:', noteErr);
-      }
-
+      const db = await customerDbService.getCustomerDatabase(req.customerId);
+      const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
+      await svcArchiveWorker(svcCtx, req.params.id, req.body.reason);
       res.json({ success: true, message: "Worker archived successfully." });
     } catch (error) {
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ error: error.message });
+      }
       logger.error("Error archiving worker:", error);
       res.status(500).json({ error: "Failed to archive worker" });
     }
@@ -1845,42 +1649,17 @@ export function registerContractorRoutes(app: Express): void {
   // Unarchive a worker — admin/manager only
   app.post("/api/contractors/workers/:id/unarchive", requireAuth, async (req, res) => {
     try {
-      const role = req.user!.role;
-      if (!['admin', 'manager'].includes(role)) {
+      if (!['admin', 'manager'].includes(req.user!.role)) {
         return res.status(403).json({ error: "Only admins and managers can unarchive workers." });
       }
-      const workerId = req.params.id;
-      const username = req.user!.username;
-      const unarchCtx = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      const unarchDb = await customerDbService.getCustomerDatabase(unarchCtx.customerId);
-
-      const [worker] = await unarchDb.select().from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.id, workerId)).limit(1);
-      if (!worker) return res.status(404).json({ error: "Worker not found" });
-
-      await unarchDb.execute(sql`
-        UPDATE contractor_workers
-        SET is_active = true,
-            archived_at = NULL,
-            archived_by = NULL,
-            archive_reason = NULL,
-            updated_at = NOW()
-        WHERE id = ${workerId}
-      `);
-
-      try {
-        await unarchDb.insert(isolatedSchema.workerNotes).values({
-          workerId,
-          changeType: 'worker_unarchived',
-          notes: `Worker unarchived (reactivated) by ${username}.`,
-          changedBy: username,
-        });
-      } catch (noteErr) {
-        logger.error('Failed to write unarchive audit note:', noteErr);
-      }
-
+      const db = await customerDbService.getCustomerDatabase(req.customerId);
+      const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
+      await svcUnarchiveWorker(svcCtx, req.params.id);
       res.json({ success: true, message: "Worker unarchived successfully." });
     } catch (error) {
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ error: error.message });
+      }
       logger.error("Error unarchiving worker:", error);
       res.status(500).json({ error: "Failed to unarchive worker" });
     }
@@ -1909,79 +1688,17 @@ export function registerContractorRoutes(app: Express): void {
   // Hard delete worker — admin only, requires confirmName
   app.delete("/api/workers/:id", requireAuth, async (req, res) => {
     try {
-      // Role check — admin only
       if (req.user!.role !== 'admin') {
         return res.status(403).json({ error: "Only admins can permanently delete workers." });
       }
-
-      const { id } = req.params;
-      const { confirmName } = req.body;
-      const delUsername = req.user!.username;
-      const delCtx = simpleDatabaseService.createCustomerContext(delUsername, req.customerId);
-      const delDb = await customerDbService.getCustomerDatabase(delCtx.customerId);
-
-      // Load the worker
-      const [worker] = await delDb.select().from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.id, id)).limit(1);
-      if (!worker) return res.status(404).json({ error: "Worker not found" });
-
-      // Verify confirmName matches full name
-      const fullName = `${worker.firstName} ${worker.lastName}`;
-      if (!confirmName || confirmName.trim() !== fullName.trim()) {
-        return res.status(400).json({
-          error: `Name confirmation required. Please type "${fullName}" to confirm deletion.`,
-          expectedName: fullName,
-        });
-      }
-
-      // Write company-level audit note before deletion
-      try {
-        await delDb.insert(isolatedSchema.companyNotes).values({
-          companyId: worker.companyId,
-          changeType: 'worker_deleted',
-          notes: `Worker "${fullName}" permanently deleted by ${delUsername}. All records purged.`,
-          changedBy: delUsername,
-        });
-      } catch (noteErr) {
-        logger.error('Failed to write deletion company note:', noteErr);
-      }
-
-      // Delete child rows in dependency order, then the worker
-      await delDb.transaction(async (tx) => {
-        // workerDocumentAcceptances references workerDocumentAssignments + contractorWorkers
-        await tx.delete(isolatedSchema.workerDocumentAcceptances)
-          .where(eq(isolatedSchema.workerDocumentAcceptances.workerId, id));
-        await tx.delete(isolatedSchema.workerDocumentAssignments)
-          .where(eq(isolatedSchema.workerDocumentAssignments.workerId, id));
-        await tx.delete(isolatedSchema.workerNotes)
-          .where(eq(isolatedSchema.workerNotes.workerId, id));
-        await tx.delete(isolatedSchema.cardIssues)
-          .where(eq(isolatedSchema.cardIssues.workerId, id));
-        await tx.delete(isolatedSchema.contractorVisits)
-          .where(eq(isolatedSchema.contractorVisits.workerId, id));
-        await tx.delete(isolatedSchema.contractorDocuments)
-          .where(eq(isolatedSchema.contractorDocuments.workerId, id));
-        await tx.delete(isolatedSchema.workerCompetencies)
-          .where(eq(isolatedSchema.workerCompetencies.workerId, id));
-        await tx.delete(isolatedSchema.nvqQualifications)
-          .where(eq(isolatedSchema.nvqQualifications.workerId, id));
-        await tx.delete(isolatedSchema.workerCertifications)
-          .where(eq(isolatedSchema.workerCertifications.workerId, id));
-        await tx.delete(isolatedSchema.co2Records)
-          .where(eq(isolatedSchema.co2Records.workerId, id));
-        await tx.delete(isolatedSchema.co2EmissionsData)
-          .where(eq(isolatedSchema.co2EmissionsData.workerId, id));
-        await tx.delete(isolatedSchema.localLabourRecords)
-          .where(eq(isolatedSchema.localLabourRecords.workerId, id));
-        // inductionTokens has nullable workerId — SET NULL rather than hard-delete
-        await tx.execute(sql`UPDATE induction_tokens SET worker_id = NULL WHERE worker_id = ${id}`);
-        // Finally, delete the worker row
-        await tx.delete(isolatedSchema.contractorWorkers)
-          .where(eq(isolatedSchema.contractorWorkers.id, id));
-      });
-
+      const db = await customerDbService.getCustomerDatabase(req.customerId);
+      const svcCtx: WorkerServiceContext = { db, customerId: req.customerId, actor: req.user!.username };
+      const { fullName } = await svcHardDeleteWorker(svcCtx, req.params.id, req.body.confirmName);
       res.json({ success: true, message: `Worker "${fullName}" permanently deleted.` });
     } catch (error) {
+      if (error instanceof ServiceError) {
+        return res.status(error.status).json({ error: error.message, ...error.extra });
+      }
       logger.error("Error deleting worker:", error);
       res.status(500).json({ error: "Failed to delete worker" });
     }
