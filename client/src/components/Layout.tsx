@@ -95,6 +95,17 @@ export default function Layout({ children }: LayoutProps) {
     prevLogoUrlRef.current = current;
   }, [settings?.logoUrl]);
 
+  // When all fallback stages fail (e.g. server restart briefly refusing connections),
+  // automatically retry after 5 seconds instead of permanently hiding the logo.
+  useEffect(() => {
+    if (!logoError) return;
+    const timer = setTimeout(() => {
+      setLogoFallbackStage(0);
+      setLogoError(false);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [logoError]);
+
   const getLogoSrc = useCallback(() => {
     if (logoError || !settings?.logoUrl) return null;
     const logoToken = sessionStorage.getItem('tprmax-logo-token');
