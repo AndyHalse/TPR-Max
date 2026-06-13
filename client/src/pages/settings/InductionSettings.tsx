@@ -115,6 +115,8 @@ export default function InductionSettings() {
     });
     xhr.open("POST", "/api/induction/upload-video");
     xhr.withCredentials = true;
+    const sessionToken = sessionStorage.getItem("session_token");
+    if (sessionToken) xhr.setRequestHeader("Authorization", `Bearer ${sessionToken}`);
     xhr.send(formData);
   };
 
