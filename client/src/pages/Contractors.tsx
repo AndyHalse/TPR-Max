@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandGroup, CommandItem, CommandList } from "@/components/ui/command";
-import { cn, hasContractorComplianceGap } from "@/lib/utils";
+import { cn, hasContractorCompanyDocumentGap } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { 
   HardHat, 
@@ -471,7 +471,7 @@ export default function Contractors() {
 
   const contractorData = contractors || [];
 
-  const hasComplianceGap = hasContractorComplianceGap;
+  const hasComplianceGap = hasContractorCompanyDocumentGap;
 
   const filteredContractors = contractorData
     .filter((contractor: ContractorCompany) => {
@@ -1241,11 +1241,11 @@ export default function Contractors() {
                 return next;
               })}
               className={showGapsOnly ? "bg-red-600 hover:bg-red-700 text-white border-red-600" : "text-red-600 border-red-300 hover:bg-red-50"}
-              title="Show only contractors with compliance gaps"
+              title="Show only contractors with company document gaps (insurance, H&S, CIS)"
               data-testid="button-filter-gaps-only"
             >
               <AlertTriangle size={14} className="mr-1" />
-              Gaps only ({gapsCount})
+              Doc gaps ({gapsCount})
             </Button>
             <Button
               variant={sortGapsFirst ? 'default' : 'outline'}

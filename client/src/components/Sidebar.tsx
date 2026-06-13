@@ -27,6 +27,7 @@ export interface SidebarNavItem {
   label: string;
   badge?: number;
   tooltip?: string;
+  badgeTooltip?: string;
 }
 
 interface SidebarProps {
@@ -253,9 +254,20 @@ function SidebarItem({ item, isActive, collapsed, textStyle, activeStyle, onNavi
             )}
           </span>
           {item.badge !== undefined && item.badge > 0 && (
-            <span className="ml-auto min-w-[18px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none flex-shrink-0">
-              {item.badge > 99 ? "99+" : item.badge}
-            </span>
+            item.badgeTooltip ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="ml-auto min-w-[18px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none flex-shrink-0 cursor-default">
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent side="right"><p>{item.badgeTooltip}</p></TooltipContent>
+              </Tooltip>
+            ) : (
+              <span className="ml-auto min-w-[18px] h-4 px-0.5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center leading-none flex-shrink-0">
+                {item.badge > 99 ? "99+" : item.badge}
+              </span>
+            )
           )}
         </>
       )}
@@ -263,13 +275,15 @@ function SidebarItem({ item, isActive, collapsed, textStyle, activeStyle, onNavi
   );
 
   if (collapsed) {
+    const n = item.badge ?? 0;
+    const gapWord = n === 1 ? "gap" : "gaps";
     return (
       <Tooltip>
         <TooltipTrigger asChild>{inner}</TooltipTrigger>
         <TooltipContent side="right">
           <p>
             {item.tooltip || item.label}
-            {item.badge !== undefined && item.badge > 0 ? ` (${item.badge})` : ""}
+            {n > 0 ? ` (${n} ${gapWord})` : ""}
           </p>
         </TooltipContent>
       </Tooltip>

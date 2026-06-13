@@ -20,8 +20,14 @@ export interface ContractorWithComplianceStatus {
 
 const COMPLIANCE_DOC_KEYS = ['publicLiability', 'employersLiability', 'healthSafety', 'cisRegistration'] as const;
 
-export function hasContractorComplianceGap(contractor: ContractorWithComplianceStatus): boolean {
+// Checks company-level document gaps only (insurance + H&S + CIS).
+// Does NOT include worker-level gaps (RTW, CSCS, DBS, certs).
+// Use the /api/contractors/compliance-gap-count endpoint for the full picture.
+export function hasContractorCompanyDocumentGap(contractor: ContractorWithComplianceStatus): boolean {
   const ds = contractor.documentsStatus;
   if (!ds) return true;
   return COMPLIANCE_DOC_KEYS.some(key => ds[key] === 'missing' || ds[key] === 'expired');
 }
+
+// Kept for backward compatibility — prefer hasContractorCompanyDocumentGap.
+export const hasContractorComplianceGap = hasContractorCompanyDocumentGap;

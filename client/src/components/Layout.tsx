@@ -10,7 +10,6 @@ import Sidebar, { SIDEBAR_COLLAPSED_KEY, SIDEBAR_EXPANDED_WIDTH, SIDEBAR_COLLAPS
 import type { CompanySettings } from "@shared/schema";
 import { useState, useEffect, useCallback, useRef, type CSSProperties } from "react";
 import { getQueryFn } from "@/lib/queryClient";
-import { hasContractorComplianceGap, type ContractorWithComplianceStatus } from "@/lib/utils";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -55,14 +54,14 @@ export default function Layout({ children }: LayoutProps) {
 
   const customerId = user?.customerId;
 
-  const { data: contractorsForBadge } = useQuery<ContractorWithComplianceStatus[]>({
-    queryKey: ["/api/contractors", customerId],
+  const { data: contractorGapData } = useQuery<{ total: number; breakdown: Record<string, number> }>({
+    queryKey: ["/api/contractors/compliance-gap-count", customerId],
     enabled: !!customerId,
     staleTime: 30 * 1000,
     refetchInterval: 30 * 1000,
   });
 
-  const contractorGapsCount = (contractorsForBadge || []).filter(hasContractorComplianceGap).length;
+  const contractorGapsCount = contractorGapData?.total ?? 0;
 
   const { data: ppmExpiryData } = useQuery<{ expiredCount: number; expiringSoonCount: number; total: number }>({
     queryKey: ["/api/ppm/expiry-count", customerId],
@@ -236,7 +235,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: "/", icon: ChartLine, label: "Dashboard", featureKey: "featureDashboard", defaultOn: true },
     { path: "/compliance-dashboard", icon: Activity, label: "Compliance Score", featureKey: "featureComplianceDashboard", defaultOn: true },
     { path: "/visitors", icon: User, label: "Visitors", featureKey: "featureVisitors", defaultOn: true },
-    { path: "/contractors", icon: HardHat, label: "Contractors", featureKey: "featureContractors", defaultOn: true, badge: contractorGapsCount > 0 ? contractorGapsCount : undefined },
+    { path: "/contractors", icon: HardHat, label: "Contractors", featureKey: "featureContractors", defaultOn: true, badge: contractorGapsCount > 0 ? contractorGapsCount : undefined, badgeTooltip: contractorGapsCount > 0 ? `${contractorGapsCount} compliance gap${contractorGapsCount !== 1 ? 's' : ''} — click to review` : undefined },
     { path: "/contractor-portal-admin", icon: Globe, label: "Contractor Portal", tooltip: "Contractor Self-Service Portal Management", featureKey: "featureContractorPortal", defaultOn: false },
     { path: "/staff", icon: Users, label: "Staff", featureKey: "featureStaff", defaultOn: true },
     { path: "/members", icon: UserCheck, label: "Members", featureKey: "featureMembers", defaultOn: true },

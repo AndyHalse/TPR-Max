@@ -150,6 +150,151 @@ export function registerContractorRoutes(app: Express): void {
     }
   });
 
+  // ── Contractor compliance gap count (badge source — replaces client-side hasContractorComplianceGap) ──
+  // Returns total CRITICAL (expired / missing) gaps across companies + workers.
+  // Expiring-soon items are NOT included in the red badge total.
+  app.get("/api/contractors/compliance-gap-count", requireAuth, async (req, res) => {
+    try {
+      const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
+      const schemaName = customerDbService.generateSchemaName(req.customerId!);
+      const pool = (custDb as any).$client ?? (custDb as any).session?.client;
+      const now = new Date();
+      const ago12Months = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+
+      const breakdown = { insurance: 0, rams: 0, inductions: 0, workerRightToWork: 0, workerDbs: 0, workerCertifications: 0, equipment: 0 };
+
+      // Active worker IDs (visited in last 12 months)
+      let activeWorkerIds = new Set<string>();
+      try {
+        const r = await pool.query(
+          `SELECT DISTINCT worker_id FROM "${schemaName}".contractor_visits WHERE checked_in_at >= $1`,
+          [ago12Months.toISOString()]
+        );
+        activeWorkerIds = new Set<string>(r.rows.map((x: any) => x.worker_id).filter(Boolean));
+      } catch { /* non-fatal */ }
+
+      // 1. Insurance — expired policies per active company
+      try {
+        const { rows } = await pool.query(
+          `SELECT id, public_liability_expiry_date, employers_liability_expiry_date,
+                  professional_indemnity_expiry_date, health_safety_policy_expiry_date,
+                  chas_expiry_date, chas_certified, safe_contractor_expiry_date, safe_contractor_certified
+           FROM "${schemaName}".contractor_companies WHERE is_active = TRUE`
+        );
+        for (const c of rows) {
+          const expiries = [
+            c.public_liability_expiry_date, c.employers_liability_expiry_date,
+            c.professional_indemnity_expiry_date, c.health_safety_policy_expiry_date,
+          ];
+          if (c.chas_certified) expiries.push(c.chas_expiry_date);
+          if (c.safe_contractor_certified) expiries.push(c.safe_contractor_expiry_date);
+          let noInsurance = !c.public_liability_expiry_date && !c.employers_liability_expiry_date;
+          if (noInsurance) { breakdown.insurance++; continue; }
+          for (const exp of expiries) {
+            if (!exp) continue;
+            const days = Math.ceil((new Date(exp).getTime() - now.getTime()) / 86400000);
+            if (days < 0) breakdown.insurance++;
+          }
+        }
+      } catch { /* non-fatal */ }
+
+      // 2. RAMS — expired docs
+      try {
+        const { rows } = await pool.query(
+          `SELECT expiry_date, status FROM "${schemaName}".rams_documents WHERE is_active = TRUE`
+        );
+        for (const r of rows) {
+          const days = r.expiry_date ? Math.ceil((new Date(r.expiry_date).getTime() - now.getTime()) / 86400000) : null;
+          if (r.status === 'expired' || (days !== null && days < 0)) breakdown.rams++;
+        }
+      } catch { /* non-fatal */ }
+
+      // 3. Inductions — active workers with expired induction
+      try {
+        const { rows } = await pool.query(
+          `SELECT id, site_induction_expiry_date FROM "${schemaName}".contractor_workers WHERE is_active = TRUE`
+        );
+        for (const w of rows) {
+          if (!activeWorkerIds.has(w.id)) continue;
+          if (!w.site_induction_expiry_date) continue;
+          const days = Math.ceil((new Date(w.site_induction_expiry_date).getTime() - now.getTime()) / 86400000);
+          if (days < 0) breakdown.inductions++;
+        }
+      } catch { /* non-fatal */ }
+
+      // 4. Worker Right to Work — expired/invalid for active workers
+      try {
+        const { rows } = await pool.query(
+          `SELECT id, right_to_work_status, right_to_work_expiry_date
+           FROM "${schemaName}".contractor_workers
+           WHERE is_active = TRUE AND (right_to_work_status IS NOT NULL OR right_to_work_expiry_date IS NOT NULL)`
+        );
+        for (const w of rows) {
+          if (!activeWorkerIds.has(w.id)) continue;
+          const days = w.right_to_work_expiry_date
+            ? Math.ceil((new Date(w.right_to_work_expiry_date).getTime() - now.getTime()) / 86400000) : null;
+          const st = w.right_to_work_status;
+          if ((days !== null && days < 0) || st === 'expired' || st === 'invalid') breakdown.workerRightToWork++;
+        }
+      } catch { /* non-fatal */ }
+
+      // 5. Worker DBS — expired current DBS for active workers
+      try {
+        const { rows } = await pool.query(
+          `SELECT d.worker_id, d.policy_expiry_date
+           FROM "${schemaName}".contractor_worker_dbs d
+           JOIN "${schemaName}".contractor_workers cw ON cw.id = d.worker_id
+           WHERE d.is_current = TRUE AND d.deleted_at IS NULL AND cw.is_active = TRUE`
+        );
+        for (const r of rows) {
+          if (!activeWorkerIds.has(r.worker_id)) continue;
+          if (!r.policy_expiry_date) continue;
+          const days = Math.ceil((new Date(r.policy_expiry_date).getTime() - now.getTime()) / 86400000);
+          if (days < 0) breakdown.workerDbs++;
+        }
+      } catch { /* non-fatal */ }
+
+      // 6. Worker Certifications — approved+expired OR rejected (excludes right_to_work = separate domain)
+      try {
+        const { rows } = await pool.query(
+          `SELECT cd.expiry_date, cd.status, cd.worker_id
+           FROM "${schemaName}".contractor_documents cd
+           JOIN "${schemaName}".contractor_workers cw ON cw.id = cd.worker_id
+           WHERE cd.worker_id IS NOT NULL AND cd.is_active = TRUE
+             AND cd.document_type <> 'right_to_work'`
+        );
+        for (const r of rows) {
+          const docStatus = r.status ?? 'pending';
+          if (docStatus === 'rejected') { breakdown.workerCertifications++; continue; }
+          if (docStatus === 'approved' && r.expiry_date) {
+            const days = Math.ceil((new Date(r.expiry_date).getTime() - now.getTime()) / 86400000);
+            if (days < 0) breakdown.workerCertifications++;
+          }
+          // pending = not a critical gap (warning only, excluded from red badge)
+        }
+      } catch { /* non-fatal */ }
+
+      // 7. Equipment — expired certs
+      try {
+        const { rows } = await pool.query(
+          `SELECT cd.expiry_date
+           FROM "${schemaName}".contractor_documents cd
+           WHERE cd.equipment_id IS NOT NULL AND cd.is_active = TRUE AND cd.expiry_date IS NOT NULL`
+        );
+        for (const r of rows) {
+          const days = Math.ceil((new Date(r.expiry_date).getTime() - now.getTime()) / 86400000);
+          if (days < 0) breakdown.equipment++;
+        }
+      } catch { /* non-fatal */ }
+
+      const total = Object.values(breakdown).reduce((a, b) => a + b, 0);
+      res.json({ total, breakdown });
+    } catch (error) {
+      logger.error("Error fetching contractor compliance gap count:", error);
+      res.status(500).json({ error: "Failed to fetch compliance gap count" });
+    }
+  });
+
   // Get checked-in contractors endpoint
   app.get("/api/contractors/checked-in", requireAuth, async (req, res) => {
     try {
