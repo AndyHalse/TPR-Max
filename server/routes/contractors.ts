@@ -7,7 +7,11 @@ import {
   hardDeleteWorker as svcHardDeleteWorker,
   issueCard as svcIssueCard,
   checkInWorker as svcCheckInWorker,
+  checkOutWorker as svcCheckOutWorker,
   clearLoneWorkerState as svcClearLoneWorkerState,
+  persistQrCode as svcPersistQrCode,
+  persistHsToken as svcPersistHsToken,
+  updateWorkerPostcode as svcUpdateWorkerPostcode,
   ServiceError,
   type WorkerServiceContext,
 } from '../services/workerService';
@@ -104,7 +108,8 @@ export function registerContractorRoutes(app: Express): void {
       let resolvedWorker = worker;
       if (!worker.qrCode) {
         const qrCode = 'CTR-' + randomUUID().replace(/-/g, '').substring(0, 12);
-        await databaseService.updateContractorWorker(context, id, { qrCode } as any);
+        const qrDb = await customerDbService.getCustomerDatabase(context.customerId);
+        await svcPersistQrCode({ db: qrDb, customerId: context.customerId, actor: username }, id, qrCode);
         resolvedWorker = (await databaseService.getContractorWorkerById(context, id)) ?? worker;
       }
 
@@ -1463,7 +1468,12 @@ export function registerContractorRoutes(app: Express): void {
       
       // Update worker postcode if provided
       if (postcode) {
-        await databaseService.updateContractorWorker(context, workerId, { postcode });
+        const postcodeDb = await customerDbService.getCustomerDatabase(context.customerId);
+        await svcUpdateWorkerPostcode(
+          { db: postcodeDb, customerId: context.customerId, actor: req.user!.username },
+          workerId,
+          postcode,
+        );
       }
 
       // Get company settings for address
@@ -4414,9 +4424,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             let workerHsToken: string = worker.hsRulesAcceptanceToken || '';
             if (!workerHsToken) {
               workerHsToken = randomBytes(16).toString('hex');
-              await databaseService.updateContractorWorker(context, workerId, {
-                hsRulesAcceptanceToken: workerHsToken
-              });
+              await svcPersistHsToken(
+                { db: contractorCheckinDb, customerId: context.customerId, actor: username },
+                workerId,
+                workerHsToken,
+              );
               logger.info(`Generated H&S acceptance token for contractor worker ${workerId}`);
             }
 
@@ -4566,11 +4578,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         return res.status(404).json({ error: "Worker not found" });
       }
 
-      // Update worker status using customer-isolated database service
-      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, {
-        isCheckedIn: false,
-        checkedOutAt: new Date()
-      });
+      // Update worker status via service (sets isCheckedIn=false, checkedOutAt, writes audit note)
+      const checkOutDb = await customerDbService.getCustomerDatabase(context.customerId);
+      const updatedWorker = await svcCheckOutWorker(
+        { db: checkOutDb, customerId: context.customerId, actor: username },
+        workerId,
+        { checkoutType },
+      );
 
       // Complete the current visit record
       const currentVisit = await databaseService.getCurrentContractorVisit(context, workerId);
@@ -4579,21 +4593,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           checkedOutAt: new Date()
         });
         logger.info(`Completed visit record for ID ${worker.id}`);
-      }
-
-      // Create audit trail entry for check-out
-      try {
-        const db = await customerDbService.getCustomerDatabase(context.customerId);
-        await db.insert(isolatedSchema.workerNotes).values({
-          workerId: workerId,
-          changeType: 'check_out',
-          oldValue: 'Checked In',
-          newValue: 'Checked Out',
-          notes: `Checked out${checkoutType ? ` (${checkoutType})` : ''}`,
-          changedBy: username,
-        });
-      } catch (auditErr) {
-        logger.error('Failed to create check-out audit note:', auditErr);
       }
 
       // Remove contractor from evacuation accountability on checkout — they are no longer on site

@@ -644,6 +644,94 @@ export async function correctCardStatus(
   }
 }
 
+// ─── 12. persistQrCode ───────────────────────────────────────────────────────
+
+/**
+ * Persist a worker's QR-code identifier on first generation.
+ * Called when a QR pass is requested and the worker has no code yet.
+ */
+export async function persistQrCode(
+  ctx: WorkerServiceContext,
+  workerId: string,
+  qrCode: string,
+): Promise<void> {
+  await ctx.db
+    .update(isolatedSchema.contractorWorkers)
+    .set({ qrCode, updatedAt: new Date() })
+    .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+}
+
+// ─── 13. persistHsToken ──────────────────────────────────────────────────────
+
+/**
+ * Persist a worker's H&S acceptance token on first generation.
+ * Called during check-in e-pass dispatch when no token yet exists.
+ */
+export async function persistHsToken(
+  ctx: WorkerServiceContext,
+  workerId: string,
+  token: string,
+): Promise<void> {
+  await ctx.db
+    .update(isolatedSchema.contractorWorkers)
+    .set({ hsRulesAcceptanceToken: token, updatedAt: new Date() })
+    .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+}
+
+// ─── 14. checkOutWorker ──────────────────────────────────────────────────────
+
+/**
+ * Stamp check-out fields on a worker record.
+ * Returns the updated worker.
+ */
+export async function checkOutWorker(
+  ctx: WorkerServiceContext,
+  workerId: string,
+  opts?: { checkoutType?: string },
+): Promise<any> {
+  const checkOutTime = new Date();
+  await ctx.db
+    .update(isolatedSchema.contractorWorkers)
+    .set({ isCheckedIn: false, checkedOutAt: checkOutTime, updatedAt: checkOutTime })
+    .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+
+  try {
+    await ctx.db.insert(isolatedSchema.workerNotes).values({
+      workerId,
+      changeType: 'check_out',
+      oldValue: 'Checked In',
+      newValue: 'Checked Out',
+      notes: `Checked out${opts?.checkoutType ? ` (${opts.checkoutType})` : ''}`,
+      changedBy: ctx.actor,
+    });
+  } catch (noteErr) {
+    logger.error('[workerService] Failed to write check-out audit note:', noteErr);
+  }
+
+  const [updated] = await ctx.db
+    .select()
+    .from(isolatedSchema.contractorWorkers)
+    .where(eq(isolatedSchema.contractorWorkers.id, workerId))
+    .limit(1);
+  return updated ?? null;
+}
+
+// ─── 15. updateWorkerPostcode ────────────────────────────────────────────────
+
+/**
+ * Update a worker's stored postcode (called from transport/CO2 endpoint).
+ */
+export async function updateWorkerPostcode(
+  ctx: WorkerServiceContext,
+  workerId: string,
+  postcode: string,
+): Promise<void> {
+  await ctx.db
+    .update(isolatedSchema.contractorWorkers)
+    .set({ postcode, updatedAt: new Date() })
+    .where(eq(isolatedSchema.contractorWorkers.id, workerId));
+}
+
 // ─── Private audit-note helpers ───────────────────────────────────────────────
 
 async function _writeAdminCreateNotes(
