@@ -144,6 +144,7 @@ export function registerHsIncidentRoutes(app: Express): void {
         investigationStatus: !isBbs ? (body.investigationStatus || 'open') : 'open',
         investigatedBy: !isBbs ? (body.investigatedBy || null) : null,
         investigationNotes: !isBbs ? (body.investigationNotes || null) : null,
+        photoUrl: body.photoUrl || null,
       }).returning();
 
       // Immediate fatality alert
@@ -246,6 +247,7 @@ export function registerHsIncidentRoutes(app: Express): void {
         updates.investigatedBy = body.investigatedBy ?? null;
         updates.investigationNotes = body.investigationNotes ?? null;
       }
+      if (body.photoUrl !== undefined) updates.photoUrl = body.photoUrl || null;
 
       const [updated] = await custDb.update(isolatedSchema.hsIncidents)
         .set(updates)
