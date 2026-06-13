@@ -470,6 +470,9 @@ export function registerInductionRoutes(app: Express): void {
 
   // ── Custom video upload ───────────────────────────────────────────────────
   // POST /api/induction/upload-video
+  // In-memory short-lived preview tokens — minted per admin preview request, 2h TTL, no DB writes needed
+  const previewTokenStore = new Map<string, { customerId: string; roleType: string; expiresAt: Date }>();
+
   // Accepts multipart/form-data with fields: video (file), roleType (string)
   const videoUpload = multer({
     storage: multer.memoryStorage(),
@@ -516,13 +519,34 @@ export function registerInductionRoutes(app: Express): void {
       // Internal reference path — served via /api/induction/custom-video/:token
       const storedPath = `/induction-videos/${context.customerId}/${objectId}.${ext}`;
 
-      // Save to inductionSettings.customVideoUrl for this customer/roleType
-      await custDb
+      // Upsert: try UPDATE first; if zero rows exist for this roleType, INSERT with sensible defaults.
+      // Using .returning() so we can verify the write actually landed.
+      const [updated] = await custDb
         .update(isolatedSchema.inductionSettings)
         .set({ customVideoUrl: storedPath, updatedAt: new Date() })
-        .where(eq(isolatedSchema.inductionSettings.roleType, roleType));
+        .where(eq(isolatedSchema.inductionSettings.roleType, roleType))
+        .returning({ customVideoUrl: isolatedSchema.inductionSettings.customVideoUrl });
 
-      logger.info(`✅ Custom video saved: ${storedPath} for role=${roleType} customer=${context.customerId}`);
+      if (!updated) {
+        // No row yet for this customer/roleType — insert with minimal required fields + defaults
+        logger.info(`📝 No inductionSettings row for role=${roleType} customer=${context.customerId} — inserting`);
+        const [inserted] = await custDb
+          .insert(isolatedSchema.inductionSettings)
+          .values({
+            roleType,
+            videoTitle: `${roleType.charAt(0).toUpperCase() + roleType.slice(1)} Induction`,
+            videoUrl: '',
+            customVideoUrl: storedPath,
+          } as any)
+          .returning({ customVideoUrl: isolatedSchema.inductionSettings.customVideoUrl });
+
+        if (!inserted?.customVideoUrl) {
+          logger.error(`❌ DB insert returned no row for role=${roleType} customer=${context.customerId}`);
+          return res.status(500).json({ error: 'Video saved to storage but failed to persist — please try again' });
+        }
+      }
+
+      logger.info(`✅ Custom video upserted: ${storedPath} for role=${roleType} customer=${context.customerId}`);
       return res.json({ success: true, url: storedPath });
     } catch (error: any) {
       logger.error('Error uploading induction video:', error);
@@ -694,6 +718,88 @@ export function registerInductionRoutes(app: Express): void {
     } catch (error) {
       logger.error('Error streaming admin custom induction video:', error);
       if (!res.headersSent) res.status(500).json({ error: 'Failed to stream video' });
+    }
+  });
+
+  // POST /api/induction/preview-token/:roleType
+  // Mints a short-lived (2h) in-memory preview token so the admin can stream
+  // a custom video in <video src="..."> without needing to send Bearer headers
+  // from the media element.
+  app.post('/api/induction/preview-token/:roleType', requireAuth, async (req, res) => {
+    try {
+      const { roleType } = req.params;
+      if (!['visitor', 'staff', 'contractor'].includes(roleType)) {
+        return res.status(400).json({ error: 'Invalid roleType' });
+      }
+      const customerId = req.customerId!;
+      const token = randomUUID();
+      const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+      previewTokenStore.set(token, { customerId, roleType, expiresAt });
+      // Opportunistic cleanup of expired tokens
+      for (const [k, v] of previewTokenStore.entries()) {
+        if (new Date() > v.expiresAt) previewTokenStore.delete(k);
+      }
+      res.json({ token });
+    } catch (error) {
+      logger.error('Error minting preview token:', error);
+      res.status(500).json({ error: 'Failed to create preview token' });
+    }
+  });
+
+  // GET /api/induction/preview-video/:token
+  // Range-capable MP4 streaming for admin preview — authenticated via in-memory token, no header needed.
+  app.get('/api/induction/preview-video/:token', async (req, res) => {
+    try {
+      const { token } = req.params;
+      const entry = previewTokenStore.get(token);
+      if (!entry || new Date() > entry.expiresAt) {
+        return res.status(401).json({ error: 'Invalid or expired preview token' });
+      }
+
+      const custDb = await customerDbService.getCustomerDatabase(entry.customerId);
+      const [row] = await custDb
+        .select({ customVideoUrl: isolatedSchema.inductionSettings.customVideoUrl })
+        .from(isolatedSchema.inductionSettings)
+        .where(eq(isolatedSchema.inductionSettings.roleType, entry.roleType));
+      const storedPath = row?.customVideoUrl ?? null;
+      if (!storedPath) return res.status(404).json({ error: 'No custom video found for this role' });
+
+      const objectStorageService = new ObjectStorageService();
+      const privateObjectDir = objectStorageService.getPrivateObjectDir();
+      const fullPath = `${privateObjectDir}${storedPath}`;
+      const { bucketName, objectName } = parseObjectStoragePath(fullPath);
+      const file = objectStorageClient.bucket(bucketName).file(objectName);
+
+      const [meta] = await file.getMetadata();
+      const totalSize = Number(meta.size);
+      const contentType = meta.contentType || 'video/mp4';
+
+      const rangeHeader = req.headers['range'];
+      if (rangeHeader) {
+        const parts = rangeHeader.replace(/bytes=/, '').split('-');
+        const start = parseInt(parts[0], 10);
+        const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 1024 * 1024 - 1, totalSize - 1);
+        const chunkSize = end - start + 1;
+        res.writeHead(206, {
+          'Content-Range': `bytes ${start}-${end}/${totalSize}`,
+          'Accept-Ranges': 'bytes',
+          'Content-Length': chunkSize,
+          'Content-Type': contentType,
+          'Cache-Control': 'private, max-age=0',
+        });
+        file.createReadStream({ start, end }).pipe(res);
+      } else {
+        res.writeHead(200, {
+          'Content-Length': totalSize,
+          'Content-Type': contentType,
+          'Accept-Ranges': 'bytes',
+          'Cache-Control': 'private, max-age=0',
+        });
+        file.createReadStream().pipe(res);
+      }
+    } catch (error) {
+      logger.error('Error streaming preview video:', error);
+      if (!res.headersSent) res.status(500).json({ error: 'Failed to stream preview video' });
     }
   });
 
