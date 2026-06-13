@@ -31,3 +31,26 @@ export function hasContractorCompanyDocumentGap(contractor: ContractorWithCompli
 
 // Kept for backward compatibility — prefer hasContractorCompanyDocumentGap.
 export const hasContractorComplianceGap = hasContractorCompanyDocumentGap;
+
+// ── Worker safety-status helper ────────────────────────────────────────────
+// Single source of truth for all disciplinary card display.
+// ALWAYS gates on hasActiveDisciplinaryCard (from card_issues), NOT
+// the denormalised currentCardStatus column which may hold phantom values.
+export interface WorkerSafetyStatus {
+  color: 'green' | 'yellow' | 'red';
+  label: string;
+  isClear: boolean;
+}
+
+export function getWorkerSafetyStatus(worker: {
+  hasActiveDisciplinaryCard?: boolean;
+  currentCardStatus?: string | null;
+}): WorkerSafetyStatus {
+  if (!worker.hasActiveDisciplinaryCard) {
+    return { color: 'green', label: 'CLEAR - COMPLIANT', isClear: true };
+  }
+  if (worker.currentCardStatus === 'red') {
+    return { color: 'red', label: 'RED CARD - BANNED', isClear: false };
+  }
+  return { color: 'yellow', label: 'YELLOW CARD - WARNING', isClear: false };
+}

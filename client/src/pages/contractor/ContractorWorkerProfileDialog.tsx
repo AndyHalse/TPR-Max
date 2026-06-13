@@ -92,8 +92,8 @@ export default function ContractorWorkerProfileDialog({ worker, onClose, checkIn
     ? (effectivePhotoUrl.startsWith('/objects/') ? effectivePhotoUrl : `/objects${effectivePhotoUrl}`)
     : null;
   const isCheckedIn = worker.isCheckedIn;
-  const isBanned = worker.currentCardStatus === 'red' && worker.redCardBanUntil && new Date(worker.redCardBanUntil) > new Date();
-  const isClear = !isBanned && worker.isActive !== false && (!worker.currentCardStatus || worker.currentCardStatus === 'clear' || worker.currentCardStatus === 'yellow');
+  const isBanned = worker.hasActiveDisciplinaryCard && worker.currentCardStatus === 'red' && worker.redCardBanUntil && new Date(worker.redCardBanUntil) > new Date();
+  const isClear = !isBanned && worker.isActive !== false && !worker.hasActiveDisciplinaryCard;
   const notCleared = isBanned || worker.rightToWork !== 'valid' || !worker.inductionCompleted;
   const blockReason = isBanned ? 'Active site ban (Red Card)' : worker.rightToWork !== 'valid' ? 'Right to work not verified' : !worker.inductionCompleted ? 'Site induction not completed' : '';
 

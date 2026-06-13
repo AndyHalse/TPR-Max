@@ -104,15 +104,15 @@ export default function ContractorPassPreviewModal({
                         CSCS: {worker.cscsStatus}
                       </span>
                     )}
-                    {/* Safety Status */}
+                    {/* Safety Status — gates on hasActiveDisciplinaryCard, not raw currentCardStatus */}
                     <span className={`block px-2 py-1 text-xs font-bold text-center rounded ${
-                      worker.currentCardStatus === 'clear' 
-                        ? 'bg-green-100 text-green-800 border border-green-300' 
+                      !worker.hasActiveDisciplinaryCard
+                        ? 'bg-green-100 text-green-800 border border-green-300'
                         : worker.currentCardStatus === 'yellow'
                         ? 'bg-yellow-100 text-yellow-800 border border-yellow-300'
                         : 'bg-red-100 text-red-800 border border-red-300'
                     }`}>
-                      Safety Status: {worker.currentCardStatus?.toUpperCase() || 'CLEAR'}
+                      Safety Status: {worker.hasActiveDisciplinaryCard ? (worker.currentCardStatus?.toUpperCase() || 'CLEAR') : 'CLEAR'}
                     </span>
                   </div>
                 </div>

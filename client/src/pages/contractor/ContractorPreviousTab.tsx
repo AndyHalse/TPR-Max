@@ -302,8 +302,8 @@ export default function ContractorPreviousTab({
                         </Button>
                       )}
                       {(() => {
-                        const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
-                        const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
+                        const isBanned = contractor.hasActiveDisciplinaryCard && contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
+                        const isClear = !isBanned && contractor.isActive && !contractor.hasActiveDisciplinaryCard;
                         return isClear ? (
                           <>
                             <Button
@@ -343,7 +343,7 @@ export default function ContractorPreviousTab({
                       })()}
                     </div>
                     {!contractor.isCheckedIn ? (() => {
-                      const redBanned = contractor.currentCardStatus === 'red';
+                      const redBanned = !!(contractor.hasActiveDisciplinaryCard && contractor.currentCardStatus === 'red');
                       const notCleared = redBanned || contractor.rightToWork !== 'valid' || !contractor.inductionCompleted;
                       const blockReason = redBanned ? 'Active site ban (Red Card)' : contractor.rightToWork !== 'valid' ? 'Right to work not verified' : !contractor.inductionCompleted ? 'Site induction not completed' : '';
                       return (
@@ -442,9 +442,9 @@ export default function ContractorPreviousTab({
                     </div>
                     {/* Desktop: all actions inline */}
                     {(() => {
-                      const isBanned = contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
-                      const isClear = !isBanned && contractor.isActive && (!contractor.currentCardStatus || contractor.currentCardStatus === 'clear' || contractor.currentCardStatus === 'yellow');
-                      const redBanned = contractor.currentCardStatus === 'red';
+                      const isBanned = contractor.hasActiveDisciplinaryCard && contractor.currentCardStatus === 'red' && contractor.redCardBanUntil && new Date(contractor.redCardBanUntil) > new Date();
+                      const isClear = !isBanned && contractor.isActive && !contractor.hasActiveDisciplinaryCard;
+                      const redBanned = !!(contractor.hasActiveDisciplinaryCard && contractor.currentCardStatus === 'red');
                       const notCleared = redBanned || contractor.rightToWork !== 'valid' || !contractor.inductionCompleted;
                       const blockReason = redBanned ? 'Active site ban (Red Card)' : contractor.rightToWork !== 'valid' ? 'Right to work not verified' : !contractor.inductionCompleted ? 'Site induction not completed' : '';
                       const lwSession = getContractorLoneWorkerSession(contractor.id);

@@ -617,7 +617,7 @@ For system support, visit: https://visigate.pro/support`;
       const inducted = workers.filter((w: any) => w.inductionCompleted).length;
       const rtw = workers.filter((w: any) => w.rightToWork === 'valid').length;
       const fullyCompliant = workers.filter((w: any) => w.inductionCompleted && w.rightToWork === 'valid').length;
-      const redCards = workers.filter((w: any) => w.currentCardStatus === 'red').length;
+      const redCards = workers.filter((w: any) => w.hasActiveDisciplinaryCard && w.currentCardStatus === 'red').length;
 
       bodyContent = `
         <div class="stats-grid">
@@ -634,7 +634,10 @@ For system support, visit: https://visigate.pro/support`;
         ${workers.map((w: any) => {
           const company = companies.find((c: any) => c.id === w.companyId);
           const compliant = w.inductionCompleted && w.rightToWork === 'valid';
-          return `<tr><td>${w.firstName} ${w.lastName}</td><td>${company?.companyName || company?.name || '-'}</td><td>${w.inductionCompleted ? '<span class="badge badge-green">Complete</span>' : '<span class="badge badge-red">Incomplete</span>'}</td><td>${w.rightToWork === 'valid' ? '<span class="badge badge-green">Valid</span>' : '<span class="badge badge-red">' + (w.rightToWork || 'Pending') + '</span>'}</td><td>${w.currentCardStatus === 'red' ? '<span class="badge badge-red">Red</span>' : w.currentCardStatus === 'yellow' ? '<span class="badge badge-amber">Yellow</span>' : '<span class="badge badge-green">Clear</span>'}</td><td>${compliant ? '<span class="badge badge-green">Compliant</span>' : '<span class="badge badge-red">Non-Compliant</span>'}</td></tr>`;
+          const cardBadge = w.hasActiveDisciplinaryCard
+            ? (w.currentCardStatus === 'red' ? '<span class="badge badge-red">Red</span>' : '<span class="badge badge-amber">Yellow</span>')
+            : '<span class="badge badge-green">Clear</span>';
+          return `<tr><td>${w.firstName} ${w.lastName}</td><td>${company?.companyName || company?.name || '-'}</td><td>${w.inductionCompleted ? '<span class="badge badge-green">Complete</span>' : '<span class="badge badge-red">Incomplete</span>'}</td><td>${w.rightToWork === 'valid' ? '<span class="badge badge-green">Valid</span>' : '<span class="badge badge-red">' + (w.rightToWork || 'Pending') + '</span>'}</td><td>${cardBadge}</td><td>${compliant ? '<span class="badge badge-green">Compliant</span>' : '<span class="badge badge-red">Non-Compliant</span>'}</td></tr>`;
         }).join('')}
         </tbody></table>`;
 

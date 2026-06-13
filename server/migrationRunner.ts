@@ -648,6 +648,59 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         logger.info('✅ [059] Worker archive columns ensured');
       }
     },
+    {
+      version: '20260613_060_correct_phantom_card_statuses',
+      description: 'Reset yellow/red/pending card statuses that have no matching active card_issues record (phantom values from old auto-calculation)',
+      async up(db: any) {
+        try {
+          // Find workers whose stored status is non-clear but have no active card_issues to back it up
+          const phantom = await db.execute(`
+            SELECT id, current_card_status AS old_status
+            FROM contractor_workers
+            WHERE current_card_status IN ('yellow', 'red', 'pending')
+              AND id NOT IN (
+                SELECT DISTINCT worker_id FROM card_issues WHERE status = 'active'
+              )
+          `);
+
+          const count = (phantom.rows || []).length;
+          if (count === 0) {
+            logger.info('✅ [060] No phantom card statuses found — schema already clean');
+            return;
+          }
+
+          const ids = (phantom.rows as any[]).map((r: any) => `'${r.id}'`).join(',');
+
+          // Reset phantom statuses to clear
+          await db.execute(`
+            UPDATE contractor_workers
+            SET current_card_status = 'clear',
+                card_status_updated_at = NOW()
+            WHERE id IN (${ids})
+          `);
+
+          // Write audit notes for traceability (best-effort)
+          try {
+            for (const row of (phantom.rows as any[])) {
+              const safeOld = String(row.old_status).replace(/'/g, "''");
+              await db.execute(`
+                INSERT INTO worker_notes (id, worker_id, change_type, notes, changed_by, changed_at)
+                VALUES (gen_random_uuid(), '${row.id}', 'card_status_correction',
+                        'Auto-corrected phantom ''${safeOld}'' card (no active card_issues record) to clear via migration 060',
+                        'system-migration-060', NOW())
+                ON CONFLICT DO NOTHING
+              `);
+            }
+          } catch (noteErr: any) {
+            logger.warn(`⚠️ [060] Could not write audit notes (non-fatal): ${noteErr.message?.substring(0, 100)}`);
+          }
+
+          logger.info(`✅ [060] Corrected ${count} phantom card status(es) → clear`);
+        } catch (err: any) {
+          logger.warn(`⚠️ [060] Phantom card status correction: ${err.message?.substring(0, 100)}`);
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

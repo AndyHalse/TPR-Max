@@ -1918,25 +1918,25 @@ export default function ContractorDetails() {
                   Current Safety Status
                 </h3>
                 <div className="flex items-center gap-3">
-                  {viewingWorker.currentCardStatus === 'red' && (
+                  {viewingWorker.hasActiveDisciplinaryCard && viewingWorker.currentCardStatus === 'red' && (
                     <Badge variant="destructive" className="text-sm px-3 py-1">
                       <XCircle className="w-4 h-4 mr-1" />
                       RED CARD - BANNED
                     </Badge>
                   )}
-                  {viewingWorker.currentCardStatus === 'yellow' && (
+                  {viewingWorker.hasActiveDisciplinaryCard && viewingWorker.currentCardStatus === 'yellow' && (
                     <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white text-sm px-3 py-1">
                       <AlertTriangle className="w-4 h-4 mr-1" />
                       YELLOW CARD - WARNING
                     </Badge>
                   )}
-                  {(!viewingWorker.currentCardStatus || viewingWorker.currentCardStatus === 'clear') && (
+                  {!viewingWorker.hasActiveDisciplinaryCard && (
                     <Badge className="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-1">
                       <CheckCircle2 className="w-4 h-4 mr-1" />
                       CLEAR - COMPLIANT
                     </Badge>
                   )}
-                  {viewingWorker.currentCardStatus === 'red' && viewingWorker.redCardBanUntil && (
+                  {viewingWorker.hasActiveDisciplinaryCard && viewingWorker.currentCardStatus === 'red' && viewingWorker.redCardBanUntil && (
                     <span className="text-sm text-muted-foreground">
                       Ban until: {new Date(viewingWorker.redCardBanUntil).toLocaleDateString()}
                     </span>
@@ -1981,13 +1981,13 @@ export default function ContractorDetails() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Right to Work</span>
                       <Badge variant={
-                        viewingWorker.currentCardStatus === 'red' && 
+                        viewingWorker.hasActiveDisciplinaryCard && viewingWorker.currentCardStatus === 'red' && 
                         viewingWorker.redCardBanUntil && 
                         new Date(viewingWorker.redCardBanUntil) > new Date()
                           ? "destructive" 
                           : viewingWorker.rightToWork ? "default" : "destructive"
                       }>
-                        {viewingWorker.currentCardStatus === 'red' && 
+                        {viewingWorker.hasActiveDisciplinaryCard && viewingWorker.currentCardStatus === 'red' && 
                          viewingWorker.redCardBanUntil && 
                          new Date(viewingWorker.redCardBanUntil) > new Date()
                           ? 'Invalid (Banned)' 
@@ -1998,13 +1998,13 @@ export default function ContractorDetails() {
                     <div className="flex items-center justify-between">
                       <span className="text-sm">Active Status</span>
                       <Badge variant={
-                        viewingWorker.currentCardStatus === 'red' && 
+                        viewingWorker.hasActiveDisciplinaryCard && viewingWorker.currentCardStatus === 'red' && 
                         viewingWorker.redCardBanUntil && 
                         new Date(viewingWorker.redCardBanUntil) > new Date()
                           ? "destructive" 
                           : viewingWorker.isActive ? "default" : "secondary"
                       }>
-                        {viewingWorker.currentCardStatus === 'red' && 
+                        {viewingWorker.hasActiveDisciplinaryCard && viewingWorker.currentCardStatus === 'red' && 
                          viewingWorker.redCardBanUntil && 
                          new Date(viewingWorker.redCardBanUntil) > new Date()
                           ? 'Banned' 

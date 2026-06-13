@@ -184,7 +184,13 @@ export function registerPassRoutes(app: Express): void {
         ? new Date(worker.checkedInAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' })
         : new Date().toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
 
-      const cardStatusLabel = worker.currentCardStatus === 'clear' ? 'CLEARED'
+      // Gate on active card_issues — never trust the raw column alone
+      const db = await customerDbService.getCustomerDatabase(req.customerId);
+      const activeCards = await db.execute(
+        `SELECT id FROM card_issues WHERE worker_id = '${worker.id.replace(/'/g, "''")}' AND status = 'active' LIMIT 1`
+      );
+      const hasActiveCard = (activeCards.rows || []).length > 0;
+      const cardStatusLabel = !hasActiveCard ? 'CLEARED'
         : worker.currentCardStatus === 'yellow' ? 'ADVISORY'
         : worker.currentCardStatus === 'red' ? 'RESTRICTED'
         : 'CLEARED';
