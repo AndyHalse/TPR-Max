@@ -527,6 +527,11 @@ app.put("/api/ppm/work-orders/:id", requireAuth, async (req, res) => {
     if (updates.status && updates.status !== "overdue") {
       updates.overdueAlertedAt = null;
     }
+    // Reverting to "scheduled" means the contractor hasn't arrived yet — clear the arrival timestamp
+    // so effectiveWOStatus doesn't force the display back to "on_site".
+    if (updates.status === "scheduled") {
+      updates.arrivedAt = null;
+    }
     const [row] = await custDb.update(isolatedSchema.ppmWorkOrders).set(updates).where(eq(isolatedSchema.ppmWorkOrders.id, id)).returning();
 
     // Advance the linked schedule's nextDueDate when a work order is marked completed

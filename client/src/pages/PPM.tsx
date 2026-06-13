@@ -103,6 +103,7 @@ interface PpmWorkOrder {
   expiredDocCount?: number;
   expiringSoonDocCount?: number;
   templateType?: string | null;
+  missingDocsAlertedAt?: string | null;
 }
 
 interface PpmWorkOrderDocument {
@@ -1234,11 +1235,13 @@ function WorkOrdersTab({ initialStatusFilter, initialWorkOrderId }: { initialSta
   });
 
   const updateWOMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Record<string, unknown> }) => apiRequest("PUT", `/api/ppm/work-orders/${id}`, data),
-    onSuccess: (_, vars) => {
+    mutationFn: async ({ id, data }: { id: string; data: Record<string, unknown> }) => {
+      const res = await apiRequest("PUT", `/api/ppm/work-orders/${id}`, data);
+      return res.json() as Promise<PpmWorkOrder>;
+    },
+    onSuccess: (updated) => {
       queryClient.invalidateQueries({ queryKey: ["/api/ppm/work-orders"] });
-      const updated = workOrders.find(w => w.id === vars.id);
-      if (updated) setSelectedWO({ ...updated, ...vars.data } as PpmWorkOrder);
+      if (selectedWO && updated?.id === selectedWO.id) setSelectedWO(updated);
       setShowEditWO(false);
       setEditingWO(null);
       toast({ title: "Work order updated" });
