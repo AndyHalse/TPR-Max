@@ -1260,6 +1260,10 @@ export function registerInductionRoutes(app: Express): void {
   // Reset worker card to Yellow endpoint
   app.post('/api/contractors/workers/:id/reset-card', requireAuth, async (req, res) => {
     try {
+      // Role check — only admin/manager can reset disciplinary cards
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        return res.status(403).json({ error: 'Only admins and managers can reset disciplinary cards.' });
+      }
       const workerId = req.params.id;
       logger.info('🟡 Resetting card to yellow for worker:', workerId);
       
@@ -1279,14 +1283,17 @@ export function registerInductionRoutes(app: Express): void {
         redCardBanUntil: null,
       } as any);
       
-      // Create audit trail entry in workerNotes
+      // Create audit trail entry in workerNotes (aligned with card-issued format)
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
       const noteData = {
         workerId: workerId,
-        changeType: 'card_status_change',
+        changeType: 'card_issued',
         oldValue: currentWorker.currentCardStatus || 'unknown',
         newValue: 'yellow',
-        notes: `Card status reset from ${currentWorker.currentCardStatus || 'unknown'} to yellow. Ban lifted. User: ${username}`,
-        changedBy: username || 'system' // Fixed: use correct database field name
+        notes: `🟡 Card status reset to Yellow by ${username} on ${dateStr} at ${timeStr}. Previous status: ${currentWorker.currentCardStatus || 'unknown'}. Red card ban lifted.`,
+        changedBy: username,
       };
       
       // Insert the note - use direct database access since workerNotes might not be in databaseService yet
@@ -3608,22 +3615,43 @@ export function registerInductionRoutes(app: Express): void {
     try {
       const { workerId } = req.params;
       const { newStatus = 'yellow' } = req.body;
-      const userId = req.user?.id;
 
-      if (!userId) {
-        return res.status(401).json({ error: 'Not authenticated' });
+      // Role check — only admin/manager can reset disciplinary cards
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        return res.status(403).json({ error: 'Only admins and managers can reset disciplinary cards.' });
       }
 
-      if (req.user!.role !== 'admin') {
-        return res.status(403).json({ message: 'Admin access required' });
-      }
-
-      const resetCardContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const resetUsername = req.user!.username;
+      const resetCardContext = simpleDatabaseService.createCustomerContext(resetUsername, req.customerId);
       const resetCardDb = await customerDbService.getCustomerDatabase(resetCardContext.customerId);
+
+      // Fetch current status for audit note
+      const [currentW] = await resetCardDb.select({ currentCardStatus: isolatedSchema.contractorWorkers.currentCardStatus })
+        .from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.id, workerId))
+        .limit(1);
+
       await resetCardDb.update(isolatedSchema.contractorWorkers)
         .set({ currentCardStatus: newStatus, updatedAt: new Date() })
         .where(eq(isolatedSchema.contractorWorkers.id, workerId));
-      
+
+      // Audit note aligned with card-issued format
+      try {
+        const auditNow = new Date();
+        const auditDate = auditNow.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        const auditTime = auditNow.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+        await resetCardDb.insert(isolatedSchema.workerNotes).values({
+          workerId,
+          changeType: 'card_issued',
+          oldValue: currentW?.currentCardStatus || 'unknown',
+          newValue: newStatus,
+          notes: `🟡 Card status reset to ${newStatus} by ${resetUsername} on ${auditDate} at ${auditTime}. Previous status: ${currentW?.currentCardStatus || 'unknown'}.`,
+          changedBy: resetUsername,
+        });
+      } catch (noteErr) {
+        logger.error('Failed to write card-reset audit note:', noteErr);
+      }
+
       res.json({ success: true, message: 'Card status reset successfully' });
     } catch (error) {
       logger.error('Error resetting card status:', error);
@@ -5515,43 +5543,61 @@ export async function handleContractorWorkerUpdate(req: Request, res: Response):
     }
 
     // ── Audit trail — ONE consolidated note per save ────────────────────────
+    // Friendly label map — covers all known fields; unknown fields fall back to the raw key.
     const auditFieldLabels: Record<string, string> = {
       firstName: 'First Name', lastName: 'Last Name', email: 'Email',
-      phoneNumber: 'Phone Number', postcode: 'Postcode', transportMethod: 'Transport Method',
+      mobileNumber: 'Mobile Number', phoneNumber: 'Phone Number',
+      homeAddress: 'Home Address', postcode: 'Postcode',
+      jobTitle: 'Job Title', department: 'Department', trade: 'Trade',
+      transportMethod: 'Transport Method',
+      emergencyContactName: 'Emergency Contact Name',
+      emergencyContactPhone: 'Emergency Contact Phone',
+      emergencyContactRelationship: 'Emergency Contact Relationship',
       companyId: 'Contractor Company', rightToWork: 'Right to Work Status',
+      rightToWorkExpiryDate: 'RTW Expiry Date',
       rightToWorkVerifiedBy: 'RTW Verified By', rightToWorkVerifiedAt: 'RTW Verified At',
       cscsCard: 'CSCS Card Number', cscsStatus: 'CSCS Status', ipafStatus: 'IPAF Status',
       asbestosAwareness: 'Asbestos Awareness', manualHandling: 'Manual Handling',
       inductionCompleted: 'Site Induction Completed', workingAtHeight: 'Working at Height',
       isActive: 'Active Status', currentCardStatus: 'Card Status', hsRulesAccepted: 'H&S Rules Accepted',
+      needsEvacuationAssistance: 'Evacuation Assistance',
+      photoUrl: 'Profile Photo',
     };
+    // Fields where true/false maps to a confirmation/removal message
     const trainingConfirmFields = new Set([
       'inductionCompleted', 'asbestosAwareness', 'manualHandling', 'workingAtHeight', 'hsRulesAccepted',
+      'needsEvacuationAssistance',
+    ]);
+    // Internal/system fields that should never appear in audit notes
+    const auditSkipFields = new Set([
+      'id', 'createdAt', 'updatedAt', 'hsRulesAcceptanceToken', 'inductionToken',
+      'redCardBanUntil', 'siteInductionCompleted',
     ]);
     const changeLines: string[] = [];
     const db = await customerDbService.getCustomerDatabase(context.customerId);
 
-    // Build the full set of fields to check (validated + rtwVerified extras)
+    // Build the full set of fields to check (ALL payload keys + rtwVerified extras)
     const fieldsToCheck = { ...(validatedData as any) };
     if (rtwVerified) {
       fieldsToCheck.rightToWorkVerifiedBy = username;
       fieldsToCheck.rightToWorkVerifiedAt = (validatedData as any).rightToWorkVerifiedAt;
     }
 
-    for (const [field, label] of Object.entries(auditFieldLabels)) {
-      if (fieldsToCheck[field] !== undefined) {
-        const oldVal = (currentWorker as any)[field];
-        const newVal = fieldsToCheck[field];
-        const oldStr = oldVal == null ? 'Not set' : String(oldVal);
-        const newStr = newVal == null ? 'Not set' : String(newVal);
-        if (oldStr !== newStr) {
-          if (trainingConfirmFields.has(field) && (newStr === 'true' || newStr === 'false')) {
-            changeLines.push(newStr === 'true'
-              ? `✅ ${label} confirmed`
-              : `❌ ${label} record removed`);
-          } else {
-            changeLines.push(`${label}: "${oldStr}" → "${newStr}"`);
-          }
+    // Iterate every key sent in the payload — not just the label whitelist
+    for (const field of Object.keys(fieldsToCheck)) {
+      if (auditSkipFields.has(field)) continue;
+      const oldVal = (currentWorker as any)[field];
+      const newVal = fieldsToCheck[field];
+      const oldStr = oldVal == null ? 'Not set' : String(oldVal);
+      const newStr = newVal == null ? 'Not set' : String(newVal);
+      if (oldStr !== newStr) {
+        const label = auditFieldLabels[field] ?? field; // fall back to raw field name
+        if (trainingConfirmFields.has(field) && (newStr === 'true' || newStr === 'false')) {
+          changeLines.push(newStr === 'true'
+            ? `✅ ${label} confirmed`
+            : `❌ ${label} record removed`);
+        } else {
+          changeLines.push(`${label}: "${oldStr}" → "${newStr}"`);
         }
       }
     }

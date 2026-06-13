@@ -741,11 +741,11 @@ export function registerContractorRoutes(app: Express): void {
         let ciOffenceName: string | null = null;
         if (ciOffenceId) {
           try {
-            const [offence] = await noteDb.select({ offence: isolatedSchema.cardOffences.offence })
+            const [offence] = await noteDb.select({ offenceName: isolatedSchema.cardOffences.offenceName })
               .from(isolatedSchema.cardOffences)
               .where(eq(isolatedSchema.cardOffences.id, ciOffenceId))
               .limit(1);
-            if (offence) ciOffenceName = offence.offence;
+            if (offence) ciOffenceName = offence.offenceName;
           } catch (_) {}
         }
         const ciNoteText = [
