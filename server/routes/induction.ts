@@ -1269,6 +1269,14 @@ export function registerInductionRoutes(app: Express): void {
       
       // Field mapping from UI field names to database field names
       const uiData = req.body;
+
+      // Mandatory field validation — reject clearly empty required fields
+      if (uiData.firstName !== undefined && !String(uiData.firstName).trim()) {
+        return res.status(400).json({ error: 'First name cannot be empty.' });
+      }
+      if (uiData.lastName !== undefined && !String(uiData.lastName).trim()) {
+        return res.status(400).json({ error: 'Last name cannot be empty.' });
+      }
       
       // Direct field mappings (no conversion needed)
       const directFieldMappings = {
@@ -1276,8 +1284,8 @@ export function registerInductionRoutes(app: Express): void {
         firstName: 'firstName', 
         lastName: 'lastName',
         email: 'email',
-        phoneNumber: 'phone', // Map phoneNumber to phone field in schema
-        phone: 'phoneNumber', // Direct mapping to phone_number field
+        phoneNumber: 'phoneNumber', // UI may send phoneNumber directly
+        phone: 'phoneNumber', // UI sends phone → save as phoneNumber (DB column)
         homeAddress: 'homeAddress',
         postcode: 'postcode',
         jobTitle: 'jobTitle',
@@ -1388,14 +1396,10 @@ export function registerInductionRoutes(app: Express): void {
         validatedData.needsEvacuationAssistance = Boolean(mappedData.needsEvacuationAssistance);
       }
 
-      // MANUAL FIX: Preserve phone/phoneNumber — Zod strips 'phoneNumber' because shared schema uses 'phone'
+      // MANUAL FIX: Preserve phoneNumber — Zod partial may strip it if not in shared schema
       if (mappedData.phoneNumber !== undefined) {
         (validatedData as any).phoneNumber = mappedData.phoneNumber;
         logger.info(`🔧 MANUAL FIX: Preserved phoneNumber: ${mappedData.phoneNumber}`);
-      }
-      if (mappedData.phone !== undefined && mappedData.phoneNumber === undefined) {
-        (validatedData as any).phone = mappedData.phone;
-        logger.info(`🔧 MANUAL FIX: Preserved phone: ${mappedData.phone}`);
       }
 
       // MANUAL FIX: Preserve photoUrl in case Zod strips it

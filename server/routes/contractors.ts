@@ -1723,7 +1723,21 @@ export function registerContractorRoutes(app: Express): void {
   app.put("/api/workers/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
+      const body = req.body;
+
+      // Mandatory field validation
+      if (body.firstName !== undefined && !String(body.firstName).trim()) {
+        return res.status(400).json({ error: 'First name cannot be empty.' });
+      }
+      if (body.lastName !== undefined && !String(body.lastName).trim()) {
+        return res.status(400).json({ error: 'Last name cannot be empty.' });
+      }
+
+      // Normalise phone → phoneNumber (same logic as the canonical PUT route)
+      const updates = {
+        ...body,
+        phoneNumber: body.phoneNumber || body.phone || undefined,
+      };
       
       const updateWorkerContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const worker = await databaseService.updateContractorWorker(updateWorkerContext, id, updates);

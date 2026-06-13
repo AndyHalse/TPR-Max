@@ -54,6 +54,7 @@ import {
 import { WorkerCard } from "@/components/WorkerCard";
 import ContractorsComplianceView from "@/components/ContractorsComplianceView";
 import HSDocumentAssignment from "@/components/HSDocumentAssignment";
+import { ContractorEditModal } from "@/components/ContractorEditModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface CompanyComboboxProps {
@@ -313,20 +314,6 @@ export default function Contractors() {
   const [showNdaModal, setShowNdaModal] = useState(false);
   const [pendingNdaCheckin, setPendingNdaCheckin] = useState<{ worker: any; hostId: string } | null>(null);
   const [selectedHostForWorker, setSelectedHostForWorker] = useState("");
-  const [editWorkerForm, setEditWorkerForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    rightToWork: "",
-    cscsCard: "",
-    cscsStatus: "",
-    ipafStatus: "",
-    asbestosAwareness: false,
-    manualHandling: false,
-    inductionCompleted: false,
-    isActive: true
-  });
   const [contractorForm, setContractorForm] = useState({
     name: "",
     email: "",
@@ -702,43 +689,8 @@ export default function Contractors() {
 
   const handleEditWorker = (worker: any) => {
     setSelectedWorker(worker);
-    setEditWorkerForm({
-      firstName: worker.firstName || "",
-      lastName: worker.lastName || "",
-      email: worker.email || "",
-      phone: worker.phone || "",
-      rightToWork: worker.rightToWork || "",
-      cscsCard: worker.cscsCard || "",
-      cscsStatus: worker.cscsStatus || "",
-      ipafStatus: worker.ipafStatus || "",
-      asbestosAwareness: worker.asbestosAwareness || false,
-      manualHandling: worker.manualHandling || false,
-      inductionCompleted: worker.inductionCompleted || false,
-      isActive: worker.isActive !== undefined ? worker.isActive : true
-    });
     setShowEditWorkerModal(true);
   };
-
-  const updateWorkerMutation = useMutation({
-    mutationFn: async (workerData: any) => {
-      return await apiRequest("PUT", `/api/contractors/workers/${selectedWorker.id}`, workerData);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Worker Updated",
-        description: "Worker information has been updated successfully.",
-      });
-      setShowEditWorkerModal(false);
-      queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Update Failed",
-        description: error.message || "Failed to update worker",
-        variant: "destructive",
-      });
-    },
-  });
 
   // Resend H&S document email mutation
   const resendHSDocumentMutation = useMutation({
@@ -799,10 +751,6 @@ export default function Contractors() {
     }
   });
 
-  const handleUpdateWorker = () => {
-    updateWorkerMutation.mutate(editWorkerForm);
-  };
-  
   // Handle resending H&S document email
   const handleResendHSDocument = (assignmentId: string) => {
     resendHSDocumentMutation.mutate(assignmentId);
@@ -2622,172 +2570,13 @@ export default function Contractors() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Worker Modal */}
-      <Dialog open={showEditWorkerModal} onOpenChange={setShowEditWorkerModal}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Edit Worker: {selectedWorker?.firstName} {selectedWorker?.lastName}
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-6 mt-4">
-            {/* Personal Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-fixed">Personal Information</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="firstName">First Name</Label>
-                  <Input
-                    id="firstName"
-                    value={editWorkerForm.firstName}
-                    onChange={(e) => setEditWorkerForm({...editWorkerForm, firstName: e.target.value})}
-                    data-testid="input-first-name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lastName">Last Name</Label>
-                  <Input
-                    id="lastName"
-                    value={editWorkerForm.lastName}
-                    onChange={(e) => setEditWorkerForm({...editWorkerForm, lastName: e.target.value})}
-                    data-testid="input-last-name"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={editWorkerForm.email}
-                    onChange={(e) => setEditWorkerForm({...editWorkerForm, email: e.target.value})}
-                    data-testid="input-email"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={editWorkerForm.phone}
-                    onChange={(e) => setEditWorkerForm({...editWorkerForm, phone: e.target.value})}
-                    data-testid="input-phone"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Work Status */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-fixed">Work Status</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="rightToWork">Right to Work Status</Label>
-                  <select
-                    value={editWorkerForm.rightToWork}
-                    onChange={(e) => setEditWorkerForm({...editWorkerForm, rightToWork: e.target.value})}
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
-                  >
-                    <option value="valid">Valid</option>
-                    <option value="expired">Expired</option>
-                    <option value="pending">Pending</option>
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="cscsStatus">CSCS Status</Label>
-                  <select
-                    value={editWorkerForm.cscsStatus}
-                    onChange={(e) => setEditWorkerForm({...editWorkerForm, cscsStatus: e.target.value})}
-                    className="w-full h-10 px-3 rounded-md border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring appearance-none"
-                  >
-                    <option value="valid">Valid</option>
-                    <option value="expired">Expired</option>
-                    <option value="expiring">Expiring</option>
-                    <option value="missing">Missing</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="cscsCard">CSCS Card Number</Label>
-                <Input
-                  id="cscsCard"
-                  value={editWorkerForm.cscsCard}
-                  onChange={(e) => setEditWorkerForm({...editWorkerForm, cscsCard: e.target.value})}
-                  data-testid="input-cscs-card"
-                />
-              </div>
-            </div>
-
-            {/* Training & Certifications */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-fixed">Training & Certifications</h3>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="asbestosAwareness"
-                    checked={editWorkerForm.asbestosAwareness}
-                    onChange={(e) => setEditWorkerForm({...editWorkerForm, asbestosAwareness: e.target.checked})}
-                    className="rounded"
-                  />
-                  <Label htmlFor="asbestosAwareness">Asbestos Awareness Training</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="manualHandling"
-                    checked={editWorkerForm.manualHandling}
-                    onChange={(e) => setEditWorkerForm({...editWorkerForm, manualHandling: e.target.checked})}
-                    className="rounded"
-                  />
-                  <Label htmlFor="manualHandling">Manual Handling Training</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="inductionCompleted"
-                    checked={editWorkerForm.inductionCompleted}
-                    onChange={(e) => setEditWorkerForm({...editWorkerForm, inductionCompleted: e.target.checked})}
-                    className="rounded"
-                  />
-                  <Label htmlFor="inductionCompleted">Induction Completed</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="isActive"
-                    checked={editWorkerForm.isActive}
-                    onChange={(e) => setEditWorkerForm({...editWorkerForm, isActive: e.target.checked})}
-                    className="rounded"
-                  />
-                  <Label htmlFor="isActive">Active Worker</Label>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-3 pt-4 border-t">
-              <Button 
-                variant="outline" 
-                onClick={() => setShowEditWorkerModal(false)}
-                data-testid="button-cancel-edit"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleUpdateWorker}
-                disabled={updateWorkerMutation.isPending}
-                className="bg-blue-600 hover:bg-blue-700"
-                data-testid="button-save-worker"
-              >
-                {updateWorkerMutation.isPending ? "Saving..." : "Save Changes"}
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Edit Worker Modal — uses the full ContractorEditModal */}
+      <ContractorEditModal
+        worker={selectedWorker}
+        companyName={contractors.find((c: any) => c.id === selectedWorker?.companyId)?.name ?? ""}
+        open={showEditWorkerModal}
+        onOpenChange={setShowEditWorkerModal}
+      />
 
       {/* Delete Company Document Confirmation Dialog */}
       {(() => {

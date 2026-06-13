@@ -617,6 +617,13 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
       if (!firstName?.trim() || !lastName?.trim()) {
         return res.status(400).json({ error: 'First name and last name are required.' });
       }
+      if (!email?.trim()) {
+        return res.status(400).json({ error: 'Email address is required.' });
+      }
+      const phone = mobileNumber?.trim() || phoneNumber?.trim();
+      if (!phone) {
+        return res.status(400).json({ error: 'Phone number is required.' });
+      }
 
       const db = await customerDbService.getCustomerDatabase(pu.customerId);
       const [worker] = await db
