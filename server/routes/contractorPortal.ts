@@ -641,6 +641,17 @@ export async function registerContractorPortalRoutes(app: Express): Promise<void
         })
         .returning();
 
+      try {
+        await db.insert(isolatedSchema.workerNotes).values({
+          workerId: worker.id,
+          changeType: 'worker_created',
+          notes: `Worker profile created via contractor portal. Name: ${firstName.trim()} ${lastName.trim()}, Email: ${email?.trim()}, Phone: ${phone}.`,
+          changedBy: `portal:${pu.email}`,
+        });
+      } catch (noteErr) {
+        logger.error('[portal-add-worker] Failed to create audit note:', noteErr);
+      }
+
       return res.status(201).json(worker);
     } catch (err: any) {
       logger.error('[portal-add-worker]', err);

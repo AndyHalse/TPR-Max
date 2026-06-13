@@ -5483,6 +5483,7 @@ export async function handleContractorWorkerUpdate(req: Request, res: Response):
     const preserveFields = [
       'inductionCompleted', 'ipafStatus', 'asbestosAwareness', 'manualHandling',
       'transportMethod', 'needsEvacuationAssistance', 'phoneNumber', 'photoUrl',
+      'rightToWorkVerifiedBy', 'rightToWorkVerifiedAt',
     ];
     for (const f of preserveFields) {
       if (mappedData[f] !== undefined) (validatedData as any)[f] = mappedData[f];
@@ -5494,6 +5495,13 @@ export async function handleContractorWorkerUpdate(req: Request, res: Response):
     const currentWorker = await databaseService.getContractorWorkerById(context, workerId);
     if (!currentWorker) {
       res.status(404).json({ error: 'Contractor worker not found' }); return;
+    }
+
+    // Auto-stamp Right to Work verification when rightToWork changes to 'valid'
+    if ((validatedData as any).rightToWork === 'valid' && currentWorker.rightToWork !== 'valid') {
+      (validatedData as any).rightToWorkVerifiedBy = (req as any).user?.id || null;
+      (validatedData as any).rightToWorkVerifiedAt = new Date();
+      logger.info(`✅ RTW verification stamped for worker ${workerId} by user ${username}`);
     }
 
     const updatedWorker = await databaseService.updateContractorWorker(context, workerId, validatedData);

@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiRequest } from '@/lib/queryClient';
 import type { ContractorWorker, ContractorCompany, WorkerDocumentAssignment, UkHSDocumentTemplate } from '@shared/schema';
-import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck, Sparkles, Info, ExternalLink } from 'lucide-react';
+import { Save, X, Clock, CheckCircle, XCircle, History, HardHat, AlertTriangle, Shield, Send, FileText, Calendar, RotateCcw, Edit3, Plus, Upload, Trash2, Download, Eye, Lock, ShieldCheck, Sparkles, Info, ExternalLink, Archive, ArchiveRestore } from 'lucide-react';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -49,7 +49,9 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
   const [showHostSelection, setShowHostSelection] = useState(false);
   const [selectedHostId, setSelectedHostId] = useState('');
   const [manualNote, setManualNote] = useState('');
-  
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [archiveReason, setArchiveReason] = useState('');
+
   // Document upload state
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -346,6 +348,52 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
         description: error.message || 'Failed to add note',
         variant: 'destructive',
       });
+    },
+  });
+
+  // Archive worker mutation
+  const archiveWorkerMutation = useMutation({
+    mutationFn: async ({ workerId, reason }: { workerId: string; reason: string }) => {
+      const response = await apiRequest('POST', `/api/contractors/workers/${workerId}/archive`, { reason });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
+      if (worker?.companyId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}/archived-workers`] });
+      }
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/notes`] });
+      setShowArchiveDialog(false);
+      setArchiveReason('');
+      toast({ title: 'Worker archived', description: 'Worker has been archived and will no longer appear in the active list.' });
+      onOpenChange(false);
+    },
+    onError: (error: any) => {
+      toast({ title: 'Failed to archive worker', description: error.message || 'Please try again.', variant: 'destructive' });
+    },
+  });
+
+  // Unarchive worker mutation
+  const unarchiveWorkerMutation = useMutation({
+    mutationFn: async (workerId: string) => {
+      const response = await apiRequest('POST', `/api/contractors/workers/${workerId}/unarchive`, {});
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/contractors/workers/all'] });
+      if (worker?.companyId) {
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}`] });
+        queryClient.invalidateQueries({ queryKey: [`/api/contractors/${worker.companyId}/archived-workers`] });
+      }
+      queryClient.invalidateQueries({ queryKey: [`/api/contractors/workers/${worker?.id}/notes`] });
+      toast({ title: 'Worker reactivated', description: 'Worker has been unarchived and will appear in the active list again.' });
+      onOpenChange(false);
+    },
+    onError: (error: any) => {
+      toast({ title: 'Failed to unarchive worker', description: error.message || 'Please try again.', variant: 'destructive' });
     },
   });
 
@@ -882,7 +930,31 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                     )}
                   </div>
                   
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    {(activeWorker as any)?.isActive !== false ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setShowArchiveDialog(true)}
+                        className="border-amber-300 text-amber-700 hover:bg-amber-50"
+                        data-testid="button-archive-worker"
+                      >
+                        <Archive className="h-4 w-4 mr-2" />
+                        Archive Worker
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={unarchiveWorkerMutation.isPending}
+                        onClick={() => worker && unarchiveWorkerMutation.mutate(worker.id)}
+                        className="border-green-300 text-green-700 hover:bg-green-50"
+                        data-testid="button-unarchive-worker"
+                      >
+                        <ArchiveRestore className="h-4 w-4 mr-2" />
+                        Reactivate Worker
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="outline"
@@ -1596,7 +1668,11 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                           <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-2">
                               <Badge variant={
-                                note.changeType === 'card_reset' || note.changeType === 'card_status_change' ? 'destructive' : 
+                                note.changeType === 'card_reset' || note.changeType === 'card_status_change' ? 'destructive' :
+                                note.changeType === 'card_issued' ? 'destructive' :
+                                note.changeType === 'worker_archived' ? 'destructive' :
+                                note.changeType === 'worker_unarchived' ? 'default' :
+                                note.changeType === 'worker_created' ? 'default' :
                                 note.changeType === 'check_in' ? 'default' :
                                 note.changeType === 'check_out' ? 'secondary' :
                                 note.changeType === 'certification_update' ? 'default' : 
@@ -1606,6 +1682,10 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                                 'outline'
                               }>
                                 {(note.changeType === 'card_reset' || note.changeType === 'card_status_change') && 'Card Status'}
+                                {note.changeType === 'card_issued' && 'Card Issued'}
+                                {note.changeType === 'worker_archived' && 'Archived'}
+                                {note.changeType === 'worker_unarchived' && 'Reactivated'}
+                                {note.changeType === 'worker_created' && 'Created'}
                                 {note.changeType === 'check_in' && 'Check In'}
                                 {note.changeType === 'check_out' && 'Check Out'}
                                 {note.changeType === 'certification_update' && 'Certification Update'}
@@ -1613,12 +1693,12 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
                                 {note.changeType === 'profile_update' && 'Profile Update'}
                                 {note.changeType === 'document_upload' && 'Document Upload'}
                                 {note.changeType === 'manual_note' && 'Manual Note'}
-                                {!['card_reset', 'card_status_change', 'check_in', 'check_out', 'certification_update', 'hs_acceptance', 'profile_update', 'document_upload', 'manual_note'].includes(note.changeType) && note.changeType}
+                                {!['card_reset', 'card_status_change', 'card_issued', 'worker_archived', 'worker_unarchived', 'worker_created', 'check_in', 'check_out', 'certification_update', 'hs_acceptance', 'profile_update', 'document_upload', 'manual_note'].includes(note.changeType) && note.changeType}
                               </Badge>
                               <span className="text-sm text-variable">{note.changedBy || 'System'}</span>
                             </div>
                             <span className="text-xs text-variable">
-                              {note.changedAt ? format(new Date(note.changedAt), 'MMM dd, yyyy HH:mm') : 'Unknown date'}
+                              {note.changedAt ? format(new Date(note.changedAt), 'dd/MM/yyyy HH:mm') : 'Unknown date'}
                             </span>
                           </div>
                           
@@ -1650,6 +1730,50 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       </DialogContent>
     </Dialog>
     
+    {/* Archive Confirmation Dialog */}
+    <Dialog open={showArchiveDialog} onOpenChange={(open) => { if (!open) { setShowArchiveDialog(false); setArchiveReason(''); } }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-amber-700">
+            <Archive className="h-5 w-5" />
+            Archive Worker
+          </DialogTitle>
+          <DialogDescription>
+            Archiving <strong>{activeWorker?.firstName} {activeWorker?.lastName}</strong> will remove them from all active lists, kiosk check-ins, and musters. Their full history and audit trail will be preserved. You can reactivate them at any time.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="archiveReason">Reason for archiving (optional)</Label>
+            <Textarea
+              id="archiveReason"
+              value={archiveReason}
+              onChange={(e) => setArchiveReason(e.target.value)}
+              placeholder="e.g. Left the company, contract ended, TUPE transfer..."
+              rows={3}
+            />
+          </div>
+        </div>
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={() => { setShowArchiveDialog(false); setArchiveReason(''); }}>
+            Cancel
+          </Button>
+          <Button
+            disabled={archiveWorkerMutation.isPending}
+            onClick={() => {
+              if (worker) {
+                archiveWorkerMutation.mutate({ workerId: worker.id, reason: archiveReason });
+              }
+            }}
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            <Archive className="h-4 w-4 mr-2" />
+            {archiveWorkerMutation.isPending ? 'Archiving...' : 'Archive Worker'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
     {/* Host Selection Dialog for Check-in */}
     <Dialog open={showHostSelection} onOpenChange={(open) => { if (!open) { setShowHostSelection(false); setSelectedHostId(''); } }}>
       <DialogContent className="sm:max-w-md">

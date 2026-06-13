@@ -629,6 +629,25 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260613_059_worker_archive_columns',
+      description: 'Add archived_at, archived_by, archive_reason to contractor_workers for soft-delete',
+      async up(db: any) {
+        const cols = [
+          `ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`,
+          `ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS archived_by TEXT`,
+          `ALTER TABLE contractor_workers ADD COLUMN IF NOT EXISTS archive_reason TEXT`,
+        ];
+        for (const stmt of cols) {
+          try {
+            await db.execute(stmt);
+          } catch (err: any) {
+            logger.info(`⚠️ [059] worker archive columns: ${err.message?.substring(0, 80)}`);
+          }
+        }
+        logger.info('✅ [059] Worker archive columns ensured');
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {

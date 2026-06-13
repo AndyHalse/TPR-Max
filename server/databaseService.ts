@@ -1384,7 +1384,10 @@ export class DatabaseService {
           isolatedSchema.contractorCompanies,
           eq(isolatedSchema.contractorWorkers.companyId, isolatedSchema.contractorCompanies.id)
         )
-        .where(eq(isolatedSchema.contractorWorkers.isCheckedIn, true));
+        .where(and(
+          eq(isolatedSchema.contractorWorkers.isCheckedIn, true),
+          eq(isolatedSchema.contractorWorkers.isActive, true)
+        ));
 
       logger.info(`✅ CHECKED-IN CONTRACTORS: Found ${checkedInWorkers.length} workers currently checked in`);
       
@@ -1427,11 +1430,14 @@ export class DatabaseService {
         return []; // Company doesn't exist or doesn't belong to this customer
       }
       
-      // Get raw worker data
+      // Get raw worker data — active (non-archived) workers only
       const workers = await db
         .select()
         .from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.companyId, companyId))
+        .where(and(
+          eq(isolatedSchema.contractorWorkers.companyId, companyId),
+          eq(isolatedSchema.contractorWorkers.isActive, true)
+        ))
         .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
       
       
@@ -2340,11 +2346,14 @@ export class DatabaseService {
     const db = await customerDbService.getCustomerDatabase(context.customerId);
     
     try {
-      // Get raw worker data
+      // Get raw worker data — active (non-archived) workers only
       const workers = await db
         .select()
         .from(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.companyId, companyId))
+        .where(and(
+          eq(isolatedSchema.contractorWorkers.companyId, companyId),
+          eq(isolatedSchema.contractorWorkers.isActive, true)
+        ))
         .orderBy(asc(isolatedSchema.contractorWorkers.firstName), asc(isolatedSchema.contractorWorkers.lastName));
       
       

@@ -25,7 +25,7 @@ import {
   Calendar, MapPin, Phone, Mail, User, Award, Leaf, TrendingUp,
   XCircle, Clock, AlertCircle, CalendarPlus, Lock, CheckSquare,
   ChevronRight, Upload, Eye, QrCode, Printer, Download, Sparkles, RotateCcw, Trash2,
-  Send, Loader2
+  Send, Loader2, Archive, ArchiveRestore
 } from "lucide-react";
 import { CO2SustainabilityReports } from "@/components/CO2SustainabilityReports";
 import RAMSManagement from "@/components/RAMSManagement";
@@ -117,6 +117,7 @@ export default function ContractorDetails() {
   const [issuingCard, setIssuingCard] = useState(false);
   const [addingCertification, setAddingCertification] = useState(false);
   const [addingWorker, setAddingWorker] = useState(false);
+  const [showArchivedWorkers, setShowArchivedWorkers] = useState(false);
   const [portalInviteOpen, setPortalInviteOpen] = useState(false);
   const [portalInviteEmail, setPortalInviteEmail] = useState("");
   const [workerWizardStep, setWorkerWizardStep] = useState(1);
@@ -195,6 +196,12 @@ export default function ContractorDetails() {
   });
 
   const { data: companySettings } = useQuery<any>({ queryKey: ['/api/settings'] });
+
+  // Archived workers for this contractor company
+  const { data: archivedWorkers = [], isLoading: archivedWorkersLoading } = useQuery<any[]>({
+    queryKey: [`/api/contractors/${id}/archived-workers`],
+    enabled: !!id && showArchivedWorkers,
+  });
 
   // Portal users for this contractor company
   const { data: portalUsers = [], refetch: refetchPortalUsers } = useQuery<any[]>({
@@ -1197,6 +1204,7 @@ export default function ContractorDetails() {
         </TabsList>
 
         <TabsContent value="workers" className="space-y-4" data-testid="workers-tab-content">
+          {/* Active workers grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {contractorData.workers?.length > 0 ? (
               contractorData.workers.map((worker: ContractorWorker) => (
@@ -1233,6 +1241,71 @@ export default function ContractorDetails() {
               </Card>
             )}
           </div>
+
+          {/* Archived workers toggle */}
+          <div className="flex items-center gap-3 pt-2 border-t border-slate-200">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowArchivedWorkers((v) => !v)}
+              className={showArchivedWorkers ? 'border-amber-400 text-amber-700 bg-amber-50' : 'text-muted-foreground'}
+              data-testid="button-toggle-archived-workers"
+            >
+              {showArchivedWorkers ? (
+                <><ArchiveRestore className="w-4 h-4 mr-2" />Hide Archived Workers</>
+              ) : (
+                <><Archive className="w-4 h-4 mr-2" />Show Archived Workers</>
+              )}
+            </Button>
+            {showArchivedWorkers && (
+              <span className="text-xs text-muted-foreground">
+                {archivedWorkersLoading ? 'Loading...' : `${archivedWorkers.length} archived worker${archivedWorkers.length !== 1 ? 's' : ''}`}
+              </span>
+            )}
+          </div>
+
+          {/* Archived workers grid */}
+          {showArchivedWorkers && (
+            <div>
+              <h4 className="text-sm font-medium text-amber-700 mb-3 flex items-center gap-2">
+                <Archive className="w-4 h-4" />
+                Archived Workers
+              </h4>
+              {archivedWorkersLoading ? (
+                <p className="text-sm text-muted-foreground">Loading archived workers...</p>
+              ) : archivedWorkers.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No archived workers for this contractor.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {archivedWorkers.map((archivedWorker: any) => (
+                    <Card
+                      key={archivedWorker.id}
+                      variant="glass"
+                      className="p-4 opacity-70 border-amber-200 bg-amber-50/30 cursor-pointer hover:opacity-90 transition-opacity"
+                      onClick={() => setSelectedWorkerForEdit(archivedWorker as ContractorWorker)}
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div>
+                          <p className="font-medium text-sm">{archivedWorker.firstName} {archivedWorker.lastName}</p>
+                          <p className="text-xs text-muted-foreground">{archivedWorker.trade || archivedWorker.jobTitle || 'Worker'}</p>
+                        </div>
+                        <Badge variant="outline" className="text-amber-700 border-amber-300 text-xs">
+                          <Archive className="w-3 h-3 mr-1" />
+                          Archived
+                        </Badge>
+                      </div>
+                      {archivedWorker.archiveReason && (
+                        <p className="text-xs text-muted-foreground mt-1 truncate" title={archivedWorker.archiveReason}>
+                          Reason: {archivedWorker.archiveReason}
+                        </p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">Click to view / reactivate</p>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-4" data-testid="documents-tab-content">

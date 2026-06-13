@@ -727,7 +727,30 @@ export function registerContractorRoutes(app: Express): void {
       const issue = await databaseService.createCardIssue(context, cardData);
       
       logger.info(`Card issue created successfully for customer ${context.customerId}:`, issue);
-      
+
+      // Write audit note synchronously
+      try {
+        const noteDb = await customerDbService.getCustomerDatabase(context.customerId);
+        const { workerId: ciWorkerId, offenceId: ciOffenceId, cardType: ciCardType, description: ciDesc, location: ciLoc, witness: ciWit } = req.body;
+        const ciCardLabel = ciCardType === 'red' ? '🔴 Red' : '🟡 Yellow';
+        const ciNoteText = [
+          `${ciCardLabel} card issued.`,
+          ciDesc ? `Offence: ${ciDesc}` : null,
+          ciLoc ? `Location: ${ciLoc}` : null,
+          ciWit ? `Witness: ${ciWit}` : null,
+        ].filter(Boolean).join(' ');
+        await noteDb.insert(isolatedSchema.workerNotes).values({
+          workerId: ciWorkerId,
+          changeType: 'card_issued',
+          oldValue: 'clear',
+          newValue: ciCardType,
+          notes: ciNoteText,
+          changedBy: req.user!.username,
+        });
+      } catch (noteErr) {
+        logger.error('Failed to write card-issue audit note (non-blocking):', noteErr);
+      }
+
       // Send email notification (async - don't block the response)
       (async () => {
         try {
@@ -1739,20 +1762,201 @@ export function registerContractorRoutes(app: Express): void {
 
   app.put("/api/workers/:id", requireAuth, handleContractorWorkerUpdate);
 
+  // Archive a worker (soft-delete) — admin/manager only
+  app.post("/api/contractors/workers/:id/archive", requireAuth, async (req, res) => {
+    try {
+      const role = req.user!.role;
+      if (!['admin', 'manager'].includes(role)) {
+        return res.status(403).json({ error: "Only admins and managers can archive workers." });
+      }
+      const workerId = req.params.id;
+      const { reason } = req.body;
+      const username = req.user!.username;
+      const archCtx = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const archDb = await customerDbService.getCustomerDatabase(archCtx.customerId);
+
+      // Ensure archive columns exist (lazy migration)
+      try {
+        const schemaName = customerDbService.generateSchemaName(archCtx.customerId);
+        const pool = (archDb as any).$client ?? (archDb as any).session?.client;
+        await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS archived_at TIMESTAMPTZ`);
+        await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS archived_by TEXT`);
+        await pool.query(`ALTER TABLE "${schemaName}".contractor_workers ADD COLUMN IF NOT EXISTS archive_reason TEXT`);
+      } catch (migErr) {
+        logger.warn('Archive migration warning (non-fatal):', migErr);
+      }
+
+      // Load worker
+      const [worker] = await archDb.select().from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.id, workerId)).limit(1);
+      if (!worker) return res.status(404).json({ error: "Worker not found" });
+      if (!worker.isActive) return res.status(400).json({ error: "Worker is already archived." });
+
+      // Soft-delete
+      await archDb.execute(sql`
+        UPDATE contractor_workers
+        SET is_active = false,
+            archived_at = NOW(),
+            archived_by = ${username},
+            archive_reason = ${reason || null},
+            updated_at = NOW()
+        WHERE id = ${workerId}
+      `);
+
+      // Audit note
+      try {
+        await archDb.insert(isolatedSchema.workerNotes).values({
+          workerId,
+          changeType: 'worker_archived',
+          notes: `Worker archived by ${username}.${reason ? ` Reason: ${reason}` : ''}`,
+          changedBy: username,
+        });
+      } catch (noteErr) {
+        logger.error('Failed to write archive audit note:', noteErr);
+      }
+
+      res.json({ success: true, message: "Worker archived successfully." });
+    } catch (error) {
+      logger.error("Error archiving worker:", error);
+      res.status(500).json({ error: "Failed to archive worker" });
+    }
+  });
+
+  // Unarchive a worker — admin/manager only
+  app.post("/api/contractors/workers/:id/unarchive", requireAuth, async (req, res) => {
+    try {
+      const role = req.user!.role;
+      if (!['admin', 'manager'].includes(role)) {
+        return res.status(403).json({ error: "Only admins and managers can unarchive workers." });
+      }
+      const workerId = req.params.id;
+      const username = req.user!.username;
+      const unarchCtx = simpleDatabaseService.createCustomerContext(username, req.customerId);
+      const unarchDb = await customerDbService.getCustomerDatabase(unarchCtx.customerId);
+
+      const [worker] = await unarchDb.select().from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.id, workerId)).limit(1);
+      if (!worker) return res.status(404).json({ error: "Worker not found" });
+
+      await unarchDb.execute(sql`
+        UPDATE contractor_workers
+        SET is_active = true,
+            archived_at = NULL,
+            archived_by = NULL,
+            archive_reason = NULL,
+            updated_at = NOW()
+        WHERE id = ${workerId}
+      `);
+
+      try {
+        await unarchDb.insert(isolatedSchema.workerNotes).values({
+          workerId,
+          changeType: 'worker_unarchived',
+          notes: `Worker unarchived (reactivated) by ${username}.`,
+          changedBy: username,
+        });
+      } catch (noteErr) {
+        logger.error('Failed to write unarchive audit note:', noteErr);
+      }
+
+      res.json({ success: true, message: "Worker unarchived successfully." });
+    } catch (error) {
+      logger.error("Error unarchiving worker:", error);
+      res.status(500).json({ error: "Failed to unarchive worker" });
+    }
+  });
+
+  // Get archived workers for a company
+  app.get("/api/contractors/:companyId/archived-workers", requireAuth, async (req, res) => {
+    try {
+      const { companyId } = req.params;
+      const archivedCtx = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const archivedDb = await customerDbService.getCustomerDatabase(archivedCtx.customerId);
+      const archivedWorkers = await archivedDb
+        .select()
+        .from(isolatedSchema.contractorWorkers)
+        .where(and(
+          eq(isolatedSchema.contractorWorkers.companyId, companyId),
+          eq(isolatedSchema.contractorWorkers.isActive, false)
+        ));
+      res.json(archivedWorkers);
+    } catch (error) {
+      logger.error("Error fetching archived workers:", error);
+      res.status(500).json({ error: "Failed to fetch archived workers" });
+    }
+  });
+
+  // Hard delete worker — admin only, requires confirmName
   app.delete("/api/workers/:id", requireAuth, async (req, res) => {
     try {
-      const { id } = req.params;
-      const delWorkerContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const delWorkerDb = await customerDbService.getCustomerDatabase(delWorkerContext.customerId);
-      const [deleted] = await delWorkerDb.delete(isolatedSchema.contractorWorkers)
-        .where(eq(isolatedSchema.contractorWorkers.id, id)).returning();
-      const success = !!deleted;
-      
-      if (!success) {
-        return res.status(404).json({ error: "Worker not found" });
+      // Role check — admin only
+      if (req.user!.role !== 'admin') {
+        return res.status(403).json({ error: "Only admins can permanently delete workers." });
       }
-      
-      res.json({ success: true });
+
+      const { id } = req.params;
+      const { confirmName } = req.body;
+      const delUsername = req.user!.username;
+      const delCtx = simpleDatabaseService.createCustomerContext(delUsername, req.customerId);
+      const delDb = await customerDbService.getCustomerDatabase(delCtx.customerId);
+
+      // Load the worker
+      const [worker] = await delDb.select().from(isolatedSchema.contractorWorkers)
+        .where(eq(isolatedSchema.contractorWorkers.id, id)).limit(1);
+      if (!worker) return res.status(404).json({ error: "Worker not found" });
+
+      // Verify confirmName matches full name
+      const fullName = `${worker.firstName} ${worker.lastName}`;
+      if (!confirmName || confirmName.trim() !== fullName.trim()) {
+        return res.status(400).json({
+          error: `Name confirmation required. Please type "${fullName}" to confirm deletion.`,
+          expectedName: fullName,
+        });
+      }
+
+      // Write company-level audit note before deletion
+      try {
+        await delDb.insert(isolatedSchema.companyNotes).values({
+          companyId: worker.companyId,
+          changeType: 'worker_deleted',
+          notes: `Worker "${fullName}" permanently deleted by ${delUsername}. All records purged.`,
+          changedBy: delUsername,
+        });
+      } catch (noteErr) {
+        logger.error('Failed to write deletion company note:', noteErr);
+      }
+
+      // Delete child rows in dependency order, then the worker
+      await delDb.transaction(async (tx) => {
+        // workerDocumentAcceptances references workerDocumentAssignments + contractorWorkers
+        await tx.delete(isolatedSchema.workerDocumentAcceptances)
+          .where(eq(isolatedSchema.workerDocumentAcceptances.workerId, id));
+        await tx.delete(isolatedSchema.workerDocumentAssignments)
+          .where(eq(isolatedSchema.workerDocumentAssignments.workerId, id));
+        await tx.delete(isolatedSchema.workerNotes)
+          .where(eq(isolatedSchema.workerNotes.workerId, id));
+        await tx.delete(isolatedSchema.cardIssues)
+          .where(eq(isolatedSchema.cardIssues.workerId, id));
+        await tx.delete(isolatedSchema.contractorVisits)
+          .where(eq(isolatedSchema.contractorVisits.workerId, id));
+        await tx.delete(isolatedSchema.contractorDocuments)
+          .where(eq(isolatedSchema.contractorDocuments.workerId, id));
+        await tx.delete(isolatedSchema.workerCompetencies)
+          .where(eq(isolatedSchema.workerCompetencies.workerId, id));
+        await tx.delete(isolatedSchema.nvqQualifications)
+          .where(eq(isolatedSchema.nvqQualifications.workerId, id));
+        await tx.delete(isolatedSchema.workerCertifications)
+          .where(eq(isolatedSchema.workerCertifications.workerId, id));
+        await tx.delete(isolatedSchema.co2Records)
+          .where(eq(isolatedSchema.co2Records.workerId, id));
+        await tx.delete(isolatedSchema.localLabourRecords)
+          .where(eq(isolatedSchema.localLabourRecords.workerId, id));
+        // Finally, delete the worker row
+        await tx.delete(isolatedSchema.contractorWorkers)
+          .where(eq(isolatedSchema.contractorWorkers.id, id));
+      });
+
+      res.json({ success: true, message: `Worker "${fullName}" permanently deleted.` });
     } catch (error) {
       logger.error("Error deleting worker:", error);
       res.status(500).json({ error: "Failed to delete worker" });

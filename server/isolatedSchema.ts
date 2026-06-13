@@ -906,6 +906,10 @@ export const contractorWorkers = pgTable("contractor_workers", {
   loneWorkerSince: timestamp("lone_worker_since"),
   loneWorkerDeadline: timestamp("lone_worker_deadline"),
   loneWorkerEscalationLevel: integer("lone_worker_escalation_level").default(0),
+  // Archiving (soft-delete)
+  archivedAt: timestamp("archived_at"),
+  archivedBy: text("archived_by"),
+  archiveReason: text("archive_reason"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
