@@ -1,4 +1,5 @@
 import type { Express } from 'express';
+import { handleContractorWorkerUpdate } from './induction';
 import { requireAuth, isDevDataBypass, isDatabaseConnectionError, getMockCheckedInContractors } from '../auth';
 import { databaseService } from '../databaseService';
 import { simpleDatabaseService } from '../simpleDatabaseService';
@@ -1624,11 +1625,27 @@ export function registerContractorRoutes(app: Express): void {
       // Get customer context for isolation based on logged-in user
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      const body = req.body;
+
+      // Mandatory field validation — reject blank required fields
+      if (!body.firstName || !String(body.firstName).trim()) {
+        return res.status(400).json({ error: 'First name is required.' });
+      }
+      if (!body.lastName || !String(body.lastName).trim()) {
+        return res.status(400).json({ error: 'Last name is required.' });
+      }
+      if (!body.email || !String(body.email).trim()) {
+        return res.status(400).json({ error: 'Email address is required.' });
+      }
+      const rawPhone = body.phoneNumber || body.phone;
+      if (!rawPhone || !String(rawPhone).trim()) {
+        return res.status(400).json({ error: 'Phone number is required.' });
+      }
       
       // Generate H&S acceptance token for new worker
       const hsToken = randomBytes(16).toString('hex');
       
-      const body = req.body;
       const workerData = insertContractorWorkerSchema.parse({
         ...body,
         companyId,
@@ -1720,38 +1737,7 @@ export function registerContractorRoutes(app: Express): void {
     }
   });
 
-  app.put("/api/workers/:id", requireAuth, async (req, res) => {
-    try {
-      const { id } = req.params;
-      const body = req.body;
-
-      // Mandatory field validation
-      if (body.firstName !== undefined && !String(body.firstName).trim()) {
-        return res.status(400).json({ error: 'First name cannot be empty.' });
-      }
-      if (body.lastName !== undefined && !String(body.lastName).trim()) {
-        return res.status(400).json({ error: 'Last name cannot be empty.' });
-      }
-
-      // Normalise phone → phoneNumber (same logic as the canonical PUT route)
-      const updates = {
-        ...body,
-        phoneNumber: body.phoneNumber || body.phone || undefined,
-      };
-      
-      const updateWorkerContext = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
-      const worker = await databaseService.updateContractorWorker(updateWorkerContext, id, updates);
-      
-      if (!worker) {
-        return res.status(404).json({ error: "Worker not found" });
-      }
-      
-      res.json(worker);
-    } catch (error) {
-      logger.error("Error updating worker:", error);
-      res.status(500).json({ error: "Failed to update worker" });
-    }
-  });
+  app.put("/api/workers/:id", requireAuth, handleContractorWorkerUpdate);
 
   app.delete("/api/workers/:id", requireAuth, async (req, res) => {
     try {

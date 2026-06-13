@@ -1,4 +1,4 @@
-import type { Express } from 'express';
+import type { Express, Request, Response } from 'express';
 import multer from 'multer';
 import crypto from 'crypto';
 import { randomUUID } from 'crypto';
@@ -1254,283 +1254,8 @@ export function registerInductionRoutes(app: Express): void {
     }
   });
 
-  // Update contractor worker endpoint
-  app.put('/api/contractors/workers/:id', requireAuth, async (req, res) => {
-    // Declare mappedData outside try block so it's accessible in catch block
-    let mappedData: any = {};
-    
-    try {
-      const workerId = req.params.id;
-      logger.info('🔄 Updating contractor worker', workerId, 'with data:', req.body);
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user!.username;
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
-      
-      // Field mapping from UI field names to database field names
-      const uiData = req.body;
-
-      // Mandatory field validation — reject clearly empty required fields
-      if (uiData.firstName !== undefined && !String(uiData.firstName).trim()) {
-        return res.status(400).json({ error: 'First name cannot be empty.' });
-      }
-      if (uiData.lastName !== undefined && !String(uiData.lastName).trim()) {
-        return res.status(400).json({ error: 'Last name cannot be empty.' });
-      }
-      
-      // Direct field mappings (no conversion needed)
-      const directFieldMappings = {
-        companyId: 'companyId',
-        firstName: 'firstName', 
-        lastName: 'lastName',
-        email: 'email',
-        phoneNumber: 'phoneNumber', // UI may send phoneNumber directly
-        phone: 'phoneNumber', // UI sends phone → save as phoneNumber (DB column)
-        homeAddress: 'homeAddress',
-        postcode: 'postcode',
-        jobTitle: 'jobTitle',
-        department: 'department',
-        emergencyContactName: 'emergencyContactName',
-        emergencyContactPhone: 'emergencyContactPhone',
-        emergencyContactRelationship: 'emergencyContactRelationship',
-        transportMethod: 'transportMethod',
-        rightToWork: 'rightToWork', // Maps to right_to_work_status column in isolatedSchema
-        cscsCard: 'cscsCard', // Maps to cscs_card_number in schema
-        photoUrl: 'photoUrl' // Profile photo URL
-      };
-      
-      // Apply direct mappings
-      Object.entries(directFieldMappings).forEach(([uiField, dbField]) => {
-        if (uiData[uiField] !== undefined) {
-          mappedData[dbField] = uiData[uiField];
-        }
-      });
-      
-      // Special field mappings with type conversions
-      
-      // cscsStatus: Keep as string (valid, pending, expired, none) - DO NOT convert to boolean
-      if (uiData.cscsStatus !== undefined) {
-        mappedData.cscsStatus = uiData.cscsStatus; // Keep as string
-        logger.info(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}' (${typeof uiData.cscsStatus}) → cscsStatus: ${mappedData.cscsStatus}`);
-      }
-      
-      // inductionCompleted: Pass through directly - field name matches database
-      if (uiData.inductionCompleted !== undefined) {
-        mappedData.inductionCompleted = uiData.inductionCompleted;
-        logger.info(`🔄 Mapped inductionCompleted: ${uiData.inductionCompleted} → inductionCompleted: ${mappedData.inductionCompleted}`);
-      }
-      
-      // IPAF Status: Map to database field if it exists (needs to be checked against schema)
-      if (uiData.ipafStatus !== undefined) {
-        // Note: Need to verify if ipafStatus field exists in database schema
-        mappedData.ipafStatus = uiData.ipafStatus;
-        logger.info(`🔄 Mapped ipafStatus: '${uiData.ipafStatus}' → ipafStatus: '${mappedData.ipafStatus}'`);
-      }
-      
-      // Safety training boolean fields - map to database fields if they exist
-      if (uiData.asbestosAwareness !== undefined) {
-        mappedData.asbestosAwareness = Boolean(uiData.asbestosAwareness);
-        logger.info(`🔄 Mapped asbestosAwareness: ${uiData.asbestosAwareness} → asbestosAwareness: ${mappedData.asbestosAwareness}`);
-      }
-      
-      if (uiData.manualHandling !== undefined) {
-        mappedData.manualHandling = Boolean(uiData.manualHandling);
-        logger.info(`🔄 Mapped manualHandling: ${uiData.manualHandling} → manualHandling: ${mappedData.manualHandling}`);
-      }
-
-      // needsEvacuationAssistance (PEEP flag): direct boolean passthrough
-      if (uiData.needsEvacuationAssistance !== undefined) {
-        mappedData.needsEvacuationAssistance = Boolean(uiData.needsEvacuationAssistance);
-        logger.info(`🔄 Mapped needsEvacuationAssistance: ${uiData.needsEvacuationAssistance} → ${mappedData.needsEvacuationAssistance}`);
-      }
-
-      // Boolean fields that can be passed through directly (only include fields that exist in database schema)
-      const booleanFields = ['workingAtHeight', 'isCheckedIn', 'hsRulesAccepted'];
-      booleanFields.forEach(field => {
-        if (uiData[field] !== undefined) {
-          mappedData[field] = uiData[field];
-        }
-      });
-      
-      // Always set updatedAt
-      mappedData.updatedAt = new Date();
-      
-      logger.info('🗃️ Final mapped data for database:', mappedData);
-      logger.info('🔍 ROUTE - About to validate with Zod schema...');
-      logger.info('🔍 ROUTE - Critical fields before validation:');
-      logger.info(`  - rightToWork: ${mappedData.rightToWork}`);
-      logger.info(`  - cscsStatus: ${mappedData.cscsStatus}`);
-      logger.info(`  - inductionCompleted: ${mappedData.inductionCompleted}`);
-      
-      // Validate mapped data with schema
-      const validatedData = insertContractorWorkerSchema.partial().parse(mappedData);
-      
-      // CRITICAL FIX: Ensure critical fields are preserved after Zod validation
-      // The insertContractorWorkerSchema may be missing these fields, so we manually preserve them
-      if (mappedData.inductionCompleted !== undefined) {
-        validatedData.inductionCompleted = mappedData.inductionCompleted;
-        logger.info(`🔧 MANUAL FIX: Preserved inductionCompleted: ${validatedData.inductionCompleted}`);
-      }
-      
-      if (mappedData.ipafStatus !== undefined) {
-        validatedData.ipafStatus = mappedData.ipafStatus;
-        logger.info(`🔧 MANUAL FIX: Preserved ipafStatus: ${validatedData.ipafStatus}`);
-      }
-      
-      if (mappedData.asbestosAwareness !== undefined) {
-        validatedData.asbestosAwareness = mappedData.asbestosAwareness;
-        logger.info(`🔧 MANUAL FIX: Preserved asbestosAwareness: ${validatedData.asbestosAwareness}`);
-      }
-      
-      if (mappedData.manualHandling !== undefined) {
-        validatedData.manualHandling = mappedData.manualHandling;
-        logger.info(`🔧 MANUAL FIX: Preserved manualHandling: ${validatedData.manualHandling}`);
-      }
-      
-      if (mappedData.transportMethod !== undefined) {
-        validatedData.transportMethod = mappedData.transportMethod;
-        logger.info(`🔧 MANUAL FIX: Preserved transportMethod: ${validatedData.transportMethod}`);
-      }
-
-      if (mappedData.needsEvacuationAssistance !== undefined) {
-        validatedData.needsEvacuationAssistance = Boolean(mappedData.needsEvacuationAssistance);
-      }
-
-      // MANUAL FIX: Preserve phoneNumber — Zod partial may strip it if not in shared schema
-      if (mappedData.phoneNumber !== undefined) {
-        (validatedData as any).phoneNumber = mappedData.phoneNumber;
-        logger.info(`🔧 MANUAL FIX: Preserved phoneNumber: ${mappedData.phoneNumber}`);
-      }
-
-      // MANUAL FIX: Preserve photoUrl in case Zod strips it
-      if (mappedData.photoUrl !== undefined) {
-        (validatedData as any).photoUrl = mappedData.photoUrl;
-        logger.info(`🔧 MANUAL FIX: Preserved photoUrl: ${mappedData.photoUrl}`);
-      }
-      
-      logger.info('🔍 ROUTE - Zod validation completed. Result:');
-      logger.info('🔍 ROUTE - Validated data keys:', Object.keys(validatedData));
-      logger.info('🔍 ROUTE - Critical fields after validation:');
-      logger.info(`  - rightToWork: ${validatedData.rightToWork}`);
-      logger.info(`  - cscsStatus: ${validatedData.cscsStatus}`);
-      logger.info(`  - inductionCompleted: ${validatedData.inductionCompleted}`);
-      
-      logger.info('🔍 ROUTE - About to call databaseService.updateContractorWorker with:', validatedData);
-      
-      // Fetch current worker state BEFORE update for audit trail comparison
-      const currentWorker = await databaseService.getContractorWorkerById(context, workerId);
-      if (!currentWorker) {
-        return res.status(404).json({ error: 'Contractor worker not found' });
-      }
-      
-      const updatedWorker = await databaseService.updateContractorWorker(context, workerId, validatedData);
-      
-      logger.info('🔍 ROUTE - databaseService.updateContractorWorker returned:', updatedWorker);
-      
-      if (!updatedWorker) {
-        return res.status(404).json({ error: 'Contractor worker not found' });
-      }
-
-      // === AUDIT TRAIL: Compare old vs new values and create audit notes ===
-      const auditFieldLabels: Record<string, string> = {
-        firstName: 'First Name',
-        lastName: 'Last Name',
-        email: 'Email',
-        phoneNumber: 'Phone Number',
-        postcode: 'Postcode',
-        transportMethod: 'Transport Method',
-        companyId: 'Contractor Company',
-        rightToWork: 'Right to Work Status',
-        cscsCard: 'CSCS Card Number',
-        cscsStatus: 'CSCS Status',
-        ipafStatus: 'IPAF Status',
-        asbestosAwareness: 'Asbestos Awareness',
-        manualHandling: 'Manual Handling',
-        inductionCompleted: 'Site Induction Completed',
-        workingAtHeight: 'Working at Height',
-        isActive: 'Active Status',
-        currentCardStatus: 'Card Status',
-        hsRulesAccepted: 'H&S Rules Accepted',
-      };
-      
-      const changes: string[] = [];
-      const db = await customerDbService.getCustomerDatabase(context.customerId);
-      
-      // Training boolean fields that get human-friendly confirmation notes
-      const trainingConfirmFields = new Set([
-        'inductionCompleted', 'asbestosAwareness', 'manualHandling', 'workingAtHeight', 'hsRulesAccepted'
-      ]);
-
-      for (const [field, label] of Object.entries(auditFieldLabels)) {
-        if (validatedData[field] !== undefined) {
-          const oldVal = (currentWorker as any)[field];
-          const newVal = validatedData[field];
-          
-          // Compare values (handle booleans and strings)
-          const oldStr = oldVal === null || oldVal === undefined ? 'Not set' : String(oldVal);
-          const newStr = newVal === null || newVal === undefined ? 'Not set' : String(newVal);
-          
-          if (oldStr !== newStr) {
-            changes.push(`${label}: "${oldStr}" → "${newStr}"`);
-
-            // Build a user-friendly note message
-            const now = new Date();
-            const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-            const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-            let noteText: string;
-            if (trainingConfirmFields.has(field) && (newStr === 'true' || newStr === 'false')) {
-              if (newStr === 'true') {
-                noteText = `✅ ${label} confirmed by ${username} on ${dateStr} at ${timeStr}`;
-              } else {
-                noteText = `❌ ${label} record removed by ${username} on ${dateStr} at ${timeStr}`;
-              }
-            } else {
-              noteText = `${label} changed from "${oldStr}" to "${newStr}"`;
-            }
-            
-            // Create individual audit note for each change
-            try {
-              await db.insert(isolatedSchema.workerNotes).values({
-                workerId: workerId,
-                changeType: 'profile_update',
-                oldValue: oldStr,
-                newValue: newStr,
-                notes: noteText,
-                changedBy: username,
-              });
-            } catch (noteErr) {
-              logger.error(`Failed to create audit note for ${field}:`, noteErr);
-            }
-          }
-        }
-      }
-      
-      if (changes.length > 0) {
-        logger.info(`📋 AUDIT: ${changes.length} changes recorded by ${username}: ${changes.join(', ')}`);
-      }
-
-      // Response field mapping: Convert database field names back to UI field names
-      const responseData = {
-        ...updatedWorker,
-        cscsStatus: updatedWorker.cscsStatus,
-        inductionCompleted: updatedWorker.inductionCompleted,
-      };
-
-      res.json({ success: true, worker: responseData });
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        logger.error('❌ Zod validation error for contractor worker update:', error.errors);
-        logger.error('❌ Mapped data that failed validation:', mappedData);
-        return res.status(400).json({ 
-          error: 'Invalid data', 
-          details: error.errors 
-        });
-      }
-      logger.error('❌ Database error updating contractor worker:', error);
-      res.status(500).json({ error: 'Internal server error' });
-    }
-  });
+  // Update contractor worker endpoint — delegates to the exported handler below
+  app.put('/api/contractors/workers/:id', requireAuth, handleContractorWorkerUpdate);
 
   // Reset worker card to Yellow endpoint
   app.post('/api/contractors/workers/:id/reset-card', requireAuth, async (req, res) => {
@@ -5588,4 +5313,182 @@ export function registerInductionRoutes(app: Express): void {
       res.status(500).json({ error: 'Internal server error' });
     }
   });
+}
+
+/**
+ * Canonical handler for updating a contractor worker.
+ * Exported so that PUT /api/workers/:id can delegate here without duplicating logic.
+ */
+export async function handleContractorWorkerUpdate(req: Request, res: Response): Promise<void> {
+  let mappedData: any = {};
+  try {
+    const workerId = req.params.id;
+    logger.info('🔄 Updating contractor worker', workerId, 'with data:', req.body);
+
+    const username = (req as any).user!.username;
+    const context = simpleDatabaseService.createCustomerContext(username, (req as any).customerId);
+
+    const uiData = req.body;
+
+    // ── Mandatory field validation ─────────────────────────────────────────────
+    if (uiData.firstName !== undefined && !String(uiData.firstName).trim()) {
+      res.status(400).json({ error: 'First name cannot be empty.' }); return;
+    }
+    if (uiData.lastName !== undefined && !String(uiData.lastName).trim()) {
+      res.status(400).json({ error: 'Last name cannot be empty.' }); return;
+    }
+    if (uiData.email !== undefined && !String(uiData.email).trim()) {
+      res.status(400).json({ error: 'Email address cannot be empty.' }); return;
+    }
+
+    // ── Direct field mappings (phone handled separately below) ─────────────────
+    const directFieldMappings: Record<string, string> = {
+      companyId: 'companyId',
+      firstName: 'firstName',
+      lastName: 'lastName',
+      email: 'email',
+      homeAddress: 'homeAddress',
+      postcode: 'postcode',
+      jobTitle: 'jobTitle',
+      department: 'department',
+      emergencyContactName: 'emergencyContactName',
+      emergencyContactPhone: 'emergencyContactPhone',
+      emergencyContactRelationship: 'emergencyContactRelationship',
+      transportMethod: 'transportMethod',
+      rightToWork: 'rightToWork',
+      cscsCard: 'cscsCard',
+      photoUrl: 'photoUrl',
+    };
+
+    Object.entries(directFieldMappings).forEach(([uiField, dbField]) => {
+      if (uiData[uiField] !== undefined) {
+        mappedData[dbField] = uiData[uiField];
+      }
+    });
+
+    // ── Phone normalisation: phoneNumber takes precedence over phone ───────────
+    // Both field names are accepted from the UI; phoneNumber wins if both are present.
+    if (uiData.phoneNumber !== undefined || uiData.phone !== undefined) {
+      const raw = uiData.phoneNumber !== undefined ? uiData.phoneNumber : uiData.phone;
+      const trimmed = String(raw ?? '').trim();
+      if (!trimmed) {
+        res.status(400).json({ error: 'Phone number cannot be empty.' }); return;
+      }
+      mappedData.phoneNumber = trimmed;
+      logger.info(`🔄 Mapped phone → phoneNumber: '${trimmed}'`);
+    }
+
+    // ── Special field mappings with type conversions ───────────────────────────
+    if (uiData.cscsStatus !== undefined) {
+      mappedData.cscsStatus = uiData.cscsStatus;
+      logger.info(`🔄 Mapped cscsStatus: '${uiData.cscsStatus}'`);
+    }
+    if (uiData.inductionCompleted !== undefined) {
+      mappedData.inductionCompleted = uiData.inductionCompleted;
+    }
+    if (uiData.ipafStatus !== undefined) {
+      mappedData.ipafStatus = uiData.ipafStatus;
+    }
+    if (uiData.asbestosAwareness !== undefined) {
+      mappedData.asbestosAwareness = Boolean(uiData.asbestosAwareness);
+    }
+    if (uiData.manualHandling !== undefined) {
+      mappedData.manualHandling = Boolean(uiData.manualHandling);
+    }
+    if (uiData.needsEvacuationAssistance !== undefined) {
+      mappedData.needsEvacuationAssistance = Boolean(uiData.needsEvacuationAssistance);
+    }
+    const booleanFields = ['workingAtHeight', 'isCheckedIn', 'hsRulesAccepted'];
+    booleanFields.forEach(field => {
+      if (uiData[field] !== undefined) mappedData[field] = uiData[field];
+    });
+
+    mappedData.updatedAt = new Date();
+
+    logger.info('🗃️ Final mapped data for database:', mappedData);
+
+    // ── Zod validation ─────────────────────────────────────────────────────────
+    const validatedData = insertContractorWorkerSchema.partial().parse(mappedData);
+
+    // Preserve fields that Zod may strip because they are not in the shared schema
+    const preserveFields = [
+      'inductionCompleted', 'ipafStatus', 'asbestosAwareness', 'manualHandling',
+      'transportMethod', 'needsEvacuationAssistance', 'phoneNumber', 'photoUrl',
+    ];
+    for (const f of preserveFields) {
+      if (mappedData[f] !== undefined) (validatedData as any)[f] = mappedData[f];
+    }
+
+    logger.info('🔍 ROUTE - Validated data keys:', Object.keys(validatedData));
+
+    // ── DB update ──────────────────────────────────────────────────────────────
+    const currentWorker = await databaseService.getContractorWorkerById(context, workerId);
+    if (!currentWorker) {
+      res.status(404).json({ error: 'Contractor worker not found' }); return;
+    }
+
+    const updatedWorker = await databaseService.updateContractorWorker(context, workerId, validatedData);
+    if (!updatedWorker) {
+      res.status(404).json({ error: 'Contractor worker not found' }); return;
+    }
+
+    // ── Audit trail ────────────────────────────────────────────────────────────
+    const auditFieldLabels: Record<string, string> = {
+      firstName: 'First Name', lastName: 'Last Name', email: 'Email',
+      phoneNumber: 'Phone Number', postcode: 'Postcode', transportMethod: 'Transport Method',
+      companyId: 'Contractor Company', rightToWork: 'Right to Work Status',
+      cscsCard: 'CSCS Card Number', cscsStatus: 'CSCS Status', ipafStatus: 'IPAF Status',
+      asbestosAwareness: 'Asbestos Awareness', manualHandling: 'Manual Handling',
+      inductionCompleted: 'Site Induction Completed', workingAtHeight: 'Working at Height',
+      isActive: 'Active Status', currentCardStatus: 'Card Status', hsRulesAccepted: 'H&S Rules Accepted',
+    };
+    const trainingConfirmFields = new Set([
+      'inductionCompleted', 'asbestosAwareness', 'manualHandling', 'workingAtHeight', 'hsRulesAccepted',
+    ]);
+    const changes: string[] = [];
+    const db = await customerDbService.getCustomerDatabase(context.customerId);
+
+    for (const [field, label] of Object.entries(auditFieldLabels)) {
+      if ((validatedData as any)[field] !== undefined) {
+        const oldVal = (currentWorker as any)[field];
+        const newVal = (validatedData as any)[field];
+        const oldStr = oldVal == null ? 'Not set' : String(oldVal);
+        const newStr = newVal == null ? 'Not set' : String(newVal);
+        if (oldStr !== newStr) {
+          changes.push(`${label}: "${oldStr}" → "${newStr}"`);
+          const now = new Date();
+          const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+          const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+          let noteText: string;
+          if (trainingConfirmFields.has(field) && (newStr === 'true' || newStr === 'false')) {
+            noteText = newStr === 'true'
+              ? `✅ ${label} confirmed by ${username} on ${dateStr} at ${timeStr}`
+              : `❌ ${label} record removed by ${username} on ${dateStr} at ${timeStr}`;
+          } else {
+            noteText = `${label} changed from "${oldStr}" to "${newStr}"`;
+          }
+          try {
+            await db.insert(isolatedSchema.workerNotes).values({
+              workerId, changeType: 'profile_update', oldValue: oldStr, newValue: newStr,
+              notes: noteText, changedBy: username,
+            });
+          } catch (noteErr) {
+            logger.error(`Failed to create audit note for ${field}:`, noteErr);
+          }
+        }
+      }
+    }
+    if (changes.length > 0) {
+      logger.info(`📋 AUDIT: ${changes.length} changes by ${username}: ${changes.join(', ')}`);
+    }
+
+    res.json({ success: true, worker: { ...updatedWorker } });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      logger.error('❌ Zod validation error for contractor worker update:', error.errors);
+      res.status(400).json({ error: 'Invalid data', details: error.errors }); return;
+    }
+    logger.error('❌ Database error updating contractor worker:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 }
