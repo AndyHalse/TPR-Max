@@ -1597,52 +1597,6 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
             </TabsContent>
 
             <TabsContent value="notes" className="space-y-4 px-1">
-              {/* Manual Note Form */}
-              <div className="bg-white/80 border border-slate-200 rounded-lg p-4">
-                <h4 className="font-medium text-fixed mb-3 flex items-center gap-2">
-                  <Edit3 className="h-4 w-4" />
-                  Add Manual Note
-                </h4>
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  if (manualNote.trim()) {
-                    addManualNoteMutation.mutate({
-                      workerId: worker.id,
-                      notes: manualNote.trim()
-                    });
-                  }
-                }} className="space-y-3">
-                  <textarea
-                    value={manualNote}
-                    onChange={(e) => setManualNote(e.target.value)}
-                    placeholder="Type your note here... (date and time will be added automatically)"
-                    className="w-full p-3 border border-slate-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                    rows={3}
-                    data-testid="textarea-manual-note"
-                  />
-                  <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      disabled={!manualNote.trim() || addManualNoteMutation.isPending}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                      data-testid="button-add-note"
-                    >
-                      {addManualNoteMutation.isPending ? (
-                        <>
-                          <RotateCcw className="h-4 w-4 mr-2 animate-spin" />
-                          Adding...
-                        </>
-                      ) : (
-                        <>
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Note
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </form>
-              </div>
-
               {/* Audit Trail Display */}
               {notesLoading ? (
                 <div className="text-center py-8">

@@ -1769,7 +1769,10 @@ export class DatabaseService {
     const workers = await db
       .select()
       .from(isolatedSchema.contractorWorkers)
-      .where(inArray(isolatedSchema.contractorWorkers.companyId, companyIds))
+      .where(and(
+        inArray(isolatedSchema.contractorWorkers.companyId, companyIds),
+        eq(isolatedSchema.contractorWorkers.isActive, true)
+      ))
       .orderBy(asc(isolatedSchema.contractorWorkers.firstName));
 
     const activeCardRows2 = await db

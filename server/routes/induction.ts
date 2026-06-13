@@ -5498,8 +5498,9 @@ export async function handleContractorWorkerUpdate(req: Request, res: Response):
     }
 
     // Auto-stamp Right to Work verification when rightToWork changes to 'valid'
-    if ((validatedData as any).rightToWork === 'valid' && currentWorker.rightToWork !== 'valid') {
-      (validatedData as any).rightToWorkVerifiedBy = (req as any).user?.id || null;
+    const rtwVerified = (validatedData as any).rightToWork === 'valid' && currentWorker.rightToWork !== 'valid';
+    if (rtwVerified) {
+      (validatedData as any).rightToWorkVerifiedBy = username;
       (validatedData as any).rightToWorkVerifiedAt = new Date();
       logger.info(`✅ RTW verification stamped for worker ${workerId} by user ${username}`);
     }
@@ -5509,11 +5510,12 @@ export async function handleContractorWorkerUpdate(req: Request, res: Response):
       res.status(404).json({ error: 'Contractor worker not found' }); return;
     }
 
-    // ── Audit trail ────────────────────────────────────────────────────────────
+    // ── Audit trail — ONE consolidated note per save ────────────────────────
     const auditFieldLabels: Record<string, string> = {
       firstName: 'First Name', lastName: 'Last Name', email: 'Email',
       phoneNumber: 'Phone Number', postcode: 'Postcode', transportMethod: 'Transport Method',
       companyId: 'Contractor Company', rightToWork: 'Right to Work Status',
+      rightToWorkVerifiedBy: 'RTW Verified By', rightToWorkVerifiedAt: 'RTW Verified At',
       cscsCard: 'CSCS Card Number', cscsStatus: 'CSCS Status', ipafStatus: 'IPAF Status',
       asbestosAwareness: 'Asbestos Awareness', manualHandling: 'Manual Handling',
       inductionCompleted: 'Site Induction Completed', workingAtHeight: 'Working at Height',
@@ -5522,41 +5524,48 @@ export async function handleContractorWorkerUpdate(req: Request, res: Response):
     const trainingConfirmFields = new Set([
       'inductionCompleted', 'asbestosAwareness', 'manualHandling', 'workingAtHeight', 'hsRulesAccepted',
     ]);
-    const changes: string[] = [];
+    const changeLines: string[] = [];
     const db = await customerDbService.getCustomerDatabase(context.customerId);
 
+    // Build the full set of fields to check (validated + rtwVerified extras)
+    const fieldsToCheck = { ...(validatedData as any) };
+    if (rtwVerified) {
+      fieldsToCheck.rightToWorkVerifiedBy = username;
+      fieldsToCheck.rightToWorkVerifiedAt = (validatedData as any).rightToWorkVerifiedAt;
+    }
+
     for (const [field, label] of Object.entries(auditFieldLabels)) {
-      if ((validatedData as any)[field] !== undefined) {
+      if (fieldsToCheck[field] !== undefined) {
         const oldVal = (currentWorker as any)[field];
-        const newVal = (validatedData as any)[field];
+        const newVal = fieldsToCheck[field];
         const oldStr = oldVal == null ? 'Not set' : String(oldVal);
         const newStr = newVal == null ? 'Not set' : String(newVal);
         if (oldStr !== newStr) {
-          changes.push(`${label}: "${oldStr}" → "${newStr}"`);
-          const now = new Date();
-          const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-          const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-          let noteText: string;
           if (trainingConfirmFields.has(field) && (newStr === 'true' || newStr === 'false')) {
-            noteText = newStr === 'true'
-              ? `✅ ${label} confirmed by ${username} on ${dateStr} at ${timeStr}`
-              : `❌ ${label} record removed by ${username} on ${dateStr} at ${timeStr}`;
+            changeLines.push(newStr === 'true'
+              ? `✅ ${label} confirmed`
+              : `❌ ${label} record removed`);
           } else {
-            noteText = `${label} changed from "${oldStr}" to "${newStr}"`;
-          }
-          try {
-            await db.insert(isolatedSchema.workerNotes).values({
-              workerId, changeType: 'profile_update', oldValue: oldStr, newValue: newStr,
-              notes: noteText, changedBy: username,
-            });
-          } catch (noteErr) {
-            logger.error(`Failed to create audit note for ${field}:`, noteErr);
+            changeLines.push(`${label}: "${oldStr}" → "${newStr}"`);
           }
         }
       }
     }
-    if (changes.length > 0) {
-      logger.info(`📋 AUDIT: ${changes.length} changes by ${username}: ${changes.join(', ')}`);
+
+    if (changeLines.length > 0) {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+      const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      const noteText = `Profile updated by ${username} on ${dateStr} at ${timeStr}. Changes: ${changeLines.join('; ')}.`;
+      try {
+        await db.insert(isolatedSchema.workerNotes).values({
+          workerId, changeType: 'profile_update',
+          notes: noteText, changedBy: username,
+        });
+      } catch (noteErr) {
+        logger.error('Failed to create consolidated profile audit note:', noteErr);
+      }
+      logger.info(`📋 AUDIT: ${changeLines.length} change(s) by ${username}: ${changeLines.join(', ')}`);
     }
 
     res.json({ success: true, worker: { ...updatedWorker } });

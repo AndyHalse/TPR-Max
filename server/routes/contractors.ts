@@ -718,6 +718,10 @@ export function registerContractorRoutes(app: Express): void {
 
   app.post("/api/card-issues", requireAuth, async (req, res) => {
     try {
+      // Role check — only admin/manager can issue disciplinary cards
+      if (!['admin', 'manager'].includes(req.user!.role)) {
+        return res.status(403).json({ error: 'Only admins and managers can issue disciplinary cards.' });
+      }
       // Use customer database service with proper isolation
       const context = simpleDatabaseService.createCustomerContext(req.user?.username || 'system', req.customerId);
       
@@ -1949,8 +1953,12 @@ export function registerContractorRoutes(app: Express): void {
           .where(eq(isolatedSchema.workerCertifications.workerId, id));
         await tx.delete(isolatedSchema.co2Records)
           .where(eq(isolatedSchema.co2Records.workerId, id));
+        await tx.delete(isolatedSchema.co2EmissionsData)
+          .where(eq(isolatedSchema.co2EmissionsData.workerId, id));
         await tx.delete(isolatedSchema.localLabourRecords)
           .where(eq(isolatedSchema.localLabourRecords.workerId, id));
+        // inductionTokens has nullable workerId — SET NULL rather than hard-delete
+        await tx.execute(sql`UPDATE induction_tokens SET worker_id = NULL WHERE worker_id = ${id}`);
         // Finally, delete the worker row
         await tx.delete(isolatedSchema.contractorWorkers)
           .where(eq(isolatedSchema.contractorWorkers.id, id));
