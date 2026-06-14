@@ -58,6 +58,50 @@ function generateFireMarshalUrlId(): string {
   return crypto.randomBytes(8).toString('hex');
 }
 
+// Right to Work gate for kiosk check-ins.
+// Returns { ok: true } to allow, or { ok: false, status, body } to block.
+// Fails CLOSED: if the compliance check itself errors, entry is refused.
+async function checkStaffRightToWork(
+  customerId: string,
+  staffId: string
+): Promise<{ ok: true } | { ok: false; status: number; body: any }> {
+  try {
+    const custDb = await customerDbService.getCustomerDatabase(customerId);
+    const schemaName = customerDbService.generateSchemaName(customerId);
+    const rtwPool = (custDb as any).$client ?? (custDb as any).session?.client;
+    if (!rtwPool) return { ok: true };
+    const rtwResult = await rtwPool.query(
+      `SELECT is_current, expiry_date FROM "${schemaName}".right_to_work
+       WHERE staff_id = $1 AND is_current = TRUE LIMIT 1`,
+      [staffId]
+    );
+    const rtw = rtwResult.rows[0];
+    if (rtw && rtw.expiry_date && new Date(rtw.expiry_date) < new Date()) {
+      return {
+        ok: false,
+        status: 403,
+        body: {
+          success: false,
+          reason: 'BLOCKED',
+          message: 'Entry denied: Right to Work documentation has expired. Contact HR.',
+        },
+      };
+    }
+    return { ok: true };
+  } catch (rtwErr) {
+    logger.error('RTW check failed — denying entry as precaution:', rtwErr);
+    return {
+      ok: false,
+      status: 503,
+      body: {
+        success: false,
+        reason: 'RTW_CHECK_FAILED',
+        message: 'Entry temporarily unavailable: compliance check could not be completed. Please contact the site administrator.',
+      },
+    };
+  }
+}
+
 // Helper: Check if staff should be a Fire Marshal
 function shouldBeFireMarshal(staffData: any): boolean {
   if (staffData.isFireMarshal === true) return true;
@@ -861,6 +905,16 @@ export function registerStaffRoutes(app: Express): void {
       }
 
       const isCheckedIn = !!existing.isCheckedIn;
+
+      // Right to Work gate — only when checking IN, never block a check-out.
+      // Mirrors POST /api/staff/qr-checkin so both kiosk paths enforce the same rule.
+      if (!isCheckedIn && context.customerId) {
+        const rtw = await checkStaffRightToWork(context.customerId, id);
+        if (!rtw.ok) {
+          return res.status(rtw.status).json(rtw.body);
+        }
+      }
+
       const staff = isCheckedIn
         ? await databaseService.checkOutStaff(context, id)
         : await databaseService.checkInStaff(context, id, true);
@@ -989,32 +1043,9 @@ export function registerStaffRoutes(app: Express): void {
       
       // RTW check — only block check-in (not check-out)
       if (!foundStaff.isCheckedIn) {
-        try {
-          const custDb = await customerDbService.getCustomerDatabase(foundContext.customerId);
-          const schemaName = customerDbService.generateSchemaName(foundContext.customerId);
-          const rtwPool = (custDb as any).$client ?? (custDb as any).session?.client;
-          if (rtwPool) {
-            const rtwResult = await rtwPool.query(
-              `SELECT is_current, expiry_date FROM "${schemaName}".right_to_work
-               WHERE staff_id = $1 AND is_current = TRUE LIMIT 1`,
-              [foundStaff.id]
-            );
-            const rtw = rtwResult.rows[0];
-            if (rtw && rtw.expiry_date && new Date(rtw.expiry_date) < new Date()) {
-              return res.status(403).json({
-                success: false,
-                reason: 'BLOCKED',
-                message: 'Entry denied: Right to Work documentation has expired. Contact HR.',
-              });
-            }
-          }
-        } catch (rtwErr) {
-          logger.error('RTW check failed — denying entry as precaution:', rtwErr);
-          return res.status(503).json({
-            success: false,
-            reason: 'RTW_CHECK_FAILED',
-            message: 'Entry temporarily unavailable: compliance check could not be completed. Please contact the site administrator.',
-          });
+        const rtw = await checkStaffRightToWork(foundContext.customerId, foundStaff.id);
+        if (!rtw.ok) {
+          return res.status(rtw.status).json(rtw.body);
         }
       }
 
