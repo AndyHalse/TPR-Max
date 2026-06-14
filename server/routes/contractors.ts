@@ -5243,6 +5243,59 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         }
       }
 
+      // ── On approval/rejection of a worker document, sync the worker profile
+      //    column so the dashboard and profile always read from the same fact.
+      //    Supported types: right_to_work, cscs_card, ipaf_card.
+      if ((updated as any).workerId) {
+        const workerDocType = (updated as any).documentType as string | undefined;
+        const workerDocExpiry = (updated as any).expiryDate as Date | string | null | undefined;
+        const isExpiredDoc = workerDocExpiry ? new Date(workerDocExpiry) < new Date() : false;
+
+        type WorkerColUpdate = Partial<typeof isolatedSchema.contractorWorkers.$inferInsert>;
+        let workerColUpdate: WorkerColUpdate | null = null;
+        let syncDescription = '';
+
+        if (workerDocType === 'right_to_work') {
+          if (status === 'approved') {
+            workerColUpdate = {
+              rightToWork: 'verified',
+              rightToWorkExpiryDate: workerDocExpiry ? new Date(workerDocExpiry) : null,
+            } as WorkerColUpdate;
+            syncDescription = `RTW status → verified${workerDocExpiry ? `, expiry ${new Date(workerDocExpiry).toLocaleDateString('en-GB')}` : ''}`;
+          } else {
+            workerColUpdate = { rightToWork: isExpiredDoc ? 'expired' : 'pending' } as WorkerColUpdate;
+            syncDescription = `RTW status → ${isExpiredDoc ? 'expired' : 'pending'} (document rejected)`;
+          }
+        } else if (workerDocType === 'cscs_card') {
+          if (status === 'approved') {
+            workerColUpdate = { cscsStatus: 'valid' } as WorkerColUpdate;
+            syncDescription = 'CSCS status → valid';
+          } else {
+            workerColUpdate = { cscsStatus: isExpiredDoc ? 'expired' : 'pending' } as WorkerColUpdate;
+            syncDescription = `CSCS status → ${isExpiredDoc ? 'expired' : 'pending'} (document rejected)`;
+          }
+        } else if (workerDocType === 'ipaf_card') {
+          if (status === 'approved') {
+            workerColUpdate = { ipafStatus: 'valid' } as WorkerColUpdate;
+            syncDescription = 'IPAF status → valid';
+          } else {
+            workerColUpdate = { ipafStatus: isExpiredDoc ? 'expired' : 'none' } as WorkerColUpdate;
+            syncDescription = `IPAF status → ${isExpiredDoc ? 'expired' : 'none'} (document rejected)`;
+          }
+        }
+
+        if (workerColUpdate) {
+          try {
+            await db
+              .update(isolatedSchema.contractorWorkers)
+              .set(workerColUpdate as any)
+              .where(eq(isolatedSchema.contractorWorkers.id, (updated as any).workerId));
+          } catch (workerSyncErr: any) {
+            logger.warn('[portal-review] Failed to sync worker status column (non-fatal):', workerSyncErr.message?.substring(0, 80));
+          }
+        }
+      }
+
       if (status === 'rejected') {
         try {
           const uploadedBy: string = (updated as any).uploadedBy ?? '';
@@ -5305,14 +5358,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       if ((updated as any).workerId) {
         try {
           const docLabel = (updated as any).documentName ?? (updated as any).documentType ?? 'document';
+          const syncedTypes: Record<string, string> = { right_to_work: 'RTW', cscs_card: 'CSCS', ipaf_card: 'IPAF' };
+          const syncedField = syncedTypes[(updated as any).documentType as string] ?? null;
+          const syncSuffix = syncedField
+            ? ` ${syncedField} worker profile column synced from this document.`
+            : '';
           await db.insert(isolatedSchema.workerNotes).values({
             workerId: (updated as any).workerId,
             changeType: 'document_review',
             oldValue: 'pending',
             newValue: status,
             notes: status === 'rejected'
-              ? `Document "${docLabel}" rejected by reviewer (${reviewerId}). Reason: ${rejectedReason || 'No reason given'}.`
-              : `Document "${docLabel}" approved by reviewer (${reviewerId}).`,
+              ? `Document "${docLabel}" rejected by reviewer (${reviewerId}). Reason: ${rejectedReason || 'No reason given'}.${syncSuffix}`
+              : `Document "${docLabel}" approved by reviewer (${reviewerId}).${syncSuffix}`,
             changedBy: reviewerId,
           });
         } catch (noteErr: any) {
