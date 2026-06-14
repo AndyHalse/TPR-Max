@@ -1250,7 +1250,7 @@ function PermitDetailView({
           <TabsTrigger value="checklist">
             Checklist {checklist.length > 0 && (
               <span className={`ml-1 text-xs px-1.5 rounded-full ${checklistComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                {completedCount}/{checklist.length}
+                {completedCount}/{requiredItems.length}
               </span>
             )}
           </TabsTrigger>
@@ -1549,7 +1549,7 @@ function PermitDetailView({
                                     <button
                                       key={opt}
                                       disabled={!canEdit}
-                                      onClick={() => canEdit && onChecklistUpdate(item.id, opt, pendingNotes[item.id])}
+                                      onClick={() => canEdit && onChecklistUpdate(item.id, opt, pendingNotes[item.id] ?? item.notes ?? undefined)}
                                       className={`text-sm font-bold border-2 rounded-lg transition-colors min-w-[56px] py-1.5 px-3 ${
                                         item.response === opt
                                           ? selCls

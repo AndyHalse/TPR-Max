@@ -376,8 +376,19 @@ export function registerPermitToWorkRoutes(app: Express): void {
       if ((permit as any).status !== 'draft' && (permit as any).status !== 'submitted') {
         return res.status(400).json({ error: 'Checklist can only be updated in draft or submitted status.' });
       }
+      const updateValues: Record<string, any> = {
+        response,
+        respondedById: req.user!.id,
+        respondedAt: new Date(),
+      };
+      // Only touch the note when the client explicitly sends one.
+      // An absent note must NOT wipe a previously saved mitigating control note.
+      if (notes !== undefined) {
+        updateValues.notes = notes === '' ? null : notes;
+      }
+
       const [item] = await custDb.update(isolatedSchema.permitChecklist)
-        .set({ response, notes: notes || null, respondedById: req.user!.id, respondedAt: new Date() })
+        .set(updateValues)
         .where(and(eq(isolatedSchema.permitChecklist.id, checklistItemId), eq(isolatedSchema.permitChecklist.permitId, id)))
         .returning();
       if (!item) return res.status(404).json({ error: 'Checklist item not found on this permit.' });
