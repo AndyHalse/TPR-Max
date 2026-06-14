@@ -1457,6 +1457,7 @@ export class DatabaseService {
           lastName: worker.lastName,
           email: worker.email,
           phoneNumber: worker.phoneNumber,
+          phone: worker.phoneNumber, // alias for client compatibility (UI reads worker.phone)
           mobileNumber: worker.mobileNumber,
           homeAddress: worker.homeAddress,
           postcode: worker.postcode,
@@ -1967,6 +1968,7 @@ export class DatabaseService {
         lastName: worker.lastName,
         email: worker.email,
         phoneNumber: worker.phoneNumber,
+        phone: worker.phoneNumber, // alias for client compatibility (UI reads worker.phone)
         mobileNumber: worker.mobileNumber,
         homeAddress: worker.homeAddress,
         postcode: worker.postcode,
@@ -2376,6 +2378,7 @@ export class DatabaseService {
           lastName: worker.lastName,
           email: worker.email,
           phoneNumber: worker.phoneNumber,
+          phone: worker.phoneNumber, // alias for client compatibility (UI reads worker.phone)
           mobileNumber: worker.mobileNumber,
           homeAddress: worker.homeAddress,
           postcode: worker.postcode,
