@@ -5200,6 +5200,34 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         return res.status(404).json({ error: 'Document not found.' });
       }
 
+      // ── On approval, push the document's expiry date onto the contractor
+      //    company record so the Compliance Dashboard actually reflects it.
+      //    (The dashboard reads company-level expiry columns, not documents.)
+      if (status === 'approved' && (updated as any).companyId) {
+        const COMPANY_EXPIRY_COLUMN: Record<string, keyof typeof isolatedSchema.contractorCompanies.$inferInsert> = {
+          publicLiability:       'publicLiabilityExpiryDate',
+          employersLiability:    'employersLiabilityExpiryDate',
+          professionalIndemnity: 'professionalIndemnityExpiryDate',
+          healthSafety:          'healthSafetyPolicyExpiryDate',
+        };
+        const docType = (updated as any).documentType as string | undefined;
+        const expiry  = (updated as any).expiryDate as Date | string | null | undefined;
+        const column  = docType ? COMPANY_EXPIRY_COLUMN[docType] : undefined;
+
+        // Only company-level docs (no workerId) update the company insurance columns.
+        // Worker certs, CIS, RAMS, modern slavery and "other" are intentionally skipped.
+        if (column && expiry && !(updated as any).workerId) {
+          try {
+            await db
+              .update(isolatedSchema.contractorCompanies)
+              .set({ [column]: new Date(expiry) } as any)
+              .where(eq(isolatedSchema.contractorCompanies.id, (updated as any).companyId));
+          } catch (syncErr: any) {
+            logger.warn('[portal-review] Failed to sync company expiry (non-fatal):', syncErr.message?.substring(0, 80));
+          }
+        }
+      }
+
       if (status === 'rejected') {
         try {
           const uploadedBy: string = (updated as any).uploadedBy ?? '';
