@@ -1308,7 +1308,7 @@ const RoleCard = ({ roleType, settings, questions, onQuestionsRefetch, companySe
             <div className="p-3 bg-purple-50 dark:bg-purple-950 border border-purple-100 dark:border-purple-800 rounded-lg text-xs space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-medium text-purple-800 dark:text-purple-200 flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5 text-purple-600" />AI Generation Model</span>
-                <Badge variant="outline" className="text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-600 text-xs">{companySettings?.openaiModel || settings?.modelType || 'GPT-5'}</Badge>
+                <Badge variant="outline" className="text-purple-700 dark:text-purple-300 border-purple-300 dark:border-purple-600 text-xs">{companySettings?.openaiModel || settings?.modelType || 'claude-sonnet-4-6'}</Badge>
               </div>
               {(() => {
                 const m = companySettings?.openaiModel || settings?.modelType || '';
@@ -1428,14 +1428,24 @@ export default function InductionSettings() {
   const handleQuickStartWithForm = async () => {
     if (!qs.form.siteName.trim() && !qs.form.industry.trim()) return;
     try {
-      // Save essentials directly so they're committed before generation hits the server
-      await apiRequest('PATCH', '/api/settings', {
+      // Save essentials FIRST so the AI generates against them. Uses PUT — the
+      // only settings write endpoint the server exposes (GET + PUT /api/settings).
+      await apiRequest('PUT', '/api/settings', {
         ...(qs.form.siteName.trim() && { siteAddress: qs.form.siteName.trim() }),
         ...(qs.form.industry.trim() && { inductionIndustry: qs.form.industry.trim() }),
         ...(qs.form.hazards.trim() && { inductionHazards: qs.form.hazards.trim() }),
       });
       queryClient.invalidateQueries({ queryKey: ['/api/settings'] });
-    } catch { /* non-fatal */ }
+    } catch {
+      // The whole point of this form is site-specific content — if the details
+      // didn't save, stop and tell the user rather than generating a generic induction.
+      setQs(prev => ({
+        ...prev,
+        phase: 'failed',
+        error: 'Could not save your site details. Please check your connection and try again.',
+      }));
+      return;
+    }
     await runQuickStartGeneration();
   };
 
