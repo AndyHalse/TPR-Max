@@ -205,9 +205,29 @@ export function registerAuthRoutes(app: Express): void {
 
   // ── Authentication endpoints ────────────────────────────────────────────
 
-  // Brute-force protection for the password check — keyed on IP + username so
-  // one attacker can't lock everyone out and rotating IPs can't bypass per-user limits.
+  // Brute-force protection — two complementary limiters:
+  //
+  // 1. Per-account limiter (no IP in key): blocks distributed / rotating-IP attacks
+  //    against a single account. 10 FAILED attempts / 15 min per company+username,
+  //    regardless of how many IPs the attacker uses.
+  //    skipSuccessfulRequests=true so legitimate logins never count toward the cap.
+  //
+  // 2. Per-IP-per-account limiter: defence-in-depth if multiple accounts are targeted
+  //    from the same source, and gives finer-grained blocking alongside the global
+  //    authRateLimit (100/15min per IP) applied in index.ts.
+  //
   // TODO: use a shared store (Redis / DB) if running multiple server instances.
+  const accountLoginLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    skipSuccessfulRequests: true,
+    keyGenerator: (req) => {
+      const body = req.body as Record<string, string> | undefined;
+      return `acct|${(body?.companyName ?? '').toLowerCase()}:${(body?.username ?? '').toLowerCase()}`;
+    },
+    message: { error: 'Too many login attempts for this account. Please try again in 15 minutes.' },
+  });
+
   const loginLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 10,
@@ -221,7 +241,7 @@ export function registerAuthRoutes(app: Express): void {
     message: { error: 'Too many login attempts. Please try again in 15 minutes.' },
   });
 
-  app.post('/api/auth/login', loginLimiter, async (req, res) => {
+  app.post('/api/auth/login', accountLoginLimiter, loginLimiter, async (req, res) => {
     try {
       const { companyName, username, password } = req.body;
 

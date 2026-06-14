@@ -1770,6 +1770,30 @@ This is an automated notification from your visitor management system.`;
 
   app.post("/api/xstation/qr-scan", async (req, res) => {
     try {
+      // ── Device authentication ───────────────────────────────────────────────
+      // XSTATION_DEVICE_KEY must be set in production. Any device must send
+      // the matching value in the `x-device-key` request header.
+      // This creates a proper trust boundary: anonymous internet clients cannot
+      // drive check-in/out state even if they know a QR string.
+      //
+      // Future hardening (when per-device DB records exist): look up the device
+      // by its key to derive customerId from the device record, replacing the
+      // body-supplied customerId entirely. For now, customerId still comes from
+      // the body but only after the shared secret is validated.
+      const configuredDeviceKey = process.env.XSTATION_DEVICE_KEY;
+      if (configuredDeviceKey) {
+        const providedKey = req.headers['x-device-key'] as string | undefined;
+        if (!providedKey || providedKey !== configuredDeviceKey) {
+          logger.warn(`X-Station QR scan rejected — missing or invalid device key`, { deviceIp: req.body?.deviceIp, ip: req.ip });
+          return res.status(401).json({ error: 'Invalid or missing device key' });
+        }
+      } else {
+        // Key not yet configured — log a prominent warning but allow through so
+        // existing deployments are not hard-broken before operators set the var.
+        logger.warn('⚠️  XSTATION_DEVICE_KEY is not set. The /api/xstation/qr-scan endpoint is unauthenticated. Set this env var to enable device trust.');
+      }
+      // ── End device authentication ───────────────────────────────────────────
+
       const { qrCode, deviceIp, action = 'checkin', timestamp, customerId: bodyCustomerId } = req.body;
       
       logger.info(`X-Station QR scan event:`, { deviceIp, action, qrCode, timestamp });
