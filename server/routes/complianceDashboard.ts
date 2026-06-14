@@ -50,10 +50,10 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         return d.toISOString().split('T')[0];
       }
 
-      function addTimeline(date: Date | string | null | undefined, category: string, item: string) {
+      function addTimeline(date: Date | string | null | undefined, category: string, item: string, linkPath?: string) {
         const days = daysUntil(date);
         if (days !== null && days >= 0 && days <= 90) {
-          expiryTimeline.push({ date: isoDate(date)!, category, item, daysUntilExpiry: days });
+          expiryTimeline.push({ date: isoDate(date)!, category, item, daysUntilExpiry: days, linkPath });
         }
       }
 
@@ -750,19 +750,19 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             criticalIssues.push({
               id: `cert-expired-${row.id}`, category: 'Compliance Certificates', severity: 'critical',
               title: 'Compliance certificate expired', detail: row.display_name,
-              daysOverdue: days !== null ? Math.abs(days) : undefined, linkPath: '/compliance-certificates',
+              daysOverdue: days !== null ? Math.abs(days) : undefined, linkPath: `/compliance-certificates?highlight=${row.id}`,
             });
           } else if (days !== null && days <= 30) {
             certsExpiring++;
             warnings.push({
               id: `cert-expiring-${row.id}`, category: 'Compliance Certificates', severity: 'warning',
               title: 'Compliance certificate expiring soon',
-              detail: `${row.display_name} — expires in ${days} days`, linkPath: '/compliance-certificates',
+              detail: `${row.display_name} — expires in ${days} days`, linkPath: `/compliance-certificates?highlight=${row.id}`,
             });
-            addTimeline(row.expiry_date, 'Compliance Certificates', row.display_name);
+            addTimeline(row.expiry_date, 'Compliance Certificates', row.display_name, `/compliance-certificates?highlight=${row.id}`);
           } else {
             certsCompliant++;
-            addTimeline(row.expiry_date, 'Compliance Certificates', row.display_name);
+            addTimeline(row.expiry_date, 'Compliance Certificates', row.display_name, `/compliance-certificates?highlight=${row.id}`);
           }
         }
       } catch (e: any) {
@@ -791,19 +791,19 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               id: `permit-expired-${row.id}`, category: 'Permits to Work', severity: 'critical',
               title: 'Permit to Work expired without closure',
               detail: `${row.work_description} (${row.permit_number})`,
-              daysOverdue: days !== null ? Math.abs(days) : undefined, linkPath: '/permit-to-work',
+              daysOverdue: days !== null ? Math.abs(days) : undefined, linkPath: `/permit-to-work?highlight=${row.id}`,
             });
           } else if (row.status === 'pending') {
             permitsPending++;
             warnings.push({
               id: `permit-pending-${row.id}`, category: 'Permits to Work', severity: 'warning',
               title: 'Permit to Work awaiting authorisation',
-              detail: `${row.work_description} (${row.permit_number})`, linkPath: '/permit-to-work',
+              detail: `${row.work_description} (${row.permit_number})`, linkPath: `/permit-to-work?highlight=${row.id}`,
             });
           } else {
             permitsCompliant++;
             if (days !== null && days <= 7) {
-              addTimeline(row.permit_valid_until, 'Permits to Work', row.work_description);
+              addTimeline(row.permit_valid_until, 'Permits to Work', row.work_description, `/permit-to-work?highlight=${row.id}`);
             }
           }
         }
@@ -832,18 +832,18 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             criticalIssues.push({
               id: `ra-overdue-${ra.id}`, category: 'Risk Assessments', severity: 'critical',
               title: 'Risk Assessment review overdue', detail: ra.title,
-              daysOverdue: Math.abs(reviewDays), linkPath: '/ra-builder',
+              daysOverdue: Math.abs(reviewDays), linkPath: `/ra-builder?highlight=${ra.id}`,
             });
           } else if (ra.status === 'review') {
             raReviewDue++;
             warnings.push({
               id: `ra-review-${ra.id}`, category: 'Risk Assessments', severity: 'warning',
-              title: 'Risk Assessment pending review', detail: ra.title, linkPath: '/ra-builder',
+              title: 'Risk Assessment pending review', detail: ra.title, linkPath: `/ra-builder?highlight=${ra.id}`,
             });
-            addTimeline(ra.nextReviewDate, 'Risk Assessments', ra.title);
+            addTimeline(ra.nextReviewDate, 'Risk Assessments', ra.title, `/ra-builder?highlight=${ra.id}`);
           } else {
             raCompliant++;
-            addTimeline(ra.nextReviewDate, 'Risk Assessments', `${ra.title} — review`);
+            addTimeline(ra.nextReviewDate, 'Risk Assessments', `${ra.title} — review`, `/ra-builder?highlight=${ra.id}`);
           }
         }
       } catch (e: any) {
@@ -871,7 +871,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             } else {
               criticalIssues.push({
                 id: `audit-failed-${audit.id}`, category: 'Audits', severity: 'critical',
-                title: 'Audit failed', detail: audit.title, linkPath: '/audits',
+                title: 'Audit failed', detail: audit.title, linkPath: `/audits?highlight=${audit.id}`,
               });
             }
           } else if (audit.status === 'overdue') {
@@ -879,7 +879,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             auditsOverdue++;
             criticalIssues.push({
               id: `audit-overdue-${audit.id}`, category: 'Audits', severity: 'critical',
-              title: 'Audit overdue', detail: audit.title, linkPath: '/audits',
+              title: 'Audit overdue', detail: audit.title, linkPath: `/audits?highlight=${audit.id}`,
             });
           } else if (audit.status === 'scheduled' && audit.scheduledDate) {
             const scheduledDays = daysUntil(audit.scheduledDate);
@@ -889,10 +889,10 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               warnings.push({
                 id: `audit-missed-${audit.id}`, category: 'Audits', severity: 'warning',
                 title: 'Scheduled audit missed',
-                detail: `${audit.title} — was due ${Math.abs(scheduledDays)} days ago`, linkPath: '/audits',
+                detail: `${audit.title} — was due ${Math.abs(scheduledDays)} days ago`, linkPath: `/audits?highlight=${audit.id}`,
               });
             } else if (scheduledDays !== null && scheduledDays <= 14) {
-              addTimeline(audit.scheduledDate, 'Audits', audit.title);
+              addTimeline(audit.scheduledDate, 'Audits', audit.title, `/audits?highlight=${audit.id}`);
             }
           }
         }
@@ -911,7 +911,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               title: 'Corrective action overdue',
               detail: row.description,
               daysOverdue: days !== null ? Math.abs(days) : undefined,
-              linkPath: '/audits',
+              linkPath: `/audits?action=${row.id}`,
             });
           }
         } catch (e: any) {
@@ -944,7 +944,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               id: `ppm-overdue-${o.id}`, category: 'PPM / Maintenance', severity: 'critical',
               title: 'PPM work order overdue', detail: o.title,
               daysOverdue: dueDate ? Math.ceil((now.getTime() - dueDate.getTime()) / 86400000) : undefined,
-              linkPath: '/ppm',
+              linkPath: `/ppm?highlight=${o.id}`,
             });
           } else if (o.dueDate) {
             const days = daysUntil(o.dueDate)!;
@@ -953,10 +953,10 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               warnings.push({
                 id: `ppm-soon-${o.id}`, category: 'PPM / Maintenance', severity: 'warning',
                 title: 'PPM work order due this week',
-                detail: `${o.title} — due in ${days} days`, linkPath: '/ppm',
+                detail: `${o.title} — due in ${days} days`, linkPath: `/ppm?highlight=${o.id}`,
               });
             }
-            addTimeline(o.dueDate, 'PPM', o.title);
+            addTimeline(o.dueDate, 'PPM', o.title, `/ppm?highlight=${o.id}`);
           }
         }
       } catch (e: any) {
@@ -977,19 +977,19 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             criticalIssues.push({
               id: `fra-overdue-${fra.id}`, category: 'Fire Risk Assessment', severity: 'critical',
               title: 'Fire Risk Assessment overdue',
-              detail: fra.title || 'Fire Risk Assessment', linkPath: '/fire-risk-assessment',
+              detail: fra.title || 'Fire Risk Assessment', linkPath: `/fire-risk-assessment?highlight=${fra.id}`,
             });
           } else if (fra.status === 'review_due') {
             fraReviewDue++;
             warnings.push({
               id: `fra-review-${fra.id}`, category: 'Fire Risk Assessment', severity: 'warning',
               title: 'Fire Risk Assessment review due',
-              detail: `${fra.title} — next review: ${fra.nextReviewDate}`, linkPath: '/fire-risk-assessment',
+              detail: `${fra.title} — next review: ${fra.nextReviewDate}`, linkPath: `/fire-risk-assessment?highlight=${fra.id}`,
             });
-            addTimeline(fra.nextReviewDate, 'Fire Risk Assessment', `${fra.title} — review`);
+            addTimeline(fra.nextReviewDate, 'Fire Risk Assessment', `${fra.title} — review`, `/fire-risk-assessment?highlight=${fra.id}`);
           } else {
             fraCurrent++;
-            addTimeline(fra.nextReviewDate, 'Fire Risk Assessment', `${fra.title} — review`);
+            addTimeline(fra.nextReviewDate, 'Fire Risk Assessment', `${fra.title} — review`, `/fire-risk-assessment?highlight=${fra.id}`);
           }
         }
       } catch (e: any) {

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -138,6 +138,22 @@ export default function FireRiskAssessmentPage() {
   const [completingActionId, setCompletingActionId] = useState<number | null>(null);
   const [completeForm, setCompleteForm] = useState({ ...emptyCompleteForm });
   const [showCompletedActions, setShowCompletedActions] = useState(false);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const didHighlight = useRef(false);
+
+  useEffect(() => {
+    if (didHighlight.current || !fras.length) return;
+    const id = new URLSearchParams(window.location.search).get('highlight');
+    if (!id) return;
+    const found = fras.find(f => String(f.id) === id);
+    if (!found) return;
+    setHighlightedId(id);
+    didHighlight.current = true;
+    setTimeout(() => {
+      document.getElementById(`item-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => setHighlightedId(null), 3000);
+    }, 400);
+  }, [fras]);
 
   const { data: fras = [], isLoading } = useQuery<FireRiskAssessment[]>({
     queryKey: ["/api/fire-risk-assessments"],
@@ -508,7 +524,7 @@ export default function FireRiskAssessmentPage() {
 
       {/* Current FRA card */}
       {currentFra && (
-        <GlassCard className="p-5">
+        <GlassCard id={`item-${currentFra.id}`} className={`p-5${highlightedId === String(currentFra.id) ? ' ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
           <div className="flex items-start justify-between gap-3">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
@@ -672,7 +688,7 @@ export default function FireRiskAssessmentPage() {
               </thead>
               <tbody>
                 {history.map(fra => (
-                  <tr key={fra.id} className="border-b last:border-0">
+                  <tr key={fra.id} id={`item-${fra.id}`} className={`border-b last:border-0${highlightedId === String(fra.id) ? ' bg-blue-50 dark:bg-blue-950/20' : ''}`}>
                     <td className="py-2 pr-3">{new Date(fra.assessmentDate).toLocaleDateString("en-GB")}</td>
                     <td className="py-2 pr-3">{fra.assessorName}{fra.assessorCompany ? ` · ${fra.assessorCompany}` : ""}</td>
                     <td className="py-2 pr-3">{new Date(fra.nextReviewDate).toLocaleDateString("en-GB")}</td>

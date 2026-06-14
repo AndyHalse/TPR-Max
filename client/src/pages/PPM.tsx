@@ -2489,12 +2489,16 @@ export default function PPM() {
   const { toast } = useToast();
   const search = useSearch();
   const searchParams = new URLSearchParams(search);
-  const defaultTab = searchParams.get("view") === "planner"
-    ? "annual-planner"
-    : searchParams.get("tab") ?? "dashboard";
+  const defaultTab = searchParams.get('highlight')
+    ? "work-orders"
+    : searchParams.get("view") === "planner"
+      ? "annual-planner"
+      : searchParams.get("tab") ?? "dashboard";
   const [activeTab, setActiveTab] = useState(defaultTab);
   const [woStatusFilter, setWoStatusFilter] = useState<string | undefined>(undefined);
-  const [woHighlightId, setWoHighlightId] = useState<string | undefined>(undefined);
+  const [woHighlightId, setWoHighlightId] = useState<string | undefined>(
+    searchParams.get('highlight') ?? undefined
+  );
 
   const { data: companySettings } = useQuery<CompanySettings>({ queryKey: ["/api/settings"] });
   const notificationsEnabled = companySettings?.notifyOnDocumentExpiry !== false;

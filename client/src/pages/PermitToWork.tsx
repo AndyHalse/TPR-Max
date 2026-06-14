@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest, getCsrfToken } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -157,6 +157,8 @@ export default function PermitToWork() {
   const [actionDialogState, setActionDialogState] = useState<{ type: string; permitId: string; permitNumber: string } | null>(null);
   const [actionReason, setActionReason] = useState('');
   const [closeSatisfactory, setCloseSatisfactory] = useState(true);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const didHighlight = useRef(false);
 
   const { data: permits = [], isLoading } = useQuery<Permit[]>({
     queryKey: ['/api/ptw'],
@@ -171,6 +173,25 @@ export default function PermitToWork() {
     },
     enabled: !!viewPermitId,
   });
+
+  useEffect(() => {
+    if (didHighlight.current || !permits.length) return;
+    const id = new URLSearchParams(window.location.search).get('highlight');
+    if (!id) return;
+    const permit = permits.find(p => p.id === id);
+    if (!permit) return;
+    const tabs: Array<[string, (p: typeof permit) => boolean]> = [
+      ['history',    p => ['completed', 'expired', 'cancelled'].includes(p.status)],
+      ['pending',    p => ['draft', 'submitted', 'pending'].includes(p.status)],
+      ['authorised', p => p.status === 'authorised'],
+      ['active',     () => true],
+    ];
+    const match = tabs.find(([, fn]) => fn(permit));
+    setActiveTab(match ? match[0] : 'active');
+    setHighlightedId(id);
+    setViewPermitId(id);
+    didHighlight.current = true;
+  }, [permits]);
 
   const { data: companyDocs = [] } = useQuery<CompanyDoc[]>({
     queryKey: ['/api/ptw/company-documents'],
@@ -345,7 +366,7 @@ export default function PermitToWork() {
                 const sc = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.draft;
                 const PtIcon = pt.icon;
                 return (
-                  <Card variant="glass" key={permit.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setViewPermitId(permit.id)}>
+                  <Card variant="glass" key={permit.id} id={`item-${permit.id}`} className={`hover:shadow-md transition-shadow cursor-pointer${highlightedId === permit.id ? ' ring-2 ring-blue-500' : ''}`} onClick={() => setViewPermitId(permit.id)}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 min-w-0">

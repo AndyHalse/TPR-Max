@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
@@ -1198,6 +1198,42 @@ export default function Audits() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [actionStatusFilter, setActionStatusFilter] = useState("all");
   const [actionPriorityFilter, setActionPriorityFilter] = useState("all");
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const didHighlight = useRef(false);
+
+  useEffect(() => {
+    if (didHighlight.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const highlightRecord = params.get('highlight');
+    const highlightAction = params.get('action');
+    if (!highlightRecord && !highlightAction) return;
+    if (highlightRecord) {
+      if (!records.length) return;
+      const found = records.find(r => String(r.id) === highlightRecord);
+      if (!found) return;
+      setActiveTab('records');
+      setStatusFilter('all');
+      setCategoryFilter('all');
+      setHighlightedId(highlightRecord);
+      didHighlight.current = true;
+      setTimeout(() => {
+        document.getElementById(`item-${highlightRecord}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => setHighlightedId(null), 3000);
+      }, 400);
+    } else if (highlightAction) {
+      if (!actions.length) return;
+      const found = actions.find(a => String(a.id) === highlightAction);
+      if (!found) return;
+      setActiveTab('actions');
+      setActionStatusFilter('all');
+      setHighlightedId(highlightAction);
+      didHighlight.current = true;
+      setTimeout(() => {
+        document.getElementById(`item-${highlightAction}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => setHighlightedId(null), 3000);
+      }, 400);
+    }
+  }, [records, actions]);
 
   const { data: summary, isLoading: summaryLoading } = useQuery<AuditSummary>({
     queryKey: ["/api/audits/summary"],
@@ -1498,7 +1534,7 @@ export default function Audits() {
           ) : (
             <div className="space-y-3">
               {filteredRecords.map(r => (
-                <GlassCard key={r.id} className="p-4">
+                <GlassCard key={r.id} id={`item-${r.id}`} className={`p-4${highlightedId === String(r.id) ? ' ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
                   <div className="flex flex-col md:flex-row md:items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
@@ -1589,7 +1625,7 @@ export default function Audits() {
           ) : (
             <div className="space-y-3">
               {filteredActions.map(a => (
-                <GlassCard key={a.id} className="p-4">
+                <GlassCard key={a.id} id={`item-${a.id}`} className={`p-4${highlightedId === String(a.id) ? ' ring-2 ring-blue-500 bg-blue-50/50 dark:bg-blue-950/20' : ''}`}>
                   <div className="flex flex-col md:flex-row md:items-center gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">

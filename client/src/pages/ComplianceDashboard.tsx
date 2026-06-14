@@ -30,6 +30,7 @@ interface ContractorRisk {
 
 interface TimelineItem {
   date: string; category: string; item: string; daysUntilExpiry: number;
+  linkPath?: string;
 }
 
 interface DashboardData {
@@ -87,7 +88,7 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
     stat: c => c.total === 0 ? "No documents" : c.expired ? `${c.expired} expired` : c.expiring ? `${c.expiring} expiring soon` : `All ${c.total} valid`,
   },
   inductions: {
-    label: "Contractor Inductions", icon: HardHat, link: "/induction-settings",
+    label: "Contractor Inductions", icon: HardHat, link: "/contractors?gaps=true&sort=true",
     stat: c => c.total === 0 ? "No active workers" : c.overdue ? `${c.overdue} overdue` : `All ${c.total} inducted`,
   },
   staffRightToWork: {
@@ -1051,8 +1052,8 @@ export default function ComplianceDashboard() {
                       const catClass = TIMELINE_CATEGORY_COLOURS[item.category] ?? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300";
                       const urgentText = item.daysUntilExpiry <= 7 ? "text-red-600 dark:text-red-400 font-bold" :
                         item.daysUntilExpiry <= 14 ? "text-amber-600 dark:text-amber-400 font-semibold" : "text-gray-600 dark:text-gray-400";
-                      return (
-                        <div key={i} className="flex items-center gap-3 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0">
+                      const rowContent = (
+                        <>
                           <span className="text-xs font-mono text-gray-500 dark:text-gray-400 shrink-0 w-20">
                             {format(new Date(item.date), "dd MMM yyyy")}
                           </span>
@@ -1063,7 +1064,13 @@ export default function ComplianceDashboard() {
                           <span className={`text-xs shrink-0 ${urgentText}`}>
                             {item.daysUntilExpiry === 0 ? "Today" : `${item.daysUntilExpiry}d`}
                           </span>
-                        </div>
+                        </>
+                      );
+                      const rowClass = `flex items-center gap-3 py-2 border-b border-gray-100 dark:border-gray-800 last:border-0${item.linkPath ? " hover:bg-gray-50 dark:hover:bg-gray-800/40 rounded px-1 -mx-1 transition-colors cursor-pointer" : ""}`;
+                      return item.linkPath ? (
+                        <Link key={i} href={item.linkPath} className={rowClass}>{rowContent}</Link>
+                      ) : (
+                        <div key={i} className={rowClass}>{rowContent}</div>
                       );
                     })}
                   </div>

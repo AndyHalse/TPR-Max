@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -114,6 +114,24 @@ export default function ComplianceCertificateRegister() {
   const [viewHistoryTypeId, setViewHistoryTypeId] = useState<string | null>(null);
   const [showAddCustomType, setShowAddCustomType] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const didHighlight = useRef(false);
+
+  useEffect(() => {
+    if (didHighlight.current || !certTypes.length) return;
+    const id = new URLSearchParams(window.location.search).get('highlight');
+    if (!id) return;
+    const found = certTypes.find(c => String(c.id) === id);
+    if (!found) return;
+    setStatusFilter('all');
+    setExpandedId(found.id);
+    setHighlightedId(found.id);
+    didHighlight.current = true;
+    setTimeout(() => {
+      document.getElementById(`item-${found.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => setHighlightedId(null), 3000);
+    }, 400);
+  }, [certTypes]);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadForm, setUploadForm] = useState({
     issueDate: '', expiryDate: '', referenceNumber: '', issuedBy: '', issuingCompany: '', notes: '',
@@ -333,7 +351,8 @@ export default function ComplianceCertificateRegister() {
             return (
               <Card
                 key={certType.id}
-                className={`ring-1 ${s.ring} transition-shadow hover:shadow-md ${s.bg}`}
+                id={`item-${certType.id}`}
+                className={`ring-1 ${s.ring} transition-shadow hover:shadow-md ${s.bg}${highlightedId === certType.id ? ' ring-2 ring-blue-500 shadow-lg shadow-blue-100 dark:shadow-blue-900/30' : ''}`}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">

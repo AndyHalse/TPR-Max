@@ -181,6 +181,8 @@ export default function RaBuilder() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const didHighlight = useRef(false);
 
   // Editor state
   const [assessment, setAssessment] = useState<Partial<Assessment>>({});
@@ -198,6 +200,22 @@ export default function RaBuilder() {
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   // ── Queries ──────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (didHighlight.current || showEditor || !assessments.length) return;
+    const id = new URLSearchParams(window.location.search).get('highlight');
+    if (!id) return;
+    const found = assessments.find(a => String(a.id) === id);
+    if (!found) return;
+    setStatusFilter('all');
+    setTypeFilter('all');
+    setHighlightedId(id);
+    didHighlight.current = true;
+    setTimeout(() => {
+      document.getElementById(`item-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => setHighlightedId(null), 3000);
+    }, 400);
+  }, [assessments, showEditor]);
 
   const { data: assessments = [], isLoading: listLoading } = useQuery<Assessment[]>({
     queryKey: ["/api/ra-builder/assessments"],
@@ -965,7 +983,7 @@ export default function RaBuilder() {
               const statusConf = STATUS_CONFIG[a.status] || STATUS_CONFIG.draft;
               const maxRating = (a.hazards || []).reduce((m, h) => Math.max(m, h.riskRating), 0);
               return (
-                <Card variant="glass" key={a.id} className="border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow">
+                <Card variant="glass" key={a.id} id={`item-${a.id}`} className={`border-slate-200 dark:border-slate-700 hover:shadow-md transition-shadow${highlightedId === a.id ? ' ring-2 ring-blue-500 shadow-blue-100 dark:shadow-blue-900/30' : ''}`}>
                   <CardContent className="p-5">
                     <div className="flex flex-wrap gap-2 mb-3">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${typeConf.color}`}>{typeConf.label}</span>
