@@ -411,9 +411,8 @@ function BookLeaveDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
             </div>
             {leaveType === "annual" && balance && (
               <div className="text-blue-800 text-xs">
-                Annual entitlement: <strong>{balance.taken}</strong> of <strong>{balance.entitlement}</strong> days taken
-                {balance.pending > 0 ? <> · {balance.pending} pending</> : null}
-                {" — "}<strong>{Math.max(0, balance.remaining - days).toFixed(1)}</strong> days remaining if approved.
+                Annual entitlement: <strong>{balance.taken}</strong> taken · <strong>{balance.pending}</strong> pending
+                {" — "}<strong>{Math.max(0, (balance.available ?? balance.remaining) - days).toFixed(1)}</strong> days available after this request.
               </div>
             )}
             {bankHols.length > 0 && (
@@ -438,11 +437,11 @@ function BookLeaveDialog({ open, onOpenChange }: { open: boolean; onOpenChange: 
           )}
 
           {/* Annual leave over-allocation warning */}
-          {leaveType === "annual" && balance && days > balance.remaining && (
+          {leaveType === "annual" && balance && days > (balance.available ?? balance.remaining) && (
             <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm flex items-start gap-2">
               <AlertTriangle className="h-4 w-4 text-red-700 mt-0.5" />
               <div className="text-red-900">
-                This request exceeds the remaining annual entitlement ({balance.remaining} days left, {days} requested).
+                This request exceeds your available allowance ({(balance.available ?? balance.remaining)} days available including pending, {days} requested).
               </div>
             </div>
           )}

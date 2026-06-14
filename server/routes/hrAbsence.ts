@@ -45,8 +45,9 @@ export function registerHrAbsenceRoutes(app: Express): void {
         [staffId, absenceType, startDate, reason || null, documentUrl || null, documentName || null]
       );
 
+      // Only flip to on_leave if currently active — never overwrite leaver/archived/other classifications
       await pool.query(
-        `UPDATE "${schemaName}".staff SET employment_status = 'on_leave' WHERE id = $1`,
+        `UPDATE "${schemaName}".staff SET employment_status = 'on_leave' WHERE id = $1 AND employment_status = 'active'`,
         [staffId]
       );
 
@@ -96,9 +97,17 @@ export function registerHrAbsenceRoutes(app: Express): void {
          returnToWorkBy || null, fitNoteRequired, bf.score, id]
       );
 
+      // Only revert to active if on_leave AND no other open absence remains
       await pool.query(
-        `UPDATE "${schemaName}".staff SET employment_status = 'active' WHERE id = $1`,
-        [staffId]
+        `UPDATE "${schemaName}".staff
+         SET employment_status = 'active'
+         WHERE id = $1
+           AND employment_status = 'on_leave'
+           AND NOT EXISTS (
+             SELECT 1 FROM "${schemaName}".absence_records
+             WHERE staff_id = $1 AND return_date IS NULL AND id <> $2
+           )`,
+        [staffId, id]
       );
 
       res.json({ absence: result.rows[0], bradfordFactor: bf, fitNoteRequired });
@@ -135,7 +144,8 @@ export function registerHrAbsenceRoutes(app: Express): void {
       const avgBradford = overview.length
         ? Math.round(overview.reduce((s, o) => s + o.bradfordFactor.score, 0) / overview.length)
         : 0;
-      const totalDaysYTD = absences.rows.reduce((s: number, a: any) => s + Number(a.days_lost || 0), 0);
+      // Sum the rolling-365-day totals from the per-staff overview (consistent with Bradford rows)
+      const totalDaysYTD = overview.reduce((s, o) => s + Number(o.totalDaysThisYear || 0), 0);
 
       res.json({ overview, summary: { currentlyAbsent, avgBradford, totalDaysYTD } });
     } catch (err: any) {

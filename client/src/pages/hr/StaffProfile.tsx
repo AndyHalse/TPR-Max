@@ -299,9 +299,9 @@ function LeaveTab({ staffId }: { staffId: string }) {
   return (
     <div className="space-y-4">
       {balance && (
-        <div className="grid grid-cols-4 gap-3">
-          {[["Entitlement", balance.entitlement], ["Taken", balance.taken], ["Pending", balance.pending], ["Remaining", balance.remaining]].map(([label, val]) => (
-            <Card variant="glass" key={String(label)}><CardContent className="pt-3 pb-3 text-center"><div className="text-2xl font-bold text-blue-700">{val}</div><div className="text-xs text-gray-500">{label}</div></CardContent></Card>
+        <div className="grid grid-cols-5 gap-3">
+          {[["Entitlement", balance.entitlement], ["Taken", balance.taken], ["Pending", balance.pending], ["Remaining", balance.remaining], ["Available", balance.available]].map(([label, val]) => (
+            <Card variant="glass" key={String(label)}><CardContent className="pt-3 pb-3 text-center"><div className={`text-2xl font-bold ${label === "Available" ? (Number(val) < 0 ? "text-red-600" : "text-green-700") : "text-blue-700"}`}>{val}</div><div className="text-xs text-gray-500">{label === "Available" ? "Available to book" : label}</div></CardContent></Card>
           ))}
         </div>
       )}

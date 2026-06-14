@@ -129,6 +129,7 @@ export function calculateLeaveBalance(
   taken: number;
   pending: number;
   remaining: number;
+  available: number;
 } {
   const yearStart = new Date(leaveYear.start);
   const yearEnd = new Date(leaveYear.end);
@@ -157,5 +158,6 @@ export function calculateLeaveBalance(
     taken: Math.round(taken * 2) / 2,
     pending: Math.round(pending * 2) / 2,
     remaining: Math.round((entitlementDays - taken) * 2) / 2,
+    available: Math.round((entitlementDays - taken - pending) * 2) / 2,
   };
 }
