@@ -349,6 +349,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
         );
 
         for (const row of dbsResult.rows) {
+          if (!activeWorkerIds.has(row.worker_id)) continue;
           workerDbsTotal++;
           const workerName = `${row.first_name} ${row.last_name}`;
           const companyName = companies.find(c => c.id === row.company_id)?.company_name ?? '';
@@ -428,10 +429,12 @@ export function registerComplianceDashboardRoutes(app: Express): void {
            JOIN "${schemaName}".contractor_workers cw ON cw.id = cd.worker_id
            WHERE cd.worker_id IS NOT NULL
              AND cd.is_active = TRUE
+             AND cw.is_active = TRUE
              AND cd.document_type <> 'right_to_work'`
         );
 
         for (const row of workerCertResult.rows) {
+          if (!activeWorkerIds.has(row.worker_id)) continue;
           workerCertTotal++;
           const workerName = `${row.first_name} ${row.last_name}`;
           const companyName = companies.find(c => c.id === row.company_id)?.company_name ?? '';
