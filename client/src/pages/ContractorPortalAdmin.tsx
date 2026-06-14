@@ -90,8 +90,8 @@ export default function ContractorPortalAdmin() {
       const res = await apiRequest("POST", `/api/contractors/${companyId}/portal-invite`, { email });
       return res.json();
     },
-    onSuccess: () => {
-      toast({ title: "Invitation sent", description: `Portal invite sent to ${inviteEmail || postCreateEmail}.` });
+    onSuccess: (_data, variables) => {
+      toast({ title: "Invitation sent", description: `Portal invite sent to ${variables.email}.` });
       setInviteEmail(""); setInviteCompanyId(""); setInviteOpen(false);
       setPostCreateInviteOpen(false);
       qc.invalidateQueries({ queryKey: OVERVIEW_KEY });
@@ -149,7 +149,8 @@ export default function ContractorPortalAdmin() {
   });
 
   const activeCount = allPortalUsers.filter((u) => u.isActive).length;
-  const pendingCount = allPortalUsers.filter((u) => !u.isActive).length;
+  const pendingCount = allPortalUsers.filter((u) => !u.isActive && u.hasPendingInvite).length;
+  const revokedCount = allPortalUsers.filter((u) => !u.isActive && !u.hasPendingInvite).length;
   const companiesWithPortal = new Set(allPortalUsers.map((u) => u.companyId)).size;
   const pendingDocsCount = allPendingDocs.length;
 
@@ -333,14 +334,15 @@ export default function ContractorPortalAdmin() {
                           <span className="text-xs text-muted-foreground hidden sm:block">
                             {u.invitedAt ? new Date(u.invitedAt).toLocaleDateString() : "—"}
                           </span>
-                          <Badge variant={u.isActive ? "default" : "secondary"}>
-                            {u.isActive ? "Active" : "Invite pending"}
+                          <Badge variant={u.isActive ? "default" : u.hasPendingInvite ? "secondary" : "outline"}
+                                 className={!u.isActive && !u.hasPendingInvite ? "text-red-600 border-red-300" : undefined}>
+                            {u.isActive ? "Active" : u.hasPendingInvite ? "Invite pending" : "Revoked"}
                           </Badge>
                           {!u.isActive && (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => sendInviteMutation.mutate({ companyId: u.companyId, email: u.email })} disabled={sendInviteMutation.isPending}>
-                                  {resendInviteBusy ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCw className="w-3 h-3 mr-1" />} Resend
+                                  {resendInviteBusy ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <RefreshCw className="w-3 h-3 mr-1" />} {u.hasPendingInvite ? "Resend" : "Re-invite"}
                                 </Button>
                               </TooltipTrigger>
                               <TooltipContent side="top" className="text-xs">Resend the invitation email to {u.email}</TooltipContent>

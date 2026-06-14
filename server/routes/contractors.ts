@@ -4873,8 +4873,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     next();
   }
 
+  // ── Portal feature gate (mirrors requirePermitToWorkFeature) ──────────────
+  async function requirePortalFeature(req: any, res: any, next: any) {
+    try {
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
+      const settings = await simpleDatabaseService.getCompanySettings(context);
+      if (!settings?.featureContractorPortal) {
+        return res.status(403).json({ error: 'Contractor Portal module is not enabled for your account.' });
+      }
+      next();
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // ── Contractor Portal: Admin overview (replaces N+1 per-company fan-out) ──
-  app.get('/api/contractor-portal/admin-overview', requireAuth, requirePortalAdmin, async (req, res) => {
+  app.get('/api/contractor-portal/admin-overview', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
       const customerId = req.customerId!;
       const db = await customerDbService.getCustomerDatabase(customerId);
@@ -4888,6 +4902,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
           role: isolatedSchema.contractorPortalUsers.role,
           isActive: isolatedSchema.contractorPortalUsers.isActive,
           hasPassword: sql<boolean>`(${isolatedSchema.contractorPortalUsers.passwordHash} IS NOT NULL)`,
+          hasPendingInvite: sql<boolean>`(${isolatedSchema.contractorPortalUsers.inviteToken} IS NOT NULL)`,
           inviteExpiresAt: isolatedSchema.contractorPortalUsers.inviteExpiresAt,
           lastLoginAt: isolatedSchema.contractorPortalUsers.lastLoginAt,
           invitedAt: isolatedSchema.contractorPortalUsers.invitedAt,
@@ -4942,7 +4957,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Invite a user ──────────────────────────────────────
-  app.post('/api/contractors/:companyId/portal-invite', requireAuth, requirePortalAdmin, async (req, res) => {
+  app.post('/api/contractors/:companyId/portal-invite', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
       const { companyId } = req.params;
       const customerId = req.customerId!;
@@ -5043,7 +5058,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: List portal users for a company ────────────────────
-  app.get('/api/contractors/:companyId/portal-users', requireAuth, requirePortalAdmin, async (req, res) => {
+  app.get('/api/contractors/:companyId/portal-users', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
       const { companyId } = req.params;
       const customerId = req.customerId!;
@@ -5076,7 +5091,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Revoke / re-invite a portal user ──────────────────
-  app.patch('/api/contractors/portal-users/:userId/revoke', requireAuth, requirePortalAdmin, async (req, res) => {
+  app.patch('/api/contractors/portal-users/:userId/revoke', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       const customerId = req.customerId!;
@@ -5097,7 +5112,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Resend login details to an active portal user ────────
-  app.post('/api/contractors/portal-users/:userId/resend-login', requireAuth, requirePortalAdmin, async (req, res) => {
+  app.post('/api/contractors/portal-users/:userId/resend-login', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
       const { userId } = req.params;
       const customerId = req.customerId!;
@@ -5171,7 +5186,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: Review a document (approve/reject) ─────────────────
-  app.put('/api/contractors/documents/:docId/review', requireAuth, requirePortalAdmin, async (req, res) => {
+  app.put('/api/contractors/documents/:docId/review', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
       const { docId } = req.params;
       const customerId = req.customerId!;
@@ -5313,7 +5328,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   });
 
   // ── Contractor Portal: List pending documents for admin review ────────────
-  app.get('/api/contractors/:companyId/portal-documents', requireAuth, requirePortalAdmin, async (req, res) => {
+  app.get('/api/contractors/:companyId/portal-documents', requireAuth, requirePortalFeature, requirePortalAdmin, async (req, res) => {
     try {
       const { companyId } = req.params;
       const customerId = req.customerId!;
