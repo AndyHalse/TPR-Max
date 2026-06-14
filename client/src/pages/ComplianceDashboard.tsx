@@ -79,11 +79,11 @@ const BAND_COLOURS = {
 
 const CATEGORY_META: Record<string, { label: string; icon: any; link: string; stat: (c: CategoryStat) => string }> = {
   contractorInsurance: {
-    label: "Contractor Insurance", icon: Building2, link: "/contractors",
+    label: "Contractor Insurance", icon: Building2, link: "/contractors?gaps=true&sort=true",
     stat: c => c.total === 0 ? "No policies tracked" : c.expired ? `${c.expired} expired` : c.expiring ? `${c.expiring} expiring soon` : `All ${c.total} current`,
   },
   rams: {
-    label: "RAMS Documents", icon: FileText, link: "/contractors",
+    label: "RAMS Documents", icon: FileText, link: "/contractors?gaps=true&sort=true",
     stat: c => c.total === 0 ? "No documents" : c.expired ? `${c.expired} expired` : c.expiring ? `${c.expiring} expiring soon` : `All ${c.total} valid`,
   },
   inductions: {
@@ -119,19 +119,19 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
     stat: c => c.total === 0 ? "None recorded" : c.overdue ? `${c.overdue} overdue` : c.reviewDue ? `${c.reviewDue} review due` : `${c.current} current`,
   },
   workerRightToWork: {
-    label: "Worker Right to Work", icon: UserCheck, link: "/contractors",
+    label: "Worker Right to Work", icon: UserCheck, link: "/contractors?gaps=true&sort=true",
     stat: c => (c.total ?? 0) === 0 ? "No workers tracked" : `${c.compliant} of ${c.total} compliant`,
   },
   workerDbs: {
-    label: "Worker DBS", icon: Fingerprint, link: "/contractors",
+    label: "Worker DBS", icon: Fingerprint, link: "/contractors?gaps=true&sort=true",
     stat: c => (c.total ?? 0) === 0 ? "None on record" : `${c.compliant} of ${c.total} current`,
   },
   workerCertifications: {
-    label: "Worker Certifications", icon: Award, link: "/contractors",
+    label: "Worker Certifications", icon: Award, link: "/contractors?gaps=true&sort=true",
     stat: c => (c.total ?? 0) === 0 ? "No certifications" : `${c.compliant} of ${c.total} current`,
   },
   equipment: {
-    label: "Equipment", icon: Package, link: "/contractors",
+    label: "Equipment", icon: Package, link: "/contractors?gaps=true&sort=true",
     stat: c => (c.total ?? 0) === 0 ? "No equipment tracked" : `${c.compliant} of ${c.total} certified`,
   },
   staffDbs: {
@@ -143,7 +143,7 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
     stat: c => (c.total ?? 0) === 0 ? "No mandatory training" : `${c.compliant} of ${c.total} current`,
   },
   documentApprovals: {
-    label: "Document Approvals", icon: FileCheck, link: "/contractors",
+    label: "Document Approvals", icon: FileCheck, link: "/contractors?gaps=true&sort=true",
     stat: c => (c.total ?? 0) === 0 ? "No pending documents" : `${c.total} awaiting approval`,
   },
 };
