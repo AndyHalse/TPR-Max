@@ -1,0 +1,18 @@
+I want to add AI blog post generation to the existing Blog tab in the platform-admin dashboard (/platform-admin/dashboard). Right now that tab lets an admin create blog posts manually with a "New Post" button. I want to add an AI option alongside it. Do NOT remove or break the existing manual create flow.
+
+Reuse what's already there: TPR already calls Claude (Anthropic API) for the Induction Builder and Risk Assessment Builder. Use the same Anthropic client, API key, and model already configured in the codebase (Claude Sonnet 4.6) — do not add a new AI provider or a second API key.
+
+1. A feature/benefit knowledge source. Create a single structured reference file (e.g. server/data/tpr-features.ts) listing TPR's real modules with, for each: the feature name, what it does in plain English, and the customer benefit (the pain it removes). Seed it with the core modules: Visitor/Contractor/Staff registration, the Mustering & evacuation module, Contractor compliance & verification (RTW, DBS, certs, insurance), Induction Builder, Risk Assessment Builder, Permit to Work, Equipment Register, and Toolbox Talks/BBS. Make this file easy to edit so we can add modules later. The blog generator must ground its content in this file — it must not invent features TPR doesn't have.
+
+2. "Generate with AI" flow. On the Blog tab, next to "New Post", add a "Generate with AI" button. Clicking it opens a panel where the admin:
+
+picks one or more features from the knowledge source (or chooses "let AI suggest a topic"),
+optionally adds an angle or target audience (e.g. "facilities managers", "construction site safety"),
+picks a tone (default: warm, direct, plain English, British spelling — no jargon).
+3. The AI call. Send the selected feature(s) and benefits to Claude with a system prompt instructing it to write a marketing blog post that sells the benefit, not just lists the feature; uses British spelling; plain everyday English; warm but direct; no unsubstantiated claims. Return structured JSON: title, slug, metaDescription, body (markdown), and tags (array).
+
+4. Save as DRAFT only. The generated post must save with status draft. It must NEVER auto-publish. The admin lands in the existing post editor with all fields pre-filled, can edit everything, and only a manual "Publish" action makes it live. Add a status field (draft/published) to the blog post model if one doesn't already exist.
+
+5. Brand. Use the existing ACS styling for the new panel (ACS blue #2460A9). Keep it consistent with the rest of the platform-admin dashboard.
+
+Show me the plan before writing code, then implement it.
