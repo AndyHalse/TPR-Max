@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import LeaverDetail from "./LeaverDetail";
 import StaffDbsTab from "@/components/StaffDbsTab";
+import StaffDocumentsTab from "@/components/StaffDocumentsTab";
 
 function FileUploadField({ value, fileName, onUploaded, onClear }: {
   value?: string;
@@ -480,99 +481,6 @@ function AbsenceTab({ staffId }: { staffId: string }) {
   );
 }
 
-function DocumentsTab({ staffId }: { staffId: string }) {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ documentType: "contract", title: "", fileUrl: "", fileName: "", isConfidential: false, expiryDate: "", notes: "", uploading: false });
-
-  const { data: docs = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/staff", staffId, "documents"],
-    queryFn: () => fetch(`/api/staff/${staffId}/documents`, { credentials: "include" }).then(r => r.json()),
-  });
-
-  const add = useMutation({
-    mutationFn: (d: any) => apiRequest("POST", `/api/staff/${staffId}/documents/upload`, d),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/staff", staffId, "documents"] }); setOpen(false); toast({ title: "Document added" }); },
-    onError: () => toast({ title: "Error", description: "Failed to add document", variant: "destructive" }),
-  });
-
-  const del = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/staff/${staffId}/documents/${id}`),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/staff", staffId, "documents"] }); toast({ title: "Document removed" }); },
-  });
-
-  const docTypeLabels: Record<string, string> = { contract: "Contract", right_to_work: "Right to Work", certificate: "Certificate", health_questionnaire: "Health Questionnaire", disciplinary: "Disciplinary", appraisal: "Appraisal", other: "Other" };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="font-semibold text-gray-700">Documents</h3>
-        <Button size="sm" onClick={() => setOpen(true)}><Plus className="h-4 w-4 mr-1" /> Add Document</Button>
-      </div>
-
-      {isLoading ? <div className="text-center py-4 text-gray-500">Loading...</div> : docs.length === 0 ? (
-        <div className="text-center py-8 text-gray-400">No documents stored.</div>
-      ) : (
-        <div className="space-y-2">
-          {docs.map((d: any) => (
-            <Card variant="glass" key={d.id}>
-              <CardContent className="pt-3 pb-3">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <FileText className="h-5 w-5 text-blue-500" />
-                    <div>
-                      <div className="font-medium">{d.title} {d.is_confidential && <Badge className="bg-red-100 text-red-800 text-xs ml-1">Confidential</Badge>}</div>
-                      <div className="text-sm text-gray-500">{docTypeLabels[d.document_type] || d.document_type} · {new Date(d.created_at).toLocaleDateString("en-GB")}</div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    {d.file_url && <a href={d.file_url} target="_blank" rel="noopener noreferrer"><Button size="sm" variant="outline">View</Button></a>}
-                    <Button size="sm" variant="ghost" className="text-red-500 h-7 w-7 p-0" onClick={() => del.mutate(d.id)}><XCircle className="h-4 w-4" /></Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Add Document</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div><Label>Document Type</Label>
-              <Select value={form.documentType} onValueChange={v => setForm(f => ({ ...f, documentType: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{Object.entries(docTypeLabels).map(([k, v]) => <SelectItem key={k} value={k}>{v}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <div><Label>Title *</Label><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} /></div>
-            <div>
-              <Label>File *</Label>
-              <FileUploadField
-                value={form.fileUrl}
-                fileName={form.fileName}
-                onUploaded={(url, name) => setForm(f => ({ ...f, fileUrl: url, fileName: f.title || name ? f.title || name : name }))}
-                onClear={() => setForm(f => ({ ...f, fileUrl: "", fileName: "" }))}
-              />
-            </div>
-            <div><Label>Expiry Date</Label><Input type="date" value={form.expiryDate} onChange={e => setForm(f => ({ ...f, expiryDate: e.target.value }))} /></div>
-            <div className="flex items-center gap-2">
-              <input type="checkbox" id="confidential" checked={form.isConfidential} onChange={e => setForm(f => ({ ...f, isConfidential: e.target.checked }))} />
-              <Label htmlFor="confidential">Confidential document</Label>
-            </div>
-            <div><Label>Notes</Label><Textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} rows={2} /></div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button disabled={add.isPending} onClick={() => add.mutate(form)}>{add.isPending && <Loader2 className="h-4 w-4 mr-1 animate-spin" />}Save</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
 
 function OnboardingTab({ staffId }: { staffId: string }) {
   const qc = useQueryClient();
@@ -1062,7 +970,7 @@ export default function StaffProfile() {
           <TabsContent value="training"><TrainingTab staffId={id!} /></TabsContent>
           <TabsContent value="leave"><LeaveTab staffId={id!} /></TabsContent>
           <TabsContent value="absence"><AbsenceTab staffId={id!} /></TabsContent>
-          <TabsContent value="documents"><DocumentsTab staffId={id!} /></TabsContent>
+          <TabsContent value="documents"><StaffDocumentsTab staffId={id!} /></TabsContent>
           <TabsContent value="onboarding"><OnboardingTab staffId={id!} /></TabsContent>
           <TabsContent value="appraisals"><AppraisalsTab staffId={id!} /></TabsContent>
           <TabsContent value="attendance"><AttendanceTab staffId={id!} /></TabsContent>

@@ -6,6 +6,7 @@ import { apiRequest } from "@/lib/queryClient";
 import GlassCard from "@/components/GlassCard";
 import AddStaffModal from "@/components/AddStaffModal";
 import StaffDbsTab from "@/components/StaffDbsTab";
+import StaffDocumentsTab from "@/components/StaffDocumentsTab";
 import { Plus, Edit, Trash2, UserCheck, UserX, Clock, QrCode, Mail, Printer, Download, LayoutGrid, LayoutList, Search, Phone, Briefcase, MapPin, Camera, Wallet, Loader2, Shield, ShieldOff, FileText, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,19 +48,19 @@ function StaffProfilePanel({
   onEdit: () => void;
   onQrPass: () => void;
 }) {
-  const { data: docs = [], isLoading: docsLoading } = useQuery<any[]>({
+  const [activeTab, setActiveTab] = useState("profile");
+
+  const { data: companySettings } = useQuery<any>({ queryKey: ["/api/settings"] });
+  const featureHrModule = companySettings?.featureHrModule !== false;
+
+  const { data: docs = [] } = useQuery<any[]>({
     queryKey: ["/api/staff", vs.id, "documents"],
     queryFn: () => fetch(`/api/staff/${vs.id}/documents`, { credentials: "include" }).then(r => {
       if (!r.ok) throw new Error(`${r.status}`);
       return r.json();
     }),
+    enabled: featureHrModule,
   });
-
-  const docTypeLabels: Record<string, string> = {
-    contract: "Contract", right_to_work: "Right to Work", certificate: "Certificate",
-    health_questionnaire: "Health Questionnaire", disciplinary: "Disciplinary",
-    appraisal: "Appraisal", other: "Other",
-  };
 
   return (
     <>
@@ -68,11 +69,11 @@ function StaffProfilePanel({
         <p className="text-white/80 text-[10px] font-medium uppercase tracking-widest">Staff Profile · {vs.employeeId}</p>
       </div>
 
-      <Tabs defaultValue="profile" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="w-full rounded-none border-b h-9 bg-gray-50 gap-0 px-4">
           <TabsTrigger value="profile" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">Profile</TabsTrigger>
           <TabsTrigger value="documents" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">
-            <FileText size={11} className="mr-1" />Documents {docs.length > 0 && <Badge className="ml-1 bg-blue-100 text-blue-700 text-[9px] px-1 py-0 h-4">{docs.length}</Badge>}
+            <FileText size={11} className="mr-1" />Documents {featureHrModule && docs.length > 0 && <Badge className="ml-1 bg-blue-100 text-blue-700 text-[9px] px-1 py-0 h-4">{docs.length}</Badge>}
           </TabsTrigger>
           <TabsTrigger value="dbs" className="text-xs h-8 rounded-none border-b-2 border-transparent data-[state=active]:border-blue-600 data-[state=active]:shadow-none">
             <Shield size={11} className="mr-1" />DBS
@@ -148,38 +149,28 @@ function StaffProfilePanel({
           </div>
         </TabsContent>
 
-        <TabsContent value="documents" className="mt-0 px-4 py-4 max-h-96 overflow-y-auto">
-          {docsLoading ? (
-            <div className="text-center py-4 text-gray-400 text-sm flex items-center justify-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading...</div>
-          ) : docs.length === 0 ? (
-            <div className="text-center py-8">
-              <FileText className="h-8 w-8 mx-auto text-gray-300 mb-2" />
-              <p className="text-gray-400 text-sm">No documents stored.</p>
-            </div>
+        <TabsContent value="documents" className="mt-0 px-4 py-4 max-h-[560px] overflow-y-auto">
+          {featureHrModule ? (
+            <StaffDocumentsTab staffId={vs.id} onSwitchToDbs={() => setActiveTab("dbs")} />
           ) : (
-            <div className="space-y-2">
-              {docs.map((d: any) => (
-                <Card key={d.id}>
-                  <CardContent className="pt-2 pb-2">
-                    <div className="flex justify-between items-center gap-2">
-                      <div className="min-w-0">
-                        <div className="font-medium text-sm truncate">{d.title}</div>
-                        <div className="text-xs text-gray-500">{docTypeLabels[d.document_type] || d.document_type} · {new Date(d.created_at).toLocaleDateString("en-GB")}</div>
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        {d.is_confidential && <Badge className="bg-red-100 text-red-700 text-xs">Confidential</Badge>}
-                        {d.file_url && <a href={d.file_url} target="_blank" rel="noopener noreferrer"><Button size="sm" variant="outline" className="h-7 text-xs">View</Button></a>}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+            <div className="text-center py-8">
+              <Shield className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+              <p className="text-gray-500 text-sm font-medium">TPR Max required</p>
+              <p className="text-gray-400 text-xs mt-1">Upgrade to TPR Max for staff documents, Right to Work and DBS tracking.</p>
             </div>
           )}
         </TabsContent>
 
         <TabsContent value="dbs" className="mt-0 px-4 py-4 max-h-[500px] overflow-y-auto">
-          <StaffDbsTab staffId={vs.id} />
+          {featureHrModule ? (
+            <StaffDbsTab staffId={vs.id} />
+          ) : (
+            <div className="text-center py-8">
+              <Shield className="h-8 w-8 mx-auto text-gray-300 mb-2" />
+              <p className="text-gray-500 text-sm font-medium">TPR Max required</p>
+              <p className="text-gray-400 text-xs mt-1">Upgrade to TPR Max for DBS and safeguarding tracking.</p>
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </>
