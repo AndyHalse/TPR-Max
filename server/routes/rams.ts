@@ -242,6 +242,7 @@ export function registerRamsRoutes(app: Express): void {
         actionPlan, evacuationProcedure, lockdownProcedure, communicationPlan,
         checklistItems, evidenceLog,
         lastReviewedBy, lastReviewerStaffId,
+        recordReviewNow,
       } = req.body;
 
       const updateData: any = {
@@ -262,7 +263,7 @@ export function registerRamsRoutes(app: Express): void {
         communicationPlan: communicationPlan ?? null,
         checklistItems: checklistItems ? JSON.stringify(checklistItems) : null,
         evidenceLog: evidenceLog ? JSON.stringify(evidenceLog) : null,
-        lastReviewedAt: lastReviewedBy ? new Date() : undefined,
+        lastReviewedAt: (recordReviewNow && lastReviewedBy) ? new Date() : undefined,
         lastReviewedBy: lastReviewedBy ?? null,
         updatedAt: new Date(),
       };
@@ -288,7 +289,8 @@ export function registerRamsRoutes(app: Express): void {
       // Append to audit log via raw SQL (column added by migration 054)
       try {
         const currentAuditRaw = await custDb.execute(
-          `SELECT audit_log FROM martyn_law_config WHERE customer_id = '${customerId}'` as any
+          `SELECT audit_log FROM martyn_law_config WHERE customer_id = $1` as any,
+          [customerId] as any
         );
         const existingLog = currentAuditRaw.rows?.[0]?.audit_log
           ? JSON.parse(currentAuditRaw.rows[0].audit_log as string)

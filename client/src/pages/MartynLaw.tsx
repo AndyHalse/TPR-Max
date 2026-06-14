@@ -248,14 +248,18 @@ export default function MartynLaw() {
     setInitialized(true);
   }
 
+  const [recordReviewNow, setRecordReviewNow] = useState(false);
+
   const saveMutation = useMutation({
     mutationFn: (payload: MartynLawData) =>
       apiRequest("PUT", "/api/martyn-law", {
         ...payload,
         checklistItems: checklist,
         evidenceLog: evidence,
+        recordReviewNow,
       }),
     onSuccess: () => {
+      setRecordReviewNow(false);
       queryClient.invalidateQueries({ queryKey: ["/api/martyn-law"] });
       toast({ title: "Saved", description: "Martyn's Law compliance record updated." });
     },
@@ -653,9 +657,15 @@ export default function MartynLaw() {
                   }))}
                   placeholder="Select reviewer or enter name…"
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  Saving with this field set will record today's date as the last review date.
-                </p>
+                <label className="flex items-start gap-2 mt-2 text-xs text-gray-600 dark:text-gray-400">
+                  <input
+                    type="checkbox"
+                    checked={recordReviewNow}
+                    onChange={e => setRecordReviewNow(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300"
+                  />
+                  <span>Record a new annual review with today's date when I save. Leave unticked to edit this page without changing the last review date.</span>
+                </label>
               </div>
               {form.lastReviewedAt && (
                 <div>
