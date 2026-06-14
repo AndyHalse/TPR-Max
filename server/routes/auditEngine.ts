@@ -136,7 +136,34 @@ export function registerAuditEngineRoutes(app: Express): void {
         .set({ status: 'completed', overallScore: score, passed, conductedAt: new Date(), summary: summary || null, updatedAt: new Date() })
         .where(eq(isolatedSchema.auditRecords.id, record.id))
         .returning();
-      return res.json({ record: updated, overallScore: score, passed, passCount, failCount, naCount: items.filter((i: any) => i.response === 'na').length });
+
+      // Auto-create corrective actions for failed items (skip any already raised).
+      // Mirrors the authenticated submit handler so mobile-completed audits behave
+      // the same as desktop ones.
+      let autoActionsCreated = 0;
+      const failedItems = items.filter((i: any) => i.response === 'fail');
+      if (failedItems.length > 0) {
+        const existingActions = await custDb.select().from(isolatedSchema.auditCorrectiveActions)
+          .where(eq(isolatedSchema.auditCorrectiveActions.auditId, record.id));
+        const existingItemIds = new Set(existingActions.map((a: any) => a.auditItemId).filter(Boolean));
+        const newActions = failedItems
+          .filter((item: any) => !existingItemIds.has(item.id))
+          .map((item: any) => ({
+            auditId: record.id,
+            auditItemId: item.id,
+            title: `Failed: ${item.question}`,
+            description: item.note || null,
+            priority: (item.isCritical ? 'high' : 'medium') as 'high' | 'medium',
+            status: 'open' as const,
+          }));
+        if (newActions.length > 0) {
+          await custDb.insert(isolatedSchema.auditCorrectiveActions).values(newActions);
+          autoActionsCreated = newActions.length;
+        }
+      }
+
+      const naCount = items.filter((i: any) => i.response === 'na').length;
+      return res.json({ record: updated, overallScore: score, passed, passCount, failCount, naCount, autoActionsCreated });
     } catch (error: unknown) {
       logger.error('POST /api/audits/public/:token/submit', error);
       res.status(500).json({ error: 'Failed to submit audit' });
