@@ -2926,14 +2926,23 @@ ${evacuationPhotosData.length > 0 ? `
         .limit(1);
       if (!evac) return res.status(404).json({ error: "Evacuation not found" });
 
-      // Re-read live accountability data
+      // Re-read live accountability data (scoped to customer, consistent with list endpoint)
       const accountability = await db
         .select()
         .from(evacuationAccountability)
-        .where(eq(evacuationAccountability.evacuationId, evacuationId));
+        .where(and(
+          eq(evacuationAccountability.evacuationId, evacuationId),
+          eq(evacuationAccountability.customerId, customerId)
+        ));
 
       const totalCt = accountability.length || evac.totalPeopleOnSite || 0;
-      const accountedCt = Math.min(accountability.filter(p => p.isAccountedFor).length, totalCt);
+      // Fall back to the evacuation's own summary figure when there are no per-person
+      // muster rows — mirrors the list endpoint so Refresh can never zero out a report
+      // that was accounted for at summary level.
+      const rawAccountedCt = accountability.length > 0
+        ? accountability.filter(p => p.isAccountedFor).length
+        : (evac.totalAccountedFor || 0);
+      const accountedCt = Math.min(rawAccountedCt, totalCt);
       const unaccountedCt = Math.max(0, totalCt - accountedCt);
       const pct = totalCt > 0 ? Math.min(100, Math.round((accountedCt / totalCt) * 100)) : 0;
       const durSec = (evac.startedAt && evac.completedAt)
