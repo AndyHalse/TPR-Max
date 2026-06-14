@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import GlassCard from "@/components/GlassCard";
-import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, Download, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn, Trash2, Flame, Siren, Circle, X, Rocket } from "lucide-react";
+import { UsersRound, AtSign, BadgeInfo, Clock, TrendingUp, Shield, BarChart3, AlertTriangle, CheckCircle, DollarSign, LogOut, User, HardHat, Building2, Settings, Eye, Calendar, CalendarDays, MapPin, Mail, Phone, Users2, Clock3, AlertCircle, CheckCircle2, UserCheck, ChevronLeft, ChevronRight, Users, LayoutList, LayoutGrid, LogIn, Trash2, Flame, Siren, Circle, X, Rocket } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card } from "@/components/ui/card";
@@ -16,7 +16,6 @@ import { formatDistanceToNow } from "date-fns";
 
 interface Stats {
   currentVisitors: number;
-  todayCheckins: number;
   staffOnSite: number;
   contractorsOnSite: number;
   membersOnSite: number;
@@ -38,7 +37,7 @@ export default function Dashboard() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
-  const [openModal, setOpenModal] = useState<'visitors' | 'checkins' | 'staff' | 'contractors' | 'members' | 'total-people' | 'department-details' | 'visitor-details' | 'visitor-booking-details' | 'meeting-booking-details' | null>(null);
+  const [openModal, setOpenModal] = useState<'visitors' | 'staff' | 'contractors' | 'members' | 'total-people' | 'department-details' | 'visitor-details' | 'visitor-booking-details' | 'meeting-booking-details' | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('');
   const [selectedVisitor, setSelectedVisitor] = useState<any>(null);
   const [selectedVisitorBooking, setSelectedVisitorBooking] = useState<any>(null);
@@ -552,19 +551,6 @@ export default function Dashboard() {
   };
 
   // Action handlers for dashboard buttons
-  const handleViewDepartmentAnalytics = () => {
-    if (departmentAnalytics && departmentAnalytics.length > 0) {
-      setSelectedDepartment(departmentAnalytics[0].department);
-      setOpenModal('department-details');
-    } else {
-      toast({
-        title: "No departments available",
-        description: "Add departments in Settings to view analytics",
-        variant: "destructive",
-      });
-    }
-  };
-
   const handleEmergencyMuster = () => {
     setLocation('/muster');
     toast({
@@ -574,56 +560,9 @@ export default function Dashboard() {
     });
   };
 
-  const handleGenerateReport = () => {
-    setLocation('/reports');
-    toast({
-      title: "Generate Report",
-      description: "Redirecting to report generation...",
-    });
-  };
-
-  const handleExportData = () => {
-    toast({
-      title: "Data Export",
-      description: "Preparing data export. Download will start shortly...",
-    });
-    // Simulate export process
-    setTimeout(() => {
-      toast({
-        title: "Export Complete",
-        description: "Visitor data has been exported successfully.",
-      });
-    }, 2000);
-  };
-
-  const handleSecurityCheck = () => {
-    toast({
-      title: "Security Check",
-      description: "Running comprehensive security scan...",
-    });
-    // Simulate security check
-    setTimeout(() => {
-      toast({
-        title: "Security Check Complete",
-        description: "All systems secure. No issues detected.",
-      });
-    }, 3000);
-  };
-
-  const handleViewAllVisitors = () => {
-    setOpenModal('visitors');
-  };
-
-  const handleViewAllActivity = () => {
-    toast({
-      title: "Activity Log",
-      description: "Opening detailed activity history...",
-    });
-  };
-
   const formatTime = (date: string | Date) => {
     const dateObj = typeof date === 'string' ? new Date(date) : date;
-    return dateObj.toLocaleTimeString('en-US', {
+    return dateObj.toLocaleTimeString('en-GB', {
       hour: '2-digit',
       minute: '2-digit'
     });
@@ -1404,7 +1343,7 @@ export default function Dashboard() {
                     company: entry.companyName,
                     host: entry.hostFirstName && entry.hostLastName ? `${entry.hostFirstName} ${entry.hostLastName}` : (entry.hostName || ''),
                     time: entry.scheduledTime,
-                    sortTime: `${new Date(entry.scheduledDate).toISOString().split('T')[0]}T${entry.scheduledTime}`,
+                    sortTime: `${formatLocalDate(new Date(entry.scheduledDate))}T${entry.scheduledTime}`,
                     date: new Date(entry.scheduledDate),
                     status: entry.status || 'pending',
                     isCheckedIn: entry.status === 'completed',
@@ -1968,61 +1907,6 @@ export default function Dashboard() {
             ) : (
               <div className="text-center py-8 text-variable">
                 No visitors currently on-site
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Today's Check-ins Modal */}
-      <Dialog open={openModal === 'checkins'} onOpenChange={() => setOpenModal(null)}>
-        <DialogContent className="glass-effect border border-white/30 max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-fixed">
-              <AtSign className="text-green-600" size={24} />
-              Today's Check-ins ({todayVisitors?.length || 0})
-            </DialogTitle>
-            <DialogDescription>
-              View all visitors who checked in today, including their check-in and check-out times.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            {todayVisitors && todayVisitors.length > 0 ? (
-              todayVisitors.map((visitor) => (
-                <div key={visitor.id} className="flex items-center justify-between p-4 bg-white/50 dark:bg-slate-800/70 rounded-xl border border-white/30 dark:border-slate-700/60">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-green-100 dark:bg-green-900/50 rounded-full flex items-center justify-center">
-                      <User className="text-green-600" size={20} />
-                    </div>
-                    <div>
-                      <p className="font-medium text-fixed">{visitor.firstName} {visitor.lastName}</p>
-                      <p className="text-sm text-variable">{visitor.company || "No company"}</p>
-                      <p className="text-xs text-variable">Checked in: {formatTime(visitor.checkedInAt)}</p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant={visitor.isCheckedIn ? "default" : "secondary"} className="text-xs">
-                          {visitor.isCheckedIn ? "On-site" : "Checked out"}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                  {visitor.isCheckedIn && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => checkoutVisitorMutation.mutate(visitor.id)}
-                      disabled={checkoutVisitorMutation.isPending}
-                      className="flex items-center gap-1"
-                      data-testid={`checkout-visitor-${visitor.id}`}
-                    >
-                      <LogOut size={14} />
-                      Check Out
-                    </Button>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-variable">
-                No visitors checked in today
               </div>
             )}
           </div>
