@@ -1102,7 +1102,7 @@ export default function ComplianceDashboard() {
                       ))}
                     </div>
                   </div>
-                  <Link href="/contractors">
+                  <Link href={`/contractors/${c.id}?tab=documents&filter=missing`}>
                     <a className="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0 mt-0.5">View</a>
                   </Link>
                 </div>

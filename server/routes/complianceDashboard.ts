@@ -111,7 +111,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
                 id: `${idPrefix}-expired-${c.id}`, category: 'Contractor Insurance', severity: 'critical',
                 title: `${label} expired`,
                 detail: `${c.company_name} — expired ${Math.abs(days)} days ago`,
-                daysOverdue: Math.abs(days), linkPath: '/contractors',
+                daysOverdue: Math.abs(days), linkPath: `/contractors/${c.id}?tab=documents&filter=missing`,
               });
               contractorRiskMap[c.id].issues.push(`${label} expired`);
               contractorRiskMap[c.id].issueCount++;
@@ -120,7 +120,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               warnings.push({
                 id: `${idPrefix}-expiring-${c.id}`, category: 'Contractor Insurance', severity: 'warning',
                 title: `${label} expiring soon`,
-                detail: `${c.company_name} — expires in ${days} days`, linkPath: '/contractors',
+                detail: `${c.company_name} — expires in ${days} days`, linkPath: `/contractors/${c.id}?tab=documents`,
               });
               contractorRiskMap[c.id].issues.push(`${label} expires in ${days} days`);
               contractorRiskMap[c.id].issueCount++;
@@ -141,13 +141,30 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           // Missing-data blindness: companies with no PL and no EL expiry at all
           if (!c.public_liability_expiry_date && !c.employers_liability_expiry_date) {
             insTotal++;
+            let hasPendingInsurance = false;
+            try {
+              const pendingInsResult = await pool.query(
+                `SELECT 1 FROM "${schemaName}".contractor_documents
+                 WHERE company_id = $1
+                   AND document_type IN ('publicLiability','employersLiability')
+                   AND status = 'pending'
+                   AND is_active = TRUE
+                 LIMIT 1`,
+                [c.id]
+              );
+              hasPendingInsurance = pendingInsResult.rows.length > 0;
+            } catch {}
             warnings.push({
               id: `ins-missing-${c.id}`, category: 'Contractor Insurance', severity: 'warning',
-              title: 'No insurance on record',
-              detail: `${c.company_name} — no Public Liability or Employers Liability expiry date recorded`,
-              linkPath: '/contractors',
+              title: hasPendingInsurance ? 'Insurance awaiting approval' : 'No insurance on record',
+              detail: hasPendingInsurance
+                ? `${c.company_name} — insurance uploaded but not yet approved`
+                : `${c.company_name} — no Public Liability or Employers Liability expiry date recorded`,
+              linkPath: hasPendingInsurance
+                ? `/contractors/${c.id}?tab=documents`
+                : `/contractors/${c.id}?tab=documents&filter=missing`,
             });
-            contractorRiskMap[c.id].issues.push('No insurance on record');
+            contractorRiskMap[c.id].issues.push(hasPendingInsurance ? 'Insurance awaiting approval' : 'No insurance on record');
             contractorRiskMap[c.id].issueCount++;
           }
         }
@@ -180,7 +197,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               ? `${r.documentName} (${r.ramsIdRef}) — expired ${Math.abs(ramsDays)} days ago`
               : `${r.documentName} (${r.ramsIdRef})`,
             daysOverdue: ramsDays !== null && ramsDays < 0 ? Math.abs(ramsDays) : undefined,
-            linkPath: '/contractors',
+            linkPath: r.companyId ? `/contractors/${r.companyId}?tab=compliance` : '/contractors',
           });
           if (companyName && r.companyId) {
             ensureContractorRisk(r.companyId, companyName);
@@ -195,7 +212,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             detail: ramsDays !== null
               ? `${r.documentName} (${r.ramsIdRef}) — expires in ${ramsDays} days`
               : `${r.documentName} (${r.ramsIdRef})`,
-            linkPath: '/contractors',
+            linkPath: r.companyId ? `/contractors/${r.companyId}?tab=compliance` : '/contractors',
           });
           if (companyName && r.companyId) {
             ensureContractorRisk(r.companyId, companyName);
@@ -245,7 +262,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             criticalIssues.push({
               id: `ind-expired-${w.id}`, category: 'Contractor Inductions', severity: 'critical',
               title: 'Site induction expired', detail: workerName,
-              daysOverdue: Math.abs(expiryDays), linkPath: '/contractors',
+              daysOverdue: Math.abs(expiryDays), linkPath: w.company_id ? `/contractors/${w.company_id}?tab=workers&workerId=${w.id}` : '/contractors',
             });
             if (w.company_id && companyName) {
               ensureContractorRisk(w.company_id, companyName);
@@ -257,7 +274,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             indOverdue++;
             warnings.push({
               id: `ind-incomplete-${w.id}`, category: 'Contractor Inductions', severity: 'warning',
-              title: 'Site induction not completed', detail: workerName, linkPath: '/contractors',
+              title: 'Site induction not completed', detail: workerName,
+              linkPath: w.company_id ? `/contractors/${w.company_id}?tab=workers&workerId=${w.id}` : '/contractors',
             });
           } else {
             indCompliant++;
@@ -265,7 +283,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               warnings.push({
                 id: `ind-expiring-${w.id}`, category: 'Contractor Inductions', severity: 'warning',
                 title: 'Site induction expiring soon',
-                detail: `${workerName} — expires in ${expiryDays} days`, linkPath: '/contractors',
+                detail: `${workerName} — expires in ${expiryDays} days`,
+                linkPath: w.company_id ? `/contractors/${w.company_id}?tab=workers&workerId=${w.id}` : '/contractors',
               });
             }
             addTimeline(w.site_induction_expiry_date, 'Contractor Inductions', `${workerName} — Induction`);
@@ -304,7 +323,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
                 ? `${workerName} — expired ${Math.abs(days)} days ago`
                 : `${workerName} — status: ${status}`,
               daysOverdue: days !== null && days < 0 ? Math.abs(days) : undefined,
-              linkPath: '/contractors',
+              linkPath: w.company_id ? `/contractors/${w.company_id}?tab=workers&workerId=${w.id}` : '/contractors',
             });
             if (w.company_id && companyName) {
               ensureContractorRisk(w.company_id, companyName);
@@ -318,7 +337,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               detail: days !== null && days > 0
                 ? `${workerName} — expires in ${days} days`
                 : `${workerName} — pending verification`,
-              linkPath: '/contractors',
+              linkPath: w.company_id ? `/contractors/${w.company_id}?tab=workers&workerId=${w.id}` : '/contractors',
             });
             if (w.company_id && companyName) {
               ensureContractorRisk(w.company_id, companyName);
@@ -360,7 +379,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               id: `wdbs-expired-${row.id}`, category: 'Worker DBS', severity: 'critical',
               title: 'Worker DBS expired',
               detail: `${workerName} — expired ${Math.abs(days)} days ago`,
-              daysOverdue: Math.abs(days), linkPath: '/contractors',
+              daysOverdue: Math.abs(days),
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
@@ -371,7 +391,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             warnings.push({
               id: `wdbs-expiring-${row.id}`, category: 'Worker DBS', severity: 'warning',
               title: 'Worker DBS expiring soon',
-              detail: `${workerName} — expires in ${days} days`, linkPath: '/contractors',
+              detail: `${workerName} — expires in ${days} days`,
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
@@ -403,7 +424,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
           warnings.push({
             id: `wdbs-missing-${row.id}`, category: 'Worker DBS', severity: 'warning',
             title: 'Worker DBS required but not on record',
-            detail: workerName, linkPath: '/contractors',
+            detail: workerName,
+            linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.id}` : '/contractors',
           });
           if (row.company_id && companyName) {
             ensureContractorRisk(row.company_id, companyName);
@@ -444,7 +466,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             warnings.push({
               id: `wcert-rejected-${row.id}`, category: 'Worker Certifications', severity: 'warning',
               title: 'Worker certificate rejected — re-upload required',
-              detail: `${row.document_name} — ${workerName}`, linkPath: '/contractors',
+              detail: `${row.document_name} — ${workerName}`,
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
@@ -455,7 +478,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             warnings.push({
               id: `wcert-pending-${row.id}`, category: 'Worker Certifications', severity: 'warning',
               title: 'Worker certificate awaiting review',
-              detail: `${row.document_name} — ${workerName}`, linkPath: '/contractors',
+              detail: `${row.document_name} — ${workerName}`,
+              linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
             });
             if (row.company_id && companyName) {
               ensureContractorRisk(row.company_id, companyName);
@@ -470,7 +494,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
                 id: `wcert-expired-${row.id}`, category: 'Worker Certifications', severity: 'critical',
                 title: 'Worker certification expired',
                 detail: `${row.document_name} — ${workerName}, expired ${Math.abs(days)} days ago`,
-                daysOverdue: Math.abs(days), linkPath: '/contractors',
+                daysOverdue: Math.abs(days),
+                linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
               });
               if (row.company_id && companyName) {
                 ensureContractorRisk(row.company_id, companyName);
@@ -481,7 +506,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               warnings.push({
                 id: `wcert-expiring-${row.id}`, category: 'Worker Certifications', severity: 'warning',
                 title: 'Worker certification expiring soon',
-                detail: `${row.document_name} — ${workerName}, expires in ${days} days`, linkPath: '/contractors',
+                detail: `${row.document_name} — ${workerName}, expires in ${days} days`,
+                linkPath: row.company_id ? `/contractors/${row.company_id}?tab=workers&workerId=${row.worker_id}` : '/contractors',
               });
               if (row.company_id && companyName) {
                 ensureContractorRisk(row.company_id, companyName);
@@ -530,7 +556,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             warnings.push({
               id: `equip-nocert-${equip.id}`, category: 'Equipment', severity: 'warning',
               title: 'Equipment has no certification on record',
-              detail: equip.equipment_name, linkPath: '/contractors',
+              detail: equip.equipment_name,
+              linkPath: equip.company_id ? `/contractors/${equip.company_id}?tab=equipment` : '/contractors',
             });
             if (equip.company_id && companyName) {
               ensureContractorRisk(equip.company_id, companyName);
@@ -547,7 +574,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
                   id: `equip-expired-${cert.id}`, category: 'Equipment', severity: 'critical',
                   title: 'Equipment certificate expired',
                   detail: `${cert.document_name} — ${equip.equipment_name}, expired ${Math.abs(days)} days ago`,
-                  daysOverdue: Math.abs(days), linkPath: '/contractors',
+                  daysOverdue: Math.abs(days),
+                  linkPath: equip.company_id ? `/contractors/${equip.company_id}?tab=equipment` : '/contractors',
                 });
                 if (equip.company_id && companyName) {
                   ensureContractorRisk(equip.company_id, companyName);
@@ -559,7 +587,8 @@ export function registerComplianceDashboardRoutes(app: Express): void {
                 warnings.push({
                   id: `equip-expiring-${cert.id}`, category: 'Equipment', severity: 'warning',
                   title: 'Equipment certificate expiring soon',
-                  detail: `${cert.document_name} — ${equip.equipment_name}, expires in ${days} days`, linkPath: '/contractors',
+                  detail: `${cert.document_name} — ${equip.equipment_name}, expires in ${days} days`,
+                  linkPath: equip.company_id ? `/contractors/${equip.company_id}?tab=equipment` : '/contractors',
                 });
                 if (equip.company_id && companyName) {
                   ensureContractorRisk(equip.company_id, companyName);
@@ -599,14 +628,14 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               id: `rtw-expired-${row.staff_id}`, category: 'Staff Right to Work', severity: 'critical',
               title: 'Right to Work expired',
               detail: `${staffName} (${row.department}) — expired ${Math.abs(days)} days ago`,
-              daysOverdue: Math.abs(days), linkPath: '/hr',
+              daysOverdue: Math.abs(days), linkPath: `/hr/staff/${row.staff_id}?tab=rtw`,
             });
           } else if (days <= 30) {
             rtwExpiring++;
             warnings.push({
               id: `rtw-expiring-${row.staff_id}`, category: 'Staff Right to Work', severity: 'warning',
               title: 'Right to Work expiring soon',
-              detail: `${staffName} — expires in ${days} days`, linkPath: '/hr',
+              detail: `${staffName} — expires in ${days} days`, linkPath: `/hr/staff/${row.staff_id}?tab=rtw`,
             });
             addTimeline(row.expiry_date, 'Staff Right to Work', `${staffName} — Right to Work`);
           } else {
@@ -624,7 +653,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       let staffDbsTotal = 0, staffDbsCompliant = 0;
       try {
         const staffDbsResult = await pool.query(
-          `SELECT d.id AS dbs_id, d.policy_expiry_date, s.first_name, s.last_name
+          `SELECT d.id AS dbs_id, d.policy_expiry_date, s.id AS staff_id, s.first_name, s.last_name
            FROM "${schemaName}".staff_dbs d
            JOIN "${schemaName}".staff s ON s.id = d.staff_id
            WHERE d.is_current = TRUE AND d.deleted_at IS NULL AND s.is_active = TRUE`
@@ -638,13 +667,13 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               id: `sdbs-expired-${row.dbs_id}`, category: 'Staff DBS', severity: 'critical',
               title: 'Staff DBS expired',
               detail: `${staffName} — expired ${Math.abs(days)} days ago`,
-              daysOverdue: Math.abs(days), linkPath: '/hr',
+              daysOverdue: Math.abs(days), linkPath: `/hr/staff/${row.staff_id}?tab=dbs`,
             });
           } else if (days !== null && days <= 30) {
             warnings.push({
               id: `sdbs-expiring-${row.dbs_id}`, category: 'Staff DBS', severity: 'warning',
               title: 'Staff DBS expiring soon',
-              detail: `${staffName} — expires in ${days} days`, linkPath: '/hr',
+              detail: `${staffName} — expires in ${days} days`, linkPath: `/hr/staff/${row.staff_id}?tab=dbs`,
             });
             addTimeline(row.policy_expiry_date, 'Staff DBS', `${staffName} — DBS`);
           } else {
@@ -663,7 +692,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
       try {
         const staffTrainingResult = await pool.query(
           `SELECT tr.id, tr.expiry_date, tr.training_name,
-                  s.first_name, s.last_name
+                  s.id AS staff_id, s.first_name, s.last_name
            FROM "${schemaName}".staff_training_records tr
            JOIN "${schemaName}".staff s ON s.id = tr.staff_id
            WHERE tr.deleted_at IS NULL
@@ -681,13 +710,14 @@ export function registerComplianceDashboardRoutes(app: Express): void {
               id: `strtrain-expired-${row.id}`, category: 'Staff Training', severity: 'critical',
               title: 'Mandatory training expired',
               detail: `${row.training_name} — ${staffName}, expired ${Math.abs(days)} days ago`,
-              daysOverdue: Math.abs(days), linkPath: '/hr',
+              daysOverdue: Math.abs(days), linkPath: `/hr/staff/${row.staff_id}?tab=training`,
             });
           } else if (days !== null && days <= 30) {
             warnings.push({
               id: `strtrain-expiring-${row.id}`, category: 'Staff Training', severity: 'warning',
               title: 'Mandatory training expiring soon',
-              detail: `${row.training_name} — ${staffName}, expires in ${days} days`, linkPath: '/hr',
+              detail: `${row.training_name} — ${staffName}, expires in ${days} days`,
+              linkPath: `/hr/staff/${row.staff_id}?tab=training`,
             });
             addTimeline(row.expiry_date, 'Staff Training', `${row.training_name} — ${staffName}`);
           } else {
@@ -982,7 +1012,7 @@ export function registerComplianceDashboardRoutes(app: Express): void {
             id: `doc-approvals-pending`, category: 'Document Approvals', severity: 'warning',
             title: `${docApprovalsCount} document${docApprovalsCount !== 1 ? 's' : ''} awaiting approval`,
             detail: `${docApprovalsCount} contractor document${docApprovalsCount !== 1 ? 's' : ''} pending review`,
-            linkPath: '/contractors',
+            linkPath: '/contractors?gaps=true&sort=true',
           });
         }
       } catch (e: any) {
