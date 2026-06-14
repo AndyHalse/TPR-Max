@@ -270,10 +270,8 @@ function CategoryCard({ catKey, data }: { catKey: string; data: CategoryStat }) 
           </div>
         </div>
 
-        <Link href={meta.link}>
-          <a className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1">
-            View <ArrowRight className="h-3 w-3" />
-          </a>
+        <Link href={meta.link} className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline mt-1">
+          View <ArrowRight className="h-3 w-3" />
         </Link>
       </CardContent>
     </Card>
@@ -298,9 +296,7 @@ function IssueItem({ issue }: { issue: CriticalIssue }) {
         )}
       </div>
       {issue.linkPath && (
-        <Link href={issue.linkPath}>
-          <a className="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0 mt-0.5">View</a>
-        </Link>
+        <Link href={issue.linkPath} className="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0 mt-0.5">View</Link>
       )}
     </div>
   );
@@ -1109,9 +1105,7 @@ export default function ComplianceDashboard() {
                       ))}
                     </div>
                   </div>
-                  <Link href={`/contractors/${c.id}?tab=documents&filter=missing`}>
-                    <a className="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0 mt-0.5">View</a>
-                  </Link>
+                  <Link href={`/contractors/${c.id}?tab=documents&filter=missing`} className="text-xs text-blue-600 dark:text-blue-400 hover:underline shrink-0 mt-0.5">View</Link>
                 </div>
               ))}
             </div>

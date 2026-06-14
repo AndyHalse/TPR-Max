@@ -1063,16 +1063,14 @@ export function registerVisitorRoutes(app: Express): void {
     }
   });
 
-  app.post("/api/visitors/checkout-by-qr", async (req, res) => {
+  app.post("/api/visitors/checkout-by-qr", requireAuth, async (req, res) => {
     try {
       const { qrCode } = req.body;
       if (!qrCode) {
         return res.status(400).json({ error: "QR code is required" });
       }
-      
-      // Get customer context for isolation based on logged-in user
-      const username = req.user?.username || 'system';
-      const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
+
+      const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       
       const visitor = await databaseService.getVisitorByQrCode(context, qrCode);
       if (!visitor) {

@@ -201,6 +201,11 @@ export default function RaBuilder() {
 
   // ── Queries ──────────────────────────────────────────────────────────────
 
+  const { data: assessments = [], isLoading: listLoading } = useQuery<Assessment[]>({
+    queryKey: ["/api/ra-builder/assessments"],
+    enabled: !showEditor,
+  });
+
   useEffect(() => {
     if (didHighlight.current || showEditor || !assessments.length) return;
     const id = new URLSearchParams(window.location.search).get('highlight');
@@ -216,11 +221,6 @@ export default function RaBuilder() {
       setTimeout(() => setHighlightedId(null), 3000);
     }, 400);
   }, [assessments, showEditor]);
-
-  const { data: assessments = [], isLoading: listLoading } = useQuery<Assessment[]>({
-    queryKey: ["/api/ra-builder/assessments"],
-    enabled: !showEditor,
-  });
 
   const { data: loadedAssessment, isLoading: editorLoading } = useQuery<Assessment>({
     queryKey: ["/api/ra-builder/assessments", currentAssessmentId],
