@@ -34,12 +34,23 @@ const STATUS_CONFIG: Record<string, { label: string; variant: 'default'|'seconda
   draft:      { label: 'Draft',        variant: 'secondary',    color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
   submitted:  { label: 'Pending Auth', variant: 'outline',      color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
   authorised: { label: 'Authorised',   variant: 'outline',      color: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
-  active:     { label: 'Active',       variant: 'default',      color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' },
-  suspended:  { label: 'Suspended',    variant: 'outline',      color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' },
+  active:         { label: 'Active',          variant: 'default',     color: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300' },
+  active_overdue: { label: 'Active — Overdue', variant: 'destructive', color: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300' },
+  suspended:      { label: 'Suspended',       variant: 'outline',     color: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' },
   completed:  { label: 'Completed',    variant: 'secondary',    color: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300' },
   expired:    { label: 'Expired',      variant: 'destructive',  color: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' },
   cancelled:  { label: 'Cancelled',    variant: 'secondary',    color: 'bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400' },
 };
+
+function overdueElapsed(validUntil: string): string {
+  const diff = Date.now() - new Date(validUntil).getTime();
+  if (diff <= 0) return '';
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m past validity`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h past validity`;
+  return `${Math.floor(hrs / 24)}d past validity`;
+}
 
 // Company compliance document types
 const COMP_DOC_TYPES: Record<string, { label: string; group: 'legal' | 'site'; defaultTitle: string }> = {
@@ -78,6 +89,7 @@ interface Permit {
   permitValidFrom: string;
   permitValidUntil: string;
   status: string;
+  isOverdue?: boolean;
   contractorCompanyName: string | null;
   contractorWorkerName: string | null;
   staffName: string | null;
@@ -329,7 +341,8 @@ export default function PermitToWork() {
             <div className="space-y-3">
               {filteredPermits.map(permit => {
                 const pt = PERMIT_TYPES[permit.permitType] || PERMIT_TYPES.general_high_risk;
-                const sc = STATUS_CONFIG[permit.status] || STATUS_CONFIG.draft;
+                const effectiveStatus = (permit.isOverdue && permit.status === 'active') ? 'active_overdue' : permit.status;
+                const sc = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.draft;
                 const PtIcon = pt.icon;
                 return (
                   <Card variant="glass" key={permit.id} className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => setViewPermitId(permit.id)}>
@@ -343,6 +356,11 @@ export default function PermitToWork() {
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="font-mono text-xs text-gray-500 dark:text-gray-400">{permit.permitNumber}</span>
                               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sc.color}`}>{sc.label}</span>
+                              {permit.isOverdue && (
+                                <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-0.5 font-medium">
+                                  <AlertTriangle className="h-3 w-3" />{overdueElapsed(permit.permitValidUntil)}
+                                </span>
+                              )}
                             </div>
                             <p className="font-semibold text-gray-900 dark:text-white text-sm mt-0.5 truncate">{pt.label}</p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{permit.workDescription}</p>
@@ -1180,7 +1198,8 @@ function PermitDetailView({
   onGoToCompliance: () => void;
 }) {
   const pt = PERMIT_TYPES[permit.permitType] || PERMIT_TYPES.general_high_risk;
-  const sc = STATUS_CONFIG[permit.status] || STATUS_CONFIG.draft;
+  const effectiveStatus = (permit.isOverdue && permit.status === 'active') ? 'active_overdue' : permit.status;
+  const sc = STATUS_CONFIG[effectiveStatus] || STATUS_CONFIG.draft;
   const PtIcon = pt.icon;
   const [activeTab, setActiveTab] = useState('details');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -1236,8 +1255,13 @@ function PermitDetailView({
           </div>
           <div>
             <DialogTitle className="text-base">{pt.label} — {permit.permitNumber}</DialogTitle>
-            <div className="flex items-center gap-2 mt-1">
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${sc.color}`}>{sc.label}</span>
+              {permit.isOverdue && (
+                <span className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-0.5 font-medium">
+                  <AlertTriangle className="h-3 w-3" />{overdueElapsed(permit.permitValidUntil)}
+                </span>
+              )}
               <span className="text-xs text-gray-500">{permit.workLocation}</span>
             </div>
           </div>

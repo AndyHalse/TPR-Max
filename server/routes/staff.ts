@@ -775,6 +775,14 @@ export function registerStaffRoutes(app: Express): void {
       const username = req.user!.username;
       const context = simpleDatabaseService.createCustomerContext(username, req.customerId);
       
+      // Right to Work gate — enforce on the manual path too, matching the kiosk paths.
+      if (context.customerId) {
+        const rtw = await checkStaffRightToWork(context.customerId, id);
+        if (!rtw.ok) {
+          return res.status(rtw.status).json(rtw.body);
+        }
+      }
+
       // Use customer-isolated database service for staff check-in
       const staff = await databaseService.checkInStaff(context, id, manual);
       

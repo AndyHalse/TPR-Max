@@ -120,7 +120,11 @@ export function registerPermitToWorkRoutes(app: Express): void {
       const custDb = await customerDbService.getCustomerDatabase(req.customerId!);
       const permits = await custDb.select().from(isolatedSchema.permitToWork)
         .orderBy(isolatedSchema.permitToWork.createdAt);
-      res.json(permits.reverse());
+      const now = new Date();
+      res.json(permits.reverse().map((p: any) => ({
+        ...p,
+        isOverdue: p.status === 'active' && new Date(p.permitValidUntil) < now,
+      })));
     } catch (err) {
       logger.error('GET /api/ptw', err);
       res.status(500).json({ error: 'Failed to fetch permits' });
@@ -333,7 +337,7 @@ export function registerPermitToWorkRoutes(app: Express): void {
         .orderBy(isolatedSchema.permitChecklist.displayOrder);
       const attachments = await custDb.select().from(isolatedSchema.permitAttachments)
         .where(eq(isolatedSchema.permitAttachments.permitId, id));
-      res.json({ ...permit, checklist, attachments });
+      res.json({ ...permit, checklist, attachments, isOverdue: (permit as any).status === 'active' && new Date((permit as any).permitValidUntil) < new Date() });
     } catch (err) {
       logger.error('GET /api/ptw/:id', err);
       res.status(500).json({ error: 'Failed to fetch permit' });

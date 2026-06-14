@@ -5378,6 +5378,35 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         }
       }
 
+      // Write a company_notes audit entry for company-level documents (no workerId)
+      if (!(updated as any).workerId && (updated as any).companyId) {
+        try {
+          const docLabel = (updated as any).documentName ?? (updated as any).documentType ?? 'document';
+          const expiryVal = (updated as any).expiryDate;
+          const COMPANY_FRIENDLY: Record<string, string> = {
+            publicLiability:       'Public Liability',
+            employersLiability:    "Employers' Liability",
+            professionalIndemnity: 'Professional Indemnity',
+            healthSafety:          'Health & Safety Policy',
+          };
+          const friendlyType = COMPANY_FRIENDLY[(updated as any).documentType as string] ?? null;
+          const syncNote = status === 'approved' && friendlyType && expiryVal
+            ? ` Company ${friendlyType} expiry updated to ${new Date(expiryVal).toLocaleDateString('en-GB')}.`
+            : '';
+          const auditNote = status === 'rejected'
+            ? `Document "${docLabel}" rejected by reviewer (${reviewerId}). Reason: ${rejectedReason || 'No reason given'}.`
+            : `Document "${docLabel}" approved by reviewer (${reviewerId}).${syncNote}`;
+          await db.insert(isolatedSchema.companyNotes).values({
+            companyId: (updated as any).companyId,
+            changeType: 'document_review',
+            notes: auditNote,
+            changedBy: reviewerId,
+          });
+        } catch (noteErr: any) {
+          logger.warn('[portal-review] Failed to write company note (non-fatal):', noteErr.message?.substring(0, 80));
+        }
+      }
+
       return res.json(updated);
     } catch (error: any) {
       logger.error('Error reviewing document:', error);
