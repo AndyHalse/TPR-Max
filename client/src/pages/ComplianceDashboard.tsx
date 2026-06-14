@@ -87,7 +87,7 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
     stat: c => c.total === 0 ? "No documents" : c.expired ? `${c.expired} expired` : c.expiring ? `${c.expiring} expiring soon` : `All ${c.total} valid`,
   },
   inductions: {
-    label: "Contractor Inductions", icon: HardHat, link: "/contractors",
+    label: "Contractor Inductions", icon: HardHat, link: "/induction-settings",
     stat: c => c.total === 0 ? "No active workers" : c.overdue ? `${c.overdue} overdue` : `All ${c.total} inducted`,
   },
   staffRightToWork: {
@@ -139,7 +139,7 @@ const CATEGORY_META: Record<string, { label: string; icon: any; link: string; st
     stat: c => (c.total ?? 0) === 0 ? "None on record" : `${c.compliant} of ${c.total} current`,
   },
   staffTraining: {
-    label: "Staff Training", icon: GraduationCap, link: "/hr",
+    label: "Staff Training", icon: GraduationCap, link: "/hr/training",
     stat: c => (c.total ?? 0) === 0 ? "No mandatory training" : `${c.compliant} of ${c.total} current`,
   },
   documentApprovals: {
