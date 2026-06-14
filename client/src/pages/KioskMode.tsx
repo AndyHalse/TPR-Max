@@ -1105,7 +1105,7 @@ export default function KioskMode() {
 
         {/* Desktop notice — shown when kioskNoticeMessage is set */}
         {(settings as any)?.kioskNoticeMessage?.trim() && (
-          <GlassCard solid className="p-5 sm:p-6 flex-shrink-0">
+          <GlassCard solid className="hidden sm:block p-5 sm:p-6 flex-shrink-0">
             <div className="flex items-start gap-4">
               <div className="flex-shrink-0 w-10 h-10 rounded-full bg-amber-100 border-2 border-amber-300 flex items-center justify-center mt-0.5">
                 <span className="text-amber-600 text-xl font-bold leading-none">!</span>
