@@ -83,6 +83,7 @@ export function RoomBookingForm({
   const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
   const [availabilityStatus, setAvailabilityStatus] = useState<'checking' | 'available' | 'conflict' | 'error' | null>(null);
   const [conflictingBookings, setConflictingBookings] = useState<any[]>([]);
+  const [staffSearch, setStaffSearch] = useState('');
   const { toast } = useToast();
 
   // Generate time slots (30-minute intervals)
@@ -280,6 +281,7 @@ export function RoomBookingForm({
       toast({ title: "Booking Created", description: desc });
       setAvailabilityStatus(null);
       setConflictingBookings([]);
+      setStaffSearch('');
       form.reset();
       onOpenChange(false);
       queryClient.invalidateQueries({ 
@@ -316,9 +318,9 @@ export function RoomBookingForm({
         title: "Booking Updated",
         description: "Room booking has been successfully updated.",
       });
-      // Reset availability status
       setAvailabilityStatus(null);
       setConflictingBookings([]);
+      setStaffSearch('');
       onOpenChange(false);
       // Invalidate bookings cache to refresh calendar
       queryClient.invalidateQueries({ 
@@ -511,40 +513,68 @@ export function RoomBookingForm({
                     <FormField
                       control={form.control}
                       name="staffAttendeeIds"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Staff Attendees</FormLabel>
-                          <FormDescription>
-                            Select staff members who will attend this meeting
-                          </FormDescription>
-                          <div className="space-y-2">
-                            {staff.map((member) => (
-                              <div key={member.id} className="flex items-center space-x-2">
-                                <input
-                                  type="checkbox"
-                                  id={`staff-${member.id}`}
-                                  checked={field.value?.includes(member.id) || false}
-                                  onChange={(e) => {
-                                    const currentValue = field.value || [];
-                                    if (e.target.checked) {
-                                      field.onChange([...currentValue, member.id]);
-                                    } else {
-                                      field.onChange(currentValue.filter(id => id !== member.id));
-                                    }
-                                  }}
-                                  data-testid={`checkbox-staff-${member.id}`}
-                                  className="rounded border-gray-300"
-                                />
-                                <label htmlFor={`staff-${member.id}`} className="text-sm font-medium">
-                                  {member.firstName} {member.lastName}
-                                  <span className="text-muted-foreground ml-1">({member.email})</span>
-                                </label>
-                              </div>
-                            ))}
-                          </div>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      render={({ field }) => {
+                        const selected = field.value || [];
+                        const term = staffSearch.trim().toLowerCase();
+                        const filteredStaff = term
+                          ? staff.filter((m) =>
+                              `${m.firstName} ${m.lastName}`.toLowerCase().includes(term) ||
+                              (m.email || '').toLowerCase().includes(term)
+                            )
+                          : staff;
+
+                        return (
+                          <FormItem>
+                            <FormLabel>Staff Attendees</FormLabel>
+                            <FormDescription>
+                              Search and select staff members who will attend this meeting
+                              {selected.length > 0 && ` — ${selected.length} selected`}
+                            </FormDescription>
+
+                            <Input
+                              type="text"
+                              value={staffSearch}
+                              onChange={(e) => setStaffSearch(e.target.value)}
+                              placeholder="Search staff by name or email..."
+                              data-testid="input-staff-search"
+                              className="mb-2"
+                            />
+
+                            <div className="space-y-2 max-h-56 overflow-y-auto rounded-md border p-2">
+                              {filteredStaff.length === 0 ? (
+                                <p className="text-sm text-muted-foreground py-1">
+                                  No staff match &ldquo;{staffSearch}&rdquo;.
+                                </p>
+                              ) : (
+                                filteredStaff.map((member) => (
+                                  <div key={member.id} className="flex items-center space-x-2">
+                                    <input
+                                      type="checkbox"
+                                      id={`staff-${member.id}`}
+                                      checked={selected.includes(member.id)}
+                                      onChange={(e) => {
+                                        const currentValue = field.value || [];
+                                        if (e.target.checked) {
+                                          field.onChange([...currentValue, member.id]);
+                                        } else {
+                                          field.onChange(currentValue.filter((id) => id !== member.id));
+                                        }
+                                      }}
+                                      data-testid={`checkbox-staff-${member.id}`}
+                                      className="rounded border-gray-300"
+                                    />
+                                    <label htmlFor={`staff-${member.id}`} className="text-sm font-medium">
+                                      {member.firstName} {member.lastName}
+                                      <span className="text-muted-foreground ml-1">({member.email})</span>
+                                    </label>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                            <FormMessage />
+                          </FormItem>
+                        );
+                      }}
                     />
 
                     {/* External Attendee Emails */}
