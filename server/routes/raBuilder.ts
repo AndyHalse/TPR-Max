@@ -115,6 +115,20 @@ export function registerRaBuilderRoutes(app: Express): void {
       const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
       const custDb = await customerDbService.getCustomerDatabase(context.customerId);
       const { id } = req.params;
+
+      // If this assessment was published to RAMS, remove the linked document
+      // first so the register doesn't keep a dead link to a deleted assessment.
+      const [existing] = await custDb
+        .select()
+        .from(isolatedSchema.raBuilderAssessments)
+        .where(eq(isolatedSchema.raBuilderAssessments.id, id));
+
+      if (existing?.linkedRamsDocumentId) {
+        await custDb
+          .delete(isolatedSchema.ramsDocuments)
+          .where(eq(isolatedSchema.ramsDocuments.id, existing.linkedRamsDocumentId));
+      }
+
       await custDb
         .delete(isolatedSchema.raBuilderAssessments)
         .where(eq(isolatedSchema.raBuilderAssessments.id, id));

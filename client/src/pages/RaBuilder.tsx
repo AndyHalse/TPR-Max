@@ -194,6 +194,7 @@ export default function RaBuilder() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingUpdatesRef = useRef<{ fields: Partial<Assessment>; meta?: Record<string, any> }>({ fields: {} });
   const hazardTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingHazardUpdates = useRef<Record<string, Partial<Hazard>>>({});
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
 
   // ── Queries ──────────────────────────────────────────────────────────────
@@ -245,10 +246,18 @@ export default function RaBuilder() {
   }, [currentAssessmentId]);
 
   const scheduleHazardSave = useCallback((hazardId: string, updates: Partial<Hazard>) => {
+    // Merge this edit into any pending edits for the same hazard so a quick
+    // sequence of field changes is saved together, not overwritten.
+    pendingHazardUpdates.current[hazardId] = {
+      ...pendingHazardUpdates.current[hazardId],
+      ...updates,
+    };
     if (hazardTimers.current[hazardId]) clearTimeout(hazardTimers.current[hazardId]);
     hazardTimers.current[hazardId] = setTimeout(async () => {
+      const merged = pendingHazardUpdates.current[hazardId];
+      delete pendingHazardUpdates.current[hazardId];
       try {
-        await apiRequest("PUT", `/api/ra-builder/assessments/${currentAssessmentId}/hazards/${hazardId}`, updates);
+        await apiRequest("PUT", `/api/ra-builder/assessments/${currentAssessmentId}/hazards/${hazardId}`, merged);
       } catch (e) {
         console.error("Hazard auto-save failed", e);
       }
@@ -647,7 +656,12 @@ export default function RaBuilder() {
                       Assessment Type
                       <InfoTooltip text="Choose the type that best matches your activity. Working at Height, COSHH and Manual Handling are legally distinct categories under UK H&S regulations." />
                     </Label>
-                    <Select value={raType} onValueChange={(v) => updateAssessmentField("raType", v)}>
+                    <Select value={raType} onValueChange={(v) => {
+                      if (v === assessment.raType) return;
+                      setTypeMetadata({});
+                      setAssessment((prev) => ({ ...prev, raType: v as RAType }));
+                      scheduleAutoSave({ raType: v } as Partial<Assessment>, {});
+                    }}>
                       <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {Object.entries(RA_TYPE_CONFIG).map(([k, v]) => (
