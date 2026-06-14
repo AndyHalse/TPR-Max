@@ -373,7 +373,7 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
       const created = rows.rows[0];
 
       // If critical action — send immediate alert
-      if (priority === 'critical') {
+      if (body.priority === 'critical') {
         try {
           const settingsRows = await custDb.execute(sql.raw(
             `SELECT company_name, email, site_name FROM ${schemaName}.company_settings LIMIT 1`
@@ -397,14 +397,14 @@ export function registerFireRiskAssessmentRoutes(app: Express): void {
                       <tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Action</td><td style="padding:6px;border:1px solid #e5e7eb">${body.description}</td></tr>
                       ${body.location ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Location</td><td style="padding:6px;border:1px solid #e5e7eb">${body.location}</td></tr>` : ''}
                       ${body.assignedTo ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Assigned to</td><td style="padding:6px;border:1px solid #e5e7eb">${body.assignedTo}</td></tr>` : ''}
-                      ${dueDate ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Due date</td><td style="padding:6px;border:1px solid #e5e7eb;color:#dc2626">${new Date(dueDate).toLocaleDateString('en-GB')}</td></tr>` : ''}
+                      ${body.dueDate ? `<tr><td style="padding:6px;border:1px solid #e5e7eb;font-weight:bold;background:#fef2f2">Due date</td><td style="padding:6px;border:1px solid #e5e7eb;color:#dc2626">${new Date(body.dueDate).toLocaleDateString('en-GB')}</td></tr>` : ''}
                     </table>
                     <p>Critical actions represent an immediate risk to life and must be resolved without delay. Log in to TPR Max to update the status once resolved.</p>
                     <p style="color:#6b7280;font-size:12px">Outstanding critical actions may be treated as non-compliance under the Regulatory Reform (Fire Safety) Order 2005.</p>
                   </div>
                 </div>
               `,
-              text: `CRITICAL FIRE SAFETY ACTION\n\n${body.description}${body.location ? `\nLocation: ${body.location}` : ''}${body.assignedTo ? `\nAssigned to: ${body.assignedTo}` : ''}${dueDate ? `\nDue: ${new Date(dueDate).toLocaleDateString('en-GB')}` : ''}\n\nCritical actions represent an immediate risk to life. Log in to TPR Max to resolve.`,
+              text: `CRITICAL FIRE SAFETY ACTION\n\n${body.description}${body.location ? `\nLocation: ${body.location}` : ''}${body.assignedTo ? `\nAssigned to: ${body.assignedTo}` : ''}${body.dueDate ? `\nDue: ${new Date(body.dueDate).toLocaleDateString('en-GB')}` : ''}\n\nCritical actions represent an immediate risk to life. Log in to TPR Max to resolve.`,
             });
           }
         } catch (emailErr) {
