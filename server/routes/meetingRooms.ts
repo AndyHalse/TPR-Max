@@ -463,6 +463,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
           until: until.toISOString(),
         });
 
+        const anchorDay = baseStart.getDate();
         const dates: Date[] = [];
         let cursor = baseStart;
         while (cursor <= until) {
@@ -471,7 +472,10 @@ export function registerMeetingRoomRoutes(app: Express): void {
           else if (bookingData.recurringType === 'fortnightly') cursor = new Date(cursor.getTime() + 14 * 86400000);
           else if (bookingData.recurringType === 'monthly') {
             const next = new Date(cursor);
+            next.setDate(1); // avoid rollover while changing month
             next.setMonth(next.getMonth() + 1);
+            const daysInMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+            next.setDate(Math.min(anchorDay, daysInMonth));
             cursor = next;
           } else break;
         }
@@ -544,7 +548,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
   app.patch("/api/room-bookings/:id", requireAuth, async (req, res) => {
     try {
       const { id } = req.params;
-      const updates = req.body;
+      const body = req.body;
       
       const customerId = req.customerId;
       if (!customerId) {
@@ -557,14 +561,28 @@ export function registerMeetingRoomRoutes(app: Express): void {
       if (!currentBooking) {
         return res.status(404).json({ error: "Room booking not found" });
       }
+
+      // Build an explicit update object using the real column names
+      const updates: Record<string, any> = {};
+      if (body.title !== undefined)                   updates.title = body.title;
+      if (body.description !== undefined)             updates.description = body.description;
+      if (body.roomId !== undefined)                  updates.meetingRoomId = body.roomId;
+      if (body.startDateTime !== undefined)           updates.startTime = new Date(body.startDateTime);
+      if (body.endDateTime !== undefined)             updates.endTime = new Date(body.endDateTime);
+      if (body.expectedAttendees !== undefined)       updates.expectedAttendees = body.expectedAttendees;
+      if (body.cateringRequired !== undefined)        updates.requiresCatering = body.cateringRequired;
+      if (body.cateringNotes !== undefined)           updates.cateringNotes = body.cateringNotes;
+      if (body.technicalRequirements !== undefined)   updates.specialRequirements = body.technicalRequirements;
+      updates.updatedAt = new Date();
       
-      if (updates.startDateTime || updates.endDateTime) {
-        const startTime = updates.startDateTime ? new Date(updates.startDateTime) : new Date(currentBooking.startTime);
-        const endTime = updates.endDateTime ? new Date(updates.endDateTime) : new Date(currentBooking.endTime);
+      if (body.startDateTime || body.endDateTime) {
+        const startTime = updates.startTime ?? new Date(currentBooking.startTime);
+        const endTime   = updates.endTime   ?? new Date(currentBooking.endTime);
+        const roomId    = updates.meetingRoomId ?? currentBooking.meetingRoomId;
 
         const patchConflicts = await patchDb.select().from(isolatedSchema.roomBookings)
           .where(and(
-            eq(isolatedSchema.roomBookings.meetingRoomId, currentBooking.meetingRoomId),
+            eq(isolatedSchema.roomBookings.meetingRoomId, roomId),
             ne(isolatedSchema.roomBookings.status, 'cancelled'),
             ne(isolatedSchema.roomBookings.id, id),
             sql`${isolatedSchema.roomBookings.startTime} < ${endTime}`,
@@ -585,7 +603,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
         return res.status(404).json({ error: "Room booking not found" });
       }
 
-      const { staffAttendeeIds, externalAttendeeEmails } = updates;
+      const { staffAttendeeIds, externalAttendeeEmails } = body;
       if (staffAttendeeIds || externalAttendeeEmails) {
         await patchDb.delete(isolatedSchema.roomBookingAttendees)
           .where(eq(isolatedSchema.roomBookingAttendees.bookingId, id));
@@ -654,7 +672,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       }
       
       const [booking] = await cancelDb.update(isolatedSchema.roomBookings)
-        .set({ status: 'cancelled', cancelledBy, cancelledAt: new Date() })
+        .set({ status: 'cancelled', updatedAt: new Date() })
         .where(eq(isolatedSchema.roomBookings.id, id)).returning();
       
       if (!booking) {
@@ -737,7 +755,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       const checkinMeetDb = await customerDbService.getCustomerDatabase(customerId);
       const [booking] = await checkinMeetDb.update(isolatedSchema.roomBookings)
-        .set({ status: 'in_progress', checkedInAt: new Date() })
+        .set({ status: 'in_progress', updatedAt: new Date() })
         .where(eq(isolatedSchema.roomBookings.id, id)).returning();
       
       if (!booking) {
@@ -762,7 +780,7 @@ export function registerMeetingRoomRoutes(app: Express): void {
       
       const endMeetDb = await customerDbService.getCustomerDatabase(customerId);
       const [booking] = await endMeetDb.update(isolatedSchema.roomBookings)
-        .set({ status: 'completed', endedAt: new Date() })
+        .set({ status: 'completed', updatedAt: new Date() })
         .where(eq(isolatedSchema.roomBookings.id, id)).returning();
       
       if (!booking) {

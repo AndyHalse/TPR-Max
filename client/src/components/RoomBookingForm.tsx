@@ -298,9 +298,15 @@ export function RoomBookingForm({
   const updateBookingMutation = useMutation({
     mutationFn: async (data: BookingFormData) => {
       return await apiRequest('PATCH', `/api/room-bookings/${editBooking.id}`, {
-        ...data,
+        title: data.title,
+        description: data.description,
+        roomId: data.roomId,
         startDateTime: new Date(data.startDateTime).toISOString(),
         endDateTime: new Date(data.endDateTime).toISOString(),
+        expectedAttendees: data.expectedAttendees,
+        cateringRequired: data.cateringRequired,
+        cateringNotes: data.cateringNotes,
+        technicalRequirements: data.technicalRequirements,
         staffAttendeeIds: data.staffAttendeeIds || [],
         externalAttendeeEmails: data.externalAttendeeEmails || [],
       });
@@ -780,8 +786,8 @@ export function RoomBookingForm({
                                 >
                                   <div className="font-medium">{conflict.title}</div>
                                   <div className="text-muted-foreground">
-                                    {conflict.startDateTime && conflict.endDateTime ? 
-                                      `${format(parseISO(conflict.startDateTime), 'HH:mm')} - ${format(parseISO(conflict.endDateTime), 'HH:mm')}` : 
+                                    {conflict.startTime && conflict.endTime ? 
+                                      `${format(parseISO(conflict.startTime), 'HH:mm')} - ${format(parseISO(conflict.endTime), 'HH:mm')}` : 
                                       'Time not available'
                                     }
                                   </div>

@@ -235,7 +235,7 @@ export default function MeetingRooms() {
   const handleBookingCancel = async (booking: any) => {
     if (confirm('Are you sure you want to cancel this booking?')) {
       try {
-        await apiRequest('DELETE', `/api/room-bookings/${booking.id}`);
+        await apiRequest('POST', `/api/room-bookings/${booking.id}/cancel`, {});
         queryClient.invalidateQueries({ queryKey: ['/api/room-bookings'] });
         toast({
           title: 'Booking Cancelled',
