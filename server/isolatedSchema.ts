@@ -2468,7 +2468,7 @@ export type CdmProject = typeof cdmProjects.$inferSelect;
 
 export const helpDeskTickets = pgTable("help_desk_tickets", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  ticketNumber: text("ticket_number"),          // e.g. "HD-001", auto-generated on create
+  ticketNumber: text("ticket_number").unique(),  // e.g. "HD-001", auto-generated on create — unique per tenant
   title: text("title").notNull(),
   description: text("description"),
   category: text("category"),                   // maintenance | it | facilities | safety | other

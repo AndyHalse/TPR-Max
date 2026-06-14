@@ -6,6 +6,21 @@ import * as isolatedSchema from '../isolatedSchema';
 import { eq, sql } from 'drizzle-orm';
 import { logger } from '../utils/logger';
 
+const HELPDESK_STATUSES = ["open", "in_progress", "pending", "resolved", "closed"] as const;
+
+const TICKET_EDITABLE_FIELDS = [
+  "title", "description", "category", "priority", "status",
+  "location", "assetId", "assignedTo", "resolutionNotes",
+] as const;
+
+function pickTicketFields(body: Record<string, unknown>) {
+  const out: Record<string, unknown> = {};
+  for (const key of TICKET_EDITABLE_FIELDS) {
+    if (body[key] !== undefined) out[key] = body[key] === "" ? null : body[key];
+  }
+  return out;
+}
+
 export function registerHelpdeskRoutes(app: Express): void {
 
 // ── Help Desk routes ─────────────────────────────────────────────────────────
@@ -30,13 +45,31 @@ app.post("/api/helpdesk/tickets", requireAuth, async (req, res) => {
     const parsed = isolatedSchema.insertHelpDeskTicketSchema.parse(req.body);
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);
-    const [countRow] = await custDb.select({ count: sql<number>`count(*)::int` })
-      .from(isolatedSchema.helpDeskTickets);
-    const nextNum = (countRow?.count ?? 0) + 1;
-    const ticketNumber = `HD-${String(nextNum).padStart(3, "0")}`;
-    const [row] = await custDb.insert(isolatedSchema.helpDeskTickets)
-      .values({ ...parsed, ticketNumber })
-      .returning();
+
+    // Base the next number on the highest existing HD-#### number, not the row count —
+    // counting rows reuses numbers after a delete. Retry up to 5 times on the off-chance
+    // two tickets are created at the same instant (the unique constraint rejects a clash).
+    let row;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const [maxRow] = await custDb
+        .select({
+          maxNum: sql<number>`COALESCE(MAX(NULLIF(regexp_replace(${isolatedSchema.helpDeskTickets.ticketNumber}, '\\D', '', 'g'), '')::int), 0)`,
+        })
+        .from(isolatedSchema.helpDeskTickets);
+      const nextNum = (maxRow?.maxNum ?? 0) + 1 + attempt;
+      const ticketNumber = `HD-${String(nextNum).padStart(3, "0")}`;
+      try {
+        [row] = await custDb.insert(isolatedSchema.helpDeskTickets)
+          .values({ ...parsed, ticketNumber })
+          .returning();
+        break;
+      } catch (err: unknown) {
+        // 23505 = Postgres unique_violation — another ticket grabbed this number; try the next one.
+        const code = (err as { code?: string })?.code;
+        if (code === "23505" && attempt < 4) continue;
+        throw err;
+      }
+    }
     res.status(201).json(row);
   } catch (error: unknown) {
     logger.error("POST /api/helpdesk/tickets", error);
@@ -65,13 +98,19 @@ app.put("/api/helpdesk/tickets/:id", requireAuth, async (req, res) => {
   if (req.user!.role !== "admin") return res.status(403).json({ error: "Administrator access required" });
   try {
     const { id } = req.params;
-    const updates: Record<string, unknown> = { ...req.body };
-    delete updates.id;
-    delete updates.ticketNumber;
-    delete updates.createdAt;
+    const updates = pickTicketFields(req.body);
+    if (updates.status !== undefined && !HELPDESK_STATUSES.includes(updates.status as typeof HELPDESK_STATUSES[number])) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
     updates.updatedAt = new Date();
-    if (updates.status === "resolved" && !updates.resolvedAt) {
-      updates.resolvedAt = new Date();
+    // Stamp completion date when resolved or closed; clear it when re-opened so a ticket
+    // can never appear both open and resolved at the same time.
+    if (updates.status !== undefined) {
+      if ((updates.status === "resolved" || updates.status === "closed") && !updates.resolvedAt) {
+        updates.resolvedAt = new Date();
+      } else if (updates.status !== "resolved" && updates.status !== "closed") {
+        updates.resolvedAt = null;
+      }
     }
     const context = simpleDatabaseService.createCustomerContext(req.user!.username, req.customerId);
     const custDb = await customerDbService.getCustomerDatabase(context.customerId);

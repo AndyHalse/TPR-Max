@@ -701,6 +701,27 @@ export function createMigrationRunner(customerDbService: CustomerDatabaseService
         }
       }
     },
+    {
+      version: '20260614_061_helpdesk_ticket_number_unique',
+      description: 'Add unique constraint on help_desk_tickets.ticket_number to prevent reuse after delete',
+      async up(db: any) {
+        // Add constraint idempotently: skip if already present (23505 duplicate, or 42P07 relation exists)
+        try {
+          await db.execute(`
+            ALTER TABLE help_desk_tickets
+            ADD CONSTRAINT help_desk_tickets_ticket_number_unique UNIQUE (ticket_number)
+          `);
+          logger.info('✅ [061] Added unique constraint on help_desk_tickets.ticket_number');
+        } catch (err: any) {
+          // 42710 = duplicate_object (constraint already exists) — safe to ignore
+          if (err.code === '42710' || (err.message || '').includes('already exists')) {
+            logger.info('✅ [061] Unique constraint on ticket_number already present — skipped');
+          } else {
+            logger.warn(`⚠️ [061] help_desk_tickets unique constraint: ${err.message?.substring(0, 100)}`);
+          }
+        }
+      }
+    },
   ];
 
   allMigrations.forEach(migration => {
