@@ -976,6 +976,7 @@ export default function Contractors() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", selectedContractor?.id, "documents", customerId] });
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/compliance-dashboard"] });
       if (selectedContractor?.id) {
         queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedContractor.id}`] });
       }
@@ -1009,6 +1010,7 @@ export default function Contractors() {
       });
       
       queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/compliance-dashboard"] });
       if (selectedContractor?.id) {
         queryClient.invalidateQueries({ queryKey: [`/api/contractors/${selectedContractor.id}`] });
       }

@@ -516,6 +516,7 @@ export function ContractorEditModal({ worker, companyName, open, onOpenChange }:
       });
       refetchDocuments();
       refetchNotes();
+      queryClient.invalidateQueries({ queryKey: ['/api/compliance-dashboard'] });
     },
     onError: (error: any) => {
       setUploadProgress(0);

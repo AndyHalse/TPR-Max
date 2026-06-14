@@ -489,6 +489,7 @@ export default function ContractorDetails() {
     onSuccess: () => {
       toast({ title: "Document approved", description: "Approval recorded with your name and timestamp." });
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/compliance-dashboard"] });
       if (customerId) {
         queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       } else {
@@ -824,6 +825,7 @@ export default function ContractorDetails() {
       }
 
       queryClient.invalidateQueries({ queryKey: [`/api/contractors/${id}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/compliance-dashboard"] });
       if (customerId) {
         queryClient.invalidateQueries({ queryKey: ["/api/contractors", customerId] });
       } else {
